@@ -72,6 +72,33 @@ function latencyStatus(ms: number): 'good' | 'warning' | 'critical' {
   return 'critical';
 }
 
+/**
+ * Trigger a CSV download of `rows` (array of objects) named `filename`.
+ * Quotes every field defensively — handles strings with commas/newlines/quotes.
+ */
+function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const escape = (value: unknown) => {
+    if (value === null || value === undefined) return '';
+    const s = String(value);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [
+    headers.join(','),
+    ...rows.map((r) => headers.map((h) => escape(r[h])).join(',')),
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ---------------------------------------------------------------------------
 // Tab-level loading / error wrapper
 // ---------------------------------------------------------------------------
@@ -203,6 +230,37 @@ export function ObservabilityPage() {
   const [errorsLoading, setErrorsLoading] = useState(false);
   const [errorsError, setErrorsError] = useState<string | null>(null);
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
+
+  // Errors tab facet + mute state. Mutes persist in localStorage so a
+  // noisy-but-known error can stay hidden across reloads without touching
+  // the backend; we still count them in the rail so they're never invisible.
+  const [errorTypeFilter, setErrorTypeFilter] = useState<string | null>(null);
+  const [mutedErrorTypes, setMutedErrorTypes] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = window.localStorage.getItem('observability:mutedErrorTypes');
+      return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const persistMutes = (next: Set<string>) => {
+    setMutedErrorTypes(next);
+    try {
+      window.localStorage.setItem(
+        'observability:mutedErrorTypes',
+        JSON.stringify(Array.from(next)),
+      );
+    } catch {
+      /* localStorage disabled — non-fatal, mutes won't survive reload */
+    }
+  };
+  const toggleMute = (type: string) => {
+    const next = new Set(mutedErrorTypes);
+    if (next.has(type)) next.delete(type);
+    else next.add(type);
+    persistMutes(next);
+  };
 
   // --- AI state ---
   const [aiData, setAiData] = useState<AiPerformanceResponse | null>(null);
@@ -462,6 +520,72 @@ export function ObservabilityPage() {
           />
         </div>
 
+        {/* Watchdog status — mirrors AiCostGuardJob's threshold so we can
+            see "are we close to tripping the alarm?" without leaving the
+            tab. Threshold default ($5/hr) lives in worker appsettings. */}
+        {(() => {
+          const watchdogThreshold = 5.0;
+          const ratio = watchdogThreshold > 0
+            ? totalEstimatedCostUsd / watchdogThreshold
+            : 0;
+          const status: 'good' | 'warning' | 'critical' =
+            ratio >= 1 ? 'critical' : ratio >= 0.6 ? 'warning' : 'good';
+          return (
+            <Card className={
+              status === 'critical'
+                ? 'border-l-4 border-l-red-500'
+                : status === 'warning'
+                ? 'border-l-4 border-l-amber-500'
+                : 'border-l-4 border-l-green-500'
+            }>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
+                      AI Cost Watchdog
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                      Quartz job <code>AiCostGuardJob</code> trips when
+                      estimated spend exceeds ${watchdogThreshold.toFixed(2)}
+                      {' '}per hour. Tripped events surface as{' '}
+                      <code>AiCostGuardTripped</code> errors.
+                    </p>
+                  </div>
+                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                    status === 'critical'
+                      ? 'bg-red-500/10 text-red-500'
+                      : status === 'warning'
+                      ? 'bg-amber-500/10 text-amber-500'
+                      : 'bg-green-500/10 text-green-500'
+                  }`}>
+                    {status === 'critical'
+                      ? 'TRIPPED'
+                      : status === 'warning'
+                      ? 'NEAR LIMIT'
+                      : 'OK'}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 w-full rounded-full bg-[var(--color-surface-inset)] overflow-hidden">
+                  <div
+                    className={
+                      status === 'critical'
+                        ? 'h-full bg-red-500'
+                        : status === 'warning'
+                        ? 'h-full bg-amber-500'
+                        : 'h-full bg-green-500'
+                    }
+                    style={{ width: `${Math.min(100, ratio * 100).toFixed(1)}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+                  {formatUsd(totalEstimatedCostUsd)} of{' '}
+                  {formatUsd(watchdogThreshold)} ({(ratio * 100).toFixed(0)}%)
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         {/* AI Spend row — surfaced from TelemetryChatClient cost catalog */}
         <Card>
           <CardContent className="p-4">
@@ -499,6 +623,103 @@ export function ObservabilityPage() {
                 }
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Per-model breakdown — cost + volume by underlying model. */}
+        <Card>
+          <CardContent className="p-0">
+            <div className="px-4 py-3 border-b border-[var(--color-border-light)] flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
+                  By Model
+                </h3>
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                  Resolved from <code>customDimensions.ActualModel</code>,
+                  falling back to the requested model when the provider does
+                  not echo one back.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadCsv('ai-by-model.csv', (aiData.byModel ?? []) as unknown as Array<Record<string, unknown>>)
+                }
+                disabled={(aiData.byModel ?? []).length === 0}
+                className="text-xs px-2 py-1 rounded border border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Export CSV
+              </button>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border-light)]">
+                  <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">
+                    Model
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Calls
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Avg Latency
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    P95 Latency
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Input Tokens
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Output Tokens
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Est. Cost
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(aiData.byModel ?? []).map((m, idx) => (
+                  <tr
+                    key={m.model}
+                    className={`border-b border-[var(--color-border-light)] ${
+                      idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-[var(--color-text-primary)] font-medium">
+                      {m.model || '(unknown)'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatNumber(m.calls)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatMs(m.avgLatencyMs)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatMs(m.p95LatencyMs)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatNumber(m.totalInputTokens)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatNumber(m.totalOutputTokens)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatUsd(m.estimatedCostUsd)}
+                    </td>
+                  </tr>
+                ))}
+                {(aiData.byModel ?? []).length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-[var(--color-text-tertiary)]"
+                    >
+                      No model data yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </CardContent>
         </Card>
 
@@ -639,14 +860,26 @@ export function ObservabilityPage() {
             background summariser/projector/tool calls, not just AG-UI). */}
         <Card>
           <CardContent className="p-0">
-            <div className="px-4 py-3 border-b border-[var(--color-border-light)]">
-              <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
-                By Use Case
-              </h3>
-              <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
-                Every LLM call observed by TelemetryChatClient — chat,
-                summariser, projector, agent tools.
-              </p>
+            <div className="px-4 py-3 border-b border-[var(--color-border-light)] flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
+                  By Use Case
+                </h3>
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                  Every LLM call observed by TelemetryChatClient — chat,
+                  summariser, projector, agent tools.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadCsv('ai-by-use-case.csv', (aiData.byUseCase ?? []) as unknown as Array<Record<string, unknown>>)
+                }
+                disabled={(aiData.byUseCase ?? []).length === 0}
+                className="text-xs px-2 py-1 rounded border border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Export CSV
+              </button>
             </div>
             <table className="w-full text-sm">
               <thead>
@@ -729,65 +962,163 @@ export function ObservabilityPage() {
     if (errorsError) return <TabError message={errorsError} />;
     if (!errorsData) return null;
 
+    // Aggregate counts per error type for the faceted rail.
+    const facetCounts = new Map<string, number>();
+    for (const e of errorsData.errors) {
+      facetCounts.set(e.type, (facetCounts.get(e.type) ?? 0) + e.count);
+    }
+    const facets = Array.from(facetCounts.entries())
+      .sort((a, b) => b[1] - a[1]);
+
+    // Apply filter + mute set to the visible rows.
+    const visibleErrors = errorsData.errors.filter((e) => {
+      if (mutedErrorTypes.has(e.type)) return false;
+      if (errorTypeFilter && e.type !== errorTypeFilter) return false;
+      return true;
+    });
+
+    const totalUnmutedOccurrences = errorsData.errors
+      .filter((e) => !mutedErrorTypes.has(e.type))
+      .reduce((sum, e) => sum + e.count, 0);
+    const totalMutedOccurrences = errorsData.errors
+      .filter((e) => mutedErrorTypes.has(e.type))
+      .reduce((sum, e) => sum + e.count, 0);
+
     return (
       <div className="space-y-6">
         {!errorsData.configured && <NotConfiguredBanner />}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <MetricCard
-            label="Total Error Groups"
-            value={formatNumber(errorsData.errors.length)}
-            status={errorsData.errors.length > 0 ? 'critical' : 'good'}
+            label="Active Error Groups"
+            value={formatNumber(
+              errorsData.errors.filter((e) => !mutedErrorTypes.has(e.type)).length,
+            )}
+            status={
+              errorsData.errors.filter((e) => !mutedErrorTypes.has(e.type)).length > 0
+                ? 'critical'
+                : 'good'
+            }
           />
           <MetricCard
-            label="Total Occurrences"
-            value={formatNumber(errorsData.errors.reduce((sum, e) => sum + e.count, 0))}
+            label="Active Occurrences"
+            value={formatNumber(totalUnmutedOccurrences)}
+          />
+          <MetricCard
+            label="Muted Occurrences"
+            value={formatNumber(totalMutedOccurrences)}
           />
         </div>
 
-        {/* Error groups table */}
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-border-light)]">
-                  <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">
-                    Message
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
-                    Count
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
-                    Last Seen
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {errorsData.errors.map((error, idx) => (
-                  <ErrorRow
-                    key={`${error.type}-${idx}`}
-                    error={error}
-                    expanded={expandedErrors.has(idx)}
-                    onToggle={() => toggleErrorExpanded(idx)}
-                  />
-                ))}
-                {errorsData.errors.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-4 py-8 text-center text-[var(--color-text-tertiary)]"
-                    >
-                      No errors recorded
-                    </td>
-                  </tr>
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-4">
+          {/* Faceted rail — click to filter, double-click muted to unmute. */}
+          <Card>
+            <CardContent className="p-3 space-y-1">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                  Type
+                </h4>
+                {errorTypeFilter && (
+                  <button
+                    type="button"
+                    className="text-xs text-[var(--color-link)] hover:underline"
+                    onClick={() => setErrorTypeFilter(null)}
+                  >
+                    Clear
+                  </button>
                 )}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+              </div>
+              {facets.map(([type, count]) => {
+                const muted = mutedErrorTypes.has(type);
+                const active = errorTypeFilter === type;
+                return (
+                  <div
+                    key={type}
+                    className={`group flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer ${
+                      active
+                        ? 'bg-[var(--color-surface-hover)]'
+                        : 'hover:bg-[var(--color-surface-inset)]'
+                    } ${muted ? 'opacity-50' : ''}`}
+                    onClick={() =>
+                      setErrorTypeFilter((prev) => (prev === type ? null : type))
+                    }
+                  >
+                    <span className="font-mono truncate text-[var(--color-text-primary)]">
+                      {type}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-[var(--color-text-tertiary)] tabular-nums">
+                        {formatNumber(count)}
+                      </span>
+                      <button
+                        type="button"
+                        title={muted ? 'Unmute' : 'Mute'}
+                        className="opacity-0 group-hover:opacity-100 text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          toggleMute(type);
+                        }}
+                      >
+                        {muted ? '🔔' : '🔕'}
+                      </button>
+                    </span>
+                  </div>
+                );
+              })}
+              {facets.length === 0 && (
+                <div className="text-xs text-[var(--color-text-tertiary)] py-3 text-center">
+                  No error types
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Error groups table — filtered + muted view */}
+          <Card>
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--color-border-light)]">
+                    <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">
+                      Type
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">
+                      Message
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                      Count
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                      Last Seen
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleErrors.map((error, idx) => (
+                    <ErrorRow
+                      key={`${error.type}-${idx}`}
+                      error={error}
+                      expanded={expandedErrors.has(idx)}
+                      onToggle={() => toggleErrorExpanded(idx)}
+                    />
+                  ))}
+                  {visibleErrors.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-8 text-center text-[var(--color-text-tertiary)]"
+                      >
+                        {errorTypeFilter || mutedErrorTypes.size > 0
+                          ? 'No errors match the active filter / mute set.'
+                          : 'No errors recorded'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   };

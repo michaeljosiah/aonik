@@ -108,6 +108,13 @@ internal static class ScheduledJobDefinitions
                 "Generates AI interpretations from deterministic customer insight snapshots.",
                 options.CustomerInsightAiSummary.CronExpression,
                 options.CustomerInsightAiSummary.Enabled),
+            new ScheduledJobDefinition<AiCostGuardJob>(
+                AiCostGuardJob.Key,
+                new TriggerKey("AiCostGuardJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "AI Cost Guard",
+                "Polls AiCallCompleted spend and emits a high-priority alert when the configured threshold is exceeded.",
+                options.AiCostGuard.CronExpression,
+                options.AiCostGuard.Enabled),
         ];
     }
 }

@@ -114,6 +114,13 @@ export interface AiUseCasePerformance {
   estimatedCostUsd: number;
 }
 
+export interface AiModelPerformance {
+  model: string; calls: number;
+  avgLatencyMs: number; p95LatencyMs: number;
+  totalInputTokens: number; totalOutputTokens: number;
+  estimatedCostUsd: number;
+}
+
 export interface AiClientServerComparison {
   avgClientRoundTripMs: number; avgServerLatencyMs: number;
   avgNetworkOverheadMs: number;
@@ -131,6 +138,7 @@ export interface AiPerformanceResponse {
   ttftTimeSeries: TimeSeriesPoint[];
   tokenTimeSeries: TimeSeriesPoint[];
   byUseCase: AiUseCasePerformance[];
+  byModel: AiModelPerformance[];
 }
 
 // ── Jobs ────────────────────────────────────────────────────────────

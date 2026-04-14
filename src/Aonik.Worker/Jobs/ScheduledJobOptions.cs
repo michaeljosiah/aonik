@@ -10,6 +10,30 @@ public sealed class ScheduledJobOptions
     public StaleSessionDetectorJobOptions StaleSessionDetector { get; set; } = new();
     public CustomerInsightSnapshotJobOptions CustomerInsightSnapshot { get; set; } = new();
     public CustomerInsightAiSummaryJobOptions CustomerInsightAiSummary { get; set; } = new();
+    public AiCostGuardJobOptions AiCostGuard { get; set; } = new();
+}
+
+public sealed class AiCostGuardJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: every 15 minutes.
+    /// </summary>
+    public string CronExpression { get; set; } = "0 0/15 * * * ?";
+
+    /// <summary>
+    /// Time range to evaluate against — uses the same vocabulary as the
+    /// observability AI tab (e.g. "1h", "6h", "24h").
+    /// </summary>
+    public string TimeRange { get; set; } = "1h";
+
+    /// <summary>
+    /// Estimated USD cost over <see cref="TimeRange"/> that should trip the
+    /// cost guard. The threshold is intentionally low — the runaway-spend
+    /// incident burned £10 in well under an hour.
+    /// </summary>
+    public double ThresholdUsd { get; set; } = 5.0;
 }
 
 public sealed class FinancialConnectionSyncJobOptions

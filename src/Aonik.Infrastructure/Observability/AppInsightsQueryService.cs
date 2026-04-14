@@ -236,7 +236,7 @@ public class AppInsightsQueryService : IObservabilityService
     {
         var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
         if (appId is null || apiKey is null)
-            return new AiPerformanceResponse(false, null, null, null, [], null, [], [], [], []);
+            return new AiPerformanceResponse(false, null, null, null, [], null, [], [], [], [], []);
 
         var range = ParseTimeRange(timeRange);
 
@@ -281,6 +281,15 @@ public class AppInsightsQueryService : IObservabilityService
             $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend useCase = tostring(customDimensions[\"UseCase\"]), latencyMs = todouble(customDimensions[\"LatencyMs\"]), ttftMs = todouble(customDimensions[\"TtftMs\"]), inputTokens = tolong(customDimensions[\"InputTokens\"]), outputTokens = tolong(customDimensions[\"OutputTokens\"]), costUsd = todouble(customDimensions[\"EstimatedCostUsd\"]) | summarize calls=count(), avgLatency=avg(latencyMs), p95Latency=percentile(latencyMs, 95), avgTtft=avg(ttftMs), p95Ttft=percentile(ttftMs, 95), totalInput=sum(inputTokens), totalOutput=sum(outputTokens), totalCost=sum(costUsd) by useCase | order by calls desc",
             cancellationToken);
 
+        // ByModel — the same AiCallCompleted firehose grouped by the model
+        // actually used (falling back to the requested model when the
+        // provider does not echo one back). Powers the per-model panel and
+        // is the natural drill-down from the AI Spend card.
+        var byModelTask = CachedQueryAsync(
+            $"observability:aiPerf:byModel:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend actualModel = tostring(customDimensions[\"ActualModel\"]), requestedModel = tostring(customDimensions[\"RequestedModel\"]), latencyMs = todouble(customDimensions[\"LatencyMs\"]), inputTokens = tolong(customDimensions[\"InputTokens\"]), outputTokens = tolong(customDimensions[\"OutputTokens\"]), costUsd = todouble(customDimensions[\"EstimatedCostUsd\"]) | extend model = iff(isempty(actualModel), requestedModel, actualModel) | extend model = iff(isempty(model), \"unknown\", model) | summarize calls=count(), avgLatency=avg(latencyMs), p95Latency=percentile(latencyMs, 95), totalInput=sum(inputTokens), totalOutput=sum(outputTokens), totalCost=sum(costUsd) by model | order by calls desc",
+            cancellationToken);
+
         // ── Client-side metrics from ChatClientMetrics structured logs ──
 
         var clientServerTask = CachedQueryAsync(
@@ -306,7 +315,8 @@ public class AppInsightsQueryService : IObservabilityService
             cancellationToken);
 
         await Task.WhenAll(latencyDistTask, ttftDistTask, tokenUsageTask,
-            byAgentTask, byUseCaseTask, clientServerTask, latencyTsTask, ttftTsTask, tokenTsTask);
+            byAgentTask, byUseCaseTask, byModelTask,
+            clientServerTask, latencyTsTask, ttftTsTask, tokenTsTask);
 
         // ── Parse latency distribution ──────────────────────────────────
 
@@ -377,6 +387,18 @@ public class AppInsightsQueryService : IObservabilityService
             (long)ParseDouble(r, 7),
             Math.Round(ParseDouble(r, 8), 4))).ToList();
 
+        // ── Parse per-model breakdown ───────────────────────────────────
+
+        var modelRows = byModelTask.Result;
+        var byModel = modelRows.Select(r => new AiModelPerformance(
+            GetString(r, 0),
+            (long)ParseDouble(r, 1),
+            Math.Round(ParseDouble(r, 2), 2),
+            Math.Round(ParseDouble(r, 3), 2),
+            (long)ParseDouble(r, 4),
+            (long)ParseDouble(r, 5),
+            Math.Round(ParseDouble(r, 6), 4))).ToList();
+
         // ── Parse client vs server comparison ───────────────────────────
 
         var csRows = clientServerTask.Result;
@@ -404,7 +426,7 @@ public class AppInsightsQueryService : IObservabilityService
             ParseDateTime(r, 0), ParseDouble(r, 1))).ToList();
 
         return new AiPerformanceResponse(true, latency, ttft, tokenUsage,
-            byAgent, clientServer, latencyTs, ttftTs, tokenTs, byUseCase);
+            byAgent, clientServer, latencyTs, ttftTs, tokenTs, byUseCase, byModel);
     }
 
     // ── Credentials ──────────────────────────────────────────────────

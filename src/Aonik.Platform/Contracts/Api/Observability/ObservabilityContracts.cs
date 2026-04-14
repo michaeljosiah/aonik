@@ -124,6 +124,17 @@ public record AiUseCasePerformance(
     long TotalInputTokens, long TotalOutputTokens,
     double EstimatedCostUsd);
 
+/// <summary>
+/// Per-model slice of AiCallCompleted telemetry. The "model" string is the
+/// actual model returned by the provider (preferred) and falls back to the
+/// requested model when the provider does not echo one back.
+/// </summary>
+public record AiModelPerformance(
+    string Model, long Calls,
+    double AvgLatencyMs, double P95LatencyMs,
+    long TotalInputTokens, long TotalOutputTokens,
+    double EstimatedCostUsd);
+
 public record AiClientServerComparison(
     double AvgClientRoundTripMs, double AvgServerLatencyMs,
     double AvgNetworkOverheadMs,
@@ -139,4 +150,5 @@ public record AiPerformanceResponse(
     IReadOnlyList<TimeSeriesPoint> LatencyTimeSeries,
     IReadOnlyList<TimeSeriesPoint> TtftTimeSeries,
     IReadOnlyList<TimeSeriesPoint> TokenTimeSeries,
-    IReadOnlyList<AiUseCasePerformance> ByUseCase);
+    IReadOnlyList<AiUseCasePerformance> ByUseCase,
+    IReadOnlyList<AiModelPerformance> ByModel);
