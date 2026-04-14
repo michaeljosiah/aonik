@@ -74,8 +74,12 @@ internal sealed class ScheduledJobListener : IJobListener
 
         try
         {
-            var triggeredBy = context.MergedJobDataMap.GetString("TriggeredBy")
-                ?? ScheduledJobTriggeredBy.Schedule;
+            // MergedJobDataMap.GetString throws KeyNotFoundException when the key is absent,
+            // which happens on every cron-fired run (only admin-triggered runs add TriggeredBy).
+            // Use ContainsKey to avoid the throw — was generating ~1.8k errors/day in observability.
+            var triggeredBy = context.MergedJobDataMap.ContainsKey("TriggeredBy")
+                ? context.MergedJobDataMap.GetString("TriggeredBy") ?? ScheduledJobTriggeredBy.Schedule
+                : ScheduledJobTriggeredBy.Schedule;
 
             using var scope = _serviceScopeFactory.CreateScope();
             var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
