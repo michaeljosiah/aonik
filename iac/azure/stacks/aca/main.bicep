@@ -355,7 +355,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
             {
               name: 'Qdrant__Endpoint'
-              value: 'http://${qdrantApp.name}:6333'
+              value: 'http://${qdrantApp.name}'
             }
             {
               name: 'Qdrant__ApiKey'
@@ -460,7 +460,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
             {
               name: 'Qdrant__Endpoint'
-              value: 'http://${qdrantApp.name}:6333'
+              value: 'http://${qdrantApp.name}'
             }
             {
               name: 'Qdrant__ApiKey'

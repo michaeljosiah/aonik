@@ -251,7 +251,10 @@ internal class QdrantHttpClient
     {
         try
         {
-            var response = await _httpClient.GetAsync("/healthz", cancellationToken);
+            // Qdrant exposes /livez and /readyz for health probing. Using /readyz
+            // aligns the app-side check with ACA readiness probes so collection
+            // initialization does not incorrectly treat a healthy instance as down.
+            var response = await _httpClient.GetAsync("/readyz", cancellationToken);
             return response.IsSuccessStatusCode;
         }
         catch (HttpRequestException)
