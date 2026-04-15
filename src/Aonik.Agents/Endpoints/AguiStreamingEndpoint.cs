@@ -468,6 +468,24 @@ public static class AguiStreamingEndpoint
                 metrics,
             }, cancellationToken);
 
+            // Complete the SSE response so the client is released immediately.
+            // Without this, the HTTP connection stays open until the
+            // post-stream persistence block (which includes a full LLM call
+            // for title generation on new threads) finishes — observed as
+            // ~30s of perceived latency even though the agent streamed its
+            // answer in ~13s. CompleteAsync ends the response body now; the
+            // persistence work below still runs on this same request scope.
+            try
+            {
+                await context.Response.CompleteAsync();
+            }
+            catch (Exception completeEx)
+            {
+                logger.LogDebug(completeEx,
+                    "AG-UI Response.CompleteAsync threw for thread {ThreadId} — continuing with persistence",
+                    threadId);
+            }
+
             // ── Post-stream thread persistence ──────────────────────────
             // Persist the assistant response and generate a title for new
             // threads. Failures here must never block the completed stream.
