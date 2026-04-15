@@ -335,6 +335,7 @@ class ChatController extends StateNotifier<ChatState> {
       sender: ChatSender.user,
       lines: [trimmedReply],
     );
+    final requestHistory = <ChatMessage>[assistantMessage];
 
     state = state.copyWith(
       messages: [assistantMessage, userMessage],
@@ -351,7 +352,7 @@ class ChatController extends StateNotifier<ChatState> {
     final stream = _repository.sendMessage(
       threadId: state.threadId,
       userMessage: trimmedReply,
-      history: state.messages,
+      history: requestHistory,
     );
 
     _subscription = stream.listen(
@@ -368,6 +369,7 @@ class ChatController extends StateNotifier<ChatState> {
   void sendMessage(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty || state.isProcessing) return;
+    final requestHistory = state.messages;
 
     _clientStopwatch.reset();
     _clientStopwatch.start();
@@ -405,7 +407,7 @@ class ChatController extends StateNotifier<ChatState> {
     final stream = _repository.sendMessage(
       threadId: state.threadId,
       userMessage: trimmed,
-      history: state.messages,
+      history: requestHistory,
     );
 
     _subscription = stream.listen(

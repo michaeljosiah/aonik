@@ -152,7 +152,7 @@ export function createPlaygroundFrontendTools(
     tool: {
       name: 'display_fx_rate_chart',
       description:
-        'Display an FX rate chart showing a currency pair rate window with a timing signal.',
+        'Display an FX rate chart showing a currency pair rate window with a timing signal (buy/hold/wait). Use when the user asks about exchange rates or remittance timing.',
       parameters: {
         type: 'object',
         properties: {
@@ -202,7 +202,7 @@ export function createPlaygroundFrontendTools(
     tool: {
       name: 'display_budget_breakdown',
       description:
-        'Display a budget breakdown showing spending categories with over or under status.',
+        'Display a budget breakdown showing spending categories with over/under status. Use when the user asks about their budget, spending breakdown, or where their money is going.',
       parameters: {
         type: 'object',
         properties: {
@@ -309,17 +309,17 @@ export function createPlaygroundFrontendTools(
     tool: {
       name: 'display_autopilot_proposal',
       description:
-        'Display a structured proposal card for an automated action that the user should review.',
+        'Display a structured proposal card for an automated action that an agent wants to take. Use when presenting a specific recommendation with details the user should review before the agent proceeds.',
       parameters: {
         type: 'object',
         properties: {
           agent: {
             type: 'string',
-            description: 'Name of the agent making the proposal (e.g., "Bill Agent")',
+            description: 'Name of the agent making the proposal (e.g., "Bill Agent", "Savings Agent")',
           },
           action: {
             type: 'string',
-            description: 'Short action title',
+            description: 'Short action title (e.g., "Schedule auto-pay for electricity")',
           },
           description: {
             type: 'string',
@@ -333,11 +333,11 @@ export function createPlaygroundFrontendTools(
               properties: {
                 label: {
                   type: 'string',
-                  description: 'Detail label',
+                  description: 'Detail label (e.g., "Amount")',
                 },
                 value: {
                   type: 'string',
-                  description: 'Detail value',
+                  description: 'Detail value (e.g., "£85.00")',
                 },
               },
               required: ['label', 'value'],
@@ -359,7 +359,7 @@ export function createPlaygroundFrontendTools(
     tool: {
       name: 'display_option_selector',
       description:
-        'Present a set of options for the user to choose from before proceeding. This tool blocks until the user selects.',
+        'Present a set of options for the user to choose from before proceeding. This tool blocks until the user selects. Use when you need the user to pick from a list (e.g., "Which account?", "Pick a category").',
       parameters: {
         type: 'object',
         properties: {
