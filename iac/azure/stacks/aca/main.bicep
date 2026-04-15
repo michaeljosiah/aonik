@@ -613,11 +613,15 @@ resource qdrantApp 'Microsoft.App/containerApps@2024-03-01' = {
               mountPath: '/qdrant/snapshots'
             }
           ]
+          // Qdrant's HTTP API exposes /livez and /readyz (v1.9+). The previous
+          // '/health' path returned 404, causing a crash loop that kept Qdrant
+          // NotRunning — every user-memory recall then hit a 10s client-side
+          // timeout before the agent could start answering.
           probes: [
             {
               type: 'Liveness'
               httpGet: {
-                path: '/health'
+                path: '/livez'
                 port: 6333
               }
               initialDelaySeconds: 30
@@ -628,7 +632,7 @@ resource qdrantApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               type: 'Readiness'
               httpGet: {
-                path: '/health'
+                path: '/readyz'
                 port: 6333
               }
               initialDelaySeconds: 10
