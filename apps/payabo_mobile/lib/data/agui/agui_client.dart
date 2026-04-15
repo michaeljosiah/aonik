@@ -125,6 +125,8 @@ class AgUiClient {
   /// Prevents infinite loops. Defaults to 10.
   final int maxToolReruns;
 
+  static int _traceCounter = 0;
+
   // ─────────────────────────────────────────────────────────
   //  Low-level: single SSE stream (no re-run loop)
   // ─────────────────────────────────────────────────────────
@@ -424,21 +426,39 @@ class AgUiClient {
     CancelToken cancelToken, {
     bool closeOnTerminalEvent = true,
   }) async {
+    final traceId =
+        'agui_${DateTime.now().millisecondsSinceEpoch}_${_traceCounter++}';
+    final stopwatch = Stopwatch()..start();
+    final requestHeaders = <String, dynamic>{
+      'Accept': 'text/event-stream',
+      'Content-Type': 'application/json',
+      'X-AgUi-Trace-Id': traceId,
+    };
+    var sawFirstEvent = false;
+    var sawFirstTextDelta = false;
+
     try {
+      developer.log(
+        '[trace:$traceId] POST $endpoint dispatch threadId=${input.threadId ?? '-'} runId=${input.runId ?? '-'} agentId=${input.agentId ?? '-'} messages=${input.messages.length}',
+        name: 'AgUiClient',
+      );
+
       final response = await _dio.post<ResponseBody>(
         endpoint,
         data: input.toJson(),
         options: Options(
-          headers: {
-            'Accept': 'text/event-stream',
-            'Content-Type': 'application/json',
-          },
+          headers: requestHeaders,
           // Dio streams the response body chunk-by-chunk.
           responseType: ResponseType.stream,
           // SSE connections can be long-lived.
           receiveTimeout: const Duration(minutes: 5),
         ),
         cancelToken: cancelToken,
+      );
+
+      developer.log(
+        '[trace:$traceId] response headers received at ${stopwatch.elapsedMilliseconds}ms status=${response.statusCode}',
+        name: 'AgUiClient',
       );
 
       if (response.statusCode != null && response.statusCode! >= 400) {
@@ -477,6 +497,36 @@ class AgUiClient {
 
           final event = parseSseLine(line);
           if (event != null && !controller.isClosed) {
+            if (!sawFirstEvent) {
+              sawFirstEvent = true;
+              developer.log(
+                '[trace:$traceId] first SSE event ${event.type.wire} at ${stopwatch.elapsedMilliseconds}ms',
+                name: 'AgUiClient',
+              );
+            }
+
+            if (!sawFirstTextDelta && event is TextMessageContentEvent) {
+              sawFirstTextDelta = true;
+              developer.log(
+                '[trace:$traceId] first text delta at ${stopwatch.elapsedMilliseconds}ms messageId=${event.messageId}',
+                name: 'AgUiClient',
+              );
+            }
+
+            if (event is RunFinishedEvent) {
+              developer.log(
+                '[trace:$traceId] RUN_FINISHED at ${stopwatch.elapsedMilliseconds}ms metrics=${event.metrics}',
+                name: 'AgUiClient',
+              );
+            }
+
+            if (event is RunErrorEvent) {
+              developer.log(
+                '[trace:$traceId] RUN_ERROR at ${stopwatch.elapsedMilliseconds}ms code=${event.code} message=${event.message}',
+                name: 'AgUiClient',
+              );
+            }
+
             controller.add(event);
 
             // Auto-close after terminal events.
@@ -504,18 +554,30 @@ class AgUiClient {
       }
 
       if (!controller.isClosed) {
+        developer.log(
+          '[trace:$traceId] stream closed at ${stopwatch.elapsedMilliseconds}ms firstEvent=$sawFirstEvent firstTextDelta=$sawFirstTextDelta',
+          name: 'AgUiClient',
+        );
         await controller.close();
       }
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         // Cancellation is expected — close silently.
         if (!controller.isClosed) {
+          developer.log(
+            '[trace:$traceId] stream cancelled at ${stopwatch.elapsedMilliseconds}ms',
+            name: 'AgUiClient',
+          );
           await controller.close();
         }
         return;
       }
 
       if (!controller.isClosed) {
+        developer.log(
+          '[trace:$traceId] DioException at ${stopwatch.elapsedMilliseconds}ms type=${e.type} status=${e.response?.statusCode} message=${e.message}',
+          name: 'AgUiClient',
+        );
         controller.addError(AgUiClientException(
           e.message ?? 'Network error during AG-UI stream',
           statusCode: e.response?.statusCode,
@@ -524,6 +586,12 @@ class AgUiClient {
       }
     } catch (e, st) {
       if (!controller.isClosed) {
+        developer.log(
+          '[trace:$traceId] unexpected error at ${stopwatch.elapsedMilliseconds}ms: $e',
+          name: 'AgUiClient',
+          error: e,
+          stackTrace: st,
+        );
         controller.addError(e, st);
         await controller.close();
       }

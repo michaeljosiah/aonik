@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,17 +45,48 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          final requestStopwatch = Stopwatch()..start();
+          final isAgUiRequest = options.path == '/ai/agui';
+          final traceId = options.headers['X-AgUi-Trace-Id']?.toString();
+
+          if (isAgUiRequest) {
+            developer.log(
+              '[trace:${traceId ?? '-'}] apiClient onRequest start path=${options.path}',
+              name: 'ApiClient',
+            );
+          }
+
           _applyCommonHeaders(options, tenantId: environment.tenantId);
 
           AuthSession? session = await authSessionStore.read();
           final bool isTokenExchangeRequest =
               options.path.toLowerCase().endsWith('/auth/token');
 
+          if (isAgUiRequest) {
+            developer.log(
+              '[trace:${traceId ?? '-'}] auth session read at ${requestStopwatch.elapsedMilliseconds}ms hasSession=${session != null} isExpired=${session?.isExpired ?? false}',
+              name: 'ApiClient',
+            );
+          }
+
           if (!isTokenExchangeRequest && session != null && session.isExpired) {
+            if (isAgUiRequest) {
+              developer.log(
+                '[trace:${traceId ?? '-'}] starting token refresh at ${requestStopwatch.elapsedMilliseconds}ms',
+                name: 'ApiClient',
+              );
+            }
+
             refreshInFlight ??= sessionManager.refreshExpiredSession(session);
 
             try {
               session = await refreshInFlight;
+              if (isAgUiRequest) {
+                developer.log(
+                  '[trace:${traceId ?? '-'}] token refresh completed at ${requestStopwatch.elapsedMilliseconds}ms refreshed=${session != null}',
+                  name: 'ApiClient',
+                );
+              }
             } finally {
               refreshInFlight = null;
             }
@@ -64,11 +97,21 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
                 '${session.tokenType} ${session.accessToken}';
           }
 
+          if (isAgUiRequest) {
+            developer.log(
+              '[trace:${traceId ?? '-'}] apiClient onRequest finish at ${requestStopwatch.elapsedMilliseconds}ms hasAuthorization=${options.headers.containsKey('Authorization')}',
+              name: 'ApiClient',
+            );
+          }
+
           handler.next(options);
         },
         onError: (error, handler) async {
           final bool isTokenExchangeRequest =
               error.requestOptions.path.toLowerCase().endsWith('/auth/token');
+          final bool isAgUiRequest = error.requestOptions.path == '/ai/agui';
+          final traceId =
+              error.requestOptions.headers['X-AgUi-Trace-Id']?.toString();
 
           final bool alreadyRetried =
               error.requestOptions.extra['_hasRetried401'] == true;
@@ -80,8 +123,7 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
             // and retry the original request once.
             final AuthSession? session = await authSessionStore.read();
             if (session != null) {
-              refreshInFlight ??=
-                  sessionManager.refreshExpiredSession(session);
+              refreshInFlight ??= sessionManager.refreshExpiredSession(session);
 
               try {
                 final AuthSession? refreshed = await refreshInFlight;
@@ -93,7 +135,14 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
                       '${refreshed.tokenType} ${refreshed.accessToken}';
                   retryOptions.extra['_hasRetried401'] = true;
 
-                  final response = await dio.fetch(retryOptions);
+                  if (isAgUiRequest) {
+                    developer.log(
+                      '[trace:${traceId ?? '-'}] retrying /ai/agui after 401 refresh',
+                      name: 'ApiClient',
+                    );
+                  }
+
+                  final response = await dio.fetch<dynamic>(retryOptions);
                   return handler.resolve(response);
                 }
               } catch (_) {
@@ -102,6 +151,13 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
                 refreshInFlight = null;
               }
             }
+          }
+
+          if (isAgUiRequest) {
+            developer.log(
+              '[trace:${traceId ?? '-'}] request error status=${error.response?.statusCode} type=${error.type} message=${error.message}',
+              name: 'ApiClient',
+            );
           }
 
           handler.next(error);

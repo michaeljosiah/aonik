@@ -468,13 +468,16 @@ public static class AguiStreamingEndpoint
                 metrics,
             }, cancellationToken);
 
-            // Complete the SSE response so the client is released immediately.
-            // Without this, the HTTP connection stays open until the
-            // post-stream persistence block (which includes a full LLM call
-            // for title generation on new threads) finishes — observed as
-            // ~30s of perceived latency even though the agent streamed its
-            // answer in ~13s. CompleteAsync ends the response body now; the
-            // persistence work below still runs on this same request scope.
+            // Flush the RUN_FINISHED event out to the wire, then complete the
+            // response. Without CompleteAsync + an early return, ACA's Envoy
+            // ingress holds the chunked transfer-encoding open until the
+            // handler itself returns — so any work we do on this request scope
+            // (DB writes, a second LLM call for title generation) adds to the
+            // *wire* latency the client sees, even though RUN_FINISHED was
+            // already written. Observed: server LatencyMs=13s but
+            // requests.duration=46s on ACA. Fix: fire-and-forget the
+            // persistence in a detached scope so this handler returns now.
+            await context.Response.Body.FlushAsync(CancellationToken.None);
             try
             {
                 await context.Response.CompleteAsync();
@@ -486,77 +489,135 @@ public static class AguiStreamingEndpoint
                     threadId);
             }
 
-            // ── Post-stream thread persistence ──────────────────────────
-            // Persist the assistant response and generate a title for new
-            // threads. Failures here must never block the completed stream.
-            if (chatThreadService is not null && persistedThreadId.HasValue)
+            // Capture request-scoped context so the background task can
+            // re-seed it in its own scope (the request scope is disposed
+            // as soon as this handler returns).
+            Guid? capturedTenantId = null;
+            Guid? capturedUserId = null;
+            var requestTenantContext = context.RequestServices.GetService<ITenantContext>();
+            if (requestTenantContext?.TenantId is { } tId) capturedTenantId = tId;
+            var requestUserContext = context.RequestServices.GetService<ICurrentUserContext>();
+            if (requestUserContext?.UserId is { } uId) capturedUserId = uId;
+
+            var scopeFactory = context.RequestServices.GetRequiredService<IServiceScopeFactory>();
+            var capturedAgentId = input.AgentId;
+            var capturedThreadId = threadId;
+            var capturedRunId = runId;
+            var capturedAssistantText = assistantText;
+            var capturedFirstUserMessage = firstUserMessage;
+            var capturedIsNewThread = isNewThread;
+            var capturedPersistedThreadId = persistedThreadId;
+            var capturedInputTokens = inputTokens;
+            var capturedOutputTokens = outputTokens;
+            var capturedLatencyMs = stopwatch.ElapsedMilliseconds;
+
+            _ = Task.Run(async () =>
             {
                 try
                 {
-                    if (!string.IsNullOrEmpty(assistantText))
+                    using var bgScope = scopeFactory.CreateScope();
+                    var bgServices = bgScope.ServiceProvider;
+
+                    // Re-seed tenant + user context in the new scope so
+                    // ITenantProvider / ICurrentUserProvider resolve correctly
+                    // and EF query filters on IChatThreadService work.
+                    if (capturedTenantId.HasValue)
                     {
-                        await chatThreadService.AppendMessageAsync(
-                            persistedThreadId.Value,
-                            "assistant",
-                            assistantText,
-                            agentName: input.AgentId,
-                            cancellationToken: CancellationToken.None);
+                        var tc = bgServices.GetService<ITenantContext>();
+                        if (tc is not null)
+                        {
+                            tc.TenantId = capturedTenantId.Value;
+                            tc.ResolutionSource = "agui-post-stream";
+                        }
+                    }
+                    if (capturedUserId.HasValue)
+                    {
+                        var uc = bgServices.GetService<ICurrentUserContext>();
+                        if (uc is not null)
+                        {
+                            uc.UserId = capturedUserId.Value;
+                            uc.TenantId = capturedTenantId;
+                            uc.IsAuthenticated = true;
+                        }
                     }
 
-                    // Generate a real title for brand-new threads
-                    if (isNewThread && titleGenerator is not null && !string.IsNullOrEmpty(firstUserMessage))
+                    var bgLogger = bgServices.GetRequiredService<ILogger<IMasterOrchestratorService>>();
+
+                    // ── Post-stream thread persistence ──────────────────
+                    var bgChatThreadService = bgServices.GetService<IChatThreadService>();
+                    var bgTitleGenerator = bgServices.GetService<IChatThreadTitleGenerator>();
+                    if (bgChatThreadService is not null && capturedPersistedThreadId.HasValue)
                     {
                         try
                         {
-                            var title = await titleGenerator.GenerateTitleAsync(
-                                firstUserMessage, CancellationToken.None);
-                            await chatThreadService.UpdateTitleAsync(
-                                persistedThreadId.Value, title, CancellationToken.None);
+                            if (!string.IsNullOrEmpty(capturedAssistantText))
+                            {
+                                await bgChatThreadService.AppendMessageAsync(
+                                    capturedPersistedThreadId.Value,
+                                    "assistant",
+                                    capturedAssistantText,
+                                    agentName: capturedAgentId,
+                                    cancellationToken: CancellationToken.None);
+                            }
+
+                            if (capturedIsNewThread && bgTitleGenerator is not null && !string.IsNullOrEmpty(capturedFirstUserMessage))
+                            {
+                                try
+                                {
+                                    var title = await bgTitleGenerator.GenerateTitleAsync(
+                                        capturedFirstUserMessage, CancellationToken.None);
+                                    await bgChatThreadService.UpdateTitleAsync(
+                                        capturedPersistedThreadId.Value, title, CancellationToken.None);
+                                }
+                                catch (Exception titleEx)
+                                {
+                                    bgLogger.LogWarning(titleEx,
+                                        "AG-UI title generation failed for thread {ThreadId} — placeholder title retained",
+                                        capturedPersistedThreadId.Value);
+                                }
+                            }
                         }
-                        catch (Exception titleEx)
+                        catch (Exception persistEx)
                         {
-                            logger.LogWarning(
-                                titleEx,
-                                "AG-UI title generation failed for thread {ThreadId} — placeholder title retained",
-                                persistedThreadId.Value);
+                            bgLogger.LogWarning(persistEx,
+                                "AG-UI post-stream persistence failed for thread {ThreadId}",
+                                capturedPersistedThreadId.Value);
+                        }
+                    }
+
+                    // ── Post-stream AiRun metrics persistence ───────────
+                    var bgAiRunWriter = bgServices.GetService<IAiRunWriter>();
+                    if (bgAiRunWriter is not null)
+                    {
+                        try
+                        {
+                            var useCase = capturedAgentId ?? "master-orchestrator";
+                            var aiRunId = await bgAiRunWriter.StartRunAsync(
+                                useCase, $"{{\"threadId\":\"{capturedThreadId}\"}}", CancellationToken.None);
+
+                            await bgAiRunWriter.MarkRunCompletedWithMetricsAsync(
+                                aiRunId,
+                                tokensUsed: (int)(capturedInputTokens + capturedOutputTokens),
+                                latencyMs: (int)capturedLatencyMs,
+                                costEstimate: 0m,
+                                outputRef: $"tokens:{capturedInputTokens + capturedOutputTokens},latency:{capturedLatencyMs}ms",
+                                cancellationToken: CancellationToken.None);
+                        }
+                        catch (Exception aiRunEx)
+                        {
+                            bgLogger.LogWarning(aiRunEx,
+                                "AG-UI post-stream AiRun persistence failed for run {RunId}", capturedRunId);
                         }
                     }
                 }
-                catch (Exception persistEx)
+                catch (Exception bgEx)
                 {
-                    logger.LogWarning(
-                        persistEx,
-                        "AG-UI post-stream persistence failed for thread {ThreadId}",
-                        persistedThreadId.Value);
+                    // Best-effort logging — we're detached from any request scope.
+                    logger.LogWarning(bgEx,
+                        "AG-UI post-stream background task crashed for thread {ThreadId}",
+                        capturedThreadId);
                 }
-            }
-
-            // ── Post-stream AiRun metrics persistence ──────────────────
-            var aiRunWriter = context.RequestServices.GetService<IAiRunWriter>();
-            if (aiRunWriter is not null)
-            {
-                try
-                {
-                    var useCase = input.AgentId ?? "master-orchestrator";
-                    var aiRunId = await aiRunWriter.StartRunAsync(
-                        useCase, $"{{\"threadId\":\"{threadId}\"}}", CancellationToken.None);
-
-                    // Cost is auto-computed inside the writer from the model's CostProfileJson
-                    // when costEstimate is passed as 0 (Agents module cannot reference Ai module).
-                    await aiRunWriter.MarkRunCompletedWithMetricsAsync(
-                        aiRunId,
-                        tokensUsed: (int)(inputTokens + outputTokens),
-                        latencyMs: (int)stopwatch.ElapsedMilliseconds,
-                        costEstimate: 0m,
-                        outputRef: $"tokens:{inputTokens + outputTokens},latency:{stopwatch.ElapsedMilliseconds}ms",
-                        cancellationToken: CancellationToken.None);
-                }
-                catch (Exception aiRunEx)
-                {
-                    logger.LogWarning(aiRunEx,
-                        "AG-UI post-stream AiRun persistence failed for run {RunId}", runId);
-                }
-            }
+            });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -583,7 +644,17 @@ public static class AguiStreamingEndpoint
             }
         }
 
-        await context.Response.Body.FlushAsync(CancellationToken.None);
+        // Best-effort final flush. In the success path the response has
+        // already been completed via CompleteAsync and this will throw —
+        // that's fine, the bytes are already on the wire.
+        try
+        {
+            await context.Response.Body.FlushAsync(CancellationToken.None);
+        }
+        catch
+        {
+            // Response already completed / connection already closed.
+        }
     }
 
     /// <summary>

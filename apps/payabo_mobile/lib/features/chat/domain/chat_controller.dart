@@ -293,6 +293,10 @@ class ChatController extends StateNotifier<ChatState> {
   final Stopwatch _clientStopwatch = Stopwatch();
   int? _clientTimeToFirstTokenMs;
   String? _currentRunId;
+  DateTime? _requestStartedAt;
+  DateTime? _firstTextDeltaAt;
+  DateTime? _finishedAt;
+  bool _hasLoggedFirstTextDelta = false;
 
   /// Sends the very first message in a conversation that was initiated by a
   /// conversation starter question. Seeds the starter as an assistant message
@@ -308,6 +312,15 @@ class ChatController extends StateNotifier<ChatState> {
     _clientStopwatch.reset();
     _clientStopwatch.start();
     _clientTimeToFirstTokenMs = null;
+    _requestStartedAt = DateTime.now();
+    _firstTextDeltaAt = null;
+    _finishedAt = null;
+    _hasLoggedFirstTextDelta = false;
+
+    developer.log(
+      'Chat starter submit started at ${_requestStartedAt!.toIso8601String()} threadId=${state.threadId ?? '-'} promptLength=${trimmedReply.length}',
+      name: 'ChatController',
+    );
 
     // Seed the starter question as an assistant message.
     final assistantMessage = ChatMessage(
@@ -359,6 +372,15 @@ class ChatController extends StateNotifier<ChatState> {
     _clientStopwatch.reset();
     _clientStopwatch.start();
     _clientTimeToFirstTokenMs = null;
+    _requestStartedAt = DateTime.now();
+    _firstTextDeltaAt = null;
+    _finishedAt = null;
+    _hasLoggedFirstTextDelta = false;
+
+    developer.log(
+      'Chat submit started at ${_requestStartedAt!.toIso8601String()} threadId=${state.threadId ?? '-'} promptLength=${trimmed.length}',
+      name: 'ChatController',
+    );
 
     // Append user message to history.
     final userMessage = ChatMessage(
@@ -405,6 +427,18 @@ class ChatController extends StateNotifier<ChatState> {
 
       case ChatStreamTextDelta():
         _clientTimeToFirstTokenMs ??= _clientStopwatch.elapsedMilliseconds;
+        _firstTextDeltaAt ??= DateTime.now();
+
+        if (!_hasLoggedFirstTextDelta &&
+            _firstTextDeltaAt != null &&
+            _requestStartedAt != null) {
+          _hasLoggedFirstTextDelta = true;
+          developer.log(
+            'First text delta at ${_firstTextDeltaAt!.toIso8601String()} (+${_firstTextDeltaAt!.difference(_requestStartedAt!).inMilliseconds}ms) messageId=${event.messageId}',
+            name: 'ChatController',
+          );
+        }
+
         state = state.copyWith(
           activity: ChatActivity.streaming,
           streamingText: state.streamingText + event.delta,
@@ -532,13 +566,26 @@ class ChatController extends StateNotifier<ChatState> {
       case ChatStreamFinished():
         // ── Log performance metrics ─────────────────────────────────
         _clientStopwatch.stop();
+        _finishedAt = DateTime.now();
         final clientTotalMs = _clientStopwatch.elapsedMilliseconds;
         final clientTtftMs = _clientTimeToFirstTokenMs ?? clientTotalMs;
         final serverMetrics = event.metrics;
+        final requestStartedAt = _requestStartedAt;
+        final firstTextDeltaAt = _firstTextDeltaAt;
+        final finishedAt = _finishedAt;
 
         developer.log(
           'Run completed — client: total=${clientTotalMs}ms, ttft=${clientTtftMs}ms'
           '${serverMetrics != null ? ' | server: $serverMetrics' : ''}',
+          name: 'ChatController',
+        );
+
+        developer.log(
+          'Timing summary submit=${requestStartedAt?.toIso8601String() ?? '-'} '
+          'firstDelta=${firstTextDeltaAt?.toIso8601String() ?? '-'} '
+          'finished=${finishedAt?.toIso8601String() ?? '-'} '
+          'submitToFirstDelta=${requestStartedAt != null && firstTextDeltaAt != null ? firstTextDeltaAt.difference(requestStartedAt).inMilliseconds : '-'}ms '
+          'submitToFinished=${requestStartedAt != null && finishedAt != null ? finishedAt.difference(requestStartedAt).inMilliseconds : '-'}ms',
           name: 'ChatController',
         );
 
@@ -596,9 +643,9 @@ class ChatController extends StateNotifier<ChatState> {
           state = state.copyWith(messages: messages);
         } else {
           state = state._clearStreaming().copyWith(
-            messages: messages,
-            activity: ChatActivity.idle,
-          );
+                messages: messages,
+                activity: ChatActivity.idle,
+              );
         }
 
       case ChatStreamDisplayWidget():
@@ -756,8 +803,8 @@ class ChatController extends StateNotifier<ChatState> {
       return tc;
     }).toList();
 
-    final hasPendingBlocking = updatedSelections.isNotEmpty ||
-        state.pendingApprovals.isNotEmpty;
+    final hasPendingBlocking =
+        updatedSelections.isNotEmpty || state.pendingApprovals.isNotEmpty;
 
     state = state.copyWith(
       pendingOptionSelections: updatedSelections,
@@ -815,8 +862,8 @@ class ChatController extends StateNotifier<ChatState> {
         );
       } else {
         state = state._clearStreaming().copyWith(
-          activity: ChatActivity.idle,
-        );
+              activity: ChatActivity.idle,
+            );
       }
     }
   }
