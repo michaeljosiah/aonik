@@ -156,6 +156,67 @@ export interface JobMetricsResponse {
   jobs: JobExecutionMetric[];
 }
 
+// ── Retrieval (Qdrant + embedding) ──────────────────────────────────
+
+export interface RetrievalLatency {
+  instrument: string;
+  samples: number;
+  avgMs: number;
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
+}
+
+export interface RetrievalCollectionStats {
+  collection: string;
+  searches: number;
+  avgResultCount: number;
+  emptySearches: number;
+  avgLatencyMs: number;
+  p95LatencyMs: number;
+}
+
+export interface RetrievalResponse {
+  configured: boolean;
+  latencies: RetrievalLatency[];
+  collections: RetrievalCollectionStats[];
+  embeddingErrorCount: number;
+  totalSearches: number;
+  totalUpserts: number;
+  totalEmbeddingCalls: number;
+  searchLatencyTimeSeries: TimeSeriesPoint[];
+  embeddingLatencyTimeSeries: TimeSeriesPoint[];
+}
+
+// ── Topology ────────────────────────────────────────────────────────
+
+export interface TopologyNode {
+  id: string;
+  label: string;
+  kind: 'service' | 'external' | 'datastore';
+  status: 'healthy' | 'degraded' | 'critical' | 'unknown';
+  calls: number;
+  errorRatePct: number;
+  p95LatencyMs: number;
+  lastSeen: string | null;
+}
+
+export interface TopologyEdge {
+  source: string;
+  target: string;
+  kind: 'http' | 'sql' | 'grpc' | 'queue' | 'event';
+  calls: number;
+  errorRatePct: number;
+  p95LatencyMs: number;
+}
+
+export interface TopologyResponse {
+  configured: boolean;
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+  generatedAt: string;
+}
+
 // ── Service ─────────────────────────────────────────────────────────
 
 export const observabilityService = {
@@ -182,5 +243,13 @@ export const observabilityService = {
   getJobs: (timeRange = '24h') =>
     api.get<JobMetricsResponse>(
       `/admin/observability/jobs?timeRange=${timeRange}`,
+    ),
+  getRetrieval: (timeRange = '24h') =>
+    api.get<RetrievalResponse>(
+      `/admin/observability/retrieval?timeRange=${timeRange}`,
+    ),
+  getTopology: (timeRange = '24h') =>
+    api.get<TopologyResponse>(
+      `/admin/observability/topology?timeRange=${timeRange}`,
     ),
 };

@@ -429,6 +429,252 @@ public class AppInsightsQueryService : IObservabilityService
             byAgent, clientServer, latencyTs, ttftTs, tokenTs, byUseCase, byModel);
     }
 
+    // ── Retrieval (Qdrant + embedding) ──────────────────────────────
+    //
+    // Metrics come from the Aonik.VectorStore meter exported via OTel.
+    // App Insights stores histogram aggregates on `customMetrics` with
+    // name=<instrument>, valueCount/valueSum/valueMin/valueMax per bucket.
+    // Activities land on `dependencies` (type=InProc) with span attrs
+    // under customDimensions (collection, result_count, error_type).
+
+    public async Task<RetrievalResponse> GetRetrievalAsync(
+        string timeRange, CancellationToken cancellationToken = default)
+    {
+        var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
+        if (appId is null || apiKey is null)
+            return new RetrievalResponse(false, [], [], 0, 0, 0, 0, [], []);
+
+        var range = ParseTimeRange(timeRange);
+
+        // Latency histograms — one row per instrument. valueSum/valueCount
+        // gives us avg; percentile() against valueCount-weighted rows is
+        // an approximation (AppInsights doesn't store raw samples), but
+        // it's the same approximation we already use elsewhere.
+        var latenciesTask = CachedQueryAsync(
+            $"observability:retrieval:latencies:{timeRange}", appId, apiKey,
+            $"customMetrics | where timestamp > {range.Ago} | where name in (\"qdrant.vector.upsert.duration_ms\", \"qdrant.vector.search.duration_ms\", \"embedding.api.duration_ms\") | summarize samples=sum(valueCount), totalSum=sum(valueSum), p50=percentile(value, 50), p95=percentile(value, 95), p99=percentile(value, 99) by name",
+            cancellationToken);
+
+        // Per-collection Qdrant search stats from dependencies table
+        // (StartActivity spans surface as dependencies type=InProc).
+        var collectionsTask = CachedQueryAsync(
+            $"observability:retrieval:collections:{timeRange}", appId, apiKey,
+            $"dependencies | where timestamp > {range.Ago} | where name == \"qdrant.search\" | extend collection = tostring(customDimensions[\"collection\"]), resultCount = toint(customDimensions[\"result_count\"]) | summarize searches=count(), avgResults=avg(todouble(resultCount)), emptySearches=countif(resultCount == 0), avgLatency=avg(duration), p95Latency=percentile(duration, 95) by collection | order by searches desc",
+            cancellationToken);
+
+        // Counters — embedding error count and totals.
+        var errorsTask = CachedQueryAsync(
+            $"observability:retrieval:errors:{timeRange}", appId, apiKey,
+            $"customMetrics | where timestamp > {range.Ago} | where name == \"embedding.api.error_count\" | summarize errors=sum(valueSum)",
+            cancellationToken);
+
+        var totalsTask = CachedQueryAsync(
+            $"observability:retrieval:totals:{timeRange}", appId, apiKey,
+            $"customMetrics | where timestamp > {range.Ago} | where name in (\"qdrant.vector.search.duration_ms\", \"qdrant.vector.upsert.duration_ms\", \"embedding.api.duration_ms\") | summarize total=sum(valueCount) by name",
+            cancellationToken);
+
+        var searchTsTask = CachedQueryAsync(
+            $"observability:retrieval:searchTs:{timeRange}", appId, apiKey,
+            $"customMetrics | where timestamp > {range.Ago} | where name == \"qdrant.vector.search.duration_ms\" | summarize avg(value) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            cancellationToken);
+
+        var embeddingTsTask = CachedQueryAsync(
+            $"observability:retrieval:embeddingTs:{timeRange}", appId, apiKey,
+            $"customMetrics | where timestamp > {range.Ago} | where name == \"embedding.api.duration_ms\" | summarize avg(value) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            cancellationToken);
+
+        await Task.WhenAll(latenciesTask, collectionsTask, errorsTask, totalsTask,
+            searchTsTask, embeddingTsTask);
+
+        var latencies = latenciesTask.Result.Select(r =>
+        {
+            var samples = (long)ParseDouble(r, 1);
+            var totalSum = ParseDouble(r, 2);
+            return new RetrievalLatency(
+                GetString(r, 0),
+                samples,
+                samples > 0 ? Math.Round(totalSum / samples, 2) : 0,
+                Math.Round(ParseDouble(r, 3), 2),
+                Math.Round(ParseDouble(r, 4), 2),
+                Math.Round(ParseDouble(r, 5), 2));
+        }).ToList();
+
+        var collections = collectionsTask.Result.Select(r => new RetrievalCollectionStats(
+            GetString(r, 0),
+            (long)ParseDouble(r, 1),
+            Math.Round(ParseDouble(r, 2), 2),
+            (long)ParseDouble(r, 3),
+            Math.Round(ParseDouble(r, 4), 2),
+            Math.Round(ParseDouble(r, 5), 2))).ToList();
+
+        var embeddingErrors = errorsTask.Result.Count > 0
+            ? (long)ParseDouble(errorsTask.Result[0], 0) : 0;
+
+        long totalSearches = 0, totalUpserts = 0, totalEmbeddingCalls = 0;
+        foreach (var row in totalsTask.Result)
+        {
+            var name = GetString(row, 0);
+            var count = (long)ParseDouble(row, 1);
+            if (name == "qdrant.vector.search.duration_ms") totalSearches = count;
+            else if (name == "qdrant.vector.upsert.duration_ms") totalUpserts = count;
+            else if (name == "embedding.api.duration_ms") totalEmbeddingCalls = count;
+        }
+
+        var searchTs = searchTsTask.Result.Select(r => new TimeSeriesPoint(
+            ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList();
+
+        var embeddingTs = embeddingTsTask.Result.Select(r => new TimeSeriesPoint(
+            ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList();
+
+        return new RetrievalResponse(
+            true, latencies, collections, embeddingErrors,
+            totalSearches, totalUpserts, totalEmbeddingCalls,
+            searchTs, embeddingTs);
+    }
+
+    // ── Topology ────────────────────────────────────────────────────
+    //
+    // The topology graph is assembled from two signals that App Insights
+    // already collects by default:
+    //   - `requests`      — every inbound HTTP request, tagged with
+    //                       cloud_RoleName (= the ACA container app name).
+    //   - `dependencies`  — every outbound call (SQL, HTTP, Azure SDK,
+    //                       InProc activity), same cloud_RoleName + the
+    //                       `target` / `type` of the callee.
+    //
+    // A service node therefore = any cloud_RoleName that appeared as a
+    // caller. A dependency node = any `target` that appeared as callee.
+    // Edges are the (caller, target, type) tuples with rollup stats.
+    //
+    // Health rules: critical if error rate > 10% OR p95 > 5s;
+    //               degraded if error rate > 2% OR p95 > 1.5s;
+    //               healthy otherwise.
+
+    public async Task<TopologyResponse> GetTopologyAsync(
+        string timeRange, CancellationToken cancellationToken = default)
+    {
+        var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
+        if (appId is null || apiKey is null)
+            return new TopologyResponse(false, [], [], DateTime.UtcNow);
+
+        var range = ParseTimeRange(timeRange);
+
+        var servicesTask = CachedQueryAsync(
+            $"observability:topology:services:{timeRange}", appId, apiKey,
+            $"requests | where timestamp > {range.Ago} | summarize calls=count(), failures=countif(success == false), p95=percentile(duration, 95), lastSeen=max(timestamp) by service=cloud_RoleName | order by calls desc",
+            cancellationToken);
+
+        var edgesTask = CachedQueryAsync(
+            $"observability:topology:edges:{timeRange}", appId, apiKey,
+            $"dependencies | where timestamp > {range.Ago} | where isnotempty(cloud_RoleName) and isnotempty(target) | summarize calls=count(), failures=countif(success == false), p95=percentile(duration, 95), lastSeen=max(timestamp) by source=cloud_RoleName, target, type | order by calls desc | take 200",
+            cancellationToken);
+
+        await Task.WhenAll(servicesTask, edgesTask);
+
+        var serviceRows = servicesTask.Result;
+        var edgeRows = edgesTask.Result;
+
+        var nodes = new Dictionary<string, TopologyNode>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var r in serviceRows)
+        {
+            var id = GetString(r, 0);
+            if (string.IsNullOrWhiteSpace(id)) continue;
+
+            var calls = (long)ParseDouble(r, 1);
+            var failures = (long)ParseDouble(r, 2);
+            var errorRate = calls > 0 ? (double)failures / calls * 100 : 0;
+            var p95 = ParseDouble(r, 3);
+            var lastSeen = ParseDateTime(r, 4);
+
+            nodes[id] = new TopologyNode(
+                id,
+                PrettifyServiceName(id),
+                "service",
+                ClassifyHealth(errorRate, p95),
+                calls,
+                Math.Round(errorRate, 2),
+                Math.Round(p95, 2),
+                lastSeen == DateTime.MinValue ? null : lastSeen);
+        }
+
+        var edges = new List<TopologyEdge>();
+        foreach (var r in edgeRows)
+        {
+            var source = GetString(r, 0);
+            var target = GetString(r, 1);
+            var type = GetString(r, 2);
+            if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target))
+                continue;
+
+            var calls = (long)ParseDouble(r, 3);
+            var failures = (long)ParseDouble(r, 4);
+            var errorRate = calls > 0 ? (double)failures / calls * 100 : 0;
+            var p95 = ParseDouble(r, 5);
+            var lastSeen = ParseDateTime(r, 6);
+
+            // Register the target as a node if we haven't already.
+            var targetId = $"ext:{target}";
+            if (!nodes.ContainsKey(targetId))
+            {
+                nodes[targetId] = new TopologyNode(
+                    targetId,
+                    target,
+                    ClassifyTargetKind(type, target),
+                    ClassifyHealth(errorRate, p95),
+                    calls,
+                    Math.Round(errorRate, 2),
+                    Math.Round(p95, 2),
+                    lastSeen == DateTime.MinValue ? null : lastSeen);
+            }
+
+            edges.Add(new TopologyEdge(
+                source, targetId,
+                NormaliseEdgeKind(type),
+                calls,
+                Math.Round(errorRate, 2),
+                Math.Round(p95, 2)));
+        }
+
+        return new TopologyResponse(true, [.. nodes.Values], edges, DateTime.UtcNow);
+    }
+
+    private static string ClassifyHealth(double errorRatePct, double p95Ms) =>
+        errorRatePct > 10 || p95Ms > 5000 ? "critical"
+        : errorRatePct > 2 || p95Ms > 1500 ? "degraded"
+        : "healthy";
+
+    private static string ClassifyTargetKind(string type, string target)
+    {
+        var t = (type ?? string.Empty).ToLowerInvariant();
+        if (t.Contains("sql")) return "datastore";
+        if (t.Contains("azure") || t.Contains("storage") || t.Contains("servicebus"))
+            return "datastore";
+        if (t.Contains("inproc")) return "service";
+        if (target.Contains("openai", StringComparison.OrdinalIgnoreCase)
+            || target.Contains("anthropic", StringComparison.OrdinalIgnoreCase)
+            || target.Contains("googleapis", StringComparison.OrdinalIgnoreCase)
+            || target.Contains("auth0", StringComparison.OrdinalIgnoreCase)
+            || target.Contains("qdrant", StringComparison.OrdinalIgnoreCase))
+            return "external";
+        return "external";
+    }
+
+    private static string NormaliseEdgeKind(string type)
+    {
+        var t = (type ?? string.Empty).ToLowerInvariant();
+        if (t.Contains("sql")) return "sql";
+        if (t.Contains("http")) return "http";
+        if (t.Contains("grpc")) return "grpc";
+        if (t.Contains("queue") || t.Contains("servicebus")) return "queue";
+        if (t.Contains("inproc")) return "event";
+        return "http";
+    }
+
+    private static string PrettifyServiceName(string roleName) =>
+        roleName.Replace("aonik-dev-", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("aonik-", "", StringComparison.OrdinalIgnoreCase);
+
     // ── Credentials ──────────────────────────────────────────────────
 
     private async Task<(string? AppId, string? ApiKey)> GetCredentialsAsync(

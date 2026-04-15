@@ -66,6 +66,9 @@ public static class Extensions
                     // AI / Agent Framework metrics (GenAI semantic conventions)
                     .AddMeter("Aonik.Ai")
                     .AddMeter("Aonik.Ai.Calls")
+                    // Retrieval metrics (Qdrant + embedding API) — consumed by
+                    // the observability dashboard's Retrieval panel.
+                    .AddMeter("Aonik.VectorStore")
                     .AddMeter("*Microsoft.Agents.AI");
             })
             .WithTracing(tracing =>
@@ -88,6 +91,8 @@ public static class Extensions
                     .AddHttpClientInstrumentation()
                     // AI / Agent Framework tracing (GenAI semantic conventions)
                     .AddSource("Aonik.Ai")
+                    // Retrieval tracing — Qdrant upsert/search + embedding calls.
+                    .AddSource("Aonik.VectorStore")
                     .AddSource("*Microsoft.Extensions.AI")
                     .AddSource("*Microsoft.Extensions.Agents*");
             });

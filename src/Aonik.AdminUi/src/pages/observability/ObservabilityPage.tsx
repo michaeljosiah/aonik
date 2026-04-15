@@ -28,7 +28,11 @@ import {
   type DependencyMetricsResponse,
   type AiPerformanceResponse,
   type JobMetricsResponse,
+  type RetrievalResponse,
+  type TopologyResponse,
 } from '@/services/observabilityService';
+import { RetrievalTab } from './RetrievalTab';
+import { TopologyTab } from './TopologyTab';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -277,6 +281,16 @@ export function ObservabilityPage() {
   const [jobsLoading, setJobsLoading] = useState(false);
   const [jobsError, setJobsError] = useState<string | null>(null);
 
+  // --- Retrieval state ---
+  const [retrievalData, setRetrievalData] = useState<RetrievalResponse | null>(null);
+  const [retrievalLoading, setRetrievalLoading] = useState(false);
+  const [retrievalError, setRetrievalError] = useState<string | null>(null);
+
+  // --- Topology state ---
+  const [topologyData, setTopologyData] = useState<TopologyResponse | null>(null);
+  const [topologyLoading, setTopologyLoading] = useState(false);
+  const [topologyError, setTopologyError] = useState<string | null>(null);
+
   // --- Fetch helpers ---
 
   const fetchOverview = useCallback(async (tr: string) => {
@@ -344,6 +358,32 @@ export function ObservabilityPage() {
     }
   }, []);
 
+  const fetchRetrieval = useCallback(async (tr: string) => {
+    setRetrievalLoading(true);
+    setRetrievalError(null);
+    try {
+      const data = await observabilityService.getRetrieval(tr);
+      setRetrievalData(data);
+    } catch (err) {
+      setRetrievalError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setRetrievalLoading(false);
+    }
+  }, []);
+
+  const fetchTopology = useCallback(async (tr: string) => {
+    setTopologyLoading(true);
+    setTopologyError(null);
+    try {
+      const data = await observabilityService.getTopology(tr);
+      setTopologyData(data);
+    } catch (err) {
+      setTopologyError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setTopologyLoading(false);
+    }
+  }, []);
+
   // Fetch on tab activation + time range change
   useEffect(() => {
     if (activeTab === 'overview') fetchOverview(timeRange);
@@ -351,7 +391,9 @@ export function ObservabilityPage() {
     if (activeTab === 'ai') fetchAi(timeRange);
     if (activeTab === 'dependencies') fetchDeps(timeRange);
     if (activeTab === 'jobs') fetchJobs(timeRange);
-  }, [activeTab, timeRange, fetchOverview, fetchErrors, fetchAi, fetchDeps, fetchJobs]);
+    if (activeTab === 'retrieval') fetchRetrieval(timeRange);
+    if (activeTab === 'topology') fetchTopology(timeRange);
+  }, [activeTab, timeRange, fetchOverview, fetchErrors, fetchAi, fetchDeps, fetchJobs, fetchRetrieval, fetchTopology]);
 
   // Refresh handler
   const handleRefresh = () => {
@@ -360,6 +402,8 @@ export function ObservabilityPage() {
     if (activeTab === 'ai') fetchAi(timeRange);
     if (activeTab === 'dependencies') fetchDeps(timeRange);
     if (activeTab === 'jobs') fetchJobs(timeRange);
+    if (activeTab === 'retrieval') fetchRetrieval(timeRange);
+    if (activeTab === 'topology') fetchTopology(timeRange);
   };
 
   const toggleErrorExpanded = (idx: number) => {
@@ -1313,6 +1357,30 @@ export function ObservabilityPage() {
     );
   };
 
+  const renderRetrievalTab = () => {
+    if (retrievalLoading) return <TabLoading />;
+    if (retrievalError) return <TabError message={retrievalError} />;
+    if (!retrievalData) return null;
+    return (
+      <div className="space-y-6">
+        {!retrievalData.configured && <NotConfiguredBanner />}
+        <RetrievalTab data={retrievalData} />
+      </div>
+    );
+  };
+
+  const renderTopologyTab = () => {
+    if (topologyLoading) return <TabLoading />;
+    if (topologyError) return <TabError message={topologyError} />;
+    if (!topologyData) return null;
+    return (
+      <div className="space-y-6">
+        {!topologyData.configured && <NotConfiguredBanner />}
+        <TopologyTab data={topologyData} />
+      </div>
+    );
+  };
+
   // -----------------------------------------------------------------------
   // Main render
   // -----------------------------------------------------------------------
@@ -1396,6 +1464,18 @@ export function ObservabilityPage() {
             >
               Jobs
             </TabsTrigger>
+            <TabsTrigger
+              value="retrieval"
+              className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)] data-[state=active]:shadow-none"
+            >
+              Retrieval
+            </TabsTrigger>
+            <TabsTrigger
+              value="topology"
+              className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)] data-[state=active]:shadow-none"
+            >
+              Topology
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1414,6 +1494,12 @@ export function ObservabilityPage() {
           </TabsContent>
           <TabsContent value="jobs" className="mt-0">
             {renderJobsTab()}
+          </TabsContent>
+          <TabsContent value="retrieval" className="mt-0">
+            {renderRetrievalTab()}
+          </TabsContent>
+          <TabsContent value="topology" className="mt-0">
+            {renderTopologyTab()}
           </TabsContent>
         </div>
       </Tabs>

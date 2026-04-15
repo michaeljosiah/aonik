@@ -152,3 +152,64 @@ public record AiPerformanceResponse(
     IReadOnlyList<TimeSeriesPoint> TokenTimeSeries,
     IReadOnlyList<AiUseCasePerformance> ByUseCase,
     IReadOnlyList<AiModelPerformance> ByModel);
+
+/// <summary>
+/// Latency distribution for a single retrieval-tier instrument
+/// (Qdrant upsert/search, embedding API call, etc.).
+/// </summary>
+public record RetrievalLatency(
+    string Instrument,
+    long Samples,
+    double AvgMs,
+    double P50Ms, double P95Ms, double P99Ms);
+
+/// <summary>
+/// Per-collection slice of Qdrant search activity — read from the
+/// qdrant.search span attributes on the <c>dependencies</c>/<c>traces</c>
+/// tables. Covers hit rate and empty-result visibility.
+/// </summary>
+public record RetrievalCollectionStats(
+    string Collection,
+    long Searches,
+    double AvgResultCount,
+    long EmptySearches,
+    double AvgLatencyMs, double P95LatencyMs);
+
+public record RetrievalResponse(
+    bool Configured,
+    IReadOnlyList<RetrievalLatency> Latencies,
+    IReadOnlyList<RetrievalCollectionStats> Collections,
+    long EmbeddingErrorCount,
+    long TotalSearches,
+    long TotalUpserts,
+    long TotalEmbeddingCalls,
+    IReadOnlyList<TimeSeriesPoint> SearchLatencyTimeSeries,
+    IReadOnlyList<TimeSeriesPoint> EmbeddingLatencyTimeSeries);
+
+/// <summary>
+/// Per-node payload for the service topology graph. Health is a rollup
+/// derived from the last-window error rate and p95 latency.
+/// </summary>
+public record TopologyNode(
+    string Id,
+    string Label,
+    string Kind,           // "service" | "external" | "datastore"
+    string Status,         // "healthy" | "degraded" | "critical" | "unknown"
+    long Calls,
+    double ErrorRatePct,
+    double P95LatencyMs,
+    DateTime? LastSeen);
+
+public record TopologyEdge(
+    string Source,
+    string Target,
+    string Kind,           // "http" | "sql" | "grpc" | "queue" | "event"
+    long Calls,
+    double ErrorRatePct,
+    double P95LatencyMs);
+
+public record TopologyResponse(
+    bool Configured,
+    IReadOnlyList<TopologyNode> Nodes,
+    IReadOnlyList<TopologyEdge> Edges,
+    DateTime GeneratedAt);
