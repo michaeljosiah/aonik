@@ -222,7 +222,12 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
       ingress: {
         external: true
         targetPort: 8080
-        transport: 'auto'
+        // 'http' (HTTP/1.1 with Transfer-Encoding: chunked) is required for
+        // Server-Sent Events streaming (/ai/agui). Under 'auto' the ACA Envoy
+        // proxy can negotiate HTTP/2 with the browser and buffer SSE frames,
+        // causing 20-30s gateway-side delays even though the server flushes
+        // per token. Pinning to HTTP/1.1 keeps chunked SSE unbuffered.
+        transport: 'http'
       }
       registries: [
         {
