@@ -195,6 +195,8 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
   static const double _historyOverlayWidthFactor = 0.9;
+  static const Duration _streamingAutoScrollMinInterval =
+      Duration(milliseconds: 48);
   static const String _voiceLogPrefix = '[ChatVoice]';
   static const Duration _voiceRestartRetryBackoff = Duration(milliseconds: 100);
   static const Duration _voiceShortEndOfTurnGrace = Duration(milliseconds: 800);
@@ -224,6 +226,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int _voiceTurnSequence = 0;
   int? _activeVoiceTurnId;
   int? _voiceBackendTurnId;
+  DateTime? _lastStreamingAutoScrollAt;
   _VoiceStagePhase _voiceStagePhase = _VoiceStagePhase.idle;
   double _voiceSpeakingPulse = 0.18;
   String _voiceLiveTranscript = '';
@@ -244,8 +247,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   @override
   void initState() {
     super.initState();
-    _activeStarterQuestion = _conversationStarters[
-        Random().nextInt(_conversationStarters.length)];
+    _activeStarterQuestion =
+        _conversationStarters[Random().nextInt(_conversationStarters.length)];
     _chatVoiceService = ref.read(chatVoiceServiceProvider);
     _historyOverlayController = AnimationController(
       vsync: this,
@@ -292,10 +295,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
       if (next.streamingText.length > prev.streamingText.length &&
           keepPinnedToBottom) {
-        _scrollToBottom(animated: false);
+        _scrollStreamingToBottom();
       }
 
       if (next.messages.length > prev.messages.length && keepPinnedToBottom) {
+        _lastStreamingAutoScrollAt = null;
         _scrollToBottom();
       }
 
@@ -484,8 +488,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                               .rejectAction(toolCallId, reason);
                           _scrollToBottom(force: true);
                         },
-                        onSelect:
-                            (String toolCallId, List<String> selected) {
+                        onSelect: (String toolCallId, List<String> selected) {
                           ref
                               .read(chatControllerProvider.notifier)
                               .selectOption(toolCallId, selected);
@@ -1319,6 +1322,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return position.maxScrollExtent - position.pixels <= 120;
   }
 
+  void _scrollStreamingToBottom() {
+    final DateTime now = DateTime.now();
+    final DateTime? lastAutoScrollAt = _lastStreamingAutoScrollAt;
+    if (lastAutoScrollAt != null &&
+        now.difference(lastAutoScrollAt) < _streamingAutoScrollMinInterval) {
+      return;
+    }
+
+    _lastStreamingAutoScrollAt = now;
+    _scrollToBottom(animated: false);
+  }
+
   void _scrollToBottom({bool animated = true, bool force = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
@@ -1491,10 +1506,45 @@ class _ChatStage extends ConsumerWidget {
         ),
       );
     } else {
-      final ChatState chatState = ref.watch(chatControllerProvider);
-      final bool showHero = !chatState.hasMessages &&
-          chatState.streamingText.isEmpty &&
-          chatState.activity == ChatActivity.idle;
+      // Narrow the watch surface — watch only the fields that affect the
+      // conversation's *structure* (what slots the list renders, which
+      // buttons/cards are visible). The streaming text itself is watched
+      // inside _StreamingMessageBlock so that per-token updates don't
+      // rebuild the whole stage.
+      final List<ChatMessage> messages = ref.watch(
+        chatControllerProvider.select((ChatState s) => s.messages),
+      );
+      final ChatActivity activity = ref.watch(
+        chatControllerProvider.select((ChatState s) => s.activity),
+      );
+      // Note: gating on `streamingText.isNotEmpty` matches the original
+      // behaviour. `streamingMessageId` is NOT included here because
+      // ChatState.copyWith has a latent null-coalescing bug that leaves
+      // the ID set after _clearStreaming() — which would leave an empty
+      // streaming bubble on screen after every run. See _clearStreaming
+      // in chat_controller.dart.
+      final bool hasStreamingSlot = ref.watch(
+        chatControllerProvider.select(
+          (ChatState s) => s.streamingText.isNotEmpty,
+        ),
+      );
+      final List<ActiveToolCall> activeToolCalls = ref.watch(
+        chatControllerProvider.select((ChatState s) => s.activeToolCalls),
+      );
+      final List<PendingApproval> pendingApprovals = ref.watch(
+        chatControllerProvider.select((ChatState s) => s.pendingApprovals),
+      );
+      final List<PendingOptionSelection> pendingOptionSelections = ref.watch(
+        chatControllerProvider
+            .select((ChatState s) => s.pendingOptionSelections),
+      );
+      final List<DisplayWidget> displayWidgets = ref.watch(
+        chatControllerProvider.select((ChatState s) => s.displayWidgets),
+      );
+
+      final bool showHero = messages.isEmpty &&
+          !hasStreamingSlot &&
+          activity == ChatActivity.idle;
 
       stageChild = showHero
           ? _EmptyChatStage(
@@ -1506,13 +1556,13 @@ class _ChatStage extends ConsumerWidget {
               key: const ValueKey<String>('chat-thread'),
               controller: controller,
               displayName: displayName,
-              messages: chatState.messages,
-              streamingText: chatState.streamingText,
-              activity: chatState.activity,
-              activeToolCalls: chatState.activeToolCalls,
-              pendingApprovals: chatState.pendingApprovals,
-              pendingOptionSelections: chatState.pendingOptionSelections,
-              displayWidgets: chatState.displayWidgets,
+              messages: messages,
+              hasStreamingSlot: hasStreamingSlot,
+              activity: activity,
+              activeToolCalls: activeToolCalls,
+              pendingApprovals: pendingApprovals,
+              pendingOptionSelections: pendingOptionSelections,
+              displayWidgets: displayWidgets,
               onApprove: onApprove,
               onReject: onReject,
               onSelect: onSelect,
@@ -1636,7 +1686,7 @@ class _ConversationStage extends StatelessWidget {
     required this.controller,
     required this.displayName,
     required this.messages,
-    this.streamingText = '',
+    this.hasStreamingSlot = false,
     this.activity = ChatActivity.idle,
     this.activeToolCalls = const [],
     this.pendingApprovals = const [],
@@ -1650,7 +1700,7 @@ class _ConversationStage extends StatelessWidget {
   final ScrollController controller;
   final String displayName;
   final List<ChatMessage> messages;
-  final String streamingText;
+  final bool hasStreamingSlot;
   final ChatActivity activity;
   final List<ActiveToolCall> activeToolCalls;
   final List<PendingApproval> pendingApprovals;
@@ -1662,9 +1712,9 @@ class _ConversationStage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isStreaming = streamingText.isNotEmpty;
+    final bool isStreaming = hasStreamingSlot;
     final bool isThinking = activity == ChatActivity.connecting ||
-        (activity == ChatActivity.toolCall && streamingText.isEmpty);
+        (activity == ChatActivity.toolCall && !hasStreamingSlot);
     final int itemCount = 2 +
         messages.length +
         (isStreaming ? 1 : 0) +
@@ -1707,7 +1757,6 @@ class _ConversationStage extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
               child: _StreamingMessageBlock(
-                text: streamingText,
                 activeToolCalls: activeToolCalls,
               ),
             );
@@ -2899,18 +2948,26 @@ class _ChatComposerActionButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 /// Shows the assistant's in-progress streaming response.
-class _StreamingMessageBlock extends StatelessWidget {
+/// Renders the in-progress assistant response. Self-watches
+/// [ChatState.streamingText] via a narrow selector so per-token updates
+/// rebuild only this subtree — not the conversation stage or list.
+///
+/// The blinking cursor is rendered as a sibling widget (not a WidgetSpan
+/// inside Text.rich) to avoid forcing an inline layout pass on every
+/// text update.
+class _StreamingMessageBlock extends ConsumerWidget {
   const _StreamingMessageBlock({
-    required this.text,
     this.activeToolCalls = const [],
   });
 
-  final String text;
   final List<ActiveToolCall> activeToolCalls;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final String text = ref.watch(
+      chatControllerProvider.select((ChatState s) => s.streamingText),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2958,21 +3015,19 @@ class _StreamingMessageBlock extends StatelessWidget {
                         .toList(),
                   ),
                 ),
-              // Streaming text with a blinking cursor.
-              Text.rich(
-                TextSpan(
-                  children: <InlineSpan>[
-                    TextSpan(text: text),
-                    WidgetSpan(
-                      alignment: PlaceholderAlignment.middle,
-                      child: _BlinkingCursor(color: c.primary),
-                    ),
-                  ],
-                ),
+              // Streaming text — the blinking cursor is rendered below as a
+              // sibling to avoid re-measuring the inline WidgetSpan on every
+              // token delta.
+              Text(
+                text,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: _chatBodyTextColor(context),
                       height: 1.58,
                     ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: _BlinkingCursor(color: c.primary),
               ),
             ],
           ),
@@ -3304,8 +3359,7 @@ class _OptionSelectorCardState extends State<_OptionSelectorCard> {
                     child: SizedBox(
                       width: double.infinity,
                       child: TextButton(
-                        onPressed: () =>
-                            widget.onSelect(_selected.toList()),
+                        onPressed: () => widget.onSelect(_selected.toList()),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.white,
                           backgroundColor: c.primary,
@@ -3394,11 +3448,10 @@ class _OptionSelectorCardState extends State<_OptionSelectorCard> {
                     children: <Widget>[
                       Text(
                         option.label,
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: _chatBodyTextColor(context),
-                                  fontWeight: FontWeight.w600,
-                                ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: _chatBodyTextColor(context),
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
                       if (option.description != null &&
                           option.description!.isNotEmpty)
@@ -4128,12 +4181,11 @@ class _SpendingPieChartCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title.isNotEmpty ? title : 'SPENDING',
-                        style:
-                            Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  color: _chatMutedTextColor(context),
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: title.isNotEmpty ? 0.0 : 2.8,
-                                ),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: _chatMutedTextColor(context),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: title.isNotEmpty ? 0.0 : 2.8,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -4189,12 +4241,10 @@ class _SpendingPieChartCard extends StatelessWidget {
                 ...slices.asMap().entries.map((entry) {
                   final i = entry.key;
                   final slice = entry.value;
-                  final color =
-                      _sliceColors[i % _sliceColors.length];
+                  final color = _sliceColors[i % _sliceColors.length];
 
                   return Padding(
-                    padding:
-                        const EdgeInsets.only(bottom: PayaboSpacing.sm),
+                    padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
                     child: Row(
                       children: <Widget>[
                         Container(
@@ -4220,13 +4270,11 @@ class _SpendingPieChartCard extends StatelessWidget {
                         ),
                         Text(
                           '$currency${slice.amount.toStringAsFixed(slice.amount == slice.amount.roundToDouble() ? 0 : 2)}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                                color: _chatBodyTextColor(context),
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: _chatBodyTextColor(context),
+                                    fontWeight: FontWeight.w600,
+                                  ),
                         ),
                         const SizedBox(width: PayaboSpacing.sm),
                         SizedBox(

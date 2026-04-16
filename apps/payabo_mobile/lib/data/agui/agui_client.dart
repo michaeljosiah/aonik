@@ -27,6 +27,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import 'agui_models.dart';
 
@@ -249,7 +250,11 @@ class AgUiClient {
         var shouldRerun = false;
 
         // Stream one full run's events to the public controller.
-        final runController = StreamController<AgUiEvent>();
+        // `sync: true` delivers events to our listener synchronously,
+        // avoiding an extra microtask per event during high-frequency
+        // token streaming. This is safe because we only consume the stream
+        // on a single listener inside this loop.
+        final runController = StreamController<AgUiEvent>(sync: true);
         final runCancelToken = CancelToken();
 
         cancelToken.whenCancel.then((error) {
@@ -432,8 +437,10 @@ class AgUiClient {
     final requestHeaders = <String, dynamic>{
       'Accept': 'text/event-stream',
       'Content-Type': 'application/json',
-      'X-AgUi-Trace-Id': traceId,
     };
+    if (!kIsWeb) {
+      requestHeaders['X-AgUi-Trace-Id'] = traceId;
+    }
     var sawFirstEvent = false;
     var sawFirstTextDelta = false;
 
@@ -479,75 +486,73 @@ class AgUiClient {
         return;
       }
 
-      // SSE events are `data: {json}\n\n`. We accumulate bytes into lines,
-      // splitting on \n. Each non-empty line starting with `data:` is one event.
-      final StringBuffer buffer = StringBuffer();
+      // SSE events arrive as `data: {json}\n\n`. We accumulate decoded bytes
+      // into a single remainder string and scan only the newly appended
+      // region for newlines — avoiding the O(n²) substring/toString work
+      // the previous implementation performed per chunk.
+      String remainder = '';
 
       await for (final chunk in stream) {
         if (controller.isClosed) break;
 
-        buffer.write(utf8.decode(chunk, allowMalformed: true));
+        remainder += utf8.decode(chunk, allowMalformed: true);
 
-        // Process all complete lines in the buffer.
-        String buffered = buffer.toString();
-        while (buffered.contains('\n')) {
-          final newlineIndex = buffered.indexOf('\n');
-          final line = buffered.substring(0, newlineIndex);
-          buffered = buffered.substring(newlineIndex + 1);
+        // Split the accumulated buffer into complete lines plus a trailing
+        // (possibly incomplete) fragment, which we carry over to the next
+        // chunk.
+        final lines = remainder.split('\n');
+        remainder = lines.removeLast();
 
+        for (final line in lines) {
           final event = parseSseLine(line);
-          if (event != null && !controller.isClosed) {
-            if (!sawFirstEvent) {
-              sawFirstEvent = true;
-              developer.log(
-                '[trace:$traceId] first SSE event ${event.type.wire} at ${stopwatch.elapsedMilliseconds}ms',
-                name: 'AgUiClient',
-              );
-            }
+          if (event == null || controller.isClosed) {
+            continue;
+          }
 
-            if (!sawFirstTextDelta && event is TextMessageContentEvent) {
-              sawFirstTextDelta = true;
-              developer.log(
-                '[trace:$traceId] first text delta at ${stopwatch.elapsedMilliseconds}ms messageId=${event.messageId}',
-                name: 'AgUiClient',
-              );
-            }
+          if (!sawFirstEvent) {
+            sawFirstEvent = true;
+            developer.log(
+              '[trace:$traceId] first SSE event ${event.type.wire} at ${stopwatch.elapsedMilliseconds}ms',
+              name: 'AgUiClient',
+            );
+          }
 
-            if (event is RunFinishedEvent) {
-              developer.log(
-                '[trace:$traceId] RUN_FINISHED at ${stopwatch.elapsedMilliseconds}ms metrics=${event.metrics}',
-                name: 'AgUiClient',
-              );
-            }
+          if (!sawFirstTextDelta && event is TextMessageContentEvent) {
+            sawFirstTextDelta = true;
+            developer.log(
+              '[trace:$traceId] first text delta at ${stopwatch.elapsedMilliseconds}ms messageId=${event.messageId}',
+              name: 'AgUiClient',
+            );
+          }
 
-            if (event is RunErrorEvent) {
-              developer.log(
-                '[trace:$traceId] RUN_ERROR at ${stopwatch.elapsedMilliseconds}ms code=${event.code} message=${event.message}',
-                name: 'AgUiClient',
-              );
-            }
+          if (event is RunFinishedEvent) {
+            developer.log(
+              '[trace:$traceId] RUN_FINISHED at ${stopwatch.elapsedMilliseconds}ms metrics=${event.metrics}',
+              name: 'AgUiClient',
+            );
+          }
 
-            controller.add(event);
+          if (event is RunErrorEvent) {
+            developer.log(
+              '[trace:$traceId] RUN_ERROR at ${stopwatch.elapsedMilliseconds}ms code=${event.code} message=${event.message}',
+              name: 'AgUiClient',
+            );
+          }
 
-            // Auto-close after terminal events.
-            if (closeOnTerminalEvent &&
-                (event is RunFinishedEvent || event is RunErrorEvent)) {
-              await controller.close();
-              return;
-            }
+          controller.add(event);
+
+          // Auto-close after terminal events.
+          if (closeOnTerminalEvent &&
+              (event is RunFinishedEvent || event is RunErrorEvent)) {
+            await controller.close();
+            return;
           }
         }
-
-        // Keep only unprocessed remainder in the buffer.
-        buffer
-          ..clear()
-          ..write(buffered);
       }
 
       // Process any remaining data in the buffer.
-      final remaining = buffer.toString();
-      if (remaining.isNotEmpty && !controller.isClosed) {
-        final event = parseSseLine(remaining);
+      if (remainder.isNotEmpty && !controller.isClosed) {
+        final event = parseSseLine(remainder);
         if (event != null) {
           controller.add(event);
         }

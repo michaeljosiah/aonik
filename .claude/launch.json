@@ -26,6 +26,13 @@
       "cwd": "apps/Payabo"
     },
     {
+      "name": "payabo-mobile-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5178"],
+      "port": 5178,
+      "cwd": "apps/payabo_mobile/build/web"
+    },
+    {
       "name": "website",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],

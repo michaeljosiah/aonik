@@ -298,6 +298,21 @@ class ChatController extends StateNotifier<ChatState> {
   DateTime? _finishedAt;
   bool _hasLoggedFirstTextDelta = false;
 
+  // ── Text-delta batching ─────────────────────────────────────────────
+  //
+  // LLM token streams arrive at 20-100 tokens/s. Setting `state` per token
+  // triggers a rebuild of every widget that watches the streaming text,
+  // and Flutter's text layout re-measures the entire accumulated message
+  // on each pass — O(n) per delta, O(n²) over the full response.
+  //
+  // We coalesce deltas into a single flush per frame (~16ms). The first
+  // delta flushes immediately so there is no perceptible "first-token"
+  // lag; subsequent deltas within the same frame are batched.
+  static const Duration _textDeltaBatchWindow = Duration(milliseconds: 16);
+  final StringBuffer _pendingTextDelta = StringBuffer();
+  String? _pendingTextMessageId;
+  Timer? _textDeltaFlushTimer;
+
   /// Sends the very first message in a conversation that was initiated by a
   /// conversation starter question. Seeds the starter as an assistant message
   /// in the history so the thread looks natural (Simi asked → user replied →
@@ -348,6 +363,7 @@ class ChatController extends StateNotifier<ChatState> {
     );
 
     _subscription?.cancel();
+    _discardPendingText();
 
     final stream = _repository.sendMessage(
       threadId: state.threadId,
@@ -403,6 +419,7 @@ class ChatController extends StateNotifier<ChatState> {
 
     // Cancel any lingering subscription.
     _subscription?.cancel();
+    _discardPendingText();
 
     final stream = _repository.sendMessage(
       threadId: state.threadId,
@@ -418,7 +435,54 @@ class ChatController extends StateNotifier<ChatState> {
     );
   }
 
+  /// Schedules a text-delta flush in the next ~16ms window if one isn't
+  /// already scheduled. Subsequent deltas arriving within the window
+  /// accumulate into [_pendingTextDelta] and flush together.
+  void _scheduleTextFlush() {
+    if (_textDeltaFlushTimer != null && _textDeltaFlushTimer!.isActive) {
+      return;
+    }
+    _textDeltaFlushTimer = Timer(_textDeltaBatchWindow, _flushPendingText);
+  }
+
+  /// Applies any pending text delta to [state.streamingText]. Safe to call
+  /// when no text is pending — it becomes a no-op.
+  void _flushPendingText() {
+    _textDeltaFlushTimer?.cancel();
+    _textDeltaFlushTimer = null;
+
+    if (_pendingTextDelta.isEmpty) {
+      return;
+    }
+
+    final String delta = _pendingTextDelta.toString();
+    final String? messageId = _pendingTextMessageId;
+    _pendingTextDelta.clear();
+
+    state = state.copyWith(
+      activity: ChatActivity.streaming,
+      streamingText: state.streamingText + delta,
+      streamingMessageId: messageId ?? state.streamingMessageId,
+    );
+  }
+
+  /// Discards any buffered text without applying it. Used when a run is
+  /// cancelled or reset so stale tokens don't leak into the next thread.
+  void _discardPendingText() {
+    _textDeltaFlushTimer?.cancel();
+    _textDeltaFlushTimer = null;
+    _pendingTextDelta.clear();
+    _pendingTextMessageId = null;
+  }
+
   void _onEvent(ChatStreamEvent event) {
+    // Any non-text-delta event implies the pending text batch should be
+    // applied first so events stay in the order the server emitted them
+    // (e.g. tool-call start must not appear before the text it follows).
+    if (event is! ChatStreamTextDelta) {
+      _flushPendingText();
+    }
+
     switch (event) {
       case ChatStreamStarted():
         _currentRunId = event.runId;
@@ -439,16 +503,22 @@ class ChatController extends StateNotifier<ChatState> {
             'First text delta at ${_firstTextDeltaAt!.toIso8601String()} (+${_firstTextDeltaAt!.difference(_requestStartedAt!).inMilliseconds}ms) messageId=${event.messageId}',
             name: 'ChatController',
           );
+
+          // Flush the first delta immediately so the UI shows the first
+          // token without waiting for the batch window.
+          _pendingTextDelta.write(event.delta);
+          _pendingTextMessageId = event.messageId;
+          _flushPendingText();
+        } else {
+          // Coalesce subsequent deltas into the next frame.
+          _pendingTextDelta.write(event.delta);
+          _pendingTextMessageId = event.messageId;
+          _scheduleTextFlush();
         }
 
-        state = state.copyWith(
-          activity: ChatActivity.streaming,
-          streamingText: state.streamingText + event.delta,
-          streamingMessageId: event.messageId,
-        );
-
       case ChatStreamTextDone():
-        // Finalise the assistant message and append it to history.
+        // Pending text was flushed in the dispatcher above; finalise the
+        // assistant message and append it to history.
         if (state.streamingText.isNotEmpty) {
           final assistantMessage = ChatMessage(
             id: event.messageId,
@@ -818,6 +888,7 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   void _onStreamError(Object error, StackTrace stackTrace) {
+    _discardPendingText();
     state = state._clearStreaming().copyWith(
       activity: ChatActivity.error,
       errorMessage: error.toString(),
@@ -826,6 +897,8 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   void _onStreamDone() {
+    // Apply any pending deltas before we decide the final state.
+    _flushPendingText();
     // If the stream completed without a RUN_FINISHED event (unexpected),
     // ensure we return to idle.
     if (state.isProcessing) {
@@ -873,6 +946,7 @@ class ChatController extends StateNotifier<ChatState> {
   /// Starts a new conversation — clears all messages and state.
   void newConversation() {
     _subscription?.cancel();
+    _discardPendingText();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -888,6 +962,7 @@ class ChatController extends StateNotifier<ChatState> {
   /// Loads a seeded conversation from the mock data.
   void loadConversation(ChatConversation conversation) {
     _subscription?.cancel();
+    _discardPendingText();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -906,6 +981,7 @@ class ChatController extends StateNotifier<ChatState> {
   /// Fetches a thread from the backend and loads its messages.
   Future<void> loadThread(String threadId) async {
     _subscription?.cancel();
+    _discardPendingText();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -941,6 +1017,7 @@ class ChatController extends StateNotifier<ChatState> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _discardPendingText();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
