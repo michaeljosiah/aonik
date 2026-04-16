@@ -41,7 +41,13 @@ builder.Services.AddAgentsModule(builder.Configuration);
 // Add CORS – origins come from configuration so each environment can specify its own list
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 var allCorsOrigins = corsOrigins
-    .Concat(new[] { "http://localhost:5173", "http://localhost:5174" }) // always allow local dev
+    .Concat(new[]
+    {
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:4201",
+        "http://127.0.0.1:4201"
+    }) // always allow local dev
     .Where(o => !string.IsNullOrWhiteSpace(o))
     .Distinct()
     .ToArray();
