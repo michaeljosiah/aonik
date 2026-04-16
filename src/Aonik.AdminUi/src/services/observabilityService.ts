@@ -44,11 +44,47 @@ export interface ErrorGroup {
   innermostMessage: string;
   count: number;
   lastSeen: string;
+  /** Azure App Insights fingerprint. Used to fetch drill-down details. */
+  problemId?: string | null;
+  /** First-frame method for the representative throw site. */
+  method?: string | null;
+  /** One representative `operation_Id` the user can open in Azure Portal. */
+  sampleOperationId?: string | null;
+  /** Up to 5 distinct `operation_Name` values where the error occurred. */
+  operations?: string[] | null;
+  /** Up to 3 distinct `cloud_RoleName` values (api / worker / etc.). */
+  roles?: string[] | null;
 }
 
 export interface ErrorsResponse {
   configured: boolean;
   errors: ErrorGroup[];
+}
+
+export interface ErrorStackFrame {
+  level: number;
+  method?: string | null;
+  assembly?: string | null;
+  fileName?: string | null;
+  line?: number | null;
+}
+
+export interface ErrorDetailResponse {
+  configured: boolean;
+  found: boolean;
+  problemId?: string | null;
+  type?: string | null;
+  outerType?: string | null;
+  outerMessage?: string | null;
+  innermostMessage?: string | null;
+  method?: string | null;
+  operationName?: string | null;
+  operationId?: string | null;
+  cloudRoleName?: string | null;
+  severityLevel?: string | null;
+  timestamp?: string | null;
+  parsedStack: ErrorStackFrame[];
+  customDimensions: Record<string, string>;
 }
 
 // ── Dependencies ────────────────────────────────────────────────────
@@ -227,6 +263,10 @@ export const observabilityService = {
   getErrors: (timeRange = '24h') =>
     api.get<ErrorsResponse>(
       `/admin/observability/errors?timeRange=${timeRange}`,
+    ),
+  getErrorDetail: (problemId: string, timeRange = '24h') =>
+    api.get<ErrorDetailResponse>(
+      `/admin/observability/errors/${encodeURIComponent(problemId)}?timeRange=${timeRange}`,
     ),
   getDependencies: (timeRange = '24h') =>
     api.get<DependencyMetricsResponse>(

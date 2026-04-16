@@ -190,7 +190,7 @@ public static class DependencyInjection
         services.AddScoped<IIdpAccountServiceFactory, IdpAccountServiceFactory>();
         services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
         services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
-        services.AddSingleton<INotificationTemplateRenderer, ScribanNotificationTemplateRenderer>();
+        services.AddSingleton<INotificationTemplateRenderer, FluidNotificationTemplateRenderer>();
         services.AddHttpClient<IPushNotificationSender, FirebasePushNotificationSender>();
 
 

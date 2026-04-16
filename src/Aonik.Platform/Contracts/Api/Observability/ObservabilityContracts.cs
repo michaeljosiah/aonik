@@ -39,16 +39,62 @@ public record ObservabilityOverviewResponse(
 
 // ── Errors ───────────────────────────────────────────────────────────
 
+/// <summary>
+/// A group of exceptions sharing the same App Insights <c>problemId</c>
+/// fingerprint. The identity fields (type, outerMessage, innermostMessage,
+/// method) are enough to recognise the error at a glance; the contextual
+/// fields (sampleOperationId, operations, roles) drive drill-down into
+/// a specific incident via <c>GET /admin/observability/errors/{problemId}</c>.
+/// </summary>
 public record ErrorGroup(
     string Type,
     string OuterMessage,
     string InnermostMessage,
     long Count,
-    DateTime LastSeen);
+    DateTime LastSeen,
+    string? ProblemId = null,
+    string? Method = null,
+    string? SampleOperationId = null,
+    IReadOnlyList<string>? Operations = null,
+    IReadOnlyList<string>? Roles = null);
 
 public record ErrorsResponse(
     bool Configured,
     IReadOnlyList<ErrorGroup> Errors);
+
+/// <summary>
+/// A single frame of a parsed exception stack as returned by App Insights.
+/// <see cref="Level"/> is the depth from the innermost throw (0 = deepest).
+/// </summary>
+public record ErrorStackFrame(
+    int Level,
+    string? Method,
+    string? Assembly,
+    string? FileName,
+    int? Line);
+
+/// <summary>
+/// Drill-down payload for a single error group — pulls one representative
+/// exception from the <c>exceptions</c> table so the UI can show the full
+/// parsed stack and Serilog scope properties (tenant, user, thread, etc.)
+/// without bloating the errors list.
+/// </summary>
+public record ErrorDetailResponse(
+    bool Configured,
+    bool Found,
+    string? ProblemId,
+    string? Type,
+    string? OuterType,
+    string? OuterMessage,
+    string? InnermostMessage,
+    string? Method,
+    string? OperationName,
+    string? OperationId,
+    string? CloudRoleName,
+    string? SeverityLevel,
+    DateTime? Timestamp,
+    IReadOnlyList<ErrorStackFrame> ParsedStack,
+    IReadOnlyDictionary<string, string> CustomDimensions);
 
 // ── Dependencies ─────────────────────────────────────────────────────
 

@@ -501,7 +501,7 @@ export function NotificationTemplatesPage() {
           <div>
             <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Notification Templates</h1>
             <p className="text-xs text-[var(--color-text-secondary)]">
-              Manage email, SMS, and push notification templates with Scriban syntax
+              Manage email, SMS, and push notification templates with Liquid syntax
             </p>
           </div>
         </div>
@@ -758,7 +758,7 @@ export function NotificationTemplatesPage() {
                       <div className="flex items-center justify-between">
                         <Label htmlFor="tpl-body" className="text-xs">Body Template</Label>
                         <span className="text-[10px] text-[var(--color-text-tertiary)]">
-                          Scriban syntax: {'{{ variable }}'} {'{{ if condition }}...{{ end }}'} {'{{ for item in list }}...{{ end }}'}
+                          Liquid syntax: {'{{ variable }}'} {'{% if condition %}...{% endif %}'} {'{% for item in list %}...{% endfor %}'}
                         </span>
                       </div>
                       <Textarea

@@ -92,15 +92,14 @@ public class AppInsightsQueryService : IObservabilityService
             ? Math.Round(100.0 * totalErrors / totalForErrorRate, 2)
             : 0;
 
-        // Top errors (separate query)
+        // Top errors (separate query). Projection mirrors GetErrorsAsync so
+        // the overview and errors tab read the same shape.
         var topErrorRows = await CachedQueryAsync(
             $"observability:topErrors:{timeRange}", appId, apiKey,
-            $"exceptions | where timestamp > {range.Ago} | summarize count=count(), lastSeen=max(timestamp) by type, outerMessage, innermostMessage | order by count desc | take 50",
+            BuildErrorGroupsKql(range.Ago),
             cancellationToken);
 
-        var topErrors = topErrorRows.Select(r => new ErrorGroup(
-            GetString(r, 0), GetString(r, 1), GetString(r, 2),
-            (long)ParseDouble(r, 3), ParseDateTime(r, 4))).ToList();
+        var topErrors = topErrorRows.Select(ParseErrorGroupRow).ToList();
 
         var errors = new ErrorMetrics(totalErrors, errorRate, errorTimeSeries, topErrors);
 
@@ -133,14 +132,94 @@ public class AppInsightsQueryService : IObservabilityService
 
         var rows = await CachedQueryAsync(
             $"observability:errors:{timeRange}", appId, apiKey,
-            $"exceptions | where timestamp > {range.Ago} | summarize count=count(), lastSeen=max(timestamp) by type, outerMessage, innermostMessage | order by count desc | take 50",
+            BuildErrorGroupsKql(range.Ago),
             cancellationToken);
 
-        var errors = rows.Select(r => new ErrorGroup(
-            GetString(r, 0), GetString(r, 1), GetString(r, 2),
-            (long)ParseDouble(r, 3), ParseDateTime(r, 4))).ToList();
+        var errors = rows.Select(ParseErrorGroupRow).ToList();
 
         return new ErrorsResponse(true, errors);
+    }
+
+    public async Task<ErrorDetailResponse> GetErrorDetailAsync(
+        string problemId, string timeRange, CancellationToken cancellationToken = default)
+    {
+        var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
+        if (appId is null || apiKey is null)
+            return new ErrorDetailResponse(
+                Configured: false,
+                Found: false,
+                ProblemId: problemId,
+                Type: null, OuterType: null, OuterMessage: null, InnermostMessage: null,
+                Method: null, OperationName: null, OperationId: null,
+                CloudRoleName: null, SeverityLevel: null, Timestamp: null,
+                ParsedStack: [], CustomDimensions: new Dictionary<string, string>());
+
+        var range = ParseTimeRange(timeRange);
+
+        // `problemId` arrives from a URL segment, so escape any quotes/backslashes
+        // before interpolating into the KQL string literal. KQL's only string-
+        // escape characters are `\` and `"`.
+        var escapedProblemId = (problemId ?? string.Empty)
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
+
+        var rows = await CachedQueryAsync(
+            $"observability:errorDetail:{timeRange}:{problemId}", appId, apiKey,
+            $"""
+            exceptions
+            | where timestamp > {range.Ago}
+            | where problemId == "{escapedProblemId}"
+            | top 1 by timestamp desc
+            | project
+                problemId,
+                type,
+                outerType,
+                outerMessage,
+                innermostMessage,
+                method,
+                operation_Name,
+                operation_Id,
+                cloud_RoleName,
+                severityLevel,
+                timestamp,
+                stackJson = tostring(details[0].parsedStack),
+                customDimensionsJson = tostring(customDimensions)
+            """,
+            cancellationToken);
+
+        if (rows.Count == 0)
+        {
+            return new ErrorDetailResponse(
+                Configured: true,
+                Found: false,
+                ProblemId: problemId,
+                Type: null, OuterType: null, OuterMessage: null, InnermostMessage: null,
+                Method: null, OperationName: null, OperationId: null,
+                CloudRoleName: null, SeverityLevel: null, Timestamp: null,
+                ParsedStack: [], CustomDimensions: new Dictionary<string, string>());
+        }
+
+        var row = rows[0];
+
+        var parsedStack = ParseStackJson(GetString(row, 12));
+        var customDimensions = ParseCustomDimensionsJson(GetString(row, 13));
+
+        return new ErrorDetailResponse(
+            Configured: true,
+            Found: true,
+            ProblemId: NullIfEmpty(GetString(row, 0)),
+            Type: NullIfEmpty(GetString(row, 1)),
+            OuterType: NullIfEmpty(GetString(row, 2)),
+            OuterMessage: NullIfEmpty(GetString(row, 3)),
+            InnermostMessage: NullIfEmpty(GetString(row, 4)),
+            Method: NullIfEmpty(GetString(row, 5)),
+            OperationName: NullIfEmpty(GetString(row, 6)),
+            OperationId: NullIfEmpty(GetString(row, 7)),
+            CloudRoleName: NullIfEmpty(GetString(row, 8)),
+            SeverityLevel: NullIfEmpty(GetString(row, 9)),
+            Timestamp: ParseDateTimeNullable(row, 10),
+            ParsedStack: parsedStack,
+            CustomDimensions: customDimensions);
     }
 
     public async Task<DependencyMetricsResponse> GetDependenciesAsync(
@@ -174,14 +253,26 @@ public class AppInsightsQueryService : IObservabilityService
 
         var range = ParseTimeRange(timeRange);
 
+        // Source: the structured `AguiRunCompleted` log emitted by
+        // AguiStreamingEndpoint on every chat run. This gives us a reliable
+        // per-run row with the agent name already resolved (or
+        // "orchestrator" when the master orchestrator handles the turn),
+        // which is exactly what the Agent Fleet panel needs.
+        //
+        // The previous implementation queried the `dependencies` table
+        // filtered to `type == "Azure OpenAI"` — AONIK uses the plain
+        // OpenAI SDK, so that filter matched nothing and the panel stayed
+        // permanently empty. It also grouped by `gen_ai.operation.name`
+        // (an operation type, not an agent name), which would have yielded
+        // useless rows even if the filter had matched.
         var timeSeriesTask = CachedQueryAsync(
             $"observability:aiTimeSeries:{timeRange}", appId, apiKey,
-            $"dependencies | where timestamp > {range.Ago} | where type == \"Azure OpenAI\" or name contains \"openai\" | summarize count() by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | summarize count() by bin(timestamp, {range.Bin}) | order by timestamp asc",
             cancellationToken);
 
         var byAgentTask = CachedQueryAsync(
             $"observability:aiByAgent:{timeRange}", appId, apiKey,
-            $"dependencies | where timestamp > {range.Ago} | where type == \"Azure OpenAI\" or name contains \"openai\" | extend agentName = tostring(customDimensions[\"gen_ai.operation.name\"]) | summarize calls=count(), avgDuration=avg(duration), totalTokens=sumif(toint(customDimensions[\"gen_ai.usage.output_tokens\"]) + toint(customDimensions[\"gen_ai.usage.input_tokens\"]), isnotempty(customDimensions[\"gen_ai.usage.output_tokens\"])) by agentName | order by calls desc",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend agentName = tostring(customDimensions[\"AgentName\"]), latencyMs = todouble(customDimensions[\"LatencyMs\"]), totalTokens = tolong(customDimensions[\"TotalTokens\"]) | summarize calls=count(), avgDuration=avg(latencyMs), totalTokens=sum(totalTokens) by agentName | order by calls desc",
             cancellationToken);
 
         await Task.WhenAll(timeSeriesTask, byAgentTask);
@@ -790,6 +881,189 @@ public class AppInsightsQueryService : IObservabilityService
     {
         if (index >= row.Length) return string.Empty;
         return row[index].GetString() ?? string.Empty;
+    }
+
+    private static string? NullIfEmpty(string s) =>
+        string.IsNullOrWhiteSpace(s) ? null : s;
+
+    private static DateTime? ParseDateTimeNullable(JsonElement[] row, int index)
+    {
+        if (index >= row.Length) return null;
+        return row[index].ValueKind == JsonValueKind.String
+            && DateTime.TryParse(row[index].GetString(), out var dt)
+                ? dt
+                : null;
+    }
+
+    /// <summary>
+    /// Reads a KQL <c>make_set()</c> / <c>make_list()</c> column, which
+    /// App Insights returns either inline (<see cref="JsonValueKind.Array"/>)
+    /// or as a JSON-encoded string. Returns an empty list on nulls or
+    /// parse failures so callers never have to null-check.
+    /// </summary>
+    private static IReadOnlyList<string> GetStringArray(JsonElement[] row, int index)
+    {
+        if (index >= row.Length) return [];
+        var cell = row[index];
+
+        switch (cell.ValueKind)
+        {
+            case JsonValueKind.Array:
+                return cell.EnumerateArray()
+                    .Select(e => e.ValueKind == JsonValueKind.String
+                        ? e.GetString() ?? string.Empty
+                        : e.ToString())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .ToList();
+
+            case JsonValueKind.String:
+                var str = cell.GetString();
+                if (string.IsNullOrWhiteSpace(str)) return [];
+                try
+                {
+                    using var doc = JsonDocument.Parse(str);
+                    if (doc.RootElement.ValueKind != JsonValueKind.Array) return [];
+                    return doc.RootElement.EnumerateArray()
+                        .Select(e => e.ValueKind == JsonValueKind.String
+                            ? e.GetString() ?? string.Empty
+                            : e.ToString())
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .ToList();
+                }
+                catch (JsonException)
+                {
+                    return [];
+                }
+
+            default:
+                return [];
+        }
+    }
+
+    // ── Error-group helpers ──────────────────────────────────────────
+    //
+    // The errors-tab list and the overview's top-errors list share the
+    // same projection so they stay in lock-step. KQL is built once here
+    // and fed into CachedQueryAsync with independent cache keys.
+
+    private static string BuildErrorGroupsKql(string ago) =>
+        $$"""
+        exceptions
+        | where timestamp > {{ago}}
+        | extend firstMethod = tostring(details[0].parsedStack[0].method)
+        | extend groupedMethod = iff(isempty(method), firstMethod, method)
+        | summarize
+            count=count(),
+            lastSeen=max(timestamp),
+            sampleOperationId=any(operation_Id),
+            operations=make_set(operation_Name, 5),
+            roles=make_set(cloud_RoleName, 3)
+          by problemId, type, outerMessage, innermostMessage, groupedMethod
+        | order by count desc
+        | take 50
+        """;
+
+    /// <summary>
+    /// Parses a row produced by <see cref="BuildErrorGroupsKql"/>. The
+    /// column order is problemId, type, outerMessage, innermostMessage,
+    /// method, count, lastSeen, sampleOperationId, operations, roles.
+    /// </summary>
+    private static ErrorGroup ParseErrorGroupRow(JsonElement[] row)
+    {
+        var operations = GetStringArray(row, 8);
+        var roles = GetStringArray(row, 9);
+
+        return new ErrorGroup(
+            Type: GetString(row, 1),
+            OuterMessage: GetString(row, 2),
+            InnermostMessage: GetString(row, 3),
+            Count: (long)ParseDouble(row, 5),
+            LastSeen: ParseDateTime(row, 6),
+            ProblemId: NullIfEmpty(GetString(row, 0)),
+            Method: NullIfEmpty(GetString(row, 4)),
+            SampleOperationId: NullIfEmpty(GetString(row, 7)),
+            Operations: operations.Count > 0 ? operations : null,
+            Roles: roles.Count > 0 ? roles : null);
+    }
+
+    /// <summary>
+    /// Parses the <c>details[0].parsedStack</c> JSON array returned by
+    /// <c>GetErrorDetailAsync</c>. The App Insights schema for each
+    /// frame is <c>{ level, method, assembly, fileName, line }</c> with
+    /// any field optional.
+    /// </summary>
+    private static IReadOnlyList<ErrorStackFrame> ParseStackJson(string stackJson)
+    {
+        if (string.IsNullOrWhiteSpace(stackJson) || stackJson == "null") return [];
+
+        try
+        {
+            using var doc = JsonDocument.Parse(stackJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return [];
+
+            var frames = new List<ErrorStackFrame>();
+            foreach (var frame in doc.RootElement.EnumerateArray())
+            {
+                if (frame.ValueKind != JsonValueKind.Object) continue;
+
+                int level = frame.TryGetProperty("level", out var lvl) && lvl.ValueKind == JsonValueKind.Number
+                    ? lvl.GetInt32()
+                    : frames.Count;
+                string? method = frame.TryGetProperty("method", out var m) && m.ValueKind == JsonValueKind.String
+                    ? m.GetString()
+                    : null;
+                string? assembly = frame.TryGetProperty("assembly", out var a) && a.ValueKind == JsonValueKind.String
+                    ? a.GetString()
+                    : null;
+                string? fileName = frame.TryGetProperty("fileName", out var f) && f.ValueKind == JsonValueKind.String
+                    ? f.GetString()
+                    : null;
+                int? line = frame.TryGetProperty("line", out var l) && l.ValueKind == JsonValueKind.Number
+                    ? l.GetInt32()
+                    : null;
+
+                frames.Add(new ErrorStackFrame(level, method, assembly, fileName, line));
+            }
+
+            return frames;
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Flattens the <c>customDimensions</c> bag into a string-keyed
+    /// dictionary. Nested objects and arrays are JSON-stringified so the
+    /// UI can display them inline without a recursive renderer.
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> ParseCustomDimensionsJson(string json)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(json) || json == "null") return result;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return result;
+
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                result[prop.Name] = prop.Value.ValueKind switch
+                {
+                    JsonValueKind.String => prop.Value.GetString() ?? string.Empty,
+                    JsonValueKind.Null => string.Empty,
+                    _ => prop.Value.ToString(),
+                };
+            }
+        }
+        catch (JsonException)
+        {
+            // Leave result empty — corrupted customDimensions shouldn't blank out the page.
+        }
+
+        return result;
     }
 
     // ── App Insights response model ──────────────────────────────────

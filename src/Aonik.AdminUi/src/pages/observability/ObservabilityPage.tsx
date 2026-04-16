@@ -25,6 +25,7 @@ import {
   type ObservabilityOverviewResponse,
   type ErrorsResponse,
   type ErrorGroup,
+  type ErrorDetailResponse,
   type DependencyMetricsResponse,
   type AiPerformanceResponse,
   type JobMetricsResponse,
@@ -158,14 +159,25 @@ function NotConfiguredBanner() {
 // Expandable error row
 // ---------------------------------------------------------------------------
 
+/// State for a single error-detail fetch. Kept narrow so the page can
+/// share one cache across every expanded row and we don't refetch when
+/// a user collapses and re-expands the same row.
+type ErrorDetailState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'loaded'; detail: ErrorDetailResponse }
+  | { status: 'error'; message: string };
+
 function ErrorRow({
   error,
   expanded,
   onToggle,
+  detailState,
 }: {
   error: ErrorGroup;
   expanded: boolean;
   onToggle: () => void;
+  detailState: ErrorDetailState;
 }) {
   return (
     <>
@@ -187,6 +199,11 @@ function ErrorRow({
         </td>
         <td className="px-4 py-3 text-sm text-[var(--color-text-primary)] max-w-xs truncate">
           {error.outerMessage}
+          {error.method && (
+            <div className="text-[11px] text-[var(--color-text-tertiary)] font-mono truncate mt-0.5">
+              at {error.method}
+            </div>
+          )}
         </td>
         <td className="px-4 py-3 text-sm text-[var(--color-text-primary)] text-right font-medium">
           {error.count}
@@ -195,17 +212,143 @@ function ErrorRow({
           {relativeTime(error.lastSeen)}
         </td>
       </tr>
-      {expanded && error.innermostMessage && (
+      {expanded && (
         <tr>
           <td colSpan={4} className="px-4 py-2">
-            <div className="text-xs bg-[var(--color-surface-inset)] p-3 rounded-md">
-              <span className="text-[var(--color-text-tertiary)]">Innermost: </span>
-              <span className="text-[var(--color-text-primary)]">{error.innermostMessage}</span>
-            </div>
+            <ErrorDetailPanel error={error} detailState={detailState} />
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+/// Expanded panel showing the row-level summary plus the lazily-fetched
+/// detail (parsed stack, operation id, custom dimensions). Keeps each
+/// section conditional so the panel degrades gracefully when older
+/// exceptions lack a problemId or App Insights returns a partial payload.
+function ErrorDetailPanel({
+  error,
+  detailState,
+}: {
+  error: ErrorGroup;
+  detailState: ErrorDetailState;
+}) {
+  const detail = detailState.status === 'loaded' ? detailState.detail : null;
+
+  return (
+    <div className="text-xs bg-[var(--color-surface-inset)] p-3 rounded-md space-y-3">
+      {/* Header summary always available from the list row itself */}
+      {error.innermostMessage && (
+        <div>
+          <span className="text-[var(--color-text-tertiary)]">Innermost: </span>
+          <span className="text-[var(--color-text-primary)]">
+            {error.innermostMessage}
+          </span>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-[var(--color-text-secondary)]">
+        {error.roles && error.roles.length > 0 && (
+          <span>
+            <span className="text-[var(--color-text-tertiary)]">Services: </span>
+            <span className="font-mono text-[var(--color-text-primary)]">
+              {error.roles.join(', ')}
+            </span>
+          </span>
+        )}
+        {error.operations && error.operations.length > 0 && (
+          <span className="max-w-full">
+            <span className="text-[var(--color-text-tertiary)]">
+              Operations:{' '}
+            </span>
+            <span className="font-mono text-[var(--color-text-primary)]">
+              {error.operations.join(', ')}
+            </span>
+          </span>
+        )}
+        {error.sampleOperationId && (
+          <span>
+            <span className="text-[var(--color-text-tertiary)]">
+              Sample operation:{' '}
+            </span>
+            <span className="font-mono text-[var(--color-text-primary)]">
+              {error.sampleOperationId}
+            </span>
+          </span>
+        )}
+      </div>
+
+      {/* Detail payload — lazily loaded on expand */}
+      {detailState.status === 'loading' && (
+        <div className="flex items-center gap-2 text-[var(--color-text-tertiary)]">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Loading exception details…
+        </div>
+      )}
+
+      {detailState.status === 'error' && (
+        <div className="text-[var(--color-error)]">
+          Couldn't load details: {detailState.message}
+        </div>
+      )}
+
+      {detail && !detail.found && (
+        <div className="text-[var(--color-text-tertiary)]">
+          No sample exception is retained in the active time range. Widen the
+          time range to pull a fresh sample.
+        </div>
+      )}
+
+      {detail?.found && (
+        <div className="space-y-3">
+          {detail.parsedStack.length > 0 ? (
+            <div>
+              <div className="text-[var(--color-text-tertiary)] mb-1">
+                Stack trace
+              </div>
+              <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-[var(--color-text-primary)] bg-[var(--color-surface)] p-2 rounded border border-[var(--color-border-light)] overflow-x-auto">
+                {detail.parsedStack
+                  .map((frame) => {
+                    const method = frame.method ?? '<unknown>';
+                    const location =
+                      frame.fileName && frame.line != null
+                        ? ` (${frame.fileName}:${frame.line})`
+                        : frame.fileName
+                          ? ` (${frame.fileName})`
+                          : '';
+                    const asm = frame.assembly ? ` — ${frame.assembly}` : '';
+                    return `  at ${method}${location}${asm}`;
+                  })
+                  .join('\n')}
+              </pre>
+            </div>
+          ) : (
+            <div className="text-[var(--color-text-tertiary)]">
+              No parsed stack trace was captured for this exception.
+            </div>
+          )}
+
+          {Object.keys(detail.customDimensions).length > 0 && (
+            <div>
+              <div className="text-[var(--color-text-tertiary)] mb-1">
+                Custom dimensions
+              </div>
+              <div className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-0.5 font-mono text-[11px]">
+                {Object.entries(detail.customDimensions).map(([k, v]) => (
+                  <div key={k} className="contents">
+                    <div className="text-[var(--color-text-tertiary)]">{k}</div>
+                    <div className="text-[var(--color-text-primary)] break-all">
+                      {v}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -234,6 +377,13 @@ export function ObservabilityPage() {
   const [errorsLoading, setErrorsLoading] = useState(false);
   const [errorsError, setErrorsError] = useState<string | null>(null);
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
+  // Drill-down detail cache, keyed by `problemId`. Populated lazily when
+  // a row is expanded so we never pay the App Insights detail query for
+  // rows the user isn't looking at. Rows without a problemId stay on the
+  // summary view only.
+  const [errorDetails, setErrorDetails] = useState<
+    Map<string, ErrorDetailState>
+  >(new Map());
 
   // Errors tab facet + mute state. Mutes persist in localStorage so a
   // noisy-but-known error can stay hidden across reloads without touching
@@ -406,11 +556,52 @@ export function ObservabilityPage() {
     if (activeTab === 'topology') fetchTopology(timeRange);
   };
 
-  const toggleErrorExpanded = (idx: number) => {
+  /// Lazily fetches detail for a single error group. Idempotent: multiple
+  /// calls for the same problemId while loading collapse to one HTTP
+  /// request, and completed results stay cached for the session so
+  /// collapsing/re-expanding the row is free.
+  const ensureErrorDetail = useCallback(
+    (problemId: string | null | undefined, tr: string) => {
+      if (!problemId) return;
+      setErrorDetails((prev) => {
+        const existing = prev.get(problemId);
+        if (existing && existing.status !== 'idle') return prev;
+        const next = new Map(prev);
+        next.set(problemId, { status: 'loading' });
+        return next;
+      });
+
+      observabilityService
+        .getErrorDetail(problemId, tr)
+        .then((detail) => {
+          setErrorDetails((prev) => {
+            const next = new Map(prev);
+            next.set(problemId, { status: 'loaded', detail });
+            return next;
+          });
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          setErrorDetails((prev) => {
+            const next = new Map(prev);
+            next.set(problemId, { status: 'error', message });
+            return next;
+          });
+        });
+    },
+    [],
+  );
+
+  const toggleErrorExpanded = (idx: number, error: ErrorGroup) => {
     setExpandedErrors((prev) => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+        // Kick off the detail fetch on first expand only; cached on subsequent.
+        ensureErrorDetail(error.problemId ?? null, timeRange);
+      }
       return next;
     });
   };
@@ -1140,10 +1331,17 @@ export function ObservabilityPage() {
                 <tbody>
                   {visibleErrors.map((error, idx) => (
                     <ErrorRow
-                      key={`${error.type}-${idx}`}
+                      key={`${error.problemId ?? error.type}-${idx}`}
                       error={error}
                       expanded={expandedErrors.has(idx)}
-                      onToggle={() => toggleErrorExpanded(idx)}
+                      onToggle={() => toggleErrorExpanded(idx, error)}
+                      detailState={
+                        error.problemId
+                          ? errorDetails.get(error.problemId) ?? {
+                              status: 'idle',
+                            }
+                          : { status: 'idle' }
+                      }
                     />
                   ))}
                   {visibleErrors.length === 0 && (
