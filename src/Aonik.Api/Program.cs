@@ -206,7 +206,7 @@ app.Use(async (context, next) =>
             context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
             context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
             context.Response.Headers.Append("Access-Control-Allow-Headers",
-                "Authorization, Content-Type, X-Tenant-Id, Accept, X-Requested-With");
+                "Authorization, Content-Type, X-Tenant-Id, Accept, X-Requested-With, X-AgUi-Trace-Id");
             context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
             context.Response.Headers.Append("Access-Control-Max-Age", "86400");
             context.Response.StatusCode = StatusCodes.Status204NoContent;
