@@ -558,8 +558,9 @@ class LiveChatRepository implements ChatRepository {
       case RunStartedEvent():
         // Mark this threadId as server-confirmed — subsequent turns on this
         // thread can run in thin-client mode (send only the new user turn).
-        if (event.threadId.isNotEmpty) {
-          _serverConfirmedThreadIds.add(event.threadId);
+        final startedThreadId = event.threadId;
+        if (startedThreadId != null && startedThreadId.isNotEmpty) {
+          _serverConfirmedThreadIds.add(startedThreadId);
         }
         return ChatStreamStarted(
           threadId: event.threadId,
