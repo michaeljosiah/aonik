@@ -62,12 +62,18 @@ class _SpendingAccountsScreenState
         if (!summary.hasAccounts) {
           return Scaffold(
             backgroundColor: c.surfaceWarm,
-            body: _AccountsEmptyLayout(
-              isFreshDemo: isFreshDemo,
-              onSectionSelected: _handleSectionSelected,
-              onConnectTap: () => _showConnectSheet(context, ref),
-              onUploadTap: () => _showUploadMessage(context),
-              onAddManualTap: () => _showManualMessage(context),
+            body: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                _AccountsEmptyLayout(
+                  isFreshDemo: isFreshDemo,
+                  onSectionSelected: _handleSectionSelected,
+                  onConnectTap: () => _showConnectSheet(context, ref),
+                  onUploadTap: () => _showUploadMessage(context),
+                  onAddManualTap: () => _showManualMessage(context),
+                ),
+                if (isRefreshingSummary) const _AccountsRefreshingOverlay(),
+              ],
             ),
             bottomNavigationBar: const PayaboPrimaryAppShell(
               destination: PayaboPrimaryDestination.spending,
@@ -531,82 +537,81 @@ class _AccountsEmptyLayout extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(PayaboSpacing.x4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: c.primary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.account_balance_outlined,
-                          size: 36,
-                          color: c.primary,
-                        ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(PayaboSpacing.x4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: c.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: PayaboSpacing.xl),
-                      Text(
-                        isFreshDemo
-                            ? 'Fresh accounts state'
-                            : 'No linked accounts yet',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: c.accentBrown,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      child: Icon(
+                        Icons.account_balance_outlined,
+                        size: 36,
+                        color: c.primary,
                       ),
-                      const SizedBox(height: PayaboSpacing.sm),
-                      Text(
-                        isFreshDemo
-                            ? 'Fresh demo mode starts this hub blank so you can plan your first secure account connection.'
-                            : 'Connect a bank or add a manual account to widen spend coverage.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: c.muted,
-                          height: 1.5,
-                        ),
-                        textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: PayaboSpacing.xl),
+                    Text(
+                      isFreshDemo
+                          ? 'Fresh accounts state'
+                          : 'No linked accounts yet',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: c.accentBrown,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: PayaboSpacing.xl),
-                      SizedBox(
-                        width: double.infinity,
-                        child: PayaboButton(
-                          label: 'Connect bank account',
-                          leading:
-                              const Icon(Icons.add_link_outlined, size: 18),
-                          onPressed: onConnectTap,
-                        ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.sm),
+                    Text(
+                      isFreshDemo
+                          ? 'Fresh demo mode starts this hub blank so you can plan your first secure account connection.'
+                          : 'Connect a bank or add a manual account to widen spend coverage.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: c.muted,
+                        height: 1.5,
                       ),
-                      const SizedBox(height: PayaboSpacing.sm),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: PayaboButton(
-                              label: 'Upload statement',
-                              variant: PayaboButtonVariant.link,
-                              leading: const Icon(Icons.upload_file_outlined,
-                                  size: 18),
-                              onPressed: onUploadTap,
-                            ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: PayaboSpacing.xl),
+                    SizedBox(
+                      width: double.infinity,
+                      child: PayaboButton(
+                        key: const Key('accounts-connect-primary'),
+                        label: 'Connect bank account',
+                        leading:
+                            const Icon(Icons.add_link_outlined, size: 18),
+                        onPressed: onConnectTap,
+                      ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.sm),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: PayaboButton(
+                            label: 'Upload statement',
+                            variant: PayaboButtonVariant.link,
+                            leading: const Icon(Icons.upload_file_outlined,
+                                size: 18),
+                            onPressed: onUploadTap,
                           ),
-                          const SizedBox(width: PayaboSpacing.sm),
-                          Expanded(
-                            child: PayaboButton(
-                              label: 'Add manual',
-                              variant: PayaboButtonVariant.link,
-                              leading: const Icon(Icons.edit_note_outlined,
-                                  size: 18),
-                              onPressed: onAddManualTap,
-                            ),
+                        ),
+                        const SizedBox(width: PayaboSpacing.sm),
+                        Expanded(
+                          child: PayaboButton(
+                            label: 'Add manual',
+                            variant: PayaboButtonVariant.link,
+                            leading: const Icon(Icons.edit_note_outlined,
+                                size: 18),
+                            onPressed: onAddManualTap,
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),

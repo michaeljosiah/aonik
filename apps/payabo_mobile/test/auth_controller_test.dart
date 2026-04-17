@@ -424,7 +424,11 @@ class _SwitchingProfileRepository implements ProfileRepository {
   }) async {}
 
   @override
-  Future<String> uploadPhoto(String filePath) async {
+  Future<String> uploadPhoto(
+    String filePath, {
+    String? fileName,
+    String? contentType,
+  }) async {
     _profile = UserProfile(
       firstName: _profile.firstName,
       lastName: _profile.lastName,

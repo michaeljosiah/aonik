@@ -112,6 +112,11 @@ class _RecordingAccountLinksRepository implements AccountLinksRepository {
   ) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<void> deleteManualAccount(String accountId) {
+    throw UnimplementedError();
+  }
 }
 
 class _DelayedRefreshAccountLinksRepository
