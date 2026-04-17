@@ -179,6 +179,18 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
                 </>
               }
               callouts={callouts}
+              panelKind="errors"
+              getMetrics={() => ({
+                totalErrors: errorMetrics?.total ?? 0,
+                errorRatePercent: errorMetrics?.errorRatePercent ?? 0,
+                totalRequests: overview?.requests?.total ?? null,
+                topErrors: errorGroups.slice(0, 5).map((e) => ({
+                  type: e.type,
+                  message: e.innermostMessage || e.outerMessage,
+                  count: e.count,
+                  lastSeen: e.lastSeen,
+                })),
+              })}
             />
           </div>
           <p className="text-xs text-[var(--color-text-secondary)]">

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Aonik.Platform.Contracts.Api.Observability;
 
 // ── Request ──────────────────────────────────────────────────────────
@@ -259,3 +261,18 @@ public record TopologyResponse(
     IReadOnlyList<TopologyNode> Nodes,
     IReadOnlyList<TopologyEdge> Edges,
     DateTime GeneratedAt);
+
+// ── Explain ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// LLM-assisted panel summary request. <see cref="Metrics"/> is an opaque
+/// JSON blob: the caller picks a small, panel-specific slice of the data
+/// currently on screen (totals, percentiles, top agent, etc.) rather than
+/// dumping the full response.
+/// </summary>
+public record ExplainObservabilityPanelRequest(
+    string PanelKind,
+    JsonElement Metrics);
+
+public record ExplainObservabilityPanelResponse(
+    string Summary);

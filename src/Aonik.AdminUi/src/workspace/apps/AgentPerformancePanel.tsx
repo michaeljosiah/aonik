@@ -133,6 +133,8 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
                   'Observability is not configured — connect Application Insights to populate this panel.',
               },
             ]}
+            panelKind="performance"
+            getMetrics={() => ({ configured: false })}
           />
         </div>
         <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
@@ -227,6 +229,41 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
               title="Performance Monitor"
               description={performanceDescription}
               callouts={callouts}
+              panelKind="performance"
+              getMetrics={() => ({
+                latency: latency
+                  ? {
+                      p50Ms: Math.round(latency.p50Ms),
+                      p75Ms: Math.round(latency.p75Ms),
+                      p90Ms: Math.round(latency.p90Ms),
+                      p95Ms: Math.round(latency.p95Ms),
+                      p99Ms: Math.round(latency.p99Ms),
+                    }
+                  : null,
+                ttft: data.ttft
+                  ? {
+                      p50Ms: Math.round(data.ttft.p50Ms),
+                      p95Ms: Math.round(data.ttft.p95Ms),
+                    }
+                  : null,
+                tokenUsage: tokens
+                  ? {
+                      totalInputTokens: tokens.totalInputTokens,
+                      totalOutputTokens: tokens.totalOutputTokens,
+                      avgInputPerRun: Math.round(tokens.avgInputTokensPerRun),
+                      avgOutputPerRun: Math.round(tokens.avgOutputTokensPerRun),
+                    }
+                  : null,
+                clientServer: clientServer
+                  ? {
+                      avgClientRoundTripMs: Math.round(clientServer.avgClientRoundTripMs),
+                      avgServerLatencyMs: Math.round(clientServer.avgServerLatencyMs),
+                      avgNetworkOverheadMs: Math.round(clientServer.avgNetworkOverheadMs),
+                    }
+                  : null,
+                agentCount: data.byAgent.length,
+                selectedAgent,
+              })}
             />
           </div>
           <p className="text-xs text-[var(--color-text-secondary)]">

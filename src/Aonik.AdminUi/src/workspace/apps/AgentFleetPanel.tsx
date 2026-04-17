@@ -133,6 +133,8 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
                   'Observability is not configured — connect Application Insights to populate this panel.',
               },
             ]}
+            panelKind="fleet"
+            getMetrics={() => ({ configured: false })}
           />
         </div>
         <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
@@ -221,6 +223,22 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
               title="Agent Fleet"
               description={fleetDescription}
               callouts={callouts}
+              panelKind="fleet"
+              getMetrics={() => ({
+                totalCalls: data.totalCalls,
+                avgDurationMs: Math.round(data.avgDurationMs),
+                totalTokens,
+                agentCount: agents.length,
+                topAgents: [...agents]
+                  .sort((a, b) => b.calls - a.calls)
+                  .slice(0, 5)
+                  .map((a) => ({
+                    name: a.agentName,
+                    calls: a.calls,
+                    avgDurationMs: Math.round(a.avgDurationMs),
+                    tokens: a.totalTokens,
+                  })),
+              })}
             />
           </div>
           <p className="text-xs text-[var(--color-text-secondary)]">

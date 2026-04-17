@@ -253,6 +253,20 @@ export interface TopologyResponse {
   generatedAt: string;
 }
 
+// ── Explain ─────────────────────────────────────────────────────────
+
+export type ObservabilityPanelKind = 'fleet' | 'performance' | 'cost' | 'errors';
+
+export interface ExplainObservabilityPanelRequest {
+  panelKind: ObservabilityPanelKind;
+  /** Panel-specific slice of the data currently on screen (opaque to the API). */
+  metrics: unknown;
+}
+
+export interface ExplainObservabilityPanelResponse {
+  summary: string;
+}
+
 // ── Service ─────────────────────────────────────────────────────────
 
 export const observabilityService = {
@@ -291,5 +305,10 @@ export const observabilityService = {
   getTopology: (timeRange = '24h') =>
     api.get<TopologyResponse>(
       `/admin/observability/topology?timeRange=${timeRange}`,
+    ),
+  explainPanel: (panelKind: ObservabilityPanelKind, metrics: unknown) =>
+    api.post<ExplainObservabilityPanelResponse>(
+      '/admin/observability/explain',
+      { panelKind, metrics },
     ),
 };

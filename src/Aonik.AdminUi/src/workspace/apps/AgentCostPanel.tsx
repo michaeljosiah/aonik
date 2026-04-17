@@ -169,6 +169,29 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
                 </>
               }
               callouts={callouts}
+              panelKind="cost"
+              getMetrics={() => ({
+                totalTokens,
+                totalInputTokens: totalInput,
+                totalOutputTokens: totalOutput,
+                totalCalls: ai?.totalCalls ?? null,
+                agentCount: filteredAgents.length,
+                selectedAgent,
+                topAgents: [...filteredAgents]
+                  .sort(
+                    (a, b) =>
+                      b.totalInputTokens +
+                      b.totalOutputTokens -
+                      (a.totalInputTokens + a.totalOutputTokens),
+                  )
+                  .slice(0, 5)
+                  .map((a) => ({
+                    name: a.agentName,
+                    inputTokens: a.totalInputTokens,
+                    outputTokens: a.totalOutputTokens,
+                    runs: a.runs,
+                  })),
+              })}
             />
           </div>
           <p className="text-xs text-[var(--color-text-secondary)]">
