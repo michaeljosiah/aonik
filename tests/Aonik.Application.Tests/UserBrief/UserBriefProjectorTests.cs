@@ -135,28 +135,6 @@ public class UserBriefProjectorTests
         ],
         RiskFlags: ["Budget pressure level: Moderate", "Merchant concentration is high in GBP (45%)."]);
 
-    private static UserBriefCustomerInsightAiSummaryData CreateAiSummaryData() => new(
-        Headline: "Cash position is stable with rising discretionary pressure",
-        Summary: "Core cashflow remains healthy, but entertainment and food spending need tighter follow-up.",
-        KeyObservations:
-        [
-            "Income still covers current obligations comfortably.",
-            "Late-month spending spikes keep showing up.",
-            "Food and entertainment are the main pressure points."
-        ],
-        RecommendedFocusAreas:
-        [
-            "Review discretionary categories before month end.",
-            "Confirm whether the latest spending spike was exceptional."
-        ],
-        ReferencedMetricKeys:
-        [
-            "metrics.cashPosition.totalBalanceByCurrency",
-            "metrics.categories.topCategoriesByAmount",
-            "signals.late_month_spike"
-        ],
-        Caveats: ["Interpretation is grounded in the latest deterministic snapshot."]);
-
     [Fact]
     public async Task ProjectAsync_Should_AssembleCompleteBrief()
     {
@@ -167,56 +145,7 @@ public class UserBriefProjectorTests
             [
                 new("Preference", "communication.style", "\"concise\"", 1.0m, "UserStated"),
                 new("Identity", "identity.preferred_name", "\"Ade\"", 1.0m, "UserStated")
-            ],
-            CustomerInsightAiSummary = CreateAiSummaryData()
-        };
-        var userContextData = new StubUserContextDataProvider();
-        using var db = CreateDbContext();
-        var logger = NullLogger<UserBriefProjector>.Instance;
-
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, logger);
-        var brief = await projector.ProjectAsync(TenantId, UserId);
-
-        brief.Should().NotBeNull();
-        brief.UserProfile.PreferredName.Should().Be("Ade");
-        brief.UserProfile.FullName.Should().Be("Jaden Josiah");
-        brief.UserProfile.GivenName.Should().Be("Jaden");
-        brief.UserProfile.Email.Should().Be("jaden@example.com");
-        brief.UserProfile.CommunicationStyle.Should().Be("concise");
-        brief.UserProfile.CorridorCountries.Should().Contain("GB").And.Contain("NG");
-        brief.UserProfile.HouseholdContext.Should().Be("Supporting mother + sister in Lagos");
-        brief.SetupProfile.Should().NotBeNull();
-        brief.SetupProfile!.SelectedUseCases.Should().Contain("Track spending");
-        brief.DataAvailability.IsNewUser.Should().BeFalse();
-        brief.CurrentState.CashSummary.TotalBalance.Should().Be(5000m);
-        brief.CurrentState.NextBills.Should().HaveCount(1);
-        brief.CurrentState.NextBills[0].Payee.Should().Be("Rent");
-        brief.CurrentState.Subscriptions.Should().HaveCount(1);
-        brief.FinancialFocus.CurrentGoals.Should().HaveCount(1);
-        brief.FinancialFocus.SupportObligations.Should().HaveCount(1);
-        brief.CustomerInsightSnapshot.Should().NotBeNull();
-        brief.CustomerInsightSnapshot!.IsPartial.Should().BeFalse();
-        brief.CustomerInsightSnapshot.TopCategorySpend.Should().ContainSingle(x => x.Name == "Food");
-        brief.CustomerInsightAiInterpretation.Should().NotBeNull();
-        brief.CustomerInsightAiInterpretation!.Headline.Should().Contain("Cash position is stable");
-        brief.BehaviouralInsights.Should().HaveCount(1);
-        brief.CashflowRisk.Should().Be(CashflowRisk.Low); // 4500 > 2 * 1200
-        brief.GeneratedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
-    }
-
-    [Fact]
-    public async Task ProjectAsync_Should_FallbackToPartialSnapshot_When_SnapshotIsPartial()
-    {
-        var financeData = new StubFinanceDataProvider
-        {
-            Data = CreateMinimalFinancialData() with
-            {
-                CustomerInsightSnapshot = CreateSnapshotData(isPartial: true)
-            }
-        };
-        var aiData = new StubAiDataProvider
-        {
-            CustomerInsightAiSummary = CreateAiSummaryData()
+            ]
         };
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
@@ -224,17 +153,35 @@ public class UserBriefProjectorTests
         var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
-        brief.CustomerInsightSnapshot.Should().NotBeNull();
-        brief.CustomerInsightSnapshot!.IsPartial.Should().BeTrue();
-        brief.CustomerInsightSnapshot.CoverageWarnings.Should().Contain("Deterministic customer insight snapshot is partial.");
-        brief.CustomerInsightAiInterpretation.Should().NotBeNull();
-        brief.CustomerInsightAiInterpretation!.Caveats.Should().Contain("Underlying deterministic snapshot is partial; treat AI interpretation as lower certainty.");
+        brief.Should().NotBeNull();
+        brief.User.Name.Should().Be("Ade");
+        brief.User.Country.Should().Be("GB");
+        brief.Goals.Should().Contain("Track spending").And.Contain("Emergency fund");
+        brief.Cash.Should().NotBeNull();
+        brief.Cash!.Balance.Should().Be(5000m);
+        brief.Cash.Currency.Should().Be("GBP");
+        brief.Period.Should().NotBeNull();
+        brief.Period!.Inflows.Should().Be(3200m);
+        brief.Period.Outflows.Should().Be(2400m);
+        brief.Period.Currency.Should().Be("GBP");
+        brief.TopCategories.Should().Contain(c => c.Name == "Food" && c.Amount == 400m);
+        brief.TopMerchants.Should().Contain(m => m.Name == "Tesco" && m.Amount == 250m);
+        brief.Signals.Should().ContainSingle().Which.Title.Should().Be("Late-month spend spike");
+        brief.Signals[0].Severity.Should().Be("Moderate");
+        brief.Risks.Should().Contain("Budget pressure level: Moderate");
+        brief.CashflowRisk.Should().Be(CashflowRisk.Low); // 4500 > 2 * 1200
+        brief.AiCanDo.Should().Contain("view_balances");
+        brief.AiNeedsApproval.Should().Contain("initiate_payment");
+        brief.AsOf.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
     }
 
     [Fact]
-    public async Task ProjectAsync_Should_OmitAiInterpretation_When_NoCurrentAiSummaryExists()
+    public async Task ProjectAsync_Should_FallbackToCategorySpendFromSpendSummaries_When_SnapshotMissing()
     {
-        var financeData = new StubFinanceDataProvider();
+        var financeData = new StubFinanceDataProvider
+        {
+            Data = CreateMinimalFinancialData() with { CustomerInsightSnapshot = null }
+        };
         var aiData = new StubAiDataProvider();
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
@@ -242,38 +189,12 @@ public class UserBriefProjectorTests
         var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
-        brief.CustomerInsightSnapshot.Should().NotBeNull();
-        brief.CustomerInsightAiInterpretation.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task ProjectAsync_Should_PrioritizeSnapshotAndAiInterpretation_When_TokenBudgetIsTight()
-    {
-        var financeData = new StubFinanceDataProvider();
-        var aiData = new StubAiDataProvider
-        {
-            CustomerInsightAiSummary = CreateAiSummaryData()
-        };
-        var userContextData = new StubUserContextDataProvider();
-        using var db = CreateDbContext();
-
-        db.ChatThreads.Add(new ChatThread
-        {
-            TenantId = TenantId,
-            UserId = UserId,
-            Title = "History",
-            Status = ChatThreadStatus.Archived,
-            LastMessageAt = DateTime.UtcNow,
-            MessageCount = 2
-        });
-        await db.SaveChangesAsync();
-
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
-        var brief = await projector.ProjectAsync(TenantId, UserId, new UserBriefOptions { TokenBudget = 200 });
-
-        brief.CustomerInsightSnapshot.Should().NotBeNull();
-        brief.CustomerInsightAiInterpretation.Should().NotBeNull();
-        brief.BehaviouralInsights.Count.Should().BeLessThanOrEqualTo(1);
+        brief.Period.Should().BeNull();
+        brief.TopMerchants.Should().BeEmpty();
+        brief.Signals.Should().BeEmpty();
+        brief.Risks.Should().BeEmpty();
+        brief.TopCategories.Should().Contain(c => c.Name == "Food" && c.Amount == 400m);
+        brief.MissingData.Should().Contain("customer_insight_snapshot");
     }
 
     [Fact]
@@ -321,14 +242,13 @@ public class UserBriefProjectorTests
     }
 
     [Fact]
-    public async Task ProjectAsync_Should_IncludeConversationMemory_When_SummariesExist()
+    public async Task ProjectAsync_Should_MarkConversationHistoryPresent_When_SummariesExist()
     {
         var financeData = new StubFinanceDataProvider();
         var aiData = new StubAiDataProvider();
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        // Seed a conversation summary
         var thread = new ChatThread
         {
             TenantId = TenantId,
@@ -357,13 +277,11 @@ public class UserBriefProjectorTests
         var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
-        brief.RecentConversationMemory.Should().HaveCount(1);
-        brief.RecentConversationMemory[0].Summary.Should().Contain("budget overruns");
-        brief.RecentConversationMemory[0].OpenLoops.Should().HaveCount(1);
+        brief.MissingData.Should().NotContain("conversation_history");
     }
 
     [Fact]
-    public async Task ProjectAsync_Should_ReturnEmptyCollections_When_NoDataExists()
+    public async Task ProjectAsync_Should_ReturnEmptyCollectionsAndNullCash_When_NoDataExists()
     {
         var financeData = new StubFinanceDataProvider
         {
@@ -390,16 +308,19 @@ public class UserBriefProjectorTests
         var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
-        brief.CurrentState.NextBills.Should().BeEmpty();
-        brief.CurrentState.Subscriptions.Should().BeEmpty();
-        brief.FinancialFocus.CurrentGoals.Should().BeEmpty();
-        brief.BehaviouralInsights.Should().BeEmpty();
-        brief.RecentConversationMemory.Should().BeEmpty();
-        brief.CashflowRisk.Should().Be(CashflowRisk.Low); // No obligations = Low risk
+        brief.Cash.Should().BeNull();
+        brief.Period.Should().BeNull();
+        brief.TopCategories.Should().BeEmpty();
+        brief.TopMerchants.Should().BeEmpty();
+        brief.Signals.Should().BeEmpty();
+        brief.Risks.Should().BeEmpty();
+        brief.User.Country.Should().BeNull();
+        brief.CashflowRisk.Should().Be(CashflowRisk.Low);
+        brief.MissingData.Should().Contain(["accounts", "transactions", "goals", "bills_and_subscriptions", "customer_insight_snapshot", "conversation_history"]);
     }
 
     [Fact]
-    public async Task ProjectAsync_Should_FallbackToUserNameAndMarkNewUser_When_NoPreferredNameOrFinancialHistoryExists()
+    public async Task ProjectAsync_Should_FallbackToFirstName_When_NoPreferredNameMemory()
     {
         var financeData = new StubFinanceDataProvider
         {
@@ -443,12 +364,8 @@ public class UserBriefProjectorTests
         var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
-        brief.UserProfile.PreferredName.Should().Be("Jaden");
-        brief.UserProfile.FullName.Should().Be("Jaden Josiah");
-        brief.SetupProfile.Should().NotBeNull();
-        brief.DataAvailability.IsNewUser.Should().BeTrue();
-        brief.DataAvailability.HasLimitedFinancialData.Should().BeTrue();
-        brief.DataAvailability.MissingDataAreas.Should().Contain(["accounts", "transactions", "customer_insight_snapshot"]);
-        brief.DataAvailability.Summary.Should().Contain("new Payabo user");
+        brief.User.Name.Should().Be("Jaden");
+        brief.Goals.Should().Contain("Track spending").And.Contain("Emergency fund");
+        brief.MissingData.Should().Contain(["accounts", "transactions", "customer_insight_snapshot"]);
     }
 }
