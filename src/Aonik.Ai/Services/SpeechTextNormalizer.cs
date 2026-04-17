@@ -9,8 +9,12 @@ namespace Aonik.Ai.Services;
 /// The pipeline:
 ///   1. Strip markdown formatting (bold, italic, bullet markers)
 ///   2. Remove UUIDs and parenthetical references containing them
-///   3. Normalise currencies so symbols+codes don't double up
-///   4. Collapse whitespace
+///   3. Replace directional/math/trademark symbols with spoken words
+///   4. Strip emojis and common unpronounceable pictographs
+///   5. Expand percentages ("45%" → "45 percent")
+///   6. Normalise currencies so symbols+codes don't double up
+///   7. Spell out remaining ALL-CAPS acronyms (e.g. "FBI" → "F-B-I")
+///   8. Collapse whitespace
 /// </summary>
 internal static partial class SpeechTextNormalizer
 {
@@ -67,23 +71,33 @@ internal static partial class SpeechTextNormalizer
 
     // ── Compiled regex patterns ─────────────────────────────────────────
 
+    // Amount pattern building block. Accepts plain digits ("45000"),
+    // comma-grouped digits ("1,890" / "1,000,000"), optional decimal
+    // ("200.50"), and optional leading sign ("-500"). Crucially it does NOT
+    // match trailing commas, so "100," in text like "GBP 100, USD 200" is
+    // parsed as amount "100" with a trailing comma outside the match.
+    //
+    // Duplicated in each regex below because [GeneratedRegex] attributes
+    // require compile-time literal patterns.
+
     // Pattern 1: symbol + amount + code  (e.g. "£380 GBP", "€1,890 EUR")
-    // Captures: symbol, amount (with commas/decimals), code
-    [GeneratedRegex(@"([£$€¥₦₹₵])\s*([\d,]+(?:\.\d+)?)\s+([A-Z]{3})\b", RegexOptions.Compiled)]
+    [GeneratedRegex(@"([£$€¥₦₹₵])\s*(\d+(?:,\d+)*(?:\.\d+)?)\s+([A-Z]{3})\b", RegexOptions.Compiled)]
     private static partial Regex SymbolAmountCodePattern();
 
     // Pattern 2: symbol + amount without code  (e.g. "£280", "€150")
-    // Only matches when NOT followed by a currency code (to avoid double-matching pattern 1)
-    [GeneratedRegex(@"([£$€¥₦₹₵])\s*([\d,]+(?:\.\d+)?)(?!\s*[A-Z]{3}\b)", RegexOptions.Compiled)]
+    [GeneratedRegex(@"([£$€¥₦₹₵])\s*(\d+(?:,\d+)*(?:\.\d+)?)(?!\s*[A-Z]{3}\b)", RegexOptions.Compiled)]
     private static partial Regex SymbolAmountOnlyPattern();
 
-    // Pattern 3: amount + code without symbol  (e.g. "45,000 XOF", "75,000 XOF")
-    // Only matches when NOT preceded by a currency symbol
-    [GeneratedRegex(@"(?<![£$€¥₦₹₵]\s?)([\d,]+(?:\.\d+)?)\s+([A-Z]{3})\b", RegexOptions.Compiled)]
+    // Pattern 3: amount + code without symbol  (e.g. "45,000 XOF", "-500 GBP")
+    [GeneratedRegex(@"(?<![£$€¥₦₹₵]\s?)([+-]?\d+(?:,\d+)*(?:\.\d+)?)\s+([A-Z]{3})\b", RegexOptions.Compiled)]
     private static partial Regex AmountCodeOnlyPattern();
 
-    // Pattern 4: ~amount + code (approximate, e.g. "~£450 GBP" or "~450 GBP")
-    [GeneratedRegex(@"~\s*([£$€¥₦₹₵])?\s*([\d,]+(?:\.\d+)?)\s+([A-Z]{3})\b", RegexOptions.Compiled)]
+    // Pattern 4: code + amount without symbol  (e.g. "GBP 200", "USD -1,250.50")
+    [GeneratedRegex(@"\b([A-Z]{3})\s+([+-]?\d+(?:,\d+)*(?:\.\d+)?)\b", RegexOptions.Compiled)]
+    private static partial Regex CodeAmountOnlyPattern();
+
+    // Pattern 5: ~amount + code (approximate, e.g. "~£450 GBP" or "~450 GBP")
+    [GeneratedRegex(@"~\s*([£$€¥₦₹₵])?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s+([A-Z]{3})\b", RegexOptions.Compiled)]
     private static partial Regex ApproxAmountPattern();
 
     // UUIDs (8-4-4-4-12 hex), with optional prefix character (e.g. "b4444...")
@@ -105,6 +119,32 @@ internal static partial class SpeechTextNormalizer
     // Collapsed whitespace (2+ spaces, or space around newlines)
     [GeneratedRegex(@"[ \t]{2,}", RegexOptions.Compiled)]
     private static partial Regex ExcessWhitespacePattern();
+
+    // Emojis / pictographs. Covers dingbats, transport/map symbols, flags,
+    // skin-tone modifiers, variation selectors, zero-width joiners, and the
+    // common BMP + supplementary emoji ranges (matched via surrogate pairs).
+    [GeneratedRegex(
+        @"[\u200D\uFE0F\u00A9\u00AE\u203C\u2049\u2122\u2139\u2194-\u21AA\u231A-\u23FA\u24C2\u25AA-\u27BF\u2934-\u2935\u2B05-\u2B55\u3030\u303D\u3297\u3299]|[\uD83C-\uDBFF][\uDC00-\uDFFF]",
+        RegexOptions.Compiled)]
+    private static partial Regex EmojiPattern();
+
+    // Percent attached to a digit: "45%" → "45 percent"
+    [GeneratedRegex(@"(\d)\s*%", RegexOptions.Compiled)]
+    private static partial Regex PercentPattern();
+
+    // ALL-CAPS acronym of 3-5 letters, not preceded by a digit (optionally
+    // followed by a single whitespace) so "100 XYZ" and "100XYZ" — which
+    // represent unknown currency codes — are left intact.
+    [GeneratedRegex(@"(?<!\d\s?)\b[A-Z]{3,5}\b", RegexOptions.Compiled)]
+    private static partial Regex AcronymPattern();
+
+    // Acronyms we never spell out (mostly currency codes handled elsewhere).
+    private static readonly HashSet<string> AcronymSkipList = new(StringComparer.Ordinal)
+    {
+        "GBP", "USD", "EUR", "NGN", "XOF", "XAF", "KES", "ZAR", "GHS",
+        "TZS", "UGX", "RWF", "MAD", "EGP", "INR", "JPY", "CNY", "CAD",
+        "AUD", "CHF", "BRL", "MXN", "AED", "SAR", "ZWL", "ZIG",
+    };
 
     // ── Public API ──────────────────────────────────────────────────────
 
@@ -128,7 +168,18 @@ internal static partial class SpeechTextNormalizer
         result = ParenthesizedUuidPattern().Replace(result, "");
         result = UuidPattern().Replace(result, "");
 
-        // 3. Approximate amounts: "~£450 GBP" → "approximately 450 pounds"
+        // 3. Replace directional/math/trademark symbols with spoken words.
+        //    Runs before the emoji strip so ©, ®, ™ — which also live inside
+        //    the emoji Unicode ranges — are turned into words first.
+        result = ReplaceSymbolsWithWords(result);
+
+        // 4. Strip emojis and common unpronounceable pictographs
+        result = EmojiPattern().Replace(result, "");
+
+        // 5. "45%" → "45 percent"
+        result = PercentPattern().Replace(result, "$1 percent");
+
+        // 6. Approximate amounts: "~£450 GBP" → "approximately 450 pounds"
         result = ApproxAmountPattern().Replace(result, match =>
         {
             var amount = match.Groups[2].Value;
@@ -137,7 +188,7 @@ internal static partial class SpeechTextNormalizer
             return $"approximately {amount} {spokenCurrency}";
         });
 
-        // 4. Symbol + amount + code  →  amount + spoken name
+        // 7. Symbol + amount + code  →  amount + spoken name
         //    e.g. "£380 GBP" → "380 pounds" (not "380 pounds pounds")
         result = SymbolAmountCodePattern().Replace(result, match =>
         {
@@ -147,10 +198,10 @@ internal static partial class SpeechTextNormalizer
             return $"{amount} {spokenCurrency}";
         });
 
-        // 5. Symbol + amount (no code)  →  leave as-is (providers handle £280 fine)
+        // 8. Symbol + amount (no code)  →  leave as-is (providers handle £280 fine)
         //    But we could normalise if needed in future.
 
-        // 6. Amount + code (no symbol)  →  amount + spoken name
+        // 9. Amount + code (no symbol)  →  amount + spoken name
         //    e.g. "45,000 XOF" → "45,000 CFA francs"
         result = AmountCodeOnlyPattern().Replace(result, match =>
         {
@@ -165,9 +216,84 @@ internal static partial class SpeechTextNormalizer
             return $"{amount} {spokenCurrency}";
         });
 
-        // 7. Clean up whitespace
+        // 9b. Code + amount (no symbol)  →  amount + spoken name
+        //     e.g. "GBP 200" → "200 pounds", "USD 1,250.50" → "1,250.50 dollars"
+        result = CodeAmountOnlyPattern().Replace(result, match =>
+        {
+            var code = match.Groups[1].Value;
+            var amount = match.Groups[2].Value;
+
+            if (!CurrencyNames.ContainsKey(code))
+                return match.Value;
+
+            var spokenCurrency = ResolveCurrencyName(code, amount);
+            return $"{amount} {spokenCurrency}";
+        });
+
+        // 10. Spell out remaining ALL-CAPS acronyms (FBI → F-B-I). Runs AFTER
+        //     currency processing so recognised codes like "USD" have already
+        //     been replaced with "dollars" and will never reach this step.
+        result = AcronymPattern().Replace(result, match =>
+        {
+            var token = match.Value;
+            return AcronymSkipList.Contains(token) ? token : string.Join('-', token.ToCharArray());
+        });
+
+        // 11. Tidy spaces around punctuation produced by symbol/percent expansion
+        result = Regex.Replace(result, @"\s+([,.;!?])", "$1");
+
+        // 12. Clean up whitespace
         result = ExcessWhitespacePattern().Replace(result, " ");
         result = result.Trim();
+
+        return result;
+    }
+
+    /// <summary>
+    /// Replace directional arrows, math operators, and trademark symbols with
+    /// their spoken-word equivalents so TTS engines don't skip or mispronounce
+    /// them. The set mirrors the curated list used by
+    /// <c>AguiStreamingEndpoint.BuildSpeechRender</c>.
+    /// </summary>
+    private static string ReplaceSymbolsWithWords(string text)
+    {
+        // Order matters: multi-char operators first, bare symbols after.
+        var result = text;
+
+        // Comparison / arrow digraphs (surrounded by spaces so we don't
+        // clobber email addresses, URLs, or currency symbols like ">$100")
+        result = result.Replace(" >= ", " greater than or equal to ", StringComparison.Ordinal);
+        result = result.Replace(" <= ", " less than or equal to ", StringComparison.Ordinal);
+        result = result.Replace(" != ", " not equal to ", StringComparison.Ordinal);
+        result = result.Replace(" => ", " leads to ", StringComparison.Ordinal);
+        result = result.Replace(" -> ", " to ", StringComparison.Ordinal);
+        result = result.Replace(" <- ", " from ", StringComparison.Ordinal);
+        result = result.Replace(" <> ", " versus ", StringComparison.Ordinal);
+
+        // Common single-char operators between words
+        result = result.Replace(" > ", " greater than ", StringComparison.Ordinal);
+        result = result.Replace(" < ", " less than ", StringComparison.Ordinal);
+        result = result.Replace(" = ", " equals ", StringComparison.Ordinal);
+        result = result.Replace(" & ", " and ", StringComparison.Ordinal);
+        result = result.Replace(" | ", " or ", StringComparison.Ordinal);
+        result = result.Replace(" @ ", " at ", StringComparison.Ordinal);
+
+        // Unicode symbols TTS engines stumble over
+        result = result.Replace("→", " to ", StringComparison.Ordinal);
+        result = result.Replace("←", " from ", StringComparison.Ordinal);
+        result = result.Replace("↑", " up ", StringComparison.Ordinal);
+        result = result.Replace("↓", " down ", StringComparison.Ordinal);
+        result = result.Replace("✓", " yes ", StringComparison.Ordinal);
+        result = result.Replace("✔", " yes ", StringComparison.Ordinal);
+        result = result.Replace("✗", " no ", StringComparison.Ordinal);
+        result = result.Replace("✘", " no ", StringComparison.Ordinal);
+        result = result.Replace("•", ",", StringComparison.Ordinal);
+        result = result.Replace("–", " to ", StringComparison.Ordinal);   // en-dash (range)
+        result = result.Replace("—", ", ", StringComparison.Ordinal);     // em-dash (pause)
+        result = result.Replace("…", "...", StringComparison.Ordinal);
+        result = result.Replace("©", " copyright ", StringComparison.Ordinal);
+        result = result.Replace("®", " registered ", StringComparison.Ordinal);
+        result = result.Replace("™", " trademark ", StringComparison.Ordinal);
 
         return result;
     }

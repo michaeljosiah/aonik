@@ -161,7 +161,116 @@ public class SpeechTextNormalizerTests
     [Fact]
     public void Normalize_Should_NotTouchUnknownCurrencyCodes()
     {
+        // An unknown 3-letter code preceded by an amount is left intact — we
+        // neither humanise it (we don't know the currency name) nor hyphenate
+        // it via the acronym rule (the lookbehind guards "\d\s?").
         SpeechTextNormalizer.Normalize("100 XYZ").Should().Be("100 XYZ");
+    }
+
+    // ── Currency: code + amount (e.g. "GBP 200", "USD 1,250.50") ────────
+
+    [Theory]
+    [InlineData("GBP 200", "200 pounds")]
+    [InlineData("USD 1,500", "1,500 dollars")]
+    [InlineData("EUR 1,250.50", "1,250.50 euros")]
+    [InlineData("NGN 45000", "45000 naira")]
+    [InlineData("XOF 45,000", "45,000 CFA francs")]
+    [InlineData("KES 1,000,000", "1,000,000 Kenyan shillings")]
+    [InlineData("JPY 9000", "9000 yen")]
+    public void Normalize_Should_ReplaceCodeBeforeAmount(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Currency: singular handling for "1 unit" (both orderings) ───────
+
+    [Theory]
+    [InlineData("1 GBP", "1 pound")]
+    [InlineData("GBP 1", "1 pound")]
+    [InlineData("£1 GBP", "1 pound")]
+    [InlineData("1 USD", "1 dollar")]
+    [InlineData("USD 1", "1 dollar")]
+    [InlineData("EUR 1", "1 euro")]
+    public void Normalize_Should_HandleSingularAmounts(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Currency: negative amounts preserve the sign ────────────────────
+
+    [Theory]
+    [InlineData("-500 GBP", "-500 pounds")]
+    [InlineData("USD -500", "-500 dollars")]
+    [InlineData("USD -1,250.50", "-1,250.50 dollars")]
+    public void Normalize_Should_PreserveNegativeAmounts(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Currency: decimal amounts (both orderings) ──────────────────────
+
+    [Theory]
+    [InlineData("200.50 GBP", "200.50 pounds")]
+    [InlineData("GBP 200.50", "200.50 pounds")]
+    [InlineData("USD 1,250.99", "1,250.99 dollars")]
+    [InlineData("£12.50 GBP", "12.50 pounds")]
+    public void Normalize_Should_HandleDecimalAmounts(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Currency: additional symbols beyond £/€/$ ───────────────────────
+
+    [Theory]
+    [InlineData("¥5000 JPY", "5000 yen")]
+    [InlineData("₦1,000 NGN", "1,000 naira")]
+    [InlineData("₹500 INR", "500 rupees")]
+    [InlineData("₵50 GHS", "50 cedis")]
+    public void Normalize_Should_HandleNonLatinCurrencySymbols(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Currency: mid-sentence placement + sentence punctuation ─────────
+
+    [Theory]
+    [InlineData("I paid GBP 200 yesterday.", "I paid 200 pounds yesterday.")]
+    [InlineData("The bill is 200 GBP.", "The bill is 200 pounds.")]
+    [InlineData("Total: £200 GBP!", "Total: 200 pounds!")]
+    [InlineData("Is it USD 500?", "Is it 500 dollars?")]
+    public void Normalize_Should_HandleCurrencyMidSentence(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Currency: mixed orderings in a single string ────────────────────
+
+    [Fact]
+    public void Normalize_Should_HandleCodeFirstAndCodeLastInSameSentence()
+    {
+        // Independent pairs (each pair is unambiguous on its own) — one uses
+        // amount-before-code, the other code-before-amount.
+        var result = SpeechTextNormalizer.Normalize("I paid 100 GBP and received EUR 200 back");
+        result.Should().Be("I paid 100 pounds and received 200 euros back");
+    }
+
+    [Fact]
+    public void Normalize_Should_HandleMultipleCodeBeforeAmountPairs()
+    {
+        var result = SpeechTextNormalizer.Normalize("Breakdown: GBP 100, USD 200, EUR 300.");
+        result.Should().Be("Breakdown: 100 pounds, 200 dollars, 300 euros.");
+    }
+
+    // ── Currency: unknown code in code-first position is left alone ─────
+
+    [Fact]
+    public void Normalize_Should_NotTouchUnknownCodeBeforeAmount()
+    {
+        // "XYZ 100" is an unknown currency code — we don't humanise it, but
+        // the acronym rule still spells it out because nothing preceding it
+        // looks like a digit-amount context. That's deliberate: unrecognised
+        // three-letter tokens read as acronyms.
+        SpeechTextNormalizer.Normalize("XYZ 100").Should().Be("X-Y-Z 100");
     }
 
     [Fact]
@@ -177,5 +286,94 @@ public class SpeechTextNormalizerTests
         var input = "Convert £100 GBP to 45,000 XOF or €85 EUR";
         var result = SpeechTextNormalizer.Normalize(input);
         result.Should().Be("Convert 100 pounds to 45,000 CFA francs or 85 euros");
+    }
+
+    // ── Emoji removal ───────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("Hello 👋 world", "Hello world")]
+    [InlineData("Pay complete ✅", "Pay complete")]
+    [InlineData("Flag 🇬🇧 currency", "Flag currency")]
+    [InlineData("Mixed 🎉 content 💰 here", "Mixed content here")]
+    public void Normalize_Should_StripEmojis(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Percent expansion ───────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("APR is 45%", "A-P-R is 45 percent")]
+    [InlineData("up 12% this month", "up 12 percent this month")]
+    [InlineData("100% complete", "100 percent complete")]
+    public void Normalize_Should_ExpandPercent(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Directional / math / trademark symbols ──────────────────────────
+
+    [Theory]
+    [InlineData("budget → spending", "budget to spending")]
+    [InlineData("rate ↑ slightly", "rate up slightly")]
+    [InlineData("Monday – Friday", "Monday to Friday")]
+    [InlineData("Senelec — electricity", "Senelec, electricity")]
+    [InlineData("a > b", "a greater than b")]
+    [InlineData("x <= y", "x less than or equal to y")]
+    [InlineData("foo -> bar", "foo to bar")]
+    [InlineData("Aonik™ product", "Aonik trademark product")]
+    public void Normalize_Should_ReplaceSymbolsWithSpokenWords(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    // ── Acronym expansion ───────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("The FBI investigation", "The F-B-I investigation")]
+    [InlineData("Contact the CIA or NSA", "Contact the C-I-A or N-S-A")]
+    [InlineData("ASAP please", "A-S-A-P please")]
+    [InlineData("NASA launched the rocket", "N-A-S-A launched the rocket")]
+    public void Normalize_Should_SpellOutAcronyms(string input, string expected)
+    {
+        SpeechTextNormalizer.Normalize(input).Should().Be(expected);
+    }
+
+    [Fact]
+    public void Normalize_Should_NotTouchCurrencyCodesAsAcronyms()
+    {
+        // Currency codes are processed by the currency pipeline and must not
+        // also be hyphenated by the acronym step. "USD" is always "dollars"
+        // after normalization, never "U-S-D".
+        var result = SpeechTextNormalizer.Normalize("The transfer was 100 USD");
+        result.Should().Be("The transfer was 100 dollars");
+        result.Should().NotContain("U-S-D");
+    }
+
+    [Fact]
+    public void Normalize_Should_NotHyphenateUnknownCurrencyCodeAfterAmount()
+    {
+        // "100 XYZ" is preserved as-is — we don't recognise XYZ as a currency,
+        // but we also must not convert it into "100 X-Y-Z" because it is
+        // likely an unknown currency code, not a plain acronym.
+        SpeechTextNormalizer.Normalize("100 XYZ").Should().Be("100 XYZ");
+    }
+
+    [Fact]
+    public void Normalize_Should_PreserveLowerCaseAndShortAllCapsWords()
+    {
+        // Lower-case words and 1-2 letter ALL-CAPS tokens (like "OK", "I", "A")
+        // must not be mangled — only 3-5 letter ALL-CAPS tokens are treated as
+        // acronyms.
+        SpeechTextNormalizer.Normalize("OK I am fine")
+            .Should().Be("OK I am fine");
+    }
+
+    [Fact]
+    public void Normalize_Should_ApplyAllRulesTogether()
+    {
+        var input = "Hi 👋 the FBI report says APR is 45% on £1,000 GBP — review ASAP!";
+        var result = SpeechTextNormalizer.Normalize(input);
+        result.Should().Be("Hi the F-B-I report says A-P-R is 45 percent on 1,000 pounds, review A-S-A-P!");
     }
 }
