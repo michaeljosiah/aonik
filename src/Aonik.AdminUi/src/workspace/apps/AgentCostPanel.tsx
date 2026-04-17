@@ -3,6 +3,10 @@ import { RefreshCw, DollarSign, TrendingUp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  PanelInfoPopover,
+  type PanelCallout,
+} from '@/components/ui/panel-info-popover';
 import { MetricCard } from '@/components/charts/MetricCard';
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
 import {
@@ -87,12 +91,86 @@ export function AgentCostPanel({ panelId, title }: WorkspacePanelRenderProps) {
   const totalOutput = filteredAgents.reduce((s, a) => s + a.totalOutputTokens, 0);
   const totalTokens = totalInput + totalOutput;
 
+  const callouts: PanelCallout[] = [];
+  if (totalTokens === 0) {
+    callouts.push({ level: 'info', message: 'No token usage in this window.' });
+  } else if (filteredAgents.length > 0) {
+    const top = filteredAgents.reduce((a, b) =>
+      a.totalInputTokens + a.totalOutputTokens > b.totalInputTokens + b.totalOutputTokens ? a : b,
+    );
+    const topTokens = top.totalInputTokens + top.totalOutputTokens;
+    const topPct = totalTokens > 0 ? (topTokens / totalTokens) * 100 : 0;
+    if (filteredAgents.length > 1 && topPct > 50) {
+      callouts.push({
+        level: 'info',
+        message: (
+          <>
+            <strong>{top.agentName}</strong> uses {topPct.toFixed(0)}% of tokens — best candidate
+            for prompt caching or a cheaper model.
+          </>
+        ),
+      });
+    } else if (filteredAgents.length > 1 && topPct < 30) {
+      callouts.push({
+        level: 'good',
+        message: 'Token usage is spread evenly — no single agent is dominating spend.',
+      });
+    }
+
+    const outputHeavy = filteredAgents.find(
+      (a) => a.totalInputTokens > 0 && a.totalOutputTokens / a.totalInputTokens > 2,
+    );
+    if (outputHeavy) {
+      callouts.push({
+        level: 'info',
+        message: (
+          <>
+            <strong>{outputHeavy.agentName}</strong> is output-heavy (
+            {fmtTokens(outputHeavy.totalOutputTokens)} out vs{' '}
+            {fmtTokens(outputHeavy.totalInputTokens)} in) — check whether responses can be
+            tightened.
+          </>
+        ),
+      });
+    }
+  }
+
   return (
     <div className="h-full overflow-auto p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <PanelInfoPopover
+              title="Cost & Tokens"
+              description={
+                <>
+                  <p>What your AI usage is costing you, broken down by agent.</p>
+                  <ul>
+                    <li>
+                      <strong>Input tokens</strong> — prompt, context, and tool results sent to the
+                      LLM. Usually the larger share.
+                    </li>
+                    <li>
+                      <strong>Output tokens</strong> — what the LLM generates back. Typically more
+                      expensive per-token than input.
+                    </li>
+                    <li>
+                      <strong>Per-agent breakdown</strong> — who's consuming the most. Dominant
+                      agents are good candidates for prompt caching, model downgrade, or context
+                      trimming.
+                    </li>
+                  </ul>
+                  <p>
+                    We show raw tokens rather than dollars because model pricing varies per
+                    provider — multiply by your current rate for exact cost.
+                  </p>
+                </>
+              }
+              callouts={callouts}
+            />
+          </div>
           <p className="text-xs text-[var(--color-text-secondary)]">
             {selectedAgent ? `Filtered: ${selectedAgent}` : 'All agents'}
           </p>

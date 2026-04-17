@@ -4,6 +4,10 @@ import { RefreshCw, AlertTriangle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  PanelInfoPopover,
+  type PanelCallout,
+} from '@/components/ui/panel-info-popover';
 import { MetricCard } from '@/components/charts/MetricCard';
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
 import {
@@ -84,12 +88,99 @@ export function AgentErrorsPanel({ panelId, title }: WorkspacePanelRenderProps) 
   const errorMetrics = overview?.errors;
   const errorGroups = errors?.errors ?? [];
 
+  const callouts: PanelCallout[] = [];
+  if (errorMetrics) {
+    if (errorMetrics.total === 0) {
+      callouts.push({ level: 'good', message: 'No errors in this window — healthy.' });
+    } else {
+      if (errorMetrics.errorRatePercent > 5) {
+        callouts.push({
+          level: 'critical',
+          message: (
+            <>
+              Error rate of <strong>{errorMetrics.errorRatePercent.toFixed(1)}%</strong> is high —
+              users are hitting real problems.
+            </>
+          ),
+        });
+      } else if (errorMetrics.errorRatePercent > 1) {
+        callouts.push({
+          level: 'warning',
+          message: (
+            <>
+              Error rate of <strong>{errorMetrics.errorRatePercent.toFixed(1)}%</strong> is above
+              the healthy threshold (1%).
+            </>
+          ),
+        });
+      } else {
+        callouts.push({
+          level: 'good',
+          message: (
+            <>
+              Error rate of <strong>{errorMetrics.errorRatePercent.toFixed(1)}%</strong> is within
+              the healthy range.
+            </>
+          ),
+        });
+      }
+
+      if (errorGroups.length > 1) {
+        const totalErrors = errorGroups.reduce((s, e) => s + e.count, 0);
+        const topError = errorGroups.reduce((a, b) => (a.count > b.count ? a : b));
+        const topPct = totalErrors > 0 ? (topError.count / totalErrors) * 100 : 0;
+        if (topPct > 60) {
+          callouts.push({
+            level: 'info',
+            message: (
+              <>
+                <strong>{topError.type}</strong> drives {topPct.toFixed(0)}% of errors — fixing
+                this will have outsized impact.
+              </>
+            ),
+          });
+        }
+      }
+    }
+  }
+
   return (
     <div className="h-full overflow-auto p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <PanelInfoPopover
+              title="Errors & Failures"
+              description={
+                <>
+                  <p>Where your agents are failing, and how often.</p>
+                  <ul>
+                    <li>
+                      <strong>Error rate</strong> — percentage of calls that failed. Healthy
+                      systems run under 1%; above 5% means users are hitting real problems.
+                    </li>
+                    <li>
+                      <strong>Time series</strong> — distinguishes a steady low-grade issue (flat
+                      line) from an incident (spike). Correlate spikes with deploys or provider
+                      outages.
+                    </li>
+                    <li>
+                      <strong>Top errors</strong> — grouped by type so you can see whether one
+                      root cause drives most failures. Fixing the top entry usually has outsized
+                      impact.
+                    </li>
+                  </ul>
+                  <p>
+                    Click an error to see the stack trace, the failing agent, and recent
+                    occurrences.
+                  </p>
+                </>
+              }
+              callouts={callouts}
+            />
+          </div>
           <p className="text-xs text-[var(--color-text-secondary)]">
             Error rates and failure analysis.
           </p>

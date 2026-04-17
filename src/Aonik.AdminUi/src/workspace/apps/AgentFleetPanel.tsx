@@ -3,6 +3,10 @@ import { Bot, RefreshCw, Activity, AlertTriangle, Zap } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  PanelInfoPopover,
+  type PanelCallout,
+} from '@/components/ui/panel-info-popover';
 import { MetricCard } from '@/components/charts/MetricCard';
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
 import {
@@ -98,12 +102,112 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
   const agents = data.byAgent ?? [];
   const totalTokens = agents.reduce((sum, a) => sum + a.totalTokens, 0);
 
+  const callouts: PanelCallout[] = [];
+  if (data.totalCalls === 0) {
+    callouts.push({ level: 'info', message: 'No agent activity in this window.' });
+  } else {
+    if (data.avgDurationMs > 10_000) {
+      callouts.push({
+        level: 'critical',
+        message: (
+          <>
+            Average latency of <strong>{formatDuration(data.avgDurationMs)}</strong> — users will feel this.
+          </>
+        ),
+      });
+    } else if (data.avgDurationMs > 5_000) {
+      callouts.push({
+        level: 'warning',
+        message: (
+          <>
+            Average latency of <strong>{formatDuration(data.avgDurationMs)}</strong> is on the slow side.
+          </>
+        ),
+      });
+    } else if (data.avgDurationMs > 0) {
+      callouts.push({
+        level: 'good',
+        message: (
+          <>
+            Average latency of <strong>{formatDuration(data.avgDurationMs)}</strong> is healthy.
+          </>
+        ),
+      });
+    }
+
+    if (agents.length > 1) {
+      const agentTotal = agents.reduce((s, a) => s + a.calls, 0);
+      const top = agents.reduce((a, b) => (a.calls > b.calls ? a : b));
+      const topPct = agentTotal > 0 ? (top.calls / agentTotal) * 100 : 0;
+      if (topPct > 60) {
+        callouts.push({
+          level: 'info',
+          message: (
+            <>
+              <strong>{top.agentName}</strong> accounts for {topPct.toFixed(0)}% of all calls — check its
+              metrics for concentration risk.
+            </>
+          ),
+        });
+      }
+    }
+
+    const slowAgents = agents.filter((a) => a.avgDurationMs > 10_000);
+    if (slowAgents.length > 0) {
+      const slowest = slowAgents.reduce((a, b) => (a.avgDurationMs > b.avgDurationMs ? a : b));
+      callouts.push({
+        level: 'warning',
+        message: (
+          <>
+            <strong>{slowest.agentName}</strong> averages {formatDuration(slowest.avgDurationMs)} —
+            unusually slow, worth inspecting.
+          </>
+        ),
+      });
+    }
+  }
+
   return (
     <div className="h-full overflow-auto p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <PanelInfoPopover
+              title="Agent Fleet"
+              description={
+                <>
+                  <p>
+                    A live view of every AI agent running in AONIK — who's been busy, how fast
+                    they responded, and whether they're healthy.
+                  </p>
+                  <ul>
+                    <li>
+                      <strong>Calls</strong> — how many times this agent was invoked in the window.
+                    </li>
+                    <li>
+                      <strong>Avg latency</strong> — mean response time. Quick sanity check; for
+                      worst-case experience see the Performance panel's P95.
+                    </li>
+                    <li>
+                      <strong>Health</strong> — based on error rate and latency. Green = normal;
+                      amber = drifting; red = broken or slow enough to hurt users.
+                    </li>
+                    <li>
+                      <strong>Tokens</strong> — total input + output consumed. Useful for spotting
+                      the most expensive agents to run.
+                    </li>
+                  </ul>
+                  <p>
+                    Click any agent to drill into its individual timings, errors, and token
+                    usage in the other panels.
+                  </p>
+                </>
+              }
+              callouts={callouts}
+            />
+          </div>
           <p className="text-xs text-[var(--color-text-secondary)]">
             Select an agent to filter other panels.
           </p>

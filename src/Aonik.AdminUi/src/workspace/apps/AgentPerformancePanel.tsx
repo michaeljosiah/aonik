@@ -3,6 +3,10 @@ import { RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  PanelInfoPopover,
+  type PanelCallout,
+} from '@/components/ui/panel-info-popover';
 import { MetricCard } from '@/components/charts/MetricCard';
 import { MultiLineChart } from '@/components/charts/MultiLineChart';
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
@@ -99,12 +103,119 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
   const tokens = data.tokenUsage;
   const clientServer = data.clientServerComparison;
 
+  const callouts: PanelCallout[] = [];
+  if (latency) {
+    if (latency.p95Ms > 10_000) {
+      callouts.push({
+        level: 'critical',
+        message: (
+          <>
+            P95 of <strong>{fmtMs(latency.p95Ms)}</strong> — the slowest 5% of users are waiting
+            this long or more.
+          </>
+        ),
+      });
+    } else if (latency.p95Ms > 5_000) {
+      callouts.push({
+        level: 'warning',
+        message: (
+          <>
+            P95 of <strong>{fmtMs(latency.p95Ms)}</strong> is on the slow side.
+          </>
+        ),
+      });
+    } else if (latency.p95Ms > 0) {
+      callouts.push({
+        level: 'good',
+        message: (
+          <>
+            P95 of <strong>{fmtMs(latency.p95Ms)}</strong> is healthy.
+          </>
+        ),
+      });
+    }
+
+    if (latency.p50Ms > 0 && latency.p95Ms / latency.p50Ms > 3) {
+      callouts.push({
+        level: 'warning',
+        message: (
+          <>
+            P95 is <strong>{(latency.p95Ms / latency.p50Ms).toFixed(1)}×</strong> your P50 — tail
+            latency is wide. A small number of outliers are much slower than typical.
+          </>
+        ),
+      });
+    } else if (latency.p50Ms > 0 && latency.p95Ms > 0) {
+      callouts.push({
+        level: 'good',
+        message: 'Latency distribution is tight — users are getting a consistent experience.',
+      });
+    }
+  }
+  if (clientServer && clientServer.avgClientRoundTripMs > 0) {
+    const overheadPct =
+      (clientServer.avgNetworkOverheadMs / clientServer.avgClientRoundTripMs) * 100;
+    if (clientServer.avgNetworkOverheadMs > 2_000) {
+      callouts.push({
+        level: 'warning',
+        message: (
+          <>
+            Network overhead of <strong>{fmtMs(clientServer.avgNetworkOverheadMs)}</strong> is{' '}
+            {overheadPct.toFixed(0)}% of total latency — check connectivity or payload size.
+          </>
+        ),
+      });
+    }
+  }
+
   return (
     <div className="h-full overflow-auto p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+            <PanelInfoPopover
+              title="Performance Monitor"
+              description={
+                <>
+                  <p>How fast your agents respond to users.</p>
+                  <p>
+                    <strong>Latency percentiles</strong> — imagine lining up your last 100 requests
+                    from fastest to slowest:
+                  </p>
+                  <ul>
+                    <li>
+                      <strong>P50</strong> = the middle one. Half of users wait less than this,
+                      half wait more. The "typical" experience.
+                    </li>
+                    <li>
+                      <strong>P95</strong> = 95% of users had it this fast or faster; only the
+                      slowest 5% waited longer. Best single measure of worst-case experience.
+                    </li>
+                    <li>
+                      <strong>P99</strong> = catches the worst outliers — the 1% where something
+                      went wrong.
+                    </li>
+                  </ul>
+                  <p>
+                    We use percentiles instead of averages because one very slow request can drag
+                    an average up and hide the fact that most users are fine.
+                  </p>
+                  <p>
+                    <strong>TTFT</strong> (Time To First Token) — how long a user waits before
+                    anything appears on screen. Low TTFT feels snappy even if the full answer
+                    takes longer.
+                  </p>
+                  <p>
+                    <strong>Client vs server</strong> — time spent inside AONIK vs. waiting on the
+                    LLM provider. Helps you tell "our code is slow" from "the LLM is slow".
+                  </p>
+                </>
+              }
+              callouts={callouts}
+            />
+          </div>
           <p className="text-xs text-[var(--color-text-secondary)]">
             {selectedAgent
               ? `Filtered: ${selectedAgent}`
