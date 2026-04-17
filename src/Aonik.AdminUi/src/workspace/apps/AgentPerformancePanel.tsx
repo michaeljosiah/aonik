@@ -83,10 +83,58 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
     );
   }
 
+  const performanceDescription = (
+    <>
+      <p>How fast your agents respond to users.</p>
+      <p>
+        <strong>Latency percentiles</strong> — imagine lining up your last 100 requests from
+        fastest to slowest:
+      </p>
+      <ul>
+        <li>
+          <strong>P50</strong> = the middle one. Half of users wait less than this, half wait
+          more. The "typical" experience.
+        </li>
+        <li>
+          <strong>P95</strong> = 95% of users had it this fast or faster; only the slowest 5%
+          waited longer. Best single measure of worst-case experience.
+        </li>
+        <li>
+          <strong>P99</strong> = catches the worst outliers — the 1% where something went wrong.
+        </li>
+      </ul>
+      <p>
+        We use percentiles instead of averages because one very slow request can drag an average
+        up and hide the fact that most users are fine.
+      </p>
+      <p>
+        <strong>TTFT</strong> (Time To First Token) — how long a user waits before anything
+        appears on screen. Low TTFT feels snappy even if the full answer takes longer.
+      </p>
+      <p>
+        <strong>Client vs server</strong> — time spent inside AONIK vs. waiting on the LLM
+        provider. Helps you tell "our code is slow" from "the LLM is slow".
+      </p>
+    </>
+  );
+
   if (!data?.configured) {
     return (
       <div className="h-full overflow-auto p-4">
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <PanelInfoPopover
+            title="Performance Monitor"
+            description={performanceDescription}
+            callouts={[
+              {
+                level: 'info',
+                message:
+                  'Observability is not configured — connect Application Insights to populate this panel.',
+              },
+            ]}
+          />
+        </div>
         <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
           Observability not configured.
         </p>
@@ -177,42 +225,7 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
             <PanelInfoPopover
               title="Performance Monitor"
-              description={
-                <>
-                  <p>How fast your agents respond to users.</p>
-                  <p>
-                    <strong>Latency percentiles</strong> — imagine lining up your last 100 requests
-                    from fastest to slowest:
-                  </p>
-                  <ul>
-                    <li>
-                      <strong>P50</strong> = the middle one. Half of users wait less than this,
-                      half wait more. The "typical" experience.
-                    </li>
-                    <li>
-                      <strong>P95</strong> = 95% of users had it this fast or faster; only the
-                      slowest 5% waited longer. Best single measure of worst-case experience.
-                    </li>
-                    <li>
-                      <strong>P99</strong> = catches the worst outliers — the 1% where something
-                      went wrong.
-                    </li>
-                  </ul>
-                  <p>
-                    We use percentiles instead of averages because one very slow request can drag
-                    an average up and hide the fact that most users are fine.
-                  </p>
-                  <p>
-                    <strong>TTFT</strong> (Time To First Token) — how long a user waits before
-                    anything appears on screen. Low TTFT feels snappy even if the full answer
-                    takes longer.
-                  </p>
-                  <p>
-                    <strong>Client vs server</strong> — time spent inside AONIK vs. waiting on the
-                    LLM provider. Helps you tell "our code is slow" from "the LLM is slow".
-                  </p>
-                </>
-              }
+              description={performanceDescription}
               callouts={callouts}
             />
           </div>

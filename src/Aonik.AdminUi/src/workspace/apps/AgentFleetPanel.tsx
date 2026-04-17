@@ -88,10 +88,53 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
     );
   }
 
+  const fleetDescription = (
+    <>
+      <p>
+        A live view of every AI agent running in AONIK — who's been busy, how fast they
+        responded, and whether they're healthy.
+      </p>
+      <ul>
+        <li>
+          <strong>Calls</strong> — how many times this agent was invoked in the window.
+        </li>
+        <li>
+          <strong>Avg latency</strong> — mean response time. Quick sanity check; for worst-case
+          experience see the Performance panel's P95.
+        </li>
+        <li>
+          <strong>Health</strong> — based on error rate and latency. Green = normal; amber =
+          drifting; red = broken or slow enough to hurt users.
+        </li>
+        <li>
+          <strong>Tokens</strong> — total input + output consumed. Useful for spotting the most
+          expensive agents to run.
+        </li>
+      </ul>
+      <p>
+        Click any agent to drill into its individual timings, errors, and token usage in the
+        other panels.
+      </p>
+    </>
+  );
+
   if (!data?.configured) {
     return (
       <div className="h-full overflow-auto p-4">
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <PanelInfoPopover
+            title="Agent Fleet"
+            description={fleetDescription}
+            callouts={[
+              {
+                level: 'info',
+                message:
+                  'Observability is not configured — connect Application Insights to populate this panel.',
+              },
+            ]}
+          />
+        </div>
         <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
           Observability not configured. Connect Application Insights to see agent metrics.
         </p>
@@ -176,35 +219,7 @@ export function AgentFleetPanel({ panelId, title }: WorkspacePanelRenderProps) {
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
             <PanelInfoPopover
               title="Agent Fleet"
-              description={
-                <>
-                  <p>
-                    A live view of every AI agent running in AONIK — who's been busy, how fast
-                    they responded, and whether they're healthy.
-                  </p>
-                  <ul>
-                    <li>
-                      <strong>Calls</strong> — how many times this agent was invoked in the window.
-                    </li>
-                    <li>
-                      <strong>Avg latency</strong> — mean response time. Quick sanity check; for
-                      worst-case experience see the Performance panel's P95.
-                    </li>
-                    <li>
-                      <strong>Health</strong> — based on error rate and latency. Green = normal;
-                      amber = drifting; red = broken or slow enough to hurt users.
-                    </li>
-                    <li>
-                      <strong>Tokens</strong> — total input + output consumed. Useful for spotting
-                      the most expensive agents to run.
-                    </li>
-                  </ul>
-                  <p>
-                    Click any agent to drill into its individual timings, errors, and token
-                    usage in the other panels.
-                  </p>
-                </>
-              }
+              description={fleetDescription}
               callouts={callouts}
             />
           </div>
