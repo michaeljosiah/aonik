@@ -218,6 +218,10 @@ public sealed class AiModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.PromptSpecSeedContributor>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.AiTaskSeedContributor>();
 
+        // Pre-warm the chat client on startup to avoid the TLS handshake cost
+        // on the first real request. Skipped when provider is "stub".
+        services.AddHostedService<ChatClientWarmupService>();
+
         return services;
     }
 

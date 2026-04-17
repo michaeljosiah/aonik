@@ -36,6 +36,13 @@ class LiveChatRepository implements ChatRepository {
 
   int _messageCounter = 0;
 
+  /// Thread IDs we've seen echoed back by the server inside a RUN_STARTED
+  /// event. Once a thread appears in this set, subsequent turns only ship
+  /// the new user message and let the server reconstitute history from the
+  /// persisted thread — saving request-body bytes and the mobile-side work
+  /// of rebuilding the full conversation per turn.
+  final Set<String> _serverConfirmedThreadIds = <String>{};
+
   String _nextId() =>
       'msg_${DateTime.now().millisecondsSinceEpoch}_${_messageCounter++}';
 
@@ -46,7 +53,15 @@ class LiveChatRepository implements ChatRepository {
     List<ChatMessage> history = const [],
   }) async* {
     // Build AG-UI message array from conversation history.
-    final agUiMessages = _buildMessageHistory(history, userMessage);
+    //
+    // Thin-client mode: if the current threadId has been echoed back by the
+    // server in a previous RUN_STARTED event, it maps to a persisted thread
+    // and the server can reconstitute history. Send only the new user turn.
+    final useThinClient =
+        threadId != null && _serverConfirmedThreadIds.contains(threadId);
+    final agUiMessages = useThinClient
+        ? <AgUiMessage>[AgUiMessage.user(id: _nextId(), content: userMessage)]
+        : _buildMessageHistory(history, userMessage);
 
     final input = AgUiRunInput(
       threadId: threadId,
@@ -541,6 +556,11 @@ class LiveChatRepository implements ChatRepository {
   ChatStreamEvent? _mapEvent(AgUiEvent event) {
     switch (event) {
       case RunStartedEvent():
+        // Mark this threadId as server-confirmed — subsequent turns on this
+        // thread can run in thin-client mode (send only the new user turn).
+        if (event.threadId.isNotEmpty) {
+          _serverConfirmedThreadIds.add(event.threadId);
+        }
         return ChatStreamStarted(
           threadId: event.threadId,
           runId: event.runId,

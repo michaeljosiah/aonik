@@ -12,6 +12,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Application.Tests;
 
@@ -88,7 +89,16 @@ public class AgentConfigurationServiceTests
             tenantProvider,
             modelResolver ?? new StubModelResolver(),
             descriptors ?? Array.Empty<IDomainAgentDescriptor>(),
+            CreateFusionCache(),
             NullLogger<AgentConfigurationService>.Instance);
+    }
+
+    private static IFusionCache CreateFusionCache()
+    {
+        var services = new ServiceCollection();
+        services.AddFusionCache();
+        var provider = services.BuildServiceProvider();
+        return provider.GetRequiredService<IFusionCache>();
     }
 
     [Fact]
@@ -443,5 +453,99 @@ public class AgentConfigurationServiceTests
         var agents = await context.Agents.IgnoreQueryFilters().ToListAsync();
         agents.First(a => a.Name == "mutating-agent").RiskTier.Should().Be("medium");
         agents.First(a => a.Name == "safe-agent").RiskTier.Should().Be("low");
+    }
+
+    [Fact]
+    public async Task GetResolvedAsync_ShouldCacheResult_SoSecondCallDoesNotHitStore()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var cache = CreateFusionCache();
+        var service = new AgentConfigurationService(
+            context,
+            new TestTenantProvider(tenantId),
+            new StubModelResolver(),
+            Array.Empty<IDomainAgentDescriptor>(),
+            cache,
+            NullLogger<AgentConfigurationService>.Instance);
+
+        context.Agents.Add(new Agent
+        {
+            TenantId = null,
+            Name = "cache-agent",
+            Domain = "test",
+            Description = "Original",
+            InstructionsText = "Original",
+            ToolsetIdsJson = "[]",
+            RiskTier = "low",
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+
+        // First call — populates cache
+        var first = await service.GetResolvedAsync("cache-agent");
+        first.Should().NotBeNull();
+        first!.Description.Should().Be("Original");
+
+        // Mutate the underlying row *without* going through the service,
+        // so the cache should not be invalidated.
+        var row = await context.Agents.IgnoreQueryFilters()
+            .SingleAsync(a => a.Name == "cache-agent" && a.TenantId == null);
+        row.Description = "Changed behind the service's back";
+        await context.SaveChangesAsync();
+
+        // Act — second call should return the cached (original) value.
+        var second = await service.GetResolvedAsync("cache-agent");
+
+        // Assert
+        second.Should().NotBeNull();
+        second!.Description.Should().Be("Original");
+    }
+
+    [Fact]
+    public async Task UpsertOverrideAsync_ShouldInvalidateResolvedCache()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var cache = CreateFusionCache();
+        var service = new AgentConfigurationService(
+            context,
+            new TestTenantProvider(tenantId),
+            new StubModelResolver(),
+            Array.Empty<IDomainAgentDescriptor>(),
+            cache,
+            NullLogger<AgentConfigurationService>.Instance);
+
+        context.Agents.Add(new Agent
+        {
+            TenantId = null,
+            Name = "invalidation-agent",
+            Domain = "test",
+            Description = "Global",
+            InstructionsText = "Global",
+            ToolsetIdsJson = "[]",
+            RiskTier = "low",
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+
+        // Prime the cache
+        var primed = await service.GetResolvedAsync("invalidation-agent");
+        primed!.Description.Should().Be("Global");
+
+        // Act — upsert a tenant override, which must invalidate the cache
+        await service.UpsertOverrideAsync("invalidation-agent", new UpsertAgentConfigurationRequest
+        {
+            Description = "Tenant override",
+            InstructionsText = "Tenant instructions"
+        });
+
+        // Assert — the next read must see the new value
+        var refreshed = await service.GetResolvedAsync("invalidation-agent");
+        refreshed.Should().NotBeNull();
+        refreshed!.Description.Should().Be("Tenant override");
+        refreshed.IsOverride.Should().BeTrue();
     }
 }

@@ -62,6 +62,11 @@ public sealed class AgentsModule : IModule
         // Scoped because it depends on IChatClient (scoped from AiModule).
         services.AddScoped<IMasterOrchestratorService, MasterOrchestratorService>();
 
+        // Domain agent resolver — memoises built domain agents within a request scope.
+        // Safe per-scope because the agent captures IChatClient + tool scoped services;
+        // NOT safe to hoist to singleton for that reason.
+        services.AddScoped<IDomainAgentResolver, DomainAgentResolver>();
+
         // Playground scenario service — manages saved test conversation setups.
         services.AddScoped<IPlaygroundScenarioService, PlaygroundScenarioService>();
 

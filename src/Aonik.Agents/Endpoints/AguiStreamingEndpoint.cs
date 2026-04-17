@@ -180,13 +180,22 @@ public static class AguiStreamingEndpoint
                     {
                         persistedThreadId = existingId;
 
-                        await chatThreadService.AppendMessageAsync(
-                            existingId, "user", firstUserMessage,
-                            cancellationToken: cancellationToken);
+                        // Detach the user-message append — its return value is
+                        // unused and blocking here adds 20–100 ms to TTFT on
+                        // every turn. The post-stream scope re-seeds tenant +
+                        // user context so the fire-and-forget write still hits
+                        // the right tenant.
+                        DetachUserMessageAppend(
+                            context.RequestServices,
+                            existingId,
+                            firstUserMessage,
+                            input.AgentId,
+                            logger);
                     }
                     else
                     {
-                        // Create a new thread
+                        // Create a new thread. This one MUST stay awaited — its
+                        // return value replaces threadId in subsequent SSE events.
                         persistedThreadId = await chatThreadService.CreateThreadAsync(
                             firstUserMessage,
                             agentName: input.AgentId,
@@ -220,8 +229,9 @@ public static class AguiStreamingEndpoint
 
         if (!string.IsNullOrEmpty(input.AgentId))
         {
-            var (builtAgent, descriptor) = await ResolveDomainAgentAsync(
-                input.AgentId, context.RequestServices, logger, cancellationToken);
+            var domainResolver = context.RequestServices.GetRequiredService<IDomainAgentResolver>();
+            var (builtAgent, descriptor) = await domainResolver.ResolveAsync(
+                input.AgentId, cancellationToken);
             agent = builtAgent;
 
             // If the descriptor declares it needs the User Brief, project it now
@@ -263,7 +273,14 @@ public static class AguiStreamingEndpoint
             // Convert AG-UI messages to M.E.AI ChatMessage list.
             // For agents that declare RequiresUserBrief, the brief is prepended as a
             // system message so the LLM receives current user context before the history.
-            var chatMessages = ConvertMessages(input.Messages);
+            //
+            // Thin-client optimisation: when the client sends only the new user turn
+            // (messages.Count == 1) and the threadId maps to a persisted thread,
+            // reconstitute the prior conversation from storage. Reduces request body
+            // size and the client-side work of rebuilding history per turn.
+            var effectiveMessages = await ReconstructHistoryIfThinClientAsync(
+                input, persistedThreadId, chatThreadService, logger, cancellationToken);
+            var chatMessages = ConvertMessages(effectiveMessages);
             if (userBriefPreamble is not null)
                 chatMessages = [.. userBriefPreamble, .. chatMessages];
 
@@ -658,69 +675,144 @@ public static class AguiStreamingEndpoint
     }
 
     /// <summary>
-    /// Resolves a named <see cref="IDomainAgentDescriptor"/> by its agent name,
-    /// applies any database-level configuration overrides (instructions, tool set,
-    /// active flag), and builds the domain agent. Returns both the built agent and
-    /// the descriptor so the caller can inspect flags like
-    /// <see cref="IDomainAgentDescriptor.RequiresUserBrief"/>.
+    /// Fire-and-forget append of the user's message to the persisted thread.
+    /// The request scope is captured, tenant + user context re-seeded inside a
+    /// new scope, and the write runs off the critical streaming path so it does
+    /// not contribute to TTFT. Failures are logged, never thrown.
     /// </summary>
-    private static async Task<(AIAgent Agent, IDomainAgentDescriptor Descriptor)> ResolveDomainAgentAsync(
-        string agentId,
-        IServiceProvider services,
+    private static void DetachUserMessageAppend(
+        IServiceProvider requestServices,
+        Guid threadId,
+        string content,
+        string? agentName,
+        ILogger logger)
+    {
+        Guid? capturedTenantId = null;
+        Guid? capturedUserId = null;
+
+        var tenantContext = requestServices.GetService<ITenantContext>();
+        if (tenantContext?.TenantId is { } tId) capturedTenantId = tId;
+
+        var userContext = requestServices.GetService<ICurrentUserContext>();
+        if (userContext?.UserId is { } uId) capturedUserId = uId;
+
+        var scopeFactory = requestServices.GetRequiredService<IServiceScopeFactory>();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var bgScope = scopeFactory.CreateScope();
+                var bgServices = bgScope.ServiceProvider;
+
+                if (capturedTenantId.HasValue)
+                {
+                    var tc = bgServices.GetService<ITenantContext>();
+                    if (tc is not null)
+                    {
+                        tc.TenantId = capturedTenantId.Value;
+                        tc.ResolutionSource = "agui-user-append";
+                    }
+                }
+                if (capturedUserId.HasValue)
+                {
+                    var uc = bgServices.GetService<ICurrentUserContext>();
+                    if (uc is not null)
+                    {
+                        uc.UserId = capturedUserId.Value;
+                        uc.TenantId = capturedTenantId;
+                        uc.IsAuthenticated = true;
+                    }
+                }
+
+                var bgChatThreadService = bgServices.GetService<IChatThreadService>();
+                if (bgChatThreadService is null) return;
+
+                await bgChatThreadService.AppendMessageAsync(
+                    threadId, "user", content,
+                    agentName: agentName,
+                    cancellationToken: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "AG-UI detached user-message append failed for thread {ThreadId}", threadId);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Thin-client optimisation: if the request carries a persisted thread GUID and
+    /// only the new user turn, reconstruct prior conversation history from the
+    /// persisted thread (ordered by SortOrder). Falls back to the client-supplied
+    /// messages unchanged when the conditions are not met or on any retrieval
+    /// failure.
+    /// </summary>
+    private static async Task<IReadOnlyList<AguiMessage>?> ReconstructHistoryIfThinClientAsync(
+        AguiRunInput input,
+        Guid? persistedThreadId,
+        IChatThreadService? chatThreadService,
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var descriptors = services.GetRequiredService<IEnumerable<IDomainAgentDescriptor>>();
-        var descriptor = descriptors.FirstOrDefault(
-            d => string.Equals(d.Name, agentId, StringComparison.OrdinalIgnoreCase));
+        if (chatThreadService is null || !persistedThreadId.HasValue)
+            return input.Messages;
 
-        if (descriptor is null)
+        var messages = input.Messages;
+        if (messages is null || messages.Count != 1)
+            return messages;
+
+        var only = messages[0];
+        if (!string.Equals(only.Role, "user", StringComparison.OrdinalIgnoreCase))
+            return messages;
+
+        try
         {
-            throw new InvalidOperationException(
-                $"No domain agent descriptor registered with name '{agentId}'. " +
-                $"Available: {string.Join(", ", descriptors.Select(d => d.Name))}");
-        }
+            var detail = await chatThreadService.GetThreadAsync(persistedThreadId.Value, cancellationToken);
+            if (detail is null || detail.Messages.Count == 0)
+                return messages;
 
-        var configService = services.GetRequiredService<IAgentConfigurationService>();
-        var config = await configService.GetResolvedAsync(agentId, cancellationToken);
-
-        if (config is { IsActive: false })
-            throw new InvalidOperationException($"Agent '{agentId}' is inactive per configuration.");
-
-        var chatClient = services.GetRequiredService<IChatClient>();
-        AIAgent agent;
-
-        if (config is not null)
-        {
-            var instructionsOverride = !string.IsNullOrWhiteSpace(config.InstructionsText)
-                ? config.InstructionsText
-                : null;
-
-            HashSet<string>? allowedToolNames = null;
-            if (!string.IsNullOrWhiteSpace(config.ToolsetIdsJson) && config.ToolsetIdsJson != "[]")
+            // The latest user turn is already appended (fire-and-forget in the
+            // existing-thread path, or inline via CreateThreadAsync for a new
+            // thread). Either way, avoid duplicating it — drop any trailing
+            // user entry whose content matches the incoming message.
+            var reconstructed = new List<AguiMessage>(detail.Messages.Count + 1);
+            foreach (var m in detail.Messages.OrderBy(m => m.SortOrder))
             {
-                try
+                reconstructed.Add(new AguiMessage
                 {
-                    var toolNames = JsonSerializer.Deserialize<List<string>>(config.ToolsetIdsJson);
-                    if (toolNames is { Count: > 0 })
-                        allowedToolNames = new HashSet<string>(toolNames, StringComparer.Ordinal);
-                }
-                catch (JsonException ex)
-                {
-                    logger.LogWarning(ex, "Invalid ToolsetIdsJson for agent '{AgentName}' — using all tools", agentId);
-                }
+                    Id = m.Id.ToString("N"),
+                    Role = m.Role,
+                    Content = m.Content,
+                });
             }
 
-            agent = descriptor.Build(chatClient, services, instructionsOverride, allowedToolNames);
-            logger.LogInformation("AG-UI: resolved domain agent '{AgentName}' with config override", agentId);
-        }
-        else
-        {
-            agent = descriptor.Build(chatClient, services);
-            logger.LogInformation("AG-UI: resolved domain agent '{AgentName}' with code defaults", agentId);
-        }
+            // Trim a trailing duplicate user message if present.
+            for (var i = reconstructed.Count - 1; i >= 0; i--)
+            {
+                var tail = reconstructed[i];
+                if (string.Equals(tail.Role, "user", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(tail.Content, only.Content, StringComparison.Ordinal))
+                {
+                    reconstructed.RemoveAt(i);
+                    break;
+                }
 
-        return (agent, descriptor);
+                // Only inspect the final contiguous user run.
+                if (!string.Equals(tail.Role, "user", StringComparison.OrdinalIgnoreCase))
+                    break;
+            }
+
+            reconstructed.Add(only);
+            return reconstructed;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "AG-UI thin-client history reconstruction failed for thread {ThreadId} — falling back to client-supplied messages",
+                persistedThreadId.Value);
+            return messages;
+        }
     }
 
     /// <summary>

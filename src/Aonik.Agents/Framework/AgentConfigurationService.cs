@@ -7,6 +7,7 @@ using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Agents.Framework;
 
@@ -27,21 +28,33 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     private readonly ITenantProvider _tenantProvider;
     private readonly IAiModelResolver _modelResolver;
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
+    private readonly IFusionCache _cache;
     private readonly ILogger<AgentConfigurationService> _logger;
+
+    private static readonly FusionCacheEntryOptions ResolvedEntryOptions = new(TimeSpan.FromSeconds(60))
+    {
+        IsFailSafeEnabled = true,
+        FailSafeMaxDuration = TimeSpan.FromMinutes(5),
+    };
 
     public AgentConfigurationService(
         AgentsDbContext dbContext,
         ITenantProvider tenantProvider,
         IAiModelResolver modelResolver,
         IEnumerable<IDomainAgentDescriptor> descriptors,
+        IFusionCache cache,
         ILogger<AgentConfigurationService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _modelResolver = modelResolver;
         _descriptors = descriptors;
+        _cache = cache;
         _logger = logger;
     }
+
+    private static string ResolvedCacheKey(Guid tenantId, string agentName)
+        => $"agent-config:v1:{tenantId:N}:{agentName}";
 
     public async Task<IReadOnlyList<AgentConfigurationResponse>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -83,6 +96,18 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     {
         _tenantProvider.TryGetCurrentTenantId(out var tenantId);
 
+        return await _cache.GetOrSetAsync<AgentConfigurationResponse?>(
+            ResolvedCacheKey(tenantId, agentName),
+            async ct => await ResolveFromStoreAsync(tenantId, agentName, ct),
+            ResolvedEntryOptions,
+            cancellationToken);
+    }
+
+    private async Task<AgentConfigurationResponse?> ResolveFromStoreAsync(
+        Guid tenantId,
+        string agentName,
+        CancellationToken cancellationToken)
+    {
         // Fetch all rows matching this agent name (global + any tenant override).
         var rows = await _dbContext.Agents
             .AsNoTracking()
@@ -103,6 +128,18 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             modelName = await _modelResolver.ResolveModelNameByIdAsync(resolved.ModelId.Value, cancellationToken);
 
         return MapToResponse(resolved, tenantId, modelName);
+    }
+
+    private async Task InvalidateResolvedAsync(
+        Guid tenantId,
+        string agentName,
+        CancellationToken cancellationToken)
+    {
+        // Remove both the affected tenant entry and the global entry, because
+        // the global row feeds resolutions for any tenant without an override.
+        await _cache.RemoveAsync(ResolvedCacheKey(tenantId, agentName), token: cancellationToken);
+        if (tenantId != Guid.Empty)
+            await _cache.RemoveAsync(ResolvedCacheKey(Guid.Empty, agentName), token: cancellationToken);
     }
 
     public async Task<AgentConfigurationResponse> UpsertOverrideAsync(
@@ -188,6 +225,8 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             "Upserted agent configuration override for '{AgentName}' in tenant {TenantId}",
             agentName, tenantId);
 
+        await InvalidateResolvedAsync(tenantId, agentName, cancellationToken);
+
         string? modelName = null;
         if (existing.ModelId.HasValue)
             modelName = await _modelResolver.ResolveModelNameByIdAsync(existing.ModelId.Value, cancellationToken);
@@ -214,6 +253,8 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
 
         _dbContext.Agents.Remove(existing);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await InvalidateResolvedAsync(tenantId, agentName, cancellationToken);
 
         _logger.LogInformation(
             "Deleted agent configuration override for '{AgentName}' in tenant {TenantId}",
