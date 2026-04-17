@@ -62,8 +62,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // Simi top bar label present (empty state shows "Simi" instead of "Your spending").
-    // Section tabs are hidden in the empty state.
-    expect(find.text('Simi'), findsOneWidget);
+    // Section tabs are hidden in the empty state. The app shell's Spending
+    // nav-label also contains "Simi" on the chat destination, so allow >=1.
+    expect(find.text('Simi'), findsAtLeast(1));
     expect(find.text('Transactions'), findsNothing);
     expect(find.text('Budgets'), findsNothing);
 
@@ -100,8 +101,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // Simi top bar label present (empty state shows "Simi" instead of "Spend").
-    // Section tabs are hidden in the empty state.
-    expect(find.text('Simi'), findsOneWidget);
+    // Section tabs are hidden in the empty state. The app shell's Spending
+    // nav-label also contains "Simi" on the chat destination, so allow >=1.
+    expect(find.text('Simi'), findsAtLeast(1));
     expect(find.text('Transactions'), findsNothing);
 
     // Simi AI typewriter message should be fully revealed after pumpAndSettle
@@ -167,12 +169,10 @@ void main() {
     await tester.tap(find.text('Budgets'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Monthly budget'), findsOneWidget);
-
-    final Finder primaryList = find.byType(ListView).first;
-    await tester.drag(primaryList, const Offset(0, -280));
-    await tester.pumpAndSettle();
-
+    // The budget list screen renders the hero summary (month label, status)
+    // and the category cards — "Monthly budget" is only on the budget *detail*
+    // screen, so assert the landmarks that are actually present on the list.
+    expect(find.text('April 2026'), findsOneWidget);
     expect(find.text('Category budgets'), findsOneWidget);
     expect(find.text('Housing'), findsOneWidget);
   });

@@ -13,33 +13,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Connected accounts'), findsOneWidget);
-    expect(find.text('CONNECT BANK ACCOUNT'), findsOneWidget);
 
-    final Finder primaryScrollable = find.byType(Scrollable).last;
-
-    await tester.scrollUntilVisible(
-      find.text('UK Current'),
-      240,
-      scrollable: primaryScrollable,
-    );
+    // The sheet's ListView uses SliverChildListDelegate, which lazily builds
+    // children that fall outside the viewport. Only the first account row is
+    // in the widget tree initially — drag the sheet to bring the others in
+    // via cacheExtent as they approach the viewport.
     expect(find.text('UK Current'), findsOneWidget);
 
-    final Finder creditCardKey =
-        find.byKey(const Key('account-card-uk-credit-card'));
+    final Finder sheetScrollable = find.byType(Scrollable).last;
 
-    await tester.scrollUntilVisible(
-      creditCardKey,
-      260,
-      scrollable: primaryScrollable,
-    );
-    expect(creditCardKey, findsOneWidget);
+    Future<void> dragToReveal(Finder target) async {
+      for (var i = 0; i < 20 && target.evaluate().isEmpty; i++) {
+        await tester.drag(sheetScrollable, const Offset(0, -220));
+        await tester.pumpAndSettle();
+      }
+    }
 
-    await tester.scrollUntilVisible(
-      find.text('Travel cash wallet'),
-      220,
-      scrollable: primaryScrollable,
-    );
+    await dragToReveal(find.byKey(const Key('account-card-uk-credit-card')));
+    expect(
+        find.byKey(const Key('account-card-uk-credit-card')), findsOneWidget);
+
+    await dragToReveal(find.text('Travel cash wallet'));
     expect(find.text('Travel cash wallet'), findsOneWidget);
+
+    await dragToReveal(find.byKey(const Key('accounts-connect-sheet')));
+    expect(find.byKey(const Key('accounts-connect-sheet')), findsOneWidget);
+    // Label is uppercased by PayaboButton at paint time.
+    expect(find.text('CONNECT BANK ACCOUNT'), findsOneWidget);
   });
 
   testWidgets(
@@ -75,15 +75,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final Finder primaryScrollable = find.byType(Scrollable).last;
-
-    final Finder connectButton = find.text('CONNECT BANK');
-
-    await tester.scrollUntilVisible(
-      connectButton,
-      160,
-      scrollable: primaryScrollable,
-    );
+    // Empty-state hero renders the "Connect bank account" CTA as
+    // `accounts-connect-primary`. Tap via its key so the finder doesn't
+    // rely on PayaboButton's label casing.
+    final Finder connectButton =
+        find.byKey(const Key('accounts-connect-primary'));
+    await tester.ensureVisible(connectButton);
     await tester.tap(connectButton);
     await tester.pumpAndSettle();
 
@@ -113,6 +110,7 @@ void main() {
       scrollable: primaryScrollable,
     );
 
+    // PayaboButton uppercases its label at paint time.
     final Finder refreshButton = find.descendant(
       of: everydayCard,
       matching: find.text('REFRESH'),
@@ -126,9 +124,17 @@ void main() {
     await tester.ensureVisible(refreshButton);
     await tester.pumpAndSettle();
     await tester.tap(refreshButton);
-    await tester.pumpAndSettle();
 
-    expect(find.text('Synced just now'), findsWidgets);
+    // Successful refresh surfaces a "Refreshed N linked account(s) from X"
+    // snack-bar. Avoid `pumpAndSettle()` here — SnackBar auto-dismisses
+    // after 4 s and settle would advance past that. uk-everyday-current
+    // and uk-savings share mock-connection-starling so the count is 2.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+      find.textContaining('Refreshed 2 linked accounts from Starling Bank'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('reconnect action restores an attention account',
@@ -136,37 +142,39 @@ void main() {
     await tester.pumpWidget(buildTestApp(const SpendingAccountsScreen()));
     await tester.pumpAndSettle();
 
-    final Finder primaryScrollable = find.byType(Scrollable).last;
+    final Finder sheetScrollable = find.byType(Scrollable).last;
     final Finder billsCard = find.byKey(const Key('account-card-uk-credit-card'));
 
-    await tester.scrollUntilVisible(
-      billsCard,
-      260,
-      scrollable: primaryScrollable,
-    );
+    // Bring the uk-credit-card row into the viewport via drags (the sheet's
+    // SliverList builds children lazily, so scrollUntilVisible without a
+    // prior match throws on element.single).
+    for (var i = 0; i < 20 && billsCard.evaluate().isEmpty; i++) {
+      await tester.drag(sheetScrollable, const Offset(0, -220));
+      await tester.pumpAndSettle();
+    }
+    expect(billsCard, findsOneWidget);
 
     final Finder reconnectButton = find.descendant(
       of: billsCard,
       matching: find.text('RECONNECT'),
     );
 
-    await tester.scrollUntilVisible(
-      reconnectButton,
-      140,
-      scrollable: primaryScrollable,
-    );
     await tester.ensureVisible(reconnectButton);
     await tester.pumpAndSettle();
     await tester.tap(reconnectButton);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('accounts-connect-continue')));
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    // Allow the sheet-exchange animation + provider refresh to complete,
+    // but avoid settling past the auto-dismissing snack-bar.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
 
+    // Reconnect flows through the same sheet as connect and surfaces the
+    // "Connected N account(s) from X" snack-bar on completion.
     expect(
-      find.text(
-        'Connection restored. Spend can use fresh transactions and balances again.',
-      ),
+      find.textContaining('Connected 1 account'),
       findsOneWidget,
     );
   });

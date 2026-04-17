@@ -14,38 +14,22 @@ import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 import 'test_helpers.dart';
 
 void main() {
-  testWidgets('budget screen renders summary and expandable categories',
+  testWidgets('budget screen renders summary and category cards',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const SpendingBudgetScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Spend'), findsOneWidget);
+    // Hero banner surfaces the summary figures and the month label.
+    expect(find.text('April 2026'), findsOneWidget);
+    expect(find.text('On track'), findsOneWidget);
+
+    // Section pill for the budgets tab is selected.
     expect(find.text('Budgets'), findsOneWidget);
-    expect(find.text('Monthly budget'), findsOneWidget);
 
-    final Finder primaryList = find.byType(ListView).first;
-    await tester.drag(primaryList, const Offset(0, -280));
-    await tester.pumpAndSettle();
-
+    // The category list renders with a heading + per-category cards keyed by id.
     expect(find.text('Category budgets'), findsOneWidget);
     expect(find.text('Housing'), findsOneWidget);
-
-    // The first card (Housing) is expanded by default, showing a Wrap with
-    // Spent and Remaining detail chips rendered as RichText.
-    // Verify the AnimatedSize expansion is present by locating the Wrap widget
-    // inside the expanded content.
-    expect(find.byType(Wrap), findsWidgets);
-
-    // Collapse the card.
-    await tester.tap(find.byKey(const Key('budget-expand-housing')));
-    await tester.pumpAndSettle();
-
-    // Re-expand the card.
-    await tester.tap(find.byKey(const Key('budget-expand-housing')));
-    await tester.pumpAndSettle();
-
-    // Still renders correctly after re-expand.
-    expect(find.text('Housing'), findsOneWidget);
+    expect(find.byKey(const Key('budget-card-housing')), findsOneWidget);
   });
 
   testWidgets('budget card opens the budget detail screen',

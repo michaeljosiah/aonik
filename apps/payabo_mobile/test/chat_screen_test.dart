@@ -12,14 +12,10 @@ void main() {
     await tester.pumpWidget(buildTestApp(const ChatScreen()));
     await tester.pumpAndSettle();
 
-    // Hero state is visible when no conversation is loaded.
+    // Hero state shows the greeting and the history-menu entry point.
     expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
-    expect(find.text('Hello!'), findsOneWidget);
-    expect(find.text("I'M SIMI"), findsOneWidget);
-    expect(
-      find.textContaining('I am here to guide you through bills, budgets'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey<String>('chat-empty')), findsOneWidget);
+    expect(find.text('Hey, you'), findsOneWidget);
 
     // Composer shows the hero-state hint; no Attach/Camera/Voice buttons.
     expect(
@@ -55,17 +51,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Hello!'), findsOneWidget);
-    expect(find.text('I\'M SIMI'), findsOneWidget);
-    expect(
-      find.textContaining('I am here to guide you through bills, budgets'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey<String>('chat-empty')), findsOneWidget);
+    expect(find.text('Hey, you'), findsOneWidget);
     expect(
         find.text('Try asking "How do I stop missing bills?"'), findsOneWidget);
     expect(find.text('Sunday reset'), findsNothing);
 
-    final Text welcomeText = tester.widget<Text>(find.text('Hello!'));
+    final Text welcomeText = tester.widget<Text>(find.text('Hey, you'));
     expect(welcomeText.style?.fontSize, greaterThanOrEqualTo(42));
   });
 
