@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/theme/payabo_color_resolver.dart';
 import '../../shared/theme/payabo_spacing.dart';
 import '../../shared/widgets/payabo_button.dart';
+import '../../shared/widgets/payabo_wordmark.dart';
 import 'app_lock_controller.dart';
 
 class BiometricLockScreen extends ConsumerStatefulWidget {
@@ -42,11 +43,7 @@ class _BiometricLockScreenState extends ConsumerState<BiometricLockScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Image.asset(
-                  'assets/images/mba_logo.png',
-                  width: 200,
-                  fit: BoxFit.contain,
-                ),
+                const PayaboWordmark(width: 200),
                 const SizedBox(height: PayaboSpacing.x3),
                 Icon(
                   Icons.fingerprint,

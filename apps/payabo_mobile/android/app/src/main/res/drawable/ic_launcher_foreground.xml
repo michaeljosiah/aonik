@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: Payabo "P" + brand-orange dot. Content is
+     sized to fit inside the ~66dp safe zone centered in the 108dp canvas
+     (launcher masks vary: circle, squircle, rounded-square — all preserve
+     the center 66dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- P letterform — extracted from the Payabo wordmark SVG, scaled 0.2×
+         (from 130×180 source units to 26×36dp) and translated so the P's
+         top-left lands at ~(34, 36) in the 108dp canvas. -->
+    <group
+        android:translateX="-32.6"
+        android:translateY="-13.4"
+        android:scaleX="0.2"
+        android:scaleY="0.2">
+        <group android:translateX="333" android:translateY="247">
+            <path
+                android:fillColor="#493424"
+                android:pathData="M0 0 C96.9725 0 96.9725 0 116.75 18.3125 C127.30073934 29.5335216 130.64305307 43.31384124 130.47045898 58.31811523 C129.85727378 75.57396453 125.24612768 91.31128725 113.08984375 104.07421875 C94.92838418 120.80991888 71.47684067 121 48 121 C48 140.47 48 159.94 48 180 C32.16 180 16.32 180 0 180 C0 120.6 0 61.2 0 0 Z" />
+        </group>
+        <group android:translateX="381" android:translateY="286">
+            <!-- Counter fill matches the adaptive-icon background so the
+                 P bowl reads as a proper negative-space hole. -->
+            <path
+                android:fillColor="#FFFCF9"
+                android:pathData="M0 0 C20 0 20 0 28 4 C33.40189061 9.6317583 34.32275835 13.52909781 34.203125 21.0859375 C33.73740959 27.76716238 32.15935057 32.32689288 27.1875 36.9375 C18.985072 43.86290328 10.88244971 42 0 42 C0 28.14 0 14.28 0 0 Z" />
+        </group>
+    </group>
+    <!-- Brand orange dot: clean 10dp circle at (68, 60) in brand-500 orange. -->
+    <path
+        android:fillColor="#F37920"
+        android:pathData="M68,60 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+</vector>

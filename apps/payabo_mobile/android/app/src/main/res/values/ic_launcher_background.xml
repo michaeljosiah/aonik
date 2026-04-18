@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- warm050 (= PayaboPalette.warm050) — the Payabo brand's signature
+         warm cream, used as the adaptive icon background. -->
+    <color name="ic_launcher_background">#FFFCF9</color>
+</resources>

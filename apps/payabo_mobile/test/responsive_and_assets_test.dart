@@ -25,16 +25,18 @@ import 'package:payabo_mobile/mock/repositories/mock_profile_repository.dart';
 import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 import 'package:payabo_mobile/shared/widgets/payabo_app_header.dart';
 import 'package:payabo_mobile/shared/widgets/payabo_bottom_nav.dart';
+import 'package:payabo_mobile/shared/widgets/payabo_letter_cascade_loader.dart';
 import 'package:payabo_mobile/shared/widgets/payabo_profile_avatar.dart';
 
 import 'test_helpers.dart';
 
 void main() {
-  testWidgets('assets render for image and svg widgets',
+  testWidgets(
+      'splash renders the Payabo letter cascade loader and svg assets render',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const SplashScreen()));
-    await tester.pumpAndSettle();
-    expect(find.byType(Image), findsWidgets);
+    await tester.pump();
+    expect(find.byType(PayaboLetterCascadeLoader), findsOneWidget);
 
     await tester.pumpWidget(buildTestApp(const ContactDetailsScreen()));
     await tester.pumpAndSettle();

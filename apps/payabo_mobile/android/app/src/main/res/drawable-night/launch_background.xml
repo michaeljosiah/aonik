@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pre-Android-12 launch window background (dark / night). Bg is #121820 to
+     match PayaboDarkColors.surfaceBase (payabo_palette dark900) so that the
+     dark-variant wordmark's counter colour blends invisibly. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#121820" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/payabo_wordmark"
+        android:gravity="center" />
+</layer-list>

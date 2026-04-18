@@ -49,7 +49,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/mba_logo.png
+    - assets/images/payabo_wordmark.svg
+    - assets/images/payabo_wordmark_dark.svg
     - assets/images/slider-img-01.png
     - assets/images/slider-img-02.png
     - assets/images/slider-img-03.png

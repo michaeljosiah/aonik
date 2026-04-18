@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ splash screen customisation (dark / night). Background
+     matches PayaboDarkColors.surfaceBase so the wordmark's dark-variant
+     counter colour blends invisibly. -->
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">#121820</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/payabo_wordmark</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
