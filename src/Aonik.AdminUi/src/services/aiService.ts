@@ -231,6 +231,13 @@ export const agentConfigService = {
     });
     return result.improvedPrompt;
   },
+
+  resetPrompt: async (agentName: string): Promise<AgentConfigurationResponse> => {
+    return api.post<AgentConfigurationResponse>(
+      `/ai/agents/configurations/${agentName}/reset-prompt`,
+      {},
+    );
+  },
 };
 
 // ── Agent run service ────────────────────────────────────────────────
@@ -327,6 +334,10 @@ export const aiTaskService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/ai/tasks/${id}`);
+  },
+
+  resetPrompt: async (id: string): Promise<AiTaskResponse> => {
+    return api.post<AiTaskResponse>(`/ai/tasks/${id}/reset-prompt`, {});
   },
 };
 

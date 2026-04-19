@@ -10,6 +10,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  RotateCcw,
   Save,
   Shield,
   Sparkles,
@@ -102,6 +103,9 @@ export function AgentDetailPage() {
   const [wizardIntent, setWizardIntent] = useState('');
   const [wizardImproving, setWizardImproving] = useState(false);
   const [wizardPreview, setWizardPreview] = useState<string | null>(null);
+
+  // Reset-to-default prompt
+  const [resettingPrompt, setResettingPrompt] = useState(false);
 
   // ── Data loading ────────────────────────────────────────────────
 
@@ -205,6 +209,27 @@ export function AgentDetailPage() {
     setShowPromptWizard(false);
     setWizardPreview(null);
     setWizardIntent('');
+  };
+
+  const resetPromptToDefault = async () => {
+    if (!agent) return;
+    const confirmed = window.confirm(
+      'Reset this agent\u2019s prompt back to the hard-coded default? Your current prompt edits will be overwritten.',
+    );
+    if (!confirmed) return;
+
+    setResettingPrompt(true);
+    try {
+      const updated = await agentConfigService.resetPrompt(agent.name);
+      updateField('instructionsText', updated.instructionsText);
+      setAgent(updated);
+      toast.success('Prompt reset to default.');
+    } catch (err) {
+      console.error('Failed to reset prompt:', err);
+      toast.error('Failed to reset prompt. Please try again.');
+    } finally {
+      setResettingPrompt(false);
+    }
   };
 
   // ── Save / Cancel ──────────────────────────────────────────────
@@ -463,10 +488,27 @@ export function AgentDetailPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-[var(--color-text-secondary)]">System prompt</Label>
-                    <Button variant="ghost" size="sm" onClick={openPromptWizard} className="gap-1.5 text-xs h-7 text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Regenerate with AI
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={resetPromptToDefault}
+                        disabled={resettingPrompt}
+                        className="gap-1.5 text-xs h-7 text-[var(--color-text-tertiary)]"
+                        title="Reset the prompt back to the hard-coded default for this agent"
+                      >
+                        {resettingPrompt ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        )}
+                        Reset to default
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={openPromptWizard} className="gap-1.5 text-xs h-7 text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Regenerate with AI
+                      </Button>
+                    </div>
                   </div>
                   <Textarea
                     value={editState.instructionsText}

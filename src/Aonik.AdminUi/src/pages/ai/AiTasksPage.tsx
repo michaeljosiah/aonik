@@ -40,6 +40,7 @@ import {
   ChevronLeft,
   ChevronRight,
   HelpCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { aiTaskService, aiRunService, aiModelService, routePolicyService } from '@/services/aiService';
 import type { AiModelResponse } from '@/types/ai';
@@ -157,6 +158,7 @@ export function AiTasksPage() {
   const [showFormDialog, setShowFormDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<AiTaskResponse | null>(null);
   const [saving, setSaving] = useState(false);
+  const [resettingPrompt, setResettingPrompt] = useState(false);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<AiTaskResponse | null>(null);
@@ -307,6 +309,27 @@ export function AiTasksPage() {
       const globalPolicy = policies.find((p) => !p.isOverride);
       setFormGlobalModelName(globalPolicy?.primaryModelName ?? null);
     }).catch(() => {/* silent */});
+  };
+
+  const handleResetPrompt = async () => {
+    if (!editingTask) return;
+    const confirmed = window.confirm(
+      'Reset this task\u2019s System and User templates back to the hard-coded defaults? Your current prompt edits will be overwritten.',
+    );
+    if (!confirmed) return;
+
+    setResettingPrompt(true);
+    setError(null);
+    try {
+      const updated = await aiTaskService.resetPrompt(editingTask.id);
+      setFormSystemTemplate(updated.systemTemplate);
+      setFormUserTemplate(updated.userTemplate);
+      setEditingTask(updated);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to reset prompt'));
+    } finally {
+      setResettingPrompt(false);
+    }
   };
 
   const handleSave = async () => {
@@ -894,11 +917,30 @@ export function AiTasksPage() {
             </div>
 
             <div className="space-y-2">
-              <FieldLabel
-                htmlFor="task-system-template"
-                label="System Template"
-                tooltip="The system prompt sent to the LLM. Sets the AI's role, rules, and output format. Supports {{variable}} placeholders."
-              />
+              <div className="flex items-center justify-between">
+                <FieldLabel
+                  htmlFor="task-system-template"
+                  label="System Template"
+                  tooltip="The system prompt sent to the LLM. Sets the AI's role, rules, and output format. Supports {{variable}} placeholders."
+                />
+                {editingTask && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetPrompt}
+                    disabled={resettingPrompt || saving}
+                    className="gap-1.5 text-xs h-7 text-muted-foreground"
+                    title="Reset System and User templates back to the hard-coded defaults for this task"
+                  >
+                    {resettingPrompt ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    )}
+                    Reset to default
+                  </Button>
+                )}
+              </div>
               <Textarea
                 id="task-system-template"
                 value={formSystemTemplate}

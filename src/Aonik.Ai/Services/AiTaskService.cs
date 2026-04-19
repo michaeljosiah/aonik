@@ -2,6 +2,7 @@ using Aonik.Ai.Contracts.Models;
 using Aonik.Ai.Contracts.Services;
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
+using Aonik.Ai.Services.Seeding;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -198,6 +199,24 @@ internal sealed class AiTaskService : IAiTaskService
         task.IsDeleted = true;
         task.DeletedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
+    }
+
+    public async Task<AiTaskResponse> ResetPromptAsync(Guid id, CancellationToken ct = default)
+    {
+        var task = await _dbContext.AiTasks.FirstOrDefaultAsync(t => t.Id == id, ct)
+            ?? throw new InvalidOperationException($"AiTask with ID {id} not found.");
+
+        var defaults = AiTaskSeedService.TryGetDefaultPrompts(task.UseCase)
+            ?? throw new InvalidOperationException(
+                $"No hard-coded seed definition exists for use case '{task.UseCase}' — cannot reset prompt.");
+
+        task.SystemTemplate = defaults.SystemTemplate;
+        task.UserTemplate = defaults.UserTemplate;
+        task.DeveloperTemplate = string.Empty;
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        return await BuildResponseAsync(task, ct);
     }
 
     private Guid? ResolveTenantScope()

@@ -46,6 +46,17 @@ public interface IAgentConfigurationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Resets the agent's instructions (prompt) to the hard-coded default
+    /// defined by its <see cref="Aonik.SharedKernel.Abstractions.Ai.IDomainAgentDescriptor"/>.
+    /// Only the <c>InstructionsText</c> field is overwritten — tools, model,
+    /// risk tier, and other customizations remain intact. Targets the tenant
+    /// override if one exists for the current tenant, otherwise the global row.
+    /// </summary>
+    Task<AgentConfigurationResponse> ResetPromptAsync(
+        string agentName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Seeds global default Agent rows (TenantId = null) for each registered
     /// <see cref="IDomainAgentDescriptor"/>. Idempotent — skips agents that
     /// already have a global row.

@@ -216,3 +216,38 @@ public sealed record DeleteAiTaskRequest
 {
     public Guid TaskId { get; init; }
 }
+
+// ── Reset AI Task Prompt ───────────────────────────────────────────
+
+internal sealed class ResetAiTaskPromptEndpoint : Endpoint<ResetAiTaskPromptRequest, AiTaskResponse>
+{
+    private readonly IAiTaskService _service;
+
+    public ResetAiTaskPromptEndpoint(IAiTaskService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/ai/tasks/{TaskId}/reset-prompt");
+        Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Reset AI task prompt to hard-coded default";
+            s.Description = "Overwrites SystemTemplate and UserTemplate with the seed definition matched by UseCase. Other fields are preserved.";
+            s.Response(200, "Prompt reset");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Task or seed definition not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
+    }
+
+    public override async Task HandleAsync(ResetAiTaskPromptRequest req, CancellationToken ct)
+    {
+        var result = await _service.ResetPromptAsync(req.TaskId, ct);
+        await Send.OkAsync(result, ct);
+    }
+}
+
+public sealed record ResetAiTaskPromptRequest
+{
+    public Guid TaskId { get; init; }
+}

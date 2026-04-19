@@ -261,6 +261,48 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             agentName, tenantId);
     }
 
+    public async Task<AgentConfigurationResponse> ResetPromptAsync(
+        string agentName,
+        CancellationToken cancellationToken = default)
+    {
+        var descriptor = _descriptors.FirstOrDefault(d =>
+            string.Equals(d.Name, agentName, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"No hard-coded descriptor exists for agent '{agentName}' — cannot reset prompt.");
+
+        var defaultInstructions = descriptor.Instructions ?? string.Empty;
+
+        _tenantProvider.TryGetCurrentTenantId(out var tenantId);
+
+        // Target the row the Admin UI edits: tenant override if present, else the global row.
+        var target = tenantId != Guid.Empty
+            ? await _dbContext.Agents.FirstOrDefaultAsync(
+                a => a.Name == agentName && a.TenantId == tenantId, cancellationToken)
+              ?? await _dbContext.Agents.FirstOrDefaultAsync(
+                a => a.Name == agentName && a.TenantId == null, cancellationToken)
+            : await _dbContext.Agents.FirstOrDefaultAsync(
+                a => a.Name == agentName && a.TenantId == null, cancellationToken);
+
+        if (target is null)
+            throw new InvalidOperationException(
+                $"No agent row found for '{agentName}' to reset.");
+
+        target.InstructionsText = defaultInstructions;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await InvalidateResolvedAsync(tenantId, agentName, cancellationToken);
+
+        _logger.LogInformation(
+            "Reset prompt for agent '{AgentName}' in tenant {TenantId} to hard-coded default ({Len} chars)",
+            agentName, tenantId, defaultInstructions.Length);
+
+        string? modelName = null;
+        if (target.ModelId.HasValue)
+            modelName = await _modelResolver.ResolveModelNameByIdAsync(target.ModelId.Value, cancellationToken);
+
+        return MapToResponse(target, tenantId, modelName);
+    }
+
     public async Task SeedGlobalDefaultsAsync(
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken = default)

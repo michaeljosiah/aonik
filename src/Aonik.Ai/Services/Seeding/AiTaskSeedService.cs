@@ -150,6 +150,19 @@ internal class AiTaskSeedService
         }
     }
 
+    /// <summary>
+    /// Looks up the hard-coded default prompt templates for a given UseCase.
+    /// Returns <c>null</c> if no seed definition matches.
+    /// Used by reset-to-default flows to restore a stored AiTask row's templates.
+    /// </summary>
+    public static (string SystemTemplate, string UserTemplate)? TryGetDefaultPrompts(string useCase)
+    {
+        var def = GetTaskDefinitions()
+            .FirstOrDefault(d => string.Equals(d.UseCase, useCase, StringComparison.OrdinalIgnoreCase));
+
+        return def is null ? null : (def.SystemTemplate, def.UserTemplate);
+    }
+
     private static List<AiTaskDefinition> GetTaskDefinitions() =>
     [
         // ── Transaction Classification ──────────────────────────────────────
