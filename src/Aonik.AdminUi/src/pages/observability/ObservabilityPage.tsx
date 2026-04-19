@@ -34,6 +34,10 @@ import {
 } from '@/services/observabilityService';
 import { RetrievalTab } from './RetrievalTab';
 import { TopologyTab } from './TopologyTab';
+import {
+  PanelInfoPopover,
+  type PanelCallout,
+} from '@/components/ui/panel-info-popover';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1580,6 +1584,271 @@ export function ObservabilityPage() {
   };
 
   // -----------------------------------------------------------------------
+  // Callouts for tab info popovers (derived from loaded data)
+  // -----------------------------------------------------------------------
+
+  const overviewCallouts: PanelCallout[] = [];
+  if (overview?.errors) {
+    const rate = overview.errors.errorRatePercent;
+    overviewCallouts.push({
+      level: rate < 1 ? 'good' : rate < 5 ? 'warning' : 'critical',
+      message: (
+        <>
+          <strong>Error rate</strong> is {rate.toFixed(1)}%
+          {rate < 1
+            ? ' — healthy.'
+            : rate < 5
+            ? ' — elevated, investigate.'
+            : ' — critical, immediate attention needed.'}
+        </>
+      ),
+    });
+  }
+  if (overview?.latency) {
+    const p95 = overview.latency.p95Ms;
+    overviewCallouts.push({
+      level: p95 < 500 ? 'good' : p95 < 2000 ? 'warning' : 'critical',
+      message: (
+        <>
+          <strong>P95 latency</strong> is {formatMs(p95)}
+          {p95 < 500
+            ? ' — responsive.'
+            : p95 < 2000
+            ? ' — slow, check dependencies.'
+            : ' — critically slow.'}
+        </>
+      ),
+    });
+  }
+  if (overview?.requests) {
+    overviewCallouts.push({
+      level: 'info',
+      message: (
+        <>
+          {formatNumber(overview.requests.total)} total requests at{' '}
+          {overview.requests.ratePerMinute.toFixed(1)} req/min.
+        </>
+      ),
+    });
+  }
+
+  const aiCallouts: PanelCallout[] = [];
+  if (aiData) {
+    const totalCostAi = (aiData.byUseCase ?? []).reduce(
+      (s, uc) => s + (uc.estimatedCostUsd ?? 0),
+      0,
+    );
+    const watchdogThresholdAi = 5.0;
+    const ratioAi = watchdogThresholdAi > 0 ? totalCostAi / watchdogThresholdAi : 0;
+    const fmtUsd = (v: number) => (v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(4)}`);
+    aiCallouts.push({
+      level: ratioAi >= 1 ? 'critical' : ratioAi >= 0.6 ? 'warning' : 'good',
+      message: (
+        <>
+          Estimated cost is <strong>{fmtUsd(totalCostAi)}</strong> against a{' '}
+          {fmtUsd(watchdogThresholdAi)} hourly watchdog threshold (
+          {(ratioAi * 100).toFixed(0)}%).
+        </>
+      ),
+    });
+    if (aiData.latency) {
+      const p95ai = aiData.latency.p95Ms;
+      aiCallouts.push({
+        level: latencyStatus(p95ai),
+        message: (
+          <>
+            <strong>P95 LLM latency</strong> is {formatMs(p95ai)}.
+          </>
+        ),
+      });
+    }
+  }
+
+  const errorsCallouts: PanelCallout[] = [];
+  if (errorsData) {
+    const activeGroups = errorsData.errors.filter(
+      (e) => !mutedErrorTypes.has(e.type),
+    );
+    const activeOccurrences = activeGroups.reduce((s, e) => s + e.count, 0);
+    errorsCallouts.push({
+      level: activeGroups.length === 0 ? 'good' : 'critical',
+      message:
+        activeGroups.length === 0 ? (
+          <>No active error groups in the selected window.</>
+        ) : (
+          <>
+            <strong>{activeGroups.length}</strong> active error{' '}
+            {activeGroups.length === 1 ? 'group' : 'groups'} with{' '}
+            {formatNumber(activeOccurrences)} occurrences.
+          </>
+        ),
+    });
+    if (mutedErrorTypes.size > 0) {
+      errorsCallouts.push({
+        level: 'info',
+        message: (
+          <>
+            {mutedErrorTypes.size} error{' '}
+            {mutedErrorTypes.size === 1 ? 'type' : 'types'} muted.
+          </>
+        ),
+      });
+    }
+  }
+
+  const depsCallouts: PanelCallout[] = [];
+  if (depsData) {
+    const criticalDeps = depsData.dependencies.filter(
+      (d) => d.successRatePercent < 95,
+    );
+    const warnDeps = depsData.dependencies.filter(
+      (d) => d.successRatePercent >= 95 && d.successRatePercent < 99.5,
+    );
+    if (criticalDeps.length > 0) {
+      depsCallouts.push({
+        level: 'critical',
+        message: (
+          <>
+            <strong>{criticalDeps.length}</strong>{' '}
+            {criticalDeps.length === 1 ? 'dependency' : 'dependencies'} below
+            95% success rate: {criticalDeps.map((d) => d.name).join(', ')}.
+          </>
+        ),
+      });
+    } else if (warnDeps.length > 0) {
+      depsCallouts.push({
+        level: 'warning',
+        message: (
+          <>
+            <strong>{warnDeps.length}</strong>{' '}
+            {warnDeps.length === 1 ? 'dependency' : 'dependencies'} below 99.5%
+            success rate.
+          </>
+        ),
+      });
+    } else if (depsData.dependencies.length > 0) {
+      depsCallouts.push({
+        level: 'good',
+        message: (
+          <>
+            All {formatNumber(depsData.dependencies.length)}{' '}
+            {depsData.dependencies.length === 1 ? 'dependency' : 'dependencies'}{' '}
+            above 99.5% success rate.
+          </>
+        ),
+      });
+    }
+  }
+
+  const jobsCallouts: PanelCallout[] = [];
+  if (jobsData) {
+    const totalExJobs = jobsData.jobs.reduce((s, j) => s + j.total, 0);
+    const totalSucJobs = jobsData.jobs.reduce((s, j) => s + j.successes, 0);
+    const srJobs =
+      totalExJobs > 0 ? (totalSucJobs / totalExJobs) * 100 : 100;
+    jobsCallouts.push({
+      level: srJobs >= 99 ? 'good' : srJobs >= 95 ? 'warning' : 'critical',
+      message: (
+        <>
+          Overall success rate is <strong>{srJobs.toFixed(1)}%</strong> across{' '}
+          {formatNumber(totalExJobs)} executions.
+        </>
+      ),
+    });
+    const failingJobs = jobsData.jobs.filter((j) => j.failures > 0);
+    if (failingJobs.length > 0) {
+      jobsCallouts.push({
+        level: 'warning',
+        message: (
+          <>
+            {failingJobs.length}{' '}
+            {failingJobs.length === 1 ? 'job has' : 'jobs have'} recorded
+            failures: {failingJobs.map((j) => j.jobName).join(', ')}.
+          </>
+        ),
+      });
+    }
+  }
+
+  const retrievalCallouts: PanelCallout[] = [];
+  if (retrievalData) {
+    retrievalCallouts.push({
+      level:
+        retrievalData.embeddingErrorCount === 0
+          ? 'good'
+          : retrievalData.embeddingErrorCount < 5
+          ? 'warning'
+          : 'critical',
+      message:
+        retrievalData.embeddingErrorCount === 0 ? (
+          <>No embedding errors — retrieval is operating cleanly.</>
+        ) : (
+          <>
+            <strong>{formatNumber(retrievalData.embeddingErrorCount)}</strong>{' '}
+            embedding{' '}
+            {retrievalData.embeddingErrorCount === 1 ? 'error' : 'errors'} —
+            may be causing silent retrieval degradation.
+          </>
+        ),
+    });
+    retrievalCallouts.push({
+      level: 'info',
+      message: (
+        <>
+          {formatNumber(retrievalData.totalSearches)} searches across{' '}
+          {retrievalData.collections.length} collection
+          {retrievalData.collections.length !== 1 ? 's' : ''}.
+        </>
+      ),
+    });
+  }
+
+  const topologyCallouts: PanelCallout[] = [];
+  if (topologyData) {
+    const criticalNodes = topologyData.nodes.filter(
+      (n) => n.status === 'critical',
+    );
+    const degradedNodes = topologyData.nodes.filter(
+      (n) => n.status === 'degraded',
+    );
+    if (criticalNodes.length > 0) {
+      topologyCallouts.push({
+        level: 'critical',
+        message: (
+          <>
+            <strong>{criticalNodes.length}</strong> service
+            {criticalNodes.length !== 1 ? 's' : ''} in critical state.
+          </>
+        ),
+      });
+    } else if (degradedNodes.length > 0) {
+      topologyCallouts.push({
+        level: 'warning',
+        message: (
+          <>
+            <strong>{degradedNodes.length}</strong> service
+            {degradedNodes.length !== 1 ? 's' : ''} degraded.
+          </>
+        ),
+      });
+    } else if (topologyData.nodes.length > 0) {
+      topologyCallouts.push({
+        level: 'good',
+        message: <>All {topologyData.nodes.length} services healthy.</>,
+      });
+    }
+    topologyCallouts.push({
+      level: 'info',
+      message: (
+        <>
+          {topologyData.nodes.length} services,{' '}
+          {topologyData.edges.length} observed connections.
+        </>
+      ),
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // Main render
   // -----------------------------------------------------------------------
 
@@ -1679,24 +1948,380 @@ export function ObservabilityPage() {
 
         <div className="p-6 overflow-auto flex-1">
           <TabsContent value="overview" className="mt-0">
+            <div className="mb-4 flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                Platform Overview
+              </span>
+              <PanelInfoPopover
+                title="Platform Overview"
+                description={
+                  <>
+                    <p>
+                      Tracks all inbound HTTP requests to the platform.{' '}
+                      <strong>Total requests</strong> and{' '}
+                      <strong>requests per minute</strong> show activity volume.{' '}
+                      <strong>Error rate</strong> is the share of failed
+                      requests — anything above 1% warrants investigation.{' '}
+                      <strong>P95 latency</strong> is the 95th-percentile
+                      response time; above 2 seconds indicates a performance
+                      issue.
+                    </p>
+                    <p>
+                      Time-series charts below show how each metric trends over
+                      the selected window.
+                    </p>
+                  </>
+                }
+                callouts={
+                  overviewCallouts.length > 0 ? overviewCallouts : undefined
+                }
+                panelKind="overview"
+                getMetrics={
+                  overview
+                    ? () => ({
+                        requests: overview.requests,
+                        errors: overview.errors,
+                        latency: overview.latency,
+                      })
+                    : undefined
+                }
+              />
+            </div>
             {renderOverviewTab()}
           </TabsContent>
+
           <TabsContent value="ai" className="mt-0">
+            <div className="mb-4 flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                AI Performance
+              </span>
+              <PanelInfoPopover
+                title="AI Performance"
+                description={
+                  <>
+                    <p>
+                      Aggregates all LLM calls recorded by{' '}
+                      <code>TelemetryChatClient</code> — agent runs, chat,
+                      background summarisers, projectors, and tool calls.
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>P50 / P95 latency</strong> — end-to-end
+                        response time per LLM call
+                      </li>
+                      <li>
+                        <strong>TTFT</strong> (time-to-first-token) — how long
+                        before streaming begins; directly impacts perceived
+                        responsiveness
+                      </li>
+                      <li>
+                        <strong>Estimated cost</strong> — calculated from token
+                        counts via the cost catalog in{' '}
+                        <code>AiTokenCostService</code>
+                      </li>
+                    </ul>
+                    <p>
+                      The <strong>AI Cost Watchdog</strong> row shows how close
+                      current spend is to the configured hourly threshold.
+                    </p>
+                  </>
+                }
+                callouts={aiCallouts.length > 0 ? aiCallouts : undefined}
+                panelKind="ai"
+                getMetrics={
+                  aiData
+                    ? () => ({
+                        latency: aiData.latency,
+                        ttft: aiData.ttft,
+                        tokenUsage: aiData.tokenUsage,
+                        clientServerComparison: aiData.clientServerComparison,
+                        byModel: (aiData.byModel ?? []).slice(0, 10),
+                        byAgent: aiData.byAgent.slice(0, 10),
+                        totalEstimatedCostUsd: (aiData.byUseCase ?? []).reduce(
+                          (s, uc) => s + (uc.estimatedCostUsd ?? 0),
+                          0,
+                        ),
+                      })
+                    : undefined
+                }
+              />
+            </div>
             {renderAiTab()}
           </TabsContent>
+
           <TabsContent value="errors" className="mt-0">
+            <div className="mb-4 flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                Application Errors
+              </span>
+              <PanelInfoPopover
+                title="Application Errors"
+                description={
+                  <>
+                    <p>
+                      Application exceptions captured by Application Insights,
+                      deduplicated by outer exception type. Each row is one
+                      distinct error class.
+                    </p>
+                    <ul>
+                      <li>
+                        Click any row to expand the stack trace and sample
+                        operation ID
+                      </li>
+                      <li>
+                        Use the type rail on the left to filter by exception
+                        class
+                      </li>
+                      <li>
+                        <strong>Muting</strong> a type hides it from the active
+                        list but continues counting it in the rail so it is
+                        never invisible
+                      </li>
+                      <li>Mutes persist in browser local storage across reloads</li>
+                    </ul>
+                  </>
+                }
+                callouts={
+                  errorsCallouts.length > 0 ? errorsCallouts : undefined
+                }
+                panelKind="errors"
+                getMetrics={
+                  errorsData
+                    ? () => ({
+                        totalGroups: errorsData.errors.length,
+                        activeGroups: errorsData.errors.filter(
+                          (e) => !mutedErrorTypes.has(e.type),
+                        ).length,
+                        mutedTypes: mutedErrorTypes.size,
+                        topErrors: errorsData.errors
+                          .slice(0, 15)
+                          .map((e) => ({
+                            type: e.type,
+                            count: e.count,
+                            lastSeen: e.lastSeen,
+                          })),
+                      })
+                    : undefined
+                }
+              />
+            </div>
             {renderErrorsTab()}
           </TabsContent>
+
           <TabsContent value="dependencies" className="mt-0">
+            <div className="mb-4 flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                External Dependencies
+              </span>
+              <PanelInfoPopover
+                title="External Dependencies"
+                description={
+                  <>
+                    <p>
+                      External calls made by the platform, tracked by
+                      Application Insights dependency telemetry. Covers HTTP
+                      calls to third-party APIs, SQL queries, gRPC, queues, and
+                      event hubs.
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Success rate</strong> below 99.5% is amber;
+                        below 95% is critical
+                      </li>
+                      <li>
+                        <strong>Avg duration</strong> is the mean wall-clock
+                        time per call over the selected window
+                      </li>
+                      <li>
+                        <strong>Failed</strong> is the absolute count of calls
+                        that returned a failure status
+                      </li>
+                    </ul>
+                  </>
+                }
+                callouts={depsCallouts.length > 0 ? depsCallouts : undefined}
+                panelKind="dependencies"
+                getMetrics={
+                  depsData
+                    ? () => ({
+                        dependencies: depsData.dependencies.map((d) => ({
+                          name: d.name,
+                          type: d.type,
+                          successRatePercent: d.successRatePercent,
+                          avgDurationMs: d.avgDurationMs,
+                          totalCalls: d.totalCalls,
+                          failedCalls: d.failedCalls,
+                        })),
+                      })
+                    : undefined
+                }
+              />
+            </div>
             {renderDependenciesTab()}
           </TabsContent>
+
           <TabsContent value="jobs" className="mt-0">
+            <div className="mb-4 flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                Background Jobs
+              </span>
+              <PanelInfoPopover
+                title="Background Jobs"
+                description={
+                  <>
+                    <p>
+                      Quartz.NET background job execution records from the
+                      worker service. Each row represents one registered job
+                      class.
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Total</strong> is the number of trigger fires
+                      </li>
+                      <li>
+                        <strong>Successes</strong> and{' '}
+                        <strong>failures</strong> come from Quartz trigger
+                        result status
+                      </li>
+                      <li>
+                        Any non-zero failures value means the job threw an
+                        unhandled exception — check the Errors tab for the
+                        matching exception type
+                      </li>
+                    </ul>
+                  </>
+                }
+                callouts={jobsCallouts.length > 0 ? jobsCallouts : undefined}
+                panelKind="jobs"
+                getMetrics={
+                  jobsData
+                    ? () => ({
+                        jobs: jobsData.jobs.map((j) => ({
+                          jobName: j.jobName,
+                          total: j.total,
+                          successes: j.successes,
+                          failures: j.failures,
+                          avgDurationMs: j.avgDurationMs,
+                        })),
+                      })
+                    : undefined
+                }
+              />
+            </div>
             {renderJobsTab()}
           </TabsContent>
+
           <TabsContent value="retrieval" className="mt-0">
+            <div className="mb-4 flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                Vector Retrieval
+              </span>
+              <PanelInfoPopover
+                title="Vector Retrieval"
+                description={
+                  <>
+                    <p>
+                      Qdrant vector database operations and embedding generation
+                      calls, captured via{' '}
+                      <code>InstrumentedQdrantClient</code> and{' '}
+                      <code>InstrumentedEmbeddingGenerator</code>.
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Searches</strong> are collection query calls;{' '}
+                        <strong>upserts</strong> are index writes
+                      </li>
+                      <li>
+                        <strong>Embedding errors</strong> are failures during
+                        vector generation — these cause retrieval to silently
+                        degrade with no query-time error surfaced to the caller
+                      </li>
+                      <li>
+                        Latency percentiles and per-collection stats appear
+                        below the summary cards
+                      </li>
+                    </ul>
+                  </>
+                }
+                callouts={
+                  retrievalCallouts.length > 0 ? retrievalCallouts : undefined
+                }
+                panelKind="retrieval"
+                getMetrics={
+                  retrievalData
+                    ? () => ({
+                        totalSearches: retrievalData.totalSearches,
+                        totalUpserts: retrievalData.totalUpserts,
+                        totalEmbeddingCalls: retrievalData.totalEmbeddingCalls,
+                        embeddingErrorCount: retrievalData.embeddingErrorCount,
+                        collections: retrievalData.collections.slice(0, 10),
+                      })
+                    : undefined
+                }
+              />
+            </div>
             {renderRetrievalTab()}
           </TabsContent>
+
           <TabsContent value="topology" className="mt-0">
+            <div className="mb-4 flex items-center gap-1.5">
+              <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                Service Topology
+              </span>
+              <PanelInfoPopover
+                title="Service Topology"
+                description={
+                  <>
+                    <p>
+                      Directed graph of service-to-service call relationships
+                      derived from Application Insights distributed traces.
+                      Nodes are cloud role instances; edges represent observed
+                      dependency calls.
+                    </p>
+                    <ul>
+                      <li>
+                        Node colour reflects health status: green (healthy),
+                        amber (degraded), red (critical), grey (unknown)
+                      </li>
+                      <li>
+                        Edge labels show call volume and P95 latency for the
+                        selected time range
+                      </li>
+                      <li>Interact with the graph to zoom, pan, and use the mini-map</li>
+                    </ul>
+                  </>
+                }
+                callouts={
+                  topologyCallouts.length > 0 ? topologyCallouts : undefined
+                }
+                panelKind="topology"
+                getMetrics={
+                  topologyData
+                    ? () => ({
+                        nodeCount: topologyData.nodes.length,
+                        edgeCount: topologyData.edges.length,
+                        nodes: topologyData.nodes.map((n) => ({
+                          id: n.id,
+                          label: n.label,
+                          kind: n.kind,
+                          status: n.status,
+                          calls: n.calls,
+                          errorRatePct: n.errorRatePct,
+                          p95LatencyMs: n.p95LatencyMs,
+                        })),
+                        edges: topologyData.edges.slice(0, 30).map((e) => ({
+                          source: e.source,
+                          target: e.target,
+                          kind: e.kind,
+                          calls: e.calls,
+                          errorRatePct: e.errorRatePct,
+                          p95LatencyMs: e.p95LatencyMs,
+                        })),
+                      })
+                    : undefined
+                }
+              />
+            </div>
             {renderTopologyTab()}
           </TabsContent>
         </div>

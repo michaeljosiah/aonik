@@ -52,6 +52,18 @@ internal sealed class ExplainObservabilityPanelEndpoint
                 "Cost and Tokens — input and output token consumption broken down per agent.",
             "errors" =>
                 "Errors and Failures — error rate, error time series, and top error groups.",
+            "overview" =>
+                "Platform Overview — total inbound request volume, requests per minute, overall error rate as a percentage, and P95 response latency across the platform, with time-series charts for each metric.",
+            "ai" =>
+                "AI Performance — LLM call latency (P50 and P95), time-to-first-token, total token consumption, estimated cost broken down per model and use case, and per-agent execution statistics.",
+            "dependencies" =>
+                "External Dependencies — HTTP, SQL, gRPC, queue, and event hub dependency calls with success rates, average duration, total call counts, and failure counts.",
+            "jobs" =>
+                "Background Jobs — Quartz.NET job execution counts, success and failure rates, and average execution duration per registered job class.",
+            "retrieval" =>
+                "Vector Retrieval — Qdrant search and upsert operation counts, embedding generation calls, embedding error count, search latency percentiles per instrument, and per-collection search statistics.",
+            "topology" =>
+                "Service Topology — directed graph of service-to-service calls derived from distributed traces, showing call volume, error rate, and P95 latency per edge between services.",
             _ => req.PanelKind,
         };
 

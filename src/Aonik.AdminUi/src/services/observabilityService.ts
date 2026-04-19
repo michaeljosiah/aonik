@@ -255,7 +255,17 @@ export interface TopologyResponse {
 
 // ── Explain ─────────────────────────────────────────────────────────
 
-export type ObservabilityPanelKind = 'fleet' | 'performance' | 'cost' | 'errors';
+export type ObservabilityPanelKind =
+  | 'fleet'
+  | 'performance'
+  | 'cost'
+  | 'errors'
+  | 'overview'
+  | 'ai'
+  | 'dependencies'
+  | 'jobs'
+  | 'retrieval'
+  | 'topology';
 
 export interface ExplainObservabilityPanelRequest {
   panelKind: ObservabilityPanelKind;
