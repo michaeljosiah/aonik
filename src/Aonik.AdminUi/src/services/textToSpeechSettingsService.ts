@@ -163,10 +163,10 @@ export const textToSpeechSettingsService = {
 
       return {
         audioBlob: response.data,
-        contentType: response.headers['content-type'] ?? 'audio/mpeg',
-        provider: response.headers['x-tts-provider'] ?? null,
-        voiceId: response.headers['x-tts-voice-id'] ?? null,
-        aiRunId: response.headers['x-ai-run-id'] ?? null,
+        contentType: (response.headers['content-type'] as string | undefined) ?? 'audio/mpeg',
+        provider: (response.headers['x-tts-provider'] as string | undefined) ?? null,
+        voiceId: (response.headers['x-tts-voice-id'] as string | undefined) ?? null,
+        aiRunId: (response.headers['x-ai-run-id'] as string | undefined) ?? null,
       };
     } catch (error: unknown) {
       const userMessage = await resolvePreviewErrorMessage(error);
@@ -190,10 +190,10 @@ export const textToSpeechSettingsService = {
 
       return {
         audioBlob: response.data,
-        contentType: response.headers['content-type'] ?? 'audio/mpeg',
-        provider: response.headers['x-tts-provider'] ?? null,
-        voiceId: response.headers['x-tts-voice-id'] ?? null,
-        aiRunId: response.headers['x-ai-run-id'] ?? null,
+        contentType: (response.headers['content-type'] as string | undefined) ?? 'audio/mpeg',
+        provider: (response.headers['x-tts-provider'] as string | undefined) ?? null,
+        voiceId: (response.headers['x-tts-voice-id'] as string | undefined) ?? null,
+        aiRunId: (response.headers['x-ai-run-id'] as string | undefined) ?? null,
       };
     } catch (error: unknown) {
       const userMessage = await resolvePreviewErrorMessage(error);
