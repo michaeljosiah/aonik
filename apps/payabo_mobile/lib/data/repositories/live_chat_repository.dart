@@ -12,6 +12,7 @@
 //  - display_spending_pie_chart — donut chart of spending by category
 //  - display_autopilot_proposal — structured approve/reject card
 //  - display_option_selector — blocking option picker for user choices
+//  - navigate_to_screen — deep-link the user to a specific app screen
 // ─────────────────────────────────────────────────────────
 
 import 'dart:async';
@@ -476,6 +477,82 @@ class LiveChatRepository implements ChatRepository {
           return completer.future;
         },
       ),
+
+      // Navigation: deep-link the user to a specific screen.
+      'navigate_to_screen': FrontendToolRegistration(
+        tool: const AgUiToolDefinition(
+          name: 'navigate_to_screen',
+          description:
+              'Deep-link the user to a specific screen in the app. Use this '
+              'instead of telling the user to find a button themselves. '
+              'Examples: take the user to the statement upload screen when '
+              'they want to import a bank statement, or open a transaction '
+              'detail screen so they can attach a receipt.\n\n'
+              'Available screens:\n'
+              '- "dashboard" — main dashboard\n'
+              '- "chat" — chat screen (usually already here)\n'
+              '- "spending-overview" — spending overview\n'
+              '- "spending-accounts" — list of linked/manual accounts\n'
+              '- "spending-budgets" — budgets list\n'
+              '- "spending-bills" — bills list\n'
+              '- "spending-accounts-upload-statement" — statement import (query: accountId)\n'
+              '- "spending-accounts-create-manual" — create a manual account\n'
+              '- "spending-transaction-detail" — transaction details (path: transactionId)\n'
+              '- "spending-budget-detail" — budget details (path: budgetId)\n'
+              '- "spending-category-detail" — category details (path: categoryId)\n'
+              '- "spending-merchant-detail" — merchant details (path: merchantId)\n'
+              '- "bill-detail" — bill details (path: billId)\n'
+              '- "pay-transaction-details" — payment transaction details (path: transactionId)\n'
+              '- "notifications-center" — notification center\n'
+              '- "profile" — user profile',
+          parameters: {
+            'type': 'object',
+            'properties': {
+              'screenName': {
+                'type': 'string',
+                'description':
+                    'The go_router named route to navigate to (e.g., "spending-accounts-upload-statement").',
+              },
+              'pathParameters': {
+                'type': 'object',
+                'description':
+                    'Path parameters for the route, keyed by placeholder name '
+                    '(e.g., {"transactionId": "abc"} for /spending/transaction/:transactionId).',
+                'additionalProperties': {'type': 'string'},
+              },
+              'queryParameters': {
+                'type': 'object',
+                'description':
+                    'Query string parameters appended to the URL '
+                    '(e.g., {"accountId": "abc"} becomes ?accountId=abc).',
+                'additionalProperties': {'type': 'string'},
+              },
+            },
+            'required': ['screenName'],
+          },
+        ),
+        handler: (args, context) async {
+          final screenName = args['screenName']?.toString() ?? '';
+          developer.log(
+            'navigate_to_screen handler invoked: toolCallId=${context.toolCallId} '
+            'screenName=$screenName',
+            name: 'LiveChatRepository',
+          );
+
+          if (screenName.isEmpty) {
+            return 'rejected: screenName is required';
+          }
+
+          sideChannel.add(ChatStreamNavigationRequested(
+            toolCallId: context.toolCallId,
+            screenName: screenName,
+            pathParameters: _parseStringMap(args['pathParameters']),
+            queryParameters: _parseStringMap(args['queryParameters']),
+          ));
+
+          return 'navigated';
+        },
+      ),
     };
 
     // ── Stream merging ───────────────────────────────────
@@ -700,6 +777,18 @@ class LiveChatRepository implements ChatRepository {
     const valid = {'low', 'medium', 'high'};
     final s = value?.toString() ?? 'medium';
     return valid.contains(s) ? s : 'medium';
+  }
+
+  /// Coerces a dynamic map-like value into a `Map<String, String>`.
+  /// Returns an empty map if the value is null or not a map.
+  static Map<String, String> _parseStringMap(dynamic value) {
+    if (value is! Map) return const <String, String>{};
+    final result = <String, String>{};
+    value.forEach((k, v) {
+      if (k == null || v == null) return;
+      result[k.toString()] = v.toString();
+    });
+    return result;
   }
 
   // ── History methods (backed by /ai/threads endpoints) ───

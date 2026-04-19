@@ -144,7 +144,25 @@ class DisplayWidget {
   final Map<String, dynamic> data;
 }
 
+/// A pending deep-link navigation request from the `navigate_to_screen`
+/// frontend tool. Stored in [ChatState] so the chat screen can observe it
+/// (in a listener that has access to BuildContext) and navigate.
+class PendingNavigation {
+  const PendingNavigation({
+    required this.toolCallId,
+    required this.screenName,
+    this.pathParameters = const <String, String>{},
+    this.queryParameters = const <String, String>{},
+  });
+
+  final String toolCallId;
+  final String screenName;
+  final Map<String, String> pathParameters;
+  final Map<String, String> queryParameters;
+}
+
 const Object _chatCopySentinel = Object();
+const Object _chatNavSentinel = Object();
 
 /// Immutable state for the chat feature.
 class ChatState {
@@ -162,6 +180,7 @@ class ChatState {
     this.pendingSpeechMessageId,
     this.pendingSpeechRequiresVisualAttention = false,
     this.pendingSpeechRequiresApproval = false,
+    this.pendingNavigation,
     this.errorMessage,
   });
 
@@ -201,6 +220,10 @@ class ChatState {
 
   final bool pendingSpeechRequiresApproval;
 
+  /// Pending deep-link request from the `navigate_to_screen` tool. Cleared
+  /// by the chat screen once the navigation has been dispatched.
+  final PendingNavigation? pendingNavigation;
+
   /// Error message from the last failed request.
   final String? errorMessage;
 
@@ -229,6 +252,7 @@ class ChatState {
     String? pendingSpeechMessageId,
     bool? pendingSpeechRequiresVisualAttention,
     bool? pendingSpeechRequiresApproval,
+    Object? pendingNavigation = _chatNavSentinel,
     Object? errorMessage = _chatCopySentinel,
   }) {
     return ChatState(
@@ -250,6 +274,9 @@ class ChatState {
               this.pendingSpeechRequiresVisualAttention,
       pendingSpeechRequiresApproval:
           pendingSpeechRequiresApproval ?? this.pendingSpeechRequiresApproval,
+      pendingNavigation: pendingNavigation == _chatNavSentinel
+          ? this.pendingNavigation
+          : pendingNavigation as PendingNavigation?,
       errorMessage: errorMessage == _chatCopySentinel
           ? this.errorMessage
           : errorMessage as String?,
@@ -269,6 +296,7 @@ class ChatState {
       pendingSpeechMessageId: null,
       pendingSpeechRequiresVisualAttention: false,
       pendingSpeechRequiresApproval: false,
+      pendingNavigation: null,
       errorMessage: null,
     );
   }
@@ -730,6 +758,16 @@ class ChatController extends StateNotifier<ChatState> {
           displayWidgets: [...state.displayWidgets, widget],
         );
 
+      case ChatStreamNavigationRequested():
+        state = state.copyWith(
+          pendingNavigation: PendingNavigation(
+            toolCallId: event.toolCallId,
+            screenName: event.screenName,
+            pathParameters: event.pathParameters,
+            queryParameters: event.queryParameters,
+          ),
+        );
+
       case ChatStreamSpeechRender():
         state = state.copyWith(
           pendingSpeechText: event.speechText,
@@ -745,6 +783,13 @@ class ChatController extends StateNotifier<ChatState> {
           pendingApprovals: const [],
         );
     }
+  }
+
+  /// Clears a pending navigation request after the chat screen has
+  /// dispatched the deep-link. Avoids re-navigating on subsequent rebuilds.
+  void clearPendingNavigation() {
+    if (state.pendingNavigation == null) return;
+    state = state.copyWith(pendingNavigation: null);
   }
 
   /// Approves a pending confirmAction tool call.

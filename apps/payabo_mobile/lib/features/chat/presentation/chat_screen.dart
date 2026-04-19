@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/chat_repository.dart';
@@ -308,6 +309,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (next.displayWidgets.length > prev.displayWidgets.length &&
           keepPinnedToBottom) {
         _scrollToBottom();
+      }
+
+      final PendingNavigation? nav = next.pendingNavigation;
+      if (nav != null && nav != prev.pendingNavigation) {
+        // Clear immediately so rebuilds don't re-trigger the navigation.
+        ref.read(chatControllerProvider.notifier).clearPendingNavigation();
+        _dispatchPendingNavigation(nav);
       }
 
       if (_voiceAwaitingBackendReply &&
@@ -1313,6 +1321,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     final ScrollPosition position = _scrollController.position;
     return position.maxScrollExtent - position.pixels <= 120;
+  }
+
+  void _dispatchPendingNavigation(PendingNavigation nav) {
+    if (!mounted) return;
+    // Defer until after the current frame so ref.read side effects from
+    // the listener complete cleanly before we push a new route.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        context.goNamed(
+          nav.screenName,
+          pathParameters: nav.pathParameters,
+          queryParameters: nav.queryParameters,
+        );
+      } catch (e, st) {
+        debugPrint('navigate_to_screen failed for ${nav.screenName}: $e\n$st');
+      }
+    });
   }
 
   void _scrollStreamingToBottom() {

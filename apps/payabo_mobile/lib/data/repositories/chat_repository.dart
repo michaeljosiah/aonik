@@ -276,6 +276,33 @@ class ChatStreamDisplayWidget extends ChatStreamEvent {
   final Map<String, dynamic> data;
 }
 
+/// The agent wants to deep-link the user to a specific screen
+/// (e.g., statement upload, transaction detail for attaching a receipt).
+///
+/// Non-blocking — resolves immediately so the AG-UI re-run loop continues.
+/// The UI is expected to call `context.goNamed(screenName, ...)`.
+class ChatStreamNavigationRequested extends ChatStreamEvent {
+  const ChatStreamNavigationRequested({
+    required this.toolCallId,
+    required this.screenName,
+    this.pathParameters = const <String, String>{},
+    this.queryParameters = const <String, String>{},
+  });
+
+  final String toolCallId;
+
+  /// Named route from go_router (e.g., "spending-accounts-upload-statement").
+  final String screenName;
+
+  /// Path parameters keyed by go_router placeholder name
+  /// (e.g., `{transactionId: 'abc'}` for `/spending/transaction/:transactionId`).
+  final Map<String, String> pathParameters;
+
+  /// Query parameters appended to the URL
+  /// (e.g., `{accountId: 'abc'}` for `?accountId=abc`).
+  final Map<String, String> queryParameters;
+}
+
 class ChatStreamSpeechRender extends ChatStreamEvent {
   const ChatStreamSpeechRender({
     required this.messageId,
