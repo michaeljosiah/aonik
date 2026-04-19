@@ -31,8 +31,10 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         "Manages personal financial accounts, transactions, bills, and spending insights " +
         "for the current user. Can list and query accounts, transactions, and bills; " +
         "create new accounts, manual transactions, and recurring bills; archive accounts " +
-        "and bills; and provide spending summaries, category breakdowns, merchant breakdowns, " +
-        "and a personal finance dashboard overview.";
+        "and bills; provide spending summaries, category breakdowns, merchant breakdowns, " +
+        "and a personal finance dashboard overview; and manage linked bank/aggregator " +
+        "connections — listing links, diagnosing sync health, starting new link sessions, " +
+        "refreshing, syncing transactions, and disconnecting.";
 
     internal const string Instructions =
         """
@@ -63,6 +65,11 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         - Spending Insights: spending summaries, category breakdowns, merchant breakdowns, account-level breakdowns for any period
         - Dashboard: comprehensive overview with net worth, available balance, upcoming bills, monthly spending
         - Commitments: `pf_list_commitments` for recurring commitments; `pf_list_detected_commitments` for unreviewed system-detected items; `pf_confirm_commitment` / `pf_reject_commitment` / `pf_create_commitment_from_transaction` for mutations (require confirmAction)
+        - Account Linking (connections to banks via Plaid and similar aggregators):
+          - `pf_list_linked_accounts` returns every link with provider, institution, consent/sync status, last sync time, and any last error. Use this for "what accounts have I linked?" and for diagnosing sync problems.
+          - `pf_get_account_link_summary` returns a unified view across manual and linked accounts with sync health — useful when the user wants one consolidated list.
+          - Mutations (all require confirmAction): `pf_create_account_link_session` starts a new link and returns a LaunchToken the client uses to open the provider popup; `pf_refresh_linked_account` refreshes connection metadata; `pf_sync_linked_account_transactions` pulls new transactions; `pf_disconnect_linked_account` revokes a link.
+          - When a link shows LastSyncStatus other than "Success" or a LastError is present, translate the problem into plain language (e.g. "your bank needs you to log in again") and suggest the right fix — usually `pf_create_account_link_session` with mode="update" and the existing connectionId, or a refresh.
 
         Reasoning specialists (use for analytical / "why" questions):
         - `pf_run_spending_intelligence`: category pressure, budget stress, merchant concentration, risk signals. Use for: "Why is spending up?", "Which categories are pressuring my budget?", "What spending patterns stand out?"
@@ -176,6 +183,7 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
     {
         return PersonalFinanceTools.CreateAll(serviceProvider)
+            .Concat(AccountLinkingTools.CreateAll(serviceProvider))
             .Concat(UserMemoryRecallTools.CreateAll(serviceProvider))
             .Concat(UserMemorySaveTools.CreateAll(serviceProvider));
     }
