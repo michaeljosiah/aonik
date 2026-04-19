@@ -41,12 +41,14 @@ internal sealed class DashboardService : IDashboardService
     };
 
     /// <summary>
-    /// Liquid account types used for Available-to-Spend calculation.
-    /// Investment/retirement accounts are excluded — they are not day-to-day spending money.
+    /// Asset types that are explicitly NOT liquid spending money (investments / long-term holdings).
+    /// Any account not in this set and not a liability is treated as liquid — this is forgiving for
+    /// users who create manual accounts with unfamiliar or unset <c>AccountType</c> values
+    /// (e.g. "Bank", "Current", empty string).
     /// </summary>
-    private static readonly HashSet<string> LiquidAccountTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> NonLiquidAssetTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Checking", "Savings", "Cash", "MoneyMarket", "Prepaid"
+        "Investment", "Brokerage", "Retirement", "CD"
     };
 
     private readonly FinanceDbContext _financeDbContext;
@@ -150,7 +152,7 @@ internal sealed class DashboardService : IDashboardService
     ///   Net Worth = Sum(asset balances) - Sum(liability balances)
     ///   Total Assets = Sum of balances where AccountType is an asset type
     ///   Total Bills Due = Sum of ExpectedAmount for all upcoming obligations (bills + personal recurring bills + debt repayments)
-    ///   Liquid Assets = Sum of balances for Checking / Savings / Cash / MoneyMarket / Prepaid accounts
+    ///   Liquid Assets = Sum of balances for accounts that are neither liabilities nor long-term investments (Investment / Brokerage / Retirement / CD)
     ///   Available to Spend = Liquid Assets - Total Bills Due  (floor 0)
     ///   Spendable Progress = Available to Spend / Liquid Assets (clamped 0..1)
     /// </summary>
@@ -209,12 +211,13 @@ internal sealed class DashboardService : IDashboardService
         // an income-minus-expenses formula produces £0 on the 2nd of the month
         // even when the user has £26k in their accounts.
         //
-        // Formula: Liquid Assets (Checking + Savings + Cash) - Upcoming Obligations (30 days)
+        // Formula: Liquid Assets (everything except liabilities and long-term investments) - Upcoming Obligations (30 days)
         //
         // Note: amounts are summed in the user's primary currency (DeterminePrimaryCurrency).
         // Cross-currency FX normalisation is deferred to V2 once exchange rate data is available.
         var liquidAssets = accounts
-            .Where(a => LiquidAccountTypes.Contains(a.AccountType))
+            .Where(a => !LiabilityAccountTypes.Contains(a.AccountType)
+                        && !NonLiquidAssetTypes.Contains(a.AccountType))
             .Sum(a => a.CurrentBalance);
 
         var availableToSpend = Math.Max(0, liquidAssets - totalBillsDue);
@@ -230,7 +233,7 @@ internal sealed class DashboardService : IDashboardService
         return new DashboardMetricsDto(
             AvailableToSpend: availableToSpend,
             AvailableToSpendLabel: FormatAmount(availableToSpend, currency),
-            AvailableToSpendSubtitle: BuildSpendableSubtitle(liquidAssets, totalBillsDue, currency),
+            AvailableToSpendSubtitle: BuildSpendableSubtitle(liquidAssets, totalBillsDue, accounts.Count, currency),
             SpendableProgress: spendableProgress,
             SpendableProgressLabel: $"{progressPercent}% free",
             NetWorth: netWorth,
@@ -545,10 +548,13 @@ internal sealed class DashboardService : IDashboardService
         return date.ToString("d MMM", CultureInfo.InvariantCulture);
     }
 
-    private static string BuildSpendableSubtitle(decimal liquidAssets, decimal totalBillsDue, string currency)
+    private static string BuildSpendableSubtitle(decimal liquidAssets, decimal totalBillsDue, int accountCount, string currency)
     {
-        if (liquidAssets == 0)
-            return "No liquid accounts linked yet.";
+        if (accountCount == 0)
+            return "Add an account to see your spending power.";
+
+        if (liquidAssets <= 0)
+            return "Liquid balance is zero — top up or link an account.";
 
         if (totalBillsDue == 0)
             return $"{FormatAmount(liquidAssets, currency)} across your accounts, no upcoming bills.";
