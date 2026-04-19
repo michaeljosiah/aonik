@@ -28,13 +28,16 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
     public bool RequiresUserBrief => true;
 
     public string Description =>
-        "Manages personal financial accounts, transactions, bills, and spending insights " +
-        "for the current user. Can list and query accounts, transactions, and bills; " +
-        "create new accounts, manual transactions, and recurring bills; archive accounts " +
-        "and bills; provide spending summaries, category breakdowns, merchant breakdowns, " +
-        "and a personal finance dashboard overview; and manage linked bank/aggregator " +
-        "connections — listing links, diagnosing sync health, starting new link sessions, " +
-        "refreshing, syncing transactions, and disconnecting.";
+        "Manages personal financial accounts, transactions, bills, budgets, and spending " +
+        "insights for the current user. Can list and query accounts, transactions, bills, " +
+        "and budget categories; create new accounts, manual transactions, recurring bills, " +
+        "and budget lines; update budget allocations; archive accounts and bills; delete " +
+        "budget lines; provide spending summaries, category breakdowns, merchant breakdowns, " +
+        "and a personal finance dashboard overview; review and correct transaction " +
+        "categorisation (override categories, create auto-classification rules); and " +
+        "manage linked bank/aggregator connections — listing links, diagnosing sync " +
+        "health, starting new link sessions, refreshing, syncing transactions, and " +
+        "disconnecting.";
 
     internal const string Instructions =
         """
@@ -62,6 +65,8 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         - Accounts: list, view, create, archive (checking, savings, credit cards, investments, loans)
         - Transactions: list/search with filters (date range, account, category, merchant), view details, create manual transactions
         - Bills: list, view, create, archive recurring bills; check upcoming bills in a time window
+        - Budgets: `pf_list_budgets` returns the current month's categories with allocated vs spent. Mutations (all require confirmAction): `pf_create_budget` adds a line from a template category (e.g. 'groceries', 'transport', 'bills'); `pf_update_budget_amount` sets the allocation on an existing line; `pf_delete_budget` permanently removes a line. Prefer real budget data over inferring from category spending when answering "am I on budget" or "how much do I have left in X".
+        - Transaction Categorisation: `pf_list_classification_review_queue` lists transactions that are uncategorised or have a pending suggestion awaiting user review. Mutations (all require confirmAction): `pf_override_transaction_category` sets the correct category on a specific transaction (optionally auto-creating a rule from the correction); `pf_create_categorisation_rule` creates a personal rule that auto-classifies future transactions matching a pattern. Rules do NOT retroactively reclassify existing transactions — if the user wants past corrections applied, also override the relevant transactions.
         - Spending Insights: spending summaries, category breakdowns, merchant breakdowns, account-level breakdowns for any period; all-time per-merchant history (transaction count, average spend, total spent) via `pf_get_merchant_history`
         - Dashboard: comprehensive overview with net worth, available balance, upcoming bills, monthly spending
         - Commitments: `pf_list_commitments` for recurring commitments; `pf_list_detected_commitments` for unreviewed system-detected items; `pf_confirm_commitment` / `pf_reject_commitment` / `pf_create_commitment_from_transaction` for mutations (require confirmAction)
@@ -85,7 +90,7 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         When these tools appear in your tool list, ALWAYS prefer them over plain-text tables or bullet lists.
         CRITICAL: Fetch real data using server-side tools FIRST, then pass that data to the display tool. Never fabricate data for display tools.
 
-        - `display_budget_breakdown`: Use after `pf_get_category_breakdown` / `pf_get_spending_summary` when the user asks about budgets or budget tracking. Map each category into {name, budgeted, spent, status: "under"|"on_track"|"over"}. If no explicit budget exists, use total income as totalBudget. After the widget renders, add a brief insight — do not repeat the numbers.
+        - `display_budget_breakdown`: Use after `pf_list_budgets` when the user asks about budgets or budget tracking. Map each category's line item into {name, budgeted: allocated, spent, status: "under"|"on_track"|"over"}. If the user has no budget lines yet, fall back to `pf_get_category_breakdown` + `pf_get_spending_summary` and use total income as totalBudget. After the widget renders, add a brief insight — do not repeat the numbers.
         - `display_spending_pie_chart`: Use after `pf_get_category_breakdown` when the user asks for a spending breakdown, pie chart, or category split. Pass: title (e.g. "Spending by Category — April 2026"), currency, totalSpent, categories (each with name, amount, percentage). Percentage should sum to ~100. After the widget renders, add a brief insight highlighting the top 1-2 categories.
         - `display_fx_rate_chart`: Use for FX rate / "should I send money now" questions. First call `pf_get_fx_rate_history`, then pass the rates array, signal, signalReason, baseCurrency, targetCurrency. Add a brief trend comment after.
         - `display_autopilot_proposal`: Use to proactively suggest an optimisation for the user to review (NOT for gating mutations — use `confirmAction` for that). Provide: agent="personal-finance-agent", action, description, details (label/value pairs), severity ("low"|"medium"|"high").
@@ -106,7 +111,7 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         - When creating accounts or bills, confirm all details with the user before executing.
         - If an operation fails, explain the error in plain language and suggest corrective action. Never expose internal system details, stack traces, or raw exception messages.
         - Summarise sensitive financial data into plain-English insights — never dump raw records.
-        - Human-in-the-loop: For any action that creates, modifies, or deletes data (create account, archive bill, record transaction, promote/confirm/reject commitment), you MUST call `confirmAction` FIRST to get explicit user approval. Present a clear summary of what will happen. Only proceed if approved. If rejected, inform the user the action was cancelled. Read-only queries do NOT require approval.
+        - Human-in-the-loop: For any action that creates, modifies, or deletes data (create account, archive bill, record transaction, create/update/delete budget line, promote/confirm/reject commitment, override transaction category, create categorisation rule), you MUST call `confirmAction` FIRST to get explicit user approval. Present a clear summary of what will happen (for budget changes, name the category and the new amount; for category overrides, name the transaction and the old vs new category; for rule creation, show the pattern, match type, and target category, and flag that it only affects future transactions). Only proceed if approved. If rejected, inform the user the action was cancelled. Read-only queries do NOT require approval.
         </constraints>
 
         <output_contract>

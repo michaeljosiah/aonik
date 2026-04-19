@@ -22,10 +22,12 @@ internal sealed class PersonalFinanceTools
     private readonly IPersonalAccountService _accountService;
     private readonly IPersonalTransactionService _transactionService;
     private readonly IBillService _billService;
+    private readonly IBudgetService _budgetService;
     private readonly ICommitmentService _commitmentService;
     private readonly IPersonalFinanceInsightsService _insightsService;
     private readonly IDashboardService _dashboardService;
     private readonly IFxRateService _fxRateService;
+    private readonly ITransactionClassificationService _classificationService;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly IAgentConfigurationService _agentConfigurationService;
@@ -36,10 +38,12 @@ internal sealed class PersonalFinanceTools
         IPersonalAccountService accountService,
         IPersonalTransactionService transactionService,
         IBillService billService,
+        IBudgetService budgetService,
         ICommitmentService commitmentService,
         IPersonalFinanceInsightsService insightsService,
         IDashboardService dashboardService,
         IFxRateService fxRateService,
+        ITransactionClassificationService classificationService,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         IAgentConfigurationService agentConfigurationService,
@@ -49,10 +53,12 @@ internal sealed class PersonalFinanceTools
         _accountService = accountService;
         _transactionService = transactionService;
         _billService = billService;
+        _budgetService = budgetService;
         _commitmentService = commitmentService;
         _insightsService = insightsService;
         _dashboardService = dashboardService;
         _fxRateService = fxRateService;
+        _classificationService = classificationService;
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _agentConfigurationService = agentConfigurationService;
@@ -128,6 +134,15 @@ internal sealed class PersonalFinanceTools
         CancellationToken cancellationToken = default)
     {
         return await _billService.GetUpcomingBillsAsync(daysAhead, cancellationToken);
+    }
+
+    // ── Budget Read Tool ──────────────────────────────────────────
+
+    [Description("Lists the user's budget categories for the current month. Each category returns its line-item ID, display name, allocated amount, and spent-to-date amount, plus a short spending history. Use this to answer 'what's in my budget', 'how much have I spent vs allocated', 'am I over budget on X', and similar questions.")]
+    public async Task<IReadOnlyList<BudgetCategoryResponse>> ListBudgets(
+        CancellationToken cancellationToken = default)
+    {
+        return await _budgetService.ListBudgetsAsync(cancellationToken);
     }
 
     // ── Insights Read Tools ───────────────────────────────────────
@@ -354,6 +369,35 @@ internal sealed class PersonalFinanceTools
         return $"Bill {billId} has been archived successfully.";
     }
 
+    // ── Budget Mutating Tools ─────────────────────────────────────
+
+    [Description("Adds a new budget line to the current month's budget. Pass a categoryId from the known template set (e.g. 'groceries', 'housing', 'transport', 'utilities', 'eating-out', 'bills', 'subscriptions', 'entertainment', 'savings', 'health', 'travel') when possible; leave null for a generic line. The new line starts with a zero allocation — use pf_update_budget_amount to set the limit. Requires confirmAction approval.")]
+    public async Task<BudgetCategoryResponse> CreateBudget(
+        [Description("Optional template category ID (e.g. 'groceries'). Null creates an unnamed/generic line.")] string? categoryId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new CreateBudgetRequest(categoryId);
+        return await _budgetService.CreateBudgetAsync(request, cancellationToken);
+    }
+
+    [Description("Updates the allocated limit for a budget line in the current month. Pass the budget line ID (from pf_list_budgets line-items) and the new total allocation. Returns the refreshed budget list. Requires confirmAction approval.")]
+    public async Task<IReadOnlyList<BudgetCategoryResponse>> UpdateBudgetAmount(
+        [Description("The unique identifier (GUID) of the budget line to update")] Guid budgetLineId,
+        [Description("The new total allocation for this budget line (in the budget's currency)")] decimal totalAllocated,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new UpdateBudgetAmountRequest(totalAllocated);
+        return await _budgetService.UpdateBudgetAmountAsync(budgetLineId, request, cancellationToken);
+    }
+
+    [Description("Permanently removes a budget line from the current month's budget. This is a hard delete — the line and its allocation are gone. Returns the refreshed budget list. Requires confirmAction approval.")]
+    public async Task<IReadOnlyList<BudgetCategoryResponse>> DeleteBudget(
+        [Description("The unique identifier (GUID) of the budget line to delete")] Guid budgetLineId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _budgetService.DeleteBudgetAsync(budgetLineId, cancellationToken);
+    }
+
     // ── Commitment Read Tools ─────────────────────────────────────
 
     [Description("Lists all recurring commitments (bills, subscriptions, debt repayments) for the current user. Supports filtering by type ('Bill', 'Subscription', 'DebtRepayment'), status ('Active', 'Paused', 'Cancelled'), and verification status ('Detected', 'Confirmed', 'Rejected'). Returns paginated results with summary totals.")]
@@ -387,6 +431,19 @@ internal sealed class PersonalFinanceTools
         CancellationToken cancellationToken = default)
     {
         return await _commitmentService.ListDetectedAsync(cancellationToken);
+    }
+
+    // ── Classification Read Tool ──────────────────────────────────
+
+    [Description("Lists transactions in the classification review queue — those with no category assigned or with a pending (unreviewed) suggestion. Each item returns the transaction ID, merchant/description, amount, current category/sub-category (if any), confidence, classification method, and review status. Use this to answer 'what transactions need categorising' or to drive a bulk clean-up flow.")]
+    public async Task<IReadOnlyList<ClassificationReviewItemResponse>> ListClassificationReviewQueue(
+        [Description("Optional: scope to a specific personal account ID")] Guid? personalAccountId = null,
+        [Description("Page number (default: 1)")] int page = 1,
+        [Description("Page size (default: 50, max: 200)")] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new ClassificationReviewQueueRequest(personalAccountId, page, pageSize);
+        return await _classificationService.GetReviewQueueAsync(request, cancellationToken);
     }
 
     // ── Commitment Mutating Tools ───────────────────────────────
@@ -432,14 +489,62 @@ internal sealed class PersonalFinanceTools
         return $"Commitment {commitmentId} has been rejected.";
     }
 
+    // ── Classification Mutating Tools ─────────────────────────────
+
+    [Description("Manually sets the category for a specific transaction (a confident, user-authored correction — not an AI guess). Clears any pending review status and locks in confidence. Optionally also creates a categorisation rule from this correction so future similar transactions are auto-classified. Requires confirmAction approval.")]
+    public async Task<ClassificationReviewItemResponse> OverrideTransactionCategory(
+        [Description("The unique identifier (GUID) of the transaction to recategorise")] Guid transactionId,
+        [Description("The correct category to apply (e.g. 'Groceries', 'Eating Out', 'Transport')")] string category,
+        [Description("Optional free-text notes about the correction")] string? notes = null,
+        [Description("If true, also create a rule from this correction so future matching transactions auto-classify (default: false)")] bool createRuleFromCorrection = false,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new OverrideTransactionClassificationRequest(
+            Category: category,
+            Notes: notes,
+            CreateRuleFromCorrection: createRuleFromCorrection,
+            RulePattern: null,
+            RulePriority: 100,
+            RuleMatchType: "contains");
+        return await _classificationService.OverrideClassificationAsync(transactionId, request, cancellationToken);
+    }
+
+    [Description("Creates a personal categorisation rule that auto-classifies future transactions matching a text pattern. Does NOT retroactively reclassify existing transactions. Requires confirmAction approval.")]
+    public async Task<CategorisationRuleResponse> CreateCategorisationRule(
+        [Description("Text pattern to match against the transaction's merchant, description, or notes (e.g. 'tesco', 'uber')")] string pattern,
+        [Description("Target category to assign when the rule matches (e.g. 'Groceries', 'Transport')")] string category,
+        [Description("Match mode: 'contains' (default), 'exact', 'startswith', 'endswith', 'regex', 'amount_range'")] string matchType = "contains",
+        [Description("Whether pattern matching is case-sensitive (default: false)")] bool caseSensitive = false,
+        [Description("Optional sub-category refinement")] string? subCategory = null,
+        [Description("Rule priority — higher values evaluate first (default: 100)")] int priority = 100,
+        [Description("Optional: only apply when transaction amount is at or above this value")] decimal? minAmount = null,
+        [Description("Optional: only apply when transaction amount is at or below this value")] decimal? maxAmount = null,
+        [Description("Optional: scope the rule to a specific personal account ID (null = all accounts)")] Guid? appliesToAccountId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new CreateCategorisationRuleRequest(
+            Pattern: pattern,
+            Category: category,
+            SubCategory: subCategory,
+            Priority: priority,
+            MatchType: matchType,
+            CaseSensitive: caseSensitive,
+            MinAmount: minAmount,
+            MaxAmount: maxAmount,
+            AppliesToAccountId: appliesToAccountId,
+            Scope: "User");
+        return await _classificationService.CreateRuleAsync(request, cancellationToken);
+    }
+
     // ── Tool Factory ──────────────────────────────────────────────
 
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all personal finance tools.
     /// Mutating tools (CreateAccount, ArchiveAccount, CreateManualTransaction,
-    /// CreateBill, ArchiveBill, CreateCommitmentFromTransaction, ConfirmCommitment,
-    /// RejectCommitment) rely on the <c>confirmAction</c> frontend tool for
-    /// human-in-the-loop approval.
+    /// CreateBill, ArchiveBill, CreateBudget, UpdateBudgetAmount, DeleteBudget,
+    /// CreateCommitmentFromTransaction, ConfirmCommitment, RejectCommitment,
+    /// OverrideTransactionCategory, CreateCategorisationRule) rely on the
+    /// <c>confirmAction</c> frontend tool for human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -448,10 +553,12 @@ internal sealed class PersonalFinanceTools
             serviceProvider.GetRequiredService<IPersonalAccountService>(),
             serviceProvider.GetRequiredService<IPersonalTransactionService>(),
             serviceProvider.GetRequiredService<IBillService>(),
+            serviceProvider.GetRequiredService<IBudgetService>(),
             serviceProvider.GetRequiredService<ICommitmentService>(),
             serviceProvider.GetRequiredService<IPersonalFinanceInsightsService>(),
             serviceProvider.GetRequiredService<IDashboardService>(),
             serviceProvider.GetRequiredService<IFxRateService>(),
+            serviceProvider.GetRequiredService<ITransactionClassificationService>(),
             serviceProvider.GetRequiredService<IChatClient>(),
             serviceProvider,
             serviceProvider.GetRequiredService<IAgentConfigurationService>(),
@@ -466,6 +573,7 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.ListBills, name: "pf_list_bills");
         yield return AIFunctionFactory.Create(tools.GetBill, name: "pf_get_bill");
         yield return AIFunctionFactory.Create(tools.GetUpcomingBills, name: "pf_get_upcoming_bills");
+        yield return AIFunctionFactory.Create(tools.ListBudgets, name: "pf_list_budgets");
         yield return AIFunctionFactory.Create(tools.GetSpendingSummary, name: "pf_get_spending_summary");
         yield return AIFunctionFactory.Create(tools.GetCategoryBreakdown, name: "pf_get_category_breakdown");
         yield return AIFunctionFactory.Create(tools.GetMerchantBreakdown, name: "pf_get_merchant_breakdown");
@@ -478,6 +586,7 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.ListCommitments, name: "pf_list_commitments");
         yield return AIFunctionFactory.Create(tools.GetCommitment, name: "pf_get_commitment");
         yield return AIFunctionFactory.Create(tools.ListDetectedCommitments, name: "pf_list_detected_commitments");
+        yield return AIFunctionFactory.Create(tools.ListClassificationReviewQueue, name: "pf_list_classification_review_queue");
 
         // Mutating — approval enforced via the confirmAction frontend tool
         yield return AIFunctionFactory.Create(tools.CreateAccount, name: "pf_create_account");
@@ -485,9 +594,14 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.CreateManualTransaction, name: "pf_create_transaction");
         yield return AIFunctionFactory.Create(tools.CreateBill, name: "pf_create_bill");
         yield return AIFunctionFactory.Create(tools.ArchiveBill, name: "pf_archive_bill");
+        yield return AIFunctionFactory.Create(tools.CreateBudget, name: "pf_create_budget");
+        yield return AIFunctionFactory.Create(tools.UpdateBudgetAmount, name: "pf_update_budget_amount");
+        yield return AIFunctionFactory.Create(tools.DeleteBudget, name: "pf_delete_budget");
         yield return AIFunctionFactory.Create(tools.CreateCommitmentFromTransaction, name: "pf_create_commitment_from_transaction");
         yield return AIFunctionFactory.Create(tools.ConfirmCommitment, name: "pf_confirm_commitment");
         yield return AIFunctionFactory.Create(tools.RejectCommitment, name: "pf_reject_commitment");
+        yield return AIFunctionFactory.Create(tools.OverrideTransactionCategory, name: "pf_override_transaction_category");
+        yield return AIFunctionFactory.Create(tools.CreateCategorisationRule, name: "pf_create_categorisation_rule");
     }
 
     private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(
