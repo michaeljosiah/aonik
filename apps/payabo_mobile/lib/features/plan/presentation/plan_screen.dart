@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_color_resolver.dart';
+import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 
@@ -12,189 +14,428 @@ class PlanScreen extends StatelessWidget {
     final c = context.colors;
 
     return Scaffold(
-      backgroundColor: c.surfaceBase,
-      body: Column(
-        children: <Widget>[
-          Expanded(
-            child: SafeArea(
-              bottom: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: PayaboSpacing.xl,
-                  vertical: PayaboSpacing.lg,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const SizedBox(height: PayaboSpacing.md),
-                    Text(
-                      'Plan',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: c.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.xs),
-                    Text(
-                      'Your financial guidance layer',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: c.muted,
-                          ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.x3),
-                    _CompassComingCard(c: c),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    _PillarRow(
-                      icon: Icons.my_location_outlined,
-                      title: 'Where am I now?',
-                      body:
-                          'A clear picture of your financial position — balances, obligations, and pressure points.',
-                      c: c,
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    _PillarRow(
-                      icon: Icons.flag_outlined,
-                      title: 'Where do I want to go?',
-                      body:
-                          'Set goals in plain language. Compass turns them into a realistic path.',
-                      c: c,
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    _PillarRow(
-                      icon: Icons.route_outlined,
-                      title: 'What should I do next?',
-                      body:
-                          'Day-by-day guidance that adapts when life changes — not a static budget.',
-                      c: c,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const PayaboPrimaryAppShell(destination: PayaboPrimaryDestination.plan),
-        ],
+      backgroundColor: c.surfaceWarm,
+      body: const _PlanHoldingState(),
+      bottomNavigationBar: const PayaboPrimaryAppShell(
+        destination: PayaboPrimaryDestination.plan,
       ),
     );
   }
 }
 
-class _CompassComingCard extends StatelessWidget {
-  const _CompassComingCard({required this.c});
+// ─────────────────────────────────────────────────────────
+//  Full-screen holding state
+// ─────────────────────────────────────────────────────────
 
-  final PayaboColorResolver c;
+class _PlanHoldingState extends StatelessWidget {
+  const _PlanHoldingState();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(PayaboSpacing.xl),
+    final c = context.colors;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final bool isDark = c.isDark;
+
+    final Color heroTextPrimary = isDark ? c.headerTitle : Colors.white;
+    final Color heroTextSecondary =
+        isDark ? c.textSubtleWarm : Colors.white70;
+    final List<Shadow> heroTextShadow = isDark
+        ? const <Shadow>[]
+        : const <Shadow>[
+            Shadow(color: Color(0x66000000), blurRadius: 6),
+          ];
+
+    return Stack(
+      children: <Widget>[
+        // ── Layer 1: Hero background (compass.png) ────────
+        const Positioned.fill(child: _PlanHeroBackground()),
+
+        // ── Layer 2: Top bar + intro message ─────────────
+        Positioned.fill(
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    PayaboSpacing.xl,
+                    PayaboSpacing.md,
+                    PayaboSpacing.xl,
+                    0,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? c.surfaceBase.withValues(alpha: 0.8)
+                              : const Color(0xCC1A1A1A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? c.borderWarm.withValues(alpha: 0.5)
+                                : Colors.white24,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.explore_outlined,
+                          size: 18,
+                          color: isDark ? c.primary : Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: PayaboSpacing.sm),
+                      Text(
+                        'Compass',
+                        style: textTheme.titleMedium?.copyWith(
+                          color: heroTextPrimary,
+                          fontWeight: FontWeight.w700,
+                          shadows: heroTextShadow,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      top: PayaboSpacing.lg,
+                      bottom: PayaboSpacing.sm,
+                    ),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: PayaboSpacing.x2,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Your financial\nplan starts here.',
+                              style: textTheme.headlineLarge?.copyWith(
+                                color: heroTextPrimary,
+                                fontWeight: FontWeight.w700,
+                                height: 1.15,
+                                shadows: heroTextShadow,
+                              ),
+                            ),
+                            const SizedBox(height: PayaboSpacing.md),
+                            Text(
+                              'Compass is on its way. It will help you '
+                              'understand where you stand, set clear goals, '
+                              'and move forward with a plan built around your life.',
+                              style: textTheme.bodyLarge?.copyWith(
+                                fontSize: 17,
+                                color: heroTextSecondary,
+                                height: 1.5,
+                                shadows: heroTextShadow,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Layer 3: Pinned bottom action panel ───────────
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _PlanActionPanel(c: c, textTheme: textTheme),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Hero background — compass.png with optional dark scrim
+// ─────────────────────────────────────────────────────────
+
+class _PlanHeroBackground extends StatelessWidget {
+  const _PlanHeroBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final bool isDark = c.isDark;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        Image.asset(
+          'assets/images/compass.png',
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => _HeroFallback(isDark: isDark),
+        ),
+        if (isDark)
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: <Color>[
+                  Color(0xCC1A1A1A),
+                  Color(0x991A1A1A),
+                  Color(0x661A1A1A),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: <double>[0.0, 0.45, 1.0],
+              ),
+            ),
+            child: SizedBox.expand(),
+          ),
+      ],
+    );
+  }
+}
+
+class _HeroFallback extends StatelessWidget {
+  const _HeroFallback({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: <Color>[
-            c.primary.withValues(alpha: 0.12),
-            c.primary.withValues(alpha: 0.04),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: c.primary.withValues(alpha: 0.2),
+          colors: isDark
+              ? const <Color>[Color(0xFF1A1A1A), Color(0xFF121212)]
+              : const <Color>[
+                  Color(0xFFFFF5EC),
+                  Color(0xFFFFEEDD),
+                  Color(0xFFF7EBD9),
+                ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: isDark ? null : const <double>[0.0, 0.5, 1.0],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: c.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(16),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Slide-up action panel (mirrors SpendingEmptyActionPanel)
+// ─────────────────────────────────────────────────────────
+
+class _PlanActionPanel extends StatefulWidget {
+  const _PlanActionPanel({
+    required this.c,
+    required this.textTheme,
+  });
+
+  final PayaboColorResolver c;
+  final TextTheme textTheme;
+
+  @override
+  State<_PlanActionPanel> createState() => _PlanActionPanelState();
+}
+
+class _PlanActionPanelState extends State<_PlanActionPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.c;
+    final TextTheme textTheme = widget.textTheme;
+
+    return SlideTransition(
+      position: _slide,
+      child: FadeTransition(
+        opacity: _fade,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: c.surfaceBase,
+            borderRadius: PayaboRadii.sheetTop,
+            border: Border(
+              top: BorderSide(color: c.borderWarm, width: 0.5),
             ),
-            child: Icon(
-              Icons.explore_outlined,
-              color: c.primary,
-              size: 28,
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: c.isDark ? Colors.black26 : const Color(0x0D000000),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                PayaboSpacing.xl,
+                PayaboSpacing.xl,
+                PayaboSpacing.xl,
+                PayaboSpacing.lg,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    'Coming soon',
+                    style: textTheme.titleLarge?.copyWith(
+                      color: c.accentBrown,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.sm),
+                  Text(
+                    'Compass will help you build a clear, personalised '
+                    'financial plan. In the meantime, Simi is ready to help.',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: c.muted,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.x2),
+                  _PlanActionTile(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    title: 'Talk to Simi',
+                    subtitle:
+                        'Ask questions, explore your finances and get guidance now.',
+                    onTap: () => context.go('/chat'),
+                    c: c,
+                  ),
+                  const SizedBox(height: PayaboSpacing.md),
+                  _PlanActionTile(
+                    icon: Icons.flag_outlined,
+                    title: 'Set a goal',
+                    subtitle:
+                        'Goals, progress tracking and adaptive plans — coming with Compass.',
+                    onTap: () {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          const SnackBar(
+                            content: Text('Goal setting is coming with Compass.'),
+                          ),
+                        );
+                    },
+                    c: c,
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'Compass is coming',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: c.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.xs),
-          Text(
-            'Compass is the intelligence layer that turns your financial activity into direction. '
-            'It will help you understand where you stand, decide where you want to go, '
-            'and move forward with clear, adaptive support.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: c.muted,
-                  height: 1.5,
-                ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _PillarRow extends StatelessWidget {
-  const _PillarRow({
+// ─────────────────────────────────────────────────────────
+//  Action tile (mirrors SpendingActionTile)
+// ─────────────────────────────────────────────────────────
+
+class _PlanActionTile extends StatelessWidget {
+  const _PlanActionTile({
     required this.icon,
     required this.title,
-    required this.body,
+    required this.subtitle,
+    required this.onTap,
     required this.c,
   });
 
   final IconData icon;
   final String title;
-  final String body;
+  final String subtitle;
+  final VoidCallback onTap;
   final PayaboColorResolver c;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Container(
-          width: 40,
-          height: 40,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: PayaboRadii.radiusLg,
+        child: Ink(
           decoration: BoxDecoration(
-            color: c.surfaceCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: c.borderDefault),
+            color: c.spendingCardWarmElevated,
+            borderRadius: PayaboRadii.radiusLg,
+            border: Border.all(
+              color: c.borderStrong.withValues(alpha: 0.15),
+            ),
           ),
-          child: Icon(icon, color: c.textPrimary, size: 20),
-        ),
-        const SizedBox(width: PayaboSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.all(PayaboSpacing.lg),
+          child: Row(
             children: <Widget>[
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: c.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: c.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: c.primary, size: 24),
               ),
-              const SizedBox(height: PayaboSpacing.xxs),
-              Text(
-                body,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: c.muted,
-                      height: 1.45,
+              const SizedBox(width: PayaboSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: c.ink,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
+                    const SizedBox(height: PayaboSpacing.xxs),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: c.muted,
+                            height: 1.4,
+                          ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: PayaboSpacing.sm),
+              Icon(Icons.chevron_right_rounded, color: c.muted, size: 22),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
