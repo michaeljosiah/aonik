@@ -163,6 +163,23 @@ internal sealed class PersonalFinanceTools
         return await _insightsService.GetMerchantBreakdownAsync(periodStart, periodEnd, personalAccountId, top, cancellationToken);
     }
 
+    [Description("Gets spending broken down by personal account for a given period. Returns each account's total expense amount and transaction count, sorted by amount. Use this for 'which account has my biggest spend' or per-account expense comparisons.")]
+    public async Task<IReadOnlyList<AccountSpendingItemResponse>> GetAccountBreakdown(
+        [Description("Start of the analysis period (UTC)")] DateTime periodStart,
+        [Description("End of the analysis period (UTC)")] DateTime periodEnd,
+        CancellationToken cancellationToken = default)
+    {
+        return await _insightsService.GetAccountBreakdownAsync(periodStart, periodEnd, cancellationToken);
+    }
+
+    [Description("Gets the all-time spend history with a specific merchant. Returns transaction count, average spend, and total spent for that merchant (already formatted with the merchant's transaction currency symbol). Use this for 'how much have I spent at <merchant>' or 'how often do I shop at <merchant>' questions.")]
+    public async Task<MerchantHistoryResponse> GetMerchantHistory(
+        [Description("The merchant name to look up (exact match, case-sensitive)")] string merchantName,
+        CancellationToken cancellationToken = default)
+    {
+        return await _insightsService.GetMerchantHistoryAsync(merchantName, cancellationToken);
+    }
+
     // ── Dashboard Read Tool ───────────────────────────────────────
 
     [Description("Gets the personal finance dashboard overview. Returns aggregated metrics (net worth, available to spend, assets, bills due), upcoming bills, recent orders, and a monthly spending breakdown.")]
@@ -452,6 +469,8 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.GetSpendingSummary, name: "pf_get_spending_summary");
         yield return AIFunctionFactory.Create(tools.GetCategoryBreakdown, name: "pf_get_category_breakdown");
         yield return AIFunctionFactory.Create(tools.GetMerchantBreakdown, name: "pf_get_merchant_breakdown");
+        yield return AIFunctionFactory.Create(tools.GetAccountBreakdown, name: "pf_get_account_breakdown");
+        yield return AIFunctionFactory.Create(tools.GetMerchantHistory, name: "pf_get_merchant_history");
         yield return AIFunctionFactory.Create(tools.GetDashboard, name: "pf_get_dashboard");
         yield return AIFunctionFactory.Create(tools.GetFxRateHistory, name: "pf_get_fx_rate_history");
         yield return AIFunctionFactory.Create(tools.RunSpendingIntelligence, name: "pf_run_spending_intelligence");

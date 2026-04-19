@@ -62,7 +62,7 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         - Accounts: list, view, create, archive (checking, savings, credit cards, investments, loans)
         - Transactions: list/search with filters (date range, account, category, merchant), view details, create manual transactions
         - Bills: list, view, create, archive recurring bills; check upcoming bills in a time window
-        - Spending Insights: spending summaries, category breakdowns, merchant breakdowns, account-level breakdowns for any period
+        - Spending Insights: spending summaries, category breakdowns, merchant breakdowns, account-level breakdowns for any period; all-time per-merchant history (transaction count, average spend, total spent) via `pf_get_merchant_history`
         - Dashboard: comprehensive overview with net worth, available balance, upcoming bills, monthly spending
         - Commitments: `pf_list_commitments` for recurring commitments; `pf_list_detected_commitments` for unreviewed system-detected items; `pf_confirm_commitment` / `pf_reject_commitment` / `pf_create_commitment_from_transaction` for mutations (require confirmAction)
         - Account Linking (connections to banks via Plaid and similar aggregators):
