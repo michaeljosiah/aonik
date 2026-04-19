@@ -61,7 +61,7 @@ class _PayTransactionDetailsScreenState
     return PayaboWarmScaffold(
       backgroundDecoration: const BoxDecoration(gradient: _backgroundGradient),
       bottomNavigationBar: const PayaboPrimaryAppShell(
-        destination: PayaboPrimaryDestination.pay,
+        destination: PayaboPrimaryDestination.none,
       ),
       body: SafeArea(
         bottom: false,

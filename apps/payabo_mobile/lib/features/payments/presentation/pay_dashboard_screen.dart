@@ -72,7 +72,7 @@ class _PayDashboardScreenState extends State<PayDashboardScreen> {
       backgroundDecoration: const BoxDecoration(gradient: _backgroundGradient),
       statusBarColorNotifier: _statusBarProgress,
       bottomNavigationBar: const PayaboPrimaryAppShell(
-        destination: PayaboPrimaryDestination.pay,
+        destination: PayaboPrimaryDestination.none,
       ),
       body: _PayHeroSheetSection(
         onSheetExtentChanged: _handleSheetExtentChanged,

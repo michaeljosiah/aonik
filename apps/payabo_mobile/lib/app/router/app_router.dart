@@ -32,6 +32,7 @@ import '../../features/payments/presentation/friend_message_screen.dart';
 import '../../features/payments/presentation/friend_selection_screen.dart';
 import '../../features/payments/presentation/pay_activity_screen.dart';
 import '../../features/payments/presentation/pay_dashboard_screen.dart';
+import '../../features/plan/presentation/plan_screen.dart';
 import '../../features/payments/presentation/pay_transaction_details_screen.dart';
 import '../../features/payments/presentation/payment_country_screen.dart';
 import '../../features/payments/presentation/payment_selection_screen.dart';
@@ -311,6 +312,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/dashboard',
           name: 'dashboard',
           builder: (context, state) => const DashboardScreen(),
+        ),
+        GoRoute(
+          path: '/plan',
+          name: 'plan',
+          builder: (context, state) => const PlanScreen(),
         ),
         GoRoute(
           path: '/pay',

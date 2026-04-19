@@ -8,7 +8,7 @@ import 'payabo_modal_sheet.dart';
 
 enum PayaboPrimaryDestination {
   dashboard,
-  pay,
+  plan,
   spending,
   chat,
   none,
@@ -43,7 +43,7 @@ class PayaboPrimaryAppShell extends StatelessWidget {
     return PayaboBottomNav(
       items: const <PayaboBottomNavItem>[
         PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-        PayaboBottomNavItem(icon: Icons.receipt_long_outlined, label: 'Pay'),
+        PayaboBottomNavItem(icon: Icons.explore_outlined, label: 'Plan'),
         PayaboBottomNavItem(icon: Icons.show_chart_outlined, label: 'Spending'),
         PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Simi'),
       ],
@@ -64,7 +64,7 @@ class PayaboPrimaryAppShell extends StatelessWidget {
     switch (destination) {
       case PayaboPrimaryDestination.dashboard:
         return 0;
-      case PayaboPrimaryDestination.pay:
+      case PayaboPrimaryDestination.plan:
         return 1;
       case PayaboPrimaryDestination.spending:
         return 2;
@@ -81,7 +81,7 @@ class PayaboPrimaryAppShell extends StatelessWidget {
         context.go('/dashboard');
         return;
       case 1:
-        context.go('/pay');
+        context.go('/plan');
         return;
       case 2:
         context.go('/spending');
@@ -116,32 +116,6 @@ class PayaboPrimaryAppShell extends StatelessWidget {
             onTap: () {
               Navigator.of(context).pop();
               context.go('/payments/friends');
-            },
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Account',
-            subtitle: 'Manage your account details',
-            leading: const Icon(Icons.account_balance_outlined),
-            onTap: () {
-              Navigator.of(context).pop();
-              context.go('/spending/accounts');
-            },
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Income',
-            subtitle: 'Track and categorize income',
-            leading: const Icon(Icons.trending_up_outlined),
-            onTap: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  const SnackBar(
-                    content: Text('Income tracking coming soon.'),
-                  ),
-                );
             },
           ),
         ],

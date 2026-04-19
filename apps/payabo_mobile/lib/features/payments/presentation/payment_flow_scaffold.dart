@@ -26,7 +26,7 @@ class PaymentFlowScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return PayaboWarmScaffold(
       bottomNavigationBar: const PayaboPrimaryAppShell(
-        destination: PayaboPrimaryDestination.pay,
+        destination: PayaboPrimaryDestination.none,
       ),
       body: Column(
         children: <Widget>[

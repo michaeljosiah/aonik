@@ -1012,7 +1012,7 @@ class _DashboardStatsSheet extends StatelessWidget {
             actionLabel: isEmpty ? null : 'View all',
             onActionTap: isEmpty
                 ? null
-                : () => context.push('/dashboard/orders/${recentOrders.first.id}'),
+                : () => context.push('/payments/activity'),
           ),
           const SizedBox(height: PayaboSpacing.md),
           if (recentOrders.isEmpty)
