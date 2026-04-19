@@ -60,6 +60,7 @@ flutter:
     - assets/images/setup-hero.png
     - assets/images/spending-empty-hero.png
     - assets/images/budget-hero.png
+    - assets/images/compass.png
     - assets/images/illustrations/
     - assets/images/flags/
     - assets/audio/
