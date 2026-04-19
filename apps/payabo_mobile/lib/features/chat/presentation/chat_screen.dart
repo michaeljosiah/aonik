@@ -85,24 +85,15 @@ Color _chatMutedTextColor(BuildContext context) {
 }
 
 Color _chatUserBubbleColor(BuildContext context) {
-  final c = context.colors;
-
-  return c.isDark ? const Color(0xFF1A313B) : const Color(0xFF1E2F38);
+  return const Color(0xFFF37920);
 }
 
 LinearGradient _chatUserBubbleGradient(BuildContext context) {
-  final c = context.colors;
-
-  return LinearGradient(
-    colors: c.isDark
-        ? const <Color>[
-            Color(0xFF20414E),
-            Color(0xFF17313B),
-          ]
-        : const <Color>[
-            Color(0xFF274A57),
-            Color(0xFF1D3640),
-          ],
+  return const LinearGradient(
+    colors: <Color>[
+      Color(0xFFF37920),
+      Color(0xFFD55F0B),
+    ],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -458,7 +449,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                             _ChatHeaderMenuButton(
                               onTap: _toggleHistoryOverlay,
                             ),
-                            const Spacer(),
+                            const SizedBox(width: PayaboSpacing.md),
+                            const Expanded(child: _ChatHeaderSimiIdentity()),
+                            const SizedBox(width: PayaboSpacing.md),
                             _ChatHeaderNewChatButton(
                               onTap: _startNewConversation,
                             ),
@@ -528,7 +521,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     backgroundOverride: Color(0xFF0E0A08),
                     borderOverride: Color(0xFF1E1610),
                     shadowOverride: Color(0x40000000),
-                    selectedOverride: Color(0xFFF4A027),
+                    selectedOverride: Color(0xFFF37920),
                     unselectedOverride: Color(0xFF6B5B4E),
                     fabBackgroundOverride: Color(0xFFF37920),
                     fabShadowOverride: Color(0x30F37920),
@@ -1860,40 +1853,26 @@ class _ChatMessageBlock extends StatelessWidget {
               decoration: BoxDecoration(
                 color: _chatUserBubbleColor(context),
                 gradient: _chatUserBubbleGradient(context),
-                border: Border.all(color: _chatPremiumBorderColor(context)),
                 boxShadow: const <BoxShadow>[
                   BoxShadow(
-                    color: Color(0x22000000),
+                    color: Color(0x33000000),
                     blurRadius: 14,
                     offset: Offset(0, 8),
                   ),
                 ],
               ),
-              child: Stack(
-                children: <Widget>[
-                  Positioned(
-                    top: 0,
-                    left: 18,
-                    right: 18,
-                    child: Container(
-                      height: 1,
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: PayaboSpacing.lg,
-                      vertical: PayaboSpacing.md,
-                    ),
-                    child: Text(
-                      message.lines.first,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: _chatBodyTextColor(context),
-                            height: 1.35,
-                          ),
-                    ),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: PayaboSpacing.lg,
+                  vertical: PayaboSpacing.md,
+                ),
+                child: Text(
+                  message.lines.first,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                        height: 1.35,
+                      ),
+                ),
               ),
             ),
           ),
@@ -2093,6 +2072,64 @@ class _ChatPlanCard extends StatelessWidget {
   }
 }
 
+class _ChatHeaderSimiIdentity extends StatelessWidget {
+  const _ChatHeaderSimiIdentity();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFFF37920).withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+            image: const DecorationImage(
+              image: AssetImage('assets/images/simi.png'),
+              fit: BoxFit.cover,
+              alignment: Alignment(0, -0.6),
+            ),
+          ),
+        ),
+        const SizedBox(width: PayaboSpacing.sm),
+        Flexible(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Simi',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: _chatBodyTextColor(context),
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'AI companion \u00B7 always listening',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: _chatMutedTextColor(context),
+                      height: 1.2,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ChatHeaderMenuButton extends StatelessWidget {
   const _ChatHeaderMenuButton({required this.onTap});
 
@@ -2176,48 +2213,37 @@ class _ChatComposer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bool showHeroHint = ref.watch(
-      chatControllerProvider.select(
-        (ChatState state) =>
-            !state.hasMessages &&
-            state.streamingText.isEmpty &&
-            state.activity == ChatActivity.idle,
-      ),
-    );
     final bool isProcessing = ref.watch(
       chatControllerProvider.select((ChatState state) => state.isProcessing),
     );
 
-    return AnimatedAlign(
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.center,
-      child: AnimatedContainer(
+    if (isVoiceActive) {
+      return AnimatedAlign(
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
-        constraints: BoxConstraints(maxWidth: isVoiceActive ? 320 : 720),
-        decoration: BoxDecoration(
-          color: _chatTrayColor(context),
-          gradient: _chatTrayGradient(context),
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: _chatTrayShadow(),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: PayaboSpacing.lg,
-            vertical: PayaboSpacing.sm,
+        alignment: Alignment.center,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          constraints: const BoxConstraints(maxWidth: 320),
+          decoration: BoxDecoration(
+            color: _chatTrayColor(context),
+            gradient: _chatTrayGradient(context),
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: _chatTrayShadow(),
           ),
-          child: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (
-              BuildContext context,
-              TextEditingValue value,
-              Widget? child,
-            ) {
-              final bool canSend =
-                  value.text.trim().isNotEmpty && !isProcessing;
-
-              if (isVoiceActive) {
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: PayaboSpacing.lg,
+              vertical: PayaboSpacing.sm,
+            ),
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (
+                BuildContext context,
+                TextEditingValue value,
+                Widget? child,
+              ) {
                 final _VoiceControlConfig talkControl = _voiceTalkControl(
                   voiceStagePhase,
                   isProcessing,
@@ -2261,68 +2287,79 @@ class _ChatComposer extends ConsumerWidget {
                     ),
                   ],
                 );
-              }
+              },
+            ),
+          ),
+        ),
+      );
+    }
 
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      minLines: 1,
-                      maxLines: 4,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: _chatBodyTextColor(context),
-                            height: 1.35,
-                            fontWeight: FontWeight.w400,
-                          ),
-                      cursorColor: context.colors.primary,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: onSubmitted,
-                      decoration: InputDecoration(
-                        hintText: showHeroHint
-                            ? 'Try asking "How do I stop missing bills?"'
-                            : 'Write here...',
-                        hintStyle:
-                            Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: _chatMutedTextColor(context),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 14,
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (
+        BuildContext context,
+        TextEditingValue value,
+        Widget? child,
+      ) {
+        final bool canSend = value.text.trim().isNotEmpty && !isProcessing;
+
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: _chatBodyTextColor(context),
+                        height: 1.35,
+                        fontWeight: FontWeight.w400,
+                      ),
+                  cursorColor: context.colors.primary,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: onSubmitted,
+                  decoration: InputDecoration(
+                    hintText: 'Ask Simi anything\u2026',
+                    hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: _chatMutedTextColor(context),
+                          fontWeight: FontWeight.w400,
                         ),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.08),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(50),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(50),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.25),
                       ),
                     ),
                   ),
-                  const SizedBox(width: PayaboSpacing.sm),
-                  _ChatComposerActionButton(
-                    icon: Icons.mic_none_rounded,
-                    semanticLabel: 'Voice chat',
-                    isEnabled: true,
-                    isPrimary: true,
-                    onTap: onVoiceTap,
-                  ),
-                  if (!isVoiceActive) ...<Widget>[
-                    const SizedBox(width: PayaboSpacing.sm),
-                    _ChatComposerActionButton(
-                      icon: Icons.send_rounded,
-                      semanticLabel: 'Send message',
-                      isEnabled: canSend,
-                      isPrimary: true,
-                      onTap: () => onSubmitted(value.text),
-                    ),
-                  ],
-                ],
-              );
-            },
+                ),
+              ),
+              const SizedBox(width: PayaboSpacing.sm),
+              _ChatComposerActionButton(
+                icon: canSend ? Icons.send_rounded : Icons.mic_none_rounded,
+                semanticLabel: canSend ? 'Send message' : 'Voice chat',
+                isEnabled: canSend || !isProcessing,
+                onTap: canSend ? () => onSubmitted(value.text) : onVoiceTap,
+              ),
+            ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -2407,7 +2444,7 @@ class _VoiceControlButton extends StatelessWidget {
             : const <Color>[Color(0xFF6E3A36), Color(0xFF4F2926)])
         : isPrimary
             ? (isEnabled
-                ? const <Color>[Color(0xFFF4A027), Color(0xFFD16E1D)]
+                ? const <Color>[Color(0xFFF37920), Color(0xFFD55F0B)]
                 : const <Color>[Color(0xFF85592E), Color(0xFF624221)])
             : (isEnabled
                 ? const <Color>[Color(0x33FFFFFF), Color(0x18FFFFFF)]
@@ -2452,11 +2489,11 @@ class _VoiceControlButton extends StatelessWidget {
                 boxShadow: <BoxShadow>[
                   BoxShadow(
                     color: isRecording && isEnabled
-                        ? const Color(0x40F4A027)
+                        ? const Color(0x40F37920)
                         : isDestructive && isEnabled
                             ? const Color(0x30E1574C)
                             : isPrimary && isEnabled
-                                ? const Color(0x2CF4A027)
+                                ? const Color(0x2CF37920)
                                 : const Color(0x14000000),
                     blurRadius: isRecording ? 18 : 12,
                     offset: const Offset(0, 6),
@@ -2709,8 +2746,8 @@ class _VoiceSimiOrb extends StatelessWidget {
               color: isSpeaking
                   ? const Color(0x20FFF0D8)
                   : isThinking
-                      ? const Color(0x22F4A027)
-                      : const Color(0x18F4A027),
+                      ? const Color(0x22F37920)
+                      : const Color(0x18F37920),
               border: Border.all(
                 color: Colors.white.withValues(
                   alpha: isListening || isSpeaking || isThinking ? 0.1 : 0.05,
@@ -2726,12 +2763,12 @@ class _VoiceSimiOrb extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 colors: isSpeaking
-                    ? const <Color>[Color(0x30FFE4B3), Color(0x10F4A027)]
+                    ? const <Color>[Color(0x30FFE4B3), Color(0x10F37920)]
                     : isThinking
-                        ? const <Color>[Color(0x34F7C46C), Color(0x14F4A027)]
+                        ? const <Color>[Color(0x34F7C46C), Color(0x14F37920)]
                         : isListening
                             ? const <Color>[
-                                Color(0x29F4A027),
+                                Color(0x29F37920),
                                 Color(0x10F37920)
                               ]
                             : const <Color>[
@@ -2749,14 +2786,14 @@ class _VoiceSimiOrb extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: const LinearGradient(
-                colors: <Color>[Color(0xFFF4A027), Color(0xFFD16E1D)],
+                colors: <Color>[Color(0xFFF37920), Color(0xFFD55F0B)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: const Color(0x30F4A027).withValues(
+                  color: const Color(0x30F37920).withValues(
                     alpha:
                         isListening || isSpeaking || isThinking ? 0.34 : 0.22,
                   ),
@@ -2775,11 +2812,11 @@ class _VoiceSimiOrb extends StatelessWidget {
                         colors: isThinking
                             ? const <Color>[
                                 Color(0xFFFFD17A),
-                                Color(0xFFF4A027),
+                                Color(0xFFF37920),
                               ]
                             : const <Color>[
-                                Color(0xFFF4A027),
-                                Color(0xFFD16E1D),
+                                Color(0xFFF37920),
+                                Color(0xFFD55F0B),
                               ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -2881,28 +2918,15 @@ class _ChatComposerActionButton extends StatelessWidget {
     required this.semanticLabel,
     required this.isEnabled,
     required this.onTap,
-    this.isPrimary = false,
   });
 
   final IconData icon;
   final String semanticLabel;
   final bool isEnabled;
   final VoidCallback onTap;
-  final bool isPrimary;
 
   @override
   Widget build(BuildContext context) {
-    final List<Color> colors = isPrimary
-        ? (isEnabled
-            ? const <Color>[Color(0xFFF4A027), Color(0xFFD16E1D)]
-            : const <Color>[Color(0xFF85592E), Color(0xFF624221)])
-        : (isEnabled
-            ? const <Color>[Color(0x33FFFFFF), Color(0x18FFFFFF)]
-            : const <Color>[Color(0x1FFFFFFF), Color(0x14FFFFFF)]);
-    final Color iconColor = isPrimary
-        ? Colors.black.withValues(alpha: isEnabled ? 0.92 : 0.42)
-        : Colors.white.withValues(alpha: isEnabled ? 0.88 : 0.48);
-
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -2913,29 +2937,19 @@ class _ChatComposerActionButton extends StatelessWidget {
           onTap: isEnabled ? onTap : null,
           customBorder: const CircleBorder(),
           child: Ink(
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: colors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: isEnabled ? 0.08 : 0.04),
-              ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: isPrimary && isEnabled
-                      ? const Color(0x2CF4A027)
-                      : const Color(0x14000000),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              color: isEnabled
+                  ? const Color(0xFFF37920)
+                  : const Color(0xFF624221),
             ),
-            child: Icon(icon, color: iconColor, size: 24),
+            child: Icon(
+              icon,
+              color: Colors.white.withValues(alpha: isEnabled ? 1.0 : 0.5),
+              size: 20,
+            ),
           ),
         ),
       ),

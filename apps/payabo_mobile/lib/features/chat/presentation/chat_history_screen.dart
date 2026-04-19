@@ -48,12 +48,12 @@ LinearGradient _historySelectedGradient(BuildContext context) {
   return LinearGradient(
     colors: c.isDark
         ? const <Color>[
-            Color(0x1EF4A027),
-            Color(0x0FF4A027),
+            Color(0x1EF37920),
+            Color(0x0FF37920),
           ]
         : const <Color>[
-            Color(0x22F4A027),
-            Color(0x12F4A027),
+            Color(0x22F37920),
+            Color(0x12F37920),
           ],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,

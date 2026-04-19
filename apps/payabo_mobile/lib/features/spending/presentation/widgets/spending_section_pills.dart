@@ -27,12 +27,11 @@ extension SpendingSectionLabel on SpendingSection {
   }
 }
 
-/// Starling-style horizontal tab bar with an underline indicator.
+/// Horizontal text-label tabs with an animated underline indicator.
 ///
-/// By default the colours derive from the current [Theme].  Pass
-/// [selectedColor], [unselectedColor] and [indicatorColor] to override
-/// — useful when the pills are rendered on a dark-gradient background
-/// where the standard theme values would be illegible.
+/// Pass [selectedColor], [unselectedColor], [indicatorColor] to override
+/// on dark-gradient surfaces where the default theme tokens would
+/// otherwise read as low-contrast.
 class SpendingSectionPills extends StatelessWidget {
   const SpendingSectionPills({
     super.key,
@@ -48,78 +47,108 @@ class SpendingSectionPills extends StatelessWidget {
   final ValueChanged<SpendingSection> onSelected;
   final List<SpendingSection>? sections;
 
-  /// Override colour for the selected tab label.
+  /// Label colour of the selected tab. Defaults to `colorScheme.onSurface`.
   final Color? selectedColor;
 
-  /// Override colour for unselected tab labels.
+  /// Label colour of unselected tabs. Defaults to a muted onSurface.
   final Color? unselectedColor;
 
-  /// Override colour for the underline indicator.
+  /// Underline colour under the selected tab. Defaults to `colorScheme.primary`.
   final Color? indicatorColor;
+
+  static const double _indicatorWidth = 64;
 
   @override
   Widget build(BuildContext context) {
     final List<SpendingSection> visibleSections =
         sections ?? SpendingSection.values;
-    final theme = Theme.of(context);
-    final Color resolvedSelected =
-        selectedColor ?? theme.colorScheme.onSurface;
+    final ThemeData theme = Theme.of(context);
+    final TextStyle? titleSmall = theme.textTheme.titleSmall;
+    final TextStyle? bodySmall = theme.textTheme.bodySmall;
+
+    final Color resolvedSelected = selectedColor ?? theme.colorScheme.onSurface;
     final Color resolvedUnselected = unselectedColor ??
-        theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6) ??
+        bodySmall?.color?.withValues(alpha: 0.6) ??
         theme.colorScheme.onSurface.withValues(alpha: 0.5);
     final Color resolvedIndicator =
         indicatorColor ?? theme.colorScheme.primary;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.xs),
       child: Row(
-        children: visibleSections
-            .map(
-              (SpendingSection section) {
-                final bool selected = section == selectedSection;
-                return Padding(
-                  padding: const EdgeInsets.only(right: PayaboSpacing.xl),
-                  child: GestureDetector(
-                    onTap: () => onSelected(section),
-                    behavior: HitTestBehavior.opaque,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: PayaboSpacing.sm,
-                          ),
-                          child: Text(
-                            section.label,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: selected
-                                  ? resolvedSelected
-                                  : resolvedUnselected,
-                              fontWeight:
-                                  selected ? FontWeight.w700 : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          height: 2.5,
-                          width: selected ? 40 : 0,
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? resolvedIndicator
-                                : Colors.transparent,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(2)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            )
-            .toList(growable: false),
+        children: <Widget>[
+          for (final SpendingSection section in visibleSections)
+            Padding(
+              padding: const EdgeInsets.only(right: PayaboSpacing.xl),
+              child: _SectionPill(
+                label: section.label,
+                selected: section == selectedSection,
+                onTap: () => onSelected(section),
+                selectedColor: resolvedSelected,
+                unselectedColor: resolvedUnselected,
+                indicatorColor: resolvedIndicator,
+                titleStyle: titleSmall,
+                indicatorWidth: _indicatorWidth,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionPill extends StatelessWidget {
+  const _SectionPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.selectedColor,
+    required this.unselectedColor,
+    required this.indicatorColor,
+    required this.titleStyle,
+    required this.indicatorWidth,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color selectedColor;
+  final Color unselectedColor;
+  final Color indicatorColor;
+  final TextStyle? titleStyle;
+  final double indicatorWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.sm),
+            child: Text(
+              label,
+              style: titleStyle?.copyWith(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? selectedColor : unselectedColor,
+              ),
+            ),
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            height: 2.5,
+            width: selected ? indicatorWidth : 0,
+            decoration: BoxDecoration(
+              color: selected ? indicatorColor : Colors.transparent,
+              borderRadius: const BorderRadius.all(Radius.circular(2)),
+            ),
+          ),
+        ],
       ),
     );
   }
