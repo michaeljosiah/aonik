@@ -5,7 +5,8 @@ public record ListOrdersRequest(
     int PageSize = 20,
     string? Status = null,
     string? OrderType = null,
-    string? Search = null
+    string? Search = null,
+    Guid? PayerPartyId = null
 );
 
 public record OrderListItem(

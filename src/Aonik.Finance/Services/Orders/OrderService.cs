@@ -69,6 +69,12 @@ internal class OrderService : IOrderService
             query = query.Where(order => order.OrderType == orderType);
         }
 
+        if (request.PayerPartyId.HasValue)
+        {
+            var payerPartyId = request.PayerPartyId.Value;
+            query = query.Where(order => order.PayerPartyId == payerPartyId);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();

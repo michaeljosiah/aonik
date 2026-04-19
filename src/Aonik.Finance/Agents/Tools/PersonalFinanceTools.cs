@@ -2,10 +2,16 @@ using System.ComponentModel;
 using System.Text.Json;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Finance.Agents.StructuredOutputs;
+using Aonik.Finance.Contracts.Models.Orders;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Finance.Contracts.Services.Orders;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Contracts.Services.Pricing;
+using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Agents.AI;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,6 +34,13 @@ internal sealed class PersonalFinanceTools
     private readonly IDashboardService _dashboardService;
     private readonly IFxRateService _fxRateService;
     private readonly ITransactionClassificationService _classificationService;
+    private readonly IStatementImportService _statementImportService;
+    private readonly ITransactionAttachmentService _attachmentService;
+    private readonly ICustomerInsightSnapshotReader _snapshotReader;
+    private readonly IOrderService _orderService;
+    private readonly FinanceDbContext _financeDbContext;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly IAgentConfigurationService _agentConfigurationService;
@@ -44,6 +57,13 @@ internal sealed class PersonalFinanceTools
         IDashboardService dashboardService,
         IFxRateService fxRateService,
         ITransactionClassificationService classificationService,
+        IStatementImportService statementImportService,
+        ITransactionAttachmentService attachmentService,
+        ICustomerInsightSnapshotReader snapshotReader,
+        IOrderService orderService,
+        FinanceDbContext financeDbContext,
+        ITenantProvider tenantProvider,
+        ICurrentUserProvider currentUserProvider,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         IAgentConfigurationService agentConfigurationService,
@@ -59,6 +79,13 @@ internal sealed class PersonalFinanceTools
         _dashboardService = dashboardService;
         _fxRateService = fxRateService;
         _classificationService = classificationService;
+        _statementImportService = statementImportService;
+        _attachmentService = attachmentService;
+        _snapshotReader = snapshotReader;
+        _orderService = orderService;
+        _financeDbContext = financeDbContext;
+        _tenantProvider = tenantProvider;
+        _currentUserProvider = currentUserProvider;
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _agentConfigurationService = agentConfigurationService;
@@ -360,6 +387,35 @@ internal sealed class PersonalFinanceTools
         return await _billService.CreateBillAsync(request, cancellationToken);
     }
 
+    [Description("Updates fields on an existing bill. Only the parameters you provide are changed; unspecified fields keep their current values. Use this to reschedule a bill (nextDueDate), adjust an amount, rename a payee, toggle autopay, change the currency, switch the paying account, or change lifecycle status (e.g. 'Active', 'Paid', 'Overdue'). To stop a bill entirely, use pf_archive_bill instead. Requires confirmAction approval.")]
+    public async Task<BillResponse> UpdateBill(
+        [Description("The unique identifier (GUID) of the bill to update")] Guid billId,
+        [Description("Optional: new payee name")] string? payee = null,
+        [Description("Optional: new billing frequency (e.g. 'Monthly', 'Weekly', 'Biweekly', 'Yearly')")] string? frequency = null,
+        [Description("Optional: new next due date in UTC")] DateTime? nextDueDate = null,
+        [Description("Optional: new expected payment amount. Omit to keep the current amount.")] decimal? expectedAmount = null,
+        [Description("Optional: new ISO 4217 currency code (e.g. USD, NGN)")] string? currency = null,
+        [Description("Optional: enable or disable autopay")] bool? autopay = null,
+        [Description("Optional: new account ID to pay from. Omit to keep the current source account.")] Guid? paidFromAccountId = null,
+        [Description("Optional: new lifecycle status (e.g. 'Active', 'Paid', 'Overdue'). Use pf_archive_bill to archive a bill rather than setting this to 'Archived'.")] string? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _billService.GetBillAsync(billId, cancellationToken)
+            ?? throw new InvalidOperationException($"Bill {billId} not found.");
+
+        var request = new UpdateBillRequest(
+            payee ?? existing.Payee,
+            frequency ?? existing.Frequency,
+            nextDueDate ?? existing.NextDueDate,
+            expectedAmount ?? existing.ExpectedAmount,
+            currency ?? existing.Currency,
+            autopay ?? existing.Autopay,
+            paidFromAccountId ?? existing.PaidFromAccountId,
+            status ?? existing.Status);
+
+        return await _billService.UpdateBillAsync(billId, request, cancellationToken);
+    }
+
     [Description("Archives a bill, marking it as no longer active. The bill remains in the system for historical reference.")]
     public async Task<string> ArchiveBill(
         [Description("The unique identifier (GUID) of the bill to archive")] Guid billId,
@@ -445,6 +501,190 @@ internal sealed class PersonalFinanceTools
         var request = new ClassificationReviewQueueRequest(personalAccountId, page, pageSize);
         return await _classificationService.GetReviewQueueAsync(request, cancellationToken);
     }
+
+    // ── Import & Attachment Read Tools ────────────────────────────
+
+    [Description("Lists the user's CSV/OFX statement imports. Each entry shows filename, target account, format, status ('Uploaded', 'Parsed', 'Applied', 'Failed'), and row counts (total/parsed/imported/duplicate/failed). Use this to answer 'how did my import go', 'did my statement upload work', or to find an import ID before previewing or applying it. File uploads happen via the frontend — this tool only lists existing imports.")]
+    public async Task<IReadOnlyList<StatementImportResponse>> ListStatementImports(
+        CancellationToken cancellationToken = default)
+    {
+        return await _statementImportService.ListImportsAsync(cancellationToken);
+    }
+
+    [Description("Lists the parsed rows of a specific statement import so the user can preview what will be created before applying. Each row returns parse status ('Parsed', 'Duplicate', 'Failed'), raw and normalised values (date, amount, description, merchant, currency), and any error messages. Use this before calling pf_apply_statement_import so the user can confirm the import is sane.")]
+    public async Task<IReadOnlyList<StatementImportRowResponse>> ListStatementImportRows(
+        [Description("The unique identifier (GUID) of the statement import to preview")] Guid statementImportId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _statementImportService.ListImportRowsAsync(statementImportId, cancellationToken);
+    }
+
+    [Description("Lists the receipt/document attachments linked to a specific transaction. Returns file name, mime type, signed URL, optional thumbnail URL, size, and upload time for each attachment. Use this for 'show me the receipt for transaction X' or to check whether a transaction already has proof attached.")]
+    public async Task<IReadOnlyList<TransactionAttachmentResponse>> ListTransactionAttachments(
+        [Description("The unique identifier (GUID) of the transaction")] Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _attachmentService.GetAttachmentsAsync(transactionId, cancellationToken);
+    }
+
+    // ── Customer Insight Snapshot Read Tools ──────────────────────
+
+    [Description("Lists historical customer insight snapshots for the current user, most recent first. Each entry is a lightweight summary: SnapshotId, Status (Current/Superseded/Failed), AsOfUtc (when it was generated), WindowStartUtc and WindowEndUtc (the 30-day analysis window it covers), Version, and IsPartial. Use this to discover which periods are available for multi-period spending comparisons, then call pf_compare_snapshots with 2-6 SnapshotIds.")]
+    public async Task<IReadOnlyList<CustomerInsightSnapshotHistoryItemResponse>> ListSnapshotHistory(
+        [Description("Maximum number of historical snapshots to return. Defaults to 12 (covers ~12 monthly snapshots). Maximum 50.")] int take = 12,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId()
+            ?? throw new InvalidOperationException("Authenticated user is required.");
+
+        var limit = Math.Clamp(take, 1, 50);
+        return await _snapshotReader.GetSnapshotHistoryAsync(userId, limit, cancellationToken);
+    }
+
+    [Description("Compares spending and financial health across 2-6 historical customer insight snapshots for month-over-month (or longer) trend analysis. Pass SnapshotIds from pf_list_snapshot_history. Returns a compact per-period summary containing: analysis window, total inflows/outflows by currency, essential vs discretionary spend, top 5 categories by amount with share and transaction count, top 5 merchants by amount, budget pressure counts (active/overspent/projected-overspend), cashflow stress level, budget pressure level, and key signal titles. Use this to answer 'how does this month compare to last month', 'is my spending trending up or down', or 'which categories are growing fastest'. The compact shape is designed for LLM consumption — do not ask for the raw snapshot document.")]
+    public async Task<IReadOnlyList<SnapshotComparisonSummary>> CompareSnapshots(
+        [Description("List of snapshot IDs to include in the comparison. Order them chronologically (oldest first) for natural trend reading. 2-6 IDs.")] IReadOnlyList<Guid> snapshotIds,
+        [Description("How many top categories to return per period. Defaults to 5, maximum 10.")] int topCategories = 5,
+        [Description("How many top merchants to return per period. Defaults to 5, maximum 10.")] int topMerchants = 5,
+        [Description("How many key signals to return per period. Defaults to 5, maximum 10.")] int topSignals = 5,
+        CancellationToken cancellationToken = default)
+    {
+        if (snapshotIds is null || snapshotIds.Count == 0)
+        {
+            throw new ArgumentException("At least one snapshotId is required.", nameof(snapshotIds));
+        }
+
+        if (snapshotIds.Count > 6)
+        {
+            throw new ArgumentException("At most 6 snapshotIds may be compared at once.", nameof(snapshotIds));
+        }
+
+        var userId = _currentUserProvider.GetCurrentUserId()
+            ?? throw new InvalidOperationException("Authenticated user is required.");
+
+        var catLimit = Math.Clamp(topCategories, 1, 10);
+        var merLimit = Math.Clamp(topMerchants, 1, 10);
+        var sigLimit = Math.Clamp(topSignals, 1, 10);
+
+        var summaries = new List<SnapshotComparisonSummary>(snapshotIds.Count);
+        foreach (var snapshotId in snapshotIds)
+        {
+            var snapshot = await _snapshotReader.GetSnapshotAsync(snapshotId, cancellationToken);
+            if (snapshot is null || snapshot.UserId != userId)
+            {
+                throw new InvalidOperationException($"Snapshot {snapshotId} not found.");
+            }
+
+            summaries.Add(BuildComparisonSummary(snapshot, catLimit, merLimit, sigLimit));
+        }
+
+        return summaries;
+    }
+
+    private static SnapshotComparisonSummary BuildComparisonSummary(
+        CustomerInsightSnapshotResponse response,
+        int topCategories,
+        int topMerchants,
+        int topSignals)
+    {
+        var doc = response.Snapshot;
+        var metrics = doc?.Metrics;
+
+        var incomes = metrics is null
+            ? Array.Empty<CurrencyAmount>()
+            : metrics.Income.TotalInflowsByCurrency
+                .Select(m => new CurrencyAmount(m.Currency, m.Amount))
+                .ToArray();
+
+        var outflows = metrics is null
+            ? Array.Empty<CurrencyAmount>()
+            : metrics.Expense.TotalOutflowsByCurrency
+                .Select(m => new CurrencyAmount(m.Currency, m.Amount))
+                .ToArray();
+
+        var essential = metrics is null
+            ? Array.Empty<CurrencyAmount>()
+            : metrics.Expense.EssentialSpendEstimateByCurrency
+                .Select(m => new CurrencyAmount(m.Currency, m.Amount))
+                .ToArray();
+
+        var discretionary = metrics is null
+            ? Array.Empty<CurrencyAmount>()
+            : metrics.Expense.DiscretionarySpendEstimateByCurrency
+                .Select(m => new CurrencyAmount(m.Currency, m.Amount))
+                .ToArray();
+
+        var categories = metrics is null
+            ? Array.Empty<CategoryLine>()
+            : metrics.Categories.TopCategoriesByAmount
+                .Take(topCategories)
+                .Select(c => new CategoryLine(
+                    c.Category,
+                    c.Currency,
+                    c.Amount,
+                    c.ShareOfSpend,
+                    c.TransactionCount,
+                    c.PreviousPeriodAmount,
+                    c.DeltaPercentage))
+                .ToArray();
+
+        var merchants = metrics is null
+            ? Array.Empty<MerchantLine>()
+            : metrics.Merchants.TopMerchantsByAmount
+                .Take(topMerchants)
+                .Select(m => new MerchantLine(m.Merchant, m.Currency, m.Amount, m.TransactionCount))
+                .ToArray();
+
+        var budgets = metrics?.Budgets;
+        var activeBudgetCount = budgets?.ActiveBudgetCount ?? 0;
+        var overspentCount = budgets?.OverspentCategories.Count ?? 0;
+        var projectedOverspendCount = budgets?.ProjectedPressureCategories.Count ?? 0;
+
+        var risk = doc?.Risk;
+        var cashflowStress = risk?.CashflowStressLevel ?? "Unknown";
+        var budgetPressure = risk?.BudgetPressureLevel ?? "Unknown";
+
+        var signals = doc?.Signals is null
+            ? Array.Empty<SignalLine>()
+            : doc.Signals
+                .OrderByDescending(s => SeverityRank(s.Severity))
+                .Take(topSignals)
+                .Select(s => new SignalLine(s.Title, s.Category, s.Severity, s.Confidence))
+                .ToArray();
+
+        var windowDays = doc?.AnalysisWindow?.OperationalWindowDays
+            ?? (int)Math.Round((response.WindowEndUtc - response.WindowStartUtc).TotalDays);
+
+        return new SnapshotComparisonSummary(
+            response.Id,
+            response.Status,
+            response.AsOfUtc,
+            response.WindowStartUtc,
+            response.WindowEndUtc,
+            windowDays,
+            response.Version,
+            incomes,
+            outflows,
+            essential,
+            discretionary,
+            categories,
+            merchants,
+            activeBudgetCount,
+            overspentCount,
+            projectedOverspendCount,
+            cashflowStress,
+            budgetPressure,
+            signals);
+    }
+
+    private static int SeverityRank(string? severity) => severity switch
+    {
+        "Critical" => 4,
+        "High" => 3,
+        "Moderate" => 2,
+        "Low" => 1,
+        _ => 0,
+    };
 
     // ── Commitment Mutating Tools ───────────────────────────────
 
@@ -536,15 +776,179 @@ internal sealed class PersonalFinanceTools
         return await _classificationService.CreateRuleAsync(request, cancellationToken);
     }
 
+    // ── Import & Attachment Mutating Tools ────────────────────────
+
+    [Description("Commits the parsed rows of a statement import as real personal transactions. Skips duplicates and failed rows automatically. Only works on imports with status 'Parsed' — for 'Uploaded' or 'Failed' imports, tell the user what's wrong instead. Returns final counts and the applied status. Requires confirmAction approval; before calling, preview rows with pf_list_statement_import_rows and summarise totals/duplicates/failures for the user.")]
+    public async Task<StatementImportApplyResponse> ApplyStatementImport(
+        [Description("The unique identifier (GUID) of the parsed statement import to commit")] Guid statementImportId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _statementImportService.ApplyImportAsync(statementImportId, cancellationToken);
+    }
+
+    [Description("Permanently removes a receipt/document attachment from a transaction. The file is deleted from blob storage. Requires confirmAction approval — name the file and the associated transaction in the confirmation summary.")]
+    public async Task<string> DeleteTransactionAttachment(
+        [Description("The unique identifier (GUID) of the attachment to delete")] Guid attachmentId,
+        CancellationToken cancellationToken = default)
+    {
+        await _attachmentService.DeleteAttachmentAsync(attachmentId, cancellationToken);
+        return $"Attachment {attachmentId} has been deleted.";
+    }
+
+    // ── Order Read Tools ──────────────────────────────────────────
+
+    [Description("Lists the current user's payment orders (bill payments, transfers, remittances), most recent first. Returns compact summaries — do NOT dump full payloads on the user; use this to answer questions like 'what's the status of my recent payments', 'did my transfer go through', or 'show me pending orders'. Filter by status ('Draft', 'Submitted', 'Processing', 'Completed', 'Settled', 'Cancelled', 'Failed') or orderType ('BillPayment', 'Transfer'). Results are automatically scoped to the current user's party — orders belonging to other users in the tenant are never returned.")]
+    public async Task<IReadOnlyList<OrderSummary>> ListOrders(
+        [Description("Optional order status filter. Examples: 'Submitted', 'Processing', 'Completed', 'Cancelled', 'Failed'.")] string? status = null,
+        [Description("Optional order type filter. Examples: 'BillPayment', 'Transfer'.")] string? orderType = null,
+        [Description("Page size (1-50). Defaults to 20.")] int pageSize = 20,
+        [Description("Page number (1-based). Defaults to 1.")] int pageNumber = 1,
+        CancellationToken cancellationToken = default)
+    {
+        var partyId = await ResolveCurrentPartyIdAsync(cancellationToken);
+        if (partyId is null)
+        {
+            return Array.Empty<OrderSummary>();
+        }
+
+        var limit = Math.Clamp(pageSize, 1, 50);
+        var page = pageNumber < 1 ? 1 : pageNumber;
+
+        var result = await _orderService.ListOrdersAsync(
+            new ListOrdersRequest(
+                PageNumber: page,
+                PageSize: limit,
+                Status: status,
+                OrderType: orderType,
+                Search: null,
+                PayerPartyId: partyId),
+            cancellationToken);
+
+        return result.Items
+            .Select(item => new OrderSummary(
+                OrderId: item.OrderId,
+                OrderType: item.OrderType,
+                Status: item.Status,
+                OriginCurrency: item.OriginCurrency,
+                TotalAmountIn: item.TotalAmountIn,
+                DestinationCurrency: item.DestinationCurrency,
+                TotalAmountOut: item.TotalAmountOut,
+                CreatedAt: item.CreatedAt,
+                UpdatedAt: item.UpdatedAt))
+            .ToArray();
+    }
+
+    [Description("Retrieves the summary of a single order by its unique identifier — compact shape only (status, amounts, item count, top receiver). Use this when the user asks about a specific order; do not dump the full payload. Ownership is verified: only returns data when the order belongs to the current user's party.")]
+    public async Task<OrderDetailSummary?> GetOrder(
+        [Description("The unique identifier (GUID) of the order")] Guid orderId,
+        CancellationToken cancellationToken = default)
+    {
+        var partyId = await ResolveCurrentPartyIdAsync(cancellationToken);
+        if (partyId is null)
+        {
+            return null;
+        }
+
+        BillPaymentOrderResponse order;
+        try
+        {
+            order = await _orderService.GetOrderAsync(orderId, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+
+        if (order.PayerPartyId != partyId.Value)
+        {
+            return null;
+        }
+
+        var firstItem = order.Items.OrderBy(item => item.ItemIndex).FirstOrDefault();
+
+        return new OrderDetailSummary(
+            OrderId: order.OrderId,
+            OrderType: order.OrderType,
+            Status: order.Status,
+            OriginCountry: order.OriginCountry,
+            OriginCurrency: order.OriginCurrency,
+            TotalAmountIn: order.TotalAmountIn,
+            TotalFeesAmount: order.TotalFeesAmount,
+            TotalAmountOut: order.TotalAmountOut,
+            DestinationCurrency: order.DestinationCurrency,
+            PurposeCode: order.PurposeCode,
+            ItemCount: order.Items.Count,
+            PrimaryReceiverName: firstItem?.ReceiverName,
+            PrimaryBillerName: firstItem?.BillerName,
+            CreatedAt: order.CreatedAt,
+            SubmittedAt: order.SubmittedAt);
+    }
+
+    // ── Order Mutating Tools ──────────────────────────────────────
+
+    [Description("Cancels a payment order that has not yet settled. No-op for orders already in 'Cancelled', 'Completed', or 'Failed' state (returns the current summary). Ownership is verified before cancellation. Requires confirmAction approval — in the confirmation summary include order type, recipient/biller, amount, and the reason.")]
+    public async Task<OrderDetailSummary> CancelOrder(
+        [Description("The unique identifier (GUID) of the order to cancel")] Guid orderId,
+        [Description("Optional reason for cancellation, e.g. 'User requested cancellation' or 'Wrong amount'.")] string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var partyId = await ResolveCurrentPartyIdAsync(cancellationToken)
+            ?? throw new InvalidOperationException("Current user is not linked to a party and cannot cancel orders.");
+
+        var existing = await _orderService.GetOrderAsync(orderId, cancellationToken);
+        if (existing.PayerPartyId != partyId)
+        {
+            throw new InvalidOperationException($"Order {orderId} not found.");
+        }
+
+        var cancelled = await _orderService.CancelOrderAsync(orderId, reason, cancellationToken);
+
+        var firstItem = cancelled.Items.OrderBy(item => item.ItemIndex).FirstOrDefault();
+        return new OrderDetailSummary(
+            OrderId: cancelled.OrderId,
+            OrderType: cancelled.OrderType,
+            Status: cancelled.Status,
+            OriginCountry: cancelled.OriginCountry,
+            OriginCurrency: cancelled.OriginCurrency,
+            TotalAmountIn: cancelled.TotalAmountIn,
+            TotalFeesAmount: cancelled.TotalFeesAmount,
+            TotalAmountOut: cancelled.TotalAmountOut,
+            DestinationCurrency: cancelled.DestinationCurrency,
+            PurposeCode: cancelled.PurposeCode,
+            ItemCount: cancelled.Items.Count,
+            PrimaryReceiverName: firstItem?.ReceiverName,
+            PrimaryBillerName: firstItem?.BillerName,
+            CreatedAt: cancelled.CreatedAt,
+            SubmittedAt: cancelled.SubmittedAt);
+    }
+
+    private async Task<Guid?> ResolveCurrentPartyIdAsync(CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (userId is null)
+        {
+            return null;
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        return await _financeDbContext.UserParties
+            .AsNoTracking()
+            .Where(link => link.TenantId == tenantId && link.UserId == userId.Value)
+            .OrderByDescending(link => link.Id)
+            .Select(link => (Guid?)link.PartyId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     // ── Tool Factory ──────────────────────────────────────────────
 
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all personal finance tools.
     /// Mutating tools (CreateAccount, ArchiveAccount, CreateManualTransaction,
-    /// CreateBill, ArchiveBill, CreateBudget, UpdateBudgetAmount, DeleteBudget,
-    /// CreateCommitmentFromTransaction, ConfirmCommitment, RejectCommitment,
-    /// OverrideTransactionCategory, CreateCategorisationRule) rely on the
-    /// <c>confirmAction</c> frontend tool for human-in-the-loop approval.
+    /// CreateBill, UpdateBill, ArchiveBill, CreateBudget, UpdateBudgetAmount,
+    /// DeleteBudget, CreateCommitmentFromTransaction, ConfirmCommitment,
+    /// RejectCommitment, OverrideTransactionCategory, CreateCategorisationRule,
+    /// ApplyStatementImport, DeleteTransactionAttachment, CancelOrder) rely on
+    /// the <c>confirmAction</c> frontend tool for human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -559,6 +963,13 @@ internal sealed class PersonalFinanceTools
             serviceProvider.GetRequiredService<IDashboardService>(),
             serviceProvider.GetRequiredService<IFxRateService>(),
             serviceProvider.GetRequiredService<ITransactionClassificationService>(),
+            serviceProvider.GetRequiredService<IStatementImportService>(),
+            serviceProvider.GetRequiredService<ITransactionAttachmentService>(),
+            serviceProvider.GetRequiredService<ICustomerInsightSnapshotReader>(),
+            serviceProvider.GetRequiredService<IOrderService>(),
+            serviceProvider.GetRequiredService<FinanceDbContext>(),
+            serviceProvider.GetRequiredService<ITenantProvider>(),
+            serviceProvider.GetRequiredService<ICurrentUserProvider>(),
             serviceProvider.GetRequiredService<IChatClient>(),
             serviceProvider,
             serviceProvider.GetRequiredService<IAgentConfigurationService>(),
@@ -587,12 +998,20 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.GetCommitment, name: "pf_get_commitment");
         yield return AIFunctionFactory.Create(tools.ListDetectedCommitments, name: "pf_list_detected_commitments");
         yield return AIFunctionFactory.Create(tools.ListClassificationReviewQueue, name: "pf_list_classification_review_queue");
+        yield return AIFunctionFactory.Create(tools.ListStatementImports, name: "pf_list_statement_imports");
+        yield return AIFunctionFactory.Create(tools.ListStatementImportRows, name: "pf_list_statement_import_rows");
+        yield return AIFunctionFactory.Create(tools.ListTransactionAttachments, name: "pf_list_transaction_attachments");
+        yield return AIFunctionFactory.Create(tools.ListSnapshotHistory, name: "pf_list_snapshot_history");
+        yield return AIFunctionFactory.Create(tools.CompareSnapshots, name: "pf_compare_snapshots");
+        yield return AIFunctionFactory.Create(tools.ListOrders, name: "pf_list_orders");
+        yield return AIFunctionFactory.Create(tools.GetOrder, name: "pf_get_order");
 
         // Mutating — approval enforced via the confirmAction frontend tool
         yield return AIFunctionFactory.Create(tools.CreateAccount, name: "pf_create_account");
         yield return AIFunctionFactory.Create(tools.ArchiveAccount, name: "pf_archive_account");
         yield return AIFunctionFactory.Create(tools.CreateManualTransaction, name: "pf_create_transaction");
         yield return AIFunctionFactory.Create(tools.CreateBill, name: "pf_create_bill");
+        yield return AIFunctionFactory.Create(tools.UpdateBill, name: "pf_update_bill");
         yield return AIFunctionFactory.Create(tools.ArchiveBill, name: "pf_archive_bill");
         yield return AIFunctionFactory.Create(tools.CreateBudget, name: "pf_create_budget");
         yield return AIFunctionFactory.Create(tools.UpdateBudgetAmount, name: "pf_update_budget_amount");
@@ -602,6 +1021,9 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.RejectCommitment, name: "pf_reject_commitment");
         yield return AIFunctionFactory.Create(tools.OverrideTransactionCategory, name: "pf_override_transaction_category");
         yield return AIFunctionFactory.Create(tools.CreateCategorisationRule, name: "pf_create_categorisation_rule");
+        yield return AIFunctionFactory.Create(tools.ApplyStatementImport, name: "pf_apply_statement_import");
+        yield return AIFunctionFactory.Create(tools.DeleteTransactionAttachment, name: "pf_delete_transaction_attachment");
+        yield return AIFunctionFactory.Create(tools.CancelOrder, name: "pf_cancel_order");
     }
 
     private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(
@@ -644,3 +1066,88 @@ internal sealed class PersonalFinanceTools
             ?? throw new InvalidOperationException($"The agent '{descriptor.Name}' must be a ChatClientAgent.");
     }
 }
+
+// ── Snapshot comparison DTOs ──────────────────────────────────
+//
+// Compact per-period shape for pf_compare_snapshots. Strips the full
+// CustomerInsightSnapshotDocument down to the fields the LLM actually needs
+// to reason about month-over-month trends so responses stay within budget.
+
+public record SnapshotComparisonSummary(
+    Guid SnapshotId,
+    string Status,
+    DateTime AsOfUtc,
+    DateTime WindowStartUtc,
+    DateTime WindowEndUtc,
+    int WindowDays,
+    int Version,
+    IReadOnlyList<CurrencyAmount> TotalInflowsByCurrency,
+    IReadOnlyList<CurrencyAmount> TotalOutflowsByCurrency,
+    IReadOnlyList<CurrencyAmount> EssentialSpendByCurrency,
+    IReadOnlyList<CurrencyAmount> DiscretionarySpendByCurrency,
+    IReadOnlyList<CategoryLine> TopCategories,
+    IReadOnlyList<MerchantLine> TopMerchants,
+    int ActiveBudgetCount,
+    int OverspentBudgetCount,
+    int ProjectedOverspendCount,
+    string CashflowStressLevel,
+    string BudgetPressureLevel,
+    IReadOnlyList<SignalLine> KeySignals);
+
+public record CurrencyAmount(string Currency, decimal Amount);
+
+public record CategoryLine(
+    string Category,
+    string Currency,
+    decimal Amount,
+    decimal ShareOfSpend,
+    int TransactionCount,
+    decimal PreviousPeriodAmount,
+    decimal? DeltaPercentage);
+
+public record MerchantLine(
+    string Merchant,
+    string Currency,
+    decimal Amount,
+    int TransactionCount);
+
+public record SignalLine(
+    string Title,
+    string Category,
+    string Severity,
+    string Confidence);
+
+// ── Order summary DTOs ────────────────────────────────────────
+//
+// Compact shapes for pf_list_orders / pf_get_order / pf_cancel_order.
+// The full BillPaymentOrderResponse is large (items, service fields,
+// pricing snapshots, party roles, history) — these keep LLM output
+// small and force summary-oriented user messages.
+
+public record OrderSummary(
+    Guid OrderId,
+    string OrderType,
+    string Status,
+    string OriginCurrency,
+    decimal TotalAmountIn,
+    string? DestinationCurrency,
+    decimal? TotalAmountOut,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
+public record OrderDetailSummary(
+    Guid OrderId,
+    string OrderType,
+    string Status,
+    string OriginCountry,
+    string OriginCurrency,
+    decimal TotalAmountIn,
+    decimal TotalFeesAmount,
+    decimal TotalAmountOut,
+    string? DestinationCurrency,
+    string? PurposeCode,
+    int ItemCount,
+    string? PrimaryReceiverName,
+    string? PrimaryBillerName,
+    DateTime CreatedAt,
+    DateTime? SubmittedAt);
