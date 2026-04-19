@@ -14,6 +14,7 @@ import '../../mock/repositories/mock_account_links_repository.dart';
 import '../../mock/repositories/mock_attachment_repository.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_budget_repository.dart';
+import '../../mock/repositories/mock_commitments_repository.dart';
 import '../../mock/repositories/mock_catalog_repository.dart';
 import '../../mock/repositories/mock_chat_repository.dart';
 import '../../mock/repositories/mock_community_repository.dart';
@@ -35,6 +36,8 @@ import 'account_links_repository.dart';
 import 'attachment_repository.dart';
 import 'auth_repository.dart';
 import 'budget_repository.dart';
+import 'commitments_repository.dart';
+import 'live_commitments_repository.dart';
 import 'catalog_repository.dart';
 import 'chat_repository.dart';
 import 'community_repository.dart';
@@ -186,6 +189,20 @@ final Provider<CommunityRepository> communityRepositoryProvider =
 
     final apiClient = ref.watch(apiClientProvider);
     return LiveCommunityRepository(apiClient: apiClient);
+  },
+);
+
+final Provider<CommitmentsRepository> commitmentsRepositoryProvider =
+    Provider<CommitmentsRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    if (_shouldMock(ref)) {
+      return MockCommitmentsRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveCommitmentsRepository(apiClient: apiClient);
   },
 );
 
