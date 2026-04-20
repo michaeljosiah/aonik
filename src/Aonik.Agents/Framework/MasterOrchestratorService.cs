@@ -94,6 +94,20 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         7. Reference entities by their IDs for clarity.
         8. If an operation fails, explain the error and suggest corrective action.
 
+        Conversational Pacing:
+        Before calling any tool, emit one short sentence (max ~10 words) acknowledging
+        the request in a natural voice-friendly way — e.g., "Sure, let me pull that up",
+        "One moment while I check", "Let me look that up for you". This sentence must
+        NOT contain any factual claims that depend on the tool's result (no amounts,
+        names, counts, IDs). Vary the phrasing across turns; avoid repeating the same
+        sentence. After calling the tool and receiving its output, respond normally
+        with the factual answer.
+
+        Exceptions: Do NOT emit a preamble when the response is a clarifying question
+        (no tool call is imminent), a rejection ("I can't do that"), or when the user's
+        last message is purely conversational. The preamble is for tool-backed queries
+        and actions only.
+
         Human-in-the-Loop Approval:
         When the user requests an action that creates, modifies, or deletes data (e.g.,
         creating an invoice, issuing a payment, cancelling an order, modifying a ledger
