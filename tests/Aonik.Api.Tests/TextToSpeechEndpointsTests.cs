@@ -680,15 +680,15 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
 
-            // POST /v1/audio/speech — synthesize
+            // POST /v1/audio/speech — synthesize (SSE stream of base64-encoded chunks)
             if (request.Method == HttpMethod.Post && path.Contains("/v1/audio/speech", StringComparison.OrdinalIgnoreCase))
             {
                 var audioBytes = Encoding.UTF8.GetBytes("fake-mistral-audio");
                 var audioBase64 = Convert.ToBase64String(audioBytes);
-                var speechJson = $$"""{"audio_data":"{{audioBase64}}"}""";
+                var sseBody = $"data: {{\"audio_data\":\"{audioBase64}\"}}\n\ndata: [DONE]\n\n";
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent(speechJson, Encoding.UTF8, "application/json")
+                    Content = new StringContent(sseBody, Encoding.UTF8, "text/event-stream")
                 };
             }
 
