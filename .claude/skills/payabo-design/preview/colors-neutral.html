@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Colors — Neutrals</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated);}
+  .grid { display:grid; grid-template-columns: repeat(5,1fr); gap:10px; }
+  .sw { border:1px solid var(--pay-border-strong); border-radius: var(--pay-r-sm); overflow:hidden; background:white;}
+  .chip { height:56px;}
+  .meta { padding: 6px 8px; }
+  .n { font: 700 10px/14px var(--pay-font); text-transform: uppercase; letter-spacing: 0.1px; color: var(--pay-text-primary);}
+  .h { font: 400 10px/14px var(--pay-font); color: var(--pay-text-muted);}
+  .caption { font: 600 11px/14px var(--pay-font); color: var(--pay-text-subtle-warm); margin: 0 0 10px; letter-spacing:0.2px; }
+</style>
+</head>
+<body>
+  <div class="caption">NEUTRALS · cool grays for borders, muted surfaces, non-warm text</div>
+  <div class="grid">
+    <div class="sw"><div class="chip" style="background:#FFFFFF;border-right:1px solid #eee"></div><div class="meta"><div class="n">White</div><div class="h">#FFFFFF</div></div></div>
+    <div class="sw"><div class="chip" style="background:#F7F8FA"></div><div class="meta"><div class="n">Neutral 050</div><div class="h">#F7F8FA</div></div></div>
+    <div class="sw"><div class="chip" style="background:#F2F4F4"></div><div class="meta"><div class="n">Neutral 100</div><div class="h">#F2F4F4</div></div></div>
+    <div class="sw"><div class="chip" style="background:#E5E9EA"></div><div class="meta"><div class="n">Neutral 200</div><div class="h">#E5E9EA</div></div></div>
+    <div class="sw"><div class="chip" style="background:#B4BFC3"></div><div class="meta"><div class="n">Neutral 500</div><div class="h">#B4BFC3</div></div></div>
+    <div class="sw"><div class="chip" style="background:#1A1C20"></div><div class="meta"><div class="n">Ink 900</div><div class="h">#1A1C20</div></div></div>
+    <div class="sw"><div class="chip" style="background:#0F0D0E"></div><div class="meta"><div class="n">Hero bottom</div><div class="h">#0F0D0E</div></div></div>
+    <div class="sw"><div class="chip" style="background:#191718"></div><div class="meta"><div class="n">Hero mid</div><div class="h">#191718</div></div></div>
+    <div class="sw"><div class="chip" style="background:#242223"></div><div class="meta"><div class="n">Hero top</div><div class="h">#242223</div></div></div>
+    <div class="sw"><div class="chip" style="background:rgba(180,191,195,.4)"></div><div class="meta"><div class="n">Border strong</div><div class="h">b4bfc3 · 40%</div></div></div>
+  </div>
+</body>
+</html>

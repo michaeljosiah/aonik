@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Radii</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated);}
+  .row { display:flex; gap:16px; align-items:flex-end; }
+  .sw { flex:1; text-align:center;}
+  .box { height: 86px; background: var(--pay-surface-base); border: 1px solid var(--pay-border-strong); box-shadow: var(--pay-shadow-card); margin-bottom: 8px; display:flex; align-items:center; justify-content:center; font: 700 10px/12px var(--pay-font); text-transform:uppercase; color:var(--pay-text-muted); letter-spacing:0.1px;}
+  .n { font: 700 11px/14px var(--pay-font); text-transform:uppercase; letter-spacing:0.1px; color: var(--pay-text-primary);}
+  .v { font: 400 11px/14px var(--pay-font); color: var(--pay-text-muted);}
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="box" style="border-radius:0">0</div><div class="n">None</div><div class="v">0</div></div>
+    <div class="sw"><div class="box" style="border-radius:4px">Default</div><div class="n">Sm</div><div class="v">4 · buttons/cards</div></div>
+    <div class="sw"><div class="box" style="border-radius:5px">—</div><div class="n">Md</div><div class="v">5</div></div>
+    <div class="sw"><div class="box" style="border-radius:12px">Softer</div><div class="n">Lg</div><div class="v">12</div></div>
+    <div class="sw"><div class="box" style="border-radius:20px">Sheet</div><div class="n">Xl</div><div class="v">20 · sheets</div></div>
+    <div class="sw"><div class="box" style="border-radius:50px;background:var(--pay-orange-500);color:white">PILL</div><div class="n">Pill</div><div class="v">50 · chips</div></div>
+  </div>
+</body>
+</html>

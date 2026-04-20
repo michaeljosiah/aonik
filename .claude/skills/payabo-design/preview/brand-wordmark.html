@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Wordmark & logo</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated); font: var(--pay-font); display:grid; grid-template-columns: 1fr 1fr; gap:20px; align-items:center;}
+  .box { background: white; border: 1px solid var(--pay-border-strong); border-radius: var(--pay-r-sm); padding: 20px; display:flex; align-items:center; justify-content:center; min-height: 100px;}
+  .box.dark { background: var(--pay-hero-top);}
+  .wm { font: 800 40px/40px var(--pay-font); letter-spacing: -1.6px; color: var(--pay-warm-900);}
+  .wm .dot { color: var(--pay-orange-500);}
+  .dark .wm { color: white;}
+  .caption { font: 600 10px/14px var(--pay-font); color: var(--pay-text-muted); text-transform:uppercase; letter-spacing:0.2px; margin-bottom: 6px;}
+</style>
+</head>
+<body>
+  <div>
+    <div class="caption">Wordmark (placeholder)</div>
+    <div class="box"><div class="wm">Payabo<span class="dot">·</span></div></div>
+  </div>
+  <div>
+    <div class="caption">On dark hero</div>
+    <div class="box dark"><div class="wm">Payabo<span class="dot">·</span></div></div>
+  </div>
+</body>
+</html>

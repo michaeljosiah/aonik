@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Colors — Brand</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--pay-surface-warm-elevated); }
+  .row { display: flex; gap: 12px; }
+  .sw { flex: 1; min-width: 0; border-radius: var(--pay-r-sm); overflow: hidden; border: 1px solid var(--pay-border-strong); background: white; }
+  .chip { height: 72px; display: flex; align-items: flex-end; padding: 10px 12px; }
+  .meta { padding: 8px 12px 10px; display: flex; justify-content: space-between; gap: 8px; }
+  .meta .n { font: 700 12px/16px var(--pay-font); color: var(--pay-text-primary); text-transform: uppercase; letter-spacing: 0.1px;}
+  .meta .h { font: 400 11px/16px var(--pay-font); color: var(--pay-text-muted); }
+  .chip .role { color: white; font: 600 11px/14px var(--pay-font); letter-spacing: 0.1px; }
+  .chip.dark .role { color: white; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw">
+      <div class="chip" style="background:#F37920"><span class="role">Primary</span></div>
+      <div class="meta"><span class="n">Orange 500</span><span class="h">#F37920</span></div>
+    </div>
+    <div class="sw">
+      <div class="chip" style="background:#D55F0B"><span class="role">Primary hover</span></div>
+      <div class="meta"><span class="n">Orange 600</span><span class="h">#D55F0B</span></div>
+    </div>
+    <div class="sw">
+      <div class="chip" style="background:#1A1C20"><span class="role">Ink</span></div>
+      <div class="meta"><span class="n">Ink 900</span><span class="h">#1A1C20</span></div>
+    </div>
+  </div>
+</body>
+</html>

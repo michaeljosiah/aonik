@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Chips & badges</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated); font: var(--pay-font);}
+  .row { display:flex; flex-wrap:wrap; gap: 10px; align-items:center;}
+  .chip { display:inline-flex; align-items:center; gap:6px; padding: 6px 12px; border-radius: var(--pay-r-pill); font: 600 11px/14px var(--pay-font); letter-spacing:0.1px;}
+  .completed { background:#ECFAEF; color:#1B7030; border: 1px solid #4ACB64;}
+  .processing { background: #FFF3E0; color:#8A5100; border:1px solid #FF9E15;}
+  .failed { background:#FCEBEE; color:#8A0022; border:1px solid #E60037;}
+  .pending { background: var(--pay-warm-200); color: var(--pay-warm-900);}
+  .tab-row { display:flex; gap:4px; padding: 4px; background: var(--pay-warm-150); border-radius: var(--pay-r-pill); width: fit-content; margin-top: 16px;}
+  .tab { padding: 6px 14px; border-radius: var(--pay-r-pill); font: 600 12px/16px var(--pay-font); color: var(--pay-warm-800); cursor: pointer;}
+  .tab.on { background: white; color: var(--pay-warm-900); box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
+  .cat { display:inline-flex; align-items:center; gap: 6px; padding: 6px 10px; border-radius: var(--pay-r-pill); background: #FFF3E8; border: 1px solid #F1DEC9; font:600 11px/14px var(--pay-font); color:#7A3211; margin-top: 16px; margin-right:6px;}
+</style>
+</head>
+<body>
+  <div class="row">
+    <span class="chip completed">✓ Completed</span>
+    <span class="chip processing">Processing</span>
+    <span class="chip failed">Failed</span>
+    <span class="chip pending">Pending</span>
+  </div>
+  <div class="tab-row">
+    <span class="tab on">All</span><span class="tab">Transfers</span><span class="tab">Bills</span>
+  </div>
+  <div>
+    <span class="cat">Groceries</span>
+    <span class="cat">Transport</span>
+    <span class="cat">Utilities</span>
+    <span class="cat">Family</span>
+  </div>
+</body>
+</html>

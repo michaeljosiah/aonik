@@ -1,0 +1,239 @@
+/* ─────────────────────────────────────────────────────────────
+   Payabo Design System — Foundations
+   Source of truth: payabo_mobile/lib/shared/theme/*.dart
+   ───────────────────────────────────────────────────────────── */
+
+/* Typography — Open Sans (Google Fonts) */
+@import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap");
+
+:root {
+  /* ─── Brand ─── */
+  --pay-orange-500: #F37920;  /* Brand Primary */
+  --pay-orange-600: #D55F0B;  /* Brand Primary Hover */
+  --pay-primary: var(--pay-orange-500);
+  --pay-primary-hover: var(--pay-orange-600);
+
+  /* ─── Ink & Neutrals ─── */
+  --pay-ink-900: #1A1C20;
+  --pay-white: #FFFFFF;
+  --pay-neutral-050: #F7F8FA;
+  --pay-neutral-100: #F2F4F4;
+  --pay-neutral-200: #E5E9EA;
+  --pay-neutral-500: #B4BFC3;
+  --pay-neutral-shadow: rgba(180, 191, 195, 0.4);
+
+  /* ─── Warm Neutrals (the brand's signature) ─── */
+  --pay-warm-050: #FFFCF9;
+  --pay-warm-100: #FFFBF7;
+  --pay-warm-150: #F7EEE4;
+  --pay-warm-200: #F4ECDE;
+  --pay-warm-300: #DCCDB7;
+  --pay-warm-500: #D7A14E;
+  --pay-warm-600: #9B7A43;
+  --pay-warm-800: #77594A;
+  --pay-warm-900: #4D3120;
+
+  /* ─── Status ─── */
+  --pay-success-500: #4ACB64;
+  --pay-success-050: #ECFAEF;
+  --pay-warning-500: #FF9E15;
+  --pay-danger-500: #E60037;
+  --pay-info-500: #2465E8;
+
+  /* ─── Dark (charcoal hero surfaces) ─── */
+  --pay-dark-950: #0D1117;
+  --pay-dark-900: #121820;
+  --pay-dark-800: #161B22;
+  --pay-dark-700: #1C2128;
+  --pay-dark-600: #21262D;
+  --pay-dark-500: #30363D;
+  --pay-dark-400: #484F58;
+  --pay-dark-300: #6E7681;
+  --pay-dark-200: #8B949E;
+  --pay-dark-100: #C9D1D9;
+  --pay-dark-white: #E6EDF3;
+
+  /* Hero gradient stops (dashboard / pay / spending) */
+  --pay-hero-top: #242223;
+  --pay-hero-mid: #191718;
+  --pay-hero-bot: #0F0D0E;
+
+  /* Chat screen stops (warmer browns) */
+  --pay-chat-top: #261C16;
+  --pay-chat-mid: #1A130F;
+  --pay-chat-bot: #120D0A;
+  --pay-chat-screen-surface: #F8ECDD;
+
+  /* ─── Semantic roles ─── */
+  --pay-text-primary: var(--pay-ink-900);
+  --pay-text-secondary: var(--pay-warm-900);
+  --pay-text-muted: var(--pay-neutral-500);
+  --pay-text-subtle-warm: var(--pay-warm-800);
+  --pay-text-inverse: var(--pay-white);
+
+  --pay-surface-base: var(--pay-white);
+  --pay-surface-subtle: var(--pay-neutral-050);
+  --pay-surface-muted: var(--pay-neutral-100);
+  --pay-surface-warm: var(--pay-warm-100);
+  --pay-surface-warm-elevated: var(--pay-warm-050);
+  --pay-surface-warm-accent: var(--pay-warm-200);
+
+  --pay-border-default: var(--pay-neutral-200);
+  --pay-border-strong: var(--pay-neutral-shadow);
+  --pay-border-warm: var(--pay-warm-300);
+
+  --pay-header-title: var(--pay-warm-900);
+  --pay-header-subtitle: var(--pay-warm-800);
+  --pay-header-icon-surface: var(--pay-warm-050);
+  --pay-header-icon-surface-accent: var(--pay-warm-200);
+  --pay-header-icon-border: var(--pay-warm-300);
+  --pay-header-icon-accent: var(--pay-warm-600);
+
+  --pay-nav-background: var(--pay-white);
+  --pay-nav-border: #F0E7DA;
+  --pay-nav-selected: #C29752;
+  --pay-nav-unselected: #99958F;
+  --pay-nav-fab: var(--pay-orange-500);
+
+  /* ─── Spending accents ─── */
+  --pay-spend-accent-primary: #D86F17;
+  --pay-spend-accent-savings: #F08A2E;
+  --pay-spend-accent-bills: #E39A4C;
+  --pay-spend-slice-bills: #EA7A27;
+  --pay-spend-slice-other: #FFC56D;
+  --pay-spend-insight-label: #7A3211;
+  --pay-spend-insight-border: #F2C79A;
+  --pay-spend-quick-surface: #FFF3E8;
+  --pay-spend-quick-border: #F1DEC9;
+  --pay-spend-card-warm: #FFFAF5;
+  --pay-spend-card-warm-elev: #FFFBF8;
+  --pay-spend-safe-start: #122C1C;
+  --pay-spend-safe-end: #285634;
+
+  /* ─── Gradients ─── */
+  --pay-grad-warm-screen: linear-gradient(180deg, var(--pay-warm-050) 0%, var(--pay-warm-150) 100%);
+  --pay-grad-hero: linear-gradient(180deg, var(--pay-hero-top) 0%, var(--pay-hero-mid) 46%, var(--pay-hero-bot) 100%);
+  --pay-grad-chat-screen: linear-gradient(135deg, #FBF5EE 0%, #F2DEC8 100%);
+  --pay-grad-chat-hero: linear-gradient(180deg, var(--pay-chat-top) 0%, var(--pay-chat-mid) 46%, var(--pay-chat-bot) 100%);
+  --pay-grad-safe-to-spend: linear-gradient(135deg, var(--pay-spend-safe-start) 0%, var(--pay-spend-safe-end) 100%);
+  --pay-grad-spend-insight: linear-gradient(135deg, #FFE2C5 0%, #FFF2E3 100%);
+  --pay-grad-account-primary: linear-gradient(135deg, #FFF8F0 0%, #FFE9D4 100%);
+  --pay-grad-account-savings: linear-gradient(135deg, #FFFBF6 0%, #F7EBDD 100%);
+  --pay-grad-account-bills: linear-gradient(135deg, #FFFCF8 0%, #F6EDE3 100%);
+
+  /* ─── Spacing scale (px) ─── */
+  --pay-s-xxs: 2px;
+  --pay-s-xs: 4px;
+  --pay-s-sm: 8px;
+  --pay-s-md: 12px;
+  --pay-s-lg: 16px;
+  --pay-s-xl: 20px;
+  --pay-s-2x: 24px;
+  --pay-s-3x: 30px;
+  --pay-s-4x: 40px;
+
+  /* ─── Radii ─── */
+  --pay-r-none: 0;
+  --pay-r-sm: 4px;   /* buttons, standard cards */
+  --pay-r-md: 5px;
+  --pay-r-lg: 12px;  /* soft larger surfaces */
+  --pay-r-xl: 20px;  /* sheets, expressive modules */
+  --pay-r-pill: 50px;/* chips, pills, rounded badges */
+
+  /* ─── Type scale (matches build_payabo_text_theme) ─── */
+  --pay-font: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Headline / numeric */
+  --pay-display-lg-size: 32px;   --pay-display-lg-lh: 38px;   --pay-display-lg-w: 600; --pay-display-lg-ls: -0.4px;
+  --pay-display-md-size: 28px;   --pay-display-md-lh: 34px;   --pay-display-md-w: 600; --pay-display-md-ls: -0.3px;
+  --pay-h1-size: 24px;           --pay-h1-lh: 30px;           --pay-h1-w: 600; --pay-h1-ls: -0.2px;
+  --pay-h2-size: 20px;           --pay-h2-lh: 26px;           --pay-h2-w: 700; --pay-h2-ls: 0;
+  /* Section titles */
+  --pay-title-lg-size: 17px;     --pay-title-lg-lh: 22px;     --pay-title-lg-w: 700;
+  --pay-title-md-size: 15px;     --pay-title-md-lh: 20px;     --pay-title-md-w: 600;
+  --pay-title-sm-size: 13px;     --pay-title-sm-lh: 18px;     --pay-title-sm-w: 600;
+  /* Body */
+  --pay-body-lg-size: 14px;      --pay-body-lg-lh: 20px;      --pay-body-lg-w: 400;
+  --pay-body-md-size: 13px;      --pay-body-md-lh: 18px;      --pay-body-md-w: 400;
+  --pay-body-sm-size: 11px;      --pay-body-sm-lh: 16px;      --pay-body-sm-w: 400;
+  /* Labels / chips */
+  --pay-label-lg-size: 12px;     --pay-label-lg-lh: 16px;     --pay-label-lg-w: 700; --pay-label-lg-ls: 0.1px;
+  --pay-label-md-size: 11px;     --pay-label-md-lh: 16px;     --pay-label-md-w: 600; --pay-label-md-ls: 0.1px;
+
+  /* Buttons (per payabo_button.dart: uppercase labels, 40/48/52 heights) */
+  --pay-btn-sm-h: 40px;
+  --pay-btn-md-h: 48px;
+  --pay-btn-lg-h: 52px;
+
+  /* Shadows — code defines them as empty in light, but in live screenshots
+     there are soft warm-tinted drops under cards. These map to the
+     "medium" slot used by PayaboCard. */
+  --pay-shadow-soft: 0 1px 2px rgba(44, 28, 18, 0.04);
+  --pay-shadow-card: 0 4px 14px rgba(77, 49, 32, 0.07), 0 1px 2px rgba(77, 49, 32, 0.05);
+  --pay-shadow-nav: 0 -1px 10px rgba(0, 0, 0, 0.07);
+  --pay-shadow-fab: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ─── Semantic element defaults ───────────────────────────── */
+
+html, body {
+  font-family: var(--pay-font);
+  color: var(--pay-text-primary);
+  background: var(--pay-surface-warm);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.pay-display-lg, h1.pay-display-lg {
+  font: var(--pay-display-lg-w) var(--pay-display-lg-size)/var(--pay-display-lg-lh) var(--pay-font);
+  letter-spacing: var(--pay-display-lg-ls);
+  color: var(--pay-text-primary);
+  margin: 0;
+}
+.pay-display-md, h1.pay-display-md {
+  font: var(--pay-display-md-w) var(--pay-display-md-size)/var(--pay-display-md-lh) var(--pay-font);
+  letter-spacing: var(--pay-display-md-ls);
+  color: var(--pay-text-primary);
+  margin: 0;
+}
+.pay-h1 {
+  font: var(--pay-h1-w) var(--pay-h1-size)/var(--pay-h1-lh) var(--pay-font);
+  letter-spacing: var(--pay-h1-ls);
+  color: var(--pay-header-title);
+  margin: 0;
+}
+.pay-h2 {
+  font: var(--pay-h2-w) var(--pay-h2-size)/var(--pay-h2-lh) var(--pay-font);
+  color: var(--pay-header-title);
+  margin: 0;
+}
+.pay-title-lg { font: var(--pay-title-lg-w) var(--pay-title-lg-size)/var(--pay-title-lg-lh) var(--pay-font); color: var(--pay-text-primary); margin: 0; }
+.pay-title-md { font: var(--pay-title-md-w) var(--pay-title-md-size)/var(--pay-title-md-lh) var(--pay-font); color: var(--pay-text-primary); margin: 0; }
+.pay-title-sm { font: var(--pay-title-sm-w) var(--pay-title-sm-size)/var(--pay-title-sm-lh) var(--pay-font); color: var(--pay-text-primary); margin: 0; }
+
+.pay-body-lg { font: var(--pay-body-lg-w) var(--pay-body-lg-size)/var(--pay-body-lg-lh) var(--pay-font); color: var(--pay-text-primary); }
+.pay-body-md { font: var(--pay-body-md-w) var(--pay-body-md-size)/var(--pay-body-md-lh) var(--pay-font); color: var(--pay-text-primary); }
+.pay-body-sm { font: var(--pay-body-sm-w) var(--pay-body-sm-size)/var(--pay-body-sm-lh) var(--pay-font); color: var(--pay-text-muted); letter-spacing: 0.1px; }
+
+.pay-label-lg {
+  font: var(--pay-label-lg-w) var(--pay-label-lg-size)/var(--pay-label-lg-lh) var(--pay-font);
+  letter-spacing: var(--pay-label-lg-ls);
+  text-transform: uppercase;
+  color: var(--pay-text-primary);
+}
+.pay-label-md {
+  font: var(--pay-label-md-w) var(--pay-label-md-size)/var(--pay-label-md-lh) var(--pay-font);
+  letter-spacing: var(--pay-label-md-ls);
+  color: var(--pay-text-muted);
+}
+
+/* Helper: warm screen wrapper */
+.pay-warm-screen {
+  background: var(--pay-grad-warm-screen);
+  min-height: 100%;
+}
+.pay-hero-screen {
+  background: var(--pay-grad-hero);
+  color: var(--pay-text-inverse);
+}

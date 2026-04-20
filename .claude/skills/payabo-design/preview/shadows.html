@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Shadows</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm);}
+  .row { display:flex; gap:14px;}
+  .card { flex:1; background:white; border: 1px solid var(--pay-border-strong); border-radius: var(--pay-r-sm); padding: 16px; text-align:center;}
+  .n { font: 700 11px/14px var(--pay-font); text-transform:uppercase; letter-spacing:0.1px; color: var(--pay-text-primary); margin-bottom:4px;}
+  .v { font: 400 11px/14px var(--pay-font); color: var(--pay-text-muted);}
+  .soft { box-shadow: var(--pay-shadow-soft);}
+  .cardsh { box-shadow: var(--pay-shadow-card);}
+  .fab { width: 58px; height: 58px; border-radius: 50%; background: var(--pay-orange-500); margin: 8px auto; box-shadow: var(--pay-shadow-fab);}
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="card soft"><div class="n">Soft</div><div class="v">0 1px 2px · 4% warm</div></div>
+    <div class="card cardsh"><div class="n">Card</div><div class="v">0 4 14 · 7% warm</div></div>
+    <div class="card"><div class="fab"></div><div class="n">FAB</div><div class="v">0 4 12 · 15% black</div></div>
+    <div class="card" style="box-shadow: var(--pay-shadow-nav)"><div class="n">Nav (↑)</div><div class="v">0 -1 10 · 7% black</div></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Type — Display</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated); }
+  .row { display:flex; align-items:baseline; gap:16px; border-bottom:1px solid var(--pay-border-default); padding: 10px 0;}
+  .row:last-child { border:0;}
+  .label { width: 160px; flex: none; font: 600 11px/14px var(--pay-font); color: var(--pay-text-muted); letter-spacing: 0.1px; text-transform: uppercase;}
+  .sample { flex:1; }
+  .meta { width:120px; flex:none; text-align:right; font: 400 11px/14px var(--pay-font); color: var(--pay-text-muted);}
+</style>
+</head>
+<body>
+  <div class="row"><div class="label">Display Large</div><div class="sample" style="font:600 32px/38px var(--pay-font); letter-spacing:-0.4px">GHS 12,480.50</div><div class="meta">32/38 · 600</div></div>
+  <div class="row"><div class="label">Display Medium</div><div class="sample" style="font:600 28px/34px var(--pay-font); letter-spacing:-0.3px">Support your family</div><div class="meta">28/34 · 600</div></div>
+  <div class="row"><div class="label">Headline Large</div><div class="sample" style="font:600 24px/30px var(--pay-font); letter-spacing:-0.2px">Good morning, Kwame</div><div class="meta">24/30 · 600</div></div>
+  <div class="row"><div class="label">Headline Medium</div><div class="sample" style="font:700 20px/26px var(--pay-font)">Pay Activity</div><div class="meta">20/26 · 700</div></div>
+</body>
+</html>

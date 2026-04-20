@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Country flags</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated); font: var(--pay-font);}
+  .row { display:flex; gap: 16px; flex-wrap:wrap;}
+  .c { display:flex; flex-direction:column; align-items:center; gap: 6px;}
+  .flag { width: 56px; height: 40px; border-radius: var(--pay-r-sm); overflow:hidden; border: 1px solid var(--pay-border-default); background: white;}
+  .flag img { width: 100%; height: 100%; object-fit: cover; display:block;}
+  .nm { font: 700 10px/14px var(--pay-font); text-transform: uppercase; letter-spacing: 0.1px; color: var(--pay-text-primary);}
+  .caption { font: 600 11px/14px var(--pay-font); color: var(--pay-text-subtle-warm); margin: 0 0 12px;}
+</style>
+</head>
+<body>
+  <div class="caption">Supported corridors · SVG flags via flutter_svg</div>
+  <div class="row">
+    <div class="c"><div class="flag"><img src="../assets/flags/ng.svg"></div><div class="nm">Nigeria</div></div>
+    <div class="c"><div class="flag"><img src="../assets/flags/gh.svg"></div><div class="nm">Ghana</div></div>
+    <div class="c"><div class="flag"><img src="../assets/flags/gb.svg"></div><div class="nm">UK</div></div>
+    <div class="c"><div class="flag"><img src="../assets/flags/zm.svg"></div><div class="nm">Zambia</div></div>
+    <div class="c"><div class="flag"><img src="../assets/flags/zw.svg"></div><div class="nm">Zimbabwe</div></div>
+    <div class="c"><div class="flag"><img src="../assets/flags/bw.svg"></div><div class="nm">Botswana</div></div>
+  </div>
+</body>
+</html>

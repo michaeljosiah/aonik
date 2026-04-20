@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Cards</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm);}
+  .row { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items:stretch;}
+  .card { padding: 20px; border-radius: var(--pay-r-sm); font: var(--pay-font);}
+  .white { background: white; border: 1px solid var(--pay-border-strong); box-shadow: var(--pay-shadow-card);}
+  .warm { background: #FFFBF8; border: 1px solid #F1DEC9;}
+  .dark { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: white;}
+  .dark-wrap { background: var(--pay-grad-hero); border-radius: var(--pay-r-sm); padding: 10px;}
+  .t { font: 700 13px/18px var(--pay-font); color: var(--pay-text-primary);}
+  .dark .t { color: white;}
+  .v { font: 600 20px/26px var(--pay-font); margin-top: 4px; letter-spacing:-0.2px;}
+  .sub { font: 400 11px/16px var(--pay-font); color: var(--pay-text-muted); margin-top: 2px;}
+  .dark .sub { color: rgba(255,255,255,0.64);}
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="card white"><div class="t">White · standard</div><div class="v" style="color:var(--pay-warm-900)">GHS 4,820.00</div><div class="sub">Spending account · 4% ↑ this month</div></div>
+    <div class="card warm"><div class="t" style="color:#7A3211">Warm · accent</div><div class="v" style="color:#D86F17">GHS 1,240.00</div><div class="sub" style="color:#9B7A43">Bills upcoming · 5 due</div></div>
+    <div class="dark-wrap"><div class="card dark"><div class="t">Dark · hero inset</div><div class="v">GHS 12,480.50</div><div class="sub">Total balance · hidden toggle</div></div></div>
+  </div>
+</body>
+</html>

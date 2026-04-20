@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Payabo Mobile — UI kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body { margin: 0; background: #F0E6D9; font-family: "Open Sans", -apple-system, system-ui, sans-serif; color: #1A1C20; min-height: 100%;}
+  .stage { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px;}
+  .device-wrap { position: relative; }
+  .tabs { position: absolute; top: 50%; transform: translateY(-50%); right: -180px; display: flex; flex-direction: column; gap: 6px; width: 160px;}
+  .tab { padding: 10px 14px; border-radius: 8px; background: white; border: 1px solid rgba(180,191,195,0.4); font: 600 12px/16px "Open Sans"; cursor: pointer; color: #4D3120;}
+  .tab.on { background: #F37920; color: white; border-color: #F37920;}
+  @media (max-width: 900px) { .tabs { position: static; transform: none; flex-direction: row; flex-wrap: wrap; width: auto; margin-top: 20px;} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="HomeScreen.jsx"></script>
+<script type="text/babel" src="Screens.jsx"></script>
+
+<script type="text/babel">
+function App() {
+  const [tab, setTab] = React.useState('home');
+  const [view, setView] = React.useState('main'); // 'main' | 'txn'
+
+  let screen;
+  if (view === 'txn') screen = <TxnDetailScreen onBack={() => setView('main')} />;
+  else if (tab === 'home') screen = <HomeScreen onTxn={() => setView('txn')}/>;
+  else if (tab === 'pay') screen = <PayScreen/>;
+  else if (tab === 'spending') screen = <SpendingScreen/>;
+  else if (tab === 'chat') screen = <ChatScreen/>;
+
+  // Home, Pay & Chat all use dark status bar; Spending & Txn use warm-cream.
+  const isDark = (tab === 'home' || tab === 'pay' || tab === 'chat') && view !== 'txn';
+
+  return (
+    <div className="stage">
+      <div className="device-wrap">
+        <IOSDevice width={390} height={844} dark={isDark}>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }}>
+            <div style={{ flex: 1, overflow: 'auto' }}>{screen}</div>
+            {view !== 'txn' && <PayBottomNav current={tab} onChange={setTab} />}
+          </div>
+        </IOSDevice>
+        <div className="tabs">
+          {[['home','Home'],['pay','Pay'],['spending','Spending'],['chat','Simi']].map(([id,l])=>(
+            <div key={id} className={'tab' + (tab === id && view === 'main' ? ' on' : '')} onClick={() => { setTab(id); setView('main'); }}>{l}</div>
+          ))}
+          <div className={'tab' + (view === 'txn' ? ' on' : '')} onClick={() => setView('txn')}>Transaction detail</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

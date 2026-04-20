@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Payabo · Loading animations</title>
+<link rel="stylesheet" href="colors_and_type.css"/>
+<style>
+  :root{
+    --tile-bg: var(--pay-warm-050);
+    --tile-border: var(--pay-warm-300);
+    --tile-text: var(--pay-ink-900);
+    --tile-muted: var(--pay-warm-800);
+    --page-bg: linear-gradient(180deg, #FFFBF5 0%, #F7EEE4 100%);
+    --chip-bg: #FFFFFF;
+    --code-bg: #FBF3E8;
+  }
+  html[data-theme="dark"]{
+    --tile-bg: #1A1718;
+    --tile-border: rgba(255,255,255,0.06);
+    --tile-text: #F5EEE3;
+    --tile-muted: #A89A87;
+    --page-bg: linear-gradient(180deg, #161312 0%, #0F0D0E 100%);
+    --chip-bg: rgba(255,255,255,0.04);
+    --code-bg: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background: var(--page-bg);
+    color: var(--tile-text);
+    font-family: var(--pay-font);
+    padding: 48px 56px 80px;
+    transition: background .3s ease, color .3s ease;
+  }
+
+  /* ── Header ── */
+  .page-head{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap: 32px; margin-bottom: 36px; flex-wrap: wrap;
+  }
+  .head-title h1{
+    font-size: 34px; font-weight: 700; letter-spacing: -0.4px;
+    margin: 0 0 6px; color: var(--tile-text);
+  }
+  .head-title p{
+    margin:0; color: var(--tile-muted);
+    font-size: 14px; line-height: 20px; max-width: 560px;
+  }
+  .head-title .eyebrow{
+    display:inline-block; margin-bottom: 14px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--pay-orange-500);
+  }
+  .controls{
+    display:flex; align-items:center; gap: 10px;
+  }
+  .ctrl{
+    height: 36px; padding: 0 14px; border-radius: 50px;
+    background: var(--chip-bg); border: 1px solid var(--tile-border);
+    color: var(--tile-text); font: 600 12px/1 var(--pay-font);
+    letter-spacing: 0.3px; cursor: pointer; display:inline-flex; align-items:center; gap: 8px;
+    transition: all .2s ease;
+  }
+  .ctrl:hover{ border-color: var(--pay-orange-500); color: var(--pay-orange-500); }
+  .ctrl[aria-pressed="true"]{ background: var(--pay-orange-500); color:#fff; border-color: var(--pay-orange-500); }
+  .ctrl .dot{ width:8px; height:8px; border-radius:50%; background: var(--pay-orange-500); }
+  .speed-group{ display:flex; gap:0; border:1px solid var(--tile-border); border-radius:50px; padding:3px; background: var(--chip-bg); }
+  .speed-group .ctrl{ height:30px; padding: 0 12px; border: none; background: transparent; border-radius: 50px; }
+  .speed-group .ctrl[aria-pressed="true"]{ background: var(--pay-orange-500); color:#fff; }
+
+  /* ── Grid ── */
+  .grid{
+    display:grid; grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 1200px){ .grid{ grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 860px){ .grid{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 540px){ .grid{ grid-template-columns: 1fr; } }
+
+  .tile{
+    background: var(--tile-bg);
+    border: 1px solid var(--tile-border);
+    border-radius: 12px;
+    overflow: hidden;
+    display:flex; flex-direction: column;
+    transition: box-shadow .3s ease, transform .3s ease, border-color .3s ease;
+  }
+  .tile:hover{ box-shadow: var(--pay-shadow-card); border-color: rgba(243,121,32,0.35); }
+  html[data-theme="dark"] .tile:hover{ box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+
+  .stage{
+    aspect-ratio: 5/3;
+    display:flex; align-items:center; justify-content:center;
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(243,121,32,0.04) 0%, transparent 60%);
+  }
+  html[data-theme="dark"] .stage{
+    background:
+      radial-gradient(circle at 50% 50%, rgba(243,121,32,0.06) 0%, transparent 60%);
+  }
+
+  .meta{
+    padding: 14px 16px 16px;
+    border-top: 1px solid var(--tile-border);
+    display:flex; align-items:center; justify-content:space-between; gap: 12px;
+  }
+  .meta .num{
+    font: 700 10px/1 var(--pay-font); letter-spacing: 1.4px;
+    color: var(--pay-orange-500); text-transform: uppercase;
+    display:block; margin-bottom: 5px;
+    white-space: nowrap;
+  }
+  .meta > div{ min-width: 0; }
+  .meta .name{
+    font: 600 13px/18px var(--pay-font);
+    color: var(--tile-text);
+  }
+  .meta .kind{
+    font: 600 10px/16px var(--pay-font);
+    padding: 3px 8px; border-radius: 50px;
+    background: var(--code-bg); color: var(--tile-muted);
+    letter-spacing: 0.4px; text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* ═══════════════════════════════════════════
+     WORDMARK BUILDING BLOCKS
+     The brand has no logo file — use Open Sans 800
+     with orange "·" as the spec.
+     ═══════════════════════════════════════════ */
+  .wm{
+    font-family: var(--pay-font);
+    font-weight: 800;
+    color: var(--tile-text);
+    letter-spacing: -0.02em;
+    display: inline-flex; align-items: baseline;
+    line-height: 1;
+    user-select: none;
+  }
+  .wm .dot{ color: var(--pay-orange-500); }
+  .wm.size-lg{ font-size: 56px; }
+  .wm.size-md{ font-size: 44px; }
+  .wm.size-sm{ font-size: 34px; }
+
+  /* P-only glyph */
+  .pglyph{
+    font-family: var(--pay-font);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-size: 92px; line-height: 1;
+    color: var(--tile-text);
+  }
+
+  /* Orange-dot helper */
+  .odot{
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--pay-orange-500);
+    display:inline-block;
+  }
+
+  /* ═══════════════════════════════════════════
+     SPEED CONTROL — multiplies durations
+     ═══════════════════════════════════════════ */
+  :root{ --sp: 1; }
+  .grid.speed-slow{ --sp: 1.6; }
+  .grid.speed-fast{ --sp: 0.65; }
+
+  /* =============================================================
+     1 · DOT PULSE — the "heartbeat" dot
+     ============================================================= */
+  @keyframes pay-pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.35); opacity: 0.7; }
+  }
+  .l1 .dot{
+    display:inline-block;
+    animation: pay-pulse-dot calc(1.6s * var(--sp)) ease-in-out infinite;
+    transform-origin: 50% 62%;
+  }
+
+  /* =============================================================
+     2 · ORBIT DOT — solo dot orbiting the center
+     ============================================================= */
+  .l2 .orb{
+    width: 72px; height: 72px; position: relative;
+  }
+  .l2 .orb::before{
+    content:""; position:absolute; inset: 0;
+    border: 1.5px dashed rgba(243,121,32,0.18);
+    border-radius: 50%;
+  }
+  .l2 .orb .d{
+    position:absolute; top: 50%; left: 50%;
+    width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px;
+    background: var(--pay-orange-500); border-radius: 50%;
+    transform-origin: center;
+    animation: pay-orbit calc(1.6s * var(--sp)) linear infinite;
+  }
+  @keyframes pay-orbit {
+    from { transform: rotate(0deg) translateX(30px) rotate(0deg); }
+    to   { transform: rotate(360deg) translateX(30px) rotate(-360deg); }
+  }
+  .l2 .cap{ font: 800 22px/1 var(--pay-font); color: var(--tile-muted); margin-left: 14px; letter-spacing: -0.02em; }
+
+  /* =============================================================
+     3 · TRI-DOT ELLIPSIS — "Payabo · · ·"  typing cadence
+     ============================================================= */
+  .l3 .wm{ margin-right: 10px; }
+  .l3 .dots{ display:inline-flex; gap: 6px; align-items: center; padding-bottom: 6px; }
+  .l3 .dots i{
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--pay-orange-500);
+    opacity: 0.25;
+    animation: pay-ellipsis calc(1.4s * var(--sp)) ease-in-out infinite;
+  }
+  .l3 .dots i:nth-child(2){ animation-delay: calc(0.18s * var(--sp)); }
+  .l3 .dots i:nth-child(3){ animation-delay: calc(0.36s * var(--sp)); }
+  @keyframes pay-ellipsis {
+    0%, 60%, 100% { opacity: 0.2; transform: translateY(0); }
+    30%           { opacity: 1;   transform: translateY(-3px); }
+  }
+
+  /* =============================================================
+     4 · BREATHING DOT — soft radial halo
+     ============================================================= */
+  .l4 .bd{ position: relative; width: 64px; height: 64px; display:flex; align-items:center; justify-content:center; }
+  .l4 .bd .core{
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--pay-orange-500);
+    box-shadow: 0 0 0 0 rgba(243,121,32,0.45);
+    animation: pay-breathe calc(2.2s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-breathe {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(243,121,32,0.45); }
+    50%      { box-shadow: 0 0 0 22px rgba(243,121,32,0); }
+  }
+
+  /* =============================================================
+     5 · DOT SCANLINE — a thin beam sweeps through the dot
+     ============================================================= */
+  .l5 .scan{
+    position: relative; width: 120px; height: 22px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .l5 .scan .dot{
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--pay-orange-500);
+    position: relative; z-index: 2;
+  }
+  .l5 .scan::before{
+    content:""; position:absolute; inset: 0;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      transparent 35%,
+      rgba(243,121,32,0.35) 50%,
+      transparent 65%,
+      transparent 100%);
+    background-size: 200% 100%;
+    animation: pay-scan calc(2s * var(--sp)) linear infinite;
+  }
+  @keyframes pay-scan {
+    from { background-position: 100% 0; }
+    to   { background-position: -100% 0; }
+  }
+
+  /* =============================================================
+     6 · RADAR DOT — concentric ripples
+     ============================================================= */
+  .l6 .radar{ position:relative; width: 80px; height: 80px; }
+  .l6 .radar .core{
+    position:absolute; top:50%; left:50%; width:12px; height:12px; margin:-6px 0 0 -6px;
+    background: var(--pay-orange-500); border-radius: 50%;
+  }
+  .l6 .radar .ring{
+    position:absolute; top:50%; left:50%; width: 12px; height: 12px; margin:-6px 0 0 -6px;
+    border-radius: 50%;
+    border: 1.5px solid var(--pay-orange-500);
+    opacity: 0;
+    animation: pay-radar calc(2.2s * var(--sp)) ease-out infinite;
+  }
+  .l6 .radar .ring:nth-child(3){ animation-delay: calc(0.7s * var(--sp)); }
+  .l6 .radar .ring:nth-child(4){ animation-delay: calc(1.4s * var(--sp)); }
+  @keyframes pay-radar {
+    0%   { transform: scale(1);  opacity: 0.65; }
+    100% { transform: scale(5.5); opacity: 0; }
+  }
+
+  /* =============================================================
+     7 · DOT TRAIL — dot leaves a comet trail
+     ============================================================= */
+  .l7 .trail{ position: relative; width: 140px; height: 12px; }
+  .l7 .trail .d{
+    position: absolute; top: 0; left: 0;
+    width: 10px; height: 10px; margin-top: 1px;
+    background: var(--pay-orange-500); border-radius: 50%;
+    animation: pay-trail calc(1.8s * var(--sp)) ease-in-out infinite;
+  }
+  .l7 .trail .t{
+    position: absolute; top: 4px; left: 0; height: 2px; width: 60px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgba(243,121,32,0.55));
+    transform-origin: right center;
+    animation: pay-trail-tail calc(1.8s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-trail {
+    0%,100% { left: 0; }
+    50%     { left: calc(100% - 10px); }
+  }
+  @keyframes pay-trail-tail {
+    0%,100% { left: 0;   width: 0; opacity: 0; }
+    25%     { width: 55px; opacity: 1; left: 0; }
+    50%     { left: calc(100% - 65px); width: 55px; opacity: 1; transform: scaleX(-1); }
+    75%     { left: calc(100% - 10px); width: 0; opacity: 0; transform: scaleX(-1); }
+  }
+
+  /* =============================================================
+     8 · P — BOWL FILL (orange sweep fills the P's counter)
+     ============================================================= */
+  .l8 svg{ width: 120px; height: 120px; overflow: visible; }
+  .l8 .bg{ fill: color-mix(in oklab, currentColor 12%, transparent); }
+  .l8 .fill{
+    fill: var(--pay-orange-500);
+    clip-path: inset(0 0 100% 0);
+    animation: pay-bowlfill calc(2s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-bowlfill {
+    0%   { clip-path: inset(100% 0 0 0); }
+    45%  { clip-path: inset(0 0 0 0); }
+    55%  { clip-path: inset(0 0 0 0); }
+    100% { clip-path: inset(0 0 100% 0); }
+  }
+
+  /* =============================================================
+     9 · P — STROKE DRAW (outline drawn in, then filled)
+     ============================================================= */
+  .l9 svg{ width: 120px; height: 120px; overflow: visible; }
+  .l9 .ink{
+    fill: none;
+    stroke: var(--tile-text);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 520;
+    stroke-dashoffset: 520;
+    animation: pay-draw calc(2.4s * var(--sp)) ease-in-out infinite;
+  }
+  .l9 .accent{
+    fill: var(--pay-orange-500);
+    transform-origin: 84px 36px;
+    animation: pay-pop calc(2.4s * var(--sp)) ease-out infinite;
+  }
+  @keyframes pay-draw {
+    0%   { stroke-dashoffset: 520; }
+    55%  { stroke-dashoffset: 0;   }
+    85%  { stroke-dashoffset: 0;   opacity: 1; }
+    100% { stroke-dashoffset: 0;   opacity: 0; }
+  }
+  @keyframes pay-pop {
+    0%,55% { transform: scale(0); opacity: 0; }
+    70%    { transform: scale(1); opacity: 1; }
+    85%    { transform: scale(1); opacity: 1; }
+    100%   { transform: scale(1); opacity: 0; }
+  }
+
+  /* =============================================================
+     10 · P — MASK WIPE (orange slides behind, reveals)
+     ============================================================= */
+  .l10 .pmask{
+    position: relative; font: 800 120px/1 var(--pay-font);
+    letter-spacing: -0.04em;
+    color: color-mix(in oklab, currentColor 14%, transparent);
+  }
+  .l10 .pmask::after{
+    content: "P"; position:absolute; inset: 0;
+    color: var(--pay-orange-500);
+    clip-path: inset(0 100% 0 0);
+    animation: pay-wipe calc(2.4s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-wipe {
+    0%   { clip-path: inset(0 100% 0 0); }
+    45%  { clip-path: inset(0 0 0 0); }
+    55%  { clip-path: inset(0 0 0 0); }
+    100% { clip-path: inset(0 0 0 100%); }
+  }
+
+  /* =============================================================
+     11 · P — VERTICAL SCAN (orange bar sweeps down through P)
+     ============================================================= */
+  .l11 .pscan{ position: relative; font: 800 110px/1 var(--pay-font); letter-spacing: -0.04em; overflow:hidden; padding: 0 6px; }
+  .l11 .pscan .stencil{
+    display:inline-block; color: color-mix(in oklab, currentColor 18%, transparent);
+  }
+  .l11 .pscan::before{
+    content: ""; position:absolute; left: 0; right: 0; top: -18%;
+    height: 14%;
+    background: linear-gradient(180deg, transparent, rgba(243,121,32,0.85) 50%, transparent);
+    animation: pay-vscan calc(1.8s * var(--sp)) ease-in-out infinite;
+    pointer-events: none;
+  }
+  .l11 .pscan .hot{
+    position:absolute; inset: 0; color: var(--pay-orange-500);
+    -webkit-mask: linear-gradient(180deg, transparent 0%, #000 45%, #000 55%, transparent 100%);
+            mask: linear-gradient(180deg, transparent 0%, #000 45%, #000 55%, transparent 100%);
+    -webkit-mask-size: 100% 30%;
+            mask-size: 100% 30%;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: 0 -30%;
+            mask-position: 0 -30%;
+    animation: pay-vscan-mask calc(1.8s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-vscan {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(800%); }
+  }
+  @keyframes pay-vscan-mask {
+    0%   { -webkit-mask-position: 0 -30%;  mask-position: 0 -30%; }
+    100% { -webkit-mask-position: 0 130%;  mask-position: 0 130%; }
+  }
+
+  /* =============================================================
+     12 · P — DOT-TO-P MORPH (orange dot grows into the P's counter)
+     ============================================================= */
+  .l12 .dp{ position:relative; width: 120px; height: 120px; display:flex; align-items:center; justify-content:center; }
+  .l12 .dp .letter{
+    font: 800 120px/1 var(--pay-font); letter-spacing: -0.04em; color: var(--tile-text);
+    opacity: 0;
+    animation: pay-dp-letter calc(2.4s * var(--sp)) ease-in-out infinite;
+  }
+  .l12 .dp .morph{
+    position:absolute; top: 50%; left: 50%;
+    width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    background: var(--pay-orange-500); border-radius: 50%;
+    animation: pay-dp-morph calc(2.4s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-dp-letter {
+    0%,35% { opacity: 0; }
+    55%,90%{ opacity: 1; }
+    100%   { opacity: 0; }
+  }
+  @keyframes pay-dp-morph {
+    0%,100% { transform: scale(1)  translate(0,0); border-radius: 50%; opacity: 1; }
+    40%     { transform: scale(2)  translate(0,0); border-radius: 50%; opacity: 1; }
+    55%     { transform: scale(1)  translate(20px,18px); border-radius: 50%; opacity: 1; }
+    80%     { transform: scale(1)  translate(20px,18px); border-radius: 50%; opacity: 1; }
+  }
+
+  /* =============================================================
+     13 · WORDMARK — SHIMMER (warm sheen across "Payabo")
+     ============================================================= */
+  .l13 .wm{
+    --base: var(--pay-ink-900);
+    background:
+      linear-gradient(100deg,
+        var(--base) 0%,
+        var(--base) 40%,
+        var(--pay-orange-500) 50%,
+        var(--base) 60%,
+        var(--base) 100%) 0 0 / 300% 100%;
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: pay-shimmer calc(2.4s * var(--sp)) linear infinite;
+  }
+  html[data-theme="dark"] .l13 .wm{ --base: #F5EEE3; }
+  .l13 .wm .dot{
+    -webkit-text-fill-color: var(--pay-orange-500);
+    background: none;
+    color: var(--pay-orange-500);
+  }
+  @keyframes pay-shimmer {
+    from { background-position: 120% 0; }
+    to   { background-position: -120% 0; }
+  }
+
+  /* =============================================================
+     14 · WORDMARK — UNDERLINE SWEEP (progress line under wordmark)
+     ============================================================= */
+  .l14 { flex-direction: column; gap: 10px; }
+  .l14 .row{ display:flex; flex-direction:column; align-items:center; gap: 10px; }
+  .l14 .bar{
+    width: 200px; height: 2px; background: color-mix(in oklab, currentColor 10%, transparent); border-radius: 2px; overflow: hidden; position: relative;
+  }
+  .l14 .bar::before{
+    content:""; position:absolute; inset: 0; width: 40%;
+    background: linear-gradient(90deg, transparent, var(--pay-orange-500), transparent);
+    animation: pay-bar calc(1.6s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-bar {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  /* =============================================================
+     15 · WORDMARK — DOT TRAVELS (dot hops letter-to-letter)
+     ============================================================= */
+  .l15 .travel{ position: relative; display:inline-flex; align-items:baseline; font: 800 50px/1 var(--pay-font); letter-spacing: 0.02em; color: var(--tile-text); }
+  .l15 .travel span{ position: relative; }
+  .l15 .travel .runner{
+    position:absolute; bottom: -4px; left: 0;
+    width: 9px; height: 9px; border-radius: 50%; background: var(--pay-orange-500);
+    animation: pay-travel calc(3s * var(--sp)) ease-in-out infinite;
+  }
+  @keyframes pay-travel {
+    0%   { left: 2%;  transform: translateY(0); }
+    14%  { left: 15%; transform: translateY(-4px); }
+    28%  { left: 30%; transform: translateY(0); }
+    42%  { left: 45%; transform: translateY(-4px); }
+    56%  { left: 60%; transform: translateY(0); }
+    70%  { left: 75%; transform: translateY(-4px); }
+    85%  { left: 92%; transform: translateY(0); }
+    100% { left: 2%;  transform: translateY(0); opacity: 0.2; }
+  }
+
+  /* =============================================================
+     16 · WORDMARK — LETTER FADE (cascade in, cascade out)
+     ============================================================= */
+  .l16 .wm{ font-size: 48px; letter-spacing: 0.01em; }
+  .l16 .wm span{
+    display:inline-block; opacity: 0.15;
+    animation: pay-letter calc(2.4s * var(--sp)) ease-in-out infinite;
+  }
+  .l16 .wm span:nth-child(1){ animation-delay: calc(0.00s * var(--sp)); }
+  .l16 .wm span:nth-child(2){ animation-delay: calc(0.08s * var(--sp)); }
+  .l16 .wm span:nth-child(3){ animation-delay: calc(0.16s * var(--sp)); }
+  .l16 .wm span:nth-child(4){ animation-delay: calc(0.24s * var(--sp)); }
+  .l16 .wm span:nth-child(5){ animation-delay: calc(0.32s * var(--sp)); }
+  .l16 .wm span:nth-child(6){ animation-delay: calc(0.40s * var(--sp)); }
+  .l16 .wm span:nth-child(7){ animation-delay: calc(0.48s * var(--sp)); }
+  @keyframes pay-letter {
+    0%,100% { opacity: 0.15; }
+    40%,55% { opacity: 1; }
+  }
+
+  /* =============================================================
+     17 · WORDMARK — DOT DROPS IN (period falls into place)
+     ============================================================= */
+  .l17 .drop{ display:inline-flex; align-items:baseline; font: 800 50px/1 var(--pay-font); letter-spacing: -0.01em; position: relative; color: var(--tile-text); }
+  .l17 .drop .dot{
+    color: var(--pay-orange-500); display:inline-block;
+    animation: pay-drop calc(1.8s * var(--sp)) cubic-bezier(.55,.055,.3,.98) infinite;
+    transform-origin: 50% 100%;
+  }
+  @keyframes pay-drop {
+    0%       { transform: translateY(-60px); opacity: 0; }
+    35%      { transform: translateY(0);     opacity: 1; }
+    45%      { transform: translateY(0) scaleY(0.82) scaleX(1.12); }
+    55%      { transform: translateY(0) scaleY(1) scaleX(1); }
+    85%,100% { transform: translateY(0);     opacity: 1; }
+  }
+
+  /* =============================================================
+     18 · WORDMARK — STACK COUNT (dots stack up to the bullet point)
+     ============================================================= */
+  .l18 { flex-direction: column; gap: 10px; }
+  .l18 .wm{ font-size: 46px; letter-spacing: -0.01em; }
+  .l18 .steps{ display:flex; gap: 5px; align-items:center; }
+  .l18 .steps i{
+    width: 6px; height: 6px; border-radius: 50%;
+    background: color-mix(in oklab, currentColor 15%, transparent);
+    animation: pay-step calc(1.8s * var(--sp)) ease-in-out infinite;
+  }
+  .l18 .steps i:nth-child(1){ animation-delay: 0s; }
+  .l18 .steps i:nth-child(2){ animation-delay: calc(0.15s * var(--sp)); }
+  .l18 .steps i:nth-child(3){ animation-delay: calc(0.30s * var(--sp)); }
+  .l18 .steps i:nth-child(4){ animation-delay: calc(0.45s * var(--sp)); }
+  .l18 .steps i:nth-child(5){ animation-delay: calc(0.60s * var(--sp)); }
+  @keyframes pay-step {
+    0%,100% { background: color-mix(in oklab, currentColor 15%, transparent); transform: scale(1); }
+    40%     { background: var(--pay-orange-500); transform: scale(1.5); }
+  }
+
+  /* =============================================================
+     19 · WORDMARK — CURSOR BLINK (writing caret next to wordmark)
+     ============================================================= */
+  .l19 .wm{ font-size: 50px; }
+  .l19 .caret{
+    display:inline-block; width: 3px; height: 1em;
+    background: var(--pay-orange-500); margin-left: 4px;
+    transform: translateY(4px);
+    animation: pay-blink calc(1.1s * var(--sp)) steps(2, end) infinite;
+  }
+  @keyframes pay-blink {
+    0%,50%  { opacity: 1; }
+    51%,100%{ opacity: 0; }
+  }
+
+  /* =============================================================
+     20 · WORDMARK — DOT ORBITS (dot detaches, circles the P, returns)
+     ============================================================= */
+  .l20 .orbwm{ position: relative; font: 800 56px/1 var(--pay-font); letter-spacing: -0.01em; color: var(--tile-text); padding-right: 6px; }
+  .l20 .orbwm .d{
+    position:absolute; display:inline-block;
+    width: 10px; height: 10px; background: var(--pay-orange-500); border-radius: 50%;
+    top: 60%; left: 28px;
+    animation: pay-dot-orbit calc(3s * var(--sp)) ease-in-out infinite;
+  }
+  /* The dot flies around the P, rests in the wordmark position */
+  @keyframes pay-dot-orbit {
+    0%        { top: 60%; left: 28px; transform: scale(1) translate(0,0); }
+    20%       { top: 60%; left: 28px; transform: scale(1) translate(0,0); }
+    35%       { top: 10%; left: 5px;  transform: scale(0.9) translate(0,0); }
+    50%       { top: 60%; left: -14px; transform: scale(0.9) translate(0,0); }
+    65%       { top: 100%;left: 5px;  transform: scale(0.9) translate(0,0); }
+    80%       { top: 60%; left: 28px; transform: scale(1) translate(0,0); }
+    100%      { top: 60%; left: 28px; transform: scale(1) translate(0,0); }
+  }
+
+  /* Reduce motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
+<script type='text/javascript' nonce='Jd+XDxK//Jx6E6cFrbHIbg==' src='https://claude.ai/JpREYKNxbVQPT0crBT4tChwwNKrYSEV64UiFCdmV32W08ZhpW7RKOUVgcZW0UjcnH2RC95rvybKN9THokXpiSfHxv7WF2BL9XTakwDlu54DQzM3c5MUpLJWVIEM52-qpDt_4GQfa4OxlzBWwAv4NZdGHBt8CNQnKAGltGVgwFwX2AktEK-DqHtFeih63iPE00HhiqW3AWLACLUQvQ4h1w0huqtq1DiB65zadtzqCenEP9l7stW1cjioAlJbaeLTNqMk6GGzE6yTD1uPQy15WrYf4gRe-TekDuay8iH83x8EyPVx239TRCg1L8N0z9YNthL2QCWErF2FZwGo7iqXM-VYTpcRhCC6hdTQ5A4uePDhCt0IeZBxODCboKAiv327fExVl7W0ushp5F_o4E1HWwp-lY5V9QtpSp2l-pe_oLs2FZxhh9YE_64h1z9hbjt0N5syGvTRnVr-GVIntEI-B2dwaWQXPvZjozeOleo1zM_AFq0SrwfxXy95rdSGvoopyqOlg60cBPXv7lp51o-s1g-3g8GpClZt2SpXsY8fxrar26_kDYG7txoBk6cKuBH8'></script></head>
+<body data-screen-label="Payabo Loaders · Gallery">
+
+  <header class="page-head">
+    <div class="head-title">
+      <span class="eyebrow">Payabo · Brand motion</span>
+      <h1>20 subtle loading animations</h1>
+      <p>All built from the Payabo wordmark vocabulary — the orange accent dot, the <b>P</b>, and the full lockup. Calm, financial, no bouncy overshoots. Each loops cleanly at 1.4–3s.</p>
+    </div>
+    <div class="controls">
+      <div class="speed-group" role="group" aria-label="Playback speed">
+        <button class="ctrl" data-speed="slow" aria-pressed="false">0.6×</button>
+        <button class="ctrl" data-speed="normal" aria-pressed="true">1×</button>
+        <button class="ctrl" data-speed="fast" aria-pressed="false">1.5×</button>
+      </div>
+      <button class="ctrl" id="themeToggle" aria-pressed="false"><span class="dot"></span><span id="themeLabel">Dark</span></button>
+    </div>
+  </header>
+
+  <section class="grid" id="grid">
+
+    <!-- 1 -->
+    <article class="tile">
+      <div class="stage l1">
+        <span class="wm size-lg">Payabo<span class="dot">·</span></span>
+      </div>
+      <div class="meta">
+        <div><span class="num">01 · Dot</span><div class="name">Heartbeat pulse</div></div>
+        <span class="kind">Wordmark</span>
+      </div>
+    </article>
+
+    <!-- 2 -->
+    <article class="tile">
+      <div class="stage l2">
+        <div class="orb"><div class="d"></div></div>
+        <span class="cap">Payabo</span>
+      </div>
+      <div class="meta">
+        <div><span class="num">02 · Dot</span><div class="name">Orbit ring</div></div>
+        <span class="kind">Dot</span>
+      </div>
+    </article>
+
+    <!-- 3 -->
+    <article class="tile">
+      <div class="stage l3">
+        <span class="wm size-md">Payabo</span>
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <div class="meta">
+        <div><span class="num">03 · Dot</span><div class="name">Tri-dot typing</div></div>
+        <span class="kind">Wordmark</span>
+      </div>
+    </article>
+
+    <!-- 4 -->
+    <article class="tile">
+      <div class="stage l4">
+        <div class="bd"><span class="core"></span></div>
+      </div>
+      <div class="meta">
+        <div><span class="num">04 · Dot</span><div class="name">Radial breath</div></div>
+        <span class="kind">Dot</span>
+      </div>
+    </article>
+
+    <!-- 5 -->
+    <article class="tile">
+      <div class="stage l5">
+        <div class="scan"><span class="dot"></span></div>
+      </div>
+      <div class="meta">
+        <div><span class="num">05 · Dot</span><div class="name">Beam scan</div></div>
+        <span class="kind">Dot</span>
+      </div>
+    </article>
+
+    <!-- 6 -->
+    <article class="tile">
+      <div class="stage l6">
+        <div class="radar">
+          <span class="core"></span>
+          <span class="ring"></span>
+          <span class="ring"></span>
+          <span class="ring"></span>
+        </div>
+      </div>
+      <div class="meta">
+        <div><span class="num">06 · Dot</span><div class="name">Radar ripple</div></div>
+        <span class="kind">Dot</span>
+      </div>
+    </article>
+
+    <!-- 7 -->
+    <article class="tile">
+      <div class="stage l7">
+        <div class="trail"><span class="t"></span><span class="d"></span></div>
+      </div>
+      <div class="meta">
+        <div><span class="num">07 · Dot</span><div class="name">Comet trail</div></div>
+        <span class="kind">Dot</span>
+      </div>
+    </article>
+
+    <!-- 8 — P bowl fill -->
+    <article class="tile">
+      <div class="stage l8">
+        <!-- Open-Sans-ish P shape constructed with an outer rect + an inner counter -->
+        <svg viewbox="0 0 120 120" aria-label="P bowl fill loader">
+          <!-- base P silhouette (back layer) -->
+          <path class="bg" d="M 22 12 H 70 a 32 32 0 0 1 0 64 H 46 V 108 H 22 Z M 46 34 V 54 H 66 a 10 10 0 0 0 0 -20 Z"/>
+          <path class="fill" d="M 22 12 H 70 a 32 32 0 0 1 0 64 H 46 V 108 H 22 Z M 46 34 V 54 H 66 a 10 10 0 0 0 0 -20 Z"/>
+        </svg>
+      </div>
+      <div class="meta">
+        <div><span class="num">08 · P</span><div class="name">Bowl fill</div></div>
+        <span class="kind">P</span>
+      </div>
+    </article>
+
+    <!-- 9 — P stroke draw -->
+    <article class="tile">
+      <div class="stage l9">
+        <svg viewbox="0 0 120 120" aria-label="P draw loader">
+          <path class="ink" d="M 28 16 V 106 M 28 16 H 70 a 28 28 0 0 1 0 56 H 28"/>
+          <circle class="accent" cx="88" cy="36" r="0"/>
+          <circle class="accent" cx="88" cy="92" r="5"/>
+        </svg>
+      </div>
+      <div class="meta">
+        <div><span class="num">09 · P</span><div class="name">Stroke draw</div></div>
+        <span class="kind">P</span>
+      </div>
+    </article>
+
+    <!-- 10 — P mask wipe -->
+    <article class="tile">
+      <div class="stage l10">
+        <div class="pmask">P</div>
+      </div>
+      <div class="meta">
+        <div><span class="num">10 · P</span><div class="name">Mask wipe</div></div>
+        <span class="kind">P</span>
+      </div>
+    </article>
+
+    <!-- 11 — P vertical scan -->
+    <article class="tile">
+      <div class="stage l11">
+        <div class="pscan">
+          <span class="stencil">P</span>
+          <span class="hot">P</span>
+        </div>
+      </div>
+      <div class="meta">
+        <div><span class="num">11 · P</span><div class="name">Vertical scan</div></div>
+        <span class="kind">P</span>
+      </div>
+    </article>
+
+    <!-- 12 — Dot-to-P morph -->
+    <article class="tile">
+      <div class="stage l12">
+        <div class="dp">
+          <span class="letter">P</span>
+          <span class="morph"></span>
+        </div>
+      </div>
+      <div class="meta">
+        <div><span class="num">12 · P + Dot</span><div class="name">Dot becomes P</div></div>
+        <span class="kind">Combo</span>
+      </div>
+    </article>
+
+    <!-- 13 — Wordmark shimmer -->
+    <article class="tile">
+      <div class="stage l13">
+        <span class="wm size-md">Payabo<span class="dot">·</span></span>
+      </div>
+      <div class="meta">
+        <div><span class="num">13 · Wordmark</span><div class="name">Warm shimmer</div></div>
+        <span class="kind">Wordmark</span>
+      </div>
+    </article>
+
+    <!-- 14 — Underline sweep -->
+    <article class="tile">
+      <div class="stage l14">
+        <div class="row">
+          <span class="wm size-md">Payabo<span class="dot">·</span></span>
+          <div class="bar"></div>
+        </div>
+      </div>
+      <div class="meta">
+        <div><span class="num">14 · Wordmark</span><div class="name">Underline sweep</div></div>
+        <span class="kind">Wordmark</span>
+      </div>
+    </article>
+
+    <!-- 15 — Dot travels -->
+    <article class="tile">
+      <div class="stage l15">
+        <div class="travel">
+          <span>Payabo</span>
+          <span class="runner"></span>
+        </div>
+      </div>
+      <div class="meta">
+        <div><span class="num">15 · Wordmark</span><div class="name">Hopping dot</div></div>
+        <span class="kind">Combo</span>
+      </div>
+    </article>
+
+    <!-- 16 — Letter fade cascade -->
+    <article class="tile">
+      <div class="stage l16">
+        <span class="wm"><span>P</span><span>a</span><span>y</span><span>a</span><span>b</span><span>o</span><span style="color:var(--pay-orange-500)">·</span></span>
+      </div>
+      <div class="meta">
+        <div><span class="num">16 · Wordmark</span><div class="name">Letter cascade</div></div>
+        <span class="kind">Wordmark</span>
+      </div>
+    </article>
+
+    <!-- 17 — Dot drop-in -->
+    <article class="tile">
+      <div class="stage l17">
+        <span class="drop">Payabo<span class="dot">·</span></span>
+      </div>
+      <div class="meta">
+        <div><span class="num">17 · Combo</span><div class="name">Dot drops in</div></div>
+        <span class="kind">Combo</span>
+      </div>
+    </article>
+
+    <!-- 18 — Stack count to dot -->
+    <article class="tile">
+      <div class="stage l18">
+        <span class="wm">Payabo<span class="dot">·</span></span>
+        <div class="steps" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="meta">
+        <div><span class="num">18 · Wordmark</span><div class="name">Stepper ticks</div></div>
+        <span class="kind">Wordmark</span>
+      </div>
+    </article>
+
+    <!-- 19 — Caret blink -->
+    <article class="tile">
+      <div class="stage l19">
+        <span class="wm">Payabo<span class="dot">·</span></span>
+        <span class="caret" aria-hidden="true"></span>
+      </div>
+      <div class="meta">
+        <div><span class="num">19 · Wordmark</span><div class="name">Writing caret</div></div>
+        <span class="kind">Wordmark</span>
+      </div>
+    </article>
+
+    <!-- 20 — Dot orbits the P -->
+    <article class="tile">
+      <div class="stage l20">
+        <div class="orbwm">
+          P<span class="d"></span>
+        </div>
+      </div>
+      <div class="meta">
+        <div><span class="num">20 · P + Dot</span><div class="name">Dot orbits the P</div></div>
+        <span class="kind">Combo</span>
+      </div>
+    </article>
+
+  </section>
+
+<script>
+  // Theme toggle
+  const html = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const lbl = document.getElementById('themeLabel');
+  const saved = localStorage.getItem('payabo-loaders-theme');
+  if (saved === 'dark') { html.setAttribute('data-theme','dark'); btn.setAttribute('aria-pressed','true'); lbl.textContent = 'Light'; }
+  btn.addEventListener('click', () => {
+    const dark = html.getAttribute('data-theme') === 'dark';
+    if (dark) { html.removeAttribute('data-theme'); btn.setAttribute('aria-pressed','false'); lbl.textContent = 'Dark'; localStorage.setItem('payabo-loaders-theme','light'); }
+    else { html.setAttribute('data-theme','dark'); btn.setAttribute('aria-pressed','true'); lbl.textContent = 'Light'; localStorage.setItem('payabo-loaders-theme','dark'); }
+  });
+
+  // Speed control
+  const grid = document.getElementById('grid');
+  const savedSpeed = localStorage.getItem('payabo-loaders-speed') || 'normal';
+  document.querySelectorAll('.speed-group .ctrl').forEach(b => {
+    b.addEventListener('click', () => {
+      const s = b.dataset.speed;
+      document.querySelectorAll('.speed-group .ctrl').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+      grid.classList.remove('speed-slow','speed-fast');
+      if (s === 'slow') grid.classList.add('speed-slow');
+      if (s === 'fast') grid.classList.add('speed-fast');
+      localStorage.setItem('payabo-loaders-speed', s);
+    });
+  });
+  // Apply saved
+  const initBtn = document.querySelector(`.speed-group .ctrl[data-speed="${savedSpeed}"]`);
+  if (initBtn) initBtn.click();
+</script>
+</body>
+</html>

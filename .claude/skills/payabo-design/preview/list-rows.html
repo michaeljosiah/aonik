@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>List rows</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated); font: var(--pay-font);}
+  .row { display:flex; align-items:center; gap: 12px; padding: 16px 20px; background: white; border:1px solid var(--pay-border-strong); border-radius: var(--pay-r-sm); margin-bottom: 8px;}
+  .ic { width: 40px; height: 40px; border-radius: var(--pay-r-pill); background: #FFEFE3; color: #7A3211; display:flex; align-items:center; justify-content:center; flex:none; font:600 14px/18px var(--pay-font);}
+  .ic.dark { background: #111; color: white;}
+  .ic.blue { background: #E8F0FF; color: #1E4AB5;}
+  .body { flex:1; min-width: 0;}
+  .t { font: 600 13px/18px var(--pay-font); color: var(--pay-ink-900);}
+  .s { font: 400 11px/16px var(--pay-font); color: var(--pay-text-muted);}
+  .r { text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap: 4px;}
+  .amt { font: 600 13px/18px var(--pay-font); color: var(--pay-ink-900);}
+  .chip { font: 600 10px/14px var(--pay-font); padding: 2px 8px; border-radius: var(--pay-r-pill);}
+  .ok { background: #ECFAEF; color: #1B7030;}
+  .fail { background:#FCEBEE; color:#8A0022;}
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="ic">AS</div>
+    <div class="body"><div class="t">Transfer to Ama Serwaa</div><div class="s">Today, 09:42 AM</div></div>
+    <div class="r"><div class="amt">GHS 500.00</div><div class="chip ok">Completed</div></div>
+  </div>
+  <div class="row">
+    <div class="ic dark">D</div>
+    <div class="body"><div class="t">DSTV subscription</div><div class="s">Today, 08:10 AM</div></div>
+    <div class="r"><div class="amt">GHS 240.00</div><div class="chip fail">Failed</div></div>
+  </div>
+  <div class="row">
+    <div class="ic blue">ECG</div>
+    <div class="body"><div class="t">ECG prepaid top-up</div><div class="s">Monday, 11:05 AM</div></div>
+    <div class="r"><div class="amt">GHS 120.00</div></div>
+  </div>
+</body>
+</html>

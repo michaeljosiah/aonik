@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding: 20px; background: var(--pay-surface-warm-elevated);}
+  .col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .btn { display: inline-flex; align-items:center; justify-content:center; gap: 8px; border-radius: var(--pay-r-sm); font: 700 12px/16px var(--pay-font); letter-spacing: 0.1px; text-transform: uppercase; cursor: pointer; padding: 0 16px; height: 48px; transition: all 120ms;}
+  .primary { background: var(--pay-orange-500); color: white; border: 2px solid var(--pay-orange-500);}
+  .primary:hover { background: var(--pay-orange-600); border-color: var(--pay-orange-600);}
+  .secondary { background: transparent; color: var(--pay-orange-500); border: 2px solid var(--pay-orange-500);}
+  .secondary:hover { background: rgba(243,121,32,0.08); color: var(--pay-orange-600); border-color: var(--pay-orange-600);}
+  .link { background: white; color: var(--pay-orange-500); border: 1px solid var(--pay-orange-500); font-weight:400; font-size:14px; text-transform:none;}
+  .link:hover { background: var(--pay-warm-050); color: var(--pay-orange-600); border-color: var(--pay-orange-600);}
+  .disabled { background: var(--pay-neutral-100); color: var(--pay-neutral-500); border: 2px solid var(--pay-neutral-100); cursor: not-allowed;}
+  .sm { height: 40px; padding: 0 12px;} .lg { height: 52px;}
+  .lbl { font: 600 10px/14px var(--pay-font); color: var(--pay-text-muted); text-transform: uppercase; letter-spacing: 0.1px; margin-bottom: 6px;}
+</style>
+</head>
+<body>
+  <div class="col">
+    <div><div class="lbl">Primary · md</div><button class="btn primary" style="width:100%">SEND MONEY</button></div>
+    <div><div class="lbl">Secondary · md</div><button class="btn secondary" style="width:100%">CANCEL</button></div>
+    <div><div class="lbl">Link · md</div><button class="btn link" style="width:100%">Learn more</button></div>
+    <div><div class="lbl">Primary · sm</div><button class="btn primary sm" style="width:100%">CONFIRM</button></div>
+    <div><div class="lbl">Primary · lg</div><button class="btn primary lg" style="width:100%">CONTINUE</button></div>
+    <div><div class="lbl">Disabled</div><button class="btn disabled" style="width:100%">DISABLED</button></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Inputs</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:20px; background: var(--pay-surface-warm-elevated); font: var(--pay-font);}
+  .col { display:grid; grid-template-columns: 1fr 1fr; gap: 16px;}
+  .field { border-bottom: 1px solid var(--pay-border-default); padding: 4px 0 10px;}
+  .field.active { border-bottom-color: var(--pay-orange-500); }
+  .field.err { border-bottom-color: var(--pay-danger-500);}
+  .lbl { font: 400 14px/20px var(--pay-font); color: var(--pay-neutral-500); font-weight: 600;}
+  .field.active .lbl { color: var(--pay-orange-500); font-weight: 400; font-size: 12px; line-height: 16px;}
+  .field.err .lbl { color: var(--pay-danger-500); font-size: 12px; line-height: 16px; font-weight: 400;}
+  .val { font: 400 14px/20px var(--pay-font); color: var(--pay-ink-900); margin-top: 4px;}
+  .placeholder { color: var(--pay-neutral-500);}
+  .helper { font: 400 11px/16px var(--pay-font); color: var(--pay-danger-500); margin-top: 6px;}
+</style>
+</head>
+<body>
+  <div class="col">
+    <div class="field"><div class="lbl">Email</div><div class="val placeholder">you@payabo.app</div></div>
+    <div class="field active"><div class="lbl">Full name</div><div class="val">Kwame Mensah</div></div>
+    <div class="field"><div class="lbl">Amount</div><div class="val">GHS 500.00</div></div>
+    <div class="field err"><div class="lbl">Password</div><div class="val">••••••</div><div class="helper">At least 8 characters</div></div>
+  </div>
+</body>
+</html>

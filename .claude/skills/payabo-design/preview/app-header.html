@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>App header</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:0; background: var(--pay-grad-warm-screen); font: var(--pay-font);}
+  .hdr { padding: 12px 20px 16px; display:flex; flex-direction:column; gap: 16px;}
+  .top { display:flex; align-items:center; gap: 12px;}
+  .av { width: 44px; height: 44px; border-radius: 50%; background: var(--pay-warm-200); border: 1.5px solid var(--pay-orange-500); background-image:url('../assets/demo_profile.jpg'); background-size: cover; background-position: center;}
+  .who { flex:1;}
+  .hi { font: 400 11px/14px var(--pay-font); color: var(--pay-warm-800); font-weight: 500;}
+  .nm { font: 700 15px/20px var(--pay-font); color: var(--pay-warm-900);}
+  .bell { width: 44px; height: 44px; border-radius: 50%; background: var(--pay-warm-050); border: 1px solid var(--pay-warm-300); display:flex; align-items:center; justify-content:center; color: var(--pay-warm-600); position: relative;}
+  .bell svg { width:20px; height:20px; fill:none; stroke: currentColor; stroke-width:2;}
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pay-warm-500); position: absolute; top: 10px; right: 10px;}
+  .title { font: 700 20px/26px var(--pay-font); color: var(--pay-warm-900);}
+  .sub { font: 500 13px/18px var(--pay-font); color: var(--pay-warm-800); margin-top: 4px;}
+</style>
+</head>
+<body>
+  <div class="hdr">
+    <div class="top">
+      <div class="av"></div>
+      <div class="who"><div class="hi">Welcome back</div><div class="nm">Kwame Mensah</div></div>
+      <div class="bell"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1112 0c0 7 3 7 3 9H3c0-2 3-2 3-9zM10 19a2 2 0 104 0"/></svg><div class="dot"></div></div>
+    </div>
+    <div>
+      <div class="title">Good morning, Kwame</div>
+      <div class="sub">You have 3 bills due this week.</div>
+    </div>
+  </div>
+</body>
+</html>
