@@ -11,8 +11,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-using Aonik.Agents.Endpoints;
+using Aonik.Agents.Services;
 using Aonik.Ai.Providers;
+using Aonik.Ai.Services;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Entities.Settings;
@@ -157,7 +158,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
             name: "confirmAction",
             arguments: new Dictionary<string, object?>());
 
-        var toolCallId = AguiStreamingEndpoint.ResolveToolCallId(functionCall);
+        var toolCallId = new ToolCallClassifier().ResolveCallId(functionCall);
 
         toolCallId.Should().Be("call-123");
     }
@@ -170,7 +171,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
             name: "confirmAction",
             arguments: new Dictionary<string, object?>());
 
-        var toolCallId = AguiStreamingEndpoint.ResolveToolCallId(functionCall);
+        var toolCallId = new ToolCallClassifier().ResolveCallId(functionCall);
 
         toolCallId.Should().NotBeNullOrWhiteSpace();
         Guid.TryParse(toolCallId, out _).Should().BeTrue();
@@ -205,8 +206,10 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public void BuildSpeechRender_ShouldExpandSupportedCurrencyCodes()
     {
-        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
-            "You have GBP 12.50, USD 5, EUR 7, 5,000 NGN, GHS 20, ZAR 30, ZWL 4, ZIG 2, KES 9, INR 11, and CNY 13. Another item is 1 GBP.");
+        var speechText = new SpeechRenderer().Render(
+            "You have GBP 12.50, USD 5, EUR 7, 5,000 NGN, GHS 20, ZAR 30, ZWL 4, ZIG 2, KES 9, INR 11, and CNY 13. Another item is 1 GBP.",
+            requiresVisualAttention: false,
+            requiresApproval: false);
 
         speechText.Should().Contain("12 pounds 50");
         speechText.Should().Contain("5 dollars");
@@ -236,8 +239,10 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public void BuildSpeechRender_ShouldExpandSupportedCurrencySymbols()
     {
-        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
-            "You have £250, $5, €7, ₦5,000, GH₵20, R30, KSh9, ₹11, and ¥13. Another item is £1.");
+        var speechText = new SpeechRenderer().Render(
+            "You have £250, $5, €7, ₦5,000, GH₵20, R30, KSh9, ₹11, and ¥13. Another item is £1.",
+            requiresVisualAttention: false,
+            requiresApproval: false);
 
         speechText.Should().Contain("250 pounds");
         speechText.Should().Contain("5 dollars");
@@ -264,7 +269,10 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     {
         var assistantText = string.Join(" ", Enumerable.Repeat("This sentence explains the situation clearly.", 12));
 
-        var speechText = AguiStreamingEndpoint.BuildSpeechRender(assistantText);
+        var speechText = new SpeechRenderer().Render(
+            assistantText,
+            requiresVisualAttention: false,
+            requiresApproval: false);
 
         speechText.Should().Be(assistantText);
         speechText.Length.Should().BeGreaterThan(280);
@@ -280,7 +288,10 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
             Review the details below.
             """;
 
-        var speechText = AguiStreamingEndpoint.BuildSpeechRender(assistantText);
+        var speechText = new SpeechRenderer().Render(
+            assistantText,
+            requiresVisualAttention: false,
+            requiresApproval: false);
 
         speechText.Should().Be("20 pounds goes to transport. 3,000 naira goes to airtime. Review the details below.");
     }
@@ -288,7 +299,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public void BuildSpeechRender_ShouldAppendChatReviewGuidance_WhenVisualAttentionIsRequired()
     {
-        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+        var speechText = new SpeechRenderer().Render(
             "I found a useful budget chart for you.",
             requiresVisualAttention: true,
             requiresApproval: false);
@@ -300,7 +311,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public void BuildSpeechRender_ShouldAppendApprovalGuidance_WhenApprovalIsRequired()
     {
-        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+        var speechText = new SpeechRenderer().Render(
             "I can create this payment for you.",
             requiresVisualAttention: false,
             requiresApproval: true);
@@ -312,7 +323,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     [Fact]
     public void BuildSpeechRender_ShouldReturnGuidance_WhenOnlyUiReviewIsRequired()
     {
-        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+        var speechText = new SpeechRenderer().Render(
             string.Empty,
             requiresVisualAttention: true,
             requiresApproval: true);

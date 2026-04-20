@@ -62,6 +62,13 @@ export interface PlaygroundSpeechRender {
   requiresApproval: boolean;
 }
 
+export interface PlaygroundSpeechChunk {
+  messageId: string;
+  chunkIndex: number;
+  speechText: string;
+  isFinal: boolean;
+}
+
 export type PlaygroundOutputPart =
   | { type: 'text'; content: string }
   | { type: 'tool-call'; toolCall: PlaygroundToolCall }
@@ -104,6 +111,7 @@ export function usePlaygroundChat() {
   const [metrics, setMetrics] = useState<PlaygroundRunMetrics | null>(null);
   const [runHistory, setRunHistory] = useState<PlaygroundRunRecord[]>([]);
   const [speechRender, setSpeechRender] = useState<PlaygroundSpeechRender | null>(null);
+  const [speechChunks, setSpeechChunks] = useState<PlaygroundSpeechChunk[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -224,6 +232,7 @@ export function usePlaygroundChat() {
       setOutput('');
       setOutputParts([]);
       setSpeechRender(null);
+      setSpeechChunks([]);
       partsRef.current = [];
       currentTextRef.current = '';
       currentReasoningRef.current = '';
@@ -268,6 +277,10 @@ export function usePlaygroundChat() {
               currentReasoningRef.current = '';
               partsRef.current = partsRef.current.filter((part) => part.type === 'tool-call');
               setOutputParts([...partsRef.current]);
+            },
+
+            onSpeechChunk: (payload) => {
+              setSpeechChunks((prev) => [...prev, payload]);
             },
 
             onSpeechRender: (payload) => {
@@ -401,6 +414,7 @@ export function usePlaygroundChat() {
       setStreamError(null);
       setMetrics(null);
       setSpeechRender(null);
+      setSpeechChunks([]);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -443,6 +457,10 @@ export function usePlaygroundChat() {
                 return updated;
               });
             },
+            onSpeechChunk: (payload) => {
+              setSpeechChunks((prev) => [...prev, payload]);
+            },
+
             onSpeechRender: (payload) => {
               setSpeechRender(payload);
             },
@@ -494,6 +512,7 @@ export function usePlaygroundChat() {
     setMetrics(null);
     setStreamError(null);
     setSpeechRender(null);
+    setSpeechChunks([]);
     partsRef.current = [];
     currentTextRef.current = '';
     currentReasoningRef.current = '';
@@ -520,6 +539,7 @@ export function usePlaygroundChat() {
     metrics,
     runHistory,
     speechRender,
+    speechChunks,
     submitMessages,
     sendMessage,
     stopStreaming,

@@ -1,9 +1,9 @@
+using System.IO.Pipelines;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 using Aonik.Ai.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
@@ -61,18 +61,21 @@ internal sealed class MistralTextToSpeechProvider : ITextToSpeechProvider
         var outputFormat = NormalizeOutputFormat(request.OutputFormat);
         var modelId = string.IsNullOrWhiteSpace(request.ModelId) ? DefaultModel : request.ModelId;
 
+        var expectedContentType = OutputFormatContentTypes.GetValueOrDefault(outputFormat, "audio/mpeg");
+
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/v1/audio/speech")
         {
             Content = JsonContent.Create(new MistralSpeechRequest(
                 modelId,
                 request.Text,
                 request.VoiceId,
-                outputFormat), options: SerializerOptions)
+                outputFormat,
+                Stream: true), options: SerializerOptions)
         };
 
         httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", request.ApiKey);
 
-        var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        var response = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -86,26 +89,19 @@ internal sealed class MistralTextToSpeechProvider : ITextToSpeechProvider
             throw new InvalidOperationException(BuildErrorMessage("text-to-speech", statusCode, errorBody));
         }
 
-        // Mistral returns base64-encoded audio in JSON rather than a raw stream.
-        var payload = await response.Content.ReadFromJsonAsync<MistralSpeechResponse>(SerializerOptions, cancellationToken);
-        response.Dispose();
-
-        if (payload == null || string.IsNullOrWhiteSpace(payload.AudioData))
-        {
-            throw new InvalidOperationException("Mistral TTS returned an empty response.");
-        }
-
-        var audioBytes = Convert.FromBase64String(payload.AudioData);
-        var audioStream = new MemoryStream(audioBytes, writable: false);
-
-        var contentType = OutputFormatContentTypes.GetValueOrDefault(outputFormat, "audio/mpeg");
+        // Pipe SSE audio chunks to the caller as a continuous stream.
+        // The background pump reads each `data: {"audio_data":"..."}` event,
+        // base64-decodes it, and writes the raw bytes into the pipe.
+        var pipe = new Pipe();
+        _ = PumpSseAudioAsync(response, pipe.Writer, cancellationToken);
 
         return new TextToSpeechProviderStreamResult(
-            audioStream,
-            contentType,
+            pipe.Reader.AsStream(),
+            expectedContentType,
             Name,
             request.VoiceId,
-            modelId);
+            modelId,
+            response);
     }
 
     public async Task<IReadOnlyList<TextToSpeechVoiceOption>> GetVoicesAsync(
@@ -263,16 +259,53 @@ internal sealed class MistralTextToSpeechProvider : ITextToSpeechProvider
     private static string BuildErrorMessage(string operation, System.Net.HttpStatusCode statusCode, string? errorBody)
         => TextToSpeechProviderHelpers.BuildErrorMessage("Mistral", operation, statusCode, errorBody);
 
+    private async Task PumpSseAudioAsync(
+        HttpResponseMessage response,
+        PipeWriter writer,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var networkStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var reader = new StreamReader(networkStream);
+
+            while (true)
+            {
+                var line = await reader.ReadLineAsync(cancellationToken);
+                if (line is null) break;
+
+                if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+
+                var payload = line.AsSpan(5).TrimStart();
+                if (payload.SequenceEqual("[DONE]")) break;
+
+                using var doc = JsonDocument.Parse(payload.ToString());
+                if (!doc.RootElement.TryGetProperty("audio_data", out var audioProp)) continue;
+
+                var base64 = audioProp.GetString();
+                if (string.IsNullOrEmpty(base64)) continue;
+
+                var bytes = Convert.FromBase64String(base64);
+                await writer.WriteAsync(bytes, cancellationToken);
+            }
+
+            await writer.CompleteAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Mistral TTS SSE pump ended with exception");
+            await writer.CompleteAsync(ex);
+        }
+    }
+
     // ── Request/Response DTOs ────────────────────────────────────────
 
     private sealed record MistralSpeechRequest(
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("input")] string Input,
         [property: JsonPropertyName("voice_id")] string VoiceId,
-        [property: JsonPropertyName("response_format")] string ResponseFormat);
-
-    private sealed record MistralSpeechResponse(
-        [property: JsonPropertyName("audio_data")] string? AudioData);
+        [property: JsonPropertyName("response_format")] string ResponseFormat,
+        [property: JsonPropertyName("stream")] bool Stream);
 
     private sealed record MistralCreateVoiceRequest(
         [property: JsonPropertyName("name")] string Name,

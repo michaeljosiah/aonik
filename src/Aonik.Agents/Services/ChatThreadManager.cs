@@ -1,0 +1,198 @@
+using Aonik.Agents.Contracts.Agui;
+using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Aonik.Agents.Services;
+
+public sealed class ChatThreadManager : IChatThreadManager
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IChatThreadService? _chatThreadService;
+    private readonly ITenantContext? _tenantContext;
+    private readonly ICurrentUserContext? _userContext;
+    private readonly ILogger<ChatThreadManager> _logger;
+
+    public ChatThreadManager(
+        IServiceScopeFactory scopeFactory,
+        ILogger<ChatThreadManager> logger,
+        IChatThreadService? chatThreadService = null,
+        ITenantContext? tenantContext = null,
+        ICurrentUserContext? userContext = null)
+    {
+        _scopeFactory = scopeFactory;
+        _chatThreadService = chatThreadService;
+        _tenantContext = tenantContext;
+        _userContext = userContext;
+        _logger = logger;
+    }
+
+    public async Task<ChatThreadContext> EnsureThreadAsync(
+        string? clientThreadId,
+        IReadOnlyList<AguiMessage>? messages,
+        string? agentId,
+        CancellationToken cancellationToken)
+    {
+        var threadIdString = clientThreadId ?? Guid.NewGuid().ToString("N");
+
+        if (_chatThreadService is null)
+        {
+            return new ChatThreadContext(null, threadIdString, IsNewThread: false, FirstUserMessage: null);
+        }
+
+        try
+        {
+            var firstUserMessage = messages?
+                .LastOrDefault(m => string.Equals(m.Role, "user", StringComparison.OrdinalIgnoreCase))
+                ?.Content;
+
+            if (string.IsNullOrEmpty(firstUserMessage))
+            {
+                return new ChatThreadContext(null, threadIdString, IsNewThread: false, FirstUserMessage: null);
+            }
+
+            if (Guid.TryParse(clientThreadId, out var existingId))
+            {
+                // Existing thread — append the user message off the critical path.
+                EnqueueDetachedUserMessageAppend(existingId, firstUserMessage, agentId);
+                return new ChatThreadContext(existingId, threadIdString, IsNewThread: false, firstUserMessage);
+            }
+
+            // New thread — must await because its ID replaces threadId in SSE events.
+            var newId = await _chatThreadService.CreateThreadAsync(
+                firstUserMessage,
+                agentName: agentId,
+                cancellationToken: cancellationToken);
+
+            return new ChatThreadContext(newId, newId.ToString("N"), IsNewThread: true, firstUserMessage);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AG-UI thread persistence failed — continuing without thread tracking");
+            return new ChatThreadContext(null, threadIdString, IsNewThread: false, FirstUserMessage: null);
+        }
+    }
+
+    public async Task<IReadOnlyList<AguiMessage>?> ReconstructHistoryAsync(
+        Guid? persistedThreadId,
+        IReadOnlyList<AguiMessage>? clientMessages,
+        CancellationToken cancellationToken)
+    {
+        if (_chatThreadService is null || !persistedThreadId.HasValue)
+            return clientMessages;
+
+        if (clientMessages is null || clientMessages.Count != 1)
+            return clientMessages;
+
+        var only = clientMessages[0];
+        if (!string.Equals(only.Role, "user", StringComparison.OrdinalIgnoreCase))
+            return clientMessages;
+
+        try
+        {
+            var detail = await _chatThreadService.GetThreadAsync(persistedThreadId.Value, cancellationToken);
+            if (detail is null || detail.Messages.Count == 0)
+                return clientMessages;
+
+            var reconstructed = new List<AguiMessage>(detail.Messages.Count + 1);
+            foreach (var m in detail.Messages.OrderBy(m => m.SortOrder))
+            {
+                reconstructed.Add(new AguiMessage
+                {
+                    Id = m.Id.ToString("N"),
+                    Role = m.Role,
+                    Content = m.Content,
+                });
+            }
+
+            // Trim a trailing duplicate user message (the incoming turn may already
+            // have been appended via the detached path for existing threads, or
+            // inline via CreateThreadAsync for new threads).
+            for (var i = reconstructed.Count - 1; i >= 0; i--)
+            {
+                var tail = reconstructed[i];
+                if (string.Equals(tail.Role, "user", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(tail.Content, only.Content, StringComparison.Ordinal))
+                {
+                    reconstructed.RemoveAt(i);
+                    break;
+                }
+
+                if (!string.Equals(tail.Role, "user", StringComparison.OrdinalIgnoreCase))
+                    break;
+            }
+
+            reconstructed.Add(only);
+            return reconstructed;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "AG-UI thin-client history reconstruction failed for thread {ThreadId} — falling back to client-supplied messages",
+                persistedThreadId.Value);
+            return clientMessages;
+        }
+    }
+
+    private void EnqueueDetachedUserMessageAppend(Guid threadId, string content, string? agentName)
+    {
+        var capturedTenantId = _tenantContext?.TenantId;
+        var capturedUserId = _userContext?.UserId;
+        var scopeFactory = _scopeFactory;
+        var logger = _logger;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var bgScope = scopeFactory.CreateScope();
+                var bgServices = bgScope.ServiceProvider;
+
+                SeedBackgroundContext(bgServices, capturedTenantId, capturedUserId, "agui-user-append");
+
+                var bgChatThreadService = bgServices.GetService<IChatThreadService>();
+                if (bgChatThreadService is null) return;
+
+                await bgChatThreadService.AppendMessageAsync(
+                    threadId, "user", content,
+                    agentName: agentName,
+                    cancellationToken: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "AG-UI detached user-message append failed for thread {ThreadId}", threadId);
+            }
+        });
+    }
+
+    internal static void SeedBackgroundContext(
+        IServiceProvider bgServices,
+        Guid? tenantId,
+        Guid? userId,
+        string resolutionSource)
+    {
+        if (tenantId.HasValue)
+        {
+            var tc = bgServices.GetService<ITenantContext>();
+            if (tc is not null)
+            {
+                tc.TenantId = tenantId.Value;
+                tc.ResolutionSource = resolutionSource;
+            }
+        }
+
+        if (userId.HasValue)
+        {
+            var uc = bgServices.GetService<ICurrentUserContext>();
+            if (uc is not null)
+            {
+                uc.UserId = userId.Value;
+                uc.TenantId = tenantId;
+                uc.IsAuthenticated = true;
+            }
+        }
+    }
+}

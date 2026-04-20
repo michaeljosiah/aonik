@@ -2,19 +2,17 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
-// IAiTaskReader is in SharedKernel — no cross-module reference needed
+using FastEndpoints;
 using Microsoft.Agents.AI;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Text.RegularExpressions;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -28,7 +26,7 @@ namespace Aonik.Agents.Endpoints;
 ///   <item>Returns token usage and latency metrics in the <c>RUN_FINISHED</c> event</item>
 /// </list>
 /// </summary>
-public static class PlaygroundStreamingEndpoint
+internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunRequest>
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -37,56 +35,61 @@ public static class PlaygroundStreamingEndpoint
         WriteIndented = false,
     };
 
-    /// <summary>
-    /// Maps the playground streaming endpoint at the specified route pattern.
-    /// </summary>
-    public static IEndpointConventionBuilder MapPlaygroundStreaming(
-        this IEndpointRouteBuilder endpoints,
-        string pattern = "/ai/playground/run")
+    private readonly IChatClient _chatClient;
+    private readonly IAiTaskReader _taskReader;
+    private readonly IAgentConfigurationService _agentConfig;
+    private readonly IAiModelResolver _modelResolver;
+    private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
+    private readonly IAguiMessageConverter _messageConverter;
+    private readonly IToolCallClassifier _toolClassifier;
+    private readonly ISpeechRenderer _speechRenderer;
+    private readonly ILogger<PlaygroundStreamingEndpoint> _logger;
+
+    public PlaygroundStreamingEndpoint(
+        IChatClient chatClient,
+        IAiTaskReader taskReader,
+        IAgentConfigurationService agentConfig,
+        IAiModelResolver modelResolver,
+        IEnumerable<IDomainAgentDescriptor> descriptors,
+        IAguiMessageConverter messageConverter,
+        IToolCallClassifier toolClassifier,
+        ISpeechRenderer speechRenderer,
+        ILogger<PlaygroundStreamingEndpoint> logger)
     {
-        return endpoints.MapPost(pattern, HandlePlaygroundRequest)
-            .WithName("AiPlaygroundRun")
-            .WithTags("AI Agents")
-            .WithSummary("Stream a playground agent run")
-            .WithDescription("Executes an agent or raw prompt in the AI playground with SSE streaming. Supports custom system prompts, model overrides, and tool filters. Playground runs are ephemeral and not persisted.");
+        _chatClient = chatClient;
+        _taskReader = taskReader;
+        _agentConfig = agentConfig;
+        _modelResolver = modelResolver;
+        _descriptors = descriptors;
+        _messageConverter = messageConverter;
+        _toolClassifier = toolClassifier;
+        _speechRenderer = speechRenderer;
+        _logger = logger;
     }
 
-    private static async Task HandlePlaygroundRequest(HttpContext context)
+    public override void Configure()
     {
-        var cancellationToken = context.RequestAborted;
-        var logger = context.RequestServices
-            .GetRequiredService<ILoggerFactory>()
-            .CreateLogger("Aonik.Agents.Playground");
+        Post("/ai/playground/run");
+        Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Stream a playground agent run";
+            s.Description = "Executes an agent or raw prompt in the AI playground with SSE streaming. Supports custom system prompts, model overrides, and tool filters. Playground runs are ephemeral and not persisted.";
+        });
+        Options(x => x.WithTags("AI Agents"));
+    }
 
-        // ── Parse request ───────────────────────────────────────────────
-        PlaygroundRunRequest? request;
-        try
-        {
-            request = await JsonSerializer.DeserializeAsync<PlaygroundRunRequest>(
-                context.Request.Body, JsonOptions, cancellationToken);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogWarning(ex, "Playground: invalid request body");
-            context.Response.StatusCode = 400;
-            await context.Response.WriteAsync("Invalid request body", cancellationToken);
-            return;
-        }
-
-        if (request is null)
-        {
-            context.Response.StatusCode = 400;
-            await context.Response.WriteAsync("Request body is required", cancellationToken);
-            return;
-        }
+    public override async Task HandleAsync(PlaygroundRunRequest request, CancellationToken cancellationToken)
+    {
+        var response = HttpContext.Response;
 
         // Validate: must have an agent name, a system prompt, or an AI task ID
         if (string.IsNullOrWhiteSpace(request.AgentName)
             && string.IsNullOrWhiteSpace(request.SystemPrompt)
             && !request.AiTaskId.HasValue)
         {
-            context.Response.StatusCode = 400;
-            await context.Response.WriteAsync(
+            response.StatusCode = 400;
+            await response.WriteAsync(
                 "Either 'agentName', 'systemPrompt', or 'aiTaskId' is required", cancellationToken);
             return;
         }
@@ -94,21 +97,21 @@ public static class PlaygroundStreamingEndpoint
         var runId = Guid.NewGuid().ToString("N");
 
         // ── Set SSE headers ─────────────────────────────────────────────
-        context.Response.ContentType = "text/event-stream";
-        context.Response.Headers.CacheControl = "no-cache,no-store";
-        context.Response.Headers["Pragma"] = "no-cache";
-        context.Response.Headers["X-Accel-Buffering"] = "no";
+        response.ContentType = "text/event-stream";
+        response.Headers.CacheControl = "no-cache,no-store";
+        response.Headers["Pragma"] = "no-cache";
+        response.Headers["X-Accel-Buffering"] = "no";
 
         // ── Build the agent ─────────────────────────────────────────────
         AIAgent agent;
         try
         {
-            agent = await BuildAgentAsync(request, context.RequestServices, logger, cancellationToken);
+            agent = await BuildAgentAsync(request, cancellationToken);
         }
         catch (InvalidOperationException ex)
         {
-            logger.LogWarning(ex, "Playground: agent build failed");
-            await WriteSseEventAsync(context.Response, new
+            _logger.LogWarning(ex, "Playground: agent build failed");
+            await WriteSseEventAsync(response, new
             {
                 type = "RUN_ERROR",
                 message = ex.Message,
@@ -118,10 +121,9 @@ public static class PlaygroundStreamingEndpoint
         }
 
         // ── Build ChatOptions for model/temperature/maxTokens ───────────
-        var chatOptions = await BuildChatOptionsAsync(
-            request, context.RequestServices, logger, cancellationToken);
+        var chatOptions = await BuildChatOptionsAsync(request, cancellationToken);
 
-        var clientTools = AguiStreamingEndpoint.ConvertClientTools(request.ToolDefinitions, logger);
+        var clientTools = _messageConverter.ConvertClientTools(request.ToolDefinitions);
         var clientToolNames = new HashSet<string>(
             clientTools.Select(tool => tool.Name),
             StringComparer.OrdinalIgnoreCase);
@@ -132,8 +134,7 @@ public static class PlaygroundStreamingEndpoint
         string? aiTaskUserTemplate = null;
         if (request.AiTaskId.HasValue && request is { Messages: null or { Count: 0 } })
         {
-            var taskReader = context.RequestServices.GetRequiredService<IAiTaskReader>();
-            var snapshot = await taskReader.GetByIdAsync(request.AiTaskId.Value, cancellationToken);
+            var snapshot = await _taskReader.GetByIdAsync(request.AiTaskId.Value, cancellationToken);
             aiTaskUserTemplate = ApplyVariables(snapshot?.UserTemplate, request.PromptVariables);
         }
 
@@ -147,7 +148,7 @@ public static class PlaygroundStreamingEndpoint
 
         try
         {
-            await WriteSseEventAsync(context.Response, new
+            await WriteSseEventAsync(response, new
             {
                 type = "RUN_STARTED",
                 runId,
@@ -157,6 +158,7 @@ public static class PlaygroundStreamingEndpoint
             var messageStarted = false;
             var requiresVisualAttention = false;
             var requiresApproval = false;
+            var speechBuffer = new SpeechStreamBuffer();
 
             ChatClientAgentRunOptions? runOptions = null;
             if (chatOptions is not null || clientTools.Count > 0)
@@ -187,7 +189,7 @@ public static class PlaygroundStreamingEndpoint
                         case TextContent textContent when !string.IsNullOrEmpty(textContent.Text):
                             if (!messageStarted)
                             {
-                                await WriteSseEventAsync(context.Response, new
+                                await WriteSseEventAsync(response, new
                                 {
                                     type = "TEXT_MESSAGE_START",
                                     messageId,
@@ -197,25 +199,31 @@ public static class PlaygroundStreamingEndpoint
                             }
 
                             assistantText.Append(textContent.Text);
+                            speechBuffer.Append(textContent.Text);
 
-                            await WriteSseEventAsync(context.Response, new
+                            await WriteSseEventAsync(response, new
                             {
                                 type = "TEXT_MESSAGE_CONTENT",
                                 messageId,
                                 delta = textContent.Text,
                             }, cancellationToken);
+
+                            while (speechBuffer.TryPopSentence(out var rawChunk))
+                            {
+                                await EmitSpeechChunkAsync(
+                                    response, messageId, speechBuffer.NextChunkIndex - 1,
+                                    rawChunk, isFinal: false, cancellationToken);
+                            }
                             break;
 
                         case FunctionCallContent functionCall:
-                            // Use a stable ID across START/ARGS/END — providers may
-                            // leave CallId empty, so generate a fallback once and reuse it.
-                            var toolCallId = AguiStreamingEndpoint.ResolveToolCallId(functionCall);
+                            var toolCallId = _toolClassifier.ResolveCallId(functionCall);
                             var toolName = functionCall.Name ?? string.Empty;
-                            requiresVisualAttention |= AguiStreamingEndpoint.IsDisplayToolCall(toolName)
+                            requiresVisualAttention |= _toolClassifier.IsDisplay(toolName)
                                 || clientToolNames.Contains(toolName);
-                            requiresApproval |= AguiStreamingEndpoint.IsApprovalToolCall(toolName);
+                            requiresApproval |= _toolClassifier.RequiresApproval(toolName);
 
-                            await WriteSseEventAsync(context.Response, new
+                            await WriteSseEventAsync(response, new
                             {
                                 type = "TOOL_CALL_START",
                                 toolCallId,
@@ -227,7 +235,7 @@ public static class PlaygroundStreamingEndpoint
                             {
                                 var argsJson = JsonSerializer.Serialize(
                                     functionCall.Arguments, JsonOptions);
-                                await WriteSseEventAsync(context.Response, new
+                                await WriteSseEventAsync(response, new
                                 {
                                     type = "TOOL_CALL_ARGS",
                                     toolCallId,
@@ -235,7 +243,7 @@ public static class PlaygroundStreamingEndpoint
                                 }, cancellationToken);
                             }
 
-                            await WriteSseEventAsync(context.Response, new
+                            await WriteSseEventAsync(response, new
                             {
                                 type = "TOOL_CALL_END",
                                 toolCallId,
@@ -243,7 +251,7 @@ public static class PlaygroundStreamingEndpoint
                             break;
 
                         case FunctionResultContent functionResult:
-                            await WriteSseEventAsync(context.Response, new
+                            await WriteSseEventAsync(response, new
                             {
                                 type = "TOOL_CALL_RESULT",
                                 messageId = Guid.NewGuid().ToString("N"),
@@ -256,7 +264,7 @@ public static class PlaygroundStreamingEndpoint
                         case TextReasoningContent reasoningContent
                             when !string.IsNullOrEmpty(reasoningContent.Text):
 
-                            await WriteSseEventAsync(context.Response, new
+                            await WriteSseEventAsync(response, new
                             {
                                 type = "REASONING_MESSAGE_CONTENT",
                                 messageId,
@@ -274,32 +282,35 @@ public static class PlaygroundStreamingEndpoint
 
             if (messageStarted)
             {
-                await WriteSseEventAsync(context.Response, new
+                await WriteSseEventAsync(response, new
                 {
                     type = "TEXT_MESSAGE_END",
                     messageId,
                 }, cancellationToken);
             }
 
-            var speechText = AguiStreamingEndpoint.BuildSpeechRender(
-                assistantText.ToString(),
-                requiresVisualAttention,
-                requiresApproval);
-            if (!string.IsNullOrWhiteSpace(speechText))
+            var tailChunk = speechBuffer.FlushRemaining();
+            if (tailChunk is not null)
             {
-                await WriteSseEventAsync(context.Response, new
-                {
-                    type = "CUSTOM",
-                    name = "speech.render",
-                    value = new
-                    {
-                        messageId,
-                        speechText,
-                        requiresVisualAttention,
-                        requiresApproval
-                    }
-                }, cancellationToken);
+                await EmitSpeechChunkAsync(
+                    response, messageId, speechBuffer.NextChunkIndex - 1,
+                    tailChunk, isFinal: true, cancellationToken);
             }
+
+            var guidanceText = _speechRenderer.RenderGuidance(requiresVisualAttention, requiresApproval);
+            await WriteSseEventAsync(response, new
+            {
+                type = "CUSTOM",
+                name = "speech.render",
+                value = new
+                {
+                    messageId,
+                    speechText = guidanceText,
+                    requiresVisualAttention,
+                    requiresApproval,
+                    isFinal = true,
+                }
+            }, cancellationToken);
 
             stopwatch.Stop();
 
@@ -313,7 +324,7 @@ public static class PlaygroundStreamingEndpoint
                 EstimatedCostUsd = null, // Future: compute from model cost profile
             };
 
-            await WriteSseEventAsync(context.Response, new
+            await WriteSseEventAsync(response, new
             {
                 type = "RUN_FINISHED",
                 runId,
@@ -322,14 +333,14 @@ public static class PlaygroundStreamingEndpoint
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            logger.LogDebug("Playground: stream cancelled for run {RunId}", runId);
+            _logger.LogDebug("Playground: stream cancelled for run {RunId}", runId);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Playground: streaming error for run {RunId}", runId);
+            _logger.LogError(ex, "Playground: streaming error for run {RunId}", runId);
             try
             {
-                await WriteSseEventAsync(context.Response, new
+                await WriteSseEventAsync(response, new
                 {
                     type = "RUN_ERROR",
                     message = ex.Message,
@@ -342,39 +353,33 @@ public static class PlaygroundStreamingEndpoint
             }
         }
 
-        await context.Response.Body.FlushAsync(CancellationToken.None);
+        await response.Body.FlushAsync(CancellationToken.None);
     }
 
     /// <summary>
     /// Builds the <see cref="AIAgent"/> based on the request mode (agent or raw).
     /// </summary>
-    private static async Task<AIAgent> BuildAgentAsync(
+    private async Task<AIAgent> BuildAgentAsync(
         PlaygroundRunRequest request,
-        IServiceProvider services,
-        ILogger logger,
         CancellationToken cancellationToken)
     {
-        var chatClient = services.GetRequiredService<IChatClient>();
-
         // ── AI Task mode ────────────────────────────────────────────────
         if (request.AiTaskId.HasValue)
         {
-            return await BuildFromAiTaskAsync(
-                request, chatClient, services, logger, cancellationToken);
+            return await BuildFromAiTaskAsync(request, cancellationToken);
         }
 
         if (!string.IsNullOrWhiteSpace(request.AgentName))
         {
             // ── Agent mode ──────────────────────────────────────────────
-            return await BuildFromDescriptorAsync(
-                request, chatClient, services, logger, cancellationToken);
+            return await BuildFromDescriptorAsync(request, cancellationToken);
         }
 
         // ── Raw mode ────────────────────────────────────────────────────
-        logger.LogInformation("Playground: raw mode with custom system prompt");
+        _logger.LogInformation("Playground: raw mode with custom system prompt");
 
         return new ChatClientAgent(
-            chatClient,
+            _chatClient,
             name: "playground-raw",
             instructions: request.SystemPrompt ?? string.Empty,
             tools: []);
@@ -386,15 +391,11 @@ public static class PlaygroundStreamingEndpoint
     /// The user template (with variables applied) is prepended to the
     /// conversation messages as a system message.
     /// </summary>
-    private static async Task<AIAgent> BuildFromAiTaskAsync(
+    private async Task<AIAgent> BuildFromAiTaskAsync(
         PlaygroundRunRequest request,
-        IChatClient chatClient,
-        IServiceProvider services,
-        ILogger logger,
         CancellationToken cancellationToken)
     {
-        var taskReader = services.GetRequiredService<IAiTaskReader>();
-        var task = await taskReader.GetByIdAsync(request.AiTaskId!.Value, cancellationToken);
+        var task = await _taskReader.GetByIdAsync(request.AiTaskId!.Value, cancellationToken);
 
         if (task is null)
         {
@@ -410,14 +411,14 @@ public static class PlaygroundStreamingEndpoint
             ? request.SystemPrompt
             : systemPrompt ?? string.Empty;
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Playground: AI Task mode '{TaskName}' (ID: {TaskId}), variables: {VarCount}",
             task.DisplayName,
             request.AiTaskId,
             request.PromptVariables?.Count ?? 0);
 
         return new ChatClientAgent(
-            chatClient,
+            _chatClient,
             name: $"playground-task-{task.UseCase}",
             instructions: instructions,
             tools: []);
@@ -444,22 +445,18 @@ public static class PlaygroundStreamingEndpoint
     /// Resolves a named <see cref="IDomainAgentDescriptor"/>, applies the
     /// playground overrides (system prompt, tool filter), and builds the agent.
     /// </summary>
-    private static async Task<AIAgent> BuildFromDescriptorAsync(
+    private async Task<AIAgent> BuildFromDescriptorAsync(
         PlaygroundRunRequest request,
-        IChatClient chatClient,
-        IServiceProvider services,
-        ILogger logger,
         CancellationToken cancellationToken)
     {
-        var descriptors = services.GetRequiredService<IEnumerable<IDomainAgentDescriptor>>();
-        var descriptor = descriptors.FirstOrDefault(
+        var descriptor = _descriptors.FirstOrDefault(
             d => string.Equals(d.Name, request.AgentName, StringComparison.OrdinalIgnoreCase));
 
         if (descriptor is null)
         {
             throw new InvalidOperationException(
                 $"No domain agent descriptor registered with name '{request.AgentName}'. " +
-                $"Available: {string.Join(", ", descriptors.Select(d => d.Name))}");
+                $"Available: {string.Join(", ", _descriptors.Select(d => d.Name))}");
         }
 
         // Use the playground system prompt if provided, otherwise fall back to
@@ -471,8 +468,7 @@ public static class PlaygroundStreamingEndpoint
         }
         else
         {
-            var configService = services.GetRequiredService<IAgentConfigurationService>();
-            var config = await configService.GetResolvedAsync(
+            var config = await _agentConfig.GetResolvedAsync(
                 request.AgentName!, cancellationToken);
 
             if (config is not null && !string.IsNullOrWhiteSpace(config.InstructionsText))
@@ -486,9 +482,9 @@ public static class PlaygroundStreamingEndpoint
             ? new HashSet<string>(request.EnabledToolNames, StringComparer.Ordinal)
             : null;
 
-        var agent = descriptor.Build(chatClient, services, instructionsOverride, allowedToolNames);
+        var agent = descriptor.Build(_chatClient, HttpContext.RequestServices, instructionsOverride, allowedToolNames);
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Playground: agent mode '{AgentName}' with {ToolFilter} tool filter, prompt override={PromptOverride}",
             request.AgentName,
             allowedToolNames is not null ? $"{allowedToolNames.Count} tools" : "no",
@@ -501,23 +497,20 @@ public static class PlaygroundStreamingEndpoint
     /// Builds <see cref="ChatOptions"/> from the request's model, temperature,
     /// and max tokens overrides.
     /// </summary>
-    private static async Task<ChatOptions?> BuildChatOptionsAsync(
+    private async Task<ChatOptions?> BuildChatOptionsAsync(
         PlaygroundRunRequest request,
-        IServiceProvider services,
-        ILogger logger,
         CancellationToken cancellationToken)
     {
         string? modelName = null;
 
         if (request.ModelId.HasValue)
         {
-            var resolver = services.GetRequiredService<IAiModelResolver>();
-            modelName = await resolver.ResolveModelNameByIdAsync(
+            modelName = await _modelResolver.ResolveModelNameByIdAsync(
                 request.ModelId.Value, cancellationToken);
 
             if (modelName is null)
             {
-                logger.LogWarning(
+                _logger.LogWarning(
                     "Playground: model ID {ModelId} not found — using default",
                     request.ModelId.Value);
             }
@@ -654,5 +647,31 @@ public static class PlaygroundStreamingEndpoint
         var json = JsonSerializer.Serialize(eventData, JsonOptions);
         await response.WriteAsync($"data: {json}\n\n", cancellationToken);
         await response.Body.FlushAsync(cancellationToken);
+    }
+
+    private async Task EmitSpeechChunkAsync(
+        HttpResponse response,
+        string messageId,
+        int chunkIndex,
+        string rawChunk,
+        bool isFinal,
+        CancellationToken cancellationToken)
+    {
+        var chunkText = _speechRenderer.RenderChunk(rawChunk);
+        if (string.IsNullOrWhiteSpace(chunkText))
+            return;
+
+        await WriteSseEventAsync(response, new
+        {
+            type = "CUSTOM",
+            name = "speech.chunk",
+            value = new
+            {
+                messageId,
+                chunkIndex,
+                speechText = chunkText,
+                isFinal,
+            },
+        }, cancellationToken);
     }
 }

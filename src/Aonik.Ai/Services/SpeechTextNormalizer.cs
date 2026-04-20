@@ -253,7 +253,7 @@ internal static partial class SpeechTextNormalizer
     /// Replace directional arrows, math operators, and trademark symbols with
     /// their spoken-word equivalents so TTS engines don't skip or mispronounce
     /// them. The set mirrors the curated list used by
-    /// <c>AguiStreamingEndpoint.BuildSpeechRender</c>.
+    /// <see cref="SpeechRenderer"/>.
     /// </summary>
     private static string ReplaceSymbolsWithWords(string text)
     {

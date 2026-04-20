@@ -362,22 +362,12 @@ app.UseFastEndpoints(c =>
     c.Endpoints.Configurator = ep => ep.Options(b => b.RequireCors("AonikCors"));
 });
 
-// 6. AG-UI streaming endpoint (minimal API, separate from FastEndpoints)
-app.MapAguiStreaming("/ai/agui")
-    .RequireAuthorization("AdminUserPolicy")
-    .RequireCors("AonikCors");
-
-// 7. AI Playground streaming endpoint (admin-only, ephemeral — no thread persistence)
-app.MapPlaygroundStreaming("/ai/playground/run")
-    .RequireAuthorization("AdminPolicy")
-    .RequireCors("AonikCors");
-
-// 8. AI Playground review endpoint (evaluates agent responses with RAGAS-style metrics)
+// 6. AI Playground review endpoint (evaluates agent responses with RAGAS-style metrics)
 app.MapPlaygroundReview("/ai/playground/review")
     .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");
 
-// 9. AI Playground scenario endpoints (CRUD + AI wizard)
+// 7. AI Playground scenario endpoints (CRUD + AI wizard)
 app.MapPlaygroundScenarios("/ai/playground/scenarios")
     .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");

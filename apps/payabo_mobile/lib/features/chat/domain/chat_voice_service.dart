@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:developer' as developer;
 import 'dart:io';
 
@@ -52,6 +53,30 @@ abstract class ChatVoiceService {
     String? localeTag,
   });
 
+  /// Start a new sentence-chunk speaking queue. Any prior queue is canceled
+  /// and its in-flight backend TTS requests are aborted. Chunks added via
+  /// [enqueueSpeechChunk] are synthesized in parallel and played sequentially.
+  ///
+  /// [onSpeakingStart] fires each time the queue transitions from idle to
+  /// playing (including when new chunks arrive after a drain).
+  /// [onSpeakingIdle] fires each time the queue drains to empty.
+  /// [onChunkError] fires when a non-cancellation synthesis or playback
+  /// failure occurs on a chunk.
+  Future<void> beginSpeechQueue({
+    VoidCallback? onSpeakingStart,
+    VoidCallback? onSpeakingIdle,
+    ChatVoiceErrorCallback? onChunkError,
+    String? localeTag,
+  });
+
+  /// Append [text] to the current speech queue. No-op if no queue is active.
+  /// Synthesis starts immediately so it can overlap with in-progress playback.
+  void enqueueSpeechChunk(String text);
+
+  /// Cancel the active speech queue (if any): stops playback, aborts
+  /// in-flight synthesis, clears pending chunks.
+  Future<void> cancelSpeechQueue();
+
   Future<void> stopSpeaking();
 
   Future<void> dispose();
@@ -95,6 +120,21 @@ class DeviceChatVoiceService implements ChatVoiceService {
   String? _lastBackendTtsAiRunId;
   String? _lastBackendTtsProvider;
   String? _lastBackendTtsVoiceId;
+
+  int _queueSessionId = 0;
+  int? _activeQueueSessionId;
+  int _queueNextIndex = 0;
+  String? _queueLocaleTag;
+  VoidCallback? _queueOnSpeakingStart;
+  VoidCallback? _queueOnSpeakingIdle;
+  ChatVoiceErrorCallback? _queueOnChunkError;
+  bool _queueSpeakingFlag = false;
+  bool _queueDrainInFlight = false;
+  final ListQueue<_QueuedSpeechChunk> _speechQueue =
+      ListQueue<_QueuedSpeechChunk>();
+  _QueuedSpeechChunk? _currentlyPlayingChunk;
+  Completer<void>? _currentChunkPlaybackCompleter;
+  StreamSubscription<void>? _currentChunkPlaybackSub;
 
   DeviceChatVoiceService({required Dio apiClient}) : _apiClient = apiClient;
 
@@ -516,6 +556,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _log('stopSpeaking requested');
     _ttsStopRequested = true;
     _cancelActiveTtsRequest();
+    await _cancelSpeechQueueInternal(stopPlayer: false);
     try {
       await _speechPlayer.stop();
     } catch (_) {
@@ -527,12 +568,296 @@ class DeviceChatVoiceService implements ChatVoiceService {
   }
 
   @override
+  Future<void> beginSpeechQueue({
+    VoidCallback? onSpeakingStart,
+    VoidCallback? onSpeakingIdle,
+    ChatVoiceErrorCallback? onChunkError,
+    String? localeTag,
+  }) async {
+    _log('beginSpeechQueue locale=${localeTag ?? 'default'}');
+    await _cancelSpeechQueueInternal(stopPlayer: true);
+    await initialize();
+
+    // Any leftover single-shot speak session would otherwise race with our
+    // queue's use of _speechPlayer. Flush that state explicitly.
+    _activeSpeakSessionId = null;
+    _handledSpeakTerminalSessionId = null;
+    _ttsStopRequested = false;
+
+    final int sessionId = ++_queueSessionId;
+    _activeQueueSessionId = sessionId;
+    _queueNextIndex = 0;
+    _queueLocaleTag = localeTag;
+    _queueOnSpeakingStart = onSpeakingStart;
+    _queueOnSpeakingIdle = onSpeakingIdle;
+    _queueOnChunkError = onChunkError;
+    _queueSpeakingFlag = false;
+    _log('beginSpeechQueue session=$sessionId');
+  }
+
+  @override
+  void enqueueSpeechChunk(String text) {
+    final String sanitized = _sanitizeSpeechText(text.trim());
+    if (sanitized.isEmpty) {
+      return;
+    }
+
+    final int? sessionId = _activeQueueSessionId;
+    if (sessionId == null) {
+      _log('enqueueSpeechChunk ignored: no active queue');
+      return;
+    }
+
+    final int index = _queueNextIndex++;
+    final CancelToken cancelToken = CancelToken();
+    final Future<String> synthesis = _synthesizeQueueChunkAudio(
+      sessionId: sessionId,
+      index: index,
+      text: sanitized,
+      localeTag: _queueLocaleTag,
+      cancelToken: cancelToken,
+    );
+    // Swallow unhandled rejections on the synthesis future; the drain loop
+    // handles errors when it awaits the same future.
+    unawaited(synthesis.then<void>((_) {}, onError: (_) {}));
+
+    _speechQueue.add(
+      _QueuedSpeechChunk(
+        sessionId: sessionId,
+        index: index,
+        text: sanitized,
+        synthesisFuture: synthesis,
+        cancelToken: cancelToken,
+      ),
+    );
+    _log(
+      'enqueueSpeechChunk session=$sessionId index=$index length=${sanitized.length} queued=${_speechQueue.length}',
+    );
+
+    unawaited(_drainSpeechQueue());
+  }
+
+  @override
+  Future<void> cancelSpeechQueue() async {
+    await _cancelSpeechQueueInternal(stopPlayer: true);
+  }
+
+  Future<void> _cancelSpeechQueueInternal({required bool stopPlayer}) async {
+    final int? sessionId = _activeQueueSessionId;
+    if (sessionId == null &&
+        _speechQueue.isEmpty &&
+        _currentlyPlayingChunk == null) {
+      return;
+    }
+
+    _log('cancelSpeechQueue session=$sessionId pending=${_speechQueue.length}');
+    _activeQueueSessionId = null;
+    _queueOnSpeakingStart = null;
+    _queueOnSpeakingIdle = null;
+    _queueOnChunkError = null;
+    _queueSpeakingFlag = false;
+
+    for (final _QueuedSpeechChunk chunk in _speechQueue) {
+      if (!chunk.cancelToken.isCancelled) {
+        chunk.cancelToken.cancel('Queue canceled');
+      }
+      unawaited(_cleanupQueueChunkFile(chunk));
+    }
+    _speechQueue.clear();
+
+    final _QueuedSpeechChunk? playing = _currentlyPlayingChunk;
+    if (playing != null) {
+      if (!playing.cancelToken.isCancelled) {
+        playing.cancelToken.cancel('Queue canceled');
+      }
+      unawaited(_cleanupQueueChunkFile(playing));
+    }
+    _currentlyPlayingChunk = null;
+
+    final Completer<void>? pending = _currentChunkPlaybackCompleter;
+    _currentChunkPlaybackCompleter = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete();
+    }
+    final StreamSubscription<void>? sub = _currentChunkPlaybackSub;
+    _currentChunkPlaybackSub = null;
+    if (sub != null) {
+      unawaited(sub.cancel());
+    }
+
+    if (stopPlayer) {
+      try {
+        await _speechPlayer.stop();
+      } catch (_) {
+        // Best effort; player may not be initialized.
+      }
+    }
+  }
+
+  Future<void> _drainSpeechQueue() async {
+    if (_queueDrainInFlight) {
+      return;
+    }
+    _queueDrainInFlight = true;
+    try {
+      while (true) {
+        final int? sessionId = _activeQueueSessionId;
+        if (sessionId == null) {
+          return;
+        }
+
+        if (_speechQueue.isEmpty) {
+          if (_queueSpeakingFlag) {
+            _queueSpeakingFlag = false;
+            _queueOnSpeakingIdle?.call();
+          }
+          // The idle callback may synchronously enqueue more chunks.
+          if (_speechQueue.isEmpty || _activeQueueSessionId != sessionId) {
+            return;
+          }
+          continue;
+        }
+
+        final _QueuedSpeechChunk chunk = _speechQueue.removeFirst();
+        if (chunk.sessionId != sessionId) {
+          unawaited(_cleanupQueueChunkFile(chunk));
+          continue;
+        }
+
+        _currentlyPlayingChunk = chunk;
+        await _playQueueChunk(chunk, sessionId);
+        if (identical(_currentlyPlayingChunk, chunk)) {
+          _currentlyPlayingChunk = null;
+        }
+      }
+    } finally {
+      _queueDrainInFlight = false;
+    }
+  }
+
+  Future<void> _playQueueChunk(
+    _QueuedSpeechChunk chunk,
+    int sessionId,
+  ) async {
+    late final String filePath;
+    try {
+      filePath = await chunk.synthesisFuture;
+    } catch (error) {
+      if (_activeQueueSessionId == sessionId && !_isCancellationError(error)) {
+        _log(
+          'queue chunk synthesis failed session=$sessionId index=${chunk.index}: $error',
+        );
+        _queueOnChunkError?.call(_describeTtsError(error));
+      }
+      return;
+    }
+
+    chunk.filePath = filePath;
+
+    if (_activeQueueSessionId != sessionId) {
+      unawaited(_cleanupQueueChunkFile(chunk));
+      return;
+    }
+
+    if (!_queueSpeakingFlag) {
+      _queueSpeakingFlag = true;
+      _queueOnSpeakingStart?.call();
+    }
+
+    final Completer<void> completion = Completer<void>();
+    _currentChunkPlaybackCompleter = completion;
+    final StreamSubscription<void> sub =
+        _speechPlayer.onPlayerComplete.listen((_) {
+      if (!completion.isCompleted) {
+        completion.complete();
+      }
+    });
+    _currentChunkPlaybackSub = sub;
+
+    try {
+      await _speechPlayer.play(
+        DeviceFileSource(filePath, mimeType: 'audio/mpeg'),
+      );
+      await completion.future;
+    } catch (error) {
+      if (_activeQueueSessionId == sessionId) {
+        _log(
+          'queue chunk playback failed session=$sessionId index=${chunk.index}: $error',
+        );
+        _queueOnChunkError?.call(_describeTtsError(error));
+      }
+    } finally {
+      if (identical(_currentChunkPlaybackCompleter, completion)) {
+        _currentChunkPlaybackCompleter = null;
+      }
+      if (identical(_currentChunkPlaybackSub, sub)) {
+        _currentChunkPlaybackSub = null;
+      }
+      await sub.cancel();
+      unawaited(_cleanupQueueChunkFile(chunk));
+    }
+  }
+
+  Future<String> _synthesizeQueueChunkAudio({
+    required int sessionId,
+    required int index,
+    required String text,
+    required String? localeTag,
+    required CancelToken cancelToken,
+  }) async {
+    final Response<List<int>> response = await _apiClient.post<List<int>>(
+      '/mobile/text-to-speech/synthesize',
+      data: <String, dynamic>{
+        'speechText': text,
+        'locale': localeTag,
+      },
+      cancelToken: cancelToken,
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: const <String, String>{
+          'Accept': 'audio/mpeg',
+        },
+      ),
+    );
+
+    final bytes = response.data;
+    if (bytes == null || bytes.isEmpty) {
+      throw Exception('Backend returned empty audio response');
+    }
+
+    final directory = await getTemporaryDirectory();
+    final file = File(
+      '${directory.path}${Platform.pathSeparator}simi_tts_queue_${sessionId}_$index.mp3',
+    );
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  Future<void> _cleanupQueueChunkFile(_QueuedSpeechChunk chunk) async {
+    final String? path = chunk.filePath;
+    chunk.filePath = null;
+    if (path == null || path.isEmpty) {
+      return;
+    }
+
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Best effort cleanup only.
+    }
+  }
+
+  @override
   Future<void> dispose() async {
     _log('dispose start');
     _activeListenSessionId = null;
     _activeSpeechStatusCallback = null;
     _activeSpeechErrorCallback = null;
     _activeSpeakSessionId = null;
+    await _cancelSpeechQueueInternal(stopPlayer: false);
     await _speechToText.cancel();
     _thinkingLoopActive = false;
     _thinkingLoopStopping = false;
@@ -984,4 +1309,21 @@ final class _TextToSpeechCancelledException implements Exception {
 
   @override
   String toString() => 'Text-to-speech canceled.';
+}
+
+class _QueuedSpeechChunk {
+  _QueuedSpeechChunk({
+    required this.sessionId,
+    required this.index,
+    required this.text,
+    required this.synthesisFuture,
+    required this.cancelToken,
+  });
+
+  final int sessionId;
+  final int index;
+  final String text;
+  final Future<String> synthesisFuture;
+  final CancelToken cancelToken;
+  String? filePath;
 }

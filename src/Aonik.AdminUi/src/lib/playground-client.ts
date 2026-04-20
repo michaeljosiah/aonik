@@ -81,6 +81,12 @@ export interface PlaygroundStreamCallbacks {
   onRunStarted?: (runId: string) => void;
   onRerun?: () => void;
   onTextDelta?: (delta: string) => void;
+  onSpeechChunk?: (payload: {
+    messageId: string;
+    chunkIndex: number;
+    speechText: string;
+    isFinal: boolean;
+  }) => void;
   onSpeechRender?: (payload: {
     messageId: string;
     speechText: string;
@@ -610,24 +616,36 @@ function dispatchEvent(
       break;
 
     case 'CUSTOM': {
-      if (event.name !== 'speech.render') {
-        break;
-      }
-
       const value = event.value as Record<string, unknown> | undefined;
-      const speechText = typeof value?.speechText === 'string' ? value.speechText : '';
       const messageId = typeof value?.messageId === 'string' ? value.messageId : '';
 
-      if (!speechText || !messageId) {
+      if (event.name === 'speech.chunk') {
+        const speechText = typeof value?.speechText === 'string' ? value.speechText : '';
+        if (!speechText || !messageId) break;
+
+        const chunkIndex = typeof value?.chunkIndex === 'number' ? value.chunkIndex : 0;
+        callbacks.onSpeechChunk?.({
+          messageId,
+          chunkIndex,
+          speechText,
+          isFinal: value?.isFinal === true,
+        });
         break;
       }
 
-      callbacks.onSpeechRender?.({
-        messageId,
-        speechText,
-        requiresVisualAttention: value?.requiresVisualAttention === true,
-        requiresApproval: value?.requiresApproval === true,
-      });
+      if (event.name === 'speech.render') {
+        const speechText = typeof value?.speechText === 'string' ? value.speechText : '';
+        if (!messageId) break;
+
+        callbacks.onSpeechRender?.({
+          messageId,
+          speechText,
+          requiresVisualAttention: value?.requiresVisualAttention === true,
+          requiresApproval: value?.requiresApproval === true,
+        });
+        break;
+      }
+
       break;
     }
   }

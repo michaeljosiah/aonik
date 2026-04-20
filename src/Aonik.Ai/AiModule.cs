@@ -192,6 +192,7 @@ public sealed class AiModule : IModule
         services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
         services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();
         services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+        services.AddScoped<ISpeechRenderer, SpeechRenderer>();
         RegisterTtsProvider<ElevenLabsTextToSpeechProvider>(services, configuration, opts => opts.ElevenLabsBaseUrl);
         RegisterTtsProvider<MistralTextToSpeechProvider>(services, configuration, opts => opts.MistralBaseUrl);
 

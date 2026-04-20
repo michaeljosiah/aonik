@@ -161,6 +161,23 @@ class PendingNavigation {
   final Map<String, String> queryParameters;
 }
 
+/// A single sentence-level speech chunk received during streaming. The chat
+/// screen pushes these onto its playback queue as they arrive so TTS can
+/// start before the assistant finishes generating.
+class SpeechChunk {
+  const SpeechChunk({
+    required this.messageId,
+    required this.chunkIndex,
+    required this.speechText,
+    required this.isFinal,
+  });
+
+  final String messageId;
+  final int chunkIndex;
+  final String speechText;
+  final bool isFinal;
+}
+
 const Object _chatCopySentinel = Object();
 const Object _chatNavSentinel = Object();
 
@@ -180,6 +197,7 @@ class ChatState {
     this.pendingSpeechMessageId,
     this.pendingSpeechRequiresVisualAttention = false,
     this.pendingSpeechRequiresApproval = false,
+    this.pendingSpeechChunks = const [],
     this.pendingNavigation,
     this.errorMessage,
   });
@@ -220,6 +238,11 @@ class ChatState {
 
   final bool pendingSpeechRequiresApproval;
 
+  /// Sentence-level speech chunks accumulated during the current turn so
+  /// the chat screen can queue them for TTS as they arrive. Cleared between
+  /// turns via [_clearStreaming].
+  final List<SpeechChunk> pendingSpeechChunks;
+
   /// Pending deep-link request from the `navigate_to_screen` tool. Cleared
   /// by the chat screen once the navigation has been dispatched.
   final PendingNavigation? pendingNavigation;
@@ -252,6 +275,7 @@ class ChatState {
     String? pendingSpeechMessageId,
     bool? pendingSpeechRequiresVisualAttention,
     bool? pendingSpeechRequiresApproval,
+    List<SpeechChunk>? pendingSpeechChunks,
     Object? pendingNavigation = _chatNavSentinel,
     Object? errorMessage = _chatCopySentinel,
   }) {
@@ -274,6 +298,8 @@ class ChatState {
               this.pendingSpeechRequiresVisualAttention,
       pendingSpeechRequiresApproval:
           pendingSpeechRequiresApproval ?? this.pendingSpeechRequiresApproval,
+      pendingSpeechChunks:
+          pendingSpeechChunks ?? this.pendingSpeechChunks,
       pendingNavigation: pendingNavigation == _chatNavSentinel
           ? this.pendingNavigation
           : pendingNavigation as PendingNavigation?,
@@ -296,6 +322,7 @@ class ChatState {
       pendingSpeechMessageId: null,
       pendingSpeechRequiresVisualAttention: false,
       pendingSpeechRequiresApproval: false,
+      pendingSpeechChunks: const [],
       pendingNavigation: null,
       errorMessage: null,
     );
@@ -774,6 +801,20 @@ class ChatController extends StateNotifier<ChatState> {
           pendingSpeechMessageId: event.messageId,
           pendingSpeechRequiresVisualAttention: event.requiresVisualAttention,
           pendingSpeechRequiresApproval: event.requiresApproval,
+        );
+
+      case ChatStreamSpeechChunk():
+        state = state.copyWith(
+          pendingSpeechMessageId: event.messageId,
+          pendingSpeechChunks: [
+            ...state.pendingSpeechChunks,
+            SpeechChunk(
+              messageId: event.messageId,
+              chunkIndex: event.chunkIndex,
+              speechText: event.speechText,
+              isFinal: event.isFinal,
+            ),
+          ],
         );
 
       case ChatStreamError():

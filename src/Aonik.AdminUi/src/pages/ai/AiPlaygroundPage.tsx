@@ -144,6 +144,13 @@ export function AiPlaygroundPage() {
   const previewAudioUrlRef = useRef<string | null>(null);
   const browserSpeechCancelRef = useRef<(() => void) | null>(null);
   const activeSpeechMessageIdRef = useRef<string | null>(null);
+  const [playedChunkCount, setPlayedChunkCount] = useState(0);
+  const chunkPlaybackBusyRef = useRef<boolean>(false);
+  const guidancePlayedRef = useRef<boolean>(false);
+  const voiceModeEnabledRef = useRef<boolean>(false);
+  const synthesizedChunksRef = useRef<
+    Map<number, Promise<Awaited<ReturnType<typeof textToSpeechSettingsService.synthesize>>>>
+  >(new Map());
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
   const [voicePlaybackState, setVoicePlaybackState] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -177,6 +184,7 @@ export function AiPlaygroundPage() {
     metrics,
     runHistory,
     speechRender,
+    speechChunks,
     submitMessages,
     stopStreaming,
     resetChat,
@@ -308,8 +316,14 @@ export function AiPlaygroundPage() {
       previewAudioUrlRef.current = null;
     }
 
+    chunkPlaybackBusyRef.current = false;
     setVoicePlaybackState('idle');
   }, []);
+
+  // Keep voiceModeEnabled accessible inside in-flight async playback closures.
+  useEffect(() => {
+    voiceModeEnabledRef.current = voiceModeEnabled;
+  }, [voiceModeEnabled]);
 
   useEffect(() => {
     return () => {
@@ -317,23 +331,83 @@ export function AiPlaygroundPage() {
     };
   }, [stopVoicePreview]);
 
+  // Reset chunk playback counters when a new stream starts.
   useEffect(() => {
-    if (!voiceModeEnabled || !speechRender || isStreaming) {
+    if (isStreaming) {
+      setPlayedChunkCount(0);
+      guidancePlayedRef.current = false;
+      activeSpeechMessageIdRef.current = null;
+      synthesizedChunksRef.current.clear();
+    }
+  }, [isStreaming]);
+
+  // Prefetch queue: kick off TTS synthesis for every arrived chunk in parallel,
+  // so the audio for chunk N+1 is already buffered by the time chunk N's audio
+  // finishes playing. Eliminates the synthesize-latency gap between chunks.
+  useEffect(() => {
+    if (!voiceModeEnabled) return;
+
+    speechChunks.forEach((chunk, index) => {
+      if (synthesizedChunksRef.current.has(index)) return;
+      const text = chunk.speechText?.trim();
+      if (!text) return;
+
+      const promise = textToSpeechSettingsService.synthesize({
+        speechText: text,
+        locale: 'en-US',
+        threadId: `playground-${chunk.messageId || Date.now()}`,
+        messageId: chunk.messageId || `chunk-${index}`,
+      });
+      promise.catch(() => {});
+      synthesizedChunksRef.current.set(index, promise);
+    });
+  }, [voiceModeEnabled, speechChunks]);
+
+  // Sequential chunk player. Fires whenever new chunks arrive, when the
+  // stream finishes (to play guidance), or when voice mode toggles on.
+  useEffect(() => {
+    if (!voiceModeEnabled) return;
+    if (chunkPlaybackBusyRef.current) return;
+
+    const nextChunk = speechChunks[playedChunkCount];
+    const guidanceText = speechRender?.speechText?.trim() ?? '';
+    const shouldPlayGuidance =
+      !isStreaming
+      && !guidancePlayedRef.current
+      && !!speechRender
+      && guidanceText.length > 0
+      && playedChunkCount >= speechChunks.length;
+
+    if (!nextChunk && !shouldPlayGuidance) return;
+
+    const messageId = nextChunk?.messageId ?? speechRender?.messageId ?? '';
+    const speechText = nextChunk?.speechText ?? guidanceText;
+    if (!speechText) {
+      if (nextChunk) setPlayedChunkCount((n) => n + 1);
+      if (shouldPlayGuidance) guidancePlayedRef.current = true;
       return;
     }
 
-    if (activeSpeechMessageIdRef.current === speechRender.messageId) {
-      return;
-    }
+    activeSpeechMessageIdRef.current = messageId;
+    chunkPlaybackBusyRef.current = true;
 
-    activeSpeechMessageIdRef.current = speechRender.messageId;
-    let cancelled = false;
+    const advance = () => {
+      chunkPlaybackBusyRef.current = false;
+      if (nextChunk) {
+        setPlayedChunkCount((n) => n + 1);
+      } else {
+        guidancePlayedRef.current = true;
+      }
+      if (voiceModeEnabledRef.current) {
+        setVoicePlaybackState('idle');
+      }
+    };
 
-    const playVoice = async () => {
+    const playChunk = async () => {
       setVoicePlaybackState('loading');
       setVoiceError(null);
       setVoiceDetails({
-        speechText: speechRender.speechText,
+        speechText,
         provider: null,
         voiceId: null,
         aiRunId: null,
@@ -344,49 +418,56 @@ export function AiPlaygroundPage() {
         let response: Awaited<ReturnType<typeof textToSpeechSettingsService.synthesize>> | null = null;
 
         try {
-          response = await textToSpeechSettingsService.synthesize({
-            speechText: speechRender.speechText,
-            locale,
-            threadId: `playground-${Date.now()}`,
-            messageId: speechRender.messageId,
-          });
+          // For arrived chunks the prefetch effect has already kicked off
+          // synthesis; reuse that promise. Guidance and any chunk missed by
+          // prefetch (voice mode toggled on mid-stream edge case) synthesize on
+          // demand here.
+          let synthesisPromise = nextChunk
+            ? synthesizedChunksRef.current.get(playedChunkCount)
+            : undefined;
+          if (!synthesisPromise) {
+            synthesisPromise = textToSpeechSettingsService.synthesize({
+              speechText,
+              locale,
+              threadId: `playground-${messageId || Date.now()}`,
+              messageId: messageId || `chunk-${Date.now()}`,
+            });
+            if (nextChunk) {
+              synthesisPromise.catch(() => {});
+              synthesizedChunksRef.current.set(playedChunkCount, synthesisPromise);
+            }
+          }
+          response = await synthesisPromise;
         } catch (primaryError) {
           const fallbackSynthesis = getBrowserSpeechSynthesis();
-          if (!fallbackSynthesis) {
-            throw primaryError;
-          }
+          if (!fallbackSynthesis) throw primaryError;
 
-          const cancelBrowserSpeech = playWithBrowserSpeech(
-            speechRender.speechText,
-            locale,
-            () => {
-              if (!cancelled) {
-                setVoicePlaybackState('playing');
-              }
-            },
-            () => {
-              browserSpeechCancelRef.current = null;
-              if (!cancelled) {
-                setVoicePlaybackState('idle');
-              }
-            },
-            (message) => {
-              browserSpeechCancelRef.current = null;
-              if (!cancelled) {
-                setVoicePlaybackState('error');
-                setVoiceError(message);
-              }
-            },
-          );
-
-          if (cancelled) {
-            cancelBrowserSpeech();
+          if (!voiceModeEnabledRef.current) {
+            chunkPlaybackBusyRef.current = false;
             return;
           }
 
+          const cancelBrowserSpeech = playWithBrowserSpeech(
+            speechText,
+            locale,
+            () => { if (voiceModeEnabledRef.current) setVoicePlaybackState('playing'); },
+            () => {
+              browserSpeechCancelRef.current = null;
+              advance();
+            },
+            (message) => {
+              browserSpeechCancelRef.current = null;
+              if (voiceModeEnabledRef.current) {
+                setVoicePlaybackState('error');
+                setVoiceError(message);
+              }
+              chunkPlaybackBusyRef.current = false;
+            },
+          );
+
           browserSpeechCancelRef.current = cancelBrowserSpeech;
           setVoiceDetails({
-            speechText: speechRender.speechText,
+            speechText,
             provider: 'Browser',
             voiceId: locale,
             aiRunId: null,
@@ -394,11 +475,10 @@ export function AiPlaygroundPage() {
           return;
         }
 
-        if (cancelled) {
+        if (!voiceModeEnabledRef.current) {
+          chunkPlaybackBusyRef.current = false;
           return;
         }
-
-        stopVoicePreview();
 
         const audioUrl = URL.createObjectURL(response.audioBlob);
         const audio = new Audio(audioUrl);
@@ -411,7 +491,7 @@ export function AiPlaygroundPage() {
             previewAudioUrlRef.current = null;
           }
           previewAudioRef.current = null;
-          setVoicePlaybackState('idle');
+          advance();
         };
 
         audio.onerror = () => {
@@ -420,37 +500,35 @@ export function AiPlaygroundPage() {
             previewAudioUrlRef.current = null;
           }
           previewAudioRef.current = null;
-          setVoicePlaybackState('error');
-          setVoiceError('Voice playback failed.');
+          if (voiceModeEnabledRef.current) {
+            setVoicePlaybackState('error');
+            setVoiceError('Voice playback failed.');
+          }
+          chunkPlaybackBusyRef.current = false;
         };
 
         setVoiceDetails({
-          speechText: speechRender.speechText,
+          speechText,
           provider: response.provider,
           voiceId: response.voiceId,
           aiRunId: response.aiRunId,
         });
 
         await audio.play();
-        if (!cancelled) {
+        if (voiceModeEnabledRef.current) {
           setVoicePlaybackState('playing');
         }
       } catch (error: unknown) {
-        if (cancelled) {
-          return;
+        if (voiceModeEnabledRef.current) {
+          setVoicePlaybackState('error');
+          setVoiceError(resolveVoiceErrorMessage(error));
         }
-
-        setVoicePlaybackState('error');
-        setVoiceError(resolveVoiceErrorMessage(error));
+        chunkPlaybackBusyRef.current = false;
       }
     };
 
-    void playVoice();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [voiceModeEnabled, speechRender, isStreaming, stopVoicePreview]);
+    void playChunk();
+  }, [voiceModeEnabled, speechChunks, speechRender, isStreaming, playedChunkCount]);
 
   // ── Add output as assistant message ─────────────────────────────────────
 

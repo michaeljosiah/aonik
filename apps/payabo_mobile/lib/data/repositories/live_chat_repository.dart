@@ -693,14 +693,26 @@ class LiveChatRepository implements ChatRepository {
         return ChatStreamError(event.message, code: event.code);
 
       case CustomEvent customEvent:
-        if (customEvent.name == 'speech.render' && customEvent.value is Map) {
+        if (customEvent.value is Map) {
           final Map<String, dynamic> map =
               Map<String, dynamic>.from(customEvent.value as Map);
-          final speechText = map['speechText']?.toString() ?? '';
-          if (speechText.isNotEmpty) {
+
+          if (customEvent.name == 'speech.chunk') {
+            final speechText = map['speechText']?.toString() ?? '';
+            if (speechText.isNotEmpty) {
+              return ChatStreamSpeechChunk(
+                messageId: map['messageId']?.toString() ?? '',
+                chunkIndex: (map['chunkIndex'] as num?)?.toInt() ?? 0,
+                speechText: speechText,
+                isFinal: map['isFinal'] == true,
+              );
+            }
+          }
+
+          if (customEvent.name == 'speech.render') {
             return ChatStreamSpeechRender(
               messageId: map['messageId']?.toString() ?? '',
-              speechText: speechText,
+              speechText: map['speechText']?.toString() ?? '',
               requiresVisualAttention: map['requiresVisualAttention'] == true,
               requiresApproval: map['requiresApproval'] == true,
             );

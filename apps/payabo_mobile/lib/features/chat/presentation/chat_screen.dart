@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -211,10 +210,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool _voiceRetryInFlight = false;
   bool _voiceAwaitingBackendReply = false;
   String? _voiceLastSpokenAssistantMessageId;
-  final ListQueue<String> _voiceSpeechQueue = ListQueue<String>();
-  bool _voiceChunkSpeaking = false;
   bool _voiceBackendReplyCompleted = false;
   String? _voicePendingSpeechText;
+  int _voiceChunksEnqueued = 0;
   int _voiceTurnSequence = 0;
   int? _activeVoiceTurnId;
   int? _voiceBackendTurnId;
@@ -267,7 +265,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Widget build(BuildContext context) {
     final bool isVoiceActive =
         _showVoiceStage || _voiceStagePhase != _VoiceStagePhase.idle;
-    final String voiceLocaleTag = _voiceLocaleTag(context);
     final String displayName = ref.watch(
       profileHeaderProvider.select(
         (ProfileHeaderState state) => state.displayName,
@@ -326,8 +323,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _voiceAwaitingBackendReply = false;
         _voiceBackendTurnId = null;
         _voiceBackendReplyCompleted = true;
-        _voiceSpeechQueue.clear();
-        _voiceChunkSpeaking = false;
+        _voiceChunksEnqueued = 0;
+        unawaited(_chatVoiceService.cancelSpeechQueue());
         _cancelVoiceThinkingWatchdog();
         unawaited(_chatVoiceService.stopThinkingLoop());
         _showVoiceSnackBar(next.errorMessage!);
@@ -338,6 +335,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
       }
 
+      // Push any new sentence-level chunks into the voice service's queue so
+      // they can be synthesized in parallel and played sequentially. The
+      // server has already chunked the text at sentence boundaries.
+      if (_voiceAwaitingBackendReply &&
+          _voiceBackendTurnId != null &&
+          _voiceBackendTurnId == _activeVoiceTurnId &&
+          next.pendingSpeechChunks.length > _voiceChunksEnqueued) {
+        final List<SpeechChunk> newChunks = next.pendingSpeechChunks
+            .sublist(_voiceChunksEnqueued);
+        _voiceChunksEnqueued = next.pendingSpeechChunks.length;
+        bool enqueuedAny = false;
+        for (final SpeechChunk chunk in newChunks) {
+          final String text = chunk.speechText.trim();
+          if (text.isEmpty) {
+            continue;
+          }
+          _chatVoiceService.enqueueSpeechChunk(text);
+          enqueuedAny = true;
+        }
+        if (enqueuedAny) {
+          _cancelVoiceThinkingWatchdog();
+          unawaited(_chatVoiceService.stopThinkingLoop());
+        }
+      }
+
+      // `speech.render` now carries only the guidance payload (plus the
+      // visual-attention / approval flags); the main assistant speech has
+      // already been streamed via `speech.chunk` events above. Append any
+      // non-empty guidance to the tail of the playback queue so it is
+      // spoken after the assistant's sentences. If no chunks were ever
+      // enqueued (e.g. server fell back to a single-shot render), fall
+      // back to speaking the full text.
       if (_voiceAwaitingBackendReply &&
           _voiceBackendTurnId != null &&
           _voiceBackendTurnId == _activeVoiceTurnId &&
@@ -356,9 +385,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             _showVoiceStage = false;
           });
         }
-        _replaceVoiceSpeechQueue(next.pendingSpeechText!);
+
+        final String guidanceText = next.pendingSpeechText!.trim();
+        if (_voiceChunksEnqueued == 0) {
+          // No streaming chunks arrived (single-shot render). Split the full
+          // text locally and enqueue each sentence-level chunk.
+          for (final String chunk
+              in _chunkVoiceSpeechText(next.pendingSpeechText!)) {
+            _chatVoiceService.enqueueSpeechChunk(chunk);
+          }
+        } else if (guidanceText.isNotEmpty) {
+          for (final String chunk in _chunkVoiceSpeechText(guidanceText)) {
+            _chatVoiceService.enqueueSpeechChunk(chunk);
+          }
+        }
         unawaited(_chatVoiceService.stopThinkingLoop());
-        _drainVoiceSpeechQueue(voiceLocaleTag, _activeVoiceTurnId!);
       }
 
       if (_voiceAwaitingBackendReply &&
@@ -384,10 +425,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _voiceLastSpokenAssistantMessageId = assistantMessage.id;
           _cancelVoiceThinkingWatchdog();
           unawaited(_chatVoiceService.stopThinkingLoop());
-          _replaceVoiceSpeechQueue(
-            _voicePendingSpeechText ?? assistantMessage.lines.join('\n'),
-          );
-          _drainVoiceSpeechQueue(voiceLocaleTag, _activeVoiceTurnId!);
+          // If chunks were streamed we've already queued them — don't
+          // clobber the queue with a re-chunked full-message render.
+          if (_voiceChunksEnqueued == 0) {
+            for (final String chunk in _chunkVoiceSpeechText(
+              _voicePendingSpeechText ?? assistantMessage.lines.join('\n'),
+            )) {
+              _chatVoiceService.enqueueSpeechChunk(chunk);
+            }
+          }
         }
       }
 
@@ -704,9 +750,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _voiceRetryInFlight = false;
       _voiceAwaitingBackendReply = false;
       _voiceBackendReplyCompleted = false;
-      _voiceChunkSpeaking = false;
       _voicePendingSpeechText = null;
-      _voiceSpeechQueue.clear();
+      _voiceChunksEnqueued = 0;
     });
     _resetVoiceVisualState();
 
@@ -902,6 +947,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
 
+    final String localeTag = _voiceLocaleTag(context);
     await _chatVoiceService.stopListening();
 
     final String transcript = _voiceLiveTranscript.trim();
@@ -923,10 +969,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
 
     _startVoiceThinkingWatchdog(effectiveTurnId);
+    // Spin up the voice service's chunk queue before sending so streaming
+    // chunks from the state listener land in a live queue.
+    await _beginVoiceSpeechQueue(effectiveTurnId, localeTag);
     unawaited(_chatVoiceService.startThinkingLoop());
     ref.read(chatControllerProvider.notifier).sendMessage(transcript);
     _voiceLog('sent transcript to backend');
     _scrollToBottom(force: true);
+  }
+
+  Future<void> _beginVoiceSpeechQueue(int turnId, String localeTag) async {
+    await _chatVoiceService.beginSpeechQueue(
+      localeTag: localeTag,
+      onSpeakingStart: () {
+        if (!mounted || _activeVoiceTurnId != turnId) {
+          return;
+        }
+        if (_voiceStagePhase == _VoiceStagePhase.idle) {
+          return;
+        }
+        _cancelVoiceThinkingWatchdog();
+        unawaited(_chatVoiceService.stopThinkingLoop());
+        setState(() {
+          _voiceStagePhase = _VoiceStagePhase.speaking;
+          _voiceSpeakingPulse = 0.5;
+        });
+      },
+      onSpeakingIdle: () {
+        if (!mounted || _activeVoiceTurnId != turnId) {
+          return;
+        }
+        if (_voiceStagePhase == _VoiceStagePhase.speaking) {
+          setState(() {
+            _voiceSpeakingPulse = 0.18;
+          });
+          if (_voiceBackendReplyCompleted) {
+            _finishVoiceReply(turnId);
+          }
+        }
+      },
+      onChunkError: (String message) {
+        if (!mounted || _activeVoiceTurnId != turnId) {
+          return;
+        }
+        _showVoiceSnackBar('Voice playback unavailable: $message');
+        if (_voiceStagePhase == _VoiceStagePhase.speaking) {
+          setState(() {
+            _voiceSpeakingPulse = 0.18;
+          });
+        }
+      },
+    );
   }
 
   Future<void> _dismissVoiceStage() async {
@@ -971,9 +1064,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _voiceLiveTranscript = '';
         _voiceAwaitingBackendReply = false;
         _voiceBackendReplyCompleted = false;
-        _voiceChunkSpeaking = false;
         _voicePendingSpeechText = null;
-        _voiceSpeechQueue.clear();
+        _voiceChunksEnqueued = 0;
       });
       _resetVoiceVisualState();
     } finally {
@@ -993,7 +1085,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     setState(() {
       _voiceSpeakingPulse = 0.18;
       _voiceStagePhase = _VoiceStagePhase.ready;
-      _voiceChunkSpeaking = false;
     });
   }
 
@@ -1006,14 +1097,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   String _voiceLocaleTag(BuildContext context) {
     return Localizations.maybeLocaleOf(context)?.toLanguageTag() ?? 'en-US';
-  }
-
-  void _replaceVoiceSpeechQueue(String text) {
-    final List<String> chunks = _chunkVoiceSpeechText(text);
-    _voiceSpeechQueue
-      ..clear()
-      ..addAll(chunks);
-    _voiceLog('queued voice speech chunks count=${chunks.length}');
   }
 
   List<String> _chunkVoiceSpeechText(String text) {
@@ -1157,81 +1240,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return char == ' ' || char == '\n' || char == '\r' || char == '\t';
   }
 
-  void _drainVoiceSpeechQueue(String localeTag, int turnId) {
-    if (!_isActiveVoiceTurn(turnId) ||
-        _voiceStagePhase == _VoiceStagePhase.idle) {
-      return;
-    }
-
-    if (_voiceChunkSpeaking) {
-      return;
-    }
-
-    if (_voiceSpeechQueue.isEmpty) {
-      if (_voiceBackendReplyCompleted &&
-          _voiceStagePhase == _VoiceStagePhase.speaking) {
-        _finishVoiceReply(turnId);
-      }
-      return;
-    }
-
-    final String chunk = _voiceSpeechQueue.removeFirst();
-    _voiceChunkSpeaking = true;
-    _voiceLog('speak queued chunk: "$chunk"');
-
-    setState(() {
-      _voiceStagePhase = _VoiceStagePhase.speaking;
-      _voiceSpeakingPulse = 0.5;
-    });
-
-    unawaited(
-      _chatVoiceService.speak(
-        chunk,
-        onComplete: () {
-          if (!_isActiveVoiceTurn(turnId)) {
-            return;
-          }
-
-          _voiceChunkSpeaking = false;
-          if (mounted && _voiceStagePhase == _VoiceStagePhase.speaking) {
-            setState(() {
-              _voiceSpeakingPulse = 0.18;
-            });
-          }
-          _drainVoiceSpeechQueue(localeTag, turnId);
-        },
-        onCancel: () {
-          if (!_isActiveVoiceTurn(turnId)) {
-            return;
-          }
-
-          _voiceLog('tts chunk canceled turn=$turnId');
-          _voiceChunkSpeaking = false;
-          if (mounted && _voiceStagePhase == _VoiceStagePhase.speaking) {
-            setState(() {
-              _voiceSpeakingPulse = 0.18;
-            });
-          }
-        },
-        onError: (String message) {
-          if (!_isActiveVoiceTurn(turnId)) {
-            return;
-          }
-
-          _voiceChunkSpeaking = false;
-          if (mounted && _voiceStagePhase == _VoiceStagePhase.speaking) {
-            setState(() {
-              _voiceSpeakingPulse = 0.18;
-            });
-          }
-          _showVoiceSnackBar('Voice playback unavailable: $message');
-          _drainVoiceSpeechQueue(localeTag, turnId);
-        },
-        localeTag: localeTag,
-      ),
-    );
-  }
-
   bool _isActiveVoiceTurn(int turnId) {
     return mounted && _activeVoiceTurnId == turnId;
   }
@@ -1254,8 +1262,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _voiceAwaitingBackendReply = false;
       _voiceBackendTurnId = null;
       _voiceBackendReplyCompleted = true;
-      _voiceSpeechQueue.clear();
-      _voiceChunkSpeaking = false;
+      _voiceChunksEnqueued = 0;
+      unawaited(_chatVoiceService.cancelSpeechQueue());
       unawaited(_chatVoiceService.stopThinkingLoop());
 
       if (!mounted) {

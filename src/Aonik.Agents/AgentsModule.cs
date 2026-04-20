@@ -81,6 +81,24 @@ public sealed class AgentsModule : IModule
         // User brief projector — assembles the compact user context payload for agent sessions.
         services.AddScoped<IUserBriefProjector, Services.UserBriefProjector>();
 
+        // Tool call classifier — centralises tool-name conventions used by the streaming endpoints.
+        services.AddScoped<IToolCallClassifier, Services.ToolCallClassifier>();
+
+        // AG-UI ↔ M.E.AI message/tool converter.
+        services.AddScoped<IAguiMessageConverter, Services.AguiMessageConverter>();
+
+        // Chat thread manager — thread load/create + fire-and-forget user-message
+        // append + thin-client history reconstruction.
+        services.AddScoped<IChatThreadManager, Services.ChatThreadManager>();
+
+        // Agent contextualizer — resolves the target agent and projects the user
+        // brief preamble when the agent's descriptor requires it.
+        services.AddScoped<IAgentContextualizer, Services.AgentContextualizer>();
+
+        // Post-stream persistence coordinator — runs thread message persistence,
+        // title generation, and AiRun metrics writes after the response flushes.
+        services.AddScoped<IPostStreamPersistenceCoordinator, Services.PostStreamPersistenceCoordinator>();
+
 
         // Conversation summary generator — produces session summaries from chat threads.
         services.AddScoped<Services.ConversationSummaryGenerator>();

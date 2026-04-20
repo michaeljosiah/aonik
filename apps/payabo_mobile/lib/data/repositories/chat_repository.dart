@@ -317,6 +317,22 @@ class ChatStreamSpeechRender extends ChatStreamEvent {
   final bool requiresApproval;
 }
 
+/// A sentence-level speech chunk emitted during streaming so TTS can start
+/// playing before the assistant finishes generating.
+class ChatStreamSpeechChunk extends ChatStreamEvent {
+  const ChatStreamSpeechChunk({
+    required this.messageId,
+    required this.chunkIndex,
+    required this.speechText,
+    required this.isFinal,
+  });
+
+  final String messageId;
+  final int chunkIndex;
+  final String speechText;
+  final bool isFinal;
+}
+
 /// The types of display widgets the agent can request.
 enum DisplayWidgetType {
   fxRateChart,
