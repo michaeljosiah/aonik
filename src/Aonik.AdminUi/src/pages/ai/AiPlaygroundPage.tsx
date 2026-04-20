@@ -868,88 +868,97 @@ export function AiPlaygroundPage() {
         />
       </div>
 
-      {/* Scrollable message area */}
-      <div className="flex-1 overflow-y-auto">
-        {/* System message block */}
-        <PlaygroundMessageBlock
-          role="system"
-          content={config.systemPrompt}
-          onContentChange={(v) => updateConfig({ systemPrompt: v })}
-          roleFixed
-          agentName={config.agentName}
-          defaultPrompt={defaultPromptRef.current}
-          onDefaultPromptSaved={(saved) => { defaultPromptRef.current = saved; }}
-        />
+      {/* Split content area: left = inputs, right = output */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Left column: system prompt + messages + submit + run history */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Scrollable message area */}
+          <div className="flex-1 overflow-y-auto">
+            {/* System message block */}
+            <PlaygroundMessageBlock
+              role="system"
+              content={config.systemPrompt}
+              onContentChange={(v) => updateConfig({ systemPrompt: v })}
+              roleFixed
+              agentName={config.agentName}
+              defaultPrompt={defaultPromptRef.current}
+              onDefaultPromptSaved={(saved) => { defaultPromptRef.current = saved; }}
+            />
 
-        {/* User / assistant message blocks */}
-        {editableMessages.map((msg, i) => (
-          <PlaygroundMessageBlock
-            key={msg.id}
-            role={msg.role}
-            content={msg.content}
-            index={i + 1}
-            onRoleChange={(role) =>
-              updateMessage(msg.id, { role: role as 'user' | 'assistant' })
-            }
-            onContentChange={(content) => updateMessage(msg.id, { content })}
-            onDelete={
-              editableMessages.length > 1
-                ? () => deleteMessage(msg.id)
-                : undefined
-            }
+            {/* User / assistant message blocks */}
+            {editableMessages.map((msg, i) => (
+              <PlaygroundMessageBlock
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                index={i + 1}
+                onRoleChange={(role) =>
+                  updateMessage(msg.id, { role: role as 'user' | 'assistant' })
+                }
+                onContentChange={(content) => updateMessage(msg.id, { content })}
+                onDelete={
+                  editableMessages.length > 1
+                    ? () => deleteMessage(msg.id)
+                    : undefined
+                }
+              />
+            ))}
+
+            {/* Add message controls */}
+            <div className="flex items-center gap-2 border-b border-[var(--color-border-light)] px-6 py-2.5">
+              <AddMessageButton onAdd={addMessage} />
+            </div>
+          </div>
+
+          {/* Submit button */}
+          <div className="shrink-0 border-t border-[var(--color-border-light)] px-6 py-3">
+            <Button
+              className="w-full"
+              onClick={isStreaming ? stopStreaming : handleSubmit}
+              disabled={!isStreaming && editableMessages.every((m) => !m.content.trim())}
+            >
+              {isStreaming ? (
+                <>
+                  <Square className="mr-2 h-3.5 w-3.5" />
+                  Stop
+                </>
+              ) : (
+                'Submit'
+              )}
+            </Button>
+          </div>
+
+          {/* Run history (collapsible) */}
+          <RunHistoryPanel runs={runHistory} onClear={clearHistory} />
+        </div>
+
+        {/* Right column: output panel (full height) */}
+        <div className="flex w-[45%] shrink-0 flex-col overflow-hidden border-l border-[var(--color-border-light)]">
+          <PlaygroundOutputPanel
+            output={output}
+            outputParts={outputParts}
+            isStreaming={isStreaming}
+            streamError={streamError}
+            metrics={metrics}
+            modelName={config.modelName}
+            voiceModeEnabled={voiceModeEnabled}
+            voicePlaybackState={voicePlaybackState}
+            voiceError={voiceError}
+            voiceDetails={voiceDetails}
+            onStopVoice={stopVoicePreview}
+            onAddToMessages={handleAddOutputToMessages}
+            isReviewing={isReviewing}
+            reviewResult={reviewResult}
+            reviewRawText={reviewRawText}
+            reviewError={reviewError}
+            onReview={handleReview}
+            onApproveToolCall={approveToolCall}
+            onRejectToolCall={rejectToolCall}
+            onSelectToolCallOptions={selectToolCallOptions}
+            side
           />
-        ))}
-
-        {/* Add message controls */}
-        <div className="flex items-center gap-2 border-b border-[var(--color-border-light)] px-6 py-2.5">
-          <AddMessageButton onAdd={addMessage} />
         </div>
       </div>
-
-      {/* Inline draggable output panel */}
-      <PlaygroundOutputPanel
-        output={output}
-        outputParts={outputParts}
-        isStreaming={isStreaming}
-        streamError={streamError}
-        metrics={metrics}
-        modelName={config.modelName}
-        voiceModeEnabled={voiceModeEnabled}
-        voicePlaybackState={voicePlaybackState}
-        voiceError={voiceError}
-        voiceDetails={voiceDetails}
-        onStopVoice={stopVoicePreview}
-        onAddToMessages={handleAddOutputToMessages}
-        isReviewing={isReviewing}
-        reviewResult={reviewResult}
-        reviewRawText={reviewRawText}
-        reviewError={reviewError}
-        onReview={handleReview}
-        onApproveToolCall={approveToolCall}
-        onRejectToolCall={rejectToolCall}
-        onSelectToolCallOptions={selectToolCallOptions}
-      />
-
-      {/* Submit button */}
-      <div className="shrink-0 border-t border-[var(--color-border-light)] px-6 py-3">
-        <Button
-          className="w-full"
-          onClick={isStreaming ? stopStreaming : handleSubmit}
-          disabled={!isStreaming && editableMessages.every((m) => !m.content.trim())}
-        >
-          {isStreaming ? (
-            <>
-              <Square className="mr-2 h-3.5 w-3.5" />
-              Stop
-            </>
-          ) : (
-            'Submit'
-          )}
-        </Button>
-      </div>
-
-      {/* Run history (collapsible) */}
-      <RunHistoryPanel runs={runHistory} onClear={clearHistory} />
     </div>
   );
 }

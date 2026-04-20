@@ -67,6 +67,8 @@ interface PlaygroundOutputPanelProps {
   onApproveToolCall?: (toolCallId: string) => void;
   onRejectToolCall?: (toolCallId: string) => void;
   onSelectToolCallOptions?: (toolCallId: string, selected: string[]) => void;
+  /** When true, renders as a full-height side panel (no drag handle, fills parent). */
+  side?: boolean;
 }
 
 const MIN_HEIGHT = 48;
@@ -94,6 +96,7 @@ export function PlaygroundOutputPanel({
   onApproveToolCall,
   onRejectToolCall,
   onSelectToolCallOptions,
+  side = false,
 }: PlaygroundOutputPanelProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const dragging = useRef(false);
@@ -110,9 +113,9 @@ export function PlaygroundOutputPanel({
     }
   }, [output, outputParts, isStreaming]);
 
-  // Expand to default height when output first appears
+  // Expand to default height when output first appears (bottom mode only)
   useEffect(() => {
-    if (hasOutput && height < DEFAULT_HEIGHT) {
+    if (!side && hasOutput && height < DEFAULT_HEIGHT) {
       setHeight(DEFAULT_HEIGHT);
     }
   }, [hasOutput]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -130,6 +133,7 @@ export function PlaygroundOutputPanel({
   );
 
   useEffect(() => {
+    if (side) return;
     const onMouseMove = (e: MouseEvent) => {
       if (!dragging.current) return;
       const delta = startY.current - e.clientY;
@@ -151,7 +155,7 @@ export function PlaygroundOutputPanel({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, []);
+  }, [side]);
 
   const hasStructuredParts = outputParts.length > 0 &&
     outputParts.some((p) => p.type !== 'text');
@@ -159,19 +163,25 @@ export function PlaygroundOutputPanel({
   return (
     <div
       ref={panelRef}
-      className="shrink-0 border-t border-[var(--color-border-light)] bg-[var(--color-surface)]"
-      style={{ height }}
+      className={
+        side
+          ? 'flex h-full flex-col bg-[var(--color-surface)]'
+          : 'shrink-0 border-t border-[var(--color-border-light)] bg-[var(--color-surface)]'
+      }
+      style={side ? undefined : { height }}
     >
-      {/* Drag handle */}
-      <div
-        onMouseDown={onMouseDown}
-        className="group flex cursor-row-resize items-center justify-center border-b border-[var(--color-border-light)] py-1"
-      >
-        <GripHorizontal className="h-4 w-4 text-[var(--color-text-tertiary)] transition-colors group-hover:text-[var(--color-text-secondary)]" />
-      </div>
+      {/* Drag handle — bottom mode only */}
+      {!side && (
+        <div
+          onMouseDown={onMouseDown}
+          className="group flex cursor-row-resize items-center justify-center border-b border-[var(--color-border-light)] py-1"
+        >
+          <GripHorizontal className="h-4 w-4 text-[var(--color-text-tertiary)] transition-colors group-hover:text-[var(--color-text-secondary)]" />
+        </div>
+      )}
 
       {/* Header row */}
-      <div className="flex items-center justify-between px-6 py-2">
+      <div className={`flex shrink-0 items-center justify-between px-6 py-2${side ? ' border-b border-[var(--color-border-light)]' : ''}`}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-[var(--color-text-secondary)]">
             Output
@@ -251,8 +261,8 @@ export function PlaygroundOutputPanel({
       {/* Scrollable output content */}
       <div
         ref={scrollRef}
-        className="overflow-y-auto px-6 pb-4"
-        style={{ height: `calc(100% - 68px)` }}
+        className={side ? 'min-h-0 flex-1 overflow-y-auto px-6 pb-4' : 'overflow-y-auto px-6 pb-4'}
+        style={side ? undefined : { height: `calc(100% - 68px)` }}
       >
         {hasOutput ? (
           <>
