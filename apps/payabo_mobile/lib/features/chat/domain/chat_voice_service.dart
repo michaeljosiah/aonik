@@ -212,16 +212,25 @@ class DeviceChatVoiceService implements ChatVoiceService {
   Future<void> stopThinkingLoop() async {
     _log('stopThinkingLoop requested');
     if (!_thinkingLoopActive) {
-      await _thinkingLoopPlayer.stop();
+      await _safeStopThinkingLoop();
       return;
     }
 
     _thinkingLoopStopping = true;
     await _fadeThinkingLoop(to: 0);
-    await _thinkingLoopPlayer.stop();
+    await _safeStopThinkingLoop();
     _thinkingLoopActive = false;
     _thinkingLoopStopping = false;
     _thinkingLoopVolume = 0;
+  }
+
+  Future<void> _safeStopThinkingLoop() async {
+    try {
+      await _thinkingLoopPlayer.stop();
+    } catch (_) {
+      // Player may be in Idle state (setSource not yet called) or disposed —
+      // Android MediaPlayer.stop() throws IllegalStateException in that case.
+    }
   }
 
   @override
