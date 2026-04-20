@@ -196,7 +196,10 @@ class DeviceChatVoiceService implements ChatVoiceService {
   Future<void> startThinkingLoop() async {
     _log('startThinkingLoop requested');
     await initialize();
-    await stopSpeaking();
+    // Stop any prior single-shot speak() session but leave an active chunk
+    // queue intact — callers (e.g. _stopVoiceStage) set up the queue before
+    // starting the thinking loop, so trashing it here breaks streaming TTS.
+    await _stopLegacySpeech();
     _thinkingLoopStopping = false;
     await _prepareThinkingLoop();
 
@@ -563,9 +566,16 @@ class DeviceChatVoiceService implements ChatVoiceService {
   @override
   Future<void> stopSpeaking() async {
     _log('stopSpeaking requested');
+    await _cancelSpeechQueueInternal(stopPlayer: false);
+    await _stopLegacySpeech();
+    _log('stopSpeaking completed');
+  }
+
+  /// Stops any in-flight single-shot `speak()` session and silences the
+  /// playback players without touching the chunk queue state.
+  Future<void> _stopLegacySpeech() async {
     _ttsStopRequested = true;
     _cancelActiveTtsRequest();
-    await _cancelSpeechQueueInternal(stopPlayer: false);
     try {
       await _speechPlayer.stop();
     } catch (_) {
@@ -573,7 +583,6 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
     await _flutterTts.stop();
     await _deleteActiveSpeechFile();
-    _log('stopSpeaking completed');
   }
 
   @override
