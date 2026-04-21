@@ -75,6 +75,8 @@ runs:
       if: ${{ inputs.mode == 'deploy' }}
       shell: bash
       run: |
+        set +e
+
         deploy_args=(
           --resource-group "${{ inputs.resource_group }}"
           --template-file "${{ inputs.template_file }}"
@@ -82,4 +84,32 @@ runs:
           ${{ inputs.extra_params }}
         )
 
-        az deployment group create "${deploy_args[@]}"
+        max_attempts=3
+        attempt=1
+        retry_delay_seconds=15
+
+        while true; do
+          echo "Starting deployment attempt ${attempt}/${max_attempts}"
+
+          deploy_output=$(az deployment group create "${deploy_args[@]}" 2>&1)
+          deploy_exit_code=$?
+
+          echo "$deploy_output"
+
+          if [ $deploy_exit_code -eq 0 ]; then
+            exit 0
+          fi
+
+          if [ $attempt -lt $max_attempts ] && {
+            [[ "$deploy_output" == *"Unable to stream download"* ]] ||
+            [[ "$deploy_output" == *"'NoneType' object has no attribute 'json'"* ]];
+          }; then
+            echo "Azure CLI returned a transient deployment-response failure. Retrying in ${retry_delay_seconds}s..."
+            sleep "$retry_delay_seconds"
+            attempt=$((attempt + 1))
+            retry_delay_seconds=$((retry_delay_seconds * 2))
+            continue
+          fi
+
+          exit $deploy_exit_code
+        done
