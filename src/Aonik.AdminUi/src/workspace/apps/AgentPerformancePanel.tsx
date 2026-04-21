@@ -30,6 +30,23 @@ function fmtTokens(n: number | undefined | null): string {
   return String(n);
 }
 
+function formatPhaseLabel(phaseName: string): string {
+  switch (phaseName) {
+    case 'request_to_first_token':
+      return 'Request → First Token';
+    case 'user_brief':
+      return 'User Brief';
+    case 'history_load':
+      return 'History Load';
+    case 'run_started_sse':
+      return 'RUN_STARTED SSE';
+    case 'first_token_sse':
+      return 'First Token SSE';
+    default:
+      return phaseName;
+  }
+}
+
 export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderProps) {
   const { onEvent } = useWorkspaceEvents(panelId);
   const [data, setData] = useState<AiPerformanceResponse | null>(null);
@@ -152,6 +169,12 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
   const latency = data.latency;
   const tokens = data.tokenUsage;
   const clientServer = data.clientServerComparison;
+  const pfStreaming = data.personalFinanceStreaming;
+  const showPfStreaming = !!pfStreaming && (!selectedAgent || selectedAgent === pfStreaming.agentName);
+  const pfPhase = (name: string) =>
+    pfStreaming?.phases.find((phase) => phase.phaseName === name) ?? null;
+  const pfCache = (name: string) =>
+    pfStreaming?.caches.find((cache) => cache.cacheName === name) ?? null;
 
   const callouts: PanelCallout[] = [];
   if (latency) {
@@ -347,6 +370,95 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
             status={clientServer.avgNetworkOverheadMs > 2_000 ? 'warning' : 'good'}
           />
         </div>
+      )}
+
+      {showPfStreaming && pfStreaming && (
+        <Card>
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-sm font-medium">Personal Finance Streaming</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3 space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <MetricCard
+                label="P50 First Token"
+                value={pfPhase('request_to_first_token') ? fmtMs(pfPhase('request_to_first_token')!.p50Ms) : '--'}
+              />
+              <MetricCard
+                label="P95 First Token"
+                value={pfPhase('request_to_first_token') ? fmtMs(pfPhase('request_to_first_token')!.p95Ms) : '--'}
+                status={pfPhase('request_to_first_token') && pfPhase('request_to_first_token')!.p95Ms > 5_000 ? 'warning' : 'good'}
+              />
+              <MetricCard
+                label="P95 User Brief"
+                value={pfPhase('user_brief') ? fmtMs(pfPhase('user_brief')!.p95Ms) : '--'}
+              />
+              <MetricCard
+                label="P95 History Load"
+                value={pfPhase('history_load') ? fmtMs(pfPhase('history_load')!.p95Ms) : '--'}
+              />
+              <MetricCard
+                label="Brief Hit Rate"
+                value={pfCache('user_brief') ? `${pfCache('user_brief')!.hitRatePercent.toFixed(1)}%` : '--'}
+              />
+              <MetricCard
+                label="History Hit Rate"
+                value={pfCache('history') ? `${pfCache('history')!.hitRatePercent.toFixed(1)}%` : '--'}
+              />
+            </div>
+
+            {pfStreaming.phaseTimeSeries.some((series) => series.points.length > 0) && (
+              <MultiLineChart
+                series={pfStreaming.phaseTimeSeries
+                  .filter((series) => series.points.length > 0)
+                  .map((series, index) => ({
+                    key: series.phaseName,
+                    label: formatPhaseLabel(series.phaseName),
+                    color: ['#8b5cf6', '#0ea5e9', '#f59e0b', '#10b981'][index % 4],
+                    data: series.points,
+                  }))}
+                label="PF Streaming Phases"
+                height={160}
+                formatValue={(value) => fmtMs(value)}
+              />
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  Thread Modes
+                </p>
+                {pfStreaming.threadModes.map((mode) => (
+                  <div
+                    key={mode.mode}
+                    className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-[var(--color-border-light)] last:border-0"
+                  >
+                    <span className="font-medium text-[var(--color-text-primary)]">{mode.mode}</span>
+                    <span>{mode.runs} runs</span>
+                    <span>{fmtMs(mode.avgRequestToFirstTokenMs)}</span>
+                    <span>{fmtMs(mode.p95RequestToFirstTokenMs)} P95</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  History Sources
+                </p>
+                {pfStreaming.historySources.map((source) => (
+                  <div
+                    key={source.mode}
+                    className="grid grid-cols-4 gap-2 text-[11px] py-1 border-b border-[var(--color-border-light)] last:border-0"
+                  >
+                    <span className="font-medium text-[var(--color-text-primary)]">{source.mode}</span>
+                    <span>{source.runs} runs</span>
+                    <span>{fmtMs(source.avgRequestToFirstTokenMs)}</span>
+                    <span>{fmtMs(source.p95RequestToFirstTokenMs)} P95</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Latency & TTFT time series */}

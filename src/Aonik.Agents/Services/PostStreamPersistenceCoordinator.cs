@@ -1,3 +1,4 @@
+using Aonik.Agents.Contracts.Agui;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,7 @@ public sealed class PostStreamPersistenceCoordinator : IPostStreamPersistenceCoo
         PostStreamPersistenceContext context)
     {
         var chatThreadService = bgServices.GetService<IChatThreadService>();
+        var historyCache = bgServices.GetService<IChatThreadHistoryCache>();
         if (chatThreadService is null || !context.PersistedThreadId.HasValue)
             return;
 
@@ -60,6 +62,15 @@ public sealed class PostStreamPersistenceCoordinator : IPostStreamPersistenceCoo
 
         try
         {
+            if (context.IsNewThread && !string.IsNullOrEmpty(context.FirstUserMessage))
+            {
+                await chatThreadService.CreateThreadAsync(
+                    context.FirstUserMessage,
+                    agentName: context.AgentId,
+                    preferredThreadId: threadId,
+                    cancellationToken: CancellationToken.None);
+            }
+
             if (!string.IsNullOrEmpty(context.AssistantText))
             {
                 await chatThreadService.AppendMessageAsync(
@@ -68,6 +79,19 @@ public sealed class PostStreamPersistenceCoordinator : IPostStreamPersistenceCoo
                     context.AssistantText,
                     agentName: context.AgentId,
                     cancellationToken: CancellationToken.None);
+
+                if (historyCache is not null)
+                {
+                    await historyCache.AppendAsync(
+                        threadId,
+                        new AguiMessage
+                        {
+                            Id = Guid.NewGuid().ToString("N"),
+                            Role = "assistant",
+                            Content = context.AssistantText,
+                        },
+                        CancellationToken.None);
+                }
             }
 
             if (context.IsNewThread && !string.IsNullOrEmpty(context.FirstUserMessage))

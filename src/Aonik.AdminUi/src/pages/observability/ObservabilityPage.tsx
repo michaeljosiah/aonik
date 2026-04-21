@@ -58,6 +58,23 @@ function formatNumber(v: number): string {
   return v.toLocaleString();
 }
 
+function formatPhaseLabel(phaseName: string): string {
+  switch (phaseName) {
+    case 'request_to_first_token':
+      return 'Request → First Token';
+    case 'user_brief':
+      return 'User Brief';
+    case 'history_load':
+      return 'History Load';
+    case 'run_started_sse':
+      return 'RUN_STARTED SSE';
+    case 'first_token_sse':
+      return 'First Token SSE';
+    default:
+      return phaseName;
+  }
+}
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const minutes = Math.floor(diff / 60_000);
@@ -714,6 +731,11 @@ export function ObservabilityPage() {
       (sum, uc) => sum + uc.calls,
       0,
     );
+    const pfStreaming = aiData.personalFinanceStreaming;
+    const pfPhase = (name: string) =>
+      pfStreaming?.phases.find((phase) => phase.phaseName === name) ?? null;
+    const pfCache = (name: string) =>
+      pfStreaming?.caches.find((cache) => cache.cacheName === name) ?? null;
     const formatUsd = (v: number) =>
       v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(4)}`;
 
@@ -1009,6 +1031,132 @@ export function ObservabilityPage() {
                   label="Client TTFT"
                   value={formatMs(aiData.clientServerComparison.avgClientTtftMs)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {pfStreaming && (
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
+                    Personal Finance Streaming Diagnostics
+                  </h3>
+                  <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                    AG-UI request phases for <code>{pfStreaming.agentName}</code>.
+                    This breaks first-token latency into pre-stream work instead of
+                    treating the provider call as a black box.
+                  </p>
+                </div>
+                <span className="text-xs text-[var(--color-text-tertiary)]">
+                  {pfStreaming.threadModes.reduce((sum, mode) => sum + mode.runs, 0)} runs
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                <MetricCard
+                  label="P50 First Token"
+                  value={pfPhase('request_to_first_token') ? formatMs(pfPhase('request_to_first_token')!.p50Ms) : '—'}
+                />
+                <MetricCard
+                  label="P95 First Token"
+                  value={pfPhase('request_to_first_token') ? formatMs(pfPhase('request_to_first_token')!.p95Ms) : '—'}
+                  status={pfPhase('request_to_first_token') ? latencyStatus(pfPhase('request_to_first_token')!.p95Ms) : undefined}
+                />
+                <MetricCard
+                  label="P95 User Brief"
+                  value={pfPhase('user_brief') ? formatMs(pfPhase('user_brief')!.p95Ms) : '—'}
+                />
+                <MetricCard
+                  label="P95 History Load"
+                  value={pfPhase('history_load') ? formatMs(pfPhase('history_load')!.p95Ms) : '—'}
+                />
+                <MetricCard
+                  label="User Brief Hit Rate"
+                  value={pfCache('user_brief') ? formatPercent(pfCache('user_brief')!.hitRatePercent) : '—'}
+                />
+                <MetricCard
+                  label="History Cache Hit Rate"
+                  value={pfCache('history') ? formatPercent(pfCache('history')!.hitRatePercent) : '—'}
+                />
+              </div>
+
+              {pfStreaming.phaseTimeSeries.some((series) => series.points.length > 0) && (
+                <MultiLineChart
+                  series={pfStreaming.phaseTimeSeries
+                    .filter((series) => series.points.length > 0)
+                    .map((series, index) => ({
+                      key: series.phaseName,
+                      label: formatPhaseLabel(series.phaseName),
+                      color: ['#8b5cf6', '#0ea5e9', '#f59e0b', '#10b981'][index % 4],
+                      data: series.points,
+                    }))}
+                  label="PF Streaming Phases"
+                  height={180}
+                  formatValue={(value) => formatMs(value)}
+                />
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
+                    Thread Modes
+                  </h4>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border-light)]">
+                        <th className="px-3 py-2 text-left font-medium text-[var(--color-text-secondary)]">Mode</th>
+                        <th className="px-3 py-2 text-right font-medium text-[var(--color-text-secondary)]">Runs</th>
+                        <th className="px-3 py-2 text-right font-medium text-[var(--color-text-secondary)]">Avg First Token</th>
+                        <th className="px-3 py-2 text-right font-medium text-[var(--color-text-secondary)]">P95 First Token</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pfStreaming.threadModes.map((mode, idx) => (
+                        <tr
+                          key={mode.mode}
+                          className={`border-b border-[var(--color-border-light)] ${idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''}`}
+                        >
+                          <td className="px-3 py-2 text-[var(--color-text-primary)] font-medium">{mode.mode}</td>
+                          <td className="px-3 py-2 text-right text-[var(--color-text-primary)]">{formatNumber(mode.runs)}</td>
+                          <td className="px-3 py-2 text-right text-[var(--color-text-primary)]">{formatMs(mode.avgRequestToFirstTokenMs)}</td>
+                          <td className="px-3 py-2 text-right text-[var(--color-text-primary)]">{formatMs(mode.p95RequestToFirstTokenMs)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
+                    History Sources
+                  </h4>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border-light)]">
+                        <th className="px-3 py-2 text-left font-medium text-[var(--color-text-secondary)]">Source</th>
+                        <th className="px-3 py-2 text-right font-medium text-[var(--color-text-secondary)]">Runs</th>
+                        <th className="px-3 py-2 text-right font-medium text-[var(--color-text-secondary)]">Avg First Token</th>
+                        <th className="px-3 py-2 text-right font-medium text-[var(--color-text-secondary)]">P95 First Token</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pfStreaming.historySources.map((source, idx) => (
+                        <tr
+                          key={source.mode}
+                          className={`border-b border-[var(--color-border-light)] ${idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''}`}
+                        >
+                          <td className="px-3 py-2 text-[var(--color-text-primary)] font-medium">{source.mode}</td>
+                          <td className="px-3 py-2 text-right text-[var(--color-text-primary)]">{formatNumber(source.runs)}</td>
+                          <td className="px-3 py-2 text-right text-[var(--color-text-primary)]">{formatMs(source.avgRequestToFirstTokenMs)}</td>
+                          <td className="px-3 py-2 text-right text-[var(--color-text-primary)]">{formatMs(source.p95RequestToFirstTokenMs)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </CardContent>
           </Card>

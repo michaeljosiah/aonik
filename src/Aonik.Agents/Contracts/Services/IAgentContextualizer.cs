@@ -13,7 +13,19 @@ namespace Aonik.Agents.Contracts.Services;
 /// <c>RequiresUserBrief</c>. <c>null</c> when the agent does not need a brief
 /// or when projection was skipped or failed.
 /// </param>
-public sealed record AgentContextResolution(AIAgent Agent, ChatMessage? UserBriefPreamble);
+/// <param name="UserBriefCacheStatus">
+/// Cache status for the User Brief preamble: <c>hit</c>, <c>miss</c>,
+/// <c>skipped</c>, or <c>error</c>.
+/// </param>
+/// <param name="UserBriefDurationMs">
+/// Time spent resolving the User Brief payload. <c>null</c> when the brief was
+/// skipped entirely.
+/// </param>
+public sealed record AgentContextResolution(
+    AIAgent Agent,
+    ChatMessage? UserBriefPreamble,
+    string UserBriefCacheStatus,
+    long? UserBriefDurationMs);
 
 /// <summary>
 /// Resolves the <see cref="AIAgent"/> to run an AG-UI turn against and, when

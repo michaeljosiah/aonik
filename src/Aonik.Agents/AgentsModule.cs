@@ -91,6 +91,10 @@ public sealed class AgentsModule : IModule
         // append + thin-client history reconstruction.
         services.AddScoped<IChatThreadManager, Services.ChatThreadManager>();
 
+        // Recent AG-UI thread history cache — used to avoid reconstructing
+        // thin-client turns from persistent storage on every request.
+        services.AddSingleton<IChatThreadHistoryCache, Services.ChatThreadHistoryCache>();
+
         // Agent contextualizer — resolves the target agent and projects the user
         // brief preamble when the agent's descriptor requires it.
         services.AddScoped<IAgentContextualizer, Services.AgentContextualizer>();

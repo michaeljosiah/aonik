@@ -31,6 +31,19 @@ public readonly record struct ChatThreadContext(
     string? FirstUserMessage);
 
 /// <summary>
+/// Result of reconstructing AG-UI history for a streaming turn.
+/// </summary>
+/// <param name="Messages">The effective messages to feed into the agent.</param>
+/// <param name="Source">
+/// Where the history came from: <c>client</c>, <c>cache</c>, or <c>db</c>.
+/// </param>
+/// <param name="DurationMs">Time spent resolving the effective history.</param>
+public readonly record struct ChatHistoryResolution(
+    IReadOnlyList<AguiMessage>? Messages,
+    string Source,
+    long DurationMs);
+
+/// <summary>
 /// Manages persisted chat thread lifecycle for the AG-UI streaming endpoint:
 /// thread creation/lookup, detached user-message append, and thin-client
 /// history reconstruction.
@@ -55,7 +68,7 @@ public interface IChatThreadManager
     /// persisted thread. Falls back to the client-supplied messages unchanged
     /// when conditions are not met or on any retrieval failure.
     /// </summary>
-    Task<IReadOnlyList<AguiMessage>?> ReconstructHistoryAsync(
+    Task<ChatHistoryResolution> ReconstructHistoryAsync(
         Guid? persistedThreadId,
         IReadOnlyList<AguiMessage>? clientMessages,
         CancellationToken cancellationToken);

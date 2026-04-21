@@ -14,6 +14,7 @@ public interface IChatThreadService
     Task<Guid> CreateThreadAsync(
         string firstMessage,
         string? agentName = null,
+        Guid? preferredThreadId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

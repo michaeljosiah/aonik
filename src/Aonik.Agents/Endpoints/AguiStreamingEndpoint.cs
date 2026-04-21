@@ -87,12 +87,32 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
     {
         var response = HttpContext.Response;
         var runId = input.RunId ?? Guid.NewGuid().ToString("N");
+        var requestStopwatch = Stopwatch.StartNew();
+        var assistantTextBuilder = new System.Text.StringBuilder();
+        long inputTokens = 0;
+        long outputTokens = 0;
+        long? timeToFirstTokenMs = null;
+        long? requestToRunStartedSseMs = null;
+        long? requestToAgentReadyMs = null;
+        long? requestToLlmStartMs = null;
+        long? requestToFirstTokenSseMs = null;
+        long? userBriefDurationMs = null;
+        var userBriefCacheStatus = "skipped";
+        var historySource = "client";
+        long historyDurationMs = 0;
+        var historyMessageCount = input.Messages?.Count ?? 0;
+        var clientToolCount = 0;
+        var isThinClient = input.Messages is { Count: 1 }
+            && string.Equals(input.Messages[0].Role, "user", StringComparison.OrdinalIgnoreCase);
+        var persistenceQueued = false;
+        var outcome = "success";
 
         // Resolve / create the persisted thread before anything else — the
         // thread GUID is what we stamp onto OTel baggage and SSE events.
         var threadCtx = await _threadManager.EnsureThreadAsync(
             input.ThreadId, input.Messages, input.AgentId, cancellationToken);
         var threadId = threadCtx.ThreadIdString;
+        var requestToThreadReadyMs = requestStopwatch.ElapsedMilliseconds;
 
         // Propagate session (threadId) and user identifiers as OTel baggage +
         // span attributes so the BaggageSpanProcessor copies them to all child
@@ -117,23 +137,32 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         response.Headers["Pragma"] = "no-cache";
         response.Headers["X-Accel-Buffering"] = "no";
 
-        // Agent resolution + optional User Brief projection.
-        var agentContext = await _contextualizer.ResolveAsync(input.AgentId, cancellationToken);
-        var agent = agentContext.Agent;
-
-        var assistantTextBuilder = new System.Text.StringBuilder();
-        var stopwatch = Stopwatch.StartNew();
-        long inputTokens = 0;
-        long outputTokens = 0;
-        long? timeToFirstTokenMs = null;
+        var agentContextTask = _contextualizer.ResolveAsync(input.AgentId, cancellationToken);
+        var historyTask = _threadManager.ReconstructHistoryAsync(
+            threadCtx.PersistedThreadId, input.Messages, cancellationToken);
 
         try
         {
-            // Thin-client optimisation: when the client sends only the new
-            // user turn and the thread is persisted, reconstitute the prior
-            // conversation from storage.
-            var effectiveMessages = await _threadManager.ReconstructHistoryAsync(
-                threadCtx.PersistedThreadId, input.Messages, cancellationToken);
+            await response.StartAsync(cancellationToken);
+            await WriteSseEventAsync(response, new
+            {
+                type = "RUN_STARTED",
+                threadId,
+                runId,
+            }, cancellationToken);
+            requestToRunStartedSseMs = requestStopwatch.ElapsedMilliseconds;
+
+            var agentContext = await agentContextTask;
+            var agent = agentContext.Agent;
+            requestToAgentReadyMs = requestStopwatch.ElapsedMilliseconds;
+            userBriefCacheStatus = agentContext.UserBriefCacheStatus;
+            userBriefDurationMs = agentContext.UserBriefDurationMs;
+
+            var historyResolution = await historyTask;
+            var effectiveMessages = historyResolution.Messages;
+            historySource = historyResolution.Source;
+            historyDurationMs = historyResolution.DurationMs;
+            historyMessageCount = effectiveMessages?.Count ?? 0;
 
             var chatMessages = _converter.ConvertMessages(effectiveMessages);
             if (agentContext.UserBriefPreamble is not null)
@@ -142,6 +171,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             // Client-side tool declarations — the LLM sees them so it can emit
             // FunctionCallContent, but the frontend is responsible for execution.
             var clientTools = _converter.ConvertClientTools(input.Tools);
+            clientToolCount = clientTools.Count;
 
             ChatClientAgentRunOptions? runOptions = null;
             if (clientTools.Count > 0)
@@ -159,18 +189,13 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                     string.Join(", ", clientTools.Select(t => t.Name)));
             }
 
-            await WriteSseEventAsync(response, new
-            {
-                type = "RUN_STARTED",
-                threadId,
-                runId,
-            }, cancellationToken);
-
             var messageId = Guid.NewGuid().ToString("N");
             var messageStarted = false;
             var requiresVisualAttention = false;
             var requiresApproval = false;
             var speechBuffer = new SpeechStreamBuffer();
+
+            requestToLlmStartMs = requestStopwatch.ElapsedMilliseconds;
 
             await foreach (var update in agent.RunStreamingAsync(
                 chatMessages, session: null, options: runOptions, cancellationToken: cancellationToken))
@@ -187,7 +212,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                         case TextContent textContent when !string.IsNullOrEmpty(textContent.Text):
                             if (!messageStarted)
                             {
-                                timeToFirstTokenMs ??= stopwatch.ElapsedMilliseconds;
+                                timeToFirstTokenMs ??= requestStopwatch.ElapsedMilliseconds;
                                 await WriteSseEventAsync(response, new
                                 {
                                     type = "TEXT_MESSAGE_START",
@@ -206,6 +231,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                                 messageId,
                                 delta = textContent.Text,
                             }, cancellationToken);
+                            requestToFirstTokenSseMs ??= requestStopwatch.ElapsedMilliseconds;
 
                             while (speechBuffer.TryPopSentence(out var rawChunk))
                             {
@@ -312,15 +338,15 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 }
             }, cancellationToken);
 
-            stopwatch.Stop();
+            requestStopwatch.Stop();
 
             var metrics = new
             {
                 inputTokens,
                 outputTokens,
                 totalTokens = inputTokens + outputTokens,
-                latencyMs = stopwatch.ElapsedMilliseconds,
-                timeToFirstTokenMs = timeToFirstTokenMs ?? stopwatch.ElapsedMilliseconds,
+                latencyMs = requestStopwatch.ElapsedMilliseconds,
+                timeToFirstTokenMs = timeToFirstTokenMs ?? requestStopwatch.ElapsedMilliseconds,
             };
 
             _logger.LogInformation(
@@ -356,29 +382,17 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
             // Capture tenant/user from the request scope so the coordinator
             // can re-seed them in its background scope.
-            Guid? capturedTenantId = _tenantContext?.TenantId;
-            Guid? capturedUserId = _currentUserContext?.UserId;
-
-            _coordinator.Enqueue(new PostStreamPersistenceContext(
-                PersistedThreadId: threadCtx.PersistedThreadId,
-                TenantId: capturedTenantId,
-                UserId: capturedUserId,
-                AssistantText: assistantText,
-                AgentId: input.AgentId,
-                InputTokens: inputTokens,
-                OutputTokens: outputTokens,
-                LatencyMs: stopwatch.ElapsedMilliseconds,
-                IsNewThread: threadCtx.IsNewThread,
-                FirstUserMessage: threadCtx.FirstUserMessage,
-                ThreadIdString: threadId,
-                RunId: runId));
+            QueuePostStreamPersistence(assistantText, requestStopwatch.ElapsedMilliseconds);
+            persistenceQueued = true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            outcome = "cancelled";
             _logger.LogDebug("AG-UI stream cancelled for thread {ThreadId}", threadId);
         }
         catch (Exception ex)
         {
+            outcome = "error";
             _logger.LogError(ex, "AG-UI streaming error for thread {ThreadId}, run {RunId}", threadId, runId);
 
             try
@@ -396,6 +410,36 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             }
         }
 
+        if (!persistenceQueued && threadCtx.PersistedThreadId.HasValue && !string.IsNullOrEmpty(threadCtx.FirstUserMessage))
+        {
+            QueuePostStreamPersistence(assistantTextBuilder.ToString(), requestStopwatch.ElapsedMilliseconds);
+        }
+
+        if (requestStopwatch.IsRunning)
+            requestStopwatch.Stop();
+
+        _logger.LogInformation(
+            "AguiRunPhases: RunId={RunId} AgentName={AgentName} ThreadId={ThreadId} Outcome={Outcome} RequestToThreadReadyMs={RequestToThreadReadyMs} RequestToRunStartedSseMs={RequestToRunStartedSseMs} RequestToAgentReadyMs={RequestToAgentReadyMs} RequestToLlmStartMs={RequestToLlmStartMs} RequestToFirstTokenMs={RequestToFirstTokenMs} RequestToFirstTokenSseMs={RequestToFirstTokenSseMs} UserBriefDurationMs={UserBriefDurationMs} UserBriefCacheStatus={UserBriefCacheStatus} HistoryDurationMs={HistoryDurationMs} HistorySource={HistorySource} HistoryMessageCount={HistoryMessageCount} IsNewThread={IsNewThread} IsThinClient={IsThinClient} HasUserBrief={HasUserBrief} ClientToolCount={ClientToolCount}",
+            runId,
+            input.AgentId ?? "orchestrator",
+            threadId,
+            outcome,
+            requestToThreadReadyMs,
+            requestToRunStartedSseMs,
+            requestToAgentReadyMs,
+            requestToLlmStartMs,
+            timeToFirstTokenMs,
+            requestToFirstTokenSseMs,
+            userBriefDurationMs,
+            userBriefCacheStatus,
+            historyDurationMs,
+            historySource,
+            historyMessageCount,
+            threadCtx.IsNewThread,
+            isThinClient,
+            userBriefCacheStatus is "hit" or "miss",
+            clientToolCount);
+
         // Best-effort final flush. In the success path the response has
         // already been completed via CompleteAsync and this will throw —
         // that's fine, the bytes are already on the wire.
@@ -406,6 +450,26 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         catch
         {
             // Response already completed / connection already closed.
+        }
+
+        void QueuePostStreamPersistence(string assistantText, long latencyMs)
+        {
+            Guid? capturedTenantId = _tenantContext?.TenantId;
+            Guid? capturedUserId = _currentUserContext?.UserId;
+
+            _coordinator.Enqueue(new PostStreamPersistenceContext(
+                PersistedThreadId: threadCtx.PersistedThreadId,
+                TenantId: capturedTenantId,
+                UserId: capturedUserId,
+                AssistantText: assistantText,
+                AgentId: input.AgentId,
+                InputTokens: inputTokens,
+                OutputTokens: outputTokens,
+                LatencyMs: latencyMs,
+                IsNewThread: threadCtx.IsNewThread,
+                FirstUserMessage: threadCtx.FirstUserMessage,
+                ThreadIdString: threadId,
+                RunId: runId));
         }
     }
 

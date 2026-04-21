@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Aonik.Agents.Contracts.Agui;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
@@ -11,18 +12,21 @@ public sealed class ChatThreadManager : IChatThreadManager
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IChatThreadService? _chatThreadService;
+    private readonly IChatThreadHistoryCache _historyCache;
     private readonly ITenantContext? _tenantContext;
     private readonly ICurrentUserContext? _userContext;
     private readonly ILogger<ChatThreadManager> _logger;
 
     public ChatThreadManager(
         IServiceScopeFactory scopeFactory,
+        IChatThreadHistoryCache historyCache,
         ILogger<ChatThreadManager> logger,
         IChatThreadService? chatThreadService = null,
         ITenantContext? tenantContext = null,
         ICurrentUserContext? userContext = null)
     {
         _scopeFactory = scopeFactory;
+        _historyCache = historyCache;
         _chatThreadService = chatThreadService;
         _tenantContext = tenantContext;
         _userContext = userContext;
@@ -60,12 +64,10 @@ public sealed class ChatThreadManager : IChatThreadManager
                 return new ChatThreadContext(existingId, threadIdString, IsNewThread: false, firstUserMessage);
             }
 
-            // New thread — must await because its ID replaces threadId in SSE events.
-            var newId = await _chatThreadService.CreateThreadAsync(
-                firstUserMessage,
-                agentName: agentId,
-                cancellationToken: cancellationToken);
-
+            // New thread — reserve the GUID immediately so SSE can start without
+            // waiting on persistence. The coordinator persists the thread after the
+            // response is flushed.
+            var newId = Guid.NewGuid();
             return new ChatThreadContext(newId, newId.ToString("N"), IsNewThread: true, firstUserMessage);
         }
         catch (Exception ex)
@@ -75,37 +77,55 @@ public sealed class ChatThreadManager : IChatThreadManager
         }
     }
 
-    public async Task<IReadOnlyList<AguiMessage>?> ReconstructHistoryAsync(
+    public async Task<ChatHistoryResolution> ReconstructHistoryAsync(
         Guid? persistedThreadId,
         IReadOnlyList<AguiMessage>? clientMessages,
         CancellationToken cancellationToken)
     {
-        if (_chatThreadService is null || !persistedThreadId.HasValue)
-            return clientMessages;
+        var stopwatch = Stopwatch.StartNew();
 
-        if (clientMessages is null || clientMessages.Count != 1)
-            return clientMessages;
+        if (_chatThreadService is null || !persistedThreadId.HasValue)
+            return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
+
+        if (clientMessages is null || clientMessages.Count == 0)
+            return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
+
+        if (clientMessages.Count != 1)
+        {
+            await _historyCache.StoreAsync(persistedThreadId.Value, clientMessages, cancellationToken);
+            return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
+        }
 
         var only = clientMessages[0];
         if (!string.Equals(only.Role, "user", StringComparison.OrdinalIgnoreCase))
-            return clientMessages;
+        {
+            await _historyCache.StoreAsync(persistedThreadId.Value, clientMessages, cancellationToken);
+            return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
+        }
 
         try
         {
-            var detail = await _chatThreadService.GetThreadAsync(persistedThreadId.Value, cancellationToken);
-            if (detail is null || detail.Messages.Count == 0)
-                return clientMessages;
-
-            var reconstructed = new List<AguiMessage>(detail.Messages.Count + 1);
-            foreach (var m in detail.Messages.OrderBy(m => m.SortOrder))
-            {
-                reconstructed.Add(new AguiMessage
+            var historyLookup = await _historyCache.GetOrLoadAsync(
+                persistedThreadId.Value,
+                async ct =>
                 {
-                    Id = m.Id.ToString("N"),
-                    Role = m.Role,
-                    Content = m.Content,
-                });
-            }
+                    var detail = await _chatThreadService.GetThreadAsync(persistedThreadId.Value, ct);
+                    if (detail is null || detail.Messages.Count == 0)
+                        return [];
+
+                    return detail.Messages
+                        .OrderBy(m => m.SortOrder)
+                        .Select(m => new AguiMessage
+                        {
+                            Id = m.Id.ToString("N"),
+                            Role = m.Role,
+                            Content = m.Content,
+                        })
+                        .ToList();
+                },
+                cancellationToken);
+
+            var reconstructed = historyLookup.Snapshot.Messages.ToList();
 
             // Trim a trailing duplicate user message (the incoming turn may already
             // have been appended via the detached path for existing threads, or
@@ -125,14 +145,19 @@ public sealed class ChatThreadManager : IChatThreadManager
             }
 
             reconstructed.Add(only);
-            return reconstructed;
+            await _historyCache.StoreAsync(persistedThreadId.Value, reconstructed, cancellationToken);
+
+            return new ChatHistoryResolution(
+                reconstructed,
+                historyLookup.IsCacheHit ? "cache" : "db",
+                stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
                 "AG-UI thin-client history reconstruction failed for thread {ThreadId} — falling back to client-supplied messages",
                 persistedThreadId.Value);
-            return clientMessages;
+            return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
         }
     }
 

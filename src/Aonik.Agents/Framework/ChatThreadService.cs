@@ -35,10 +35,20 @@ internal sealed class ChatThreadService : IChatThreadService
     public async Task<Guid> CreateThreadAsync(
         string firstMessage,
         string? agentName = null,
+        Guid? preferredThreadId = null,
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         _currentUserProvider.TryGetCurrentUserId(out var userId);
+
+        if (preferredThreadId.HasValue)
+        {
+            var existing = await _dbContext.ChatThreads
+                .FirstOrDefaultAsync(t => t.Id == preferredThreadId.Value, cancellationToken);
+
+            if (existing is not null)
+                return existing.Id;
+        }
 
         // Use the first message as a placeholder title (truncated).
         // The title will be updated later by the title generator.
@@ -50,6 +60,7 @@ internal sealed class ChatThreadService : IChatThreadService
 
         var thread = new ChatThread
         {
+            Id = preferredThreadId ?? Guid.NewGuid(),
             TenantId = tenantId,
             UserId = userId == Guid.Empty ? null : userId,
             Title = placeholderTitle,

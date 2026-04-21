@@ -327,7 +327,7 @@ public class AppInsightsQueryService : IObservabilityService
     {
         var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
         if (appId is null || apiKey is null)
-            return new AiPerformanceResponse(false, null, null, null, [], null, [], [], [], [], []);
+            return new AiPerformanceResponse(false, null, null, null, [], null, [], [], [], [], [], null);
 
         var range = ParseTimeRange(timeRange);
 
@@ -405,9 +405,55 @@ public class AppInsightsQueryService : IObservabilityService
             $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend totalTokens = tolong(customDimensions[\"TotalTokens\"]) | summarize sum(totalTokens) by bin(timestamp, {range.Bin}) | order by timestamp asc",
             cancellationToken);
 
+        // ── Personal finance streaming diagnostics ──────────────────────
+
+        const string pfAgentName = "personal-finance-agent";
+
+        var pfPhaseTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:phases:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]) | where agentName == \"{pfAgentName}\" | extend historySource = tostring(customDimensions[\"HistorySource\"]), requestToFirstTokenMs = todouble(customDimensions[\"RequestToFirstTokenMs\"]), userBriefDurationMs = todouble(customDimensions[\"UserBriefDurationMs\"]), historyDurationMs = todouble(customDimensions[\"HistoryDurationMs\"]), requestToRunStartedSseMs = todouble(customDimensions[\"RequestToRunStartedSseMs\"]), requestToFirstTokenSseMs = todouble(customDimensions[\"RequestToFirstTokenSseMs\"]) | extend historyLoadMs = iff(historySource == \"client\", real(null), historyDurationMs) | summarize requestToFirstTokenP50=percentile(requestToFirstTokenMs, 50), requestToFirstTokenP95=percentile(requestToFirstTokenMs, 95), requestToFirstTokenP99=percentile(requestToFirstTokenMs, 99), requestToFirstTokenSamples=countif(isnotnull(requestToFirstTokenMs)), userBriefP50=percentile(userBriefDurationMs, 50), userBriefP95=percentile(userBriefDurationMs, 95), userBriefP99=percentile(userBriefDurationMs, 99), userBriefSamples=countif(isnotnull(userBriefDurationMs)), historyLoadP50=percentile(historyLoadMs, 50), historyLoadP95=percentile(historyLoadMs, 95), historyLoadP99=percentile(historyLoadMs, 99), historyLoadSamples=countif(isnotnull(historyLoadMs)), runStartedSseP50=percentile(requestToRunStartedSseMs, 50), runStartedSseP95=percentile(requestToRunStartedSseMs, 95), runStartedSseP99=percentile(requestToRunStartedSseMs, 99), runStartedSseSamples=countif(isnotnull(requestToRunStartedSseMs)), firstTokenSseP50=percentile(requestToFirstTokenSseMs, 50), firstTokenSseP95=percentile(requestToFirstTokenSseMs, 95), firstTokenSseP99=percentile(requestToFirstTokenSseMs, 99), firstTokenSseSamples=countif(isnotnull(requestToFirstTokenSseMs))",
+            cancellationToken);
+
+        var pfCacheTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:caches:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]) | where agentName == \"{pfAgentName}\" | summarize userBriefHits=countif(tostring(customDimensions[\"UserBriefCacheStatus\"]) == \"hit\"), userBriefMisses=countif(tostring(customDimensions[\"UserBriefCacheStatus\"]) == \"miss\"), historyHits=countif(tostring(customDimensions[\"HistorySource\"]) == \"cache\"), historyMisses=countif(tostring(customDimensions[\"HistorySource\"]) == \"db\")",
+            cancellationToken);
+
+        var pfThreadModesTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:threadModes:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]), requestToFirstTokenMs = todouble(customDimensions[\"RequestToFirstTokenMs\"]) | where agentName == \"{pfAgentName}\" and isnotnull(requestToFirstTokenMs) | extend mode = iff(tobool(customDimensions[\"IsNewThread\"]), \"new-thread\", \"existing-thread\") | summarize runs=count(), avgRequestToFirstToken=avg(requestToFirstTokenMs), p95RequestToFirstToken=percentile(requestToFirstTokenMs, 95) by mode | order by mode asc",
+            cancellationToken);
+
+        var pfHistorySourcesTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:historySources:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]), requestToFirstTokenMs = todouble(customDimensions[\"RequestToFirstTokenMs\"]), historySource = tostring(customDimensions[\"HistorySource\"]) | where agentName == \"{pfAgentName}\" and isnotnull(requestToFirstTokenMs) and historySource in (\"client\", \"cache\", \"db\") | summarize runs=count(), avgRequestToFirstToken=avg(requestToFirstTokenMs), p95RequestToFirstToken=percentile(requestToFirstTokenMs, 95) by historySource | order by historySource asc",
+            cancellationToken);
+
+        var pfRequestToFirstTokenTsTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:reqToFirstTokenTs:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]), requestToFirstTokenMs = todouble(customDimensions[\"RequestToFirstTokenMs\"]) | where agentName == \"{pfAgentName}\" and isnotnull(requestToFirstTokenMs) | summarize avg(requestToFirstTokenMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            cancellationToken);
+
+        var pfUserBriefTsTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:userBriefTs:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]), userBriefDurationMs = todouble(customDimensions[\"UserBriefDurationMs\"]) | where agentName == \"{pfAgentName}\" and isnotnull(userBriefDurationMs) | summarize avg(userBriefDurationMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            cancellationToken);
+
+        var pfHistoryTsTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:historyTs:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]), historyDurationMs = todouble(customDimensions[\"HistoryDurationMs\"]), historySource = tostring(customDimensions[\"HistorySource\"]) | where agentName == \"{pfAgentName}\" and historySource != \"client\" and isnotnull(historyDurationMs) | summarize avg(historyDurationMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            cancellationToken);
+
+        var pfRunStartedTsTask = CachedQueryAsync(
+            $"observability:aiPerf:pfStreaming:runStartedTs:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunPhases\" | extend agentName = tostring(customDimensions[\"AgentName\"]), requestToRunStartedSseMs = todouble(customDimensions[\"RequestToRunStartedSseMs\"]) | where agentName == \"{pfAgentName}\" and isnotnull(requestToRunStartedSseMs) | summarize avg(requestToRunStartedSseMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            cancellationToken);
+
         await Task.WhenAll(latencyDistTask, ttftDistTask, tokenUsageTask,
             byAgentTask, byUseCaseTask, byModelTask,
-            clientServerTask, latencyTsTask, ttftTsTask, tokenTsTask);
+            clientServerTask, latencyTsTask, ttftTsTask, tokenTsTask,
+            pfPhaseTask, pfCacheTask, pfThreadModesTask, pfHistorySourcesTask,
+            pfRequestToFirstTokenTsTask, pfUserBriefTsTask, pfHistoryTsTask, pfRunStartedTsTask);
 
         // ── Parse latency distribution ──────────────────────────────────
 
@@ -516,8 +562,118 @@ public class AppInsightsQueryService : IObservabilityService
         var tokenTs = tokenTsTask.Result.Select(r => new TimeSeriesPoint(
             ParseDateTime(r, 0), ParseDouble(r, 1))).ToList();
 
+        // ── Parse personal finance streaming diagnostics ────────────────
+
+        PersonalFinanceStreamingDiagnostics? personalFinanceStreaming = null;
+
+        var pfPhaseRows = pfPhaseTask.Result;
+        var pfCacheRows = pfCacheTask.Result;
+        var pfThreadModeRows = pfThreadModesTask.Result;
+        var pfHistorySourceRows = pfHistorySourcesTask.Result;
+
+        if (pfPhaseRows.Count > 0 || pfCacheRows.Count > 0 || pfThreadModeRows.Count > 0 || pfHistorySourceRows.Count > 0)
+        {
+            var phases = new List<AiStreamingPhaseMetric>();
+            if (pfPhaseRows.Count > 0)
+            {
+                var row = pfPhaseRows[0];
+                phases.Add(new AiStreamingPhaseMetric(
+                    "request_to_first_token",
+                    Math.Round(ParseDouble(row, 0), 2),
+                    Math.Round(ParseDouble(row, 1), 2),
+                    Math.Round(ParseDouble(row, 2), 2),
+                    (long)ParseDouble(row, 3)));
+                phases.Add(new AiStreamingPhaseMetric(
+                    "user_brief",
+                    Math.Round(ParseDouble(row, 4), 2),
+                    Math.Round(ParseDouble(row, 5), 2),
+                    Math.Round(ParseDouble(row, 6), 2),
+                    (long)ParseDouble(row, 7)));
+                phases.Add(new AiStreamingPhaseMetric(
+                    "history_load",
+                    Math.Round(ParseDouble(row, 8), 2),
+                    Math.Round(ParseDouble(row, 9), 2),
+                    Math.Round(ParseDouble(row, 10), 2),
+                    (long)ParseDouble(row, 11)));
+                phases.Add(new AiStreamingPhaseMetric(
+                    "run_started_sse",
+                    Math.Round(ParseDouble(row, 12), 2),
+                    Math.Round(ParseDouble(row, 13), 2),
+                    Math.Round(ParseDouble(row, 14), 2),
+                    (long)ParseDouble(row, 15)));
+                phases.Add(new AiStreamingPhaseMetric(
+                    "first_token_sse",
+                    Math.Round(ParseDouble(row, 16), 2),
+                    Math.Round(ParseDouble(row, 17), 2),
+                    Math.Round(ParseDouble(row, 18), 2),
+                    (long)ParseDouble(row, 19)));
+            }
+
+            var caches = new List<AiStreamingCacheMetric>();
+            if (pfCacheRows.Count > 0)
+            {
+                var row = pfCacheRows[0];
+                var userBriefHits = (long)ParseDouble(row, 0);
+                var userBriefMisses = (long)ParseDouble(row, 1);
+                var historyHits = (long)ParseDouble(row, 2);
+                var historyMisses = (long)ParseDouble(row, 3);
+
+                caches.Add(new AiStreamingCacheMetric(
+                    "user_brief",
+                    userBriefHits,
+                    userBriefMisses,
+                    ComputeHitRate(userBriefHits, userBriefMisses)));
+                caches.Add(new AiStreamingCacheMetric(
+                    "history",
+                    historyHits,
+                    historyMisses,
+                    ComputeHitRate(historyHits, historyMisses)));
+            }
+
+            var threadModes = pfThreadModeRows.Select(r => new AiStreamingModeMetric(
+                GetString(r, 0),
+                (long)ParseDouble(r, 1),
+                Math.Round(ParseDouble(r, 2), 2),
+                Math.Round(ParseDouble(r, 3), 2))).ToList();
+
+            var historySources = pfHistorySourceRows.Select(r => new AiStreamingModeMetric(
+                GetString(r, 0),
+                (long)ParseDouble(r, 1),
+                Math.Round(ParseDouble(r, 2), 2),
+                Math.Round(ParseDouble(r, 3), 2))).ToList();
+
+            var phaseTimeSeries = new List<AiStreamingPhaseTimeSeries>
+            {
+                new(
+                    "request_to_first_token",
+                    pfRequestToFirstTokenTsTask.Result.Select(r => new TimeSeriesPoint(
+                        ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
+                new(
+                    "user_brief",
+                    pfUserBriefTsTask.Result.Select(r => new TimeSeriesPoint(
+                        ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
+                new(
+                    "history_load",
+                    pfHistoryTsTask.Result.Select(r => new TimeSeriesPoint(
+                        ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
+                new(
+                    "run_started_sse",
+                    pfRunStartedTsTask.Result.Select(r => new TimeSeriesPoint(
+                        ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
+            };
+
+            personalFinanceStreaming = new PersonalFinanceStreamingDiagnostics(
+                pfAgentName,
+                phases,
+                caches,
+                threadModes,
+                historySources,
+                phaseTimeSeries);
+        }
+
         return new AiPerformanceResponse(true, latency, ttft, tokenUsage,
-            byAgent, clientServer, latencyTs, ttftTs, tokenTs, byUseCase, byModel);
+            byAgent, clientServer, latencyTs, ttftTs, tokenTs, byUseCase, byModel,
+            personalFinanceStreaming);
     }
 
     // ── Retrieval (Qdrant + embedding) ──────────────────────────────
@@ -885,6 +1041,13 @@ public class AppInsightsQueryService : IObservabilityService
 
     private static string? NullIfEmpty(string s) =>
         string.IsNullOrWhiteSpace(s) ? null : s;
+
+    private static double ComputeHitRate(long hits, long misses)
+    {
+        var total = hits + misses;
+        if (total <= 0) return 0;
+        return Math.Round((double)hits / total * 100, 2);
+    }
 
     private static DateTime? ParseDateTimeNullable(JsonElement[] row, int index)
     {

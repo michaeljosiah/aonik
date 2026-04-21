@@ -188,6 +188,37 @@ public record AiClientServerComparison(
     double AvgNetworkOverheadMs,
     double AvgClientTtftMs, double AvgServerTtftMs);
 
+public record AiStreamingPhaseMetric(
+    string PhaseName,
+    double P50Ms,
+    double P95Ms,
+    double P99Ms,
+    long Samples);
+
+public record AiStreamingCacheMetric(
+    string CacheName,
+    long Hits,
+    long Misses,
+    double HitRatePercent);
+
+public record AiStreamingModeMetric(
+    string Mode,
+    long Runs,
+    double AvgRequestToFirstTokenMs,
+    double P95RequestToFirstTokenMs);
+
+public record AiStreamingPhaseTimeSeries(
+    string PhaseName,
+    IReadOnlyList<TimeSeriesPoint> Points);
+
+public record PersonalFinanceStreamingDiagnostics(
+    string AgentName,
+    IReadOnlyList<AiStreamingPhaseMetric> Phases,
+    IReadOnlyList<AiStreamingCacheMetric> Caches,
+    IReadOnlyList<AiStreamingModeMetric> ThreadModes,
+    IReadOnlyList<AiStreamingModeMetric> HistorySources,
+    IReadOnlyList<AiStreamingPhaseTimeSeries> PhaseTimeSeries);
+
 public record AiPerformanceResponse(
     bool Configured,
     AiLatencyDistribution? Latency,
@@ -199,7 +230,8 @@ public record AiPerformanceResponse(
     IReadOnlyList<TimeSeriesPoint> TtftTimeSeries,
     IReadOnlyList<TimeSeriesPoint> TokenTimeSeries,
     IReadOnlyList<AiUseCasePerformance> ByUseCase,
-    IReadOnlyList<AiModelPerformance> ByModel);
+    IReadOnlyList<AiModelPerformance> ByModel,
+    PersonalFinanceStreamingDiagnostics? PersonalFinanceStreaming);
 
 /// <summary>
 /// Latency distribution for a single retrieval-tier instrument

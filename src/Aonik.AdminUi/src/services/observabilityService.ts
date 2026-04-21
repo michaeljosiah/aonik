@@ -163,6 +163,42 @@ export interface AiClientServerComparison {
   avgClientTtftMs: number; avgServerTtftMs: number;
 }
 
+export interface AiStreamingPhaseMetric {
+  phaseName: string;
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
+  samples: number;
+}
+
+export interface AiStreamingCacheMetric {
+  cacheName: string;
+  hits: number;
+  misses: number;
+  hitRatePercent: number;
+}
+
+export interface AiStreamingModeMetric {
+  mode: string;
+  runs: number;
+  avgRequestToFirstTokenMs: number;
+  p95RequestToFirstTokenMs: number;
+}
+
+export interface AiStreamingPhaseTimeSeries {
+  phaseName: string;
+  points: TimeSeriesPoint[];
+}
+
+export interface PersonalFinanceStreamingDiagnostics {
+  agentName: string;
+  phases: AiStreamingPhaseMetric[];
+  caches: AiStreamingCacheMetric[];
+  threadModes: AiStreamingModeMetric[];
+  historySources: AiStreamingModeMetric[];
+  phaseTimeSeries: AiStreamingPhaseTimeSeries[];
+}
+
 export interface AiPerformanceResponse {
   configured: boolean;
   latency: AiLatencyDistribution | null;
@@ -175,6 +211,7 @@ export interface AiPerformanceResponse {
   tokenTimeSeries: TimeSeriesPoint[];
   byUseCase: AiUseCasePerformance[];
   byModel: AiModelPerformance[];
+  personalFinanceStreaming: PersonalFinanceStreamingDiagnostics | null;
 }
 
 // ── Jobs ────────────────────────────────────────────────────────────
