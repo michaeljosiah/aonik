@@ -1,53 +1,66 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+
 import { useAuth } from '@/auth';
 import {
-  streamAguiChat,
+  type ActivityMessage,
+  type ActivitySnapshotEvent,
+  type AguiStreamCallbacks,
+  type AssistantMessage,
+  type CustomEvent,
+  type FrontendToolHandler,
+  type FrontendToolRegistration,
   generateId,
   type Message,
-  type UserMessage,
-  type AssistantMessage,
-  type ToolMessage,
-  type ToolCall,
+  type MessagesSnapshotEvent,
+  type ReasoningMessage,
+  type ReasoningMessageContentEvent,
+  streamAguiChat,
+  type StepFinishedEvent,
+  type StepStartedEvent,
   type Tool,
-  type FrontendToolHandler,
-  type FrontendToolContext,
-  type FrontendToolRegistration,
-  type AguiStreamCallbacks,
-  type ToolCallStartEvent,
+  type ToolCall,
   type ToolCallArgsEvent,
   type ToolCallEndEvent,
   type ToolCallResultEvent,
-  type StepStartedEvent,
-  type StepFinishedEvent,
-  type ReasoningMessageContentEvent,
-  type ActivitySnapshotEvent,
-  type MessagesSnapshotEvent,
+  type ToolCallStartEvent,
+  type ToolMessage,
+  type UserMessage,
 } from '@/lib/agui-client';
-import type { ThreadDetail } from '@/hooks/useThreads';
+import type { ThreadDetail, ThreadMessageDto } from '@/hooks/useThreads';
+import {
+  type OptionSelectionState,
+  type SharedToolStatus,
+  type SpeechChunkPayload,
+  type SpeechRenderPayload,
+  tryParseJsonRecord,
+  useAiChatFrontendTools,
+  useAiChatVoicePlayback,
+  type VoiceRenderDetails,
+} from '@/components/ai/chatSupport';
 
-// ─── Chat Message Types ───────────────────────────────────────────────────────
+export type ChatToolStatus = SharedToolStatus;
 
-/** Visual representation of a tool call in the UI. */
 export interface ChatToolCall {
   toolCallId: string;
   toolCallName: string;
   args: string;
-  /** 'streaming' while args are being received, 'pending' waiting for execution,
-   *  'executing' during frontend execution, 'awaiting-approval' for confirmAction,
-   *  'completed' with result, 'error' on failure */
-  status: 'streaming' | 'pending' | 'executing' | 'awaiting-approval' | 'completed' | 'error';
+  status: ChatToolStatus;
   result?: string;
   error?: string;
+  approval?: {
+    action: string;
+    description: string;
+    severity: 'low' | 'medium' | 'high';
+  };
+  optionSelection?: OptionSelectionState;
 }
 
-/** Parameters for the confirmAction frontend tool. */
 export interface ConfirmActionArgs {
   action: string;
   description: string;
   severity?: 'low' | 'medium' | 'high';
 }
 
-/** A pending approval waiting for user interaction. */
 export interface PendingApproval {
   toolCallId: string;
   action: string;
@@ -56,16 +69,11 @@ export interface PendingApproval {
   resolve: (result: string) => void;
 }
 
-/** Visual representation of a step indicator in the UI. */
 export interface ChatStep {
   stepName: string;
   status: 'started' | 'finished';
 }
 
-/**
- * Rich chat message model that supports all AG-UI message types.
- * The `type` discriminator controls rendering in the UI.
- */
 export type ChatMessage =
   | { type: 'user'; id: string; content: string }
   | { type: 'assistant'; id: string; content: string; toolCalls?: ChatToolCall[] }
@@ -74,8 +82,6 @@ export type ChatMessage =
   | { type: 'reasoning'; id: string; content: string }
   | { type: 'activity'; id: string; activityType: string; content: Record<string, unknown> };
 
-// ─── Frontend Tool Registration ───────────────────────────────────────────────
-
 export interface FrontendToolConfig {
   name: string;
   description: string;
@@ -83,7 +89,12 @@ export interface FrontendToolConfig {
   handler: FrontendToolHandler;
 }
 
-// ─── Hook Return Type ─────────────────────────────────────────────────────────
+export interface UseAguiChatOptions {
+  agentId?: string;
+  enablePersonalFinanceFeatures?: boolean;
+}
+
+type StateUpdater<T> = T | ((prev: T) => T);
 
 export interface UseAguiChatReturn {
   messages: ChatMessage[];
@@ -93,211 +104,251 @@ export interface UseAguiChatReturn {
   streamError: string | null;
   activeSteps: ChatStep[];
   handleSend: () => Promise<void>;
-  /** Send a message directly without needing to set draft first. */
   sendMessage: (text: string) => Promise<void>;
   stopStreaming: () => void;
   resetChat: () => void;
-  /** Register a frontend tool the agent can call. */
   registerTool: (config: FrontendToolConfig) => void;
-  /** Unregister a frontend tool. */
   unregisterTool: (name: string) => void;
-  /** Pending approvals waiting for user interaction (confirmAction tool). */
   pendingApprovals: PendingApproval[];
-  /** Approve a pending confirmAction tool call. */
   approveAction: (toolCallId: string) => void;
-  /** Reject a pending confirmAction tool call. */
   rejectAction: (toolCallId: string, reason?: string) => void;
-  /** The current thread ID (set after first message or thread load). */
+  selectToolCallOptions: (toolCallId: string, selected: string[]) => void;
   threadId: string | null;
-  /** Load a persisted thread's messages into the chat view. */
   loadThread: (thread: ThreadDetail) => void;
+  voiceModeAvailable: boolean;
+  voiceModeEnabled: boolean;
+  setVoiceModeEnabled: (enabled: boolean) => void;
+  voicePlaybackState: 'idle' | 'loading' | 'playing' | 'error';
+  voiceError: string | null;
+  voiceDetails: VoiceRenderDetails | null;
+  stopVoicePreview: () => void;
 }
 
-// ─── Hook Implementation ──────────────────────────────────────────────────────
-
-export function useAguiChat(agentId?: string): UseAguiChatReturn {
+export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): UseAguiChatReturn {
+  const { agentId, enablePersonalFinanceFeatures = false } = resolveHookOptions(agentIdOrOptions);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [activeSteps, setActiveSteps] = useState<ChatStep[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [manualFrontendTools, setManualFrontendTools] = useState<Map<string, FrontendToolRegistration>>(new Map());
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [speechRender, setSpeechRender] = useState<SpeechRenderPayload | null>(null);
+  const [speechChunks, setSpeechChunks] = useState<SpeechChunkPayload[]>([]);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const threadIdRef = useRef<string | null>(null);
+  const pendingApprovalResolversRef = useRef<Map<string, (result: string) => void>>(new Map());
+  const pendingSelectionResolversRef = useRef<Map<string, (result: string) => void>>(new Map());
   const { getAccessToken } = useAuth();
 
-  // Frontend tool registry
-  const frontendToolsRef = useRef<Map<string, FrontendToolRegistration>>(new Map());
+  const updateToolCall = useCallback((toolCallId: string, updater: (toolCall: ChatToolCall) => ChatToolCall) => {
+    setMessages((prev) =>
+      prev.map((message) => {
+        if (message.type !== 'assistant' || !message.toolCalls) {
+          return message;
+        }
 
-  // Ref for pending approval resolve callbacks (keyed by toolCallId)
-  const pendingApprovalResolversRef = useRef<Map<string, (result: string) => void>>(new Map());
+        let changed = false;
+        const toolCalls = message.toolCalls.map((toolCall) => {
+          if (toolCall.toolCallId !== toolCallId) {
+            return toolCall;
+          }
+
+          changed = true;
+          return updater(toolCall);
+        });
+
+        return changed ? { ...message, toolCalls } : message;
+      }),
+    );
+  }, []);
+
+  const resolvePendingInteractions = useCallback((result: string) => {
+    for (const [, resolver] of pendingApprovalResolversRef.current) {
+      resolver(result);
+    }
+    pendingApprovalResolversRef.current.clear();
+
+    for (const [, resolver] of pendingSelectionResolversRef.current) {
+      resolver(result);
+    }
+    pendingSelectionResolversRef.current.clear();
+  }, []);
+
+  const confirmAction = useCallback(
+    (toolCallId: string, args: Required<ConfirmActionArgs>) => {
+      return new Promise<string>((resolve) => {
+        pendingApprovalResolversRef.current.set(toolCallId, resolve);
+
+        setPendingApprovals((prev) => [
+          ...prev.filter((approval) => approval.toolCallId !== toolCallId),
+          {
+            toolCallId,
+            action: args.action,
+            description: args.description,
+            severity: args.severity,
+            resolve,
+          },
+        ]);
+
+        updateToolCall(toolCallId, (toolCall) => ({
+          ...toolCall,
+          status: 'awaiting-approval',
+          approval: {
+            action: args.action,
+            description: args.description,
+            severity: args.severity,
+          },
+        }));
+      });
+    },
+    [updateToolCall],
+  );
+
+  const selectOptions = useCallback(
+    (toolCallId: string, args: OptionSelectionState) => {
+      return new Promise<string>((resolve) => {
+        pendingSelectionResolversRef.current.set(toolCallId, resolve);
+        updateToolCall(toolCallId, (toolCall) => ({
+          ...toolCall,
+          status: 'awaiting-selection',
+          optionSelection: args,
+        }));
+      });
+    },
+    [updateToolCall],
+  );
+
+  const builtInFrontendTools = useAiChatFrontendTools({
+    enabled: true,
+    confirmAction,
+    selectOptions,
+    includeDisplayTools: enablePersonalFinanceFeatures,
+    includeOptionSelector: enablePersonalFinanceFeatures,
+    includeNavigation: enablePersonalFinanceFeatures,
+  });
+
+  const frontendTools = useMemo(() => {
+    const registrations = new Map<string, FrontendToolRegistration>(builtInFrontendTools);
+    for (const [name, registration] of manualFrontendTools) {
+      registrations.set(name, registration);
+    }
+
+    return registrations;
+  }, [builtInFrontendTools, manualFrontendTools]);
+
+  const {
+    playbackState: voicePlaybackState,
+    voiceError,
+    voiceDetails,
+    stopVoicePreview,
+  } = useAiChatVoicePlayback({
+    enabled: enablePersonalFinanceFeatures && voiceModeEnabled,
+    isStreaming,
+    speechRender,
+    speechChunks,
+  });
 
   const registerTool = useCallback((config: FrontendToolConfig) => {
-    frontendToolsRef.current.set(config.name, {
-      tool: {
-        name: config.name,
-        description: config.description,
-        parameters: config.parameters,
-      },
-      handler: config.handler,
+    setManualFrontendTools((prev) => {
+      const next = new Map(prev);
+      next.set(config.name, {
+        tool: {
+          name: config.name,
+          description: config.description,
+          parameters: config.parameters,
+        },
+        handler: config.handler,
+      });
+      return next;
     });
   }, []);
 
   const unregisterTool = useCallback((name: string) => {
-    frontendToolsRef.current.delete(name);
-  }, []);
+    setManualFrontendTools((prev) => {
+      if (!prev.has(name)) {
+        return prev;
+      }
 
-  // ─── confirmAction Tool ───────────────────────────────────────────────────
-
-  /**
-   * Auto-register the confirmAction frontend tool. The handler returns a
-   * Promise that resolves only when the user clicks Approve or Reject in the UI.
-   */
-  useEffect(() => {
-    const toolName = 'confirmAction';
-
-    const handler: FrontendToolHandler = (args: Record<string, unknown>, context: FrontendToolContext) => {
-      return new Promise<string>((resolve) => {
-        const action = (args.action as string) ?? 'Unknown action';
-        const description = (args.description as string) ?? '';
-        const severity = (['low', 'medium', 'high'].includes(args.severity as string)
-          ? args.severity
-          : 'medium') as 'low' | 'medium' | 'high';
-
-        const { toolCallId } = context;
-
-        const approval: PendingApproval = {
-          toolCallId,
-          action,
-          description,
-          severity,
-          resolve,
-        };
-
-        // Store the resolver so approve/reject can trigger it
-        pendingApprovalResolversRef.current.set(toolCallId, resolve);
-
-        setPendingApprovals((prev) => [...prev, approval]);
-
-        // Update the matching tool call in messages to 'awaiting-approval'
-        setMessages((prev) =>
-          prev.map((m) => {
-            if (m.type === 'assistant' && m.toolCalls) {
-              const toolCalls = m.toolCalls.map((tc) =>
-                tc.toolCallId === toolCallId
-                  ? { ...tc, status: 'awaiting-approval' as const }
-                  : tc
-              );
-              return { ...m, toolCalls };
-            }
-            return m;
-          })
-        );
-      });
-    };
-
-    frontendToolsRef.current.set(toolName, {
-      tool: {
-        name: toolName,
-        description:
-          'Request user approval before executing a mutating action. The user will see an approval card with Approve/Reject buttons. Use this for any action that creates, modifies, or deletes data.',
-        parameters: {
-          type: 'object',
-          properties: {
-            action: {
-              type: 'string',
-              description: 'Short name of the action (e.g., "Create Invoice", "Cancel Payment")',
-            },
-            description: {
-              type: 'string',
-              description: 'Detailed description of what will happen if approved',
-            },
-            severity: {
-              type: 'string',
-              enum: ['low', 'medium', 'high'],
-              description: 'Risk level of the action. Defaults to medium.',
-            },
-          },
-          required: ['action', 'description'],
-        },
-      },
-      handler,
+      const next = new Map(prev);
+      next.delete(name);
+      return next;
     });
-
-    return () => {
-      frontendToolsRef.current.delete(toolName);
-    };
   }, []);
 
-  const approveAction = useCallback((toolCallId: string) => {
-    const resolver = pendingApprovalResolversRef.current.get(toolCallId);
-    if (resolver) {
-      resolver('approved');
-      pendingApprovalResolversRef.current.delete(toolCallId);
-    }
+  const approveAction = useCallback(
+    (toolCallId: string) => {
+      const resolver = pendingApprovalResolversRef.current.get(toolCallId);
+      if (resolver) {
+        resolver('approved');
+        pendingApprovalResolversRef.current.delete(toolCallId);
+      }
 
-    // Remove from pending approvals state
-    setPendingApprovals((prev) => prev.filter((a) => a.toolCallId !== toolCallId));
+      setPendingApprovals((prev) => prev.filter((approval) => approval.toolCallId !== toolCallId));
+      updateToolCall(toolCallId, (toolCall) => ({
+        ...toolCall,
+        status: 'completed',
+        result: 'approved',
+      }));
+    },
+    [updateToolCall],
+  );
 
-    // Update the tool call status in messages
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.type === 'assistant' && m.toolCalls) {
-          const toolCalls = m.toolCalls.map((tc) =>
-            tc.toolCallId === toolCallId && tc.status === 'awaiting-approval'
-              ? { ...tc, status: 'completed' as const, result: 'approved' }
-              : tc
-          );
-          return { ...m, toolCalls };
-        }
-        return m;
-      })
-    );
-  }, []);
+  const rejectAction = useCallback(
+    (toolCallId: string, reason?: string) => {
+      const result = reason ? `rejected: ${reason}` : 'rejected';
+      const resolver = pendingApprovalResolversRef.current.get(toolCallId);
+      if (resolver) {
+        resolver(result);
+        pendingApprovalResolversRef.current.delete(toolCallId);
+      }
 
-  const rejectAction = useCallback((toolCallId: string, reason?: string) => {
-    const result = reason ? `rejected: ${reason}` : 'rejected';
-    const resolver = pendingApprovalResolversRef.current.get(toolCallId);
-    if (resolver) {
-      resolver(result);
-      pendingApprovalResolversRef.current.delete(toolCallId);
-    }
+      setPendingApprovals((prev) => prev.filter((approval) => approval.toolCallId !== toolCallId));
+      updateToolCall(toolCallId, (toolCall) => ({
+        ...toolCall,
+        status: 'completed',
+        result,
+      }));
+    },
+    [updateToolCall],
+  );
 
-    // Remove from pending approvals state
-    setPendingApprovals((prev) => prev.filter((a) => a.toolCallId !== toolCallId));
+  const selectToolCallOptions = useCallback(
+    (toolCallId: string, selected: string[]) => {
+      const result = selected.length <= 1 ? (selected[0] ?? '') : JSON.stringify(selected);
+      const resolver = pendingSelectionResolversRef.current.get(toolCallId);
+      if (resolver) {
+        resolver(result);
+        pendingSelectionResolversRef.current.delete(toolCallId);
+      }
 
-    // Update the tool call status in messages
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.type === 'assistant' && m.toolCalls) {
-          const toolCalls = m.toolCalls.map((tc) =>
-            tc.toolCallId === toolCallId && tc.status === 'awaiting-approval'
-              ? { ...tc, status: 'completed' as const, result }
-              : tc
-          );
-          return { ...m, toolCalls };
-        }
-        return m;
-      })
-    );
-  }, []);
+      updateToolCall(toolCallId, (toolCall) => ({
+        ...toolCall,
+        status: 'completed',
+        result: selected.join(', '),
+      }));
+    },
+    [updateToolCall],
+  );
 
   const resetChat = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     threadIdRef.current = null;
-    // Reject any pending approvals so the re-run loop doesn't hang
-    for (const [, resolver] of pendingApprovalResolversRef.current) {
-      resolver('rejected: chat reset');
-    }
-    pendingApprovalResolversRef.current.clear();
+    resolvePendingInteractions('rejected: chat reset');
+    stopVoicePreview();
     setMessages([]);
     setDraft('');
     setIsStreaming(false);
     setStreamError(null);
     setActiveSteps([]);
     setPendingApprovals([]);
-  }, []);
+    setSpeechRender(null);
+    setSpeechChunks([]);
+    setVoiceModeEnabled(false);
+  }, [resolvePendingInteractions, stopVoicePreview]);
 
   const stopStreaming = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -305,354 +356,379 @@ export function useAguiChat(agentId?: string): UseAguiChatReturn {
     setIsStreaming(false);
   }, []);
 
-  /** Load a persisted thread's messages into the chat view. */
-  const loadThread = useCallback((thread: ThreadDetail) => {
-    // Abort any in-flight stream
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
+  const loadThread = useCallback(
+    (thread: ThreadDetail) => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      resolvePendingInteractions('rejected: thread changed');
 
-    // Reject any pending approvals
-    for (const [, resolver] of pendingApprovalResolversRef.current) {
-      resolver('rejected: thread changed');
-    }
-    pendingApprovalResolversRef.current.clear();
-
-    // Set the thread ID so subsequent messages continue this thread
-    threadIdRef.current = thread.id;
-
-    // Convert persisted messages to ChatMessage[]
-    const chatMessages: ChatMessage[] = thread.messages.map((msg) => {
-      if (msg.role === 'user') {
-        return { type: 'user' as const, id: msg.id, content: msg.content };
-      }
-      return { type: 'assistant' as const, id: msg.id, content: msg.content };
-    });
-
-    setMessages(chatMessages);
-    setDraft('');
-    setIsStreaming(false);
-    setStreamError(null);
-    setActiveSteps([]);
-    setPendingApprovals([]);
-  }, []);
-
-  const sendInternal = useCallback(async (text: string) => {
-    if (!text || isStreaming) return;
-
-    setStreamError(null);
-    setActiveSteps([]);
-
-    const userMessageId = generateId();
-    const assistantMessageId = generateId();
-
-    // Add user message to UI
-    setMessages((prev) => [
-      ...prev,
-      { type: 'user', id: userMessageId, content: text },
-    ]);
-    setIsStreaming(true);
-
-    // Build AG-UI message history from current chat messages
-    const aguiMessages = buildAguiMessages(messages, {
-      role: 'user',
-      content: text,
-      id: userMessageId,
-    });
-
-    // Collect tool definitions from frontend registry
-    const tools: Tool[] = Array.from(frontendToolsRef.current.values()).map((r) => r.tool);
-
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    // Track current streaming state
-    let currentAssistantId = assistantMessageId;
-
-    // Track tool calls being streamed in the current assistant message
-    const streamingToolCalls = new Map<string, { name: string; args: string }>();
-
-    try {
-      // Add placeholder assistant message
-      setMessages((prev) => [
-        ...prev,
-        { type: 'assistant', id: currentAssistantId, content: '' },
-      ]);
-
-      const callbacks: AguiStreamCallbacks = {
-        onRunStarted: (event) => {
-          threadIdRef.current = event.threadId;
-        },
-
-        onTextMessageStart: (event) => {
-          // If we get a new message ID that differs from our placeholder, update
-          if (event.messageId !== currentAssistantId) {
-            currentAssistantId = event.messageId;
-            setMessages((prev) => [
-              ...prev,
-              { type: 'assistant', id: currentAssistantId, content: '' },
-            ]);
-          }
-        },
-
-        onTextMessageContent: (event) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === currentAssistantId && m.type === 'assistant'
-                ? { ...m, content: m.content + event.delta }
-                : m
-            )
-          );
-        },
-
-        onTextMessageEnd: () => {
-          // Text message streaming complete
-        },
-
-        // Tool call lifecycle
-        onToolCallStart: (event: ToolCallStartEvent) => {
-          streamingToolCalls.set(event.toolCallId, { name: event.toolCallName, args: '' });
-          setMessages((prev) =>
-            prev.map((m) => {
-              if (m.id === currentAssistantId && m.type === 'assistant') {
-                const toolCalls: ChatToolCall[] = [
-                  ...(m.toolCalls ?? []),
-                  {
-                    toolCallId: event.toolCallId,
-                    toolCallName: event.toolCallName,
-                    args: '',
-                    status: 'streaming',
-                  },
-                ];
-                return { ...m, toolCalls };
-              }
-              return m;
-            })
-          );
-        },
-
-        onToolCallArgs: (event: ToolCallArgsEvent) => {
-          const tc = streamingToolCalls.get(event.toolCallId);
-          if (tc) tc.args += event.delta;
-
-          setMessages((prev) =>
-            prev.map((m) => {
-              if (m.id === currentAssistantId && m.type === 'assistant' && m.toolCalls) {
-                const toolCalls = m.toolCalls.map((tc) =>
-                  tc.toolCallId === event.toolCallId
-                    ? { ...tc, args: tc.args + event.delta }
-                    : tc
-                );
-                return { ...m, toolCalls };
-              }
-              return m;
-            })
-          );
-        },
-
-        onToolCallEnd: (event: ToolCallEndEvent) => {
-          setMessages((prev) =>
-            prev.map((m) => {
-              if (m.id === currentAssistantId && m.type === 'assistant' && m.toolCalls) {
-                const toolCalls = m.toolCalls.map((tc) =>
-                  tc.toolCallId === event.toolCallId
-                    ? { ...tc, status: 'pending' as const }
-                    : tc
-                );
-                return { ...m, toolCalls };
-              }
-              return m;
-            })
-          );
-        },
-
-        onToolCallResult: (event: ToolCallResultEvent) => {
-          // Server-side tool result — add as a separate message
-          const toolCall = streamingToolCalls.get(event.toolCallId);
-          setMessages((prev) => [
-            ...prev,
-            {
-              type: 'tool-result',
-              id: event.messageId ?? generateId(),
-              toolCallId: event.toolCallId,
-              toolCallName: toolCall?.name ?? 'unknown',
-              content: event.content,
-            },
-          ]);
-
-          // Mark the tool call as completed in the assistant message
-          setMessages((prev) =>
-            prev.map((m) => {
-              if (m.type === 'assistant' && m.toolCalls) {
-                const toolCalls = m.toolCalls.map((tc) =>
-                  tc.toolCallId === event.toolCallId
-                    ? { ...tc, status: 'completed' as const, result: event.content }
-                    : tc
-                );
-                return { ...m, toolCalls };
-              }
-              return m;
-            })
-          );
-        },
-
-        // Step lifecycle
-        onStepStarted: (event: StepStartedEvent) => {
-          const step: ChatStep = { stepName: event.stepName, status: 'started' };
-          setActiveSteps((prev) => [...prev, step]);
-          setMessages((prev) => [
-            ...prev,
-            { type: 'step', id: generateId(), stepName: event.stepName, status: 'started' },
-          ]);
-        },
-
-        onStepFinished: (event: StepFinishedEvent) => {
-          setActiveSteps((prev) =>
-            prev.map((s) =>
-              s.stepName === event.stepName ? { ...s, status: 'finished' } : s
-            )
-          );
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.type === 'step' && m.stepName === event.stepName && m.status === 'started'
-                ? { ...m, status: 'finished' }
-                : m
-            )
-          );
-        },
-
-        // Reasoning
-        onReasoningMessageContent: (event: ReasoningMessageContentEvent) => {
-          setMessages((prev) => {
-            const existing = prev.find(
-              (m) => m.type === 'reasoning' && m.id === event.messageId
-            );
-            if (existing && existing.type === 'reasoning') {
-              return prev.map((m) =>
-                m.id === event.messageId && m.type === 'reasoning'
-                  ? { ...m, content: m.content + event.delta }
-                  : m
-              );
-            }
-            return [
-              ...prev,
-              { type: 'reasoning', id: event.messageId, content: event.delta },
-            ];
-          });
-        },
-
-        // Activity
-        onActivitySnapshot: (event: ActivitySnapshotEvent) => {
-          setMessages((prev) => {
-            const existing = prev.find((m) => m.id === event.messageId);
-            if (existing) {
-              if (event.replace === false) return prev;
-              return prev.map((m) =>
-                m.id === event.messageId
-                  ? { type: 'activity', id: event.messageId, activityType: event.activityType, content: event.content }
-                  : m
-              );
-            }
-            return [
-              ...prev,
-              { type: 'activity', id: event.messageId, activityType: event.activityType, content: event.content },
-            ];
-          });
-        },
-
-        // Messages snapshot — replace entire message history
-        onMessagesSnapshot: (event: MessagesSnapshotEvent) => {
-          const chatMessages = event.messages.map(aguiMessageToChatMessage).filter(Boolean) as ChatMessage[];
-          setMessages(chatMessages);
-        },
-
-        onRunError: (event) => {
-          setStreamError(event.message || 'An error occurred');
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === currentAssistantId && m.type === 'assistant'
-                ? {
-                    ...m,
-                    content:
-                      m.content ||
-                      `Error: ${event.message || 'Something went wrong'}`,
-                  }
-                : m
-            )
-          );
-        },
-      };
-
-      const threadId = threadIdRef.current ?? generateId();
-      const runId = generateId();
-
-      await streamAguiChat({
-        input: {
-          threadId,
-          runId,
-          messages: aguiMessages,
-          tools: tools.length > 0 ? tools : undefined,
-          agentId: agentId || undefined,
-        },
-        callbacks,
-        getAccessToken,
-        signal: abortController.signal,
-        frontendTools: frontendToolsRef.current.size > 0 ? frontendToolsRef.current : undefined,
-      });
-
-      // If the assistant message ended up empty, show a fallback
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === currentAssistantId && m.type === 'assistant' && !m.content && !m.toolCalls?.length
-            ? { ...m, content: 'No response received from the agent.' }
-            : m
-        )
+      threadIdRef.current = thread.id;
+      setMessages(
+        thread.messages
+          .sort((left, right) => left.sortOrder - right.sortOrder)
+          .map(threadMessageToChatMessage)
+          .filter((message): message is ChatMessage => message !== null),
       );
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      setDraft('');
+      setIsStreaming(false);
+      setStreamError(null);
+      setActiveSteps([]);
+      setPendingApprovals([]);
+      setSpeechRender(null);
+      setSpeechChunks([]);
+    },
+    [resolvePendingInteractions],
+  );
+
+  const sendInternal = useCallback(
+    async (text: string) => {
+      if (!text || isStreaming) {
         return;
       }
 
-      const errorMessage =
-        err instanceof Error ? err.message : 'An unexpected error occurred';
-      setStreamError(errorMessage);
+      setStreamError(null);
+      setActiveSteps([]);
+      setSpeechRender(null);
+      setSpeechChunks([]);
 
-      setMessages((prev) => {
-        const hasAssistant = prev.some((m) => m.id === currentAssistantId);
-        if (hasAssistant) {
-          return prev.map((m) =>
-            m.id === currentAssistantId && m.type === 'assistant'
-              ? { ...m, content: m.content || `Error: ${errorMessage}` }
-              : m
-          );
-        }
-        return [
-          ...prev,
-          {
-            type: 'assistant' as const,
-            id: currentAssistantId,
-            content: `Error: ${errorMessage}`,
-          },
-        ];
+      const userMessageId = generateId();
+      const placeholderAssistantId = generateId();
+
+      setMessages((prev) => [...prev, { type: 'user', id: userMessageId, content: text }]);
+      setIsStreaming(true);
+
+      const aguiMessages = buildAguiMessages(messages, {
+        role: 'user',
+        content: text,
+        id: userMessageId,
       });
-    } finally {
-      setIsStreaming(false);
-      abortControllerRef.current = null;
-    }
-  }, [isStreaming, messages, getAccessToken]);
+
+      const tools: Tool[] = Array.from(frontendTools.values()).map((registration): Tool => registration.tool);
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      let currentAssistantId = placeholderAssistantId;
+      const streamingToolCalls = new Map<string, { name: string; args: string; assistantMessageId: string }>();
+
+      const ensureAssistantMessage = (assistantId: string) => {
+        setMessages((prev) => {
+          const exists = prev.some((message) => message.type === 'assistant' && message.id === assistantId);
+          if (exists) {
+            return prev;
+          }
+
+          return [...prev, { type: 'assistant', id: assistantId, content: '' }];
+        });
+      };
+
+      const adoptAssistantMessageId = (nextAssistantId: string) => {
+        if (!nextAssistantId || nextAssistantId === currentAssistantId) {
+          return;
+        }
+
+        setMessages((prev) => {
+          if (prev.some((message) => message.type === 'assistant' && message.id === nextAssistantId)) {
+            return prev;
+          }
+
+          let replaced = false;
+          const updated = prev.map((message) => {
+            if (
+              !replaced
+              && message.type === 'assistant'
+              && message.id === currentAssistantId
+              && message.content.length === 0
+              && !(message.toolCalls?.length)
+            ) {
+              replaced = true;
+              return { ...message, id: nextAssistantId };
+            }
+
+            return message;
+          });
+
+          return replaced ? updated : [...updated, { type: 'assistant', id: nextAssistantId, content: '' }];
+        });
+
+        currentAssistantId = nextAssistantId;
+      };
+
+      try {
+        setMessages((prev) => [...prev, { type: 'assistant', id: currentAssistantId, content: '' }]);
+
+        const callbacks: AguiStreamCallbacks = {
+          onRunStarted: (event) => {
+            threadIdRef.current = event.threadId;
+          },
+
+          onTextMessageStart: (event) => {
+            adoptAssistantMessageId(event.messageId);
+          },
+
+          onTextMessageContent: (event) => {
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === currentAssistantId && message.type === 'assistant'
+                  ? { ...message, content: message.content + event.delta }
+                  : message,
+              ),
+            );
+          },
+
+          onToolCallStart: (event: ToolCallStartEvent) => {
+            const assistantMessageId = event.parentMessageId || currentAssistantId;
+            if (event.parentMessageId) {
+              ensureAssistantMessage(assistantMessageId);
+            }
+
+            streamingToolCalls.set(event.toolCallId, {
+              name: event.toolCallName,
+              args: '',
+              assistantMessageId,
+            });
+
+            setMessages((prev) =>
+              prev.map((message) => {
+                if (message.type !== 'assistant' || message.id !== assistantMessageId) {
+                  return message;
+                }
+
+                const toolCall = hydrateToolCallMetadata({
+                  toolCallId: event.toolCallId,
+                  toolCallName: event.toolCallName,
+                  args: '',
+                  status: 'streaming',
+                });
+
+                return {
+                  ...message,
+                  toolCalls: [...(message.toolCalls ?? []), toolCall],
+                };
+              }),
+            );
+          },
+
+          onToolCallArgs: (event: ToolCallArgsEvent) => {
+            const toolCall = streamingToolCalls.get(event.toolCallId);
+            if (toolCall) {
+              toolCall.args += event.delta;
+            }
+
+            updateToolCall(event.toolCallId, (current) =>
+              hydrateToolCallMetadata({
+                ...current,
+                args: current.args + event.delta,
+              }),
+            );
+          },
+
+          onToolCallEnd: (event: ToolCallEndEvent) => {
+            updateToolCall(event.toolCallId, (toolCall) => ({
+              ...toolCall,
+              status: 'pending',
+            }));
+          },
+
+          onToolCallResult: (event: ToolCallResultEvent) => {
+            const toolCall = streamingToolCalls.get(event.toolCallId);
+
+            setMessages((prev) => [
+              ...prev,
+              {
+                type: 'tool-result',
+                id: event.messageId ?? generateId(),
+                toolCallId: event.toolCallId,
+                toolCallName: toolCall?.name ?? 'tool',
+                content: event.content,
+              },
+            ]);
+
+            if (toolCall?.name === 'confirmAction') {
+              setPendingApprovals((prev) => prev.filter((approval) => approval.toolCallId !== event.toolCallId));
+            }
+
+            updateToolCall(event.toolCallId, (current) => ({
+              ...current,
+              status: 'completed',
+              result: event.content,
+            }));
+          },
+
+          onStepStarted: (event: StepStartedEvent) => {
+            const step = { stepName: event.stepName, status: 'started' as const };
+            setActiveSteps((prev) => [...prev, step]);
+            setMessages((prev) => [...prev, { type: 'step', id: generateId(), ...step }]);
+          },
+
+          onStepFinished: (event: StepFinishedEvent) => {
+            setActiveSteps((prev) =>
+              prev.map((step) =>
+                step.stepName === event.stepName ? { ...step, status: 'finished' } : step,
+              ),
+            );
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.type === 'step' && message.stepName === event.stepName && message.status === 'started'
+                  ? { ...message, status: 'finished' }
+                  : message,
+              ),
+            );
+          },
+
+          onReasoningMessageContent: (event: ReasoningMessageContentEvent) => {
+            setMessages((prev) => {
+              const existing = prev.find((message) => message.type === 'reasoning' && message.id === event.messageId);
+              if (existing?.type === 'reasoning') {
+                return prev.map((message) =>
+                  message.id === event.messageId && message.type === 'reasoning'
+                    ? { ...message, content: message.content + event.delta }
+                    : message,
+                );
+              }
+
+              return [...prev, { type: 'reasoning', id: event.messageId, content: event.delta }];
+            });
+          },
+
+          onActivitySnapshot: (event: ActivitySnapshotEvent) => {
+            setMessages((prev) => {
+              const existing = prev.find((message) => message.id === event.messageId);
+              if (!existing) {
+                return [
+                  ...prev,
+                  {
+                    type: 'activity',
+                    id: event.messageId,
+                    activityType: event.activityType,
+                    content: event.content,
+                  },
+                ];
+              }
+
+              if (event.replace === false) {
+                return prev;
+              }
+
+              return prev.map((message) =>
+                message.id === event.messageId
+                  ? {
+                      type: 'activity',
+                      id: event.messageId,
+                      activityType: event.activityType,
+                      content: event.content,
+                    }
+                  : message,
+              );
+            });
+          },
+
+          onMessagesSnapshot: (event: MessagesSnapshotEvent) => {
+            const snapshotMessages = event.messages
+              .map(aguiMessageToChatMessage)
+              .filter((message): message is ChatMessage => message !== null);
+            setMessages(snapshotMessages);
+          },
+
+          onCustomEvent: (event: CustomEvent) => {
+            handleCustomEvent(event, setSpeechRender, setSpeechChunks);
+          },
+
+          onRunError: (event) => {
+            setStreamError(event.message || 'An error occurred');
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === currentAssistantId && message.type === 'assistant'
+                  ? {
+                      ...message,
+                      content: message.content || `Error: ${event.message || 'Something went wrong'}`,
+                    }
+                  : message,
+              ),
+            );
+          },
+        };
+
+        const threadId = threadIdRef.current ?? generateId();
+        const runId = generateId();
+
+        await streamAguiChat({
+          input: {
+            threadId,
+            runId,
+            messages: aguiMessages,
+            tools: tools.length > 0 ? tools : undefined,
+            agentId: agentId || undefined,
+          },
+          callbacks,
+          getAccessToken,
+          signal: abortController.signal,
+          frontendTools: frontendTools.size > 0 ? frontendTools : undefined,
+        });
+
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === currentAssistantId && message.type === 'assistant' && !message.content && !message.toolCalls?.length
+              ? { ...message, content: 'No response received from the agent.' }
+              : message,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+        setStreamError(errorMessage);
+
+        setMessages((prev) => {
+          const hasAssistant = prev.some((message) => message.id === currentAssistantId);
+          if (hasAssistant) {
+            return prev.map((message) =>
+              message.id === currentAssistantId && message.type === 'assistant'
+                ? { ...message, content: message.content || `Error: ${errorMessage}` }
+                : message,
+            );
+          }
+
+          return [
+            ...prev,
+            {
+              type: 'assistant',
+              id: currentAssistantId,
+              content: `Error: ${errorMessage}`,
+            },
+          ];
+        });
+      } finally {
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+      }
+    },
+    [agentId, frontendTools, getAccessToken, isStreaming, messages, updateToolCall],
+  );
 
   const handleSend = useCallback(async () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text) {
+      return;
+    }
+
     setDraft('');
     await sendInternal(text);
   }, [draft, sendInternal]);
 
-  const sendMessage = useCallback(async (messageText: string) => {
-    const text = messageText.trim();
-    if (!text) return;
-    setDraft('');
-    await sendInternal(text);
-  }, [sendInternal]);
+  const sendMessage = useCallback(
+    async (messageText: string) => {
+      const text = messageText.trim();
+      if (!text) {
+        return;
+      }
+
+      setDraft('');
+      await sendInternal(text);
+    },
+    [sendInternal],
+  );
 
   return {
     messages,
@@ -670,62 +746,249 @@ export function useAguiChat(agentId?: string): UseAguiChatReturn {
     pendingApprovals,
     approveAction,
     rejectAction,
+    selectToolCallOptions,
     threadId: threadIdRef.current,
     loadThread,
+    voiceModeAvailable: enablePersonalFinanceFeatures,
+    voiceModeEnabled,
+    setVoiceModeEnabled,
+    voicePlaybackState,
+    voiceError,
+    voiceDetails,
+    stopVoicePreview,
   };
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function resolveHookOptions(agentIdOrOptions?: string | UseAguiChatOptions): UseAguiChatOptions {
+  if (typeof agentIdOrOptions === 'string') {
+    return {
+      agentId: agentIdOrOptions,
+      enablePersonalFinanceFeatures: agentIdOrOptions === 'personal-finance-agent',
+    };
+  }
 
-/**
- * Converts the chat UI messages into AG-UI protocol messages for the backend.
- * Includes full message history with tool calls and tool results.
- */
+  return {
+    agentId: agentIdOrOptions?.agentId,
+    enablePersonalFinanceFeatures:
+      agentIdOrOptions?.enablePersonalFinanceFeatures ?? agentIdOrOptions?.agentId === 'personal-finance-agent',
+  };
+}
+
+function parseApproval(args: string): ChatToolCall['approval'] | undefined {
+  const parsed = tryParseJsonRecord(args);
+  if (!parsed) {
+    return undefined;
+  }
+
+  const action = typeof parsed.action === 'string' && parsed.action.trim().length > 0 ? parsed.action : undefined;
+  const description = typeof parsed.description === 'string' ? parsed.description : '';
+  const severity = ['low', 'medium', 'high'].includes(String(parsed.severity))
+    ? (parsed.severity as 'low' | 'medium' | 'high')
+    : 'medium';
+
+  if (!action) {
+    return undefined;
+  }
+
+  return {
+    action,
+    description,
+    severity,
+  };
+}
+
+function parseOptionSelection(args: string): OptionSelectionState | undefined {
+  const parsed = tryParseJsonRecord(args);
+  if (!parsed) {
+    return undefined;
+  }
+
+  const question = typeof parsed.question === 'string' && parsed.question.trim().length > 0
+    ? parsed.question
+    : undefined;
+  const options = Array.isArray(parsed.options)
+    ? parsed.options
+        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+        .map((item) => ({
+          label: typeof item.label === 'string' ? item.label : '',
+          description: typeof item.description === 'string' ? item.description : undefined,
+        }))
+        .filter((item) => item.label.length > 0)
+    : [];
+
+  if (!question || options.length === 0) {
+    return undefined;
+  }
+
+  return {
+    question,
+    options,
+    multiSelect: parsed.multiSelect === true,
+  };
+}
+
+function hydrateToolCallMetadata(toolCall: ChatToolCall): ChatToolCall {
+  if (toolCall.toolCallName === 'confirmAction') {
+    return {
+      ...toolCall,
+      approval: toolCall.approval ?? parseApproval(toolCall.args),
+    };
+  }
+
+  if (toolCall.toolCallName === 'display_option_selector') {
+    return {
+      ...toolCall,
+      optionSelection: toolCall.optionSelection ?? parseOptionSelection(toolCall.args),
+    };
+  }
+
+  return toolCall;
+}
+
+function parseStoredToolCalls(toolCallsJson?: string): ChatToolCall[] | undefined {
+  if (!toolCallsJson) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(toolCallsJson);
+    if (!Array.isArray(parsed)) {
+      return undefined;
+    }
+
+    const toolCalls = parsed
+      .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+      .map((item) => {
+        const toolCallId = typeof item.id === 'string' ? item.id : generateId();
+        const functionCall = typeof item.function === 'object' && item.function !== null
+          ? (item.function as Record<string, unknown>)
+          : null;
+        const toolCallName = typeof functionCall?.name === 'string' ? functionCall.name : 'tool';
+        const args = typeof functionCall?.arguments === 'string' ? functionCall.arguments : '';
+
+        return hydrateToolCallMetadata({
+          toolCallId,
+          toolCallName,
+          args,
+          status: 'completed',
+        });
+      });
+
+    return toolCalls.length > 0 ? toolCalls : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function threadMessageToChatMessage(message: ThreadMessageDto): ChatMessage | null {
+  switch (message.role) {
+    case 'user':
+      return {
+        type: 'user',
+        id: message.id,
+        content: message.content,
+      };
+    case 'assistant':
+      return {
+        type: 'assistant',
+        id: message.id,
+        content: message.content,
+        toolCalls: parseStoredToolCalls(message.toolCallsJson),
+      };
+    default:
+      return null;
+  }
+}
+
+function handleCustomEvent(
+  event: CustomEvent,
+  setSpeechRender: (value: StateUpdater<SpeechRenderPayload | null>) => void,
+  setSpeechChunks: (value: StateUpdater<SpeechChunkPayload[]>) => void,
+) {
+  const value = typeof event.value === 'object' && event.value !== null
+    ? (event.value as Record<string, unknown>)
+    : null;
+  const messageId = typeof value?.messageId === 'string' ? value.messageId : '';
+
+  if (event.name === 'speech.chunk') {
+    const speechText = typeof value?.speechText === 'string' ? value.speechText : '';
+    if (!messageId || !speechText) {
+      return;
+    }
+
+    const chunkIndex = typeof value?.chunkIndex === 'number' ? value.chunkIndex : 0;
+    setSpeechChunks((prev) => [
+      ...prev,
+      {
+        messageId,
+        chunkIndex,
+        speechText,
+        isFinal: value?.isFinal === true,
+      },
+    ]);
+    return;
+  }
+
+  if (event.name === 'speech.render') {
+    if (!messageId) {
+      return;
+    }
+
+    setSpeechRender({
+      messageId,
+      speechText: typeof value?.speechText === 'string' ? value.speechText : '',
+      requiresVisualAttention: value?.requiresVisualAttention === true,
+      requiresApproval: value?.requiresApproval === true,
+    });
+  }
+}
+
 function buildAguiMessages(
   chatMessages: ChatMessage[],
-  newUserMessage: { role: 'user'; content: string; id: string }
+  newUserMessage: { role: 'user'; content: string; id: string },
 ): Message[] {
   const result: Message[] = [];
 
-  for (const m of chatMessages) {
-    switch (m.type) {
+  for (const message of chatMessages) {
+    switch (message.type) {
       case 'user':
-        result.push({ id: m.id, role: 'user', content: m.content } satisfies UserMessage);
+        result.push({ id: message.id, role: 'user', content: message.content } satisfies UserMessage);
         break;
 
       case 'assistant': {
-        const assistantMsg: AssistantMessage = {
-          id: m.id,
+        const assistantMessage: AssistantMessage = {
+          id: message.id,
           role: 'assistant',
-          content: m.content || undefined,
+          content: message.content || undefined,
         };
-        if (m.toolCalls && m.toolCalls.length > 0) {
-          assistantMsg.toolCalls = m.toolCalls.map(
-            (tc): ToolCall => ({
-              id: tc.toolCallId,
+
+        if (message.toolCalls && message.toolCalls.length > 0) {
+          assistantMessage.toolCalls = message.toolCalls.map(
+            (toolCall): ToolCall => ({
+              id: toolCall.toolCallId,
               type: 'function',
               function: {
-                name: tc.toolCallName,
-                arguments: tc.args,
+                name: toolCall.toolCallName,
+                arguments: toolCall.args,
               },
-            })
+            }),
           );
         }
-        result.push(assistantMsg);
+
+        result.push(assistantMessage);
         break;
       }
 
       case 'tool-result':
         result.push({
-          id: m.id,
+          id: message.id,
           role: 'tool',
-          content: m.content,
-          toolCallId: m.toolCallId,
-          ...(m.error ? { error: m.error } : {}),
+          content: message.content,
+          toolCallId: message.toolCallId,
+          ...(message.error ? { error: message.error } : {}),
         } satisfies ToolMessage);
         break;
 
-      // Steps, reasoning, activity are not sent back to the agent
       default:
         break;
     }
@@ -740,51 +1003,54 @@ function buildAguiMessages(
   return result;
 }
 
-/**
- * Converts an AG-UI protocol message (from MESSAGES_SNAPSHOT) into a ChatMessage.
- */
-function aguiMessageToChatMessage(msg: Message): ChatMessage | null {
-  switch (msg.role) {
+function aguiMessageToChatMessage(message: Message): ChatMessage | null {
+  switch (message.role) {
     case 'user':
       return {
         type: 'user',
-        id: msg.id,
-        content: typeof msg.content === 'string' ? msg.content : '',
+        id: message.id,
+        content: typeof message.content === 'string' ? message.content : '',
       };
     case 'assistant':
       return {
         type: 'assistant',
-        id: msg.id,
-        content: msg.content ?? '',
-        toolCalls: msg.toolCalls?.map((tc) => ({
-          toolCallId: tc.id,
-          toolCallName: tc.function.name,
-          args: tc.function.arguments,
-          status: 'completed' as const,
-        })),
+        id: message.id,
+        content: message.content ?? '',
+        toolCalls: message.toolCalls?.map((toolCall) =>
+          hydrateToolCallMetadata({
+            toolCallId: toolCall.id,
+            toolCallName: toolCall.function.name,
+            args: toolCall.function.arguments,
+            status: 'completed',
+          }),
+        ),
       };
     case 'tool':
       return {
         type: 'tool-result',
-        id: msg.id,
-        toolCallId: msg.toolCallId,
+        id: message.id,
+        toolCallId: message.toolCallId,
         toolCallName: 'tool',
-        content: msg.content,
-        error: msg.error,
+        content: message.content,
+        error: message.error,
       };
-    case 'reasoning':
+    case 'reasoning': {
+      const reasoningMessage = message as ReasoningMessage;
       return {
         type: 'reasoning',
-        id: msg.id,
-        content: msg.content,
+        id: message.id,
+        content: reasoningMessage.content,
       };
-    case 'activity':
+    }
+    case 'activity': {
+      const activityMessage = message as ActivityMessage;
       return {
         type: 'activity',
-        id: msg.id,
-        activityType: msg.activityType,
-        content: msg.content,
+        id: message.id,
+        activityType: activityMessage.activityType,
+        content: activityMessage.content,
       };
+    }
     default:
       return null;
   }

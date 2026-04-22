@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -21,6 +21,11 @@ import {
   MessageAvatar,
 } from '@/components/ai-elements';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import {
+  AiDisplayToolCard,
+  AiOptionSelectionCard,
+  tryParseJsonRecord,
+} from '@/components/ai/chatSupport';
 import type { ChatMessage, ChatToolCall, PendingApproval } from '@/hooks/useAguiChat';
 
 interface ChatMessageListProps {
@@ -29,6 +34,7 @@ interface ChatMessageListProps {
   pendingApprovals?: PendingApproval[];
   onApproveAction?: (toolCallId: string) => void;
   onRejectAction?: (toolCallId: string, reason?: string) => void;
+  onSelectToolCallOptions?: (toolCallId: string, selected: string[]) => void;
 }
 
 /**
@@ -51,6 +57,7 @@ export function ChatMessageList({
   pendingApprovals,
   onApproveAction,
   onRejectAction,
+  onSelectToolCallOptions,
 }: ChatMessageListProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -86,6 +93,18 @@ export function ChatMessageList({
                   {m.toolCalls && m.toolCalls.length > 0 && (
                     <div className="mt-2 flex flex-col gap-2 w-full max-w-full">
                       {m.toolCalls.map((tc) => {
+                        const parsedArgs = tc.args ? tryParseJsonRecord(tc.args) : null;
+
+                        if (tc.toolCallName.startsWith('display_') && tc.status === 'completed' && parsedArgs) {
+                          return (
+                            <AiDisplayToolCard
+                              key={tc.toolCallId}
+                              toolName={tc.toolCallName}
+                              args={parsedArgs}
+                            />
+                          );
+                        }
+
                         if (tc.toolCallName === 'confirmAction') {
                           const approval = pendingApprovals?.find(
                             (a) => a.toolCallId === tc.toolCallId,
@@ -100,6 +119,18 @@ export function ChatMessageList({
                             />
                           );
                         }
+
+                        if (tc.toolCallName === 'display_option_selector' && tc.status === 'awaiting-selection' && tc.optionSelection) {
+                          return (
+                            <AiOptionSelectionCard
+                              key={tc.toolCallId}
+                              toolCallId={tc.toolCallId}
+                              selection={tc.optionSelection}
+                              onSelect={onSelectToolCallOptions}
+                            />
+                          );
+                        }
+
                         return <ToolCallCard key={tc.toolCallId} toolCall={tc} />;
                       })}
                     </div>
@@ -171,19 +202,14 @@ export function ChatMessageList({
 // ─── Tool Call Card (Collapsible) ────────────────────────────────────────────
 
 function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
-  const isActive = toolCall.status === 'streaming' || toolCall.status === 'pending' || toolCall.status === 'executing';
+  const isActive =
+    toolCall.status === 'streaming'
+    || toolCall.status === 'pending'
+    || toolCall.status === 'executing'
+    || toolCall.status === 'awaiting-selection';
   const isError = toolCall.status === 'error';
 
-  const [open, setOpen] = useState(isActive);
-  const prevActiveRef = useRef(isActive);
-
-  // Auto-collapse when transitioning from active → done/error
-  useEffect(() => {
-    if (prevActiveRef.current && !isActive) {
-      setOpen(false);
-    }
-    prevActiveRef.current = isActive;
-  }, [isActive]);
+  const [open, setOpen] = useState(() => isActive);
 
   // Active tools are always forced open
   const effectiveOpen = isActive ? true : open;
@@ -195,6 +221,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
     completed: <CheckCircle2 className="h-3 w-3 text-[var(--color-success)]" />,
     error: <XCircle className="h-3 w-3 text-[var(--color-danger)]" />,
     'awaiting-approval': <ShieldAlert className="h-3 w-3 text-[var(--color-warning)]" />,
+    'awaiting-selection': <ChevronRight className="h-3 w-3 text-[var(--color-info)]" />,
   }[toolCall.status];
 
   const statusLabel = {
@@ -204,6 +231,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
     completed: 'Completed',
     error: 'Failed',
     'awaiting-approval': 'Awaiting approval',
+    'awaiting-selection': 'Awaiting selection',
   }[toolCall.status];
 
   const hasContent = !!(toolCall.args || toolCall.result || toolCall.error);

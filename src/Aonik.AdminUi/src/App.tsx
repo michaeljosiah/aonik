@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, createElement, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Sidebar, Header, AiChatPanel } from '@/components/layout';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
@@ -26,6 +26,14 @@ import { identityService } from '@/services/identityService';
 import { agentConfigService } from '@/services/aiService';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
 import { isTenantScopedHostname } from '@/lib/tenantRouting';
+
+const orchestratorEntry: AiAgentSelectorItem = {
+  id: '',
+  title: 'AONIK Orchestrator',
+  description: 'Routes to domain agents automatically',
+  group: 'personal',
+  icon: 'centrali',
+};
 
 // Component to set up API authentication
 function ApiAuthSetup() {
@@ -91,23 +99,14 @@ function AppLayout() {
   // Module system: aggregated routes and breadcrumbs
   const { routes, getBreadcrumb } = useModules();
 
-  // Orchestrator entry: empty id = route via master orchestrator (no agentId in request)
-  const orchestratorEntry = useRef<AiAgentSelectorItem>({
-    id: '',
-    title: 'AONIK Orchestrator',
-    description: 'Routes to domain agents automatically',
-    group: 'personal',
-    icon: 'centrali',
-  });
-
-  const [agents, setAgents] = useState<AiAgentSelectorItem[]>([orchestratorEntry.current]);
+  const [agents, setAgents] = useState<AiAgentSelectorItem[]>([orchestratorEntry]);
   const [selectedAgentId, setSelectedAgentId] = useState('');
 
   const fetchAgents = useCallback(async () => {
     try {
       const configs = await agentConfigService.list();
       const items: AiAgentSelectorItem[] = configs
-        .filter((a) => a.isActive && !a.tenantId) // global defaults only
+        .filter((a) => a.isActive)
         .map((a) => ({
           id: a.name,
           title: a.name
@@ -120,7 +119,7 @@ function AppLayout() {
         }));
 
       // Orchestrator always first in its group
-      setAgents([orchestratorEntry.current, ...items]);
+      setAgents([orchestratorEntry, ...items]);
     } catch {
       // Keep default entry on error
     }
@@ -178,6 +177,16 @@ function AppLayout() {
     });
   };
 
+  const handleSelectChatAgent = useCallback((nextAgentId: string) => {
+    setSelectedAgentId(nextAgentId);
+
+    if (!isAiChat) {
+      return;
+    }
+
+    navigate(nextAgentId ? `/ai/chat/${nextAgentId}` : '/ai/chat');
+  }, [isAiChat, navigate]);
+
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
       <Sidebar
@@ -194,7 +203,7 @@ function AppLayout() {
               <AiAgentSelector
                 agents={agents}
                 selectedAgentId={selectedAgentId}
-                onSelectAgent={setSelectedAgentId}
+                onSelectAgent={handleSelectChatAgent}
               />
             ) : undefined
           }
@@ -215,8 +224,8 @@ function AppLayout() {
               {/* Workspace — always present */}
               <Route path="/workspace" element={<WorkspacePage />} />
               {/* AI Chat — wired to AG-UI streaming endpoint */}
-              <Route path="/ai/chat" element={<AiChatMock agentId={selectedAgentId} agents={agents} onSelectAgent={setSelectedAgentId} />} />
-              <Route path="/ai/chat/:agentId" element={<AiChatMock agentId={selectedAgentId} agents={agents} onSelectAgent={setSelectedAgentId} />} />
+              <Route path="/ai/chat" element={<AiChatRoute agentId={selectedAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
+              <Route path="/ai/chat/:agentId" element={<AiChatRoute agentId={selectedAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
               {/* Module-contributed routes */}
               {routes.map((route) => (
                 <Route
@@ -263,6 +272,31 @@ function PlaceholderPage({ title }: { title: string }) {
       </div>
     </div>
   );
+}
+
+function AiChatRoute({
+  agentId,
+  agents,
+  onSelectAgent,
+}: {
+  agentId: string;
+  agents: AiAgentSelectorItem[];
+  onSelectAgent: (agentId: string) => void;
+}) {
+  const params = useParams<{ agentId?: string }>();
+
+  useEffect(() => {
+    if (typeof params.agentId === 'string' && params.agentId !== agentId) {
+      onSelectAgent(params.agentId);
+      return;
+    }
+
+    if (!params.agentId && agentId) {
+      onSelectAgent('');
+    }
+  }, [agentId, onSelectAgent, params.agentId]);
+
+  return <AiChatMock key={params.agentId ?? '__orchestrator__'} agentId={agentId} agents={agents} onSelectAgent={onSelectAgent} />;
 }
 
 function BootstrapStatusUnavailablePage({ message }: { message: string }) {

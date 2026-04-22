@@ -50,6 +50,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
     pendingApprovals,
     approveAction,
     rejectAction,
+    selectToolCallOptions,
   } = useAguiChat();
 
   // --- Resize state ---
@@ -166,6 +167,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
                   pendingApprovals={pendingApprovals}
                   onApproveAction={approveAction}
                   onRejectAction={rejectAction}
+                  onSelectToolCallOptions={selectToolCallOptions}
                 />
               </div>
             )}

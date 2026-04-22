@@ -26,6 +26,7 @@ export function WizardChatPanel({ chat }: WizardChatPanelProps) {
     pendingApprovals,
     approveAction,
     rejectAction,
+    selectToolCallOptions,
   } = chat;
 
   return (
@@ -68,6 +69,7 @@ export function WizardChatPanel({ chat }: WizardChatPanelProps) {
                   pendingApprovals={pendingApprovals}
                   onApproveAction={approveAction}
                   onRejectAction={rejectAction}
+                  onSelectToolCallOptions={selectToolCallOptions}
                 />
               </div>
             )}

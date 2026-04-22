@@ -18,6 +18,10 @@ export type AiChatComposerProps = {
   showClear?: boolean;
   isStreaming?: boolean;
   className?: string;
+  voiceModeAvailable?: boolean;
+  voiceModeEnabled?: boolean;
+  onToggleVoiceMode?: (enabled: boolean) => void;
+  voicePlaybackState?: 'idle' | 'loading' | 'playing' | 'error';
 };
 
 /**
@@ -41,6 +45,10 @@ export function AiChatComposer({
   showClear,
   isStreaming,
   className,
+  voiceModeAvailable = false,
+  voiceModeEnabled = false,
+  onToggleVoiceMode,
+  voicePlaybackState = 'idle',
 }: AiChatComposerProps) {
   const isCenter = mode === 'center';
   const shouldShowHelper = showHelper ?? mode === 'footer';
@@ -112,8 +120,18 @@ export function AiChatComposer({
 
             <button
               type="button"
-              className="h-9 w-9 rounded-full grid place-items-center text-[var(--color-gray-400)] hover:bg-[var(--color-gray-200)] transition-colors"
-              title="Voice"
+              className={cn(
+                'h-9 w-9 rounded-full grid place-items-center transition-colors',
+                voiceModeAvailable
+                  ? voiceModeEnabled
+                    ? 'bg-[var(--color-brand-primary)] text-white hover:bg-[var(--color-brand-primary-dark)]'
+                    : 'text-[var(--color-gray-400)] hover:bg-[var(--color-gray-200)]'
+                  : 'text-[var(--color-gray-300)] cursor-not-allowed'
+              )}
+              title={voiceModeAvailable ? `Voice mode ${voicePlaybackState}` : 'Voice unavailable'}
+              disabled={!voiceModeAvailable}
+              aria-pressed={voiceModeEnabled}
+              onClick={() => onToggleVoiceMode?.(!voiceModeEnabled)}
             >
               <Mic className="h-4 w-4" />
             </button>

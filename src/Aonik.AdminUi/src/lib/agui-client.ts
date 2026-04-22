@@ -583,6 +583,7 @@ export async function streamAguiChat(options: StreamAguiOptions): Promise<void> 
       const registration = frontendTools!.get(call.name)!;
       let result: string;
       let error: string | undefined;
+      const messageId = `tool-result-${call.toolCallId}`;
 
       try {
         const parsedArgs = call.args ? JSON.parse(call.args) : {};
@@ -595,8 +596,19 @@ export async function streamAguiChat(options: StreamAguiOptions): Promise<void> 
         result = error;
       }
 
+      const frontendToolResultEvent: ToolCallResultEvent = {
+        type: 'TOOL_CALL_RESULT',
+        messageId,
+        toolCallId: call.toolCallId,
+        content: result,
+        role: 'tool',
+      };
+
+      callbacks.onEvent?.(frontendToolResultEvent);
+      callbacks.onToolCallResult?.(frontendToolResultEvent);
+
       const toolMsg: ToolMessage = {
-        id: `tool-result-${call.toolCallId}`,
+        id: messageId,
         role: 'tool',
         content: result,
         toolCallId: call.toolCallId,

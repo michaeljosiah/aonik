@@ -1,4 +1,5 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   BookOpenText,
   Loader2,
@@ -60,9 +61,11 @@ function getGreeting(name?: string) {
 }
 
 export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) {
+  const params = useParams<{ agentId?: string }>();
   const [query, setQuery] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const { user } = useAuth();
+  const effectiveAgentId = agentId ?? params.agentId ?? undefined;
   const {
     messages,
     draft,
@@ -75,9 +78,15 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
     pendingApprovals,
     approveAction,
     rejectAction,
+    selectToolCallOptions,
     threadId,
     loadThread,
-  } = useAguiChat(agentId || undefined);
+    voiceModeAvailable,
+    voiceModeEnabled,
+    setVoiceModeEnabled,
+    voicePlaybackState,
+    voiceError,
+  } = useAguiChat(effectiveAgentId || undefined);
 
   const {
     threads,
@@ -87,23 +96,19 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
     archiveThread,
   } = useThreads();
 
-  // Reset chat when the selected agent changes
-  const prevAgentIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (prevAgentIdRef.current !== undefined && prevAgentIdRef.current !== agentId) {
-      resetChat();
-      setActiveThreadId(null);
+    if (params.agentId && onSelectAgent && params.agentId !== agentId) {
+      onSelectAgent(params.agentId);
     }
-    prevAgentIdRef.current = agentId;
-  }, [agentId, resetChat]);
+  }, [agentId, onSelectAgent, params.agentId]);
 
   const agentLabel = useMemo(() => {
-    if (!agentId) return 'AONIK Orchestrator';
-    return agentId
+    if (!effectiveAgentId) return 'AONIK Orchestrator';
+    return effectiveAgentId
       .replace(/-agent$/, '')
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
-  }, [agentId]);
+  }, [effectiveAgentId]);
 
   const filteredThreads = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -285,10 +290,10 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
             </Button>
             {agents && onSelectAgent ? (
               <AiAgentSelector
-                agents={agents}
-                selectedAgentId={agentId ?? ''}
-                onSelectAgent={onSelectAgent}
-              />
+                 agents={agents}
+                 selectedAgentId={effectiveAgentId ?? ''}
+                 onSelectAgent={onSelectAgent}
+               />
             ) : (
               <div className="inline-flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--color-text-primary)]">
                 <div className="grid h-7 w-7 place-items-center rounded-full bg-[var(--color-brand-primary)] text-white">
@@ -350,6 +355,10 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
                       onStop={stopStreaming}
                       isStreaming={isStreaming}
                       showHelper={false}
+                      voiceModeAvailable={voiceModeAvailable}
+                      voiceModeEnabled={voiceModeEnabled}
+                      onToggleVoiceMode={setVoiceModeEnabled}
+                      voicePlaybackState={voicePlaybackState}
                     />
 
                     <button
@@ -369,6 +378,7 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
                     pendingApprovals={pendingApprovals}
                     onApproveAction={approveAction}
                     onRejectAction={rejectAction}
+                    onSelectToolCallOptions={selectToolCallOptions}
                   />
                 </div>
               )}
@@ -388,6 +398,10 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
                 onStop={stopStreaming}
                 isStreaming={isStreaming}
                 onClear={handleNewChat}
+                voiceModeAvailable={voiceModeAvailable}
+                voiceModeEnabled={voiceModeEnabled}
+                onToggleVoiceMode={setVoiceModeEnabled}
+                voicePlaybackState={voicePlaybackState}
               />
               <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
                 <span>
@@ -396,11 +410,13 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Streaming...
                     </span>
-                  ) : streamError ? (
-                    <span className="text-[var(--color-danger)]">{streamError}</span>
-                  ) : (
-                    'Connected via AG-UI protocol'
-                  )}
+                    ) : streamError ? (
+                      <span className="text-[var(--color-danger)]">{streamError}</span>
+                    ) : voiceError ? (
+                      <span className="text-[var(--color-warning)]">{voiceError}</span>
+                    ) : (
+                      'Connected via AG-UI protocol'
+                    )}
                 </span>
                 <span>Agent: {agentLabel}</span>
               </div>
