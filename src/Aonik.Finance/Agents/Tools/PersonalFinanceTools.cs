@@ -184,7 +184,7 @@ internal sealed class PersonalFinanceTools
         return await _insightsService.GetSpendingSummaryAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
     }
 
-    [Description("Gets spending broken down by category for a given period. Returns each category's total amount and percentage of overall spending.")]
+    [Description("Gets spending broken down by category for a given period. Returns each category's total amount and percentage of overall spending. If the period contains spending in multiple currencies and no specific account is supplied, the result defaults to the dominant spend currency for that window so the breakdown remains coherent.")]
     public async Task<IReadOnlyList<CategorySpendingItemResponse>> GetCategoryBreakdown(
         [Description("Start of the analysis period (UTC)")] DateTime periodStart,
         [Description("End of the analysis period (UTC)")] DateTime periodEnd,
@@ -194,7 +194,7 @@ internal sealed class PersonalFinanceTools
         return await _insightsService.GetCategoryBreakdownAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
     }
 
-    [Description("Gets spending broken down by merchant for a given period. Returns the top merchants by total amount spent.")]
+    [Description("Gets spending broken down by merchant for a given period. Returns the top merchants by total amount spent. If the period contains spending in multiple currencies and no specific account is supplied, the result defaults to the dominant spend currency for that window so the ranking remains coherent.")]
     public async Task<IReadOnlyList<MerchantSpendingItemResponse>> GetMerchantBreakdown(
         [Description("Start of the analysis period (UTC)")] DateTime periodStart,
         [Description("End of the analysis period (UTC)")] DateTime periodEnd,

@@ -143,6 +143,10 @@ interface SidebarProps {
   onToggle?: () => void;
 }
 
+function closestIfElement(target: EventTarget | null, selector: string): Element | null {
+  return target instanceof Element ? target.closest(selector) : null;
+}
+
 // Flyout menu component for grouped children
 function FlyoutMenu({
   item,
@@ -1121,8 +1125,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   const handleMouseLeave = (e: React.MouseEvent) => {
     // Don't collapse if the mouse moved into a flyout menu
-    const relatedTarget = e.relatedTarget as HTMLElement | null;
-    if (relatedTarget?.closest('.flyout-menu')) {
+    if (closestIfElement(e.relatedTarget, '.flyout-menu')) {
       return;
     }
     setMenuHover(false);
@@ -1133,10 +1136,8 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   useEffect(() => {
     if (!menuHover) return;
     const handleFlyoutLeave = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target?.closest('.flyout-menu')) return;
-      const relatedTarget = e.relatedTarget as HTMLElement | null;
-      if (relatedTarget?.closest('aside') || relatedTarget?.closest('.flyout-menu')) {
+      if (!closestIfElement(e.target, '.flyout-menu')) return;
+      if (closestIfElement(e.relatedTarget, 'aside') || closestIfElement(e.relatedTarget, '.flyout-menu')) {
         return;
       }
       setMenuHover(false);

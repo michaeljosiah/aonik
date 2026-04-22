@@ -58,15 +58,17 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         ValidatePeriod(periodStart, periodEnd);
 
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
-        _ = EnsureSingleCurrency(transactions);
-
-        var expenseRows = transactions.Where(IsExpense).ToList();
+        var expenseRows = FilterToDominantExpenseCurrency(
+            transactions.Where(IsExpense).ToList(),
+            personalAccountId);
         var expenseTotal = Math.Abs(expenseRows.Sum(item => item.Amount));
 
         if (expenseRows.Count == 0 || expenseTotal == 0)
         {
             return Array.Empty<CategorySpendingItemResponse>();
         }
+
+        var currency = EnsureSingleCurrency(expenseRows);
 
         return expenseRows
             .GroupBy(item => string.IsNullOrWhiteSpace(item.Category) ? TransactionCategoryReference.Uncategorized : item.Category!)
@@ -77,6 +79,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
 
                 return new CategorySpendingItemResponse(
                     group.Key,
+                    currency,
                     categoryTotal,
                     decimal.Round(percentage, 2),
                     group.Count());
@@ -96,13 +99,22 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
 
         var limit = top <= 0 ? 10 : Math.Min(top, 100);
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
-        _ = EnsureSingleCurrency(transactions);
+        var expenseRows = FilterToDominantExpenseCurrency(
+            transactions.Where(IsExpense).ToList(),
+            personalAccountId);
 
-        return transactions
-            .Where(IsExpense)
+        if (expenseRows.Count == 0)
+        {
+            return Array.Empty<MerchantSpendingItemResponse>();
+        }
+
+        var currency = EnsureSingleCurrency(expenseRows);
+
+        return expenseRows
             .GroupBy(item => string.IsNullOrWhiteSpace(item.Merchant) ? "Unknown Merchant" : item.Merchant!)
             .Select(group => new MerchantSpendingItemResponse(
                 group.Key,
+                currency,
                 Math.Abs(group.Sum(item => item.Amount)),
                 group.Count()))
             .OrderByDescending(item => item.TotalAmount)
@@ -237,12 +249,44 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         return await query.ToListAsync(cancellationToken);
     }
 
+    private static List<PersonalTransaction> FilterToDominantExpenseCurrency(
+        List<PersonalTransaction> expenseRows,
+        Guid? personalAccountId)
+    {
+        if (personalAccountId.HasValue || expenseRows.Count == 0)
+        {
+            return expenseRows;
+        }
+
+        var currencies = expenseRows
+            .Select(item => NormalizeCurrency(item.Currency))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (currencies.Count <= 1)
+        {
+            return expenseRows;
+        }
+
+        var dominantCurrency = expenseRows
+            .GroupBy(item => NormalizeCurrency(item.Currency))
+            .OrderByDescending(group => Math.Abs(group.Sum(item => item.Amount)))
+            .ThenByDescending(group => group.Count())
+            .ThenBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => group.Key)
+            .First();
+
+        return expenseRows
+            .Where(item => NormalizeCurrency(item.Currency) == dominantCurrency)
+            .ToList();
+    }
+
     private static string EnsureSingleCurrency(IReadOnlyList<PersonalTransaction> transactions)
     {
         var currencies = transactions
             .Select(item => item.Currency)
             .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => value!.Trim().ToUpperInvariant())
+            .Select(value => NormalizeCurrency(value))
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
@@ -253,6 +297,9 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
 
         return currencies.FirstOrDefault() ?? "USD";
     }
+
+    private static string NormalizeCurrency(string? currency)
+        => string.IsNullOrWhiteSpace(currency) ? "USD" : currency.Trim().ToUpperInvariant();
 
     private static void ValidatePeriod(DateTime periodStart, DateTime periodEnd)
     {

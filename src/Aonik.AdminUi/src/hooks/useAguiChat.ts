@@ -245,7 +245,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     voiceDetails,
     stopVoicePreview,
   } = useAiChatVoicePlayback({
-    enabled: enablePersonalFinanceFeatures && voiceModeEnabled,
+    enabled: voiceModeEnabled,
     isStreaming,
     speechRender,
     speechChunks,
@@ -477,9 +477,8 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
 
           onToolCallStart: (event: ToolCallStartEvent) => {
             const assistantMessageId = event.parentMessageId || currentAssistantId;
-            if (event.parentMessageId) {
-              ensureAssistantMessage(assistantMessageId);
-            }
+            adoptAssistantMessageId(assistantMessageId);
+            ensureAssistantMessage(assistantMessageId);
 
             streamingToolCalls.set(event.toolCallId, {
               name: event.toolCallName,
@@ -749,7 +748,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     selectToolCallOptions,
     threadId: threadIdRef.current,
     loadThread,
-    voiceModeAvailable: enablePersonalFinanceFeatures,
+    voiceModeAvailable: true,
     voiceModeEnabled,
     setVoiceModeEnabled,
     voicePlaybackState,

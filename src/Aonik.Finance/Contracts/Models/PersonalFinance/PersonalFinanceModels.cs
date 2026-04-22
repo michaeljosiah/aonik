@@ -445,12 +445,14 @@ public record SpendingSummaryResponse(
 
 public record CategorySpendingItemResponse(
     string Category,
+    string Currency,
     decimal TotalAmount,
     decimal Percentage,
     int TransactionCount);
 
 public record MerchantSpendingItemResponse(
     string Merchant,
+    string Currency,
     decimal TotalAmount,
     int TransactionCount);
 

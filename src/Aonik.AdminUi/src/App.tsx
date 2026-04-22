@@ -90,6 +90,11 @@ function AppLayout() {
   const { isAuthenticated } = useAuth();
   const isAiChat = location.pathname.startsWith('/ai/chat');
   const isWorkspace = location.pathname.startsWith('/workspace');
+  const [selectedAgentId, setSelectedAgentId] = useState('');
+  const routeChatAgentId = isAiChat
+    ? decodeURIComponent(location.pathname.replace(/^\/ai\/chat\/?/, ''))
+    : '';
+  const activeChatAgentId = isAiChat ? routeChatAgentId : selectedAgentId;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showAiChat, setShowAiChat] = useState(false);
   const previousSidebarCollapsed = useRef<boolean | null>(null);
@@ -100,7 +105,6 @@ function AppLayout() {
   const { routes, getBreadcrumb } = useModules();
 
   const [agents, setAgents] = useState<AiAgentSelectorItem[]>([orchestratorEntry]);
-  const [selectedAgentId, setSelectedAgentId] = useState('');
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -202,7 +206,7 @@ function AppLayout() {
             isAiChat ? (
               <AiAgentSelector
                 agents={agents}
-                selectedAgentId={selectedAgentId}
+                selectedAgentId={activeChatAgentId}
                 onSelectAgent={handleSelectChatAgent}
               />
             ) : undefined
@@ -224,8 +228,8 @@ function AppLayout() {
               {/* Workspace — always present */}
               <Route path="/workspace" element={<WorkspacePage />} />
               {/* AI Chat — wired to AG-UI streaming endpoint */}
-              <Route path="/ai/chat" element={<AiChatRoute agentId={selectedAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
-              <Route path="/ai/chat/:agentId" element={<AiChatRoute agentId={selectedAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
+              <Route path="/ai/chat" element={<AiChatRoute agentId={activeChatAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
+              <Route path="/ai/chat/:agentId" element={<AiChatRoute agentId={activeChatAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
               {/* Module-contributed routes */}
               {routes.map((route) => (
                 <Route
@@ -285,18 +289,7 @@ function AiChatRoute({
 }) {
   const params = useParams<{ agentId?: string }>();
 
-  useEffect(() => {
-    if (typeof params.agentId === 'string' && params.agentId !== agentId) {
-      onSelectAgent(params.agentId);
-      return;
-    }
-
-    if (!params.agentId && agentId) {
-      onSelectAgent('');
-    }
-  }, [agentId, onSelectAgent, params.agentId]);
-
-  return <AiChatMock key={params.agentId ?? '__orchestrator__'} agentId={agentId} agents={agents} onSelectAgent={onSelectAgent} />;
+  return <AiChatMock key={params.agentId ?? '__orchestrator__'} agentId={params.agentId ?? agentId} agents={agents} onSelectAgent={onSelectAgent} />;
 }
 
 function BootstrapStatusUnavailablePage({ message }: { message: string }) {

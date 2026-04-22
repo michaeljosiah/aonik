@@ -1,3 +1,4 @@
+using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
@@ -201,6 +202,132 @@ public class PersonalFinanceInsightsServiceTests
         result.Should().Contain(item => item.PersonalAccountId == accountA.Id && item.TotalAmount == 100m && item.TransactionCount == 1);
         result.Should().Contain(item => item.PersonalAccountId == accountB.Id && item.TotalAmount == 50m && item.TransactionCount == 1);
         result.Should().Contain(item => item.PersonalAccountId == null && item.TotalAmount == 20m && item.TransactionCount == 1);
+    }
+
+    [Fact]
+    public async Task GetCategoryBreakdownAsync_ShouldUseDominantExpenseCurrency_WhenPeriodContainsMultipleExpenseCurrencies()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        context.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-3),
+                Amount = -100m,
+                Currency = "GBP",
+                Category = "Groceries",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-2),
+                Amount = -50m,
+                Currency = "GBP",
+                Category = "Dining",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-1),
+                Amount = -40m,
+                Currency = "USD",
+                Category = "Travel",
+                TagsJson = "[]"
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = new PersonalFinanceInsightsService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.GetCategoryBreakdownAsync(DateTime.UtcNow.AddDays(-10), DateTime.UtcNow);
+
+        // Assert
+        result.Should().HaveCount(2);
+        result.Should().ContainEquivalentOf(new CategorySpendingItemResponse("Groceries", "GBP", 100m, 66.67m, 1));
+        result.Should().ContainEquivalentOf(new CategorySpendingItemResponse("Dining", "GBP", 50m, 33.33m, 1));
+        result.Should().NotContain(item => item.Category == "Travel");
+    }
+
+    [Fact]
+    public async Task GetMerchantBreakdownAsync_ShouldUseDominantExpenseCurrency_WhenPeriodContainsMultipleExpenseCurrencies()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        context.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-3),
+                Amount = -120m,
+                Currency = "GBP",
+                Merchant = "Tesco",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-2),
+                Amount = -45m,
+                Currency = "GBP",
+                Merchant = "Pret",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-1),
+                Amount = -40m,
+                Currency = "USD",
+                Merchant = "Amazon",
+                TagsJson = "[]"
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = new PersonalFinanceInsightsService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.GetMerchantBreakdownAsync(DateTime.UtcNow.AddDays(-10), DateTime.UtcNow);
+
+        // Assert
+        result.Should().HaveCount(2);
+        result.Should().Contain(item => item.Merchant == "Tesco" && item.Currency == "GBP" && item.TotalAmount == 120m && item.TransactionCount == 1);
+        result.Should().Contain(item => item.Merchant == "Pret" && item.Currency == "GBP" && item.TotalAmount == 45m && item.TransactionCount == 1);
+        result.Should().NotContain(item => item.Merchant == "Amazon");
     }
 
     [Fact]
