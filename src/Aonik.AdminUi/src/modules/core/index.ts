@@ -9,6 +9,8 @@ import { AgentConfigPanel } from '@/workspace/apps/AgentConfigPanel';
 import { PromptTemplatesPage } from '@/pages/ai/PromptTemplatesPage';
 import { RoutePoliciesPage } from '@/pages/ai/RoutePoliciesPage';
 import { AiTasksPage } from '@/pages/ai/AiTasksPage';
+import { AiTracesPage } from '@/pages/ai/AiTracesPage';
+import { AiTraceDetailPage } from '@/pages/ai/AiTraceDetailPage';
 import { PromptTemplatesPanel } from '@/workspace/apps/PromptTemplatesPanel';
 import { RoutePoliciesPanel } from '@/workspace/apps/RoutePoliciesPanel';
 import { AiTasksPanel } from '@/workspace/apps/AiTasksPanel';
@@ -87,6 +89,12 @@ const navigation: NavigationSection[] = [
                 icon: 'FlaskConical',
                 href: '/ai/playground',
               },
+              {
+                id: 'ai-traces-item',
+                label: 'AI Traces',
+                icon: 'Activity',
+                href: '/ai/traces',
+              },
             ],
           },
         ],
@@ -105,6 +113,8 @@ const routes = [
   { path: '/ai/agents', element: AgentConfigPage },
   { path: '/ai/agents/:agentName', element: AgentDetailPage },
   { path: '/ai/tasks', element: AiTasksPage },
+  { path: '/ai/traces', element: AiTracesPage },
+  { path: '/ai/traces/:runId', element: AiTraceDetailPage },
   { path: '/ai/prompts', element: PromptTemplatesPage },
   { path: '/ai/routing', element: RoutePoliciesPage },
   { path: '/ai/playground', element: AiPlaygroundPage },
@@ -136,6 +146,8 @@ const panelComponents = {
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
+  { pathPrefix: '/ai/traces/', trail: ['AI', 'AI Traces', 'Run Trace'] },
+  { pathPrefix: '/ai/traces', trail: ['AI', 'AI Traces'] },
   { pathPrefix: '/ai/tasks', trail: ['AI', 'LLM Tasks'] },
   { pathPrefix: '/ai/prompts', trail: ['AI', 'Prompt Templates'] },
   { pathPrefix: '/ai/playground', trail: ['AI', 'AI Playground'] },

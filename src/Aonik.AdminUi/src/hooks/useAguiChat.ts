@@ -82,6 +82,32 @@ export type ChatMessage =
   | { type: 'reasoning'; id: string; content: string }
   | { type: 'activity'; id: string; activityType: string; content: Record<string, unknown> };
 
+export type ChatRunState = 'idle' | 'streaming' | 'awaiting-approval' | 'awaiting-selection';
+
+export function resolveChatRunState(messages: ChatMessage[], isStreaming: boolean): ChatRunState {
+  if (
+    messages.some(
+      (message) =>
+        message.type === 'assistant'
+        && message.toolCalls?.some((toolCall) => toolCall.status === 'awaiting-approval'),
+    )
+  ) {
+    return 'awaiting-approval';
+  }
+
+  if (
+    messages.some(
+      (message) =>
+        message.type === 'assistant'
+        && message.toolCalls?.some((toolCall) => toolCall.status === 'awaiting-selection'),
+    )
+  ) {
+    return 'awaiting-selection';
+  }
+
+  return isStreaming ? 'streaming' : 'idle';
+}
+
 export interface FrontendToolConfig {
   name: string;
   description: string;

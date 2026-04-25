@@ -188,6 +188,7 @@ public sealed class AiModule : IModule
         services.AddScoped<IInsightWriter, InsightWriter>();
         services.AddScoped<IInsightReader, InsightReader>();
         services.AddScoped<IAiRunWriter, AiRunWriter>();
+        services.AddScoped<AiTraceQueryService>();
         services.AddScoped<ICustomerInsightAiSummaryService, CustomerInsightAiSummaryService>();
         services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
         services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();

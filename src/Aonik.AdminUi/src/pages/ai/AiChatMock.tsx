@@ -24,7 +24,7 @@ import {
 } from '@/components/ai-elements';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useAguiChat } from '@/hooks/useAguiChat';
+import { resolveChatRunState, useAguiChat } from '@/hooks/useAguiChat';
 import { useThreads, type ThreadSummary } from '@/hooks/useThreads';
 
 type AiChatMockProps = {
@@ -123,6 +123,7 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
 
   const threadTitle = activeThread?.title || (messages.length > 0 ? 'Conversation' : 'New conversation');
   const greeting = getGreeting(user?.name?.split(' ')[0]);
+  const chatRunState = resolveChatRunState(messages, isStreaming);
 
   const handleNewChat = useCallback(() => {
     resetChat();
@@ -405,11 +406,15 @@ export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) 
               />
               <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
                 <span>
-                  {isStreaming ? (
+                  {chatRunState === 'streaming' ? (
                     <span className="inline-flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Streaming...
                     </span>
+                    ) : chatRunState === 'awaiting-selection' ? (
+                      'Awaiting selection'
+                    ) : chatRunState === 'awaiting-approval' ? (
+                      'Awaiting approval'
                     ) : streamError ? (
                       <span className="text-[var(--color-danger)]">{streamError}</span>
                     ) : voiceError ? (

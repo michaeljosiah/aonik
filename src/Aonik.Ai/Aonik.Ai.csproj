@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
+    <ProjectReference Include="..\Aonik.Platform\Aonik.Platform.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +34,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.1" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.4.1" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.3.0" />
   </ItemGroup>
 
   <ItemGroup>

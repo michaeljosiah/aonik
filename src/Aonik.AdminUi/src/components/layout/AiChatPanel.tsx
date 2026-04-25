@@ -10,7 +10,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from '@/components/ai-elements';
-import { useAguiChat } from '@/hooks/useAguiChat';
+import { resolveChatRunState, useAguiChat } from '@/hooks/useAguiChat';
 
 /** Default / min / max widths in vw units */
 const DEFAULT_WIDTH_VW = 30;
@@ -52,6 +52,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
     rejectAction,
     selectToolCallOptions,
   } = useAguiChat();
+  const chatRunState = resolveChatRunState(messages, isStreaming);
 
   // --- Resize state ---
   const [widthVw, setWidthVw] = useState(DEFAULT_WIDTH_VW);
@@ -190,11 +191,15 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
         />
         <div className="mt-2 flex items-center justify-between text-xs text-[var(--color-text-tertiary)] px-1">
           <span>
-            {isStreaming ? (
+            {chatRunState === 'streaming' ? (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Streaming...
               </span>
+            ) : chatRunState === 'awaiting-selection' ? (
+              'Awaiting selection'
+            ) : chatRunState === 'awaiting-approval' ? (
+              'Awaiting approval'
             ) : streamError ? (
               <span className="text-[var(--color-danger)]">{streamError}</span>
             ) : (

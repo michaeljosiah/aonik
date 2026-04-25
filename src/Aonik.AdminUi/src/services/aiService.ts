@@ -123,6 +123,79 @@ export interface ListAiRunsResponse {
   pageSize: number;
 }
 
+export interface AiTraceListItemResponse {
+  runId: string;
+  startedAt: string;
+  useCase: string;
+  outcome: string;
+  requestedModel: string | null;
+  actualModel: string | null;
+  latencyMs: number | null;
+  ttftMs: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  estimatedCostUsd: number | null;
+  traceStatus: string;
+}
+
+export interface ListAiTracesResponse {
+  items: AiTraceListItemResponse[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AiTraceRunRecordResponse {
+  runId: string;
+  startedAt: string;
+  useCase: string;
+  aiModelId: string;
+  aiModelName: string | null;
+  promptSpecId: string | null;
+  aiPolicyId: string | null;
+  inputRefsJson: string;
+  outputRef: string | null;
+  tokensUsed: number;
+  costEstimate: number;
+  latencyMs: number;
+  outcome: string;
+}
+
+export interface AiTraceMetricsResponse {
+  requestedModel: string | null;
+  actualModel: string | null;
+  latencyMs: number | null;
+  ttftMs: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  estimatedCostUsd: number | null;
+  completedAt: string | null;
+}
+
+export interface AiTraceTimelineEventResponse {
+  timestamp: string;
+  eventType: string;
+  title: string;
+  description: string | null;
+  status: string | null;
+}
+
+export interface AiTraceRawTelemetryEventResponse {
+  timestamp: string;
+  message: string;
+  dimensions: Record<string, string | null>;
+}
+
+export interface AiTraceRunDetailResponse {
+  run: AiTraceRunRecordResponse;
+  metrics: AiTraceMetricsResponse | null;
+  timeline: AiTraceTimelineEventResponse[];
+  rawTelemetry: AiTraceRawTelemetryEventResponse[];
+  traceStatus: string;
+}
+
 // ── Provider service ────────────────────────────────────────────────
 
 export const aiProviderService = {
@@ -348,6 +421,32 @@ export const aiRunService = {
     return api.get<ListAiRunsResponse>(
       `/ai/runs?useCase=${encodeURIComponent(useCase)}&page=${page}&pageSize=${pageSize}`,
     );
+  },
+};
+
+export const aiTraceService = {
+  list: async (options?: {
+    page?: number;
+    pageSize?: number;
+    useCase?: string;
+    outcome?: string;
+    timeRange?: string;
+    runId?: string;
+  }): Promise<ListAiTracesResponse> => {
+    const params = new URLSearchParams();
+    if (options?.page) params.set('page', String(options.page));
+    if (options?.pageSize) params.set('pageSize', String(options.pageSize));
+    if (options?.useCase) params.set('useCase', options.useCase);
+    if (options?.outcome) params.set('outcome', options.outcome);
+    if (options?.timeRange) params.set('timeRange', options.timeRange);
+    if (options?.runId) params.set('runId', options.runId);
+    const query = params.toString();
+
+    return api.get<ListAiTracesResponse>(`/ai/traces${query ? `?${query}` : ''}`);
+  },
+
+  get: async (runId: string): Promise<AiTraceRunDetailResponse> => {
+    return api.get<AiTraceRunDetailResponse>(`/ai/traces/${runId}`);
   },
 };
 
