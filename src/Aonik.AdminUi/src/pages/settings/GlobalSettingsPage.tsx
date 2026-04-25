@@ -128,6 +128,19 @@ const GLOBAL_TABS: GlobalTabDef[] = [
           },
         ],
       },
+      {
+        title: 'OpenTelemetry',
+        description: 'Controls whether AI trace payloads include sensitive prompts and outputs.',
+        fields: [
+          {
+            key: 'Ai.OpenTelemetry.EnableSensitiveData',
+            label: 'Enable Sensitive Data',
+            type: 'toggle',
+            defaultValue: 'false',
+            help: 'When enabled, AI trace observations may include prompt and response payloads in OpenTelemetry export. Keep disabled in production unless you explicitly need payload-level debugging.',
+          },
+        ],
+      },
     ],
   },
   {

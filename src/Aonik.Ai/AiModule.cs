@@ -4,6 +4,8 @@ using Aonik.Ai.Observability;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Providers;
 using Aonik.Ai.Services;
+using Aonik.Platform.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -98,7 +100,13 @@ public sealed class AiModule : IModule
 
             // Determine whether to include sensitive data (prompts, responses, tool args)
             // in OpenTelemetry traces. Only enable in development/testing environments.
-            var enableSensitiveData = configuration.GetValue<bool>("AI:OpenTelemetry:EnableSensitiveData");
+            var settingProvider = sp.GetRequiredService<ISettingProvider>();
+            var enableSensitiveDataRaw = settingProvider.GetAsync(AiSettingNames.OpenTelemetryEnableSensitiveData)
+                .GetAwaiter().GetResult();
+            var enableSensitiveData = bool.TryParse(
+                enableSensitiveDataRaw ?? configuration["AI:OpenTelemetry:EnableSensitiveData"],
+                out var parsedEnableSensitiveData)
+                && parsedEnableSensitiveData;
 
             // Build the middleware pipeline:
             //   innerClient -> OpenTelemetry -> AuditMiddleware -> TelemetryChatClient (outermost)

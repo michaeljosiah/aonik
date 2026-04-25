@@ -29,4 +29,9 @@ public static class AiSettingNames
     /// OpenAI image generation model (e.g. "dall-e-3", "gpt-image-1").
     /// </summary>
     public const string OpenAiImageModel = "Ai.OpenAI.ImageModel";
+
+    /// <summary>
+    /// Enables sensitive input/output capture in AI OpenTelemetry traces.
+    /// </summary>
+    public const string OpenTelemetryEnableSensitiveData = "Ai.OpenTelemetry.EnableSensitiveData";
 }

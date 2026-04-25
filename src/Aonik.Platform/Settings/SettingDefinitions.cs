@@ -63,6 +63,7 @@ public static class SettingDefinitions
             [AiSettingNames.OpenAiModel] = new SettingDefinition(AiSettingNames.OpenAiModel, "gpt-5-mini"),
             [AiSettingNames.OpenAiImageModel] = new SettingDefinition(AiSettingNames.OpenAiImageModel, "dall-e-3"),
             [AiSettingNames.UserMemoryBackend] = new SettingDefinition(AiSettingNames.UserMemoryBackend, "SqlServer"),
+            [AiSettingNames.OpenTelemetryEnableSensitiveData] = new SettingDefinition(AiSettingNames.OpenTelemetryEnableSensitiveData, "false"),
 
             // ── Observability ────────────────────────────────────────────
             [ObservabilitySettingNames.AppInsightsAppId] = new SettingDefinition(ObservabilitySettingNames.AppInsightsAppId),
