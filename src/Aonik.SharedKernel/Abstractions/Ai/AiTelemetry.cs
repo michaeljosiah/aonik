@@ -35,4 +35,16 @@ public static class AiTelemetry
     /// analytics.
     /// </summary>
     public const string UserIdAttribute = "langfuse.user.id";
+
+    public const string AiRunIdAttribute = "aonik.ai_run_id";
+
+    public const string TraceObservationLogName = "AiTraceObservation";
+
+    public const string ObservationIdAttribute = "aonik.observation.id";
+
+    public const string ObservationTypeAttribute = "aonik.observation.type";
+
+    public const string ObservationNameAttribute = "aonik.observation.name";
+
+    public const string ObservationTraceNameAttribute = "aonik.observation.trace_name";
 }

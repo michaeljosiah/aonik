@@ -53,6 +53,7 @@ public sealed class AiModule : IModule
 
         // ── AI Infrastructure ────────────────────────────────────────
         services.Configure<Aonik.Ai.Services.TextToSpeechOptions>(configuration.GetSection("AI:TextToSpeech"));
+        services.Configure<AiTraceExplorerOptions>(configuration.GetSection("AI:TraceExplorer"));
 
         // File-based prompt store (loads .md templates from disk) — used as fallback
         services.AddSingleton<FileBasedPromptStore>(sp =>
@@ -120,7 +121,8 @@ public sealed class AiModule : IModule
                     inner,
                     sp.GetRequiredService<ILogger<TelemetryChatClient>>(),
                     sp.GetService<ITenantContext>(),
-                    sp.GetService<ICurrentUserProvider>()))
+                    sp.GetService<ICurrentUserProvider>(),
+                    enableSensitiveData))
                 .Build();
         });
 
@@ -189,6 +191,9 @@ public sealed class AiModule : IModule
         services.AddScoped<IInsightReader, InsightReader>();
         services.AddScoped<IAiRunWriter, AiRunWriter>();
         services.AddScoped<AiTraceQueryService>();
+        services.AddScoped<AiTraceExplorerService>();
+        services.AddScoped<IAiTraceReader, AppInsightsAiTraceReader>();
+        services.AddScoped<IAiTraceReader, LangfuseAiTraceReader>();
         services.AddScoped<ICustomerInsightAiSummaryService, CustomerInsightAiSummaryService>();
         services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
         services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();

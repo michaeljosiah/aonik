@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -60,17 +62,20 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
     private readonly ITenantContext? _tenantContext;
     private readonly ICurrentUserProvider? _currentUserProvider;
     private readonly ILogger<TelemetryChatClient> _logger;
+    private readonly bool _enableSensitiveData;
 
     public TelemetryChatClient(
         IChatClient innerClient,
         ILogger<TelemetryChatClient> logger,
         ITenantContext? tenantContext = null,
-        ICurrentUserProvider? currentUserProvider = null)
+        ICurrentUserProvider? currentUserProvider = null,
+        bool enableSensitiveData = false)
         : base(innerClient)
     {
         _logger = logger;
         _tenantContext = tenantContext;
         _currentUserProvider = currentUserProvider;
+        _enableSensitiveData = enableSensitiveData;
     }
 
     public override async Task<ChatResponse> GetResponseAsync(
@@ -78,6 +83,7 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        var messageList = messages.ToList();
         var stopwatch = Stopwatch.StartNew();
         var (useCase, aiRunId) = ExtractCallContext(options);
         var requestedModel = options?.ModelId;
@@ -85,7 +91,7 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         ChatResponse response;
         try
         {
-            response = await base.GetResponseAsync(messages, options, cancellationToken);
+            response = await base.GetResponseAsync(messageList, options, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -101,7 +107,9 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
                 inputTokens: 0,
                 outputTokens: 0,
                 outcome: "error",
-                error: ex);
+                error: ex,
+                inputJson: SerializeInput(messageList),
+                outputJson: null);
             throw;
         }
 
@@ -119,7 +127,9 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
             inputTokens: (int)(usage?.InputTokenCount ?? 0),
             outputTokens: (int)(usage?.OutputTokenCount ?? 0),
             outcome: "success",
-            error: null);
+            error: null,
+            inputJson: SerializeInput(messageList),
+            outputJson: SerializeOutput(response.Text));
 
         return response;
     }
@@ -129,6 +139,7 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var messageList = messages.ToList();
         var stopwatch = Stopwatch.StartNew();
         var (useCase, aiRunId) = ExtractCallContext(options);
         var requestedModel = options?.ModelId;
@@ -139,13 +150,14 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         string? actualModel = null;
         var outcome = "success";
         Exception? failure = null;
+        var responseText = _enableSensitiveData ? new System.Text.StringBuilder() : null;
 
         // Manual enumerator so we can wrap MoveNextAsync in try/catch — `yield`
         // can't live inside a try with a catch clause.
         IAsyncEnumerator<ChatResponseUpdate>? enumerator = null;
         try
         {
-            enumerator = base.GetStreamingResponseAsync(messages, options, cancellationToken)
+            enumerator = base.GetStreamingResponseAsync(messageList, options, cancellationToken)
                 .GetAsyncEnumerator(cancellationToken);
 
             while (true)
@@ -175,6 +187,14 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
                 if (ttftMs is null && current!.Contents.OfType<TextContent>().Any(t => !string.IsNullOrEmpty(t.Text)))
                 {
                     ttftMs = stopwatch.ElapsedMilliseconds;
+                }
+
+                if (responseText is not null)
+                {
+                    foreach (var textContent in current!.Contents.OfType<TextContent>())
+                    {
+                        responseText.Append(textContent.Text);
+                    }
                 }
 
                 actualModel ??= current!.ModelId;
@@ -207,7 +227,9 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
                 inputTokens: (int)inputTokens,
                 outputTokens: (int)outputTokens,
                 outcome: outcome,
-                error: failure);
+                error: failure,
+                inputJson: SerializeInput(messageList),
+                outputJson: SerializeOutput(responseText?.ToString()));
         }
     }
 
@@ -248,7 +270,9 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         int inputTokens,
         int outputTokens,
         string outcome,
-        Exception? error)
+        Exception? error,
+        string? inputJson,
+        string? outputJson)
     {
         var totalTokens = inputTokens + outputTokens;
         var modelForCost = actualModel ?? requestedModel;
@@ -315,6 +339,120 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         if (inputTokens > 0) InputTokens.Record(inputTokens, tags);
         if (outputTokens > 0) OutputTokens.Record(outputTokens, tags);
         if (estimatedCost > 0) EstimatedCostUsd.Record(estimatedCost, tags);
+
+        EmitTraceObservation(
+            useCase,
+            aiRunId,
+            operation,
+            modelForCost,
+            latencyMs,
+            ttftMs,
+            inputTokens,
+            outputTokens,
+            totalTokens,
+            estimatedCost,
+            outcome,
+            tenantId,
+            userId,
+            inputJson,
+            outputJson,
+            error);
+    }
+
+    private void EmitTraceObservation(
+        string useCase,
+        Guid? aiRunId,
+        string operation,
+        string? model,
+        long latencyMs,
+        long? ttftMs,
+        int inputTokens,
+        int outputTokens,
+        int totalTokens,
+        double estimatedCost,
+        string outcome,
+        Guid? tenantId,
+        Guid? userId,
+        string? inputJson,
+        string? outputJson,
+        Exception? error)
+    {
+        var current = Activity.Current;
+        var observationId = current?.SpanId.ToString() ?? Guid.NewGuid().ToString("N");
+        var traceId = current?.TraceId.ToString() ?? observationId;
+        var parentObservationId = current?.ParentSpanId.ToString();
+        var latencySeconds = latencyMs / 1000.0;
+        var ttftSeconds = ttftMs is null ? (double?)null : ttftMs.Value / 1000.0;
+        var level = error is null ? "DEFAULT" : "ERROR";
+        var metadataJson = JsonSerializer.Serialize(new
+        {
+            tenantId,
+            userId,
+            useCase,
+            operation,
+            outcome,
+            errorType = error?.GetType().Name,
+        });
+
+        current?.SetTag(AiTelemetry.AiRunIdAttribute, aiRunId?.ToString());
+        current?.SetTag(AiTelemetry.ObservationIdAttribute, observationId);
+        current?.SetTag(AiTelemetry.ObservationTypeAttribute, "GENERATION");
+        current?.SetTag(AiTelemetry.ObservationNameAttribute, operation);
+        current?.SetTag(AiTelemetry.ObservationTraceNameAttribute, useCase);
+        current?.SetTag("aonik.ai.latency_ms", latencyMs);
+        current?.SetTag("aonik.ai.cost_usd", estimatedCost);
+        current?.SetTag("aonik.ai.input_tokens", inputTokens);
+        current?.SetTag("aonik.ai.output_tokens", outputTokens);
+        current?.SetTag("aonik.ai.total_tokens", totalTokens);
+        current?.SetTag("aonik.ai.model", model);
+        if (_enableSensitiveData)
+        {
+            current?.SetTag("aonik.ai.input", inputJson);
+            current?.SetTag("aonik.ai.output", outputJson);
+        }
+
+        _logger.LogInformation(
+            "{TraceObservationLogName}: ObservationId={ObservationId} TraceId={TraceId} ParentObservationId={ParentObservationId} AiRunId={AiRunId} ObservationType={ObservationType} Name={Name} TraceName={TraceName} InputJson={InputJson} OutputJson={OutputJson} MetadataJson={MetadataJson} Level={Level} LatencySeconds={LatencySeconds} CostUsd={CostUsd} TimeToFirstTokenSeconds={TimeToFirstTokenSeconds} ProvidedModel={ProvidedModel} InputTokens={InputTokens} OutputTokens={OutputTokens} TotalTokens={TotalTokens}",
+            AiTelemetry.TraceObservationLogName,
+            observationId,
+            traceId,
+            parentObservationId,
+            aiRunId,
+            "GENERATION",
+            operation,
+            useCase,
+            inputJson,
+            outputJson,
+            metadataJson,
+            level,
+            latencySeconds,
+            estimatedCost,
+            ttftSeconds,
+            model,
+            inputTokens,
+            outputTokens,
+            totalTokens);
+    }
+
+    private string? SerializeInput(IReadOnlyList<ChatMessage> messages)
+    {
+        if (!_enableSensitiveData)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Serialize(messages.Select(message => new
+        {
+            role = message.Role.ToString(),
+            text = string.Join("\n", message.Contents.OfType<TextContent>().Select(content => content.Text)),
+        }));
+    }
+
+    private string? SerializeOutput(string? text)
+    {
+        return _enableSensitiveData && !string.IsNullOrEmpty(text)
+            ? JsonSerializer.Serialize(new { text })
+            : null;
     }
 
     private Guid? SafeTenantId()

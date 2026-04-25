@@ -103,3 +103,66 @@ public sealed record GetAiTraceRequest
 {
     public Guid RunId { get; init; }
 }
+
+public sealed record ListAiTraceObservationsRequest
+{
+    [FastEndpoints.QueryParam]
+    public int? Page { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public int? PageSize { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public string? Type { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public string? Name { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public string? TraceName { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public string? Environment { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public string? Level { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public bool? IsRootObservation { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public string? TimeRange { get; init; }
+}
+
+public sealed record AiTraceObservationResponse
+{
+    public required string ObservationId { get; init; }
+    public required string TraceId { get; init; }
+    public string? ParentObservationId { get; init; }
+    public Guid? AiRunId { get; init; }
+    public DateTime StartTime { get; init; }
+    public DateTime? EndTime { get; init; }
+    public required string Type { get; init; }
+    public required string Name { get; init; }
+    public string? TraceName { get; init; }
+    public string? Input { get; init; }
+    public string? Output { get; init; }
+    public string? Metadata { get; init; }
+    public required string Level { get; init; }
+    public double? LatencySeconds { get; init; }
+    public decimal? CostUsd { get; init; }
+    public double? TimeToFirstTokenSeconds { get; init; }
+    public string? ProvidedModel { get; init; }
+    public int? InputTokens { get; init; }
+    public int? OutputTokens { get; init; }
+    public int? TotalTokens { get; init; }
+    public bool IsRootObservation { get; init; }
+    public required string Source { get; init; }
+}
+
+public sealed record ListAiTraceObservationsResponse(
+    IReadOnlyList<AiTraceObservationResponse> Items,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    string Provider);

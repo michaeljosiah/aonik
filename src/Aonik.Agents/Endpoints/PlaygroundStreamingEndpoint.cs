@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Services;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 using Microsoft.Agents.AI;
@@ -44,6 +45,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
     private readonly IToolCallClassifier _toolClassifier;
     private readonly ISpeechRenderer _speechRenderer;
     private readonly ILogger<PlaygroundStreamingEndpoint> _logger;
+    private readonly ICurrentUserProvider? _currentUserProvider;
 
     public PlaygroundStreamingEndpoint(
         IChatClient chatClient,
@@ -54,7 +56,8 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         IAguiMessageConverter messageConverter,
         IToolCallClassifier toolClassifier,
         ISpeechRenderer speechRenderer,
-        ILogger<PlaygroundStreamingEndpoint> logger)
+        ILogger<PlaygroundStreamingEndpoint> logger,
+        ICurrentUserProvider? currentUserProvider = null)
     {
         _chatClient = chatClient;
         _taskReader = taskReader;
@@ -65,6 +68,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         _toolClassifier = toolClassifier;
         _speechRenderer = speechRenderer;
         _logger = logger;
+        _currentUserProvider = currentUserProvider;
     }
 
     public override void Configure()
@@ -95,6 +99,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         }
 
         var runId = Guid.NewGuid().ToString("N");
+        StampPlaygroundTelemetryContext(request, runId);
 
         // ── Set SSE headers ─────────────────────────────────────────────
         response.ContentType = "text/event-stream";
@@ -354,6 +359,41 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         }
 
         await response.Body.FlushAsync(CancellationToken.None);
+    }
+
+    private void StampPlaygroundTelemetryContext(PlaygroundRunRequest request, string runId)
+    {
+        var activity = Activity.Current;
+        if (activity is null)
+        {
+            return;
+        }
+
+        var sessionId = $"playground-{runId}";
+        var mode = ResolvePlaygroundMode(request);
+
+        activity.SetBaggage(AiTelemetry.SessionIdAttribute, sessionId);
+        activity.SetTag(AiTelemetry.SessionIdAttribute, sessionId);
+        activity.SetTag("aonik.playground.run_id", runId);
+        activity.SetTag("aonik.playground.mode", mode);
+        activity.SetTag("aonik.playground.agent_name", request.AgentName);
+        activity.SetTag("aonik.playground.ai_task_id", request.AiTaskId?.ToString());
+        activity.SetTag("aonik.playground.model_id", request.ModelId?.ToString());
+
+        if (_currentUserProvider is not null
+            && _currentUserProvider.TryGetCurrentUserId(out var userId))
+        {
+            var userIdStr = userId.ToString();
+            activity.SetBaggage(AiTelemetry.UserIdAttribute, userIdStr);
+            activity.SetTag(AiTelemetry.UserIdAttribute, userIdStr);
+        }
+    }
+
+    private static string ResolvePlaygroundMode(PlaygroundRunRequest request)
+    {
+        if (request.AiTaskId.HasValue) return "ai-task";
+        if (!string.IsNullOrWhiteSpace(request.AgentName)) return "agent";
+        return "raw";
     }
 
     /// <summary>

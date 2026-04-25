@@ -65,3 +65,30 @@ internal sealed class GetAiTraceEndpoint : Endpoint<GetAiTraceRequest, AiTraceRu
         await Send.OkAsync(result, ct);
     }
 }
+
+internal sealed class ListAiTraceObservationsEndpoint : Endpoint<ListAiTraceObservationsRequest, ListAiTraceObservationsResponse>
+{
+    private readonly AiTraceExplorerService _service;
+
+    public ListAiTraceObservationsEndpoint(AiTraceExplorerService service) => _service = service;
+
+    public override void Configure()
+    {
+        Get("/ai/trace-observations");
+        Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List AI trace observations";
+            s.Description = "Returns provider-neutral AI trace observations from Langfuse or Application Insights.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
+    }
+
+    public override async Task HandleAsync(ListAiTraceObservationsRequest req, CancellationToken ct)
+    {
+        var result = await _service.ListObservationsAsync(req, ct);
+        await Send.OkAsync(result, ct);
+    }
+}

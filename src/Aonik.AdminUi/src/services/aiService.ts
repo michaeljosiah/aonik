@@ -196,6 +196,39 @@ export interface AiTraceRunDetailResponse {
   traceStatus: string;
 }
 
+export interface AiTraceObservationResponse {
+  observationId: string;
+  traceId: string;
+  parentObservationId: string | null;
+  aiRunId: string | null;
+  startTime: string;
+  endTime: string | null;
+  type: string;
+  name: string;
+  traceName: string | null;
+  input: string | null;
+  output: string | null;
+  metadata: string | null;
+  level: string;
+  latencySeconds: number | null;
+  costUsd: number | null;
+  timeToFirstTokenSeconds: number | null;
+  providedModel: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  isRootObservation: boolean;
+  source: string;
+}
+
+export interface ListAiTraceObservationsResponse {
+  items: AiTraceObservationResponse[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  provider: string;
+}
+
 // ── Provider service ────────────────────────────────────────────────
 
 export const aiProviderService = {
@@ -447,6 +480,32 @@ export const aiTraceService = {
 
   get: async (runId: string): Promise<AiTraceRunDetailResponse> => {
     return api.get<AiTraceRunDetailResponse>(`/ai/traces/${runId}`);
+  },
+
+  listObservations: async (options?: {
+    page?: number;
+    pageSize?: number;
+    type?: string;
+    name?: string;
+    traceName?: string;
+    environment?: string;
+    level?: string;
+    isRootObservation?: boolean;
+    timeRange?: string;
+  }): Promise<ListAiTraceObservationsResponse> => {
+    const params = new URLSearchParams();
+    if (options?.page) params.set('page', String(options.page));
+    if (options?.pageSize) params.set('pageSize', String(options.pageSize));
+    if (options?.type) params.set('type', options.type);
+    if (options?.name) params.set('name', options.name);
+    if (options?.traceName) params.set('traceName', options.traceName);
+    if (options?.environment) params.set('environment', options.environment);
+    if (options?.level) params.set('level', options.level);
+    if (options?.isRootObservation !== undefined) params.set('isRootObservation', String(options.isRootObservation));
+    if (options?.timeRange) params.set('timeRange', options.timeRange);
+    const query = params.toString();
+
+    return api.get<ListAiTraceObservationsResponse>(`/ai/trace-observations${query ? `?${query}` : ''}`);
   },
 };
 
