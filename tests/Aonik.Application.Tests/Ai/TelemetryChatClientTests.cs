@@ -7,9 +7,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Aonik.Application.Tests.Ai;
 
 /// <summary>
-/// Tests that the TelemetryChatClient decorator emits the single
-/// <c>AiCallCompleted</c> log line the observability dashboard depends on,
-/// for both buffered and streaming responses, and on success and failure paths.
+/// Tests that the TelemetryChatClient decorator emits the canonical
+/// <c>AiCallCompleted</c> audit log and the new <c>AiTraceObservation</c>
+/// log line, for both buffered and streaming responses, and on success and
+/// failure paths.
 /// </summary>
 public class TelemetryChatClientTests
 {
@@ -29,9 +30,10 @@ public class TelemetryChatClientTests
         var response = await sut.GetResponseAsync(new[] { new ChatMessage(ChatRole.User, "hello") }, options);
 
         response.Should().NotBeNull();
-        capture.Entries.Should().ContainSingle(e => e.Message.StartsWith("AiCallCompleted"));
+        capture.Entries.Should().Contain(e => e.Message.StartsWith("AiCallCompleted"));
+        capture.Entries.Should().Contain(e => e.Message.StartsWith("AiTraceObservation"));
 
-        var entry = capture.Entries.Single();
+        var entry = capture.Entries.Single(e => e.Message.StartsWith("AiCallCompleted"));
         entry.State.Should().Contain(kv => kv.Key == "UseCase" && (string)kv.Value! == "conversation.summary");
         entry.State.Should().Contain(kv => kv.Key == "Outcome" && (string)kv.Value! == "success");
         entry.State.Should().Contain(kv => kv.Key == "InputTokens" && (int)kv.Value! == 100);
@@ -50,8 +52,10 @@ public class TelemetryChatClientTests
         var act = () => sut.GetResponseAsync(new[] { new ChatMessage(ChatRole.User, "hi") });
 
         await act.Should().ThrowAsync<InvalidOperationException>();
-        capture.Entries.Should().ContainSingle();
-        var entry = capture.Entries.Single();
+        capture.Entries.Should().Contain(e => e.Message.StartsWith("AiCallCompleted"));
+        capture.Entries.Should().Contain(e => e.Message.StartsWith("AiTraceObservation"));
+
+        var entry = capture.Entries.Single(e => e.Message.StartsWith("AiCallCompleted"));
         entry.Message.Should().StartWith("AiCallCompleted");
         entry.State.Should().Contain(kv => kv.Key == "Outcome" && (string)kv.Value! == "error");
         entry.LogLevel.Should().Be(LogLevel.Warning);
@@ -84,8 +88,10 @@ public class TelemetryChatClientTests
         }
 
         collected.Should().HaveCount(3);
-        capture.Entries.Should().ContainSingle();
-        var entry = capture.Entries.Single();
+        capture.Entries.Should().Contain(e => e.Message.StartsWith("AiCallCompleted"));
+        capture.Entries.Should().Contain(e => e.Message.StartsWith("AiTraceObservation"));
+
+        var entry = capture.Entries.Single(e => e.Message.StartsWith("AiCallCompleted"));
         entry.State.Should().Contain(kv => kv.Key == "Operation" && (string)kv.Value! == "chat.stream");
         entry.State.Should().Contain(kv => kv.Key == "InputTokens" && (int)kv.Value! == 10);
         entry.State.Should().Contain(kv => kv.Key == "OutputTokens" && (int)kv.Value! == 2);
