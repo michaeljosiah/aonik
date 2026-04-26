@@ -171,7 +171,7 @@ export function PanelInfoPopover({
           <button
             type="button"
             aria-label={triggerLabel}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-light)] px-3 text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-light)] px-3 text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)] dark:hover:bg-white/5"
           >
             <Sparkles className="h-3.5 w-3.5" />
             {triggerLabel}
