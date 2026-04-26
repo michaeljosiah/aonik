@@ -73,11 +73,14 @@ internal sealed class ChatClientWarmupService : IHostedService
 
                 var options = new ChatOptions
                 {
-                    MaxOutputTokens = 1,
+                    // Some models reject or truncate ultra-low output caps during
+                    // completion finalization. Keep the warmup bounded, but high
+                    // enough that the provider can finish a tiny response.
+                    MaxOutputTokens = 16,
                 };
 
                 await chatClient.GetResponseAsync(
-                    [new ChatMessage(ChatRole.User, "ok")],
+                    [new ChatMessage(ChatRole.User, "Reply with ok.")],
                     options,
                     cancellationToken);
 
