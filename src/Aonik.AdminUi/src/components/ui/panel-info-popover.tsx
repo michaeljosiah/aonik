@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import {
   observabilityService,
@@ -33,6 +34,8 @@ export interface PanelInfoPopoverProps {
   /** Snapshot of panel data sent to the LLM. Called at click time so values are fresh. */
   getMetrics?: () => unknown;
   triggerLabel?: string;
+  /** Enables persistent auto-play of generated insight audio for this panel. */
+  voiceModeStorageKey?: string;
 }
 
 type PlaybackState = 'idle' | 'loading' | 'playing' | 'error';
@@ -44,15 +47,36 @@ export function PanelInfoPopover({
   panelKind,
   getMetrics,
   triggerLabel,
+  voiceModeStorageKey,
 }: PanelInfoPopoverProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [playback, setPlayback] = useState<PlaybackState>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(() => {
+    if (typeof window === 'undefined' || !voiceModeStorageKey) return false;
+
+    try {
+      return window.localStorage.getItem(voiceModeStorageKey) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+  const autoSpokenSummaryRef = useRef<string | null>(null);
 
-  const stopAudio = () => {
+  useEffect(() => {
+    if (typeof window === 'undefined' || !voiceModeStorageKey) return;
+
+    try {
+      window.localStorage.setItem(voiceModeStorageKey, voiceModeEnabled ? 'true' : 'false');
+    } catch {
+      /* localStorage disabled - non-fatal */
+    }
+  }, [voiceModeEnabled, voiceModeStorageKey]);
+
+  const stopAudio = useCallback(() => {
     if (audioRef.current) {
       try {
         audioRef.current.pause();
@@ -68,13 +92,14 @@ export function PanelInfoPopover({
       audioUrlRef.current = null;
     }
     setPlayback('idle');
-  };
+  }, []);
 
   const explain = async () => {
     if (!panelKind || !getMetrics) return;
     setLoadingSummary(true);
     setError(null);
     setSummary(null);
+    autoSpokenSummaryRef.current = null;
     stopAudio();
     try {
       const res = await observabilityService.explainPanel(panelKind, getMetrics());
@@ -86,7 +111,7 @@ export function PanelInfoPopover({
     }
   };
 
-  const speak = async () => {
+  const speak = useCallback(async () => {
     if (!summary) return;
     stopAudio();
     setPlayback('loading');
@@ -123,7 +148,15 @@ export function PanelInfoPopover({
       setPlayback('error');
       setError(resolveErrorMessage(e) ?? 'Could not synthesize speech.');
     }
-  };
+  }, [summary, stopAudio]);
+
+  useEffect(() => {
+    if (!voiceModeEnabled || !summary || loadingSummary) return;
+    if (autoSpokenSummaryRef.current === summary) return;
+
+    autoSpokenSummaryRef.current = summary;
+    void speak();
+  }, [loadingSummary, speak, summary, voiceModeEnabled]);
 
   const canExplain = Boolean(panelKind && getMetrics);
 
@@ -180,26 +213,42 @@ export function PanelInfoPopover({
                 <p className="text-[10px] uppercase tracking-wide font-medium text-[var(--color-text-tertiary)]">
                   Explain my data
                 </p>
-                {!summary && (
-                  <button
-                    type="button"
-                    onClick={() => void explain()}
-                    disabled={loadingSummary}
-                    className="inline-flex items-center gap-1 rounded-sm border border-[var(--color-border-light)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-primary)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 transition-colors"
-                  >
-                    {loadingSummary ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        Thinking...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3 h-3" />
-                        Ask AI
-                      </>
-                    )}
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {voiceModeStorageKey ? (
+                    <div className="inline-flex items-center gap-2 rounded-sm border border-[var(--color-border-light)] px-2 py-1">
+                      <Volume2 className="h-3 w-3 text-[var(--color-text-tertiary)]" />
+                      <span className="text-[11px] text-[var(--color-text-secondary)]">Voice mode</span>
+                      <Switch
+                        checked={voiceModeEnabled}
+                        onCheckedChange={(checked) => {
+                          setVoiceModeEnabled(checked);
+                          if (!checked) stopAudio();
+                        }}
+                        aria-label="Toggle voice mode"
+                      />
+                    </div>
+                  ) : null}
+                  {!summary && (
+                    <button
+                      type="button"
+                      onClick={() => void explain()}
+                      disabled={loadingSummary}
+                      className="inline-flex items-center gap-1 rounded-sm border border-[var(--color-border-light)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-primary)] hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60 transition-colors"
+                    >
+                      {loadingSummary ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Thinking...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3 h-3" />
+                          Ask AI
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
               {summary && (
                 <div className="space-y-2">

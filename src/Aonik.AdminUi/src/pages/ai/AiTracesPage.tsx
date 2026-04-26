@@ -319,30 +319,64 @@ function getDurationMs(item: AiTraceObservationResponse): number {
   return 1;
 }
 
-function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
-  if (items.length === 0) return [];
+function getObservationNodeId(item: AiTraceObservationResponse): string {
+  return item.spanId ?? item.observationId;
+}
 
-  const sorted = [...items].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+function getObservationCompleteness(item: AiTraceObservationResponse): number {
+  let score = 0;
+  if (item.input) score += 4;
+  if (item.output) score += 4;
+  if (item.metadata) score += 2;
+  if (item.endTime) score += 1;
+  if (item.durationMs != null) score += 1;
+  if (item.latencySeconds != null) score += 1;
+  if (item.parentSpanId ?? item.parentObservationId) score += 1;
+  if (item.agentName ?? item.agentId) score += 1;
+  if (item.providedModel) score += 1;
+  return score;
+}
+
+function dedupeObservations(items: AiTraceObservationResponse[]): AiTraceObservationResponse[] {
+  const deduped = new Map<string, AiTraceObservationResponse>();
+
+  for (const item of items) {
+    const id = getObservationNodeId(item);
+    const existing = deduped.get(id);
+    if (!existing || getObservationCompleteness(item) > getObservationCompleteness(existing)) {
+      deduped.set(id, item);
+    }
+  }
+
+  return Array.from(deduped.values());
+}
+
+function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
+  const dedupedItems = dedupeObservations(items);
+  if (dedupedItems.length === 0) return [];
+
+  const sorted = [...dedupedItems].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   const firstStart = new Date(sorted[0].startTime).getTime();
   const lastEnd = Math.max(...sorted.map((item) => new Date(item.startTime).getTime() + getDurationMs(item)));
   const totalDuration = Math.max(1, lastEnd - firstStart);
-  const ids = sorted.map((item) => item.spanId ?? item.observationId);
-  const sortedById = new Map(sorted.map((item) => [item.spanId ?? item.observationId, item]));
+  const ids = sorted.map(getObservationNodeId);
+  const sortedById = new Map(sorted.map((item) => [getObservationNodeId(item), item]));
   const childrenById = new Map<string, string[]>();
   ids.forEach((id) => childrenById.set(id, []));
 
   sorted.forEach((item) => {
     const parentId = item.parentSpanId ?? item.parentObservationId;
-    const id = item.spanId ?? item.observationId;
+    const id = getObservationNodeId(item);
     if (parentId && childrenById.has(parentId)) {
-      childrenById.get(parentId)!.push(id);
+      const children = childrenById.get(parentId)!;
+      if (!children.includes(id)) children.push(id);
     }
   });
 
   const depthCache = new Map<string, number>();
 
   const depthFor = (item: AiTraceObservationResponse): number => {
-    const id = item.spanId ?? item.observationId;
+    const id = getObservationNodeId(item);
     const cached = depthCache.get(id);
     if (cached !== undefined) return cached;
 
@@ -357,7 +391,7 @@ function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
   sorted.forEach((item) => {
     const start = new Date(item.startTime).getTime();
     const durationMs = getDurationMs(item);
-    const id = item.spanId ?? item.observationId;
+    const id = getObservationNodeId(item);
     byId.set(id, {
       ...item,
       id,
@@ -379,7 +413,10 @@ function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
     });
 
   const ordered: WaterfallItem[] = [];
+  const visited = new Set<string>();
   const visit = (id: string) => {
+    if (visited.has(id)) return;
+    visited.add(id);
     const node = byId.get(id);
     if (!node) return;
     ordered.push(node);
@@ -1042,6 +1079,7 @@ export function AiTracesPage() {
                         panelKind="trace"
                         getMetrics={() => traceInsightMetrics}
                         triggerLabel="Trace insights"
+                        voiceModeStorageKey="aonik:trace-insights:voice-mode"
                       />
                     ) : null}
                     {selectedObservation.aiRunId ? (
