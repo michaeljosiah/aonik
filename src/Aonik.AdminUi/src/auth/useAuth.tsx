@@ -15,6 +15,13 @@ export interface AuthUser {
   roleSource?: 'claims' | 'api';
 }
 
+export interface LoginOptions {
+  // Forwarded to the IdP as `login_hint` (Auth0) / `loginHint` (MSAL). The
+  // mock provider ignores it. Captured up-front by the login page so the
+  // user doesn't have to retype their email after the IdP redirect.
+  loginHint?: string;
+}
+
 // Unified auth context type
 export interface AuthContextType {
   isAuthenticated: boolean;
@@ -23,7 +30,7 @@ export interface AuthContextType {
   accessToken: string | null;
   provider: AuthProvider;
   authError: Error | null;
-  login: () => Promise<void>;
+  login: (options?: LoginOptions) => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
@@ -54,7 +61,7 @@ const mockUser: AuthUser = {
 };
 
 
-  const login = useCallback(async () => {
+  const login = useCallback(async (_options?: LoginOptions) => {
     setIsAuthenticated(true);
   }, []);
 
@@ -96,12 +103,15 @@ function useMsalAuth(): AuthContextType {
       }
     : null;
 
-  const login = useCallback(async () => {
+  const login = useCallback(async (options?: LoginOptions) => {
     try {
+      const request = options?.loginHint
+        ? { ...msalLoginRequest, loginHint: options.loginHint }
+        : msalLoginRequest;
       if (isElectron) {
-        await instance.loginPopup(msalLoginRequest);
+        await instance.loginPopup(request);
       } else {
-        await instance.loginRedirect(msalLoginRequest);
+        await instance.loginRedirect(request);
       }
     } catch (error) {
       console.error('MSAL login error:', error);
@@ -226,12 +236,16 @@ function useAuth0Auth(): AuthContextType {
       }
     : null;
 
-  const login = useCallback(async () => {
+  const login = useCallback(async (options?: LoginOptions) => {
     try {
+      const authorizationParams = {
+        ...auth0Config.authorizationParams,
+        ...(options?.loginHint ? { login_hint: options.loginHint } : {}),
+      };
       if (isElectron) {
-        await loginWithPopup({ authorizationParams: auth0Config.authorizationParams });
+        await loginWithPopup({ authorizationParams });
       } else {
-        await loginWithRedirect({ authorizationParams: auth0Config.authorizationParams });
+        await loginWithRedirect({ authorizationParams });
       }
     } catch (error) {
       console.error('Auth0 login error:', error);
