@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Semantic status colors</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  .status {
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    background: var(--surface);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .status .swatch { aspect-ratio: 4 / 1; border-radius: 8px; }
+  .status .name   { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+  .status .hex    { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+  .status .tint   { height: 28px; border-radius: 6px; border: 1px dashed var(--border); }
+  .status .usage  { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  .pill-row {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 18px; border: 1px solid var(--border-light); border-radius: 12px;
+    background: var(--surface);
+  }
+
+  .examples {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .example {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .example .dot { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+  .example .body { flex: 1; }
+  .example .body .t { font-weight: 500; font-size: 14px; color: var(--text-primary); }
+  .example .body .d { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .example .pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 999px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div>
+        <div class="eyebrow">Colors</div>
+        <h1>Semantic status</h1>
+      </div>
+      <p>Five status hues with matching 20% tints for soft fills. Pending uses the coral secondary — the system has a distinct "waiting on apply" state separate from warning.</p>
+    </div>
+
+    <div class="frame-body">
+      <div class="status-grid">
+        <div class="status">
+          <div class="swatch" style="background: var(--success)"></div>
+          <div><div class="name">Success</div><div class="hex">#4CAF50</div></div>
+          <div class="tint" style="background: var(--success-light)"></div>
+          <div class="usage">Applied, settled, reconciled, confirmed.</div>
+        </div>
+        <div class="status">
+          <div class="swatch" style="background: var(--warning)"></div>
+          <div><div class="name">Warning</div><div class="hex">#EBC334</div></div>
+          <div class="tint" style="background: var(--warning-light)"></div>
+          <div class="usage">Validation flags, soft deadlines, non-blocking.</div>
+        </div>
+        <div class="status">
+          <div class="swatch" style="background: var(--danger)"></div>
+          <div><div class="name">Danger</div><div class="hex">#CC2E2E</div></div>
+          <div class="tint" style="background: var(--danger-light)"></div>
+          <div class="usage">Failed runs, destructive actions, hard errors.</div>
+        </div>
+        <div class="status">
+          <div class="swatch" style="background: var(--info)"></div>
+          <div><div class="name">Info</div><div class="hex">#3B82F6</div></div>
+          <div class="tint" style="background: var(--info-light)"></div>
+          <div class="usage">Agent suggestions, neutral notices, tips.</div>
+        </div>
+        <div class="status">
+          <div class="swatch" style="background: var(--pending)"></div>
+          <div><div class="name">Pending</div><div class="hex">#EB5C37</div></div>
+          <div class="tint" style="background: var(--pending-light)"></div>
+          <div class="usage">Proposed by agent, awaiting human apply.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-label">Status pills</div>
+        <div class="pill-row">
+          <span class="pill pill-tint">Applied</span>
+          <span class="pill pill-success">Settled</span>
+          <span class="pill pill-pending">Pending apply</span>
+          <span class="pill pill-warning">Validation</span>
+          <span class="pill pill-danger">Failed</span>
+          <span class="pill">Draft</span>
+          <span class="pill">Reversed</span>
+          <span class="pill pill-tint">Reconciled</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-label">Status in context</div>
+        <div class="examples">
+          <div class="example">
+            <span class="dot" style="background: var(--success)"></span>
+            <div class="body">
+              <div class="t">INV-2041 · Posted to ledger</div>
+              <div class="d">Journal entry JE-88421 applied &middot; 12 mins ago</div>
+            </div>
+            <span class="pill pill-success">Settled</span>
+          </div>
+          <div class="example">
+            <span class="dot" style="background: var(--pending)"></span>
+            <div class="body">
+              <div class="t">Billing agent proposed 3 invoice matches</div>
+              <div class="d">Awaiting your review &middot; confidence 0.94</div>
+            </div>
+            <span class="pill pill-pending">Pending</span>
+          </div>
+          <div class="example">
+            <span class="dot" style="background: var(--warning)"></span>
+            <div class="body">
+              <div class="t">FX rate drift on NGN → USD</div>
+              <div class="d">2.1% above policy band &middot; no action yet</div>
+            </div>
+            <span class="pill pill-warning">Warning</span>
+          </div>
+          <div class="example">
+            <span class="dot" style="background: var(--danger)"></span>
+            <div class="body">
+              <div class="t">Correspondent partner timeout</div>
+              <div class="d">Retry exhausted &middot; 4 orders affected</div>
+            </div>
+            <span class="pill pill-danger">Failed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

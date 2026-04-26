@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Cards &amp; surfaces</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .metric { background:var(--surface); border:1px solid var(--border-light); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:12px; }
+  .metric .head { display:flex; justify-content:space-between; align-items:flex-start; }
+  .metric .title { font-size:13px; color:var(--text-secondary); font-weight:500; }
+  .metric .val { font-family:var(--font-mono); font-size:26px; font-weight:600; color:var(--text-primary); }
+  .metric .delta { font-size:12px; font-weight:500; padding:2px 8px; border-radius:999px; }
+  .metric .delta.up { background:var(--success-light); color:var(--success); }
+  .metric .delta.down { background:var(--danger-light); color:var(--danger); }
+  .metric .spark { height:36px; border-radius:4px; background:linear-gradient(180deg, var(--brand-primary-10) 0%, transparent 100%); position:relative; overflow:hidden; }
+  .metric .spark svg { position:absolute; inset:0; width:100%; height:100%; }
+
+  .agent { background:var(--surface); border:1px solid var(--border-light); border-radius:12px; padding:18px; display:flex; gap:14px; align-items:flex-start; }
+  .agent .av { width:40px; height:40px; border-radius:10px; background:var(--brand-primary-10); color:var(--brand-primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-family:var(--font-brand); flex:none; }
+  .agent .body { flex:1; }
+  .agent .name { font-weight:600; font-size:14px; color:var(--text-primary); }
+  .agent .desc { font-size:12px; color:var(--text-secondary); margin-top:2px; line-height:1.5; }
+  .agent .meta { display:flex; gap:8px; margin-top:10px; }
+  .agent .meta .pill { font-size:11px; }
+
+  .list { background:var(--surface); border:1px solid var(--border-light); border-radius:12px; overflow:hidden; }
+  .list .item { display:grid; grid-template-columns:32px 1fr auto; gap:12px; align-items:center; padding:14px 18px; border-bottom:1px solid var(--border-light); }
+  .list .item:last-child { border-bottom:none; }
+  .list .dot { width:8px; height:8px; border-radius:999px; margin:0 auto; }
+  .list .t { font-size:13px; color:var(--text-primary); font-weight:500; }
+  .list .d { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+  .list .r { font-family:var(--font-mono); font-size:12px; color:var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="frame-header">
+    <div><div class="eyebrow">Components</div><h1>Cards &amp; surfaces</h1></div>
+    <p>Three recurring card patterns: metric tile, agent card, and activity list. All share 12px radius, soft border, and shadow-sm at rest.</p>
+  </div>
+  <div class="frame-body">
+    <div>
+      <div class="panel-label">Metric tiles</div>
+      <div class="grid">
+        <div class="metric">
+          <div class="head">
+            <div class="title">Cash position</div>
+            <span class="delta up">+4.2%</span>
+          </div>
+          <div class="val">$2,481,032</div>
+          <div class="spark"><svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline fill="none" stroke="#055a60" stroke-width="2" points="0,22 10,18 20,20 30,14 40,16 50,10 60,12 70,6 80,8 90,4 100,6"/></svg></div>
+        </div>
+        <div class="metric">
+          <div class="head">
+            <div class="title">Outstanding invoices</div>
+            <span class="delta down">-2.1%</span>
+          </div>
+          <div class="val">$128,431</div>
+          <div class="spark"><svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline fill="none" stroke="#eb5c37" stroke-width="2" points="0,10 10,12 20,8 30,14 40,12 50,18 60,16 70,20 80,18 90,22 100,20"/></svg></div>
+        </div>
+        <div class="metric">
+          <div class="head">
+            <div class="title">Agent proposals today</div>
+            <span class="delta up">+12</span>
+          </div>
+          <div class="val">47</div>
+          <div class="spark" style="background:linear-gradient(180deg,#3ab79520 0,transparent 100%)"><svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline fill="none" stroke="#3ab795" stroke-width="2" points="0,24 10,20 20,22 30,18 40,14 50,16 60,10 70,12 80,8 90,6 100,4"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel-label">Agent cards</div>
+      <div class="grid">
+        <div class="agent">
+          <div class="av">L</div>
+          <div class="body">
+            <div class="name">Ledger Agent</div>
+            <div class="desc">Keeps books balanced. Proposes journal entries for unmatched transactions.</div>
+            <div class="meta"><span class="pill pill-tint">Finance</span><span class="pill">28 runs today</span></div>
+          </div>
+        </div>
+        <div class="agent">
+          <div class="av" style="background:#eb5c3720;color:#eb5c37">B</div>
+          <div class="body">
+            <div class="name">Billing Agent</div>
+            <div class="desc">Matches invoices to bank transactions. Surfaces pending apply when confidence &gt; 0.9.</div>
+            <div class="meta"><span class="pill pill-pending">3 pending</span><span class="pill">0.94 avg confidence</span></div>
+          </div>
+        </div>
+        <div class="agent">
+          <div class="av" style="background:#3ab79520;color:#3ab795">O</div>
+          <div class="body">
+            <div class="name">Orchestrator</div>
+            <div class="desc">Routes user requests to the right domain agent. Summarises cross-module context.</div>
+            <div class="meta"><span class="pill pill-tint">Always on</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="panel-label">Activity list</div>
+      <div class="list">
+        <div class="item"><span class="dot" style="background:var(--success)"></span><div><div class="t">INV-2041 posted to ledger</div><div class="d">Journal entry JE-88421 applied · by Billing Agent</div></div><div class="r">12m ago</div></div>
+        <div class="item"><span class="dot" style="background:var(--pending)"></span><div><div class="t">3 invoice matches proposed</div><div class="d">Awaiting review · confidence 0.94</div></div><div class="r">22m ago</div></div>
+        <div class="item"><span class="dot" style="background:var(--warning)"></span><div><div class="t">FX drift on NGN → USD</div><div class="d">2.1% above policy band</div></div><div class="r">1h ago</div></div>
+        <div class="item"><span class="dot" style="background:var(--gray-400)"></span><div><div class="t">Partner sync · Flutterwave</div><div class="d">412 orders reconciled</div></div><div class="r">3h ago</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

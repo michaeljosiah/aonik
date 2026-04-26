@@ -1,0 +1,82 @@
+/* Frame CSS loaded by every preview card. Pulls in tokens and centres
+   the card content on a clean canvas. Cards are 1200×800 by default;
+   the review tab will scale them down to fit. */
+@import url("../tokens.css");
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.frame {
+  flex: 1;
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.frame-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.frame-header h1 {
+  font-family: var(--font-brand);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.frame-header p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 480px;
+  text-align: right;
+}
+
+.frame-body  { display: flex; flex-direction: column; gap: 28px; }
+.frame-grid  { display: grid; gap: 20px; }
+.frame-row   { display: flex; gap: 20px; flex-wrap: wrap; }
+
+.panel-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-brand);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+.mark-glyph {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: var(--brand-primary);
+  position: relative;
+}
+.mark-glyph::after {
+  content: "";
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--brand-mark-dot);
+}

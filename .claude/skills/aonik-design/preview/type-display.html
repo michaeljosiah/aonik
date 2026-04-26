@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Display type</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .spec {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 28px 32px;
+    display: grid;
+    grid-template-columns: 1fr 160px;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .spec + .spec { margin-top: 12px; }
+  .spec .sample { color: var(--text-primary); margin: 0; }
+  .spec .meta   { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); text-align: right; line-height: 1.7; }
+  .spec .meta b { color: var(--text-primary); font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div>
+        <div class="eyebrow">Type</div>
+        <h1>Display &amp; brand type</h1>
+      </div>
+      <p>Infra for brand moments and page titles. DM Sans for everything else. Display hits are reserved for the marketing surface and hero modules.</p>
+    </div>
+
+    <div class="frame-body">
+      <div class="spec">
+        <p class="sample" style="font-family: var(--font-brand); font-weight: 700; font-size: 56px; line-height: 1.05; letter-spacing: -0.02em;">
+          Financial infrastructure that proposes, explains, and applies.
+        </p>
+        <div class="meta"><b>Display / XL</b><br>Infra Bold 56/60<br>-0.02em</div>
+      </div>
+
+      <div class="spec">
+        <p class="sample" style="font-family: var(--font-brand); font-weight: 700; font-size: 40px; line-height: 1.1; letter-spacing: -0.015em;">
+          Agents propose. Systems apply.
+        </p>
+        <div class="meta"><b>Display / L</b><br>Infra Bold 40/44<br>-0.015em</div>
+      </div>
+
+      <div class="spec">
+        <p class="sample" style="font-family: var(--font-brand); font-weight: 700; font-size: 28px; line-height: 1.15; letter-spacing: -0.01em;">
+          Finance, Platform, Agents — one module each.
+        </p>
+        <div class="meta"><b>Display / M</b><br>Infra Bold 28/32<br>-0.01em</div>
+      </div>
+
+      <div class="spec">
+        <p class="sample" style="font-family: var(--font-brand); font-weight: 700; font-size: 24px; line-height: 1.2; letter-spacing: -0.005em;">
+          My Space
+        </p>
+        <div class="meta"><b>Page title</b><br>Infra Bold 24/29</div>
+      </div>
+
+      <div class="spec">
+        <p class="sample" style="font-family: var(--font-brand); font-weight: 500; font-size: 20px; line-height: 1.3;">
+          Ledger is the source of financial truth.
+        </p>
+        <div class="meta"><b>Manifest line</b><br>Infra Medium 20/26</div>
+      </div>
+
+      <div class="spec">
+        <p class="sample">
+          <span class="eyebrow">Platform</span><br>
+          <span style="font-family:var(--font-brand);font-weight:700;font-size:22px;color:var(--text-primary)">Section header</span>
+        </p>
+        <div class="meta"><b>Eyebrow + title</b><br>12/16 uppercase<br>+ Infra Bold 22</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

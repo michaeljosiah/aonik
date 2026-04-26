@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Buttons &amp; inputs</title>
+<link rel="stylesheet" href="_frame.css" />
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div><div class="eyebrow">Components</div><h1>Buttons &amp; inputs</h1></div>
+      <p>Primary CTAs are teal. Coral secondary is reserved for "Apply proposal" agent flows. Inputs use the signature bottom-bar focus.</p>
+    </div>
+    <div class="frame-body">
+      <div>
+        <div class="panel-label">Buttons</div>
+        <div style="background:var(--surface);border:1px solid var(--border-light);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary">Apply to ledger</button>
+            <button class="btn btn-primary btn-lg">Save &amp; post</button>
+            <button class="btn btn-primary btn-sm">Run</button>
+            <button class="btn btn-primary" disabled style="opacity:0.5;cursor:not-allowed">Disabled</button>
+            <span style="font-size:12px;color:var(--text-secondary)">Primary · teal</span>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-secondary">Apply proposal</button>
+            <button class="btn btn-secondary btn-sm">Accept</button>
+            <span style="font-size:12px;color:var(--text-secondary)">Secondary · coral · agent-apply only</span>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-outline">Cancel</button>
+            <button class="btn btn-outline">Export CSV</button>
+            <button class="btn btn-ghost">Dismiss</button>
+            <span style="font-size:12px;color:var(--text-secondary)">Outline · Ghost</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label">Inputs &amp; fields</div>
+        <div style="background:var(--surface);border:1px solid var(--border-light);border-radius:12px;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div>
+            <label style="font-size:13px;font-weight:500;color:var(--text-primary);display:block;margin-bottom:6px">Invoice number</label>
+            <input class="input" placeholder="INV-2041" />
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">Auto-generated unless overridden.</div>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:var(--text-primary);display:block;margin-bottom:6px">Amount</label>
+            <input class="input mono" value="12480.00" style="text-align:right" />
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:var(--text-primary);display:block;margin-bottom:6px">Counterparty</label>
+            <input class="input" value="Primrose Logistics" style="border-bottom-color:var(--brand-primary);box-shadow:var(--shadow-focus)" />
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">Signature bottom-bar focus — teal.</div>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:var(--text-primary);display:block;margin-bottom:6px">FX rate (NGN→USD)</label>
+            <input class="input mono" value="1 / 1,612.50" />
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:var(--text-primary);display:block;margin-bottom:6px">Memo</label>
+            <textarea class="input" rows="3" style="height:auto;padding:10px 12px;resize:none">Partial payment against INV-2041.</textarea>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:var(--text-primary);display:block;margin-bottom:6px">Error state</label>
+            <input class="input" value="Partner timeout" style="border-color:var(--danger);border-bottom-color:var(--danger);box-shadow:0px 4px 0px -2px #cc2e2e99" />
+            <div style="font-size:11px;color:var(--danger);margin-top:6px">Correspondent API returned 504.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label">Pills</div>
+        <div style="background:var(--surface);border:1px solid var(--border-light);border-radius:12px;padding:20px;display:flex;flex-wrap:wrap;gap:8px">
+          <span class="pill">Draft</span>
+          <span class="pill pill-tint">Applied</span>
+          <span class="pill pill-pending">Pending apply</span>
+          <span class="pill pill-success">Settled</span>
+          <span class="pill pill-warning">Validation</span>
+          <span class="pill pill-danger">Failed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

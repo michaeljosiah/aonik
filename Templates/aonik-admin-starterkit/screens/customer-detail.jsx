@@ -1,0 +1,442 @@
+// Customer Detail screen — mirrors src/pages/customers/CustomerDetailPage.tsx
+// Tabs: Overview · Finance · Insights · Documents
+
+function ScreenCustomerDetail() {
+  const [tab, setTab] = React.useState('Overview');
+  const [fin, setFin] = React.useState('Accounts');
+
+  const c = {
+    name: 'Primrose Logistics Ltd',
+    legalName: 'Primrose Logistics Limited',
+    type: 'Corporate',
+    status: 'Active',
+    country: 'Nigeria · United Kingdom',
+    rc: 'RC-1842991',
+    since: 'Jan 12, 2025',
+    tier: 'Enterprise',
+    arr: '£48,240',
+    accountMgr: 'Maria Gomez',
+    email: 'ops@primrose.co',
+    phone: '+44 20 7946 0018',
+    address: '14 Dock Road, London E16 1AD',
+    mrr: 4200,
+    ltv: 52480,
+    runway: 186,
+    kycState: 'verified',
+  };
+
+  const accounts = [
+    { name: 'Operating · GBP', inst: 'Barclays',    bal: 128_420.14, cur: 'GBP', last: '14m ago' },
+    { name: 'Payroll · GBP',   inst: 'Barclays',    bal:  42_108.00, cur: 'GBP', last: '2h ago' },
+    { name: 'FX Buffer · USD', inst: 'Wise',        bal:  86_410.22, cur: 'USD', last: '38m ago' },
+    { name: 'NGN Settlement',  inst: 'Zenith Bank', bal:  41_820_000, cur: 'NGN', last: '1h ago' },
+  ];
+
+  return (
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Breadcrumb is in TopBar; here: header card */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border-light)',
+        borderRadius: 12, padding: 20, display: 'flex', gap: 20, alignItems: 'center',
+      }}>
+        <div style={{
+          width: 68, height: 68, borderRadius: 14, flex: 'none',
+          background: 'linear-gradient(135deg, #055a60 0%, #077a82 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontFamily: 'var(--font-brand)', fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em',
+        }}>PL</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontFamily: 'var(--font-brand)', fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{c.name}</div>
+            <Pill tone="success" dot>Active</Pill>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--surface-inset)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border-light)' }}>{c.rc}</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <span><Icon name="building" size={11}/> {c.type} · {c.tier}</span>
+            <span><Icon name="globe" size={11}/> {c.country}</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>customer since · {c.since}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="btn btn-outline btn-sm"><Icon name="download" size={12}/> Export</button>
+          <button className="btn btn-outline btn-sm"><Icon name="sparkles" size={12} color="var(--brand-primary)"/> Generate insight</button>
+          <button className="btn btn-primary btn-sm"><Icon name="plus" size={12}/> New order</button>
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+        {[
+          { l: 'ARR',        v: c.arr,       sub: 'NGN·GBP·USD', tone: 'var(--brand-primary)' },
+          { l: 'MRR',        v: '£4,200',    sub: '+£340 this mo', tone: 'var(--success)' },
+          { l: 'LTV',        v: '£52.4K',    sub: '16 mo tenure',  tone: 'var(--accent-violet)' },
+          { l: 'Runway',     v: '186 days',  sub: 'at current burn', tone: 'var(--warning)' },
+          { l: 'Open orders',v: '4',         sub: '£12,480 open',    tone: 'var(--brand-secondary)' },
+        ].map((k, i) => (
+          <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: 14 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.06em', color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: k.tone }}/>
+              {k.l}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 4 }}>{k.v}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border-light)', padding: '0 2px' }}>
+        {['Overview', 'Finance', 'Insights', 'Documents', 'Orders', 'Activity'].map(t => {
+          const a = t === tab;
+          return (
+            <button key={t} onClick={() => setTab(t)} className="btn btn-ghost"
+              style={{
+                height: 38, padding: '0 14px', fontSize: 13, borderRadius: 0,
+                borderBottom: a ? '2px solid var(--brand-primary)' : '2px solid transparent',
+                color: a ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontWeight: a ? 600 : 400, marginBottom: -1,
+              }}>{t}</button>
+          );
+        })}
+      </div>
+
+      {tab === 'Overview' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+          <Card title="Details">
+            {[
+              ['Legal name', c.legalName],
+              ['Type', c.type + ' · ' + c.tier],
+              ['Registration', c.rc],
+              ['Primary contact', c.accountMgr],
+              ['Email', c.email],
+              ['Phone', c.phone],
+              ['Registered address', c.address],
+            ].map(([k, v], i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, padding: '8px 0', borderBottom: i < 6 ? '1px solid var(--border-light)' : 'none' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.02em' }}>{k}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--text-primary)', fontFamily: k === 'Registration' || k === 'Phone' ? 'var(--font-mono)' : 'inherit' }}>{v}</span>
+              </div>
+            ))}
+          </Card>
+
+          <Card title="Compliance" subtitle="KYB · sanctions · docs"
+            action={<Pill tone="success" dot>Verified</Pill>}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+              {[
+                { label: 'Certificate of incorporation', status: 'Verified', tone: 'success', when: '14 Apr' },
+                { label: 'Beneficial ownership',         status: 'Verified', tone: 'success', when: '14 Apr' },
+                { label: 'Proof of address',             status: 'Verified', tone: 'success', when: '11 Apr' },
+                { label: 'OFAC / UN sanctions screen',   status: 'Passed',   tone: 'success', when: '22 Apr' },
+                { label: 'Annual re-screen',             status: 'Due Jun 1',tone: 'warning', when: '38 days' },
+              ].map((d, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+                  <Icon name="check" size={14} color={d.tone === 'success' ? 'var(--success)' : 'var(--warning)'}/>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-primary)', flex: 1 }}>{d.label}</span>
+                  <Pill tone={d.tone} size="sm">{d.status}</Pill>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)', minWidth: 60, textAlign: 'right' }}>{d.when}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Recent activity" style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {[
+                { ic: 'sparkles', t: 'Billing Agent drafted journal entry for INV-2041', w: '2m ago', c: 'var(--brand-primary)' },
+                { ic: 'invoice',  t: 'Invoice INV-2041 marked paid · £12,480', w: '14m ago', c: 'var(--success)' },
+                { ic: 'payout',   t: 'Payout PO-0871 settled · £8,400 → Wise', w: '2h ago', c: 'var(--text-secondary)' },
+                { ic: 'shield',   t: 'Annual KYB re-screen scheduled · June 1', w: '3h ago', c: 'var(--warning)' },
+                { ic: 'invoice',  t: 'Order ORD-1284 created · £4,220',        w: 'yesterday', c: 'var(--text-secondary)' },
+              ].map((a, i, arr) => (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: 10,
+                  padding: '10px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-light)' : 'none',
+                }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: a.c + '18', color: a.c, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name={a.ic} size={14}/>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>{a.t}</div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>{a.w}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab === 'Finance' && (
+        <>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {['Accounts', 'Transactions', 'Budgets', 'Commitments', 'Graph'].map(t => {
+              const a = t === fin;
+              return (
+                <button key={t} onClick={() => setFin(t)} className="btn btn-ghost"
+                  style={{
+                    height: 30, padding: '0 12px', fontSize: 12, borderRadius: 6,
+                    background: a ? 'var(--brand-primary-10)' : 'transparent',
+                    color: a ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                    fontWeight: a ? 600 : 400,
+                  }}>{t}</button>
+              );
+            })}
+          </div>
+
+          {fin === 'Accounts' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {accounts.map((a, i) => (
+                <div key={i} style={{
+                  background: 'var(--surface)', border: '1px solid var(--border-light)',
+                  borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', gap: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--brand-primary-10)', color: 'var(--brand-primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="bank" size={15}/>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{a.inst} · synced {a.last}</div>
+                    </div>
+                    <Pill tone="success" dot size="sm">live</Pill>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {a.cur} {a.bal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {fin === 'Budgets' && (
+            <ToolCardBudget
+              period="April 2026"
+              totalBudget={60000}
+              totalSpent={42180}
+              currency="GBP"
+              categories={[
+                { name: 'Fuel · fleet',    budgeted: 18000, spent: 19200, status: 'over' },
+                { name: 'Contractors',     budgeted: 14000, spent:  8420, status: 'under' },
+                { name: 'Warehousing',     budgeted: 12000, spent: 10100, status: 'on_track' },
+                { name: 'Insurance',       budgeted:  8000, spent:  3960, status: 'under' },
+                { name: 'Software · SaaS', budgeted:  4000, spent:   500, status: 'under' },
+                { name: 'Admin',           budgeted:  4000, spent:     0, status: 'under' },
+              ]}
+            />
+          )}
+
+          {fin === 'Transactions' && (
+            <Card>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', color: 'var(--text-tertiary)', fontSize: 11, letterSpacing: '0.04em' }}>
+                    <th style={{ padding: '10px 8px', fontWeight: 500 }}>DATE</th>
+                    <th style={{ padding: '10px 8px', fontWeight: 500 }}>DESCRIPTION</th>
+                    <th style={{ padding: '10px 8px', fontWeight: 500 }}>ACCOUNT</th>
+                    <th style={{ padding: '10px 8px', fontWeight: 500, textAlign: 'right' }}>AMOUNT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { d: '22 Apr', t: 'Wise · USD inbound · INV-2041',    a: 'FX Buffer',  amt: '+$16,120.00', pos: true },
+                    { d: '21 Apr', t: 'Shell · fuel purchase',             a: 'Operating',  amt: '−£2,480.00', pos: false },
+                    { d: '20 Apr', t: 'Payroll · April batch',             a: 'Payroll',    amt: '−£38,400.00',pos: false },
+                    { d: '18 Apr', t: 'Northstar Freight · settlement',    a: 'NGN Settle', amt: '+₦18.2M',    pos: true },
+                    { d: '17 Apr', t: 'AWS · infrastructure',              a: 'Operating',  amt: '−£820.00',   pos: false },
+                    { d: '15 Apr', t: 'Barclays · interest',               a: 'Operating',  amt: '+£128.42',   pos: true },
+                  ].map((r, i) => (
+                    <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{r.d}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--text-primary)' }}>{r.t}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{r.a}</td>
+                      <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', textAlign: 'right', color: r.pos ? 'var(--success)' : 'var(--text-primary)', fontWeight: 500 }}>{r.amt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+
+          {fin === 'Commitments' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+              {[
+                { t: 'Rent · Dock Road',      due: 'May 1',  amt: '£4,800',  freq: 'monthly' },
+                { t: 'Fleet lease · 6 units', due: 'May 5',  amt: '£8,200',  freq: 'monthly' },
+                { t: 'Insurance · liability', due: 'Jun 15', amt: '£3,960',  freq: 'quarterly' },
+                { t: 'Payroll · April',       due: 'May 28', amt: '£38,400', freq: 'monthly' },
+                { t: 'Software · Xero + AWS', due: 'May 10', amt: '£1,420',  freq: 'monthly' },
+                { t: 'Loan servicing',        due: 'May 20', amt: '£2,180',  freq: 'monthly' },
+              ].map((c, i) => (
+                <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: 14 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.t}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', marginTop: 6 }}>{c.amt}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: 'var(--text-tertiary)' }}>
+                    <span>due · {c.due}</span>
+                    <span>{c.freq}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {fin === 'Graph' && (
+            <Card title="Financial graph" subtitle="Cash in · cash out · net · last 90 days">
+              <svg viewBox="0 0 600 180" style={{ width: '100%', height: 200 }}>
+                {[0, 45, 90, 135, 180].map(y => <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="var(--border-light)" strokeDasharray="2 4"/>)}
+                <polyline points="0,110 50,95 100,100 150,80 200,70 250,85 300,60 350,55 400,65 450,50 500,40 550,35 600,30" stroke="var(--success)" strokeWidth="2" fill="none"/>
+                <polyline points="0,130 50,135 100,125 150,140 200,130 250,135 300,120 350,125 400,115 450,130 500,120 550,125 600,115" stroke="var(--danger)" strokeWidth="2" fill="none"/>
+                <polyline points="0,160 50,150 100,155 150,140 200,130 250,140 300,125 350,120 400,115 450,110 500,105 550,100 600,95" stroke="var(--brand-primary)" strokeWidth="2.5" fill="none"/>
+              </svg>
+              <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 8, fontSize: 11 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 2, background: 'var(--success)' }}/> Cash in</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 2, background: 'var(--danger)' }}/> Cash out</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 2, background: 'var(--brand-primary)' }}/> Net position</span>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {tab === 'Insights' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18 }}>
+          <Card title="AI summary" subtitle="Generated 14m ago · Insights Agent · conf 0.92"
+            action={<Pill tone="tint" dot>fresh</Pill>}>
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                Primrose is trending to 14% over April fuel budget, but overall margin is up 3.2% YoY.
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 10, lineHeight: 1.6 }}>
+                Cashflow is healthy with 186 days of runway at current burn. Outbound FX exposure to NGN has doubled quarter-over-quarter; consider a forward hedge if Northstar volumes continue.
+              </div>
+
+              <div style={{ marginTop: 16, fontSize: 11, letterSpacing: '0.06em', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Key observations</div>
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: 18, fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.8 }}>
+                <li>Fuel category is 107% through budget on day 22 of 30.</li>
+                <li>Largest inbound: Northstar Freight, ₦18.2M settled 18 Apr.</li>
+                <li>Payroll timing shifted +3 days vs last month — check with ops.</li>
+              </ul>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: '0.06em', color: 'var(--success)', textTransform: 'uppercase', fontWeight: 600 }}>Positive patterns</div>
+                  <ul style={{ margin: '6px 0 0 0', paddingLeft: 16, fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.7 }}>
+                    <li>Receivables aging improving</li>
+                    <li>FX settlements on time</li>
+                  </ul>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, letterSpacing: '0.06em', color: 'var(--danger)', textTransform: 'uppercase', fontWeight: 600 }}>Risk patterns</div>
+                  <ul style={{ margin: '6px 0 0 0', paddingLeft: 16, fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.7 }}>
+                    <li>Fuel category trending over</li>
+                    <li>NGN exposure concentration</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 16, fontSize: 11, letterSpacing: '0.06em', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Recommended focus</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                {['Set fuel alert threshold', 'Consider NGN forward hedge', 'Review Northstar pricing'].map(r =>
+                  <Pill key={r} tone="tint" size="sm">{r}</Pill>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <ToolCardPie
+              title="Spending · April 2026"
+              totalSpent={42180}
+              currency="GBP"
+              categories={[
+                { name: 'Fuel · fleet',    amount: 19200, percentage: 46 },
+                { name: 'Warehousing',     amount: 10100, percentage: 24 },
+                { name: 'Contractors',     amount:  8420, percentage: 20 },
+                { name: 'Insurance',       amount:  3960, percentage:  9 },
+                { name: 'Other',           amount:   500, percentage:  1 },
+              ]}
+            />
+            <ToolCardFx
+              base="GBP" target="NGN" signal="buy"
+              signalReason="Rate is near 30-day high and NGN inflows concentrated next week — buying now locks in favourable margin."
+              rates={[
+                { date: '25 Mar', rate: 1908 }, { date: '30 Mar', rate: 1920 },
+                { date: '5 Apr',  rate: 1945 }, { date: '10 Apr', rate: 1930 },
+                { date: '15 Apr', rate: 1965 }, { date: '18 Apr', rate: 1980 },
+                { date: '22 Apr', rate: 2012 },
+              ]}
+            />
+          </div>
+        </div>
+      )}
+
+      {tab === 'Documents' && (
+        <Card>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {[
+              { n: 'Certificate of incorporation', t: 'KYB', s: 'Verified', tone: 'success', u: '14 Apr', x: '2028-03-14' },
+              { n: 'Beneficial ownership',          t: 'KYB', s: 'Verified', tone: 'success', u: '14 Apr', x: '—' },
+              { n: 'Proof of address · utility',   t: 'KYB', s: 'Verified', tone: 'success', u: '11 Apr', x: '2026-10-11' },
+              { n: 'Tax certificate',               t: 'Tax', s: 'Rejected', tone: 'danger',  u: '19 Apr', x: '—' },
+              { n: 'Director IDs · 2 files',        t: 'KYC', s: 'Verified', tone: 'success', u: '15 Apr', x: '2030-02-15' },
+            ].map((d, i, arr) => (
+              <div key={i} style={{
+                display: 'grid', gridTemplateColumns: 'auto 1fr auto auto auto auto',
+                alignItems: 'center', gap: 14, padding: '12px 8px',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border-light)' : 'none',
+              }}>
+                <Icon name="invoice" size={18} color="var(--text-tertiary)"/>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{d.n}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{d.t}</div>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>uploaded {d.u}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>expires {d.x}</span>
+                <Pill tone={d.tone} dot>{d.s}</Pill>
+                <span className="hover-halo"><Icon name="download" size={13}/></span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {tab === 'Orders' && (
+        <Card>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <thead>
+              <tr style={{ color: 'var(--text-tertiary)', fontSize: 11, letterSpacing: '0.04em', textAlign: 'left' }}>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>ORDER</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>DATE</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>SERVICE</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500 }}>STATUS</th>
+                <th style={{ padding: '10px 8px', fontWeight: 500, textAlign: 'right' }}>AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { id: 'ORD-1291', d: '22 Apr', s: 'Freight · LHR→LAG', st: 'In transit', tone: 'tint',    amt: '£4,220' },
+                { id: 'ORD-1288', d: '21 Apr', s: 'Bill payment',      st: 'Paid',       tone: 'success', amt: '£820' },
+                { id: 'ORD-1284', d: '20 Apr', s: 'Freight · LHR→LAG', st: 'Settled',    tone: 'success', amt: '£12,480' },
+                { id: 'ORD-1280', d: '18 Apr', s: 'FX · GBP→USD',      st: 'Settled',    tone: 'success', amt: '$16,120' },
+                { id: 'ORD-1276', d: '15 Apr', s: 'Freight · MAN→ABJ', st: 'Awaiting',   tone: 'warning', amt: '£6,840' },
+              ].map((r, i) => (
+                <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
+                  <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--brand-primary)' }}>{r.id}</td>
+                  <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{r.d}</td>
+                  <td style={{ padding: '10px 8px', color: 'var(--text-primary)' }}>{r.s}</td>
+                  <td style={{ padding: '10px 8px' }}><Pill tone={r.tone} dot size="sm">{r.st}</Pill></td>
+                  <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>{r.amt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === 'Activity' && (
+        <Card>
+          <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Full audit trail · 842 events · exportable.</div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { ScreenCustomerDetail });

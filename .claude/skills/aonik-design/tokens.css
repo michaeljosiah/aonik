@@ -1,0 +1,390 @@
+/* ==========================================================================
+   AONIK Design System — Core tokens
+   --------------------------------------------------------------------------
+   Source of truth: src/Aonik.AdminUi/src/index.css (Tailwind v4 @theme block)
+   from michaeljosiah/aonik@master. This is the IN-PRODUCT palette — the
+   marketing site uses a separate indigo/violet skin; see `tokens-marketing.css`.
+
+   Load this once at the document root. All surfaces — dashboards, data tables,
+   module pages, agent panels, settings — read from these variables.
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+/* Infra is the brand display face. Falls back to DM Sans if the .otf file
+   is unavailable (e.g. when the system is used outside this project). */
+@font-face {
+  font-family: "Infra";
+  src: url("fonts/InfraRegular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Infra";
+  src: url("fonts/InfraMedium.otf") format("opentype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Infra";
+  src: url("fonts/InfraBold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  /* ─── Brand — Teal primary, coral secondary ─────────────────────────────── */
+  --brand-primary:        #055a60;
+  --brand-primary-dark:   #044c51;
+  --brand-primary-10:     #055a601f;  /* 12% — tint fills, hover halos  */
+  --brand-primary-20:     #055a6033;  /* 20% — chip bg, soft borders   */
+  --brand-primary-60:     #055a6099;  /* 60% — focus glows              */
+
+  --brand-secondary:      #eb5c37;    /* coral — accents, pending pills */
+  --brand-secondary-dark: #d44a28;
+  --brand-secondary-10:   #eb5c3720;
+  --brand-secondary-20:   #eb5c3733;
+  --brand-secondary-60:   #eb5c3799;
+
+  /* Favicon gold — reserved for the single-pixel brand dot, not a utility. */
+  --brand-mark-dot:       #e8a838;
+
+  /* ─── Surfaces (light) ──────────────────────────────────────────────────── */
+  --background:           #f9fafb;   /* app canvas */
+  --surface:              #ffffff;   /* cards, panels */
+  --surface-inset:        #f6f6f9;   /* recessed regions, sidebar bg */
+  --surface-elevated:     #ffffff;   /* popovers, tooltips */
+  --border:               #e5e7eb;
+  --border-light:         #f0f0f0;
+
+  /* ─── Gray scale ────────────────────────────────────────────────────────── */
+  --gray-50:  #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* ─── Text ──────────────────────────────────────────────────────────────── */
+  --text-primary:   #2f2f2f;
+  --text-secondary: #888888;
+  --text-tertiary:  #9ca3af;
+  --text-heading:   #4b5563;
+  --text-inverse:   #ffffff;
+
+  /* ─── Status ────────────────────────────────────────────────────────────── */
+  --success:       #4caf50;
+  --success-light: #4caf5020;
+  --warning:       #ebc334;
+  --warning-light: #ebc33420;
+  --danger:        #cc2e2e;
+  --danger-light:  #cc2e2e20;
+  --info:          #3b82f6;
+  --info-light:    #3b82f620;
+  --pending:       #eb5c37;
+  --pending-light: #eb5c3720;
+
+  /* Accent variants used for agent/theme scoping in the real app. */
+  --accent-violet: #7b76b6;
+  --accent-patrol: #0097a9;   /* "patrol" — deeper teal alt */
+  --accent-jade:   #17b0ad;
+  --accent-team:   #5facbd;   /* Team Agent theme */
+  --accent-ent:    #3ab795;   /* Enterprise Agent theme */
+
+  /* ─── Type ──────────────────────────────────────────────────────────────── */
+  --font-brand: 'Infra', 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-sans:  'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs:   0.75rem;   /* 12 */
+  --text-sm:   0.875rem;  /* 14 */
+  --text-base: 1rem;      /* 16 */
+  --text-lg:   1.125rem;  /* 18 */
+  --text-xl:   1.25rem;   /* 20 */
+  --text-2xl:  1.5rem;    /* 24 */
+  --text-3xl:  1.875rem;  /* 30 */
+  --text-4xl:  2.25rem;   /* 36 */
+
+  --leading-tight:   1.1;
+  --leading-snug:    1.25;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.625;
+  --tracking-tight:  -0.015em;
+  --tracking-wide:   0.06em;
+
+  /* ─── Spacing ───────────────────────────────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ─── Radius ────────────────────────────────────────────────────────────── */
+  --radius-sm:   2px;
+  --radius-md:   0.5rem;    /* 8 — default card */
+  --radius-lg:   0.5rem;    /* 8 — same, semantic alias */
+  --radius-xl:   0.75rem;   /* 12 — larger cards */
+  --radius-card: 4px;       /* Admin UI uses rounded-[4px] on many cards */
+  --radius-pill: 9999px;
+
+  /* ─── Shadow ────────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-focus: 0px 4px 0px -2px var(--brand-primary-60);   /* signature bottom-bar focus */
+
+  /* ─── Layout ────────────────────────────────────────────────────────────── */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 81px;
+  --navbar-height: 56px;
+
+  /* ─── Motion ────────────────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 150ms;
+  --dur-med:  250ms;
+  --dur-slow: 400ms;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Dark theme — charcoal, NOT navy/indigo. Toggle by setting
+   `data-theme="dark"` on the <html> or <body> element.
+   ────────────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --background:        #1a1d21;
+  --surface:           #22262b;
+  --surface-inset:     #1e2125;
+  --surface-elevated:  #282c32;
+  --border:            #3a3f46;
+  --border-light:      #2e3338;
+
+  --gray-50:  #1a1d21;
+  --gray-100: #1e2125;
+  --gray-200: #22262b;
+  --gray-300: #2e3338;
+  --gray-400: #4a4f56;
+  --gray-500: #8b9098;
+  --gray-600: #a8adb5;
+  --gray-700: #c8ccd2;
+  --gray-800: #e0e3e7;
+  --gray-900: #f3f4f6;
+
+  --text-primary:   #e8eaed;
+  --text-secondary: #9aa0a8;
+  --text-tertiary:  #6b7078;
+  --text-heading:   #e0e3e7;
+  --text-inverse:   #1a1d21;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Base
+   ────────────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text-primary);
+}
+::selection { background: var(--brand-primary-20); }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Semantic type primitives
+   Display (brand moments): Infra. Everything else: DM Sans.
+   ────────────────────────────────────────────────────────────────────────── */
+.display, [data-type="display"] {
+  font-family: var(--font-brand);
+  font-weight: 700;
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+h1, .h1 {
+  font-weight: 700;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  margin: 0;
+}
+h2, .h2 {
+  font-weight: 600;
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+  margin: 0;
+}
+h3, .h3 {
+  font-weight: 600;
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+  margin: 0;
+}
+.body    { font-size: var(--text-sm);  color: var(--text-primary);   line-height: var(--leading-normal); }
+.body-lg { font-size: var(--text-base);color: var(--text-primary);   line-height: var(--leading-relaxed); }
+.meta    { font-size: var(--text-xs);  color: var(--text-secondary); line-height: var(--leading-normal); }
+.mono    { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.eyebrow {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  color: var(--brand-primary);
+  text-transform: uppercase;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Core primitives (unprefixed — compose into components)
+   ────────────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+}
+.card-xl { border-radius: var(--radius-xl); }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+.pill-tint    { background: var(--brand-primary-10); border-color: transparent; color: var(--brand-primary); }
+.pill-success { background: var(--success-light); border-color: transparent; color: var(--success); }
+.pill-warning { background: var(--warning-light); border-color: transparent; color: #8a6d0a; }
+.pill-danger  { background: var(--danger-light);  border-color: transparent; color: var(--danger); }
+.pill-pending { background: var(--pending-light); border-color: transparent; color: var(--pending); }
+
+/* Signature bottom-bar focus used on Admin UI inputs */
+.input {
+  height: 38px;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  font: inherit;
+  color: var(--text-primary);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.input::placeholder { color: var(--text-tertiary); }
+.input:focus {
+  outline: none;
+  border-bottom-color: var(--brand-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+}
+.btn-primary:hover   { background: var(--brand-primary-dark); }
+.btn-outline {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.btn-outline:hover   { background: var(--surface-inset); border-color: var(--gray-400); }
+.btn-ghost           { background: transparent; color: var(--text-primary); }
+.btn-ghost:hover     { background: var(--surface-inset); }
+.btn-secondary {
+  background: var(--brand-secondary);
+  color: var(--text-inverse);
+}
+.btn-secondary:hover { background: var(--brand-secondary-dark); }
+.btn-sm              { height: 30px; padding: 0 12px; font-size: var(--text-xs); }
+.btn-lg              { height: 44px; padding: 0 20px; font-size: var(--text-base); }
+.btn:focus-visible   { outline: none; box-shadow: var(--shadow-focus); }
+
+/* Hover halo — circular tint behind icons, a signature Admin UI micro-interaction. */
+.hover-halo {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  cursor: pointer;
+}
+.hover-halo:hover {
+  color: var(--brand-primary);
+  background: var(--brand-primary-10);
+  box-shadow: 0 0 0 6px var(--brand-primary-10);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Agent theme scoping — drop one of these classes on a subtree to
+   re-theme the agent colors inside it. Used by the AI chat panel.
+   ────────────────────────────────────────────────────────────────────────── */
+.chat-primary   { --theme-color: var(--brand-primary);   --theme-color-100: var(--brand-primary-10);   --theme-color-600: var(--brand-primary-60); }
+.chat-secondary { --theme-color: var(--brand-secondary); --theme-color-100: var(--brand-secondary-10); --theme-color-600: var(--brand-secondary-60); }
+.chat-team      { --theme-color: var(--accent-team);     --theme-color-100: #5facbd20;                  --theme-color-600: #5facbd99; }
+.chat-ent       { --theme-color: var(--accent-ent);      --theme-color-100: #3ab79520;                  --theme-color-600: #3ab79599; }
+
+/* Text shimmer used during agent streaming */
+@keyframes shimmer-sweep {
+  0%   { background-position: 100% 0, 0 0; }
+  100% { background-position: 0% 0, 0 0; }
+}
+.shimmer {
+  --shimmer-base: var(--text-tertiary);
+  --shimmer-peak: var(--text-primary);
+  background:
+    linear-gradient(90deg, transparent calc(50% - 4ch), var(--shimmer-peak) 50%, transparent calc(50% + 4ch)),
+    var(--shimmer-base);
+  background-size: 200% 100%, 100% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-sweep 1.2s infinite linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer { animation: none; -webkit-text-fill-color: currentColor; color: var(--text-tertiary); }
+}

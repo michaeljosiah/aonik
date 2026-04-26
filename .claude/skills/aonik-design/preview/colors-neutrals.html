@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Neutrals &amp; surfaces</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .ramp {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .ramp .step {
+    aspect-ratio: 1 / 1.35;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+  .ramp .step .k { font-weight: 600; }
+  .ramp .step .h { font-family: var(--font-mono); opacity: 0.7; }
+  .ramp .s50  { background: #f9fafb; color: #111827; }
+  .ramp .s100 { background: #f3f4f6; color: #111827; }
+  .ramp .s200 { background: #e5e7eb; color: #111827; }
+  .ramp .s300 { background: #d1d5db; color: #111827; }
+  .ramp .s400 { background: #9ca3af; color: #ffffff; }
+  .ramp .s500 { background: #6b7280; color: #ffffff; }
+  .ramp .s600 { background: #4b5563; color: #ffffff; }
+  .ramp .s700 { background: #374151; color: #ffffff; }
+  .ramp .s800 { background: #1f2937; color: #ffffff; }
+  .ramp .s900 { background: #111827; color: #ffffff; }
+
+  .surfaces {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .surf {
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .surf.light  { background: #f9fafb; }
+  .surf.card   { background: #ffffff; }
+  .surf.inset  { background: #f6f6f9; }
+  .surf.dark   { background: #1a1d21; color: #e8eaed; border-color: #2e3338; }
+  .surf.dark .meta { color: #9aa0a8; }
+  .surf .label { font-family: var(--font-brand); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .surf .meta  { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
+  .surf .demo  {
+    margin-top: 18px;
+    height: 68px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+  }
+  .surf.dark .demo { background: rgba(255,255,255,0.06); }
+  .surf .demo-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--brand-primary); }
+  .surf.dark .demo-dot { background: #3ab795; }
+
+  .text-ramp {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .text-ramp .row {
+    display: grid; grid-template-columns: 200px 1fr 120px; gap: 12px; align-items: center;
+    padding: 6px 0; border-bottom: 1px dashed var(--border-light);
+  }
+  .text-ramp .row:last-child { border-bottom: none; }
+  .text-ramp .role { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .text-ramp .hex  { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); text-align: right; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div>
+        <div class="eyebrow">Colors</div>
+        <h1>Neutrals &amp; surfaces</h1>
+      </div>
+      <p>A 10-step gray ramp drives every surface, border, and text level. Light mode is the default; dark shifts to charcoal (#1A1D21), never navy.</p>
+    </div>
+
+    <div class="frame-body">
+      <div>
+        <div class="panel-label">Gray ramp</div>
+        <div class="ramp">
+          <div class="step s50"><span class="k">50</span><span class="h">#F9FAFB</span></div>
+          <div class="step s100"><span class="k">100</span><span class="h">#F3F4F6</span></div>
+          <div class="step s200"><span class="k">200</span><span class="h">#E5E7EB</span></div>
+          <div class="step s300"><span class="k">300</span><span class="h">#D1D5DB</span></div>
+          <div class="step s400"><span class="k">400</span><span class="h">#9CA3AF</span></div>
+          <div class="step s500"><span class="k">500</span><span class="h">#6B7280</span></div>
+          <div class="step s600"><span class="k">600</span><span class="h">#4B5563</span></div>
+          <div class="step s700"><span class="k">700</span><span class="h">#374151</span></div>
+          <div class="step s800"><span class="k">800</span><span class="h">#1F2937</span></div>
+          <div class="step s900"><span class="k">900</span><span class="h">#111827</span></div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns: 1.1fr 0.9fr; gap:20px;">
+        <div>
+          <div class="panel-label">Surfaces</div>
+          <div class="surfaces">
+            <div class="surf light">
+              <div class="label">Background</div><div class="meta">#F9FAFB · app canvas</div>
+              <div class="demo"><span class="demo-dot"></span><span style="font-size:12px;color:var(--text-secondary)">Module root</span></div>
+            </div>
+            <div class="surf card">
+              <div class="label">Surface</div><div class="meta">#FFFFFF · cards, panels</div>
+              <div class="demo"><span class="demo-dot"></span><span style="font-size:12px;color:var(--text-secondary)">Ledger row</span></div>
+            </div>
+            <div class="surf inset">
+              <div class="label">Inset</div><div class="meta">#F6F6F9 · recessed regions</div>
+              <div class="demo"><span class="demo-dot"></span><span style="font-size:12px;color:var(--text-secondary)">Sidebar bg</span></div>
+            </div>
+            <div class="surf dark">
+              <div class="label">Dark / Background</div><div class="meta">#1A1D21 · charcoal, not navy</div>
+              <div class="demo"><span class="demo-dot"></span><span style="font-size:12px;color:#9aa0a8">Dark mode root</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="panel-label">Text levels</div>
+          <div class="text-ramp">
+            <div class="row"><span style="color:#2f2f2f;font-weight:700;font-size:18px;font-family:var(--font-brand)">Primary heading</span><span class="role">Heading / primary</span><span class="hex">#2F2F2F</span></div>
+            <div class="row"><span style="color:#4b5563;font-weight:600;font-size:15px">Section heading</span><span class="role">Heading / subtle</span><span class="hex">#4B5563</span></div>
+            <div class="row"><span style="color:#2f2f2f;font-size:14px">Body text</span><span class="role">Body / primary</span><span class="hex">#2F2F2F</span></div>
+            <div class="row"><span style="color:#888888;font-size:13px">Supporting description</span><span class="role">Secondary</span><span class="hex">#888888</span></div>
+            <div class="row"><span style="color:#9ca3af;font-size:12px">Meta · tertiary</span><span class="role">Tertiary</span><span class="hex">#9CA3AF</span></div>
+            <div class="row"><span style="background:#055a60;color:#fff;padding:4px 10px;border-radius:4px;font-size:12px;font-weight:500">On primary</span><span class="role">Inverse</span><span class="hex">#FFFFFF</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

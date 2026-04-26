@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Brand & logo</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 72px 56px 56px;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 48px;
+    align-items: center;
+  }
+  .logo-lg {
+    display: inline-flex; align-items: center; gap: 16px;
+    font-family: var(--font-brand); font-weight: 700;
+    font-size: 56px; letter-spacing: -0.02em; color: var(--text-primary);
+  }
+  .logo-lg .mark-glyph {
+    width: 64px; height: 64px; border-radius: 16px;
+  }
+  .logo-lg .mark-glyph::after { top: 6px; right: 6px; width: 14px; height: 14px; }
+  .hero p.tagline {
+    margin: 24px 0 0;
+    font-size: 18px; line-height: 1.5;
+    color: var(--text-secondary); max-width: 520px;
+  }
+  .manifest {
+    background: var(--surface-inset);
+    border-left: 3px solid var(--brand-primary);
+    padding: 20px 24px;
+    border-radius: 4px;
+  }
+  .manifest .line {
+    font-family: var(--font-brand);
+    font-size: 20px; font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.35;
+  }
+  .manifest .line + .line { margin-top: 8px; color: var(--text-secondary); }
+
+  .variants {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .variant {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+  }
+  .variant.dark { background: #1a1d21; color: #e8eaed; border-color: #2e3338; }
+  .variant.tint { background: var(--brand-primary-10); border-color: transparent; }
+  .variant.solid { background: var(--brand-primary); color: #fff; border-color: transparent; }
+  .variant .mark-glyph { width: 44px; height: 44px; border-radius: 12px; }
+  .variant .mark-glyph::after { top: 4px; right: 4px; width: 10px; height: 10px; }
+  .variant.solid .mark-glyph { background: #fff; }
+  .variant.solid .mark-glyph::after { background: var(--brand-mark-dot); }
+  .variant .wordmark {
+    font-family: var(--font-brand);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+  }
+  .variant .caption { font-size: 11px; color: inherit; opacity: 0.7; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div>
+        <div class="eyebrow">Brand</div>
+        <h1>Wordmark &amp; logo</h1>
+      </div>
+      <p>The "A" glyph and gold accent dot are the brand's only illustrative elements. The wordmark sets in Infra Bold at all scales.</p>
+    </div>
+
+    <div class="frame-body">
+      <div class="hero">
+        <div>
+          <span class="logo-lg">
+            <span class="mark-glyph"></span>
+            Aonik
+          </span>
+          <p class="tagline">Ledger-first financial infrastructure. Agents propose, systems apply, humans stay in control.</p>
+        </div>
+
+        <div class="manifest">
+          <div class="line">Agents propose. Systems apply.</div>
+          <div class="line">Humans stay in control.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-label">Lockups</div>
+        <div class="variants">
+          <div class="variant">
+            <span class="mark-glyph"></span>
+            <span class="wordmark">Aonik</span>
+            <span class="caption">Primary — light</span>
+          </div>
+          <div class="variant dark">
+            <span class="mark-glyph"></span>
+            <span class="wordmark">Aonik</span>
+            <span class="caption">Dark surface</span>
+          </div>
+          <div class="variant tint">
+            <span class="mark-glyph"></span>
+            <span class="wordmark">Aonik</span>
+            <span class="caption">Tint plate</span>
+          </div>
+          <div class="variant solid">
+            <span class="mark-glyph"></span>
+            <span class="wordmark">Aonik</span>
+            <span class="caption">Reverse — primary fill</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

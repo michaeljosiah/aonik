@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Agent primitives</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+
+  /* Proposal card — the inline agent pattern */
+  .proposal {
+    background:var(--surface);
+    border:1px solid var(--border-light);
+    border-left:3px solid var(--brand-secondary);
+    border-radius:10px;
+    padding:16px 18px;
+  }
+  .proposal .head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .proposal .av   { width:24px; height:24px; border-radius:6px; background:var(--brand-primary-10); color:var(--brand-primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; font-family:var(--font-brand); }
+  .proposal .who  { font-weight:600; font-size:13px; color:var(--text-primary); }
+  .proposal .conf { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); }
+
+  .diff {
+    background:var(--surface-inset);
+    border-radius:8px;
+    padding:12px 14px;
+    font-family:var(--font-mono);
+    font-size:12px;
+    line-height:1.75;
+    color:var(--text-primary);
+    margin-bottom:12px;
+  }
+  .diff .ln-rm { color:var(--danger); }
+  .diff .ln-ad { color:var(--success); }
+  .diff .ln-ctx { color:var(--text-secondary); }
+
+  .reason { font-size:12px; color:var(--text-secondary); line-height:1.55; margin-bottom:14px; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* Streaming message bubble */
+  .chat {
+    background:var(--surface);
+    border:1px solid var(--border-light);
+    border-radius:12px;
+    padding:20px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .bubble { display:flex; gap:10px; }
+  .bubble .av { width:28px; height:28px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; font-family:var(--font-brand); }
+  .bubble.user    { justify-content:flex-end; }
+  .bubble.user .av { background:var(--gray-200); color:var(--gray-700); order:2; }
+  .bubble.user .msg { background:var(--brand-primary-10); color:var(--text-primary); border-radius:14px 14px 4px 14px; padding:10px 14px; font-size:13px; max-width:80%; }
+  .bubble.agent .av { background:var(--brand-primary); color:#fff; }
+  .bubble.agent .msg { background:#f5f5f5; color:var(--text-primary); border-radius:14px 14px 14px 4px; padding:10px 14px; font-size:13px; max-width:80%; }
+
+  /* Tool call trace */
+  .trace { background:var(--surface); border:1px solid var(--border-light); border-radius:12px; overflow:hidden; }
+  .trace .step { padding:12px 18px; border-bottom:1px solid var(--border-light); display:grid; grid-template-columns:20px 1fr auto; gap:12px; align-items:center; }
+  .trace .step:last-child { border-bottom:none; }
+  .trace .step.active { background:var(--brand-primary-10); }
+  .trace .n { width:20px; height:20px; border-radius:999px; background:var(--gray-200); color:var(--gray-700); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; font-family:var(--font-mono); }
+  .trace .step.active .n { background:var(--brand-primary); color:#fff; }
+  .trace .step.done .n   { background:var(--success); color:#fff; }
+  .trace .t { font-size:13px; color:var(--text-primary); }
+  .trace .d { font-size:11px; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px; }
+  .trace .ms { font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); }
+
+  /* Agent selector */
+  .selector { background:var(--surface); border:1px solid var(--border-light); border-radius:12px; padding:12px; max-width:360px; }
+  .selector .group { font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-tertiary); padding:8px 10px 4px; }
+  .selector .opt { display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; cursor:pointer; }
+  .selector .opt:hover { background:var(--surface-inset); }
+  .selector .opt.sel { background:var(--brand-primary-10); }
+  .selector .opt .av { width:28px; height:28px; border-radius:8px; background:var(--surface-inset); display:flex; align-items:center; justify-content:center; font-size:13px; font-family:var(--font-brand); font-weight:700; color:var(--brand-primary); flex:none; }
+  .selector .opt.sel .av { background:var(--brand-primary); color:#fff; }
+  .selector .opt .t { font-size:13px; font-weight:500; color:var(--text-primary); }
+  .selector .opt .d { font-size:11px; color:var(--text-secondary); margin-top:1px; }
+  .selector .opt .check { margin-left:auto; color:var(--brand-primary); font-size:14px; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="frame-header">
+    <div><div class="eyebrow">Agents</div><h1>Agent primitives</h1></div>
+    <p>Four building blocks used everywhere agents touch the UI: proposal cards, streaming chat, tool-call traces, and the agent selector.</p>
+  </div>
+  <div class="frame-body">
+    <div class="grid">
+      <!-- Proposal card -->
+      <div>
+        <div class="panel-label">Inline proposal · "Agents propose. Systems apply."</div>
+        <div class="proposal">
+          <div class="head">
+            <span class="av">B</span>
+            <span class="who">Billing Agent</span>
+            <span class="conf">confidence 0.94</span>
+          </div>
+          <div class="diff">
+            <div class="ln-ctx">  invoice: INV-2041</div>
+            <div class="ln-rm">- status: draft</div>
+            <div class="ln-ad">+ status: posted</div>
+            <div class="ln-ad">+ journal_entry: JE-88421</div>
+            <div class="ln-ad">+ matched_to: bank_txn_9f2c1a (95%)</div>
+          </div>
+          <div class="reason">
+            Bank transaction on 19 Nov matches invoice reference, amount ($12,480.00), and counterparty (Primrose Logistics). Will post a balanced journal entry against cash.operating &rarr; accts.receivable.
+          </div>
+          <div class="actions">
+            <button class="btn btn-secondary btn-sm">Apply</button>
+            <button class="btn btn-outline btn-sm">Review diff</button>
+            <button class="btn btn-ghost btn-sm">Dismiss</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent selector -->
+      <div>
+        <div class="panel-label">Agent selector · header control</div>
+        <div class="selector">
+          <div class="group">Orchestrator</div>
+          <div class="opt sel">
+            <div class="av">A</div>
+            <div><div class="t">Aonik Orchestrator</div><div class="d">Routes to domain agents automatically</div></div>
+            <span class="check">●</span>
+          </div>
+          <div class="group">Domain agents</div>
+          <div class="opt">
+            <div class="av">L</div>
+            <div><div class="t">Ledger</div><div class="d">Journal entries, trial balance</div></div>
+          </div>
+          <div class="opt">
+            <div class="av">B</div>
+            <div><div class="t">Billing</div><div class="d">Invoices, matching, dunning</div></div>
+          </div>
+          <div class="opt">
+            <div class="av">P</div>
+            <div><div class="t">Payout Router</div><div class="d">Rails, partners, FX</div></div>
+          </div>
+          <div class="opt">
+            <div class="av">C</div>
+            <div><div class="t">Compliance</div><div class="d">KYC, sanctions, audit docs</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Streaming chat -->
+      <div>
+        <div class="panel-label">Streaming chat · AG-UI protocol</div>
+        <div class="chat chat-primary">
+          <div class="bubble user">
+            <div class="msg">Why is INV-2041 still open? The payment landed last week.</div>
+            <div class="av">Y</div>
+          </div>
+          <div class="bubble agent">
+            <div class="av">A</div>
+            <div class="msg">
+              I found a bank transaction from 19 Nov for $12,480.00 that matches invoice reference, amount, and counterparty. Confidence is 0.94.<br><br>
+              I've drafted a journal entry to post INV-2041 and match it to the transaction. <span class="shimmer">Generating diff…</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tool call trace -->
+      <div>
+        <div class="panel-label">Tool-call trace · what the agent did</div>
+        <div class="trace">
+          <div class="step done">
+            <span class="n">1</span>
+            <div><div class="t">search_invoices</div><div class="d">filter: status=open, ref_contains=2041</div></div>
+            <span class="ms">142ms</span>
+          </div>
+          <div class="step done">
+            <span class="n">2</span>
+            <div><div class="t">list_bank_transactions</div><div class="d">window: 2024-11-14 → 2024-11-21, amount ≈ 12480</div></div>
+            <span class="ms">318ms</span>
+          </div>
+          <div class="step done">
+            <span class="n">3</span>
+            <div><div class="t">match_invoice_to_txn</div><div class="d">score: 0.94 · ref + amount + counterparty</div></div>
+            <span class="ms">211ms</span>
+          </div>
+          <div class="step active">
+            <span class="n">4</span>
+            <div><div class="t">draft_journal_entry</div><div class="d shimmer">composing balanced debit/credit…</div></div>
+            <span class="ms">—</span>
+          </div>
+          <div class="step">
+            <span class="n">5</span>
+            <div><div class="t">propose_apply</div><div class="d">awaiting human confirmation</div></div>
+            <span class="ms">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

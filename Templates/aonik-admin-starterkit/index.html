@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=1600"/>
+<title>Aonik · Admin UI</title>
+<link rel="stylesheet" href="tokens.css"/>
+<style>
+  html, body, #root { margin: 0; padding: 0; height: 100%; background: #f0eee9; }
+  body { font-family: var(--font-sans); }
+  /* Scope: every artboard gives its AppShell a 100% height & local background */
+  .aonik-frame {
+    width: 100%; height: 100%;
+    background: var(--background);
+    overflow: hidden;
+    border-radius: 6px;
+  }
+  /* Thinner scrollbars inside artboards */
+  .aonik-frame *::-webkit-scrollbar { width: 8px; height: 8px; }
+  .aonik-frame *::-webkit-scrollbar-thumb { background: rgba(0,0,0,.14); border-radius: 999px; }
+  .aonik-frame *::-webkit-scrollbar-track { background: transparent; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
+  [data-theme="dark"] {
+    --background: #1a1d21;
+    --surface: #21252a;
+    --surface-inset: #1d2024;
+    --border-light: #2d3239;
+    --border-medium: #3a4049;
+    --text-primary: #e8eaec;
+    --text-secondary: #9ba3ad;
+    --text-tertiary: #6e7680;
+    --brand-primary-10: #055a6030;
+    --gray-200: #2d3239;
+    --gray-400: #5a6069;
+    --gray-500: #8a9099;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Canvas + tweaks scaffolds -->
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<!-- Core kit -->
+<script type="text/babel" src="kit/components.jsx"></script>
+<script type="text/babel" src="kit/icons-extra.jsx"></script>
+<script type="text/babel" src="kit/helpers.jsx"></script>
+<script type="text/babel" src="kit/tool-cards.jsx"></script>
+<script type="text/babel" src="kit/shell.jsx"></script>
+<script type="text/babel" src="kit/shell-aonik.jsx"></script>
+
+<!-- Screens -->
+<script type="text/babel" src="screens/loading.jsx"></script>
+<script type="text/babel" src="screens/login.jsx"></script>
+<script type="text/babel" src="screens/myspace.jsx"></script>
+<script type="text/babel" src="screens/customers-orders.jsx"></script>
+<script type="text/babel" src="screens/invoices-accounts.jsx"></script>
+<script type="text/babel" src="screens/journal-partners.jsx"></script>
+<script type="text/babel" src="screens/customer-detail.jsx"></script>
+<script type="text/babel" src="screens/ai-pages.jsx"></script>
+<script type="text/babel" src="screens/ai-tasks-policies.jsx"></script>
+<script type="text/babel" src="screens/obs-overview-traces.jsx"></script>
+<script type="text/babel" src="screens/obs-logs-audit.jsx"></script>
+<script type="text/babel" src="screens/rest.jsx"></script>
+<script type="text/babel" src="screens/forms.jsx"></script>
+<script type="text/babel" src="screens/notifications.jsx"></script>
+<script type="text/babel" src="screens/orders.jsx"></script>
+<script type="text/babel" src="screens/order-flow.jsx"></script>
+<script type="text/babel" src="screens/invoice-detail.jsx"></script>
+<script type="text/babel" src="screens/order-monitor.jsx"></script>
+<script type="text/babel" src="screens/ai-chat.jsx"></script>
+<script type="text/babel" src="screens/settings.jsx"></script>
+<script type="text/babel" src="screens/billers.jsx"></script>
+<script type="text/babel" src="screens/remittances.jsx"></script>
+<script type="text/babel" src="screens/approvals.jsx"></script>
+
+<!-- App -->
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "density": "compact",
+  "accent": "teal",
+  "sidebarCollapsed": false,
+  "showAgentRail": true,
+  "proposalStyle": "tinted",
+  "agentAvatars": true
+}/*EDITMODE-END*/;
+
+const ACCENTS = {
+  teal:   { primary: '#055a60', p60: '#055a6099', p10: '#055a6018' },
+  indigo: { primary: '#3f41a0', p60: '#3f41a099', p10: '#3f41a018' },
+  jade:   { primary: '#1f7a5e', p60: '#1f7a5e99', p10: '#1f7a5e18' },
+  ink:    { primary: '#1e2228', p60: '#1e222899', p10: '#1e222818' },
+};
+
+function ArtboardFrame({ children }) {
+  return <div className="aonik-frame">{children}</div>;
+}
+
+// Shared right-rail content used on relevant screens (Invoices, My Space, Journal).
+function DefaultAgentRail({ variant = 'invoices' }) {
+  // Rail content varies by screen context
+  const content = {
+    invoices: (
+      <AgentRail
+        messages={[
+          <div key="m1" style={{ display: 'flex', gap: 10 }}>
+            <Avatar name="L" size={24} color="var(--brand-primary)" textColor="#fff"/>
+            <div style={{ padding: '10px 12px', background: 'var(--surface-inset)', borderRadius: '12px 12px 12px 4px', fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.5, maxWidth: 300 }}>
+              I found <b>3 invoices</b> matching last week's bank transactions. Drafting entries now.
+            </div>
+          </div>,
+          <div key="tools" style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 34 }}>
+            <ToolCallBadge name="search_invoices" ms="142ms"/>
+            <ToolCallBadge name="list_bank_transactions" ms="318ms"/>
+            <ToolCallBadge name="match_invoice_to_txn" ms="211ms"/>
+          </div>,
+        ]}
+        proposals={[]}
+        thinking={false}
+      >
+        <div style={{ paddingLeft: 34, marginTop: 4 }}>
+          <ToolCardAutopilot
+            agent="Billing Agent"
+            action="Apply INV-2041 to bank txn 9f2c1a"
+            description="Reference, amount and counterparty all match. Below the £50K policy ceiling."
+            details={[
+              { label: 'Invoice', value: 'INV-2041 · Primrose' },
+              { label: 'Amount',  value: '£12,480.00' },
+              { label: 'Account', value: '1200 Accounts Receivable' },
+              { label: 'Confidence', value: '0.94' },
+            ]}
+            severity="low"
+          />
+        </div>
+      </AgentRail>
+    ),
+    myspace: (
+      <AgentRail
+        messages={[
+          <div key="m1" style={{ display: 'flex', gap: 10 }}>
+            <Avatar name="A" size={24} color="var(--brand-primary)" textColor="#fff"/>
+            <div style={{ padding: '10px 12px', background: 'var(--surface-inset)', borderRadius: '12px 12px 12px 4px', fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.5, maxWidth: 300 }}>
+              You asked about where April spend is going. Here's the breakdown:
+            </div>
+          </div>,
+        ]}
+        proposals={[]}
+      >
+        <div style={{ paddingLeft: 34, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <ToolCardPie
+            title="Spending · April 2026"
+            totalSpent={42180}
+            currency="GBP"
+            categories={[
+              { name: 'Fuel · fleet', amount: 19200, percentage: 46 },
+              { name: 'Warehousing',   amount: 10100, percentage: 24 },
+              { name: 'Contractors',   amount:  8420, percentage: 20 },
+              { name: 'Insurance',     amount:  3960, percentage:  9 },
+              { name: 'Other',         amount:   500, percentage:  1 },
+            ]}
+          />
+          <ToolCardConfirm
+            action="Schedule fuel alert at £18K"
+            description="Notify Maria when fuel category reaches 95% of next month's budget."
+            severity="low"
+          />
+        </div>
+      </AgentRail>
+    ),
+    customer: (
+      <AgentRail
+        messages={[
+          <div key="m1" style={{ display: 'flex', gap: 10 }}>
+            <Avatar name="I" size={24} color="var(--brand-primary)" textColor="#fff"/>
+            <div style={{ padding: '10px 12px', background: 'var(--surface-inset)', borderRadius: '12px 12px 12px 4px', fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.5, maxWidth: 300 }}>
+              Primrose's NGN exposure has doubled. Want to explore FX hedging options?
+            </div>
+          </div>,
+        ]}
+        proposals={[]}
+      >
+        <div style={{ paddingLeft: 34, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <ToolCardFx
+            base="GBP" target="NGN" signal="buy"
+            signalReason="Rate near 30-day high; inbound NGN concentrated next week."
+            rates={[
+              { date: '25 Mar', rate: 1908 }, { date: '30 Mar', rate: 1920 },
+              { date: '5 Apr', rate: 1945 },  { date: '10 Apr', rate: 1930 },
+              { date: '15 Apr', rate: 1965 }, { date: '18 Apr', rate: 1980 },
+              { date: '22 Apr', rate: 2012 },
+            ]}
+          />
+          <ToolCardOptions
+            question="Which hedging strategy should I prepare?"
+            options={[
+              { label: '1-month forward', description: 'Lock in ₦2,012 for 30 days' },
+              { label: '3-month forward', description: 'Lock in for 90 days at ₦2,045' },
+              { label: 'Spot + monitor',   description: 'No hedge; alert if >2% drift' },
+            ]}
+          />
+        </div>
+      </AgentRail>
+    ),
+    journal: (
+      <AgentRail
+        messages={[
+          <div key="m1" style={{ display: 'flex', gap: 10 }}>
+            <Avatar name="L" size={24} color="var(--brand-primary)" textColor="#fff"/>
+            <div style={{ padding: '10px 12px', background: 'var(--surface-inset)', borderRadius: '12px 12px 12px 4px', fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.5, maxWidth: 300 }}>
+              I want to post this entry. It will affect the April P&amp;L — please confirm.
+            </div>
+          </div>,
+        ]}
+        proposals={[]}
+      >
+        <div style={{ paddingLeft: 34, marginTop: 4 }}>
+          <ToolCardConfirm
+            action="Post journal entry JE-4082"
+            description="Apply £12,480 revenue from Primrose INV-2041. Balanced debit/credit."
+            severity="medium"
+          />
+        </div>
+      </AgentRail>
+    ),
+  };
+  return content[variant] || content.invoices;
+}
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  // Apply theme + accent at document level so tokens cascade.
+  React.useEffect(() => {
+    const html = document.documentElement;
+    html.dataset.theme = t.theme;
+    const a = ACCENTS[t.accent] || ACCENTS.teal;
+    html.style.setProperty('--brand-primary', a.primary);
+    html.style.setProperty('--brand-primary-60', a.p60);
+    html.style.setProperty('--brand-primary-10', a.p10);
+
+    // Density → row-height CSS var
+    const densities = { compact: 36, regular: 44, comfy: 52 };
+    html.style.setProperty('--row-height', (densities[t.density] || 44) + 'px');
+  }, [t.theme, t.accent, t.density]);
+
+  // Artboard sizes (16:10-ish for desktop product shots)
+  const W = 1480, H = 980;
+
+  const mkShell = (active, breadcrumbs, ScreenComponent, railVariant = null) => (
+    <ArtboardFrame>
+      <AonikShell
+        active={active}
+        breadcrumbs={breadcrumbs}
+        sidebarCollapsed={t.sidebarCollapsed}
+        rightRail={railVariant && t.showAgentRail ? <DefaultAgentRail variant={railVariant}/> : null}
+      >
+        <ScreenComponent/>
+      </AonikShell>
+    </ArtboardFrame>
+  );
+
+  return (
+    <>
+      <DesignCanvas title="Aonik · Admin UI" subtitle="Agents propose. Systems apply.">
+
+        <DCSection id="core" title="Core workspaces" subtitle="The three surfaces every operator lives in">
+          <DCArtboard id="loading" label="First-load splash · Aonik mark with tint-rise loader" width={W} height={H}>
+            <ArtboardFrame><ScreenLoading/></ArtboardFrame>
+          </DCArtboard>
+          <DCArtboard id="login" label="Login · brand wall + sign-in with SSO" width={W} height={H}>
+            <ArtboardFrame><ScreenLogin/></ArtboardFrame>
+          </DCArtboard>
+          <DCArtboard id="myspace"  label="My Space · greeting + agent proposals" width={W} height={H}>
+            {mkShell('myspace',  ['My Space'], ScreenMySpace, 'myspace')}
+          </DCArtboard>
+          <DCArtboard id="agents"   label="Agent Command Center · roster + live trace" width={W} height={H}>
+            {mkShell('agents',   ['Admin', 'Agents'], ScreenAgents)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="ia" title="New IA · Transact / Products / Platform" subtitle="Orders is universal · Bill Payments and Remittances are catalog + config">
+          <DCArtboard id="approvals" label="Approvals · cross-product decision queue · 3-pane" width={W} height={H}>
+            {mkShell('approvals', ['Transact', 'Approvals'], ScreenApprovals)}
+          </DCArtboard>
+          <DCArtboard id="billers" label="Bill Payments · Billers catalog · category rail + cards" width={W} height={H}>
+            {mkShell('billers', ['Products', 'Bill Payments', 'Billers'], ScreenBillers)}
+          </DCArtboard>
+          <DCArtboard id="corridors" label="Remittances · Corridors · ranked partners + live rate" width={W} height={H}>
+            {mkShell('corridors', ['Products', 'Remittances', 'Corridors'], ScreenCorridors)}
+          </DCArtboard>
+          <DCArtboard id="fx-rates" label="Remittances · FX & Rates · sources, markup, drift alerts" width={W} height={H}>
+            {mkShell('pricing', ['Products', 'Remittances', 'FX & Rates'], ScreenFxRates)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="finance" title="Finance" subtitle="Customers, orders, ledger, billing">
+          <DCArtboard id="customers" label="Customers · list + tiers" width={W} height={H}>
+            {mkShell('customers', ['Finance', 'Customers'], ScreenCustomers)}
+          </DCArtboard>
+          <DCArtboard id="customer-detail" label="Customer detail · Primrose · Finance tab" width={W} height={H}>
+            {mkShell('customers', ['Finance', 'Customers', 'Primrose Logistics'], ScreenCustomerDetail, 'customer')}
+          </DCArtboard>
+          <DCArtboard id="orders" label="Orders · inline agent proposal on flagged row" width={W} height={H}>
+            {mkShell('orders', ['Finance', 'Orders'], ScreenOrders)}
+          </DCArtboard>
+          <DCArtboard id="invoices" label="Invoices · matching + right-rail agent" width={W} height={H}>
+            {mkShell('invoices', ['Finance', 'Invoices'], ScreenInvoices, 'invoices')}
+          </DCArtboard>
+          <DCArtboard id="accounts" label="Accounts · chart of accounts" width={W} height={H}>
+            {mkShell('accounts', ['Finance', 'Ledger', 'Accounts'], ScreenAccounts)}
+          </DCArtboard>
+          <DCArtboard id="journal" label="Journal Entries · posted + proposed" width={W} height={H}>
+            {mkShell('journal', ['Finance', 'Ledger', 'Journal'], ScreenJournal, 'journal')}
+          </DCArtboard>
+          <DCArtboard id="partners" label="Network · payment partners + rails" width={W} height={H}>
+            {mkShell('network', ['Finance', 'Network'], ScreenPartners)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="ai" title="AI surfaces" subtitle="Playground · tasks · policies · usage · tool cards">
+          <DCArtboard id="playground" label="AI Playground · agent + model + tools" width={W} height={H}>
+            {mkShell('playground', ['AI', 'Playground'], ScreenPlayground)}
+          </DCArtboard>
+          <DCArtboard id="aitasks" label="AI Tasks · queue + status + human-in-the-loop" width={W} height={H}>
+            {mkShell('aitasks', ['AI', 'Tasks'], ScreenAiTasks)}
+          </DCArtboard>
+          <DCArtboard id="policies" label="AI Policies · guardrails + kill switch" width={W} height={H}>
+            {mkShell('policies', ['AI', 'Policies'], ScreenAiPolicies)}
+          </DCArtboard>
+          <DCArtboard id="usage" label="AI Usage · tokens + cost + tool calls" width={W} height={H}>
+            {mkShell('usage', ['AI', 'Usage'], ScreenUsage)}
+          </DCArtboard>
+          <DCArtboard id="tools-showcase" label="Frontend Tool Cards · all six" width={W} height={H}>
+            {mkShell('tools', ['AI', 'Tool Cards'], ScreenToolsShowcase)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="observability" title="Observability" subtitle="System health · traces · logs · audit">
+          <DCArtboard id="obs-overview" label="Observability · Overview · heatmap + incidents + services" width={W} height={H}>
+            {mkShell('obs-overview', ['Observability', 'Overview'], ScreenObsOverview)}
+          </DCArtboard>
+          <DCArtboard id="obs-traces" label="Observability · Traces · span waterfall" width={W} height={H}>
+            {mkShell('obs-traces', ['Observability', 'Traces'], ScreenObsTraces)}
+          </DCArtboard>
+          <DCArtboard id="obs-logs" label="Observability · Logs · live tail" width={W} height={H}>
+            {mkShell('obs-logs', ['Observability', 'Logs'], ScreenObsLogs)}
+          </DCArtboard>
+          <DCArtboard id="obs-audit" label="Observability · Audit log · immutable chain" width={W} height={H}>
+            {mkShell('obs-audit', ['Observability', 'Audit Log'], ScreenObsAudit)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="forms" title="Forms & input patterns" subtitle="Pick the surface for the data: panel · dialog · full page">
+          <DCArtboard id="form-slideout" label="Slide-out panel · Add bank account · medium form, contextual" width={W} height={H}>
+            {mkShell('accounts', ['Finance', 'Ledger', 'Accounts', 'Add account'], ScreenFormSlideOut)}
+          </DCArtboard>
+          <DCArtboard id="form-dialog" label="Dialog · Invite user · atomic action, 2-3 fields" width={W} height={H}>
+            {mkShell('users', ['Finance', 'Access', 'Users', 'Invite'], ScreenFormDialog)}
+          </DCArtboard>
+          <DCArtboard id="form-fullpage" label="Full page · New customer · multi-section, agent-assisted" width={W} height={H}>
+            {mkShell('customers', ['Finance', 'Customers', 'New customer'], ScreenFormFullPage)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="notifications" title="Notifications" subtitle="System · agents · mentions · approvals">
+          <DCArtboard id="notif-center" label="Notification center · feed + filters + live toasts" width={W} height={H}>
+            {mkShell('myspace', ['Notifications'], ScreenNotifications)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="ai-chat" title="AI Chat surfaces" subtitle="Slide-out drawer · full-page workspace">
+          <DCArtboard id="ai-chat-slideout" label="AI Chat · slide-out drawer with agent picker" width={W} height={H}>
+            {mkShell('myspace', ['My Space'], ScreenAiChatSlideout)}
+          </DCArtboard>
+          <DCArtboard id="ai-chat-fullpage" label="AI Chat · full page · threads + greeting + composer" width={W} height={H}>
+            {mkShell('playground', ['AI', 'Chat'], ScreenAiChatFullPage)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="settings" title="Settings" subtitle="Landing · platform tabs · payment gateways · TTS">
+          <DCArtboard id="settings-landing" label="Settings · landing · grouped tile grid" width={W} height={H}>
+            {mkShell('settings', ['Settings'], ScreenSettingsLanding)}
+          </DCArtboard>
+          <DCArtboard id="settings-platform" label="Platform Settings · multi-tab · AI / Storage / Features" width={W} height={H}>
+            {mkShell('settings', ['Settings', 'Platform'], ScreenSettingsPlatform)}
+          </DCArtboard>
+          <DCArtboard id="settings-gateways" label="Payment Gateways · provider list + credentials + routing" width={W} height={H}>
+            {mkShell('settings', ['Settings', 'Payment gateways'], ScreenSettingsGateways)}
+          </DCArtboard>
+          <DCArtboard id="settings-tts" label="Text-to-Speech · provider · voices · live preview" width={W} height={H}>
+            {mkShell('settings', ['Settings', 'AI', 'Text-to-Speech'], ScreenSettingsTts)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="orders" title="Create order" subtitle="Bill payment & money transfer — single-screen unified form">
+          <DCArtboard id="order-list" label="Order list · expandable rows showing inline item status" width={W} height={H}>
+            {mkShell('orders-list', ['Payments', 'Orders'], ScreenOrderListEnhanced)}
+          </DCArtboard>
+          <DCArtboard id="order-item-monitor" label="Item monitor · cross-order pipeline status + problem filter" width={W} height={H}>
+            {mkShell('order-items', ['Payments', 'Orders', 'Item monitor'], ScreenOrderItemMonitor)}
+          </DCArtboard>
+          <DCArtboard id="create-order" label="Create order · bill payment + money transfer + mixed cart" width={W} height={H}>
+            {mkShell('orders', ['Orders', 'New order'], ScreenCreateOrder)}
+          </DCArtboard>
+          <DCArtboard id="order-success" label="Order submitted · animated success + next steps" width={W} height={H}>
+            {mkShell('orders', ['Orders', 'ORD-20250422-0047'], ScreenOrderSuccess)}
+          </DCArtboard>
+          <DCArtboard id="payment-collection" label="Collect payment · method picker + invoice preview" width={W} height={H}>
+            {mkShell('orders', ['Orders', 'ORD-20250422-0047', 'Collect payment'], ScreenPaymentCollection)}
+          </DCArtboard>
+          <DCArtboard id="order-item-detail" label="Order item detail · animated pipeline + compliance state" width={W} height={H}>
+            {mkShell('orders', ['Orders', 'ORD-20250422-0047', 'ITM-0047-02'], ScreenOrderItemDetail)}
+          </DCArtboard>
+          <DCArtboard id="invoice-detail" label="Invoice detail · line items + dialogs + payment rail" width={W} height={H}>
+            {mkShell('invoices', ['Finance', 'Invoices', 'INV-0047'], ScreenInvoiceDetail)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="ops" title="Operations & Admin" subtitle="Compliance, users, tenants">
+          <DCArtboard id="compliance" label="Compliance · KYC/KYB documents" width={W} height={H}>
+            {mkShell('compliance', ['Operations', 'Compliance'], ScreenCompliance)}
+          </DCArtboard>
+          <DCArtboard id="users" label="Users · roles + MFA" width={W} height={H}>
+            {mkShell('users', ['Finance', 'Access', 'Users'], ScreenUsers)}
+          </DCArtboard>
+          <DCArtboard id="tenants" label="Tenants · host admin · provisioning" width={W} height={H}>
+            {mkShell('tenants', ['Admin', 'Tenants'], ScreenTenants)}
+          </DCArtboard>
+        </DCSection>
+
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Theme"/>
+        <TweakRadio label="Mode" value={t.theme} options={['light', 'dark']} onChange={v => setTweak('theme', v)}/>
+        <TweakRadio label="Accent" value={t.accent} options={['teal', 'indigo', 'jade', 'ink']} onChange={v => setTweak('accent', v)}/>
+
+        <TweakSection label="Layout"/>
+        <TweakRadio label="Density" value={t.density} options={['compact', 'regular', 'comfy']} onChange={v => setTweak('density', v)}/>
+        <TweakToggle label="Collapse sidebar" value={t.sidebarCollapsed} onChange={v => setTweak('sidebarCollapsed', v)}/>
+        <TweakToggle label="Show agent rail" value={t.showAgentRail} onChange={v => setTweak('showAgentRail', v)}/>
+
+        <TweakSection label="Agent surfaces"/>
+        <TweakRadio label="Proposal style" value={t.proposalStyle}
+                    options={['coral-rail', 'flat', 'tinted']}
+                    onChange={v => setTweak('proposalStyle', v)}/>
+        <TweakToggle label="Show agent avatars" value={t.agentAvatars} onChange={v => setTweak('agentAvatars', v)}/>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

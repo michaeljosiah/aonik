@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Body &amp; UI type</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .table {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .table .row {
+    display: grid;
+    grid-template-columns: 220px 1fr 200px;
+    gap: 20px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border-light);
+    align-items: center;
+  }
+  .table .row:last-child { border-bottom: none; }
+  .role { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .spec { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); text-align: right; }
+
+  .prose {
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 28px 32px;
+    max-width: 720px;
+  }
+  .prose p { margin: 0 0 12px; font-size: 14px; line-height: 1.65; color: var(--text-primary); }
+  .prose p.meta { color: var(--text-secondary); font-size: 12px; }
+
+  .mono-card {
+    background: #111827;
+    border-radius: 12px;
+    padding: 20px 24px;
+    color: #e5e7eb;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .mono-card .c1 { color: #8b9098; }
+  .mono-card .c2 { color: #3ab795; }
+  .mono-card .c3 { color: #eb5c37; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div>
+        <div class="eyebrow">Type</div>
+        <h1>Body, UI &amp; mono</h1>
+      </div>
+      <p>DM Sans is the UI workhorse — tables, labels, body copy, buttons. JetBrains Mono for numbers, IDs, and code.</p>
+    </div>
+
+    <div class="frame-body">
+      <div class="table">
+        <div class="row">
+          <span class="role">H1 · Page title</span>
+          <span style="font-family:var(--font-brand);font-weight:700;font-size:24px;color:var(--text-primary)">My Space</span>
+          <span class="spec">Infra 700 · 24/29</span>
+        </div>
+        <div class="row">
+          <span class="role">H2 · Section</span>
+          <span style="font-weight:600;font-size:20px;color:var(--text-primary)">Financial snapshot</span>
+          <span class="spec">DM Sans 600 · 20/25</span>
+        </div>
+        <div class="row">
+          <span class="role">H3 · Card title</span>
+          <span style="font-weight:600;font-size:18px;color:var(--text-primary)">Outstanding invoices</span>
+          <span class="spec">DM Sans 600 · 18/23</span>
+        </div>
+        <div class="row">
+          <span class="role">Body · large</span>
+          <span style="font-size:16px;color:var(--text-primary)">Unpaid invoices requiring attention.</span>
+          <span class="spec">DM Sans 400 · 16/26</span>
+        </div>
+        <div class="row">
+          <span class="role">Body · default</span>
+          <span style="font-size:14px;color:var(--text-primary)">The billing agent matched 28 of 31 open invoices against bank transactions.</span>
+          <span class="spec">DM Sans 400 · 14/21</span>
+        </div>
+        <div class="row">
+          <span class="role">Body · small</span>
+          <span style="font-size:13px;color:var(--text-secondary)">Supporting copy, helper text, meta labels.</span>
+          <span class="spec">DM Sans 400 · 13/20</span>
+        </div>
+        <div class="row">
+          <span class="role">Caption · meta</span>
+          <span style="font-size:12px;color:var(--text-tertiary)">2 mins ago &middot; system</span>
+          <span class="spec">DM Sans 400 · 12/18</span>
+        </div>
+        <div class="row">
+          <span class="role">Eyebrow</span>
+          <span class="eyebrow">AGENT COMMAND CENTER</span>
+          <span class="spec">DM Sans 600 · 12 · +0.06em</span>
+        </div>
+        <div class="row">
+          <span class="role">Label · form</span>
+          <span style="font-size:13px;font-weight:500;color:var(--text-primary)">Invoice number</span>
+          <span class="spec">DM Sans 500 · 13/20</span>
+        </div>
+        <div class="row">
+          <span class="role">Number · tabular</span>
+          <span class="mono" style="font-size:16px;color:var(--text-primary);font-weight:500">$128,431.92</span>
+          <span class="spec">JetBrains Mono 500 · tabular-nums</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns: 1fr 1fr;gap:20px;">
+        <div class="prose">
+          <p>Aonik is financial infrastructure for products that move money across rails, partners, and ledgers. The platform is ledger-first — every order, invoice, and payout lands as a balanced journal entry, always auditable.</p>
+          <p>Domain agents propose changes. The system holds the invariants. Humans stay in control.</p>
+          <p class="meta">Paragraph · DM Sans 400 · 14/23 · max 64ch</p>
+        </div>
+
+        <div class="mono-card">
+          <div><span class="c1">// journal entry</span></div>
+          <div><span class="c3">posted</span> <span class="c1">=</span> <span class="c2">2024-11-19T08:22:44Z</span></div>
+          <div><span class="c3">memo</span>   <span class="c1">=</span> <span style="color:#e5e7eb">&quot;INV-2041 payment&quot;</span></div>
+          <div><span class="c3">debit</span>  <span class="c1">→</span> cash.operating  <span style="color:#e5e7eb">$12,480.00</span></div>
+          <div><span class="c3">credit</span> <span class="c1">→</span> accts.receiv.   <span style="color:#e5e7eb">$12,480.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

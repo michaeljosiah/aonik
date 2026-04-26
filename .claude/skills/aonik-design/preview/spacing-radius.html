@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Spacing &amp; radius</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .scale { display:flex; flex-direction:column; gap:8px; }
+  .row { display:grid; grid-template-columns:72px 1fr 100px; gap:16px; align-items:center; padding:8px 12px; border:1px solid var(--border-light); border-radius:8px; background:var(--surface); }
+  .row .k { font-family:var(--font-mono); font-size:12px; color:var(--text-secondary); }
+  .row .bar { height:14px; border-radius:4px; background:var(--brand-primary-10); }
+  .row .px { font-family:var(--font-mono); font-size:12px; color:var(--text-primary); text-align:right; }
+
+  .radius-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:16px; }
+  .radius-grid .box { aspect-ratio:1/0.9; background:var(--brand-primary); display:flex; align-items:flex-end; justify-content:center; padding:12px; color:#fff; font-family:var(--font-mono); font-size:11px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div><div class="eyebrow">Foundations</div><h1>Spacing &amp; radius</h1></div>
+      <p>4-based spacing scale. Radius tops out at 12px in-product; pill for chips and circular buttons only.</p>
+    </div>
+    <div class="frame-body">
+      <div>
+        <div class="panel-label">Spacing scale</div>
+        <div class="scale">
+          <div class="row"><span class="k">space-1</span><span class="bar" style="width:4px"></span><span class="px">4px</span></div>
+          <div class="row"><span class="k">space-2</span><span class="bar" style="width:8px"></span><span class="px">8px</span></div>
+          <div class="row"><span class="k">space-3</span><span class="bar" style="width:12px"></span><span class="px">12px</span></div>
+          <div class="row"><span class="k">space-4</span><span class="bar" style="width:16px"></span><span class="px">16px</span></div>
+          <div class="row"><span class="k">space-5</span><span class="bar" style="width:20px"></span><span class="px">20px</span></div>
+          <div class="row"><span class="k">space-6</span><span class="bar" style="width:24px"></span><span class="px">24px</span></div>
+          <div class="row"><span class="k">space-8</span><span class="bar" style="width:32px"></span><span class="px">32px</span></div>
+          <div class="row"><span class="k">space-10</span><span class="bar" style="width:40px"></span><span class="px">40px</span></div>
+          <div class="row"><span class="k">space-12</span><span class="bar" style="width:48px"></span><span class="px">48px</span></div>
+          <div class="row"><span class="k">space-16</span><span class="bar" style="width:64px"></span><span class="px">64px</span></div>
+          <div class="row"><span class="k">space-20</span><span class="bar" style="width:80px"></span><span class="px">80px</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label">Radius scale</div>
+        <div class="radius-grid">
+          <div class="box" style="border-radius:2px">2 · sm</div>
+          <div class="box" style="border-radius:4px">4 · card</div>
+          <div class="box" style="border-radius:8px">8 · md</div>
+          <div class="box" style="border-radius:12px">12 · xl</div>
+          <div class="box" style="border-radius:16px">16 · 2xl</div>
+          <div class="box" style="border-radius:9999px">pill</div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label">Shadow</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <div style="background:var(--surface);border-radius:12px;padding:28px;box-shadow:var(--shadow-sm);font-size:13px;color:var(--text-primary)">shadow-sm · cards at rest</div>
+          <div style="background:var(--surface);border-radius:12px;padding:28px;box-shadow:var(--shadow-md);font-size:13px;color:var(--text-primary)">shadow-md · hover, popovers</div>
+          <div style="background:var(--surface);border-radius:12px;padding:28px;box-shadow:var(--shadow-lg);font-size:13px;color:var(--text-primary)">shadow-lg · modals, panels</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

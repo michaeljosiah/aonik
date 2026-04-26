@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AONIK — Primary palette</title>
+<link rel="stylesheet" href="_frame.css" />
+<style>
+  .swatches {
+    display: grid;
+    grid-template-columns: 1.4fr 1.4fr 1fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+  .col { display: flex; flex-direction: column; gap: 10px; }
+  .big {
+    aspect-ratio: 16 / 10;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+  .big .role { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+  .big .name { font-family: var(--font-brand); font-weight: 700; font-size: 24px; }
+  .big .hex  { font-family: var(--font-mono); font-size: 12px; opacity: 0.8; }
+
+  .teal    { background: var(--brand-primary); }
+  .teal-d  { background: var(--brand-primary-dark); }
+  .coral   { background: var(--brand-secondary); }
+  .coral-d { background: var(--brand-secondary-dark); }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .chip {
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .chip .sw { height: 32px; border-radius: 6px; margin-bottom: 8px; }
+  .chip .lbl { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+  .chip .val { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+
+  .accent-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .accent {
+    border-radius: 10px;
+    padding: 16px;
+    color: #fff;
+    height: 108px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .accent .name { font-weight: 600; font-size: 14px; }
+  .accent .hex  { font-family: var(--font-mono); font-size: 11px; opacity: 0.85; }
+
+  .usage {
+    background: var(--surface-inset);
+    border-radius: 12px;
+    padding: 20px;
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.55;
+  }
+  .usage b { color: var(--text-primary); }
+  .usage ul { margin: 8px 0 0; padding-left: 18px; color: var(--text-secondary); }
+  .usage li + li { margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-header">
+      <div>
+        <div class="eyebrow">Colors</div>
+        <h1>Primary palette</h1>
+      </div>
+      <p>Teal <code style="font-family:var(--font-mono)">#055a60</code> is the product primary. Coral <code style="font-family:var(--font-mono)">#eb5c37</code> is reserved for pending states and secondary actions.</p>
+    </div>
+
+    <div class="frame-body">
+      <div class="swatches">
+        <div class="col">
+          <div class="big teal">
+            <span class="role">Brand primary</span>
+            <div>
+              <div class="name">Teal 600</div>
+              <div class="hex">#055A60</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="chip"><div class="sw" style="background: #055a600f"></div><div class="lbl">Primary / 10</div><div class="val">#055A601F</div></div>
+            <div class="chip"><div class="sw" style="background: #055a6033"></div><div class="lbl">Primary / 20</div><div class="val">#055A6033</div></div>
+            <div class="chip"><div class="sw" style="background: var(--brand-primary-dark)"></div><div class="lbl">Primary dark</div><div class="val">#044C51</div></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="big coral">
+            <span class="role">Brand secondary</span>
+            <div>
+              <div class="name">Coral 500</div>
+              <div class="hex">#EB5C37</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="chip"><div class="sw" style="background: #eb5c3720"></div><div class="lbl">Secondary / 10</div><div class="val">#EB5C3720</div></div>
+            <div class="chip"><div class="sw" style="background: #eb5c3733"></div><div class="lbl">Secondary / 20</div><div class="val">#EB5C3733</div></div>
+            <div class="chip"><div class="sw" style="background: var(--brand-secondary-dark)"></div><div class="lbl">Secondary dark</div><div class="val">#D44A28</div></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="usage">
+            <b>Rule of use</b>
+            <ul>
+              <li>Teal primary on active nav, CTAs, focus rings, eyebrow labels.</li>
+              <li>Teal primary-10 as hover halo behind icons and selected rows.</li>
+              <li>Coral only for <i>pending</i> states, destructive accents, or the secondary CTA pair — never as page chrome.</li>
+              <li>Never combine teal + coral on the same control.</li>
+              <li>The gold mark-dot <code style="font-family:var(--font-mono)">#E8A838</code> is reserved to the logo glyph.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-label">Agent theme accents — scoped to chat panels only</div>
+        <div class="accent-grid">
+          <div class="accent" style="background: var(--accent-team)">
+            <span class="name">Team agent</span><span class="hex">#5FACBD</span>
+          </div>
+          <div class="accent" style="background: var(--accent-ent)">
+            <span class="name">Enterprise agent</span><span class="hex">#3AB795</span>
+          </div>
+          <div class="accent" style="background: var(--accent-patrol)">
+            <span class="name">Patrol</span><span class="hex">#0097A9</span>
+          </div>
+          <div class="accent" style="background: var(--accent-violet)">
+            <span class="name">Violet</span><span class="hex">#7B76B6</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
