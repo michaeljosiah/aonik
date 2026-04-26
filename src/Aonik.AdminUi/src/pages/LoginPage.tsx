@@ -115,6 +115,12 @@ export function LoginPage() {
 
   const initiateLogin = useCallback(
     async (loginHint?: string) => {
+      // Tenant discovery is async on apex domains. Don't redirect to the IdP
+      // until it resolves — otherwise the user comes back to
+      // /login?reason=tenant-missing after the round-trip.
+      if (showTenantSelector && isLoadingTenants) {
+        return;
+      }
       if (showTenantSelector && !selectedTenantId && tenants.length > 0) {
         setError('Please select an organization to continue.');
         return;
@@ -141,6 +147,7 @@ export function LoginPage() {
     },
     [
       showTenantSelector,
+      isLoadingTenants,
       selectedTenantId,
       tenants.length,
       persistTenantSelection,
@@ -151,6 +158,8 @@ export function LoginPage() {
       login,
     ],
   );
+
+  const ssoDisabled = isLoggingIn || (showTenantSelector && isLoadingTenants);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -249,14 +258,14 @@ export function LoginPage() {
           <Banners error={error} notice={notice} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <SsoButton provider="google" label="Continue with Google" onClick={() => initiateLogin()} disabled={isLoggingIn} />
-            <SsoButton provider="microsoft" label="Continue with Microsoft" onClick={() => initiateLogin()} disabled={isLoggingIn} />
+            <SsoButton provider="google" label="Continue with Google" onClick={() => initiateLogin()} disabled={ssoDisabled} />
+            <SsoButton provider="microsoft" label="Continue with Microsoft" onClick={() => initiateLogin()} disabled={ssoDisabled} />
             <button
               type="button"
               onClick={() => initiateLogin()}
-              disabled={isLoggingIn}
-              style={ssoButtonStyle}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
+              disabled={ssoDisabled}
+              style={{ ...ssoButtonStyle, opacity: ssoDisabled ? 0.6 : 1 }}
+              onMouseEnter={(e) => { if (!ssoDisabled) e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-surface)'; }}
             >
               <Building2 size={14} color="var(--color-text-secondary)" />
