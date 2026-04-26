@@ -209,9 +209,10 @@ public static class DependencyInjection
             // App Insights KQL queries can legitimately take longer than the
             // 10s default per-attempt timeout used by the shared standard
             // resilience pipeline. Keep retries/circuit breaking, but widen
-            // the time budget to match the client timeout configured above.
+            // the overall budget to match the client timeout configured above
+            // without violating the standard circuit-breaker validation rules.
             options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
-            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(15);
         });
 #pragma warning restore EXTEXP0001
         services.AddScoped<IObservabilityService, Observability.AppInsightsQueryService>();
