@@ -27,8 +27,8 @@ namespace Aonik.Ai.Observability;
 /// </summary>
 internal sealed class TelemetryChatClient : DelegatingChatClient
 {
-    public const string UseCasePropertyKey = "aonik.use_case";
-    public const string AiRunIdPropertyKey = "aonik.ai_run_id";
+    public const string UseCasePropertyKey = AiTelemetry.UseCaseAttribute;
+    public const string AiRunIdPropertyKey = AiTelemetry.AiRunIdAttribute;
 
     public const string MeterName = "Aonik.Ai.Calls";
     public const string MeterVersion = "1.0.0";
@@ -85,7 +85,7 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
     {
         var messageList = messages.ToList();
         var stopwatch = Stopwatch.StartNew();
-        var (useCase, aiRunId) = ExtractCallContext(options);
+        var initialContext = ExtractCallContext(options);
         var requestedModel = options?.ModelId;
 
         ChatResponse response;
@@ -97,8 +97,8 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         {
             stopwatch.Stop();
             EmitTelemetry(
-                useCase: useCase,
-                aiRunId: aiRunId,
+                useCase: initialContext.UseCase,
+                aiRunId: initialContext.AiRunId,
                 operation: "chat",
                 requestedModel: requestedModel,
                 actualModel: null,
@@ -116,9 +116,10 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         stopwatch.Stop();
 
         var usage = response.Usage;
+        var finalContext = ExtractCallContext(options);
         EmitTelemetry(
-            useCase: useCase,
-            aiRunId: aiRunId,
+            useCase: finalContext.UseCase,
+            aiRunId: finalContext.AiRunId,
             operation: "chat",
             requestedModel: requestedModel,
             actualModel: response.ModelId,
@@ -141,7 +142,7 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
     {
         var messageList = messages.ToList();
         var stopwatch = Stopwatch.StartNew();
-        var (useCase, aiRunId) = ExtractCallContext(options);
+        var initialContext = ExtractCallContext(options);
         var requestedModel = options?.ModelId;
 
         long? ttftMs = null;
@@ -216,9 +217,10 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
             }
 
             stopwatch.Stop();
+            var finalContext = ExtractCallContext(options);
             EmitTelemetry(
-                useCase: useCase,
-                aiRunId: aiRunId,
+                useCase: finalContext.UseCase,
+                aiRunId: finalContext.AiRunId ?? initialContext.AiRunId,
                 operation: "chat.stream",
                 requestedModel: requestedModel,
                 actualModel: actualModel,

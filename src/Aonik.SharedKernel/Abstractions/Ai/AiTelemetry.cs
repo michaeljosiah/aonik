@@ -40,6 +40,8 @@ public static class AiTelemetry
     /// </summary>
     public const string UserIdAttribute = "langfuse.user.id";
 
+    public const string UseCaseAttribute = "aonik.use_case";
+
     public const string AiRunIdAttribute = "aonik.ai_run_id";
 
     public const string TraceObservationLogName = "AiTraceObservation";

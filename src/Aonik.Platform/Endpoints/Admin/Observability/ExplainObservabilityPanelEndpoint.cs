@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Aonik.Platform.Contracts.Api.Observability;
+using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.AI;
@@ -9,11 +10,19 @@ namespace Aonik.Platform.Endpoints.Admin.Observability;
 internal sealed class ExplainObservabilityPanelEndpoint
     : Endpoint<ExplainObservabilityPanelRequest, ExplainObservabilityPanelResponse>
 {
-    private readonly IChatClient _chatClient;
+    private const string UseCase = "observability_panel_explanation";
+    private const string PromptName = "observability_panel_explanation";
+    private const string DefaultModelId = "gpt-5-mini";
 
-    public ExplainObservabilityPanelEndpoint(IChatClient chatClient)
+    private readonly IChatClient _chatClient;
+    private readonly IAiTaskProfileResolver _profileResolver;
+
+    public ExplainObservabilityPanelEndpoint(
+        IChatClient chatClient,
+        IAiTaskProfileResolver profileResolver)
     {
         _chatClient = chatClient;
+        _profileResolver = profileResolver;
     }
 
     public override void Configure()
@@ -74,34 +83,38 @@ internal sealed class ExplainObservabilityPanelEndpoint
                 ? "{}"
                 : req.Metrics.GetRawText();
 
-        const string systemMessage = """
-            You are summarizing an observability dashboard panel for a human admin. Write two to three short sentences in plain English, in speech-first form, so the text can be played as spoken audio without any post-processing.
-
-            Rules:
-            - No markdown, bullet points, numbered lists, or emojis.
-            - Spell out acronyms so they are pronounced letter-by-letter: say "T T F T" not "TTFT", "L L M" not "LLM", "A P I" not "API".
-            - Verbalize numbers and latencies: say "one point two seconds" not "1.2s", "ninety five percent" not "95%", "three thousand tokens" not "3K tokens".
-            - State what the data shows and what it means. Call out anything elevated, unusual, or healthy. Be direct, no hedging.
-            - If the metrics show no activity or the panel is not configured, say so plainly in one sentence.
-            - Output ONLY the summary text. No preamble, no repetition of the rules, no closing remarks.
-            """;
-
-        var userMessage = $$"""
-            Panel: {{panelLabel}}
+        var profile = await _profileResolver.ResolveAsync(UseCase, PromptName, DefaultModelId, ct);
+        var userMessage = (profile.UserPromptTemplate ?? """
+            Panel: {{PANEL_LABEL}}
 
             Current metrics (JSON):
-            {{metricsJson}}
-            """;
+            {{METRICS_JSON}}
+            """)
+            .Replace("{{PANEL_LABEL}}", panelLabel, StringComparison.Ordinal)
+            .Replace("{{METRICS_JSON}}", metricsJson, StringComparison.Ordinal);
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, systemMessage),
             new(ChatRole.User, userMessage),
+        };
+
+        if (!string.IsNullOrWhiteSpace(profile.SystemPrompt))
+        {
+            messages.Insert(0, new ChatMessage(ChatRole.System, profile.SystemPrompt));
+        }
+
+        var options = new ChatOptions
+        {
+            ModelId = profile.ModelId ?? DefaultModelId,
+            AdditionalProperties =
+            {
+                [AiTelemetry.UseCaseAttribute] = UseCase,
+            },
         };
 
         var response = await _chatClient.GetResponseAsync(
             messages,
-            options: new ChatOptions { ModelId = "gpt-5-mini" },
+            options: options,
             cancellationToken: ct);
 
         var summary = response.Text?.Trim();

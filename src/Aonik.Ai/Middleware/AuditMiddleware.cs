@@ -12,6 +12,8 @@ namespace Aonik.Ai.Middleware;
 /// </summary>
 internal sealed class AuditMiddleware : DelegatingChatClient
 {
+    private const string DefaultUseCase = "chat";
+
     private readonly IAiRunWriter _aiRunWriter;
     private readonly ILogger<AuditMiddleware> _logger;
 
@@ -31,7 +33,7 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         CancellationToken cancellationToken = default)
     {
         var startedAt = DateTime.UtcNow;
-        var useCase = options?.ModelId ?? "chat";
+        var useCase = ResolveUseCase(options);
 
         Guid aiRunId;
         try
@@ -46,6 +48,8 @@ internal sealed class AuditMiddleware : DelegatingChatClient
             _logger.LogWarning(ex, "AuditMiddleware: failed to start AiRun; proceeding without audit");
             aiRunId = Guid.Empty;
         }
+
+        StampCallContext(options, useCase, aiRunId);
 
         _logger.LogDebug("AuditMiddleware: AI request started at {StartedAt}, AiRunId={AiRunId}", startedAt, aiRunId);
 
@@ -97,6 +101,33 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         }
 
         return response;
+    }
+
+    private static string ResolveUseCase(ChatOptions? options)
+    {
+        if (options?.AdditionalProperties is { } props
+            && props.TryGetValue(Observability.TelemetryChatClient.UseCasePropertyKey, out var useCaseValue)
+            && useCaseValue is string useCase
+            && !string.IsNullOrWhiteSpace(useCase))
+        {
+            return useCase.Trim();
+        }
+
+        return !string.IsNullOrWhiteSpace(options?.ModelId)
+            ? options!.ModelId!
+            : DefaultUseCase;
+    }
+
+    private static void StampCallContext(ChatOptions? options, string useCase, Guid aiRunId)
+    {
+        if (options is null)
+        {
+            return;
+        }
+
+        options.AdditionalProperties ??= [];
+        options.AdditionalProperties[Observability.TelemetryChatClient.UseCasePropertyKey] = useCase;
+        options.AdditionalProperties[Observability.TelemetryChatClient.AiRunIdPropertyKey] = aiRunId;
     }
 
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

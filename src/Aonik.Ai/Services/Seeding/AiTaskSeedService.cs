@@ -743,6 +743,51 @@ internal class AiTaskSeedService
                 {{ALERT_JSON}}
                 """),
 
+        // ── Observability Panel Explanation ────────────────────────────────
+        new(
+            UseCase: "observability_panel_explanation",
+            DisplayName: "Observability Panel Explanation",
+            Description: "Summarises an observability dashboard panel into short speech-ready English for admins.",
+            Category: "Observability",
+            PromptName: "observability_panel_explanation",
+            PromptVersion: "v1",
+            ExecutionMode: "Realtime",
+            VariablesSchemaJson: """
+                {
+                  "PANEL_LABEL": "Human-readable panel description",
+                  "METRICS_JSON": "Current panel metrics as JSON"
+                }
+                """,
+            OutputSchemaJson: string.Empty,
+            SystemTemplate: """
+                <role>
+                You are summarizing an observability dashboard panel for a human admin.
+                </role>
+
+                <task>
+                Write two to three short sentences in plain English, in speech-first form, so the text can be played as spoken audio without any post-processing.
+                </task>
+
+                <constraints>
+                - No markdown, bullet points, numbered lists, or emojis.
+                - Spell out acronyms so they are pronounced letter-by-letter: say "T T F T" not "TTFT", "L L M" not "LLM", "A P I" not "API".
+                - Verbalize numbers and latencies naturally: say "one point two seconds" not "1.2s", "ninety five percent" not "95%", "three thousand tokens" not "3K tokens".
+                - State what the data shows and what it means. Call out anything elevated, unusual, degraded, or healthy.
+                - If the metrics show no activity, sparse data, or an unconfigured panel, say so plainly.
+                - Output only the summary text. No preamble, no repetition of the rules, and no closing remarks.
+                </constraints>
+
+                <definition_of_done>
+                The summary is complete when it is concise, directly grounded in the supplied metrics, safe to read aloud, and immediately useful to an admin scanning platform health.
+                </definition_of_done>
+                """,
+            UserTemplate: """
+                Panel: {{PANEL_LABEL}}
+
+                Current metrics (JSON):
+                {{METRICS_JSON}}
+                """),
+
         // ── Playground Response Reviewer ────────────────────────────────────
         new(
             UseCase: "playground_response_review",
