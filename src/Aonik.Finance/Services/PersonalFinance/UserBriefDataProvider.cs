@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -5,6 +6,7 @@ using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -49,48 +51,64 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var spendEnd = request.SpendPeriodEnd ?? now;
 
         // Sequential data loading — EF Core DbContext is not thread-safe
-        var accounts = await _dbContext.PersonalAccounts
-            .Where(a => a.TenantId == tenantId && a.UserId == userId && a.Status != "archived")
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        var accounts = await TraceAsync(
+            "aonik.user_brief.finance.accounts",
+            () => _dbContext.PersonalAccounts
+                .Where(a => a.TenantId == tenantId && a.UserId == userId && a.Status != "archived")
+                .AsNoTracking()
+                .ToListAsync(cancellationToken));
 
-        var bills = await _dbContext.Bills
-            .Where(b => b.TenantId == tenantId && b.UserId == userId
-                && b.Status == "active" && b.NextDueDate <= billCutoff)
-            .OrderBy(b => b.NextDueDate)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        var bills = await TraceAsync(
+            "aonik.user_brief.finance.bills",
+            () => _dbContext.Bills
+                .Where(b => b.TenantId == tenantId && b.UserId == userId
+                    && b.Status == "active" && b.NextDueDate <= billCutoff)
+                .OrderBy(b => b.NextDueDate)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken));
 
-        var subscriptions = await _dbContext.Subscriptions
-            .Where(s => s.TenantId == tenantId && s.UserId == userId && s.Status == "active")
-            .OrderBy(s => s.RenewalDate)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        var subscriptions = await TraceAsync(
+            "aonik.user_brief.finance.subscriptions",
+            () => _dbContext.Subscriptions
+                .Where(s => s.TenantId == tenantId && s.UserId == userId && s.Status == "active")
+                .OrderBy(s => s.RenewalDate)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken));
 
-        var goals = await _dbContext.Goals
-            .Where(g => g.TenantId == tenantId && g.UserId == userId && g.Status == "active")
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        var goals = await TraceAsync(
+            "aonik.user_brief.finance.goals",
+            () => _dbContext.Goals
+                .Where(g => g.TenantId == tenantId && g.UserId == userId && g.Status == "active")
+                .AsNoTracking()
+                .ToListAsync(cancellationToken));
 
-        var transactionCount = await _dbContext.PersonalTransactions
-            .Where(t => t.TenantId == tenantId && t.UserId == userId)
-            .CountAsync(cancellationToken);
+        var transactionCount = await TraceAsync(
+            "aonik.user_brief.finance.transaction_count",
+            () => _dbContext.PersonalTransactions
+                .Where(t => t.TenantId == tenantId && t.UserId == userId)
+                .CountAsync(cancellationToken));
 
-        var spendTransactions = await _dbContext.PersonalTransactions
-            .Where(t => t.TenantId == tenantId && t.UserId == userId
-                && t.OccurredAt >= spendStart && t.OccurredAt <= spendEnd)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        var spendTransactions = await TraceAsync(
+            "aonik.user_brief.finance.spend_transactions",
+            () => _dbContext.PersonalTransactions
+                .Where(t => t.TenantId == tenantId && t.UserId == userId
+                    && t.OccurredAt >= spendStart && t.OccurredAt <= spendEnd)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken));
 
-        var customerInsightSnapshot = await _dbContext.CustomerInsightSnapshots
-            .Where(s => s.TenantId == tenantId
-                && s.UserId == userId
-                && s.Status == CustomerInsightSnapshotContract.StatusCurrent)
-            .OrderByDescending(s => s.Version)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(cancellationToken);
+        var customerInsightSnapshot = await TraceAsync(
+            "aonik.user_brief.finance.customer_insight_snapshot",
+            () => _dbContext.CustomerInsightSnapshots
+                .Where(s => s.TenantId == tenantId
+                    && s.UserId == userId
+                    && s.Status == CustomerInsightSnapshotContract.StatusCurrent)
+                .OrderByDescending(s => s.Version)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(cancellationToken));
 
-        var budgets = await SafeListBudgetsAsync(cancellationToken);
+        var budgets = await TraceAsync(
+            "aonik.user_brief.finance.budgets",
+            () => SafeListBudgetsAsync(cancellationToken));
 
         // Derive cash summary
         var primaryCurrency = accounts.FirstOrDefault()?.Currency ?? "GBP";
@@ -103,12 +121,16 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var budgetPressure = DeriveBudgetPressure(budgets);
 
         // Derive corridor countries and household context from profile
-        var profile = await _dbContext.PersonalProfiles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.UserId == userId, cancellationToken);
+        var profile = await TraceAsync(
+            "aonik.user_brief.finance.profile",
+            () => _dbContext.PersonalProfiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.UserId == userId, cancellationToken));
 
         // Derive support obligations from party relationships
-        var obligations = await DeriveObligationsAsync(tenantId, userId, profile, cancellationToken);
+        var obligations = await TraceAsync(
+            "aonik.user_brief.finance.obligations",
+            () => DeriveObligationsAsync(tenantId, userId, profile, cancellationToken));
 
         // Corridor countries — derived from account currencies
         var corridorCountries = DeriveCorridorCountries(accounts);
@@ -187,6 +209,26 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         {
             _logger.LogWarning(ex, "Budget data unavailable for User Brief");
             return [];
+        }
+    }
+
+    private static async Task<T> TraceAsync<T>(string name, Func<Task<T>> operation)
+    {
+        using var activity = AiTelemetry.ActivitySource.StartActivity(name, ActivityKind.Internal);
+        try
+        {
+            var result = await operation();
+            if (result is System.Collections.ICollection collection)
+            {
+                activity?.SetTag("item_count", collection.Count);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            AiTelemetry.MarkError(activity, ex);
+            throw;
         }
     }
 

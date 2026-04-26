@@ -8,6 +8,9 @@ public record ObservabilityQueryRequest
 {
     [FastEndpoints.QueryParam]
     public string TimeRange { get; init; } = "24h";
+
+    [FastEndpoints.QueryParam]
+    public string? OperationId { get; init; }
 }
 
 // ── Time Series ──────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Activity, AlertCircle, Braces, Copy, ExternalLink, Loader2, Search, X } from 'lucide-react';
 
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -239,8 +239,123 @@ function MetadataTable({ value }: { value: string | null }) {
   );
 }
 
+type WaterfallItem = AiTraceObservationResponse & {
+  depth: number;
+  offsetPct: number;
+  widthPct: number;
+  durationLabel: string;
+};
+
+function getDurationMs(item: AiTraceObservationResponse): number {
+  if (item.durationMs != null && Number.isFinite(item.durationMs)) return Math.max(1, item.durationMs);
+  if (item.latencySeconds != null && Number.isFinite(item.latencySeconds)) return Math.max(1, item.latencySeconds * 1000);
+  if (item.endTime) {
+    const delta = new Date(item.endTime).getTime() - new Date(item.startTime).getTime();
+    if (Number.isFinite(delta) && delta > 0) return delta;
+  }
+  return 1;
+}
+
+function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
+  if (items.length === 0) return [];
+
+  const sorted = [...items].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  const firstStart = new Date(sorted[0].startTime).getTime();
+  const lastEnd = Math.max(...sorted.map((item) => new Date(item.startTime).getTime() + getDurationMs(item)));
+  const totalDuration = Math.max(1, lastEnd - firstStart);
+  const byId = new Map(sorted.map((item) => [item.spanId ?? item.observationId, item]));
+  const depthCache = new Map<string, number>();
+
+  const depthFor = (item: AiTraceObservationResponse): number => {
+    const id = item.spanId ?? item.observationId;
+    const cached = depthCache.get(id);
+    if (cached !== undefined) return cached;
+
+    const parentId = item.parentSpanId ?? item.parentObservationId;
+    const parent = parentId ? byId.get(parentId) : undefined;
+    const depth = parent ? Math.min(6, depthFor(parent) + 1) : 0;
+    depthCache.set(id, depth);
+    return depth;
+  };
+
+  return sorted.map((item) => {
+    const start = new Date(item.startTime).getTime();
+    const durationMs = getDurationMs(item);
+    return {
+      ...item,
+      depth: depthFor(item),
+      offsetPct: Math.max(0, ((start - firstStart) / totalDuration) * 100),
+      widthPct: Math.max(1, (durationMs / totalDuration) * 100),
+      durationLabel: durationMs >= 1000 ? `${(durationMs / 1000).toFixed(2)}s` : `${Math.round(durationMs)}ms`,
+    };
+  });
+}
+
+function TraceWaterfall({
+  items,
+  loading,
+  onViewExceptions,
+}: {
+  items: WaterfallItem[];
+  loading: boolean;
+  onViewExceptions: (operationId: string) => void;
+}) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Trace Waterfall</h3>
+        <span className="text-xs text-[var(--color-text-tertiary)]">
+          {loading ? 'Loading spans...' : `${items.length} spans`}
+        </span>
+      </div>
+      <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        {items.length === 0 ? (
+          <div className="p-3 text-sm text-[var(--color-text-tertiary)]">
+            {loading ? 'Loading trace spans...' : 'No correlated spans found for this trace.'}
+          </div>
+        ) : (
+          <div className="max-h-96 overflow-auto">
+            {items.map((item) => (
+              <div key={`${item.source}-${item.observationId}`} className="grid grid-cols-[minmax(220px,34%)_1fr_128px] gap-3 border-b border-[var(--color-border-light)] px-3 py-2 last:border-b-0">
+                <div style={{ paddingLeft: `${item.depth * 14}px` }} className="min-w-0">
+                  <div className="truncate text-xs font-medium text-[var(--color-text-primary)]" title={item.name}>{item.name || '--'}</div>
+                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
+                    <span>{item.type}</span>
+                    <span className="truncate font-mono">{item.agentName ?? item.agentId ?? item.source}</span>
+                  </div>
+                </div>
+                <div className="relative h-7 rounded bg-[var(--color-surface-inset)]">
+                  <div
+                    className="absolute top-1.5 h-4 rounded bg-[var(--color-brand-primary)]/70"
+                    style={{ left: `${item.offsetPct}%`, width: `${Math.min(item.widthPct, 100 - item.offsetPct)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  {item.level.toLowerCase() === 'error' && item.operationId ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() => onViewExceptions(item.operationId!)}
+                    >
+                      Errors
+                    </Button>
+                  ) : null}
+                  <span className="font-mono text-xs text-[var(--color-text-secondary)]">{item.durationLabel}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function AiTracesPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const requestIdRef = useRef(0);
 
   const [items, setItems] = useState<AiTraceObservationResponse[]>([]);
@@ -251,12 +366,14 @@ export function AiTracesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [provider, setProvider] = useState('Auto');
   const [name, setName] = useState('');
-  const [traceName, setTraceName] = useState('');
+  const [traceName, setTraceName] = useState(() => searchParams.get('traceId') ?? searchParams.get('traceName') ?? '');
   const [type, setType] = useState('all');
   const [level, setLevel] = useState('all');
   const [rootFilter, setRootFilter] = useState('all');
   const [timeRange, setTimeRange] = useState('24h');
   const [selectedObservation, setSelectedObservation] = useState<AiTraceObservationResponse | null>(null);
+  const [traceItems, setTraceItems] = useState<AiTraceObservationResponse[]>([]);
+  const [traceLoading, setTraceLoading] = useState(false);
 
   const load = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -301,6 +418,42 @@ export function AiTracesPage() {
   const openObservation = useCallback((row: AiTraceObservationResponse) => {
     setSelectedObservation(row);
   }, []);
+
+  const openExceptions = useCallback((operationId: string) => {
+    navigate(`/observability?tab=errors&operationId=${encodeURIComponent(operationId)}&timeRange=${encodeURIComponent(timeRange)}`);
+  }, [navigate, timeRange]);
+
+  useEffect(() => {
+    if (!selectedObservation?.traceId) {
+      setTraceItems([]);
+      return;
+    }
+
+    let cancelled = false;
+    setTraceLoading(true);
+
+    aiTraceService.listObservations({
+      page: 1,
+      pageSize: 200,
+      traceId: selectedObservation.traceId,
+      timeRange,
+    })
+      .then((result) => {
+        if (!cancelled) setTraceItems(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setTraceItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTraceLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedObservation?.traceId, timeRange]);
+
+  const waterfallItems = useMemo(() => buildWaterfall(traceItems), [traceItems]);
 
   const columns = useMemo<ColumnDef<AiTraceObservationResponse>[]>(() => [
     {
@@ -360,6 +513,16 @@ export function AiTracesPage() {
       accessorKey: 'level',
       sortable: true,
       cell: (row) => <Badge className={`text-xs ${levelClass(row.level)}`}>{row.level}</Badge>,
+    },
+    {
+      id: 'agentName',
+      header: 'Agent',
+      accessorFn: (row) => row.agentName ?? row.agentId ?? '',
+      cell: (row) => (
+        <span className="font-mono text-xs text-[var(--color-text-secondary)]">
+          {row.agentName ?? row.agentId ?? '--'}
+        </span>
+      ),
     },
     {
       id: 'latencySeconds',
@@ -551,6 +714,18 @@ export function AiTracesPage() {
                         Open run
                       </Button>
                     ) : null}
+                    {(selectedObservation.level.toLowerCase() === 'error' || waterfallItems.some((item) => item.level.toLowerCase() === 'error'))
+                      && (selectedObservation.operationId ?? selectedObservation.traceId) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openExceptions(selectedObservation.operationId ?? selectedObservation.traceId)}
+                      >
+                        <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                        View errors
+                      </Button>
+                    ) : null}
                     <DialogClose asChild>
                       <Button type="button" variant="ghost" size="sm" aria-label="Close details">
                         <X className="h-4 w-4" />
@@ -566,6 +741,7 @@ export function AiTracesPage() {
                   <DetailMetric label="Latency" value={formatSeconds(selectedObservation.latencySeconds)} />
                   <DetailMetric label="Cost" value={formatCost(selectedObservation.costUsd)} />
                   <DetailMetric label="TTFT" value={formatSeconds(selectedObservation.timeToFirstTokenSeconds)} />
+                  <DetailMetric label="Agent" value={selectedObservation.agentName ?? selectedObservation.agentId ?? '--'} />
                   <DetailMetric label="Model" value={selectedObservation.providedModel ?? '--'} />
                   <DetailMetric label="Input Tokens" value={formatTokens(selectedObservation.inputTokens)} />
                   <DetailMetric label="Output Tokens" value={formatTokens(selectedObservation.outputTokens)} />
@@ -589,9 +765,18 @@ export function AiTracesPage() {
                     <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Root Observation</div>
                     <div className="mt-1 text-xs text-[var(--color-text-primary)]">{selectedObservation.isRootObservation ? 'Yes' : 'No'}</div>
                   </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Span</div>
+                    <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-primary)]">{selectedObservation.spanId ?? selectedObservation.observationId}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Operation</div>
+                    <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-primary)]">{selectedObservation.operationId ?? selectedObservation.traceId}</div>
+                  </div>
                 </div>
 
                 <div className="space-y-6">
+                  <TraceWaterfall items={waterfallItems} loading={traceLoading} onViewExceptions={openExceptions} />
                   <PayloadBlock title="Input" value={selectedObservation.input} />
                   <PayloadBlock title="Output" value={selectedObservation.output} />
                   <MetadataTable value={selectedObservation.metadata} />

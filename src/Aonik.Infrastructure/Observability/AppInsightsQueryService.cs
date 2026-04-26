@@ -122,7 +122,7 @@ public class AppInsightsQueryService : IObservabilityService
     }
 
     public async Task<ErrorsResponse> GetErrorsAsync(
-        string timeRange, CancellationToken cancellationToken = default)
+        string timeRange, string? operationId = null, CancellationToken cancellationToken = default)
     {
         var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
         if (appId is null || apiKey is null)
@@ -131,8 +131,8 @@ public class AppInsightsQueryService : IObservabilityService
         var range = ParseTimeRange(timeRange);
 
         var rows = await CachedQueryAsync(
-            $"observability:errors:{timeRange}", appId, apiKey,
-            BuildErrorGroupsKql(range.Ago),
+            $"observability:errors:{timeRange}:{operationId}", appId, apiKey,
+            BuildErrorGroupsKql(range.Ago, operationId),
             cancellationToken);
 
         var errors = rows.Select(ParseErrorGroupRow).ToList();
@@ -1109,10 +1109,16 @@ public class AppInsightsQueryService : IObservabilityService
     // same projection so they stay in lock-step. KQL is built once here
     // and fed into CachedQueryAsync with independent cache keys.
 
-    private static string BuildErrorGroupsKql(string ago) =>
-        $$"""
+    private static string BuildErrorGroupsKql(string ago, string? operationId = null)
+    {
+        var operationFilter = string.IsNullOrWhiteSpace(operationId)
+            ? string.Empty
+            : $"| where operation_Id == \"{EscapeKql(operationId.Trim())}\"";
+
+        return $$"""
         exceptions
         | where timestamp > {{ago}}
+        {{operationFilter}}
         | extend firstMethod = tostring(details[0].parsedStack[0].method)
         | extend groupedMethod = iff(isempty(method), firstMethod, method)
         | summarize
@@ -1125,6 +1131,11 @@ public class AppInsightsQueryService : IObservabilityService
         | order by count desc
         | take 50
         """;
+    }
+
+    private static string EscapeKql(string value) => value
+        .Replace("\\", "\\\\", StringComparison.Ordinal)
+        .Replace("\"", "\\\"", StringComparison.Ordinal);
 
     /// <summary>
     /// Parses a row produced by <see cref="BuildErrorGroupsKql"/>. The

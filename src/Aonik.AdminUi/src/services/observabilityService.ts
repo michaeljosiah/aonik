@@ -321,10 +321,11 @@ export const observabilityService = {
     api.get<ObservabilityOverviewResponse>(
       `/admin/observability/overview?timeRange=${timeRange}`,
     ),
-  getErrors: (timeRange = '24h') =>
-    api.get<ErrorsResponse>(
-      `/admin/observability/errors?timeRange=${timeRange}`,
-    ),
+  getErrors: (timeRange = '24h', operationId?: string | null) => {
+    const params = new URLSearchParams({ timeRange });
+    if (operationId) params.set('operationId', operationId);
+    return api.get<ErrorsResponse>(`/admin/observability/errors?${params.toString()}`);
+  },
   getErrorDetail: (problemId: string, timeRange = '24h') =>
     api.get<ErrorDetailResponse>(
       `/admin/observability/errors/${encodeURIComponent(problemId)}?timeRange=${timeRange}`,

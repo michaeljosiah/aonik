@@ -57,9 +57,6 @@ internal sealed class QdrantMetrics : IDisposable
     /// </summary>
     public void RecordUpsertDuration(long durationMs, int vectorCount = 1)
     {
-        using var activity = ActivitySource.StartActivity("qdrant.upsert");
-        activity?.SetTag("vectors_count", vectorCount);
-        activity?.SetTag("duration_ms", durationMs);
         _upsertDurationMs.Record(durationMs);
     }
 
@@ -68,11 +65,6 @@ internal sealed class QdrantMetrics : IDisposable
     /// </summary>
     public void RecordSearchDuration(long durationMs, int resultCount, string collectionName)
     {
-        using var activity = ActivitySource.StartActivity("qdrant.search");
-        activity?.SetTag("collection", collectionName);
-        activity?.SetTag("result_count", resultCount);
-        activity?.SetTag("duration_ms", durationMs);
-
         _searchDurationMs.Record(durationMs);
         _searchResultCount.Add(resultCount);
     }
@@ -82,9 +74,6 @@ internal sealed class QdrantMetrics : IDisposable
     /// </summary>
     public void RecordEmbeddingApiDuration(long durationMs, int textCount = 1)
     {
-        using var activity = ActivitySource.StartActivity("embedding.api");
-        activity?.SetTag("text_count", textCount);
-        activity?.SetTag("duration_ms", durationMs);
         _embeddingApiDurationMs.Record(durationMs);
     }
 
@@ -93,8 +82,6 @@ internal sealed class QdrantMetrics : IDisposable
     /// </summary>
     public void RecordEmbeddingApiError(string errorType)
     {
-        using var activity = ActivitySource.StartActivity("embedding.api.error");
-        activity?.SetTag("error_type", errorType);
         _embeddingApiErrorCount.Add(1);
     }
 

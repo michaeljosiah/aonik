@@ -200,6 +200,9 @@ export interface AiTraceObservationResponse {
   observationId: string;
   traceId: string;
   parentObservationId: string | null;
+  spanId: string | null;
+  parentSpanId: string | null;
+  operationId: string | null;
   aiRunId: string | null;
   startTime: string;
   endTime: string | null;
@@ -209,7 +212,10 @@ export interface AiTraceObservationResponse {
   input: string | null;
   output: string | null;
   metadata: string | null;
+  agentId: string | null;
+  agentName: string | null;
   level: string;
+  durationMs: number | null;
   latencySeconds: number | null;
   costUsd: number | null;
   timeToFirstTokenSeconds: number | null;
@@ -488,6 +494,8 @@ export const aiTraceService = {
     type?: string;
     name?: string;
     traceName?: string;
+    traceId?: string;
+    agentName?: string;
     environment?: string;
     level?: string;
     isRootObservation?: boolean;
@@ -499,6 +507,8 @@ export const aiTraceService = {
     if (options?.type) params.set('type', options.type);
     if (options?.name) params.set('name', options.name);
     if (options?.traceName) params.set('traceName', options.traceName);
+    if (options?.traceId) params.set('traceId', options.traceId);
+    if (options?.agentName) params.set('agentName', options.agentName);
     if (options?.environment) params.set('environment', options.environment);
     if (options?.level) params.set('level', options.level);
     if (options?.isRootObservation !== undefined) params.set('isRootObservation', String(options.isRootObservation));

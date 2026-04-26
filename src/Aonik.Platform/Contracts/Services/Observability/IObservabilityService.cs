@@ -5,7 +5,7 @@ namespace Aonik.Platform.Contracts.Services.Observability;
 public interface IObservabilityService
 {
     Task<ObservabilityOverviewResponse> GetOverviewAsync(string timeRange, CancellationToken cancellationToken = default);
-    Task<ErrorsResponse> GetErrorsAsync(string timeRange, CancellationToken cancellationToken = default);
+    Task<ErrorsResponse> GetErrorsAsync(string timeRange, string? operationId = null, CancellationToken cancellationToken = default);
     Task<ErrorDetailResponse> GetErrorDetailAsync(string problemId, string timeRange, CancellationToken cancellationToken = default);
     Task<DependencyMetricsResponse> GetDependenciesAsync(string timeRange, CancellationToken cancellationToken = default);
     Task<AiMetricsResponse> GetAiMetricsAsync(string timeRange, CancellationToken cancellationToken = default);

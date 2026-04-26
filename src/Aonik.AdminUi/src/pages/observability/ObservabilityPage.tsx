@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Activity,
   RotateCcw,
@@ -384,9 +385,21 @@ const TIME_RANGE_OPTIONS = [
   { value: '30d', label: 'Last 30 Days' },
 ];
 
+const OBSERVABILITY_TABS = new Set(['overview', 'ai', 'errors', 'dependencies', 'jobs', 'retrieval', 'topology']);
+
+function normalizeTab(value: string | null): string {
+  return value && OBSERVABILITY_TABS.has(value) ? value : 'overview';
+}
+
+function normalizeTimeRange(value: string | null): string {
+  return TIME_RANGE_OPTIONS.some((option) => option.value === value) ? value! : '24h';
+}
+
 export function ObservabilityPage() {
-  const [timeRange, setTimeRange] = useState('24h');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [timeRange, setTimeRange] = useState(() => normalizeTimeRange(searchParams.get('timeRange')));
+  const [activeTab, setActiveTab] = useState(() => normalizeTab(searchParams.get('tab')));
+  const operationIdFilter = searchParams.get('operationId');
 
   // --- Overview state ---
   const [overview, setOverview] = useState<ObservabilityOverviewResponse | null>(null);
@@ -437,6 +450,25 @@ export function ObservabilityPage() {
     persistMutes(next);
   };
 
+  const updateQuery = useCallback(
+    (updates: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams);
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  useEffect(() => {
+    const nextTab = normalizeTab(searchParams.get('tab'));
+    const nextRange = normalizeTimeRange(searchParams.get('timeRange'));
+    setActiveTab((current) => (current === nextTab ? current : nextTab));
+    setTimeRange((current) => (current === nextRange ? current : nextRange));
+  }, [searchParams]);
+
   // --- AI state ---
   const [aiData, setAiData] = useState<AiPerformanceResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -477,11 +509,11 @@ export function ObservabilityPage() {
     }
   }, []);
 
-  const fetchErrors = useCallback(async (tr: string) => {
+  const fetchErrors = useCallback(async (tr: string, operationId?: string | null) => {
     setErrorsLoading(true);
     setErrorsError(null);
     try {
-      const data = await observabilityService.getErrors(tr);
+      const data = await observabilityService.getErrors(tr, operationId);
       setErrorsData(data);
     } catch (err) {
       setErrorsError(err instanceof Error ? err.message : 'Unknown error');
@@ -558,18 +590,18 @@ export function ObservabilityPage() {
   // Fetch on tab activation + time range change
   useEffect(() => {
     if (activeTab === 'overview') fetchOverview(timeRange);
-    if (activeTab === 'errors') fetchErrors(timeRange);
+    if (activeTab === 'errors') fetchErrors(timeRange, operationIdFilter);
     if (activeTab === 'ai') fetchAi(timeRange);
     if (activeTab === 'dependencies') fetchDeps(timeRange);
     if (activeTab === 'jobs') fetchJobs(timeRange);
     if (activeTab === 'retrieval') fetchRetrieval(timeRange);
     if (activeTab === 'topology') fetchTopology(timeRange);
-  }, [activeTab, timeRange, fetchOverview, fetchErrors, fetchAi, fetchDeps, fetchJobs, fetchRetrieval, fetchTopology]);
+  }, [activeTab, timeRange, operationIdFilter, fetchOverview, fetchErrors, fetchAi, fetchDeps, fetchJobs, fetchRetrieval, fetchTopology]);
 
   // Refresh handler
   const handleRefresh = () => {
     if (activeTab === 'overview') fetchOverview(timeRange);
-    if (activeTab === 'errors') fetchErrors(timeRange);
+    if (activeTab === 'errors') fetchErrors(timeRange, operationIdFilter);
     if (activeTab === 'ai') fetchAi(timeRange);
     if (activeTab === 'dependencies') fetchDeps(timeRange);
     if (activeTab === 'jobs') fetchJobs(timeRange);
@@ -626,6 +658,13 @@ export function ObservabilityPage() {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (activeTab !== 'errors' || !operationIdFilter || !errorsData || errorsData.errors.length === 0) return;
+
+    setExpandedErrors(new Set([0]));
+    ensureErrorDetail(errorsData.errors[0].problemId ?? null, timeRange);
+  }, [activeTab, errorsData, ensureErrorDetail, operationIdFilter, timeRange]);
 
   // -----------------------------------------------------------------------
   // Render helpers
@@ -1375,6 +1414,28 @@ export function ObservabilityPage() {
       <div className="space-y-6">
         {!errorsData.configured && <NotConfiguredBanner />}
 
+        {operationIdFilter && (
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                  Filtered to operation
+                </div>
+                <div className="mt-1 font-mono text-xs break-all text-[var(--color-text-secondary)]">
+                  {operationIdFilter}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => updateQuery({ operationId: null })}
+              >
+                Clear operation
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <MetricCard
             label="Active Error Groups"
@@ -2025,7 +2086,13 @@ export function ObservabilityPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Select value={timeRange} onValueChange={setTimeRange}>
+              <Select
+                value={timeRange}
+                onValueChange={(value) => {
+                  setTimeRange(value);
+                  updateQuery({ timeRange: value });
+                }}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -2046,7 +2113,13 @@ export function ObservabilityPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value);
+          updateQuery({ tab: value });
+        }}
+      >
         <div className="border-b border-[var(--color-border-light)] px-6">
           <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-0">
             <TabsTrigger

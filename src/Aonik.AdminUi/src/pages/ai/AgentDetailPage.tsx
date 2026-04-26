@@ -4,9 +4,11 @@ import { toast } from 'sonner';
 
 import {
   AlertCircle,
+  Activity,
   Bot,
   Brain,
   Check,
+  ExternalLink,
   Loader2,
   Plus,
   RefreshCw,
@@ -35,7 +37,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import type { AgentConfigurationResponse, AiModelResponse, RoutePolicyResponse } from '@/types/ai';
-import { agentConfigService, aiModelService, routePolicyService } from '@/services/aiService';
+import {
+  agentConfigService,
+  aiModelService,
+  routePolicyService,
+  aiTraceService,
+  type AiTraceObservationResponse,
+} from '@/services/aiService';
 import { loadAgentIcons, type AgentIconOption } from '@/data/agentIcons';
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -107,6 +115,11 @@ export function AgentDetailPage() {
   // Reset-to-default prompt
   const [resettingPrompt, setResettingPrompt] = useState(false);
 
+  // Agent trace panel
+  const [traceItems, setTraceItems] = useState<AiTraceObservationResponse[]>([]);
+  const [tracesLoading, setTracesLoading] = useState(false);
+  const [tracesError, setTracesError] = useState<string | null>(null);
+
   // ── Data loading ────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
@@ -153,6 +166,34 @@ export function AgentDetailPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const loadAgentTraces = useCallback(async () => {
+    if (!agentName) return;
+
+    setTracesLoading(true);
+    setTracesError(null);
+    try {
+      const result = await aiTraceService.listObservations({
+        page: 1,
+        pageSize: 100,
+        agentName,
+        timeRange: '7d',
+      });
+      setTraceItems(result.items);
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setTracesError(message || 'Failed to load agent traces.');
+      setTraceItems([]);
+    } finally {
+      setTracesLoading(false);
+    }
+  }, [agentName]);
+
+  useEffect(() => {
+    void loadAgentTraces();
+  }, [loadAgentTraces]);
 
   // ── Edit helpers ────────────────────────────────────────────────
 
@@ -358,7 +399,7 @@ export function AgentDetailPage() {
       )}
 
       {/* Centered card container */}
-      <div className="flex justify-center px-6 py-8">
+      <div className="flex flex-col items-center gap-6 px-6 py-8">
         <Card className="w-full max-w-[64rem] shadow-sm">
           <CardContent className="p-0">
             <div className="flex flex-col xl:flex-row">
@@ -736,7 +777,152 @@ export function AgentDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        <AgentTracePanel
+          agentName={agent.name}
+          items={traceItems}
+          loading={tracesLoading}
+          error={tracesError}
+          onRefresh={loadAgentTraces}
+          onOpenTrace={(traceId) => navigate(`/ai/traces?traceId=${encodeURIComponent(traceId)}`)}
+          onOpenErrors={(operationId) => navigate(`/observability?tab=errors&operationId=${encodeURIComponent(operationId)}&timeRange=7d`)}
+        />
       </div>
     </div>
+  );
+}
+
+function formatTraceDuration(item: AiTraceObservationResponse): string {
+  const durationMs = item.durationMs ?? (item.latencySeconds != null ? item.latencySeconds * 1000 : null);
+  if (durationMs == null) return '--';
+  return durationMs >= 1000 ? `${(durationMs / 1000).toFixed(2)}s` : `${Math.round(durationMs)}ms`;
+}
+
+function formatTraceTime(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function AgentTracePanel({
+  agentName,
+  items,
+  loading,
+  error,
+  onRefresh,
+  onOpenTrace,
+  onOpenErrors,
+}: {
+  agentName: string;
+  items: AiTraceObservationResponse[];
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void | Promise<void>;
+  onOpenTrace: (traceId: string) => void;
+  onOpenErrors: (operationId: string) => void;
+}) {
+  const groups = Array.from(
+    items.reduce((map, item) => {
+      const key = item.traceId || item.operationId || item.observationId;
+      const current = map.get(key) ?? [];
+      current.push(item);
+      map.set(key, current);
+      return map;
+    }, new Map<string, AiTraceObservationResponse[]>()),
+  )
+    .map(([traceId, spans]) => ({
+      traceId,
+      spans: spans.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+      startedAt: spans.reduce((min, item) => Math.min(min, new Date(item.startTime).getTime()), Number.POSITIVE_INFINITY),
+      hasError: spans.some((item) => item.level.toLowerCase() === 'error'),
+      operationId: spans.find((span) => span.operationId)?.operationId ?? null,
+    }))
+    .sort((a, b) => b.startedAt - a.startedAt)
+    .slice(0, 10);
+
+  return (
+    <Card className="w-full max-w-[64rem] shadow-sm">
+      <CardContent className="p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-[var(--color-brand-primary)]" />
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Agent Trace Activity</h2>
+            </div>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+              Recent traces and related spans for <span className="font-mono">{agentName}</span> over the last 7 days.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void onRefresh()} disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Refresh
+          </Button>
+        </div>
+
+        {error ? (
+          <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+            {error}
+          </div>
+        ) : null}
+
+        {!error && loading && groups.length === 0 ? (
+          <div className="flex items-center justify-center py-10 text-sm text-[var(--color-text-tertiary)]">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading agent traces...
+          </div>
+        ) : null}
+
+        {!error && !loading && groups.length === 0 ? (
+          <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-6 text-center text-sm text-[var(--color-text-tertiary)]">
+            No trace spans found for this agent yet.
+          </div>
+        ) : null}
+
+        {groups.length > 0 ? (
+          <div className="space-y-3">
+            {groups.map((group) => (
+              <div key={group.traceId} className="rounded-md border border-[var(--color-border-light)]">
+                <div className="flex flex-col gap-2 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="font-mono text-xs break-all text-[var(--color-text-primary)]">{group.traceId}</div>
+                    <div className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      {formatTraceTime(new Date(group.startedAt).toISOString())} · {group.spans.length} spans
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {group.hasError && group.operationId ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onOpenErrors(group.operationId!)}
+                      >
+                        Errors
+                      </Button>
+                    ) : null}
+                    <Button variant="outline" size="sm" onClick={() => onOpenTrace(group.traceId)}>
+                      <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                      Open trace
+                    </Button>
+                  </div>
+                </div>
+                <div className="divide-y divide-[var(--color-border-light)]">
+                  {group.spans.slice(0, 8).map((span) => (
+                    <div key={`${span.source}-${span.observationId}`} className="grid gap-2 px-4 py-2 text-xs sm:grid-cols-[minmax(0,1fr)_110px_90px] sm:items-center">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-[var(--color-text-primary)]" title={span.name}>{span.name || '--'}</div>
+                        <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--color-text-tertiary)]" title={span.spanId ?? span.observationId}>
+                          {span.type} · {span.spanId ?? span.observationId}
+                        </div>
+                      </div>
+                      <div className="font-mono text-[var(--color-text-secondary)]">{formatTraceDuration(span)}</div>
+                      <div className={span.level.toLowerCase() === 'error' ? 'font-medium text-[var(--color-error)]' : 'text-[var(--color-text-tertiary)]'}>
+                        {span.level}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

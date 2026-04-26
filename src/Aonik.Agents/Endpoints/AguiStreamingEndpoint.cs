@@ -85,6 +85,8 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
     public override async Task HandleAsync(AguiRunInput input, CancellationToken cancellationToken)
     {
+        using var chatActivity = AiTelemetry.ActivitySource.StartActivity("aonik.chat.agui", ActivityKind.Internal);
+
         var response = HttpContext.Response;
         var runId = input.RunId ?? Guid.NewGuid().ToString("N");
         var requestStopwatch = Stopwatch.StartNew();
@@ -107,12 +109,23 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         var persistenceQueued = false;
         var outcome = "success";
 
+        chatActivity?.SetTag("aonik.chat.run_id", runId);
+        chatActivity?.SetTag("aonik.agent.name", input.AgentId ?? "orchestrator");
+        chatActivity?.SetTag("aonik.chat.is_thin_client", isThinClient);
+        chatActivity?.SetTag("aonik.chat.input_message_count", historyMessageCount);
+        chatActivity?.SetBaggage("aonik.chat.run_id", runId);
+        chatActivity?.SetBaggage("aonik.agent.name", input.AgentId ?? "orchestrator");
+
         // Resolve / create the persisted thread before anything else — the
         // thread GUID is what we stamp onto OTel baggage and SSE events.
         var threadCtx = await _threadManager.EnsureThreadAsync(
             input.ThreadId, input.Messages, input.AgentId, cancellationToken);
         var threadId = threadCtx.ThreadIdString;
         var requestToThreadReadyMs = requestStopwatch.ElapsedMilliseconds;
+
+        chatActivity?.SetTag("aonik.chat.thread_id", threadId);
+        chatActivity?.SetTag("aonik.chat.is_new_thread", threadCtx.IsNewThread);
+        chatActivity?.SetBaggage("aonik.chat.thread_id", threadId);
 
         // Propagate session (threadId) and user identifiers as OTel baggage +
         // span attributes so the BaggageSpanProcessor copies them to all child
@@ -158,11 +171,19 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             userBriefCacheStatus = agentContext.UserBriefCacheStatus;
             userBriefDurationMs = agentContext.UserBriefDurationMs;
 
+            chatActivity?.SetTag("aonik.user_brief.cache_status", userBriefCacheStatus);
+            if (userBriefDurationMs.HasValue)
+                chatActivity?.SetTag("aonik.user_brief.duration_ms", userBriefDurationMs.Value);
+
             var historyResolution = await historyTask;
             var effectiveMessages = historyResolution.Messages;
             historySource = historyResolution.Source;
             historyDurationMs = historyResolution.DurationMs;
             historyMessageCount = effectiveMessages?.Count ?? 0;
+
+            chatActivity?.SetTag("aonik.chat.history_source", historySource);
+            chatActivity?.SetTag("aonik.chat.history_duration_ms", historyDurationMs);
+            chatActivity?.SetTag("aonik.chat.history_message_count", historyMessageCount);
 
             var chatMessages = _converter.ConvertMessages(effectiveMessages);
             if (agentContext.UserBriefPreamble is not null)
@@ -172,6 +193,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             // FunctionCallContent, but the frontend is responsible for execution.
             var clientTools = _converter.ConvertClientTools(input.Tools);
             clientToolCount = clientTools.Count;
+            chatActivity?.SetTag("aonik.chat.client_tool_count", clientToolCount);
 
             ChatClientAgentRunOptions? runOptions = null;
             if (clientTools.Count > 0)
@@ -196,6 +218,13 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             var speechBuffer = new SpeechStreamBuffer();
 
             requestToLlmStartMs = requestStopwatch.ElapsedMilliseconds;
+            chatActivity?.AddEvent(new ActivityEvent(
+                "aonik.chat.llm_start",
+                tags: new ActivityTagsCollection
+                {
+                    ["elapsed_ms"] = requestToLlmStartMs.Value,
+                    ["message_count"] = chatMessages.Count,
+                }));
 
             await foreach (var update in agent.RunStreamingAsync(
                 chatMessages, session: null, options: runOptions, cancellationToken: cancellationToken))
@@ -213,6 +242,13 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                             if (!messageStarted)
                             {
                                 timeToFirstTokenMs ??= requestStopwatch.ElapsedMilliseconds;
+                                chatActivity?.SetTag("aonik.chat.time_to_first_token_ms", timeToFirstTokenMs.Value);
+                                chatActivity?.AddEvent(new ActivityEvent(
+                                    "aonik.chat.first_token",
+                                    tags: new ActivityTagsCollection
+                                    {
+                                        ["elapsed_ms"] = timeToFirstTokenMs.Value,
+                                    }));
                                 await WriteSseEventAsync(response, new
                                 {
                                     type = "TEXT_MESSAGE_START",
@@ -388,11 +424,13 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             outcome = "cancelled";
+            chatActivity?.SetStatus(ActivityStatusCode.Unset, "cancelled");
             _logger.LogDebug("AG-UI stream cancelled for thread {ThreadId}", threadId);
         }
         catch (Exception ex)
         {
             outcome = "error";
+            AiTelemetry.MarkError(chatActivity, ex);
             _logger.LogError(ex, "AG-UI streaming error for thread {ThreadId}, run {RunId}", threadId, runId);
 
             try
@@ -417,6 +455,17 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
         if (requestStopwatch.IsRunning)
             requestStopwatch.Stop();
+
+        chatActivity?.SetTag("aonik.chat.outcome", outcome);
+        chatActivity?.SetTag("aonik.chat.total_duration_ms", requestStopwatch.ElapsedMilliseconds);
+        if (requestToRunStartedSseMs.HasValue)
+            chatActivity?.SetTag("aonik.chat.request_to_run_started_sse_ms", requestToRunStartedSseMs.Value);
+        if (requestToAgentReadyMs.HasValue)
+            chatActivity?.SetTag("aonik.chat.request_to_agent_ready_ms", requestToAgentReadyMs.Value);
+        if (requestToLlmStartMs.HasValue)
+            chatActivity?.SetTag("aonik.chat.request_to_llm_start_ms", requestToLlmStartMs.Value);
+        if (requestToFirstTokenSseMs.HasValue)
+            chatActivity?.SetTag("aonik.chat.request_to_first_token_sse_ms", requestToFirstTokenSseMs.Value);
 
         _logger.LogInformation(
             "AguiRunPhases: RunId={RunId} AgentName={AgentName} ThreadId={ThreadId} Outcome={Outcome} RequestToThreadReadyMs={RequestToThreadReadyMs} RequestToRunStartedSseMs={RequestToRunStartedSseMs} RequestToAgentReadyMs={RequestToAgentReadyMs} RequestToLlmStartMs={RequestToLlmStartMs} RequestToFirstTokenMs={RequestToFirstTokenMs} RequestToFirstTokenSseMs={RequestToFirstTokenSseMs} UserBriefDurationMs={UserBriefDurationMs} UserBriefCacheStatus={UserBriefCacheStatus} HistoryDurationMs={HistoryDurationMs} HistorySource={HistorySource} HistoryMessageCount={HistoryMessageCount} IsNewThread={IsNewThread} IsThinClient={IsThinClient} HasUserBrief={HasUserBrief} ClientToolCount={ClientToolCount}",

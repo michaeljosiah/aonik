@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Aonik.Agents.Contracts.Agui;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -39,10 +40,15 @@ public sealed class ChatThreadManager : IChatThreadManager
         string? agentId,
         CancellationToken cancellationToken)
     {
+        using var activity = AiTelemetry.ActivitySource.StartActivity("aonik.chat.ensure_thread", ActivityKind.Internal);
+        activity?.SetTag("aonik.agent.name", agentId ?? "orchestrator");
+        activity?.SetTag("aonik.chat.has_client_thread_id", !string.IsNullOrWhiteSpace(clientThreadId));
+
         var threadIdString = clientThreadId ?? Guid.NewGuid().ToString("N");
 
         if (_chatThreadService is null)
         {
+            activity?.SetTag("aonik.chat.thread_source", "client");
             return new ChatThreadContext(null, threadIdString, IsNewThread: false, FirstUserMessage: null);
         }
 
@@ -54,13 +60,19 @@ public sealed class ChatThreadManager : IChatThreadManager
 
             if (string.IsNullOrEmpty(firstUserMessage))
             {
+                activity?.SetTag("aonik.chat.thread_source", "client");
+                activity?.SetTag("aonik.chat.has_user_message", false);
                 return new ChatThreadContext(null, threadIdString, IsNewThread: false, FirstUserMessage: null);
             }
+
+            activity?.SetTag("aonik.chat.has_user_message", true);
 
             if (Guid.TryParse(clientThreadId, out var existingId))
             {
                 // Existing thread — append the user message off the critical path.
                 EnqueueDetachedUserMessageAppend(existingId, firstUserMessage, agentId);
+                activity?.SetTag("aonik.chat.thread_source", "existing");
+                activity?.SetTag("aonik.chat.thread_id", existingId.ToString("N"));
                 return new ChatThreadContext(existingId, threadIdString, IsNewThread: false, firstUserMessage);
             }
 
@@ -68,10 +80,13 @@ public sealed class ChatThreadManager : IChatThreadManager
             // waiting on persistence. The coordinator persists the thread after the
             // response is flushed.
             var newId = Guid.NewGuid();
+            activity?.SetTag("aonik.chat.thread_source", "reserved");
+            activity?.SetTag("aonik.chat.thread_id", newId.ToString("N"));
             return new ChatThreadContext(newId, newId.ToString("N"), IsNewThread: true, firstUserMessage);
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogWarning(ex, "AG-UI thread persistence failed — continuing without thread tracking");
             return new ChatThreadContext(null, threadIdString, IsNewThread: false, FirstUserMessage: null);
         }
@@ -82,17 +97,28 @@ public sealed class ChatThreadManager : IChatThreadManager
         IReadOnlyList<AguiMessage>? clientMessages,
         CancellationToken cancellationToken)
     {
+        using var activity = AiTelemetry.ActivitySource.StartActivity("aonik.chat.reconstruct_history", ActivityKind.Internal);
+        activity?.SetTag("aonik.chat.has_persisted_thread", persistedThreadId.HasValue);
+        activity?.SetTag("aonik.chat.client_message_count", clientMessages?.Count ?? 0);
+
         var stopwatch = Stopwatch.StartNew();
 
         if (_chatThreadService is null || !persistedThreadId.HasValue)
+        {
+            activity?.SetTag("aonik.chat.history_source", "client");
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
+        }
 
         if (clientMessages is null || clientMessages.Count == 0)
+        {
+            activity?.SetTag("aonik.chat.history_source", "client");
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
+        }
 
         if (clientMessages.Count != 1)
         {
             await _historyCache.StoreAsync(persistedThreadId.Value, clientMessages, cancellationToken);
+            activity?.SetTag("aonik.chat.history_source", "client");
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
         }
 
@@ -100,6 +126,7 @@ public sealed class ChatThreadManager : IChatThreadManager
         if (!string.Equals(only.Role, "user", StringComparison.OrdinalIgnoreCase))
         {
             await _historyCache.StoreAsync(persistedThreadId.Value, clientMessages, cancellationToken);
+            activity?.SetTag("aonik.chat.history_source", "client");
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
         }
 
@@ -147,17 +174,26 @@ public sealed class ChatThreadManager : IChatThreadManager
             reconstructed.Add(only);
             await _historyCache.StoreAsync(persistedThreadId.Value, reconstructed, cancellationToken);
 
+            var source = historyLookup.IsCacheHit ? "cache" : "db";
+            activity?.SetTag("aonik.chat.history_source", source);
+            activity?.SetTag("aonik.chat.history_message_count", reconstructed.Count);
+
             return new ChatHistoryResolution(
                 reconstructed,
-                historyLookup.IsCacheHit ? "cache" : "db",
+                source,
                 stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogWarning(ex,
                 "AG-UI thin-client history reconstruction failed for thread {ThreadId} — falling back to client-supplied messages",
                 persistedThreadId.Value);
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
+        }
+        finally
+        {
+            activity?.SetTag("aonik.chat.history_duration_ms", stopwatch.ElapsedMilliseconds);
         }
     }
 

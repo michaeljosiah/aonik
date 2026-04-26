@@ -1,5 +1,7 @@
 namespace Aonik.SharedKernel.Abstractions.Ai;
 
+using System.Diagnostics;
+
 /// <summary>
 /// Centralised OpenTelemetry constants for the AONIK AI subsystem.
 /// All AI/Agent instrumentation shares these values so that the
@@ -8,6 +10,8 @@ namespace Aonik.SharedKernel.Abstractions.Ai;
 /// </summary>
 public static class AiTelemetry
 {
+    public static readonly ActivitySource ActivitySource = new(SourceName);
+
     /// <summary>
     /// ActivitySource / Meter name used for all AONIK AI and Agent
     /// OpenTelemetry instrumentation. Subscribed to in ServiceDefaults
@@ -47,4 +51,13 @@ public static class AiTelemetry
     public const string ObservationNameAttribute = "aonik.observation.name";
 
     public const string ObservationTraceNameAttribute = "aonik.observation.trace_name";
+
+    public static void MarkError(Activity? activity, Exception exception)
+    {
+        if (activity is null) return;
+
+        activity.SetStatus(ActivityStatusCode.Error, exception.Message);
+        activity.SetTag("error.type", exception.GetType().Name);
+        activity.SetTag("error.message", exception.Message);
+    }
 }

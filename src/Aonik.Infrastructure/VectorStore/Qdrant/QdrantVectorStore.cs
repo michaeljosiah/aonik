@@ -1,7 +1,10 @@
 namespace Aonik.Infrastructure.VectorStore.Qdrant;
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using Aonik.Infrastructure.VectorStore;
 using Aonik.Infrastructure.VectorStore.Contracts;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,6 +18,7 @@ internal class QdrantVectorStore : IVectorStore
     private readonly QdrantHttpClient _httpClient;
     private readonly QdrantConfiguration _config;
     private readonly ITenantProvider _tenantProvider;
+    private readonly QdrantMetrics _metrics;
     private readonly ILogger<QdrantVectorStore> _logger;
     private readonly ConcurrentDictionary<string, bool> _knownCollections = new();
 
@@ -22,11 +26,13 @@ internal class QdrantVectorStore : IVectorStore
         QdrantHttpClient httpClient,
         IOptions<QdrantConfiguration> options,
         ITenantProvider tenantProvider,
+        QdrantMetrics metrics,
         ILogger<QdrantVectorStore> logger)
     {
         _httpClient = httpClient;
         _config = options.Value;
         _tenantProvider = tenantProvider;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -37,6 +43,12 @@ internal class QdrantVectorStore : IVectorStore
         Dictionary<string, object>? payload = null,
         CancellationToken cancellationToken = default)
     {
+        using var activity = _metrics.ActivitySource.StartActivity("qdrant.vector.upsert", ActivityKind.Client);
+        activity?.SetTag("db.system", "qdrant");
+        activity?.SetTag("db.collection.name", collectionName);
+        activity?.SetTag("aonik.vector.id", vectorId);
+        activity?.SetTag("aonik.vector.dimension_count", embedding?.Length ?? 0);
+
         if (string.IsNullOrWhiteSpace(collectionName))
             throw new ArgumentException("Collection name required", nameof(collectionName));
         if (string.IsNullOrWhiteSpace(vectorId))
@@ -70,6 +82,7 @@ internal class QdrantVectorStore : IVectorStore
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogError(
                 ex,
                 "Failed to upsert vector {VectorId} to collection {Collection}",
@@ -95,6 +108,13 @@ internal class QdrantVectorStore : IVectorStore
         Dictionary<string, object>? additionalFilter,
         CancellationToken cancellationToken = default)
     {
+        using var activity = _metrics.ActivitySource.StartActivity("qdrant.vector.search", ActivityKind.Client);
+        activity?.SetTag("db.system", "qdrant");
+        activity?.SetTag("db.collection.name", collectionName);
+        activity?.SetTag("aonik.vector.limit", limit);
+        activity?.SetTag("aonik.vector.score_threshold", scoreThreshold);
+        activity?.SetTag("aonik.vector.dimension_count", queryEmbedding?.Length ?? 0);
+
         if (string.IsNullOrWhiteSpace(collectionName))
             throw new ArgumentException("Collection name required", nameof(collectionName));
         if (queryEmbedding == null || queryEmbedding.Length == 0)
@@ -125,6 +145,8 @@ internal class QdrantVectorStore : IVectorStore
                 .Select(h => new VectorSearchResult(h.Id, h.Score, h.Payload))
                 .ToList();
 
+            activity?.SetTag("aonik.vector.result_count", results.Count);
+
             _logger.LogDebug(
                 "Search in collection {Collection} returned {Count} results",
                 collectionName,
@@ -134,6 +156,7 @@ internal class QdrantVectorStore : IVectorStore
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogError(
                 ex,
                 "Search failed in collection {Collection}",
@@ -148,6 +171,11 @@ internal class QdrantVectorStore : IVectorStore
         int limit = 100,
         CancellationToken cancellationToken = default)
     {
+        using var activity = _metrics.ActivitySource.StartActivity("qdrant.vector.scroll", ActivityKind.Client);
+        activity?.SetTag("db.system", "qdrant");
+        activity?.SetTag("db.collection.name", collectionName);
+        activity?.SetTag("aonik.vector.limit", limit);
+
         if (string.IsNullOrWhiteSpace(collectionName))
             throw new ArgumentException("Collection name required", nameof(collectionName));
         if (limit <= 0)
@@ -167,6 +195,8 @@ internal class QdrantVectorStore : IVectorStore
                 .Select(p => new VectorPointResult(p.Id, p.Payload))
                 .ToList();
 
+            activity?.SetTag("aonik.vector.result_count", results.Count);
+
             _logger.LogDebug(
                 "Scroll in collection {Collection} returned {Count} results",
                 collectionName,
@@ -176,6 +206,7 @@ internal class QdrantVectorStore : IVectorStore
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogError(
                 ex,
                 "Scroll failed in collection {Collection}",
@@ -190,6 +221,12 @@ internal class QdrantVectorStore : IVectorStore
         Dictionary<string, object> payload,
         CancellationToken cancellationToken = default)
     {
+        var pointIdList = pointIds as IReadOnlyCollection<string> ?? pointIds.ToList();
+        using var activity = _metrics.ActivitySource.StartActivity("qdrant.vector.set_payload", ActivityKind.Client);
+        activity?.SetTag("db.system", "qdrant");
+        activity?.SetTag("db.collection.name", collectionName);
+        activity?.SetTag("aonik.vector.point_count", pointIdList.Count);
+
         if (string.IsNullOrWhiteSpace(collectionName))
             throw new ArgumentException("Collection name required", nameof(collectionName));
 
@@ -197,7 +234,7 @@ internal class QdrantVectorStore : IVectorStore
         {
             await _httpClient.SetPayloadAsync(
                 collectionName,
-                pointIds,
+                pointIdList,
                 payload,
                 cancellationToken);
 
@@ -207,6 +244,7 @@ internal class QdrantVectorStore : IVectorStore
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogError(
                 ex,
                 "Failed to update payload in collection {Collection}",

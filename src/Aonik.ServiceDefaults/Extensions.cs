@@ -77,7 +77,7 @@ public static class Extensions
                 // span so that Langfuse can group traces into sessions and associate
                 // them with users. Must be registered before other instrumentation
                 // to fire on all spans.
-                tracing.AddProcessor(new BaggageSpanProcessor("langfuse."));
+                tracing.AddProcessor(new BaggageSpanProcessor("langfuse.", "aonik."));
 
                 tracing.AddSource(builder.Environment.ApplicationName)
                     .AddAspNetCoreInstrumentation(tracing =>

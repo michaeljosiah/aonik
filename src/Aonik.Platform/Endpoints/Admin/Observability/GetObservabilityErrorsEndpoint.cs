@@ -31,7 +31,7 @@ internal class GetObservabilityErrorsEndpoint
 
     public override async Task HandleAsync(ObservabilityQueryRequest req, CancellationToken ct)
     {
-        var result = await _observabilityService.GetErrorsAsync(req.TimeRange, ct);
+        var result = await _observabilityService.GetErrorsAsync(req.TimeRange, req.OperationId, ct);
         await Send.OkAsync(result, ct);
     }
 }

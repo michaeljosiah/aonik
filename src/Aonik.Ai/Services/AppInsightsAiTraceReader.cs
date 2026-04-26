@@ -49,7 +49,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         }
 
         var rows = await _cache.GetOrSetAsync(
-            $"ai-trace-observations:appinsights:{page}:{pageSize}:{request.Type}:{request.Name}:{request.TraceName}:{request.Environment}:{request.Level}:{request.IsRootObservation}:{request.TimeRange}",
+            $"ai-trace-observations:appinsights:{page}:{pageSize}:{request.Type}:{request.Name}:{request.TraceName}:{request.TraceId}:{request.AgentName}:{request.Environment}:{request.Level}:{request.IsRootObservation}:{request.TimeRange}",
             async ct => await ExecuteQueryAsync(appId, apiKey, BuildKql(request, page, pageSize), ct),
             new FusionCacheEntryOptions(TimeSpan.FromSeconds(60)),
             cancellationToken) ?? [];
@@ -100,7 +100,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
 
     private static AiTraceObservationResponse? ParseRow(JsonElement[] row)
     {
-        if (row.Length < 19)
+        if (row.Length < 20)
         {
             return null;
         }
@@ -112,6 +112,9 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             ObservationId = GetString(row, 0),
             TraceId = GetString(row, 1),
             ParentObservationId = NullIfWhiteSpace(GetString(row, 2)),
+            SpanId = NullIfWhiteSpace(GetString(row, 0)),
+            ParentSpanId = NullIfWhiteSpace(GetString(row, 2)),
+            OperationId = NullIfWhiteSpace(GetString(row, 20)) ?? GetString(row, 1),
             AiRunId = aiRunId,
             StartTime = ParseDateTime(row, 4),
             EndTime = ParseDateTimeNullable(row, 5),
@@ -121,8 +124,11 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             Input = NullIfWhiteSpace(GetString(row, 9)),
             Output = NullIfWhiteSpace(GetString(row, 10)),
             Metadata = NullIfWhiteSpace(GetString(row, 11)),
+            AgentId = row.Length > 21 ? NullIfWhiteSpace(GetString(row, 21)) : null,
+            AgentName = row.Length > 22 ? NullIfWhiteSpace(GetString(row, 22)) : null,
             Level = NullIfWhiteSpace(GetString(row, 12)) ?? "DEFAULT",
             LatencySeconds = ParseDoubleNullable(row, 13),
+            DurationMs = row.Length > 23 ? ParseDoubleNullable(row, 23) : ParseDoubleNullable(row, 13) * 1000,
             CostUsd = ParseDecimalNullable(row, 14),
             TimeToFirstTokenSeconds = ParseDoubleNullable(row, 15),
             ProvidedModel = NullIfWhiteSpace(GetString(row, 16)),
@@ -147,7 +153,17 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         var filters = new List<string>();
         if (!string.IsNullOrWhiteSpace(request.Type)) filters.Add($"type == \"{EscapeKql(request.Type.Trim().ToUpperInvariant())}\"");
         if (!string.IsNullOrWhiteSpace(request.Name)) filters.Add($"name contains \"{EscapeKql(request.Name.Trim())}\"");
-        if (!string.IsNullOrWhiteSpace(request.TraceName)) filters.Add($"traceName contains \"{EscapeKql(request.TraceName.Trim())}\"");
+        if (!string.IsNullOrWhiteSpace(request.TraceName))
+        {
+            var traceValue = EscapeKql(request.TraceName.Trim());
+            filters.Add($"traceName contains \"{traceValue}\" or traceId contains \"{traceValue}\" or operationId contains \"{traceValue}\"");
+        }
+        if (!string.IsNullOrWhiteSpace(request.TraceId)) filters.Add($"traceId == \"{EscapeKql(request.TraceId.Trim())}\" or operationId == \"{EscapeKql(request.TraceId.Trim())}\"");
+        if (!string.IsNullOrWhiteSpace(request.AgentName))
+        {
+            var agentName = EscapeKql(request.AgentName.Trim());
+            filters.Add($"agentName == \"{agentName}\" or agentId == \"{agentName}\"");
+        }
         if (!string.IsNullOrWhiteSpace(request.Level)) filters.Add($"level == \"{EscapeKql(request.Level.Trim().ToUpperInvariant())}\"");
         if (request.IsRootObservation is { } isRoot) filters.Add(isRoot ? "isempty(parentObservationId)" : "isnotempty(parentObservationId)");
 
@@ -155,12 +171,13 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         var skip = (page - 1) * pageSize;
 
         return $"""
-        traces
+        let traceLogs = traces
         | where timestamp > {ago}
         | where message startswith "AiTraceObservation" or message startswith "AiCallCompleted"
         | extend observationId = tostring(customDimensions["ObservationId"]),
                  traceId = tostring(customDimensions["TraceId"]),
                  parentObservationId = tostring(customDimensions["ParentObservationId"]),
+                 operationId = tostring(operation_Id),
                  aiRunId = tostring(customDimensions["AiRunId"]),
                  type = tostring(customDimensions["ObservationType"]),
                  name = tostring(customDimensions["Name"]),
@@ -175,22 +192,79 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  providedModel = tostring(customDimensions["ProvidedModel"]),
                  inputTokens = toint(customDimensions["InputTokens"]),
                  outputTokens = toint(customDimensions["OutputTokens"]),
-                 totalTokens = toint(customDimensions["TotalTokens"])
+                 totalTokens = toint(customDimensions["TotalTokens"]),
+                 agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
+                 agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"])),
+                 durationMs = todouble(customDimensions["duration_ms"])
         | extend type = iff(isempty(type), "GENERATION", type),
                  name = iff(isempty(name), tostring(customDimensions["Operation"]), name),
                  traceName = iff(isempty(traceName), tostring(customDimensions["UseCase"]), traceName),
+                 traceId = iff(isempty(traceId), operationId, traceId),
+                 observationId = iff(isempty(observationId), tostring(itemId), observationId),
+                 parentObservationId = iff(isempty(parentObservationId), tostring(operation_ParentId), parentObservationId),
                  latencySeconds = iff(isnan(latencySeconds), todouble(customDimensions["LatencyMs"]) / 1000.0, latencySeconds),
+                 durationMs = iff(isnan(durationMs), latencySeconds * 1000.0, durationMs),
                  costUsd = iff(isnan(costUsd), todouble(customDimensions["EstimatedCostUsd"]), costUsd),
                  ttftSeconds = iff(isnan(ttftSeconds), todouble(customDimensions["TtftMs"]) / 1000.0, ttftSeconds),
                  providedModel = iff(isempty(providedModel), tostring(customDimensions["ActualModel"]), providedModel),
                  inputTokens = iff(isnull(inputTokens), toint(customDimensions["InputTokens"]), inputTokens),
                  outputTokens = iff(isnull(outputTokens), toint(customDimensions["OutputTokens"]), outputTokens),
                  totalTokens = iff(isnull(totalTokens), toint(customDimensions["TotalTokens"]), totalTokens)
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs;
+        let dependencySpans = dependencies
+        | where timestamp > {ago}
+        | extend operationId = tostring(operation_Id),
+                 traceId = tostring(operation_Id),
+                 observationId = tostring(id),
+                 parentObservationId = tostring(operation_ParentId),
+                 aiRunId = tostring(customDimensions["AiRunId"]),
+                 type = "SPAN",
+                 traceName = coalesce(tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
+                 input = "",
+                 output = "",
+                 metadata = tostring(customDimensions),
+                 level = iff(success == false, "ERROR", "DEFAULT"),
+                 durationMs = todouble(duration),
+                 latencySeconds = todouble(duration) / 1000.0,
+                 costUsd = real(null),
+                 ttftSeconds = todouble(customDimensions["aonik.chat.time_to_first_token_ms"]) / 1000.0,
+                 providedModel = coalesce(tostring(customDimensions["gen_ai.request.model"]), tostring(customDimensions["gen_ai.response.model"])),
+                 inputTokens = toint(customDimensions["gen_ai.usage.input_tokens"]),
+                 outputTokens = toint(customDimensions["gen_ai.usage.output_tokens"]),
+                 totalTokens = toint(customDimensions["gen_ai.usage.total_tokens"]),
+                 agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
+                 agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"]))
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs;
+        let requestSpans = requests
+        | where timestamp > {ago}
+        | extend operationId = tostring(operation_Id),
+                 traceId = tostring(operation_Id),
+                 observationId = tostring(id),
+                 parentObservationId = tostring(operation_ParentId),
+                 aiRunId = tostring(customDimensions["AiRunId"]),
+                 type = "SPAN",
+                 traceName = coalesce(tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
+                 input = "",
+                 output = "",
+                 metadata = tostring(customDimensions),
+                 level = iff(success == false, "ERROR", "DEFAULT"),
+                 durationMs = todouble(duration),
+                 latencySeconds = todouble(duration) / 1000.0,
+                 costUsd = real(null),
+                 ttftSeconds = todouble(customDimensions["aonik.chat.time_to_first_token_ms"]) / 1000.0,
+                 providedModel = coalesce(tostring(customDimensions["gen_ai.request.model"]), tostring(customDimensions["gen_ai.response.model"])),
+                 inputTokens = toint(customDimensions["gen_ai.usage.input_tokens"]),
+                 outputTokens = toint(customDimensions["gen_ai.usage.output_tokens"]),
+                 totalTokens = toint(customDimensions["gen_ai.usage.total_tokens"]),
+                 agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
+                 agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"]))
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs;
+        union traceLogs, dependencySpans, requestSpans
         {whereFilters}
         | sort by timestamp desc
         | serialize rn = row_number()
         | where rn > {skip} and rn <= {skip + pageSize}
-        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime, type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs
         """;
     }
 

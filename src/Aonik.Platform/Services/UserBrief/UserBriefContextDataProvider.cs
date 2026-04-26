@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
 
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Settings;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.UserBrief;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,23 +29,29 @@ internal sealed class UserBriefContextDataProvider : IUserBriefContextDataProvid
         CancellationToken cancellationToken = default)
     {
         // Sequential queries — EF Core DbContext is not thread-safe
-        var user = await _dbContext.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+        var user = await TraceAsync(
+            "aonik.user_brief.context.user",
+            () => _dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken));
 
-        var partyLink = await _dbContext.UserParties
-            .AsNoTracking()
-            .Where(link => link.UserId == userId && link.TenantId == tenantId)
-            .OrderByDescending(link => link.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var partyLink = await TraceAsync(
+            "aonik.user_brief.context.party_link",
+            () => _dbContext.UserParties
+                .AsNoTracking()
+                .Where(link => link.UserId == userId && link.TenantId == tenantId)
+                .OrderByDescending(link => link.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken));
 
-        var setupPayload = await _dbContext.Settings
-            .AsNoTracking()
-            .Where(setting => setting.Key == PayaboSettingNames.SetupProfile
-                && setting.TenantId == tenantId
-                && setting.UserId == userId)
-            .Select(setting => setting.Value)
-            .FirstOrDefaultAsync(cancellationToken);
+        var setupPayload = await TraceAsync(
+            "aonik.user_brief.context.setup_profile",
+            () => _dbContext.Settings
+                .AsNoTracking()
+                .Where(setting => setting.Key == PayaboSettingNames.SetupProfile
+                    && setting.TenantId == tenantId
+                    && setting.UserId == userId)
+                .Select(setting => setting.Value)
+                .FirstOrDefaultAsync(cancellationToken));
 
         string? firstName = null;
         string? lastName = null;
@@ -51,13 +59,17 @@ internal sealed class UserBriefContextDataProvider : IUserBriefContextDataProvid
 
         if (partyLink is not null)
         {
-            var personProfile = await _dbContext.PersonProfiles
-                .AsNoTracking()
-                .FirstOrDefaultAsync(profile => profile.PartyId == partyLink.PartyId, cancellationToken);
+            var personProfile = await TraceAsync(
+                "aonik.user_brief.context.person_profile",
+                () => _dbContext.PersonProfiles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(profile => profile.PartyId == partyLink.PartyId, cancellationToken));
 
-            var party = await _dbContext.Parties
-                .AsNoTracking()
-                .FirstOrDefaultAsync(party => party.Id == partyLink.PartyId, cancellationToken);
+            var party = await TraceAsync(
+                "aonik.user_brief.context.party",
+                () => _dbContext.Parties
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(party => party.Id == partyLink.PartyId, cancellationToken));
 
             firstName = personProfile?.FirstName?.Trim();
             lastName = personProfile?.LastName?.Trim();
@@ -93,6 +105,20 @@ internal sealed class UserBriefContextDataProvider : IUserBriefContextDataProvid
             .OrderByDescending(link => link.CreatedAt)
             .Select(link => (Guid?)link.UserId)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static async Task<T> TraceAsync<T>(string name, Func<Task<T>> operation)
+    {
+        using var activity = AiTelemetry.ActivitySource.StartActivity(name, ActivityKind.Internal);
+        try
+        {
+            return await operation();
+        }
+        catch (Exception ex)
+        {
+            AiTelemetry.MarkError(activity, ex);
+            throw;
+        }
     }
 
     private static UserBriefSetupProfileData? ParseSetupProfile(string? payload)

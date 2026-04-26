@@ -122,6 +122,12 @@ public sealed record ListAiTraceObservationsRequest
     public string? TraceName { get; init; }
 
     [FastEndpoints.QueryParam]
+    public string? TraceId { get; init; }
+
+    [FastEndpoints.QueryParam]
+    public string? AgentName { get; init; }
+
+    [FastEndpoints.QueryParam]
     public string? Environment { get; init; }
 
     [FastEndpoints.QueryParam]
@@ -139,6 +145,9 @@ public sealed record AiTraceObservationResponse
     public required string ObservationId { get; init; }
     public required string TraceId { get; init; }
     public string? ParentObservationId { get; init; }
+    public string? SpanId { get; init; }
+    public string? ParentSpanId { get; init; }
+    public string? OperationId { get; init; }
     public Guid? AiRunId { get; init; }
     public DateTime StartTime { get; init; }
     public DateTime? EndTime { get; init; }
@@ -148,7 +157,10 @@ public sealed record AiTraceObservationResponse
     public string? Input { get; init; }
     public string? Output { get; init; }
     public string? Metadata { get; init; }
+    public string? AgentId { get; init; }
+    public string? AgentName { get; init; }
     public required string Level { get; init; }
+    public double? DurationMs { get; init; }
     public double? LatencySeconds { get; init; }
     public decimal? CostUsd { get; init; }
     public double? TimeToFirstTokenSeconds { get; init; }

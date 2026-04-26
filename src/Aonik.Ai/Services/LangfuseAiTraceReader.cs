@@ -63,10 +63,15 @@ internal sealed class LangfuseAiTraceReader : IAiTraceReader
 
         var items = (response?.Data ?? [])
             .Where(item => request.IsRootObservation is null || (item.ParentObservationId is null) == request.IsRootObservation.Value)
+            .Where(item => string.IsNullOrWhiteSpace(request.TraceId)
+                           || string.Equals(item.TraceId, request.TraceId.Trim(), StringComparison.OrdinalIgnoreCase))
             .Where(item => string.IsNullOrWhiteSpace(request.TraceName)
                            || (item.TraceName?.Contains(request.TraceName.Trim(), StringComparison.OrdinalIgnoreCase) ?? false)
                            || (item.TraceId?.Contains(request.TraceName.Trim(), StringComparison.OrdinalIgnoreCase) ?? false))
             .Select(MapObservation)
+            .Where(item => string.IsNullOrWhiteSpace(request.AgentName)
+                           || string.Equals(item.AgentName, request.AgentName.Trim(), StringComparison.OrdinalIgnoreCase)
+                           || string.Equals(item.AgentId, request.AgentName.Trim(), StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         return new ListAiTraceObservationsResponse(
@@ -96,12 +101,19 @@ internal sealed class LangfuseAiTraceReader : IAiTraceReader
         var inputTokens = observation.UsageDetails?.Input ?? observation.Usage?.Input ?? observation.PromptTokens;
         var outputTokens = observation.UsageDetails?.Output ?? observation.Usage?.Output ?? observation.CompletionTokens;
         var totalTokens = observation.UsageDetails?.Total ?? observation.Usage?.Total ?? observation.TotalTokens;
+        var agentId = ExtractMetadataString(observation.Metadata, "gen_ai.agent.id")
+            ?? ExtractMetadataString(observation.Metadata, "aonik.agent.name");
+        var agentName = ExtractMetadataString(observation.Metadata, "gen_ai.agent.name")
+            ?? ExtractMetadataString(observation.Metadata, "aonik.agent.name");
 
         return new AiTraceObservationResponse
         {
             ObservationId = observation.Id ?? string.Empty,
             TraceId = observation.TraceId ?? string.Empty,
             ParentObservationId = observation.ParentObservationId,
+            SpanId = observation.Id,
+            ParentSpanId = observation.ParentObservationId,
+            OperationId = observation.TraceId,
             AiRunId = ExtractAiRunId(observation.Metadata),
             StartTime = observation.StartTime,
             EndTime = observation.EndTime,
@@ -111,8 +123,11 @@ internal sealed class LangfuseAiTraceReader : IAiTraceReader
             Input = ToJsonOrNull(observation.Input),
             Output = ToJsonOrNull(observation.Output),
             Metadata = metadata,
+            AgentId = agentId,
+            AgentName = agentName,
             Level = observation.Level ?? "DEFAULT",
             LatencySeconds = observation.Latency,
+            DurationMs = observation.Latency * 1000,
             CostUsd = observation.CostDetails?.Total ?? observation.CalculatedTotalCost ?? observation.TotalPrice,
             TimeToFirstTokenSeconds = observation.TimeToFirstToken,
             ProvidedModel = observation.Model,
@@ -139,6 +154,31 @@ internal sealed class LangfuseAiTraceReader : IAiTraceReader
         }
 
         return null;
+    }
+
+    private static string? ExtractMetadataString(JsonElement? metadata, string propertyName)
+    {
+        if (metadata is null || metadata.Value.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (TryGetString(metadata.Value, propertyName, out var direct)) return direct;
+        if (metadata.Value.TryGetProperty("attributes", out var attrs) && attrs.ValueKind == JsonValueKind.Object)
+        {
+            if (TryGetString(attrs, propertyName, out var fromAttrs)) return fromAttrs;
+        }
+
+        return null;
+    }
+
+    private static bool TryGetString(JsonElement element, string propertyName, out string? value)
+    {
+        value = null;
+        if (!element.TryGetProperty(propertyName, out var prop)) return false;
+
+        value = prop.ValueKind == JsonValueKind.String ? prop.GetString() : prop.ToString();
+        return !string.IsNullOrWhiteSpace(value);
     }
 
     private static bool TryGetGuid(JsonElement element, string propertyName, out Guid value)

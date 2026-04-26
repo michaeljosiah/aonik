@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -46,6 +47,11 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AiTelemetry.ActivitySource.StartActivity("aonik.user_brief.memory.current_entries", ActivityKind.Internal);
+        activity?.SetTag("aonik.tenant_id", tenantId.ToString());
+        activity?.SetTag("aonik.user_id", userId.ToString());
+        activity?.SetTag("aonik.user_brief.memory_timeout_ms", MemoryLoadTimeout.TotalMilliseconds);
+
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(MemoryLoadTimeout);
 
@@ -61,6 +67,8 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "memory load timeout");
+            activity?.SetTag("error.type", nameof(TimeoutException));
             _logger.LogWarning(
                 "User Brief memory load timed out after {TimeoutMs}ms for user {UserId} in tenant {TenantId} — continuing without memory entries",
                 MemoryLoadTimeout.TotalMilliseconds,
@@ -70,6 +78,7 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogWarning(
                 ex,
                 "User Brief memory load failed for user {UserId} in tenant {TenantId} — continuing without memory entries",
@@ -77,6 +86,8 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
                 tenantId);
             return Array.Empty<UserBriefMemoryEntryData>();
         }
+
+        activity?.SetTag("aonik.user_brief.memory_entry_count", entries.Count);
 
         return entries
             .Select(e => new UserBriefMemoryEntryData(
@@ -94,6 +105,11 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
         Guid customerInsightSnapshotId,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AiTelemetry.ActivitySource.StartActivity("aonik.user_brief.ai_summary.current", ActivityKind.Internal);
+        activity?.SetTag("aonik.tenant_id", tenantId.ToString());
+        activity?.SetTag("aonik.user_id", userId.ToString());
+        activity?.SetTag("aonik.customer_insight_snapshot_id", customerInsightSnapshotId.ToString());
+
         var summary = await _dbContext.CustomerInsightAiSummaries
             .Where(x => x.TenantId == tenantId
                 && x.UserId == userId
@@ -102,6 +118,8 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
             .OrderByDescending(x => x.CreatedAt)
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
+
+        activity?.SetTag("aonik.user_brief.has_ai_summary", summary is not null);
 
         if (summary is null || string.IsNullOrWhiteSpace(summary.SummaryJson))
         {

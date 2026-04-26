@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
@@ -38,6 +39,10 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         UserBriefOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        using var activity = AiTelemetry.ActivitySource.StartActivity("aonik.user_brief.project", ActivityKind.Internal);
+        activity?.SetTag("aonik.tenant_id", tenantId.ToString());
+        activity?.SetTag("aonik.user_id", userId.ToString());
+
         options ??= new UserBriefOptions();
 
         // Concurrent data retrieval. AI data provider methods share a DbContext
@@ -47,12 +52,20 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             options.SpendPeriodStart,
             options.SpendPeriodEnd);
 
-        var financeTask = _financeData.GetFinancialDataAsync(tenantId, userId, financeRequest, cancellationToken);
-        var memoryTask = _aiData.GetCurrentMemoryEntriesAsync(tenantId, userId, cancellationToken);
-        var userContextTask = _userContextData.GetUserContextDataAsync(tenantId, userId, cancellationToken);
-        var hasConversationHistoryTask = _agentsDbContext.ConversationSummaries
-            .Where(s => s.TenantId == tenantId && s.UserId == userId)
-            .AnyAsync(cancellationToken);
+        var financeTask = TraceAsync(
+            "aonik.user_brief.load_finance",
+            () => _financeData.GetFinancialDataAsync(tenantId, userId, financeRequest, cancellationToken));
+        var memoryTask = TraceAsync(
+            "aonik.user_brief.load_memory",
+            () => _aiData.GetCurrentMemoryEntriesAsync(tenantId, userId, cancellationToken));
+        var userContextTask = TraceAsync(
+            "aonik.user_brief.load_user_context",
+            () => _userContextData.GetUserContextDataAsync(tenantId, userId, cancellationToken));
+        var hasConversationHistoryTask = TraceAsync(
+            "aonik.user_brief.load_conversation_history",
+            () => _agentsDbContext.ConversationSummaries
+                .Where(s => s.TenantId == tenantId && s.UserId == userId)
+                .AnyAsync(cancellationToken));
 
         await Task.WhenAll(financeTask, memoryTask, userContextTask, hasConversationHistoryTask);
 
@@ -60,6 +73,11 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         var memoryEntries = await memoryTask;
         var userContextData = await userContextTask;
         var hasConversationHistory = await hasConversationHistoryTask;
+
+        activity?.SetTag("aonik.user_brief.account_count", financeData.AccountCount);
+        activity?.SetTag("aonik.user_brief.transaction_count", financeData.TransactionCount);
+        activity?.SetTag("aonik.user_brief.memory_count", memoryEntries.Count);
+        activity?.SetTag("aonik.user_brief.has_conversation_history", hasConversationHistory);
 
         var snapshot = financeData.CustomerInsightSnapshot;
         var currency = financeData.PrimaryCurrency;
@@ -121,6 +139,12 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         var missingData = DeriveMissingData(financeData, hasConversationHistory);
         var (aiCanDo, aiNeedsApproval) = DerivePolicy(memoryEntries);
 
+        using var assembleActivity = AiTelemetry.ActivitySource.StartActivity("aonik.user_brief.assemble", ActivityKind.Internal);
+        assembleActivity?.SetTag("aonik.user_brief.top_category_count", topCategories.Count);
+        assembleActivity?.SetTag("aonik.user_brief.top_merchant_count", topMerchants.Count);
+        assembleActivity?.SetTag("aonik.user_brief.signal_count", signals.Count);
+        assembleActivity?.SetTag("aonik.user_brief.risk_count", risks.Count);
+
         return new UserBrief(
             AsOf: DateTimeOffset.UtcNow,
             User: user,
@@ -135,6 +159,20 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             MissingData: missingData,
             AiCanDo: aiCanDo,
             AiNeedsApproval: aiNeedsApproval);
+
+        static async Task<T> TraceAsync<T>(string name, Func<Task<T>> operation)
+        {
+            using var childActivity = AiTelemetry.ActivitySource.StartActivity(name, ActivityKind.Internal);
+            try
+            {
+                return await operation();
+            }
+            catch (Exception ex)
+            {
+                AiTelemetry.MarkError(childActivity, ex);
+                throw;
+            }
+        }
     }
 
     private static string? ResolveName(

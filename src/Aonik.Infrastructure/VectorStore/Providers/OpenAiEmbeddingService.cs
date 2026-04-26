@@ -1,7 +1,9 @@
 namespace Aonik.Infrastructure.VectorStore.Providers;
 
+using System.Diagnostics;
 using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.Infrastructure.VectorStore.Qdrant;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -45,6 +47,12 @@ internal class OpenAiEmbeddingService : IEmbeddingService
         if (string.IsNullOrWhiteSpace(text))
             throw new ArgumentException("Text required", nameof(text));
 
+        using var activity = _metrics.ActivitySource.StartActivity("embedding.api", ActivityKind.Client);
+        activity?.SetTag("gen_ai.operation.name", "embeddings");
+        activity?.SetTag("gen_ai.request.model", ModelName);
+        activity?.SetTag("aonik.embedding.text_count", 1);
+        activity?.SetTag("aonik.embedding.dimension_count", Dimensions);
+
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         try
@@ -54,6 +62,7 @@ internal class OpenAiEmbeddingService : IEmbeddingService
 
             sw.Stop();
             _metrics.RecordEmbeddingApiDuration(sw.ElapsedMilliseconds, textCount: 1);
+            activity?.SetTag("duration_ms", sw.ElapsedMilliseconds);
 
             return embedding.Vector.ToArray();
         }
@@ -61,6 +70,7 @@ internal class OpenAiEmbeddingService : IEmbeddingService
         {
             sw.Stop();
             _metrics.RecordEmbeddingApiError(ex.GetType().Name);
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogError(ex, "Failed to generate embedding for text ({Length} chars)", text.Length);
             throw;
         }
@@ -74,6 +84,12 @@ internal class OpenAiEmbeddingService : IEmbeddingService
         if (textList.Count == 0)
             throw new ArgumentException("Texts required", nameof(texts));
 
+        using var activity = _metrics.ActivitySource.StartActivity("embedding.api.batch", ActivityKind.Client);
+        activity?.SetTag("gen_ai.operation.name", "embeddings");
+        activity?.SetTag("gen_ai.request.model", ModelName);
+        activity?.SetTag("aonik.embedding.text_count", textList.Count);
+        activity?.SetTag("aonik.embedding.dimension_count", Dimensions);
+
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         try
@@ -83,6 +99,7 @@ internal class OpenAiEmbeddingService : IEmbeddingService
 
             sw.Stop();
             _metrics.RecordEmbeddingApiDuration(sw.ElapsedMilliseconds, textCount: textList.Count);
+            activity?.SetTag("duration_ms", sw.ElapsedMilliseconds);
 
             _logger.LogDebug("Generated {Count} embeddings in batch ({Elapsed}ms)",
                 textList.Count, sw.ElapsedMilliseconds);
@@ -93,6 +110,7 @@ internal class OpenAiEmbeddingService : IEmbeddingService
         {
             sw.Stop();
             _metrics.RecordEmbeddingApiError(ex.GetType().Name);
+            AiTelemetry.MarkError(activity, ex);
             _logger.LogError(ex, "Failed to generate batch embeddings for {Count} texts", textList.Count);
             throw;
         }
