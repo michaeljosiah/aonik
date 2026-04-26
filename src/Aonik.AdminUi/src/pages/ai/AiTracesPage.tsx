@@ -6,6 +6,7 @@ import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PanelInfoPopover } from '@/components/ui/panel-info-popover';
 import {
   Dialog,
   DialogClose,
@@ -389,6 +390,87 @@ function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
   return ordered;
 }
 
+function buildTraceInsightMetrics(
+  selectedObservation: AiTraceObservationResponse,
+  items: WaterfallItem[],
+) {
+  const relevantItems = items.length > 0
+    ? items
+    : [{
+      ...selectedObservation,
+      id: selectedObservation.spanId ?? selectedObservation.observationId,
+      parentId: selectedObservation.parentSpanId ?? selectedObservation.parentObservationId,
+      children: [],
+      depth: 0,
+      offsetPct: 0,
+      widthPct: 100,
+      durationLabel: selectedObservation.durationMs != null
+        ? `${Math.round(selectedObservation.durationMs)}ms`
+        : formatSeconds(selectedObservation.latencySeconds),
+      sqlText: extractSqlText(selectedObservation),
+    } satisfies WaterfallItem];
+
+  const sortedByDuration = [...relevantItems]
+    .sort((a, b) => getDurationMs(b) - getDurationMs(a))
+    .slice(0, 6)
+    .map((item) => ({
+      name: item.name,
+      type: item.type,
+      level: item.level,
+      durationMs: Math.round(getDurationMs(item)),
+      hasChildren: item.children.length > 0,
+      childCount: item.children.length,
+      agentName: item.agentName ?? item.agentId ?? null,
+      sql: Boolean(item.sqlText),
+    }));
+
+  const startedAt = relevantItems.reduce(
+    (min, item) => Math.min(min, new Date(item.startTime).getTime()),
+    Number.POSITIVE_INFINITY,
+  );
+  const endedAt = relevantItems.reduce((max, item) => {
+    const end = item.endTime
+      ? new Date(item.endTime).getTime()
+      : new Date(item.startTime).getTime() + getDurationMs(item);
+    return Math.max(max, end);
+  }, 0);
+
+  return {
+    traceId: selectedObservation.traceId,
+    traceName: selectedObservation.traceName,
+    observationId: selectedObservation.observationId,
+    operationId: selectedObservation.operationId ?? relevantItems.find((item) => item.operationId)?.operationId ?? null,
+    source: selectedObservation.source,
+    rootObservation: {
+      name: selectedObservation.name,
+      type: selectedObservation.type,
+      level: selectedObservation.level,
+      agentName: selectedObservation.agentName ?? selectedObservation.agentId ?? null,
+      model: selectedObservation.providedModel,
+      durationMs: selectedObservation.durationMs ?? (selectedObservation.latencySeconds != null ? Math.round(selectedObservation.latencySeconds * 1000) : null),
+      ttftMs: selectedObservation.timeToFirstTokenSeconds != null ? Math.round(selectedObservation.timeToFirstTokenSeconds * 1000) : null,
+      inputTokens: selectedObservation.inputTokens,
+      outputTokens: selectedObservation.outputTokens,
+      totalTokens: selectedObservation.totalTokens,
+      costUsd: selectedObservation.costUsd,
+    },
+    summary: {
+      spanCount: relevantItems.length,
+      parentSpanCount: relevantItems.filter((item) => item.children.length > 0).length,
+      leafSpanCount: relevantItems.filter((item) => item.children.length === 0).length,
+      errorSpanCount: relevantItems.filter((item) => item.level.toLowerCase() === 'error').length,
+      warningSpanCount: relevantItems.filter((item) => item.level.toLowerCase() === 'warning').length,
+      sqlSpanCount: relevantItems.filter((item) => Boolean(item.sqlText)).length,
+      totalTraceDurationMs: Number.isFinite(startedAt) && endedAt >= startedAt ? Math.round(endedAt - startedAt) : null,
+      startedAt: Number.isFinite(startedAt) ? new Date(startedAt).toISOString() : selectedObservation.startTime,
+      endedAt: endedAt > 0 ? new Date(endedAt).toISOString() : selectedObservation.endTime,
+      agents: Array.from(new Set(relevantItems.map((item) => item.agentName ?? item.agentId).filter(Boolean))).slice(0, 10),
+      models: Array.from(new Set(relevantItems.map((item) => item.providedModel).filter(Boolean))).slice(0, 10),
+    },
+    slowestSpans: sortedByDuration,
+  };
+}
+
 function TraceWaterfall({
   items,
   loading,
@@ -506,6 +588,9 @@ function TraceWaterfall({
                           <div className="truncate text-xs font-medium text-[var(--color-text-primary)]" title={item.name}>{item.name || '--'}</div>
                           <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
                             <span>{item.type}</span>
+                            <span className={`rounded px-1.5 py-0.5 font-medium ${hasChildren ? 'bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]' : 'border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-tertiary)]'}`}>
+                              {hasChildren ? `${item.children.length} child${item.children.length === 1 ? '' : 'ren'}` : 'Leaf'}
+                            </span>
                             <span className="truncate font-mono">{item.agentName ?? item.agentId ?? item.source}</span>
                             {item.sqlText ? <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 font-medium">SQL</span> : null}
                           </div>
@@ -650,7 +735,7 @@ export function AiTracesPage() {
   }, []);
 
   const openExceptions = useCallback((operationId: string) => {
-    navigate(`/observability?tab=errors&operationId=${encodeURIComponent(operationId)}&timeRange=${encodeURIComponent(timeRange)}`);
+    navigate(`/admin/observability?tab=errors&operationId=${encodeURIComponent(operationId)}&timeRange=${encodeURIComponent(timeRange)}`);
   }, [navigate, timeRange]);
 
   useEffect(() => {
@@ -684,6 +769,14 @@ export function AiTracesPage() {
   }, [selectedObservation?.traceId, timeRange]);
 
   const waterfallItems = useMemo(() => buildWaterfall(traceItems), [traceItems]);
+  const errorOperationId = useMemo(
+    () => selectedObservation?.operationId ?? waterfallItems.find((item) => item.operationId)?.operationId ?? null,
+    [selectedObservation, waterfallItems],
+  );
+  const traceInsightMetrics = useMemo(
+    () => (selectedObservation ? buildTraceInsightMetrics(selectedObservation, waterfallItems) : null),
+    [selectedObservation, waterfallItems],
+  );
 
   const columns = useMemo<ColumnDef<AiTraceObservationResponse>[]>(() => [
     {
@@ -933,6 +1026,24 @@ export function AiTracesPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="flex shrink-0 items-center gap-2">
+                    {traceInsightMetrics ? (
+                      <PanelInfoPopover
+                        title="Trace Insights"
+                        description={
+                          <>
+                            <p>
+                              Summarizes the selected trace using the spans, errors, timings, model usage, and token counts already shown in this drawer.
+                            </p>
+                            <p>
+                              Use it to explain slow traces, identify the dominant child operations, and call out suspicious error or SQL activity.
+                            </p>
+                          </>
+                        }
+                        panelKind="trace"
+                        getMetrics={() => traceInsightMetrics}
+                        triggerLabel="Trace insights"
+                      />
+                    ) : null}
                     {selectedObservation.aiRunId ? (
                       <Button
                         type="button"
@@ -945,12 +1056,12 @@ export function AiTracesPage() {
                       </Button>
                     ) : null}
                     {(selectedObservation.level.toLowerCase() === 'error' || waterfallItems.some((item) => item.level.toLowerCase() === 'error'))
-                      && (selectedObservation.operationId ?? selectedObservation.traceId) ? (
+                      && errorOperationId ? (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => openExceptions(selectedObservation.operationId ?? selectedObservation.traceId)}
+                        onClick={() => openExceptions(errorOperationId)}
                       >
                         <ExternalLink className="mr-2 h-3.5 w-3.5" />
                         View errors

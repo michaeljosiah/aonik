@@ -785,7 +785,7 @@ export function AgentDetailPage() {
           error={tracesError}
           onRefresh={loadAgentTraces}
           onOpenTrace={(traceId) => navigate(`/ai/traces?traceId=${encodeURIComponent(traceId)}`)}
-          onOpenErrors={(operationId) => navigate(`/observability?tab=errors&operationId=${encodeURIComponent(operationId)}&timeRange=7d`)}
+          onOpenErrors={(operationId) => navigate(`/admin/observability?tab=errors&operationId=${encodeURIComponent(operationId)}&timeRange=7d`)}
         />
       </div>
     </div>

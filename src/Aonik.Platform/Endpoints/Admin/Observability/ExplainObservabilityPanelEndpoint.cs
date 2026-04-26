@@ -50,6 +50,8 @@ internal sealed class ExplainObservabilityPanelEndpoint
                 "Performance Monitor — latency percentiles P50, P95, P99, time-to-first-token, client vs server timing breakdown, and token usage.",
             "cost" =>
                 "Cost and Tokens — input and output token consumption broken down per agent.",
+            "trace" =>
+                "AI Trace Insights — one trace's span hierarchy, duration hotspots, errors, model usage, token counts, and notable child operations.",
             "errors" =>
                 "Errors and Failures — error rate, error time series, and top error groups.",
             "overview" =>

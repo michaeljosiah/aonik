@@ -1036,7 +1036,14 @@ public class AppInsightsQueryService : IObservabilityService
     private static string GetString(JsonElement[] row, int index)
     {
         if (index >= row.Length) return string.Empty;
-        return row[index].GetString() ?? string.Empty;
+
+        var cell = row[index];
+        return cell.ValueKind switch
+        {
+            JsonValueKind.String => cell.GetString() ?? string.Empty,
+            JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+            _ => cell.ToString(),
+        };
     }
 
     private static string? NullIfEmpty(string s) =>

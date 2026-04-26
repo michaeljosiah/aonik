@@ -296,6 +296,7 @@ export type ObservabilityPanelKind =
   | 'fleet'
   | 'performance'
   | 'cost'
+  | 'trace'
   | 'errors'
   | 'overview'
   | 'ai'

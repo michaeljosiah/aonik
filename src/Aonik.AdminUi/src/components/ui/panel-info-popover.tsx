@@ -32,6 +32,7 @@ export interface PanelInfoPopoverProps {
   panelKind?: ObservabilityPanelKind;
   /** Snapshot of panel data sent to the LLM. Called at click time so values are fresh. */
   getMetrics?: () => unknown;
+  triggerLabel?: string;
 }
 
 type PlaybackState = 'idle' | 'loading' | 'playing' | 'error';
@@ -42,6 +43,7 @@ export function PanelInfoPopover({
   callouts,
   panelKind,
   getMetrics,
+  triggerLabel,
 }: PanelInfoPopoverProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
@@ -132,13 +134,24 @@ export function PanelInfoPopover({
       }}
     >
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={`About ${title}`}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
-        >
-          <Info className="w-3.5 h-3.5" />
-        </button>
+        {triggerLabel ? (
+          <button
+            type="button"
+            aria-label={triggerLabel}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-light)] px-3 text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {triggerLabel}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={`About ${title}`}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <Info className="w-3.5 h-3.5" />
+          </button>
+        )}
       </PopoverTrigger>
       <PopoverContent
         align="start"

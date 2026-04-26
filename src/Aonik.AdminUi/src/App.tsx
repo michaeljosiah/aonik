@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, createElement, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Sidebar, Header, AiChatPanel } from '@/components/layout';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
@@ -227,6 +227,7 @@ function AppLayout() {
               <Route path="/" element={<MySpacePage />} />
               {/* Workspace — always present */}
               <Route path="/workspace" element={<WorkspacePage />} />
+              <Route path="/observability" element={<LegacyObservabilityRedirect />} />
               {/* AI Chat — wired to AG-UI streaming endpoint */}
               <Route path="/ai/chat" element={<AiChatRoute agentId={activeChatAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
               <Route path="/ai/chat/:agentId" element={<AiChatRoute agentId={activeChatAgentId} agents={agents} onSelectAgent={handleSelectChatAgent} />} />
@@ -276,6 +277,11 @@ function PlaceholderPage({ title }: { title: string }) {
       </div>
     </div>
   );
+}
+
+function LegacyObservabilityRedirect() {
+  const location = useLocation();
+  return <Navigate replace to={`/admin/observability${location.search}`} />;
 }
 
 function AiChatRoute({
