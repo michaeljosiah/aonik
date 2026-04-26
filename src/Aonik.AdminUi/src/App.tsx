@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, createElement, useCallback } from 'react';
 import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Sidebar, Header, AiChatPanel, LoadingScreen } from '@/components/layout';
+import { AiChatPanel, LoadingScreen } from '@/components/layout';
+import { AonikSidebar, AonikTopBar } from '@/components/layout/aonik';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
@@ -193,15 +194,15 @@ function AppLayout() {
 
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
-      <Sidebar
+      <AonikSidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header
+        <AonikTopBar
           breadcrumb={getBreadcrumb(window.location.pathname)}
           isWorkspace={isWorkspace}
-          onAiChatToggle={handleAiChatToggle}
+          onAskAonik={handleAiChatToggle}
           leftSlot={
             isAiChat ? (
               <AiAgentSelector
