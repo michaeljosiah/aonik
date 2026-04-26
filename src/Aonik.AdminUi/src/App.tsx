@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, createElement, useCallback } from 'react';
 import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Sidebar, Header, AiChatPanel } from '@/components/layout';
+import { Sidebar, Header, AiChatPanel, LoadingScreen } from '@/components/layout';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
@@ -407,12 +407,9 @@ function AuthenticatedApp() {
 
   if (needsSetup === null || tenantNeedsSetup === null) {
     return (
-      <div className="flex items-center justify-center flex-1 h-full bg-[var(--color-background)]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading...</p>
-        </div>
-      </div>
+      <LoadingScreen
+        phase={needsSetup === null ? 'loading-workspace' : 'hydrating-ledger'}
+      />
     );
   }
 
