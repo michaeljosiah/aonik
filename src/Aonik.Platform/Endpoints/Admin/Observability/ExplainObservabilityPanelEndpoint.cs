@@ -106,11 +106,10 @@ internal sealed class ExplainObservabilityPanelEndpoint
         var options = new ChatOptions
         {
             ModelId = profile.ModelId ?? DefaultModelId,
-            AdditionalProperties =
-            {
-                [AiTelemetry.UseCaseAttribute] = UseCase,
-            },
         };
+
+        options.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        options.AdditionalProperties[AiTelemetry.UseCaseAttribute] = UseCase;
 
         var response = await _chatClient.GetResponseAsync(
             messages,
