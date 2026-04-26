@@ -2,54 +2,20 @@ import { type ReactNode, useState, useEffect } from 'react';
 import { PublicClientApplication } from '@azure/msal-browser';
 import { MsalProvider } from '@azure/msal-react';
 import { Auth0Provider } from '@auth0/auth0-react';
-import { 
-  getAuthProvider, 
-  msalConfig, 
-  auth0Config, 
+import {
+  getAuthProvider,
+  msalConfig,
+  auth0Config,
   validateAuthConfig,
   getProviderDisplayName,
-  getRawAuthProvider 
+  getRawAuthProvider
 } from './authConfig';
 import { MsalAuthContextProvider, Auth0AuthContextProvider, MockAuthContextProvider } from './useAuth';
 import { AuthError, AuthErrors, type AuthErrorInfo } from '@/components/AuthError';
+import { LoadingScreen } from '@/components/layout';
 
 interface AuthProviderProps {
   children: ReactNode;
-}
-
-// Loading component
-function AuthLoading() {
-  return (
-    <div 
-      style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '100vh', 
-        backgroundColor: 'var(--color-gray-100, #F8F9FA)' 
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-        <div 
-          style={{ 
-            width: '40px', 
-            height: '40px', 
-            border: '4px solid var(--color-brand-primary, #055a60)', 
-            borderTopColor: 'transparent', 
-            borderRadius: '50%', 
-            animation: 'spin 1s linear infinite' 
-          }} 
-        />
-        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary, #6B7280)' }}>Initializing authentication...</p>
-      </div>
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
-  );
 }
 
 // Azure AD Provider wrapper with error handling
@@ -81,7 +47,7 @@ function AzureAdAuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   if (isInitializing) {
-    return <AuthLoading />;
+    return <LoadingScreen phase="authenticating" />;
   }
 
   if (error) {
