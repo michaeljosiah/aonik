@@ -9,6 +9,7 @@
 //   - Ask Aonik button + ⌘/ shortcut → opens the AI chat panel
 
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ChevronRight, HelpCircle, Maximize2, Minimize2, Bell, Settings,
   Sparkles, Plus, X, Home,
@@ -323,14 +324,14 @@ export function AonikTopBar({
             </button>
           )}
           <span className="mx-1.5 h-5 w-px bg-[var(--color-border-light)]" aria-hidden />
-          <button
-            type="button"
+          <Link
+            to="/setup-guides"
             className="hover-halo"
-            title="Help"
-            aria-label="Help"
+            title="Guides"
+            aria-label="Open setup guides"
           >
             <HelpCircle className="h-4 w-4" />
-          </button>
+          </Link>
           <button
             type="button"
             onClick={toggleFullscreen}
@@ -354,14 +355,14 @@ export function AonikTopBar({
               </span>
             )}
           </button>
-          <button
-            type="button"
+          <Link
+            to="/settings"
             className="hover-halo"
             title="Settings"
-            aria-label="Settings"
+            aria-label="Open settings"
           >
             <Settings className="h-4 w-4" />
-          </button>
+          </Link>
         </div>
       </header>
 

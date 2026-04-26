@@ -15,7 +15,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   // navigation icons (full set used across module nav configs)
   Search, LayoutDashboard, Grid3x3, Sparkles, Folders, Users, Store, Settings,
-  ChevronRight, ChevronDown, PanelLeftClose, PanelLeft, X,
+  ChevronRight, ChevronDown, PanelLeftClose, PanelLeft, X, Check,
   Award, UserCog, Info, FileText, Sun, Moon, Monitor, LogOut,
   CreditCard, BookOpen, Building, Receipt, Building2, AlertTriangle,
   ArrowRightLeft, RotateCcw, ShieldAlert, Banknote, ClipboardCheck,
@@ -35,7 +35,9 @@ import { useModules } from '@/modules';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 import { isPortalAdmin as resolvePortalAdmin } from '@/lib/roleUtils';
 import { identityService } from '@/services/identityService';
-import { getSelectedTenant } from '@/lib/tenantContext';
+import { tenantService } from '@/services/tenantService';
+import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
+import type { TenantListItemForLogin } from '@/types';
 import { getWorkspacePanelForRoute, getWorkspaceTemplates } from '@/workspace/registry';
 import { loadWorkspaceState } from '@/workspace/storage';
 import type { WorkspaceTemplate } from '@/workspace/types';
@@ -477,36 +479,192 @@ function WorkspaceNavItemRow({ item, collapsed }: { item: NavItem; collapsed: bo
   );
 }
 
-// ─── Workspace switcher (tenant pill) ────────────────────────────────────
+// ─── Workspace switcher (tenant picker) ──────────────────────────────────
+// Click the resting card to open a popover listing the tenants the
+// public login endpoint exposes; selecting one persists the choice and
+// reloads to "/" so module data, breadcrumbs, and routes refresh.
+
+function tenantInitials(name: string | undefined): string {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 function WorkspaceSwitcher() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const tenant = getSelectedTenant();
+  const [isOpen, setIsOpen] = useState(false);
+  const [tenants, setTenants] = useState<TenantListItemForLogin[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Lazy-fetch tenants the first time the popover opens.
+  useEffect(() => {
+    if (!isOpen || tenants !== null || loading) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    tenantService
+      .listForLogin()
+      .then((res) => {
+        if (cancelled) return;
+        setTenants(res.tenants);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(
+          (err && typeof err === 'object' && 'userMessage' in err
+            ? String((err as { userMessage?: string }).userMessage ?? '')
+            : '') || 'Could not load workspaces.',
+        );
+        setTenants([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, tenants, loading]);
+
+  // Outside click + Esc close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    const raf = requestAnimationFrame(() => {
+      document.addEventListener('mousedown', handleClick);
+      document.addEventListener('keydown', handleKey);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [isOpen]);
+
   if (!tenant?.tenantId) return null;
-  const initials = tenant.name
-    ? tenant.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : '?';
+
+  const handleSwitch = (next: TenantListItemForLogin) => {
+    if (next.tenantId === tenant.tenantId) {
+      setIsOpen(false);
+      return;
+    }
+    setSelectedTenant({
+      tenantId: next.tenantId,
+      name: next.name,
+      subdomain: next.subdomain,
+      environment: next.environment,
+    });
+    // Hard reload onto the home route — modules, routes, breadcrumbs,
+    // and tenant-scoped API caches all rebind cleanly that way.
+    window.location.assign('/');
+  };
+
   return (
-    <div className="mb-3 flex items-center gap-2.5 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-2.5 py-[7px]">
-      <span
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
-        style={{ background: 'var(--color-brand-primary)', fontFamily: 'var(--font-brand)' }}
+    <div ref={containerRef} className="relative mb-3">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-2.5 py-[7px] text-left transition-colors hover:bg-black/[0.02]"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
-        {initials}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[12px] font-semibold text-[var(--color-text-primary)]">
-          {tenant.name}
+        <span
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+          style={{ background: 'var(--color-brand-primary)', fontFamily: 'var(--font-brand)' }}
+        >
+          {tenantInitials(tenant.name)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[12px] font-semibold text-[var(--color-text-primary)]">
+            {tenant.name ?? 'Workspace'}
+          </span>
+          <span className="block truncate text-[10px] text-[var(--color-text-secondary)]">
+            {tenant.environment ?? 'Workspace'}
+            {tenant.subdomain ? ` · ${tenant.subdomain}` : ''}
+          </span>
+        </span>
+        <ChevronDown className="h-3 w-3 shrink-0 text-[var(--color-text-tertiary)]" />
+      </button>
+
+      {isOpen && (
+        <div
+          className="flyout-menu absolute left-0 right-0 top-full z-[1000] mt-1.5 overflow-hidden rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-1.5"
+          style={{
+            boxShadow: '0 18px 40px -10px rgb(0 0 0 / 0.22), 0 0 0 1px rgb(0 0 0 / 0.02)',
+          }}
+          role="listbox"
+        >
+          <div className="px-2.5 pb-1 pt-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              Switch workspace
+            </span>
+          </div>
+
+          {loading && (
+            <div className="px-2.5 py-2 text-[12px] text-[var(--color-text-secondary)]">
+              Loading workspaces…
+            </div>
+          )}
+
+          {error && (
+            <div className="px-2.5 py-2 text-[12px] text-[var(--color-error)]">{error}</div>
+          )}
+
+          {tenants?.map((t) => {
+            const isCurrent = t.tenantId === tenant.tenantId;
+            return (
+              <button
+                key={t.tenantId}
+                type="button"
+                role="option"
+                aria-selected={isCurrent}
+                onClick={() => handleSwitch(t)}
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors',
+                  isCurrent
+                    ? 'bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]'
+                    : 'text-[var(--color-text-primary)] hover:bg-black/[0.04]',
+                )}
+              >
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+                  style={{ background: 'var(--color-brand-primary)', fontFamily: 'var(--font-brand)' }}
+                >
+                  {tenantInitials(t.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12.5px] font-semibold">{t.name}</span>
+                  <span className="block truncate text-[10px] text-[var(--color-text-tertiary)]">
+                    {t.environment}
+                    {t.subdomain ? ` · ${t.subdomain}` : ''}
+                  </span>
+                </span>
+                {isCurrent && (
+                  <Check className="h-3.5 w-3.5 shrink-0 text-[var(--color-brand-primary)]" />
+                )}
+              </button>
+            );
+          })}
+
+          {tenants && tenants.length === 0 && !loading && !error && (
+            <div className="px-2.5 py-2 text-[12px] text-[var(--color-text-secondary)]">
+              No other workspaces available.
+            </div>
+          )}
         </div>
-        <div className="truncate text-[10px] text-[var(--color-text-secondary)]">
-          {tenant.environment ?? 'Workspace'}
-          {tenant.subdomain ? ` · ${tenant.subdomain}` : ''}
-        </div>
-      </div>
-      <ChevronDown className="h-3 w-3 shrink-0 text-[var(--color-text-tertiary)]" />
+      )}
     </div>
   );
 }
