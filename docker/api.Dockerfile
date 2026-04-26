@@ -33,9 +33,15 @@ FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS runtime
 WORKDIR /app
 
 ARG APP_UID=1654
-USER ${APP_UID}
 
 COPY --from=publish /app/publish .
+
+# Local blob storage defaults to /app/App_Data via the relative App_Data
+# base path. Create a writable directory before dropping privileges so
+# startup storage probes and local uploads do not fail under the app user.
+RUN mkdir -p /app/App_Data && chown -R ${APP_UID}:0 /app/App_Data
+
+USER ${APP_UID}
 
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080

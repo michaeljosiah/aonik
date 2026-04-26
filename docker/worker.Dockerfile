@@ -33,8 +33,14 @@ FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS runtime
 WORKDIR /app
 
 ARG APP_UID=1654
-USER ${APP_UID}
 
 COPY --from=publish /app/publish .
+
+# Worker also resolves local blob storage under /app/App_Data when the
+# provider is left at its local default. Ensure that path is writable for
+# the non-root runtime user before hosted services start.
+RUN mkdir -p /app/App_Data && chown -R ${APP_UID}:0 /app/App_Data
+
+USER ${APP_UID}
 
 ENTRYPOINT ["dotnet", "Aonik.Worker.dll"]
