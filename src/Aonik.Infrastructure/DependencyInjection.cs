@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Polly;
 using Polly.CircuitBreaker;
@@ -196,11 +197,23 @@ public static class DependencyInjection
 
 
         // Application Insights observability queries
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is the supported way to replace the inherited default handler for this named client.
         services.AddHttpClient("AppInsights", client =>
         {
             client.BaseAddress = new Uri("https://api.applicationinsights.io/v1/apps/");
             client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .RemoveAllResilienceHandlers()
+        .AddStandardResilienceHandler(options =>
+        {
+            // App Insights KQL queries can legitimately take longer than the
+            // 10s default per-attempt timeout used by the shared standard
+            // resilience pipeline. Keep retries/circuit breaking, but widen
+            // the time budget to match the client timeout configured above.
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
         });
+#pragma warning restore EXTEXP0001
         services.AddScoped<IObservabilityService, Observability.AppInsightsQueryService>();
 
         // Background jobs core services. Quartz runtime registration is owned by execution hosts.
