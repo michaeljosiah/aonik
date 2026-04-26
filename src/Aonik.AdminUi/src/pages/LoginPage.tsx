@@ -1,47 +1,50 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, AlertCircle, Building2 } from 'lucide-react';
-import { useAuth, getAuthProvider } from '@/auth';
+// 1:1 port of Templates/aonik-admin-starterkit/screens/login.jsx, adapted to
+// our redirect-based Auth0 flow:
+//   - email-only field (no password) — forwarded to the IdP as login_hint
+//   - tenant org rendered as an inline pill above the subtitle: clickable
+//     selector on apex domains, static text on tenant subdomains
+//   - SSO buttons render in template style but currently call the generic
+//     login() (Auth0 picker). Per-connection wiring is a follow-up.
+//
+// Tokens: uses --color-* names from src/index.css @theme; the template's
+// unprefixed names are not defined in this app.
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertCircle, ArrowRight, Building2, Check, ChevronDown, Info, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@/auth';
 import { tenantService } from '@/services/tenantService';
 import type { TenantListItemForLogin } from '@/types';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
 import { isTenantScopedHostname } from '@/lib/tenantRouting';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { LoadingScreen } from '@/components/layout';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+const APP_VERSION = __APP_VERSION__;
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, isLoading, login, authError } = useAuth();
+
+  const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  
-  // Tenant selection state
+
   const [tenants, setTenants] = useState<TenantListItemForLogin[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [isLoadingTenants, setIsLoadingTenants] = useState(false);
   const [showTenantSelector, setShowTenantSelector] = useState(false);
+  const [tenantPickerOpen, setTenantPickerOpen] = useState(false);
 
-  // Check if URL is tenant-scoped (has subdomain)
   useEffect(() => {
-    const hostname = window.location.hostname;
-    const isTenantScoped = isTenantScopedHostname(hostname);
-    
-    setShowTenantSelector(!isTenantScoped);
+    setShowTenantSelector(!isTenantScopedHostname(window.location.hostname));
   }, []);
 
-  // Load tenants for dropdown
   useEffect(() => {
     if (!showTenantSelector) return;
-    
+
     const loadTenants = async () => {
       setIsLoadingTenants(true);
       try {
@@ -49,325 +52,859 @@ export function LoginPage() {
         setTenants(response.tenants);
 
         const previous = getSelectedTenant();
-        if (previous?.tenantId) {
-          const exists = response.tenants.some(t => t.tenantId === previous.tenantId);
-          if (exists) {
-            setSelectedTenantId(previous.tenantId);
-            return;
-          }
+        if (previous?.tenantId && response.tenants.some(t => t.tenantId === previous.tenantId)) {
+          setSelectedTenantId(previous.tenantId);
+          return;
         }
-
-        // Auto-select first tenant if available
         if (response.tenants.length > 0) {
           setSelectedTenantId(response.tenants[0].tenantId);
         }
       } catch (err) {
+        // Don't block sign-in if the public list endpoint fails — user can
+        // still proceed via Auth0 and we'll resolve their tenant post-redirect.
         console.error('Failed to load tenants:', err);
-        // Don't block login if tenant list fails
       } finally {
         setIsLoadingTenants(false);
       }
     };
-    
+
     loadTenants();
   }, [showTenantSelector]);
 
   useEffect(() => {
     if (authError) {
-      const message = authError.message || 'Authentication failed. Please check Auth0 logs.';
-      setError(message);
+      setError(authError.message || 'Authentication failed. Please try again.');
       setIsLoggingIn(false);
-      console.error('Auth error:', authError);
     }
   }, [authError]);
 
-  const provider = getAuthProvider();
-  const query = new URLSearchParams(location.search);
-  const returnTo = query.get('returnTo');
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const reason = query.get('reason');
-
+  const returnTo = query.get('returnTo');
   const from =
     (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('/login') ? returnTo : null) ??
-    (location.state as { from?: { pathname: string } })?.from?.pathname ??
+    (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
     '/';
 
   useEffect(() => {
     if (!reason) return;
-
-    if (reason === 'session-expired') {
-      setNotice('Your session expired. Please sign in again.');
-      return;
-    }
-
-    if (reason === 'tenant-missing') {
-      setNotice('Select an organization to continue.');
-      return;
-    }
+    if (reason === 'session-expired') setNotice('Your session expired. Please sign in again.');
+    if (reason === 'tenant-missing') setNotice('Select an organization to continue.');
   }, [reason]);
 
-  // Redirect if already authenticated
   useEffect(() => {
-    // If we were explicitly redirected here due to an expired session or missing tenant context,
-    // do not auto-bounce back to the protected route; that causes an auth redirect loop.
+    // Don't auto-bounce if we landed here because of an expired session or
+    // missing tenant context — that causes a redirect loop.
     if (reason === 'session-expired' || reason === 'tenant-missing') return;
-
     if (isAuthenticated && !isLoading) {
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate, from, reason]);
 
-  const handleLogin = async () => {
-    // Validate tenant selection if showing selector
-    if (showTenantSelector && !selectedTenantId && tenants.length > 0) {
-      setError('Please select a tenant to continue.');
-      return;
-    }
-    
-    setError(null);
-    setIsLoggingIn(true);
-    
-    try {
-      // Store selected tenant for post-login context
-      if (selectedTenantId) {
-        const selected = tenants.find(t => t.tenantId === selectedTenantId);
-        setSelectedTenant({
-          tenantId: selectedTenantId,
-          name: selected?.name,
-          subdomain: selected?.subdomain,
-          environment: selected?.environment,
-        });
-      }
+  const selectedTenant = tenants.find(t => t.tenantId === selectedTenantId);
 
-      // If the user is already authenticated and we're only here to re-select tenant context,
-      // avoid forcing an IdP roundtrip.
-      if (isAuthenticated && reason === 'tenant-missing') {
-        navigate(from, { replace: true });
+  const persistTenantSelection = useCallback(() => {
+    if (!selectedTenantId) return;
+    setSelectedTenant({
+      tenantId: selectedTenantId,
+      name: selectedTenant?.name,
+      subdomain: selectedTenant?.subdomain,
+      environment: selectedTenant?.environment,
+    });
+  }, [selectedTenantId, selectedTenant?.name, selectedTenant?.subdomain, selectedTenant?.environment]);
+
+  const initiateLogin = useCallback(
+    async (loginHint?: string) => {
+      if (showTenantSelector && !selectedTenantId && tenants.length > 0) {
+        setError('Please select an organization to continue.');
         return;
       }
-      await login();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
-      setIsLoggingIn(false);
-    }
+
+      setError(null);
+      setIsLoggingIn(true);
+
+      try {
+        persistTenantSelection();
+
+        if (isAuthenticated && reason === 'tenant-missing') {
+          // Already authenticated; just bounce back into the app with the
+          // freshly-selected tenant context.
+          navigate(from, { replace: true });
+          return;
+        }
+
+        await login(loginHint ? { loginHint } : undefined);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
+        setIsLoggingIn(false);
+      }
+    },
+    [
+      showTenantSelector,
+      selectedTenantId,
+      tenants.length,
+      persistTenantSelection,
+      isAuthenticated,
+      reason,
+      navigate,
+      from,
+      login,
+    ],
+  );
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    void initiateLogin(email.trim() || undefined);
   };
 
-  // Show loading while checking auth state
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading...</p>
+    return <LoadingScreen phase="authenticating" />;
+  }
+
+  return (
+    <div
+      className="aonik-login-grid"
+      style={{
+        width: '100%',
+        minHeight: '100vh',
+        display: 'grid',
+        gridTemplateColumns: '1.05fr 1fr',
+        background: 'var(--color-background)',
+        fontFamily: 'var(--font-sans)',
+      }}
+    >
+      <BrandPane />
+
+      <section
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '48px 56px',
+          position: 'relative',
+        }}
+      >
+        <div
+          className="aonik-login-helper"
+          style={{
+            position: 'absolute',
+            top: 28,
+            right: 32,
+            fontSize: 12.5,
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          Don't have an account?{' '}
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            style={{ color: 'var(--color-brand-primary)', fontWeight: 600, textDecoration: 'none' }}
+          >
+            Request access
+          </a>
         </div>
+
+        <form
+          onSubmit={handleSubmit}
+          style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 20 }}
+        >
+          <header>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--color-brand-primary)',
+                marginBottom: 10,
+              }}
+            >
+              Sign in
+            </div>
+            <h2
+              style={{
+                fontFamily: 'var(--font-brand)',
+                fontWeight: 700,
+                fontSize: 28,
+                letterSpacing: '-0.015em',
+                margin: 0,
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              Welcome back
+            </h2>
+
+            <TenantLine
+              showSelector={showTenantSelector}
+              tenants={tenants}
+              selectedTenantId={selectedTenantId}
+              onSelect={setSelectedTenantId}
+              isLoadingTenants={isLoadingTenants}
+              open={tenantPickerOpen}
+              onOpenChange={setTenantPickerOpen}
+              selectedTenant={selectedTenant ?? null}
+            />
+          </header>
+
+          <Banners error={error} notice={notice} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SsoButton provider="google" label="Continue with Google" onClick={() => initiateLogin()} disabled={isLoggingIn} />
+            <SsoButton provider="microsoft" label="Continue with Microsoft" onClick={() => initiateLogin()} disabled={isLoggingIn} />
+            <button
+              type="button"
+              onClick={() => initiateLogin()}
+              disabled={isLoggingIn}
+              style={ssoButtonStyle}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-surface)'; }}
+            >
+              <Building2 size={14} color="var(--color-text-secondary)" />
+              Continue with SSO
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ height: 1, flex: 1, background: 'var(--color-border-light)' }} />
+            <span
+              style={{
+                fontSize: 10.5,
+                color: 'var(--color-text-tertiary)',
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}
+            >
+              or
+            </span>
+            <span style={{ height: 1, flex: 1, background: 'var(--color-border-light)' }} />
+          </div>
+
+          <Field label="Work email">
+            <input
+              className="aonik-input"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              style={{
+                width: '100%',
+                height: 38,
+                fontSize: 13.5,
+                padding: '0 12px',
+                borderRadius: 8,
+                border: '1px solid var(--color-form-field-border)',
+                background: 'var(--color-form-field-bg)',
+                color: 'var(--color-form-field-text)',
+                outline: 'none',
+                transition: 'border-color 150ms ease, box-shadow 150ms ease',
+              }}
+            />
+          </Field>
+
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 12.5,
+              color: 'var(--color-text-secondary)',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            {/* Visual only for v1; Auth0 session lifetime is server-configured. */}
+            <input type="checkbox" defaultChecked style={{ accentColor: 'var(--color-brand-primary)' }} />
+            Keep me signed in for 30 days
+          </label>
+
+          <button
+            type="submit"
+            disabled={isLoggingIn || (showTenantSelector && isLoadingTenants)}
+            style={{
+              width: '100%',
+              height: 42,
+              fontSize: 14,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              borderRadius: 8,
+              border: 'none',
+              background: 'var(--color-brand-primary)',
+              color: '#fff',
+              cursor: isLoggingIn ? 'progress' : 'pointer',
+              opacity: isLoggingIn || (showTenantSelector && isLoadingTenants) ? 0.7 : 1,
+              transition: 'opacity 120ms ease, transform 80ms ease',
+            }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
+            {isLoggingIn ? 'Redirecting' : 'Sign in'}
+            <ArrowRight size={14} />
+          </button>
+
+          <footer
+            style={{
+              marginTop: 4,
+              paddingTop: 16,
+              borderTop: '1px solid var(--color-border-light)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: 11,
+              color: 'var(--color-text-tertiary)',
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ShieldCheck size={11} />
+              Protected by Aonik Trust
+            </span>
+            <span style={{ display: 'flex', gap: 14 }}>
+              <a href="#" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Terms</a>
+              <a href="#" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</a>
+              <a href="#" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Status</a>
+            </span>
+          </footer>
+        </form>
+      </section>
+
+      <style>{`
+        .aonik-input:focus {
+          border-color: var(--color-brand-primary) !important;
+          box-shadow: var(--shadow-focus);
+        }
+        @media (max-width: 1024px) {
+          .aonik-login-grid { grid-template-columns: 1fr !important; }
+          .aonik-login-brand { display: none !important; }
+          .aonik-login-helper { position: static !important; margin-bottom: 16px; text-align: center; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ─── Brand pane ───────────────────────────────────────────────────────────
+
+function BrandPane() {
+  return (
+    <aside
+      className="aonik-login-brand"
+      style={{
+        position: 'relative',
+        background: 'linear-gradient(155deg, #04494e 0%, #055a60 45%, #0a6e72 100%)',
+        color: '#fff',
+        padding: '40px 56px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            'radial-gradient(circle at 30% 30%, rgba(232,168,56,0.18) 0%, transparent 45%), linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
+          backgroundSize: 'auto, 28px 28px, 28px 28px',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span
+          style={{
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 36,
+            height: 36,
+            borderRadius: 9,
+            background: '#fff',
+            color: '#055a60',
+            fontFamily: 'var(--font-brand)',
+            fontWeight: 700,
+            fontSize: 22,
+            letterSpacing: '-0.04em',
+            lineHeight: 1,
+            boxShadow: '0 4px 16px -4px rgba(0,0,0,.3)',
+          }}
+        >
+          A
+          <span
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: 'var(--color-brand-mark-dot)',
+            }}
+          />
+        </span>
+        <span
+          style={{
+            fontFamily: 'var(--font-brand)',
+            fontWeight: 700,
+            fontSize: 22,
+            letterSpacing: '-0.015em',
+          }}
+        >
+          aonik
+        </span>
+      </div>
+
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 520 }}>
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,0.6)',
+              marginBottom: 14,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <span style={{ width: 18, height: 1, background: 'rgba(255,255,255,0.4)' }} />
+            Admin · Operator console
+          </div>
+          <h1
+            style={{
+              fontFamily: 'var(--font-brand)',
+              fontWeight: 700,
+              fontSize: 44,
+              lineHeight: 1.08,
+              letterSpacing: '-0.02em',
+              margin: 0,
+              color: '#fff',
+            }}
+          >
+            Agents propose.<br />
+            <span style={{ color: 'var(--color-brand-mark-dot)' }}>Systems apply.</span>
+          </h1>
+          <p
+            style={{
+              fontSize: 15,
+              lineHeight: 1.55,
+              color: 'rgba(255,255,255,0.78)',
+              marginTop: 16,
+              maxWidth: 460,
+            }}
+          >
+            The control plane for your operations team — orders, ledger, payouts and AI agents working together under policy.
+          </p>
+        </div>
+
+        <ProposalPreviewCard />
+      </div>
+
+      <div
+        style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          fontSize: 11,
+          color: 'rgba(255,255,255,0.55)',
+          fontFamily: 'var(--font-mono)',
+          letterSpacing: '0.05em',
+        }}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: 'var(--color-success)',
+            }}
+          />
+          All systems operational
+        </span>
+        <span>SOC 2 · Type II</span>
+        <span>PCI DSS</span>
+        {APP_VERSION && <span style={{ marginLeft: 'auto' }}>v {APP_VERSION}</span>}
+      </div>
+    </aside>
+  );
+}
+
+function ProposalPreviewCard() {
+  return (
+    <div
+      style={{
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255,255,255,0.14)',
+        borderRadius: 12,
+        padding: 16,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        boxShadow: '0 20px 50px -20px rgba(0,0,0,0.4)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: '50%',
+            background: 'var(--color-brand-mark-dot)',
+            color: '#3a2a05',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          B
+        </span>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>Billing Agent</span>
+        <span
+          style={{
+            fontSize: 10,
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.05em',
+            color: 'rgba(255,255,255,0.55)',
+            marginLeft: 'auto',
+          }}
+        >
+          2s ago
+        </span>
+      </div>
+      <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>
+        I matched <b>3 invoices</b> to last week's bank transactions — £42,180 total. Drafting journal entries.
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 10.5,
+        }}
+      >
+        {['search_invoices', 'list_bank_transactions', 'match_invoice_to_txn'].map((t) => (
+          <span
+            key={t}
+            style={{
+              padding: '3px 7px',
+              borderRadius: 4,
+              background: 'rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.85)',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Right-pane helpers ───────────────────────────────────────────────────
+
+interface TenantLineProps {
+  showSelector: boolean;
+  tenants: TenantListItemForLogin[];
+  selectedTenantId: string;
+  onSelect: (tenantId: string) => void;
+  isLoadingTenants: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedTenant: TenantListItemForLogin | null;
+}
+
+function TenantLine({
+  showSelector,
+  tenants,
+  selectedTenantId,
+  onSelect,
+  isLoadingTenants,
+  open,
+  onOpenChange,
+  selectedTenant,
+}: TenantLineProps) {
+  const subtitleStyle: React.CSSProperties = {
+    fontSize: 13.5,
+    color: 'var(--color-text-secondary)',
+    marginTop: 6,
+    lineHeight: 1.5,
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  };
+
+  // Tenant subdomain — render the selected tenant statically.
+  if (!showSelector) {
+    if (!selectedTenant) {
+      return (
+        <p style={{ ...subtitleStyle, color: 'var(--color-text-secondary)' }}>
+          Continue to your workspace
+        </p>
+      );
+    }
+    return (
+      <p style={subtitleStyle}>
+        <span>Continue to&nbsp;</span>
+        <b style={{ color: 'var(--color-text-primary)' }}>{selectedTenant.name}</b>
+        {selectedTenant.environment && (
+          <>
+            <span>&nbsp;·&nbsp;</span>
+            <span>{selectedTenant.environment}</span>
+          </>
+        )}
+      </p>
+    );
+  }
+
+  // Apex domain — pill is interactive.
+  if (isLoadingTenants && tenants.length === 0) {
+    return <p style={{ ...subtitleStyle, color: 'var(--color-text-tertiary)' }}>Loading organizations…</p>;
+  }
+
+  if (tenants.length === 0) {
+    return <p style={{ ...subtitleStyle, color: 'var(--color-text-tertiary)' }}>No organizations available</p>;
+  }
+
+  return (
+    <p style={subtitleStyle}>
+      <span>Continue to&nbsp;</span>
+      <Popover open={open} onOpenChange={onOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '3px 10px',
+              borderRadius: 999,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface-inset)',
+              color: 'var(--color-text-primary)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background 120ms ease, border-color 120ms ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-brand-primary-20)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+          >
+            <Building2 size={12} />
+            {selectedTenant?.name ?? 'Select organization'}
+            <ChevronDown size={12} style={{ opacity: 0.6 }} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-72 p-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {tenants.map((t) => {
+              const isSelected = t.tenantId === selectedTenantId;
+              return (
+                <button
+                  key={t.tenantId}
+                  type="button"
+                  onClick={() => {
+                    onSelect(t.tenantId);
+                    onOpenChange(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: isSelected ? 'var(--color-brand-primary-10)' : 'transparent',
+                    color: 'var(--color-text-primary)',
+                    fontSize: 13,
+                    fontWeight: 500,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = 'var(--color-surface-inset)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span>{t.name}</span>
+                    <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+                      {t.environment}
+                    </span>
+                  </span>
+                  {isSelected && <Check size={14} color="var(--color-brand-primary)" />}
+                </button>
+              );
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
+      {selectedTenant?.environment && (
+        <>
+          <span>&nbsp;·&nbsp;</span>
+          <span>{selectedTenant.environment}</span>
+        </>
+      )}
+    </p>
+  );
+}
+
+const ssoButtonStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 10,
+  width: '100%',
+  height: 38,
+  borderRadius: 8,
+  border: '1px solid var(--color-border-light)',
+  background: 'var(--color-surface)',
+  color: 'var(--color-text-primary)',
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background 120ms ease',
+};
+
+interface SsoButtonProps {
+  provider: 'google' | 'microsoft';
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+function SsoButton({ provider, label, onClick, disabled }: SsoButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{ ...ssoButtonStyle, opacity: disabled ? 0.6 : 1 }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-surface)'; }}
+    >
+      {provider === 'google' ? <GoogleLogo /> : <MicrosoftLogo />}
+      {label}
+    </button>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C33.6 6.1 29 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.1 8 3l5.7-5.7C33.6 6.1 29 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5 0 9.5-1.9 12.9-5l-6-4.9c-2 1.5-4.5 2.4-7 2.4-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.5 39.8 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4-4.1 5.3l6 4.9C40.8 35 44 30 44 24c0-1.2-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+
+function MicrosoftLogo() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
+      <rect x="1" y="1" width="10" height="10" fill="#F25022" />
+      <rect x="13" y="1" width="10" height="10" fill="#7FBA00" />
+      <rect x="1" y="13" width="10" height="10" fill="#00A4EF" />
+      <rect x="13" y="13" width="10" height="10" fill="#FFB900" />
+    </svg>
+  );
+}
+
+interface FieldProps {
+  label: string;
+  trailing?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function Field({ label, trailing, children }: FieldProps) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label
+          style={{
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: 'var(--color-text-secondary)',
+            letterSpacing: '0.02em',
+          }}
+        >
+          {label}
+        </label>
+        {trailing}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+interface BannersProps {
+  error: string | null;
+  notice: string | null;
+}
+
+function Banners({ error, notice }: BannersProps) {
+  if (!error && !notice) return null;
+
+  if (error) {
+    return (
+      <div
+        role="alert"
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 8,
+          padding: '10px 12px',
+          borderRadius: 8,
+          background: 'var(--color-error-light)',
+          border: '1px solid var(--color-error)',
+          color: 'var(--color-error)',
+          fontSize: 12.5,
+          lineHeight: 1.45,
+        }}
+      >
+        <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>{error}</span>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full">
-      {/* Left side - Branding */}
-        <div className="hidden lg:flex lg:flex-col lg:justify-center w-1/2 bg-[var(--color-brand-primary)] relative overflow-hidden p-16 max-w-[50vw]">
-        {/* Decorative circles */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/5" />
-        <div className="absolute top-1/4 right-0 w-64 h-64 rounded-full bg-white/5" />
-        <div className="absolute bottom-0 left-1/4 w-80 h-80 rounded-full bg-white/5" />
-        
-        {/* Accent dots */}
-        <div className="absolute top-20 right-20 w-4 h-4 rounded-full bg-[var(--color-brand-secondary)]" />
-        <div className="absolute bottom-40 left-20 w-3 h-3 rounded-full bg-[var(--color-brand-secondary)]" />
-
-        {/* Content */}
-        <div className="relative z-10 text-white">
-          {/* Logo */}
-          <div className="mb-12">
-            <h1 className="text-4xl font-bold">
-              Aonik<span className="text-[var(--color-brand-secondary)]">.</span>
-            </h1>
-          </div>
-
-          {/* Tagline */}
-          <h2 className="text-3xl font-semibold mb-4 leading-tight">
-            AI-native financial<br />infrastructure
-          </h2>
-          <p className="text-lg text-white/80 mb-8 max-w-[32rem]">
-            Power modern payments, billing, and financial intelligence with AI agents that assist with reconciliation, forecasting, and insights.
-          </p>
-
-          {/* Feature highlights */}
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <span className="text-white/90">Intelligent reconciliation & anomaly detection</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <span className="text-white/90">Cash flow forecasting & spend insights</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <span className="text-white/90">Explainable, auditable AI you can trust</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right side - Login */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-[var(--color-background)]">
-        <div className="w-full max-w-[28rem] min-w-0">
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-8">
-            <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">
-              Aonik<span className="text-[var(--color-brand-secondary)]">.</span>
-            </h1>
-          </div>
-
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-8">
-              {/* Header */}
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
-                  Welcome back
-                </h2>
-                <p className="text-[var(--color-text-secondary)]">
-                  Sign in to continue to your workspace
-                </p>
-              </div>
-
-              {/* Error message */}
-              {error && (
-                <div className="flex items-center gap-2 p-3 mb-6 bg-[var(--color-error-light)] rounded-md border border-[var(--color-error)]/20">
-                  <AlertCircle className="w-5 h-5 text-[var(--color-error)] flex-shrink-0" />
-                  <p className="text-sm text-[var(--color-error)]">{error}</p>
-                </div>
-              )}
-
-              {/* Notice message */}
-              {notice && !error && (
-                <div className="flex items-center gap-2 p-3 mb-6 bg-[var(--color-brand-primary-light)] rounded-md border border-[var(--color-brand-primary)]/20">
-                  <AlertCircle className="w-5 h-5 text-[var(--color-brand-primary)] flex-shrink-0" />
-                  <p className="text-sm text-[var(--color-brand-primary)]">{notice}</p>
-                </div>
-              )}
-
-              {/* Tenant selector - only shown when URL is not tenant-scoped */}
-              {showTenantSelector && (
-                <div className="mb-6">
-                  <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                    <Building2 className="w-4 h-4" />
-                    Select Organization
-                  </label>
-                  {isLoadingTenants ? (
-                    <div className="flex items-center justify-center py-3 px-4 border border-[var(--color-border)] rounded-md bg-[var(--color-surface-inset)]">
-                      <div className="w-4 h-4 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin mr-2" />
-                      <span className="text-sm text-[var(--color-text-secondary)]">Loading organizations...</span>
-                    </div>
-                  ) : tenants.length === 0 ? (
-                    <div className="py-3 px-4 border border-[var(--color-border)] rounded-md bg-[var(--color-surface-inset)] text-center">
-                      <p className="text-sm text-[var(--color-text-tertiary)]">No organizations available</p>
-                    </div>
-                  ) : (
-                    <Select
-                      value={selectedTenantId || undefined}
-                      onValueChange={(value) => setSelectedTenantId(value === '__clear__' ? '' : value)}
-                    >
-                      <SelectTrigger
-                        aria-label="Select organization"
-                        className="w-full px-4 py-3 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
-                      >
-                        <SelectValue placeholder="Select an organization..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__clear__">Select an organization...</SelectItem>
-                        {tenants.map((tenant) => (
-                          <SelectItem key={tenant.tenantId} value={tenant.tenantId}>
-                            {tenant.name} {tenant.environment !== 'Prod' ? `(${tenant.environment})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                    Choose the organization you want to sign in to.
-                  </p>
-                </div>
-              )}
-
-              {/* Provider info */}
-              <div className="p-3 mb-6 bg-[var(--color-brand-primary-light)] rounded-md border border-[var(--color-brand-primary)]/20">
-                <p className="text-sm text-[var(--color-brand-primary)] text-center">
-                  Signing in with {provider === 'azure-ad' ? 'Microsoft Entra ID' : 'Auth0'}
-                </p>
-              </div>
-
-              {/* Sign in button */}
-              <Button 
-                onClick={handleLogin}
-                className="w-full py-3 text-base"
-                disabled={isLoggingIn || (showTenantSelector && isLoadingTenants)}
-              >
-                {isLoggingIn ? (
-                  <>
-                    <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Redirecting...
-                  </>
-                ) : (
-                  <>
-                    {provider === 'azure-ad' ? (
-                      <svg className="w-5 h-5" viewBox="0 0 23 23">
-                        <path fill="currentColor" d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21.98 7.448L19.62 0H4.347L2.02 7.448c-1.352 4.312.03 9.206 3.815 12.015L12.007 24l6.157-4.552c3.755-2.81 5.182-7.688 3.815-12.015l-6.16 4.58 2.343 7.45-6.157-4.597-6.158 4.58 2.358-7.433-6.188-4.55 7.63-.045L12.008 0l2.356 7.404 7.615.044z"/>
-                      </svg>
-                    )}
-                    Sign in with {provider === 'azure-ad' ? 'Microsoft' : 'Auth0'}
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </Button>
-
-              {/* Alternative provider hint */}
-              <p className="mt-6 text-center text-sm text-[var(--color-text-tertiary)]">
-                Using a different identity provider?{' '}
-                <a 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert(`To switch providers, set VITE_AUTH_PROVIDER to "${provider === 'azure-ad' ? 'auth0' : 'azure-ad'}" in your .env file`);
-                  }}
-                  className="text-[var(--color-brand-primary)] hover:underline"
-                >
-                  Learn more
-                </a>
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Footer */}
-          <p className="mt-8 text-center text-xs text-[var(--color-text-tertiary)]">
-            By signing in, you agree to our{' '}
-            <a href="#" className="underline hover:text-[var(--color-text-secondary)]">Terms of Service</a>
-            {' '}and{' '}
-            <a href="#" className="underline hover:text-[var(--color-text-secondary)]">Privacy Policy</a>
-          </p>
-        </div>
-      </div>
+    <div
+      role="status"
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: '10px 12px',
+        borderRadius: 8,
+        background: 'var(--color-brand-primary-10)',
+        border: '1px solid var(--color-brand-primary-20)',
+        color: 'var(--color-brand-primary)',
+        fontSize: 12.5,
+        lineHeight: 1.45,
+      }}
+    >
+      <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+      <span>{notice}</span>
     </div>
   );
 }
