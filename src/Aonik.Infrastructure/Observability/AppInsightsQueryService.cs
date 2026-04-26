@@ -201,8 +201,8 @@ public class AppInsightsQueryService : IObservabilityService
 
         var row = rows[0];
 
-        var parsedStack = ParseStackJson(GetString(row, 12));
-        var customDimensions = ParseCustomDimensionsJson(GetString(row, 13));
+        var parsedStack = ParseStackJson(GetString(row, 11));
+        var customDimensions = ParseCustomDimensionsJson(GetString(row, 12));
 
         return new ErrorDetailResponse(
             Configured: true,

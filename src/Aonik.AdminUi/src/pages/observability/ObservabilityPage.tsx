@@ -93,6 +93,20 @@ function errorRateStatus(rate: number): 'good' | 'warning' | 'critical' {
   return 'critical';
 }
 
+function getErrorMessage(error: unknown, fallback = 'Unknown error'): string {
+  if (error && typeof error === 'object' && 'userMessage' in error) {
+    const message = String((error as { userMessage?: string }).userMessage ?? '').trim();
+    if (message) return message;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (message) return message;
+  }
+
+  return fallback;
+}
+
 function latencyStatus(ms: number): 'good' | 'warning' | 'critical' {
   if (ms < 500) return 'good';
   if (ms < 2000) return 'warning';
@@ -503,7 +517,7 @@ export function ObservabilityPage() {
       const data = await observabilityService.getOverview(tr);
       setOverview(data);
     } catch (err) {
-      setOverviewError(err instanceof Error ? err.message : 'Unknown error');
+      setOverviewError(getErrorMessage(err));
     } finally {
       setOverviewLoading(false);
     }
@@ -516,7 +530,7 @@ export function ObservabilityPage() {
       const data = await observabilityService.getErrors(tr, operationId);
       setErrorsData(data);
     } catch (err) {
-      setErrorsError(err instanceof Error ? err.message : 'Unknown error');
+      setErrorsError(getErrorMessage(err));
     } finally {
       setErrorsLoading(false);
     }
@@ -529,7 +543,7 @@ export function ObservabilityPage() {
       const data = await observabilityService.getAiPerformance(tr);
       setAiData(data);
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'Unknown error');
+      setAiError(getErrorMessage(err));
     } finally {
       setAiLoading(false);
     }
@@ -542,7 +556,7 @@ export function ObservabilityPage() {
       const data = await observabilityService.getDependencies(tr);
       setDepsData(data);
     } catch (err) {
-      setDepsError(err instanceof Error ? err.message : 'Unknown error');
+      setDepsError(getErrorMessage(err));
     } finally {
       setDepsLoading(false);
     }
@@ -555,7 +569,7 @@ export function ObservabilityPage() {
       const data = await observabilityService.getJobs(tr);
       setJobsData(data);
     } catch (err) {
-      setJobsError(err instanceof Error ? err.message : 'Unknown error');
+      setJobsError(getErrorMessage(err));
     } finally {
       setJobsLoading(false);
     }
@@ -568,7 +582,7 @@ export function ObservabilityPage() {
       const data = await observabilityService.getRetrieval(tr);
       setRetrievalData(data);
     } catch (err) {
-      setRetrievalError(err instanceof Error ? err.message : 'Unknown error');
+      setRetrievalError(getErrorMessage(err));
     } finally {
       setRetrievalLoading(false);
     }
@@ -581,7 +595,7 @@ export function ObservabilityPage() {
       const data = await observabilityService.getTopology(tr);
       setTopologyData(data);
     } catch (err) {
-      setTopologyError(err instanceof Error ? err.message : 'Unknown error');
+      setTopologyError(getErrorMessage(err));
     } finally {
       setTopologyLoading(false);
     }
@@ -634,7 +648,7 @@ export function ObservabilityPage() {
           });
         })
         .catch((err: unknown) => {
-          const message = err instanceof Error ? err.message : 'Unknown error';
+          const message = getErrorMessage(err);
           setErrorDetails((prev) => {
             const next = new Map(prev);
             next.set(problemId, { status: 'error', message });

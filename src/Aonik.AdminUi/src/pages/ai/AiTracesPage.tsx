@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Activity, AlertCircle, Braces, Copy, ExternalLink, Loader2, Search, X } from 'lucide-react';
+import { Activity, AlertCircle, Braces, ChevronDown, ChevronRight, Copy, ExternalLink, Loader2, Search, X } from 'lucide-react';
 
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Badge } from '@/components/ui/badge';
@@ -240,11 +240,73 @@ function MetadataTable({ value }: { value: string | null }) {
 }
 
 type WaterfallItem = AiTraceObservationResponse & {
+  id: string;
+  parentId: string | null;
+  children: string[];
   depth: number;
   offsetPct: number;
   widthPct: number;
   durationLabel: string;
+  sqlText: string | null;
 };
+
+function parseJsonValue(value: string | null): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function stringifyNodeValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function findNodeValueByKeys(value: unknown, matchers: string[]): string | null {
+  if (value == null || typeof value !== 'object') return null;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findNodeValueByKeys(item, matchers);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = key.replace(/[_\s]/g, '').toLowerCase();
+    if (matchers.includes(normalized)) {
+      const rendered = stringifyNodeValue(child).trim();
+      if (rendered) return rendered;
+    }
+  }
+
+  for (const child of Object.values(value as Record<string, unknown>)) {
+    const found = findNodeValueByKeys(child, matchers);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+function extractSqlText(item: AiTraceObservationResponse): string | null {
+  const matchers = ['db.statement', 'dbstatement', 'commandtext', 'sqltext', 'generatedsql', 'sql'];
+  const sources = [item.metadata, item.input, item.output];
+
+  for (const source of sources) {
+    const parsed = parseJsonValue(source);
+    const found = findNodeValueByKeys(parsed, matchers);
+    if (found) return found;
+  }
+
+  return null;
+}
 
 function getDurationMs(item: AiTraceObservationResponse): number {
   if (item.durationMs != null && Number.isFinite(item.durationMs)) return Math.max(1, item.durationMs);
@@ -263,7 +325,19 @@ function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
   const firstStart = new Date(sorted[0].startTime).getTime();
   const lastEnd = Math.max(...sorted.map((item) => new Date(item.startTime).getTime() + getDurationMs(item)));
   const totalDuration = Math.max(1, lastEnd - firstStart);
-  const byId = new Map(sorted.map((item) => [item.spanId ?? item.observationId, item]));
+  const ids = sorted.map((item) => item.spanId ?? item.observationId);
+  const sortedById = new Map(sorted.map((item) => [item.spanId ?? item.observationId, item]));
+  const childrenById = new Map<string, string[]>();
+  ids.forEach((id) => childrenById.set(id, []));
+
+  sorted.forEach((item) => {
+    const parentId = item.parentSpanId ?? item.parentObservationId;
+    const id = item.spanId ?? item.observationId;
+    if (parentId && childrenById.has(parentId)) {
+      childrenById.get(parentId)!.push(id);
+    }
+  });
+
   const depthCache = new Map<string, number>();
 
   const depthFor = (item: AiTraceObservationResponse): number => {
@@ -272,23 +346,47 @@ function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
     if (cached !== undefined) return cached;
 
     const parentId = item.parentSpanId ?? item.parentObservationId;
-    const parent = parentId ? byId.get(parentId) : undefined;
+    const parent = parentId ? sortedById.get(parentId) : undefined;
     const depth = parent ? Math.min(6, depthFor(parent) + 1) : 0;
     depthCache.set(id, depth);
     return depth;
   };
 
-  return sorted.map((item) => {
+  const byId = new Map<string, WaterfallItem>();
+  sorted.forEach((item) => {
     const start = new Date(item.startTime).getTime();
     const durationMs = getDurationMs(item);
-    return {
+    const id = item.spanId ?? item.observationId;
+    byId.set(id, {
       ...item,
+      id,
+      parentId: item.parentSpanId ?? item.parentObservationId,
+      children: childrenById.get(id) ?? [],
       depth: depthFor(item),
       offsetPct: Math.max(0, ((start - firstStart) / totalDuration) * 100),
       widthPct: Math.max(1, (durationMs / totalDuration) * 100),
       durationLabel: durationMs >= 1000 ? `${(durationMs / 1000).toFixed(2)}s` : `${Math.round(durationMs)}ms`,
-    };
+      sqlText: extractSqlText(item),
+    });
   });
+
+  const roots = sorted
+    .map((item) => item.spanId ?? item.observationId)
+    .filter((id) => {
+      const node = byId.get(id)!;
+      return !node.parentId || !byId.has(node.parentId);
+    });
+
+  const ordered: WaterfallItem[] = [];
+  const visit = (id: string) => {
+    const node = byId.get(id);
+    if (!node) return;
+    ordered.push(node);
+    node.children.forEach(visit);
+  };
+
+  roots.forEach(visit);
+  return ordered;
 }
 
 function TraceWaterfall({
@@ -300,13 +398,76 @@ function TraceWaterfall({
   loading: boolean;
   onViewExceptions: (operationId: string) => void;
 }) {
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [expandedDetailIds, setExpandedDetailIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setCollapsedIds(new Set());
+    setExpandedDetailIds(new Set());
+  }, [items]);
+
+  const collapsibleIds = useMemo(
+    () => items.filter((item) => item.children.length > 0).map((item) => item.id),
+    [items],
+  );
+
+  const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+
+  const visibleItems = useMemo(
+    () => items.filter((item) => {
+      let parentId = item.parentId;
+      while (parentId) {
+        if (collapsedIds.has(parentId)) return false;
+        parentId = byId.get(parentId)?.parentId ?? null;
+      }
+      return true;
+    }),
+    [byId, collapsedIds, items],
+  );
+
+  const toggleCollapsed = useCallback((id: string) => {
+    setCollapsedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleDetail = useCallback((id: string) => {
+    setExpandedDetailIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Trace Waterfall</h3>
-        <span className="text-xs text-[var(--color-text-tertiary)]">
-          {loading ? 'Loading spans...' : `${items.length} spans`}
-        </span>
+        <div className="flex items-center gap-2">
+          {!loading && items.length > 0 ? (
+            <>
+              <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setCollapsedIds(new Set())}>
+                Expand all
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px]"
+                onClick={() => setCollapsedIds(new Set(collapsibleIds))}
+              >
+                Collapse all
+              </Button>
+            </>
+          ) : null}
+          <span className="text-xs text-[var(--color-text-tertiary)]">
+            {loading ? 'Loading spans...' : `${items.length} spans`}
+          </span>
+        </div>
       </div>
       <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]">
         {items.length === 0 ? (
@@ -315,37 +476,106 @@ function TraceWaterfall({
           </div>
         ) : (
           <div className="max-h-96 overflow-auto">
-            {items.map((item) => (
-              <div key={`${item.source}-${item.observationId}`} className="grid grid-cols-[minmax(220px,34%)_1fr_128px] gap-3 border-b border-[var(--color-border-light)] px-3 py-2 last:border-b-0">
-                <div style={{ paddingLeft: `${item.depth * 14}px` }} className="min-w-0">
-                  <div className="truncate text-xs font-medium text-[var(--color-text-primary)]" title={item.name}>{item.name || '--'}</div>
-                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
-                    <span>{item.type}</span>
-                    <span className="truncate font-mono">{item.agentName ?? item.agentId ?? item.source}</span>
+            {visibleItems.map((item) => {
+              const expanded = expandedDetailIds.has(item.id);
+              const hasChildren = item.children.length > 0;
+              const collapsed = collapsedIds.has(item.id);
+
+              return (
+                <div key={`${item.source}-${item.id}`} className="border-b border-[var(--color-border-light)] last:border-b-0">
+                  <div className="grid grid-cols-[minmax(220px,34%)_1fr_156px] gap-3 px-3 py-2">
+                    <div style={{ paddingLeft: `${item.depth * 14}px` }} className="min-w-0">
+                      <div className="flex items-start gap-2">
+                        {hasChildren ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleCollapsed(item.id)}
+                            className="mt-0.5 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                            aria-label={collapsed ? 'Expand span subtree' : 'Collapse span subtree'}
+                          >
+                            {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          </button>
+                        ) : (
+                          <span className="mt-0.5 block h-3.5 w-3.5 shrink-0" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => toggleDetail(item.id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <div className="truncate text-xs font-medium text-[var(--color-text-primary)]" title={item.name}>{item.name || '--'}</div>
+                          <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
+                            <span>{item.type}</span>
+                            <span className="truncate font-mono">{item.agentName ?? item.agentId ?? item.source}</span>
+                            {item.sqlText ? <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 font-medium">SQL</span> : null}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="relative h-7 rounded bg-[var(--color-surface-inset)]">
+                      <div
+                        className="absolute top-1.5 h-4 rounded bg-[var(--color-brand-primary)]/70"
+                        style={{ left: `${item.offsetPct}%`, width: `${Math.min(item.widthPct, 100 - item.offsetPct)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[10px]"
+                        onClick={() => toggleDetail(item.id)}
+                      >
+                        {expanded ? 'Hide' : 'Details'}
+                      </Button>
+                      {item.level.toLowerCase() === 'error' && item.operationId ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-[10px]"
+                          onClick={() => onViewExceptions(item.operationId!)}
+                        >
+                          Errors
+                        </Button>
+                      ) : null}
+                      <span className="font-mono text-xs text-[var(--color-text-secondary)]">{item.durationLabel}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="relative h-7 rounded bg-[var(--color-surface-inset)]">
-                  <div
-                    className="absolute top-1.5 h-4 rounded bg-[var(--color-brand-primary)]/70"
-                    style={{ left: `${item.offsetPct}%`, width: `${Math.min(item.widthPct, 100 - item.offsetPct)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  {item.level.toLowerCase() === 'error' && item.operationId ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-[10px]"
-                      onClick={() => onViewExceptions(item.operationId!)}
-                    >
-                      Errors
-                    </Button>
+
+                  {expanded ? (
+                    <div className="border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-4">
+                      <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        <DetailMetric label="Started" value={formatDateTime(item.startTime)} />
+                        <DetailMetric label="Span" value={item.spanId ?? item.observationId} />
+                        <DetailMetric label="Parent" value={item.parentSpanId ?? item.parentObservationId ?? '--'} />
+                        <DetailMetric label="Operation" value={item.operationId ?? item.traceId} />
+                      </div>
+
+                      <div className="space-y-4">
+                        {item.sqlText ? (
+                          <section className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">SQL</h4>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(item.sqlText!)}>
+                                <Copy className="mr-2 h-3.5 w-3.5" />
+                                Copy
+                              </Button>
+                            </div>
+                            <pre className="max-h-56 overflow-auto rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3 font-mono text-xs leading-relaxed text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+                              {item.sqlText}
+                            </pre>
+                          </section>
+                        ) : null}
+                        {item.input ? <PayloadBlock title="Input" value={item.input} /> : null}
+                        {item.output ? <PayloadBlock title="Output" value={item.output} /> : null}
+                        <MetadataTable value={item.metadata} />
+                      </div>
+                    </div>
                   ) : null}
-                  <span className="font-mono text-xs text-[var(--color-text-secondary)]">{item.durationLabel}</span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
