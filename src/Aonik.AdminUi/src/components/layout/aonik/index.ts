@@ -4,3 +4,7 @@ export { AonikMark, AonikWordmark } from './AonikMark';
 export { NavPopover } from './NavPopover';
 export { ProposalCard } from './ProposalCard';
 export type { ProposalCardProps, ProposalDiffLine } from './ProposalCard';
+export { Card } from './Card';
+export type { CardProps } from './Card';
+export { KpiTile } from './KpiTile';
+export type { KpiTileProps } from './KpiTile';
