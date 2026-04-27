@@ -229,6 +229,39 @@ export interface JobMetricsResponse {
   jobs: JobExecutionMetric[];
 }
 
+// ── Structured logs ─────────────────────────────────────────────────
+
+export interface StructuredLogSeverityCounts {
+  debug: number;
+  info: number;
+  warn: number;
+  error: number;
+}
+
+export interface StructuredLogVolumePoint {
+  timestamp: string;
+  events: number;
+  errors: number;
+}
+
+export interface StructuredLogEntry {
+  timestamp: string;
+  severity: string;
+  service: string;
+  agent: string;
+  traceId: string;
+  message: string;
+  fields: Record<string, string>;
+}
+
+export interface StructuredLogsResponse {
+  configured: boolean;
+  totalEvents: number;
+  counts: StructuredLogSeverityCounts;
+  volume: StructuredLogVolumePoint[];
+  entries: StructuredLogEntry[];
+}
+
 // ── Retrieval (Qdrant + embedding) ──────────────────────────────────
 
 export interface RetrievalLatency {
@@ -346,6 +379,10 @@ export const observabilityService = {
   getJobs: (timeRange = '24h') =>
     api.get<JobMetricsResponse>(
       `/admin/observability/jobs?timeRange=${timeRange}`,
+    ),
+  getStructuredLogs: (timeRange = '24h') =>
+    api.get<StructuredLogsResponse>(
+      `/admin/observability/logs?timeRange=${timeRange}`,
     ),
   getRetrieval: (timeRange = '24h') =>
     api.get<RetrievalResponse>(

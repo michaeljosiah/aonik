@@ -14,7 +14,7 @@ import {
   Search,
   ChevronRight, ChevronDown, PanelLeftClose, PanelLeft, X, Check,
   Award, UserCog, Info, FileText, Sun, Moon, Monitor, LogOut,
-  Layout, Bell,
+  Layout,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';

@@ -143,6 +143,35 @@ public record JobMetricsResponse(
     bool Configured,
     IReadOnlyList<JobExecutionMetric> Jobs);
 
+// ── Structured Logs ──────────────────────────────────────────────────
+
+public record StructuredLogSeverityCounts(
+    long Debug,
+    long Info,
+    long Warn,
+    long Error);
+
+public record StructuredLogVolumePoint(
+    DateTime Timestamp,
+    long Events,
+    long Errors);
+
+public record StructuredLogEntry(
+    DateTime Timestamp,
+    string Severity,
+    string Service,
+    string Agent,
+    string TraceId,
+    string Message,
+    IReadOnlyDictionary<string, string> Fields);
+
+public record StructuredLogsResponse(
+    bool Configured,
+    long TotalEvents,
+    StructuredLogSeverityCounts Counts,
+    IReadOnlyList<StructuredLogVolumePoint> Volume,
+    IReadOnlyList<StructuredLogEntry> Entries);
+
 // ── AI Performance ──────────────────────────────────────────────────
 
 public record AiLatencyDistribution(

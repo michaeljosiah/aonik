@@ -159,6 +159,7 @@ public sealed record AiTraceObservationResponse
     public string? Metadata { get; init; }
     public string? AgentId { get; init; }
     public string? AgentName { get; init; }
+    public string? ServiceName { get; init; }
     public required string Level { get; init; }
     public double? DurationMs { get; init; }
     public double? LatencySeconds { get; init; }

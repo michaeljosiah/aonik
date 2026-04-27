@@ -125,6 +125,7 @@ internal sealed class LangfuseAiTraceReader : IAiTraceReader
             Metadata = metadata,
             AgentId = agentId,
             AgentName = agentName,
+            ServiceName = "langfuse",
             Level = observation.Level ?? "DEFAULT",
             LatencySeconds = observation.Latency,
             DurationMs = observation.Latency * 1000,

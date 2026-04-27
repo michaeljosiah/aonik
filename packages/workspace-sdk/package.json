@@ -61,11 +61,6 @@
   "peerDependencies": {
     "react": ">=18.0.0"
   },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "tsup": "^8.4.0",
     "typescript": "~5.8.3",

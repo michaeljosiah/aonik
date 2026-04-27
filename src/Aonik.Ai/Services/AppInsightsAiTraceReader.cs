@@ -126,6 +126,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             Metadata = NullIfWhiteSpace(GetString(row, 11)),
             AgentId = row.Length > 21 ? NullIfWhiteSpace(GetString(row, 21)) : null,
             AgentName = row.Length > 22 ? NullIfWhiteSpace(GetString(row, 22)) : null,
+            ServiceName = row.Length > 24 ? NullIfWhiteSpace(GetString(row, 24)) : null,
             Level = NullIfWhiteSpace(GetString(row, 12)) ?? "DEFAULT",
             LatencySeconds = ParseDoubleNullable(row, 13),
             DurationMs = row.Length > 23 ? ParseDoubleNullable(row, 23) : ParseDoubleNullable(row, 13) * 1000,
@@ -195,6 +196,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  totalTokens = toint(customDimensions["TotalTokens"]),
                  agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
                  agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"])),
+                 serviceName = tostring(cloud_RoleName),
                  durationMs = todouble(customDimensions["duration_ms"])
         | extend type = iff(isempty(type), "GENERATION", type),
                  name = iff(isempty(name), tostring(customDimensions["Operation"]), name),
@@ -210,7 +212,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  inputTokens = iff(isnull(inputTokens), toint(customDimensions["InputTokens"]), inputTokens),
                  outputTokens = iff(isnull(outputTokens), toint(customDimensions["OutputTokens"]), outputTokens),
                  totalTokens = iff(isnull(totalTokens), toint(customDimensions["TotalTokens"]), totalTokens)
-        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs;
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let dependencySpans = dependencies
         | where timestamp > {ago}
         | extend operationId = tostring(operation_Id),
@@ -233,8 +235,9 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  outputTokens = toint(customDimensions["gen_ai.usage.output_tokens"]),
                  totalTokens = toint(customDimensions["gen_ai.usage.total_tokens"]),
                  agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
-                 agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"]))
-        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs;
+                 agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"])),
+                 serviceName = tostring(target)
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let requestSpans = requests
         | where timestamp > {ago}
         | extend operationId = tostring(operation_Id),
@@ -257,14 +260,15 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  outputTokens = toint(customDimensions["gen_ai.usage.output_tokens"]),
                  totalTokens = toint(customDimensions["gen_ai.usage.total_tokens"]),
                  agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
-                 agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"]))
-        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs;
+                 agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"])),
+                 serviceName = tostring(cloud_RoleName)
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         union traceLogs, dependencySpans, requestSpans
         {whereFilters}
         | sort by timestamp desc
         | serialize rn = row_number()
         | where rn > {skip} and rn <= {skip + pageSize}
-        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime, type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs
+        | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime, type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName
         """;
     }
 

@@ -214,6 +214,7 @@ export interface AiTraceObservationResponse {
   metadata: string | null;
   agentId: string | null;
   agentName: string | null;
+  serviceName: string | null;
   level: string;
   durationMs: number | null;
   latencySeconds: number | null;

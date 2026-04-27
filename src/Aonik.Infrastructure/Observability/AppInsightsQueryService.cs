@@ -322,6 +322,106 @@ public class AppInsightsQueryService : IObservabilityService
         return new JobMetricsResponse(true, jobs);
     }
 
+    public async Task<StructuredLogsResponse> GetStructuredLogsAsync(
+        string timeRange, CancellationToken cancellationToken = default)
+    {
+        var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
+        if (appId is null || apiKey is null)
+            return new StructuredLogsResponse(
+                false,
+                0,
+                new StructuredLogSeverityCounts(0, 0, 0, 0),
+                [],
+                []);
+
+        var range = ParseTimeRange(timeRange);
+
+        var countsTask = CachedQueryAsync(
+            $"observability:logs:counts:{timeRange}", appId, apiKey,
+            $$"""
+            traces
+            | where timestamp > {{range.Ago}}
+            | extend severity = toint(severityLevel)
+            | summarize
+                debug=countif(severity == 0),
+                info=countif(isnull(severity) or severity == 1),
+                warn=countif(severity == 2),
+                error=countif(severity >= 3)
+            """,
+            cancellationToken);
+
+        var volumeTask = CachedQueryAsync(
+            $"observability:logs:volume:{timeRange}", appId, apiKey,
+            $$"""
+            traces
+            | where timestamp > {{range.Ago}}
+            | extend severity = toint(severityLevel)
+            | summarize
+                events=count(),
+                errors=countif(severity >= 3)
+              by bin(timestamp, {{range.Bin}})
+            | order by timestamp asc
+            """,
+            cancellationToken);
+
+        var entriesTask = CachedQueryAsync(
+            $"observability:logs:entries:{timeRange}", appId, apiKey,
+            $$"""
+            traces
+            | where timestamp > {{range.Ago}}
+            | extend severity = case(
+                toint(severityLevel) == 0, "debug",
+                isnull(toint(severityLevel)) or toint(severityLevel) == 1, "info",
+                toint(severityLevel) == 2, "warn",
+                toint(severityLevel) >= 3, "error",
+                "info")
+            | extend service = iff(isempty(tostring(cloud_RoleName)), "—", tostring(cloud_RoleName))
+            | extend traceId = iff(isempty(tostring(operation_Id)), "—", tostring(operation_Id))
+            | extend agent = coalesce(
+                tostring(customDimensions["gen_ai.agent.name"]),
+                tostring(customDimensions["aonik.agent.name"]),
+                tostring(customDimensions["AgentName"]),
+                "—")
+            | extend fields = customDimensions
+            | project timestamp, severity, service, agent, traceId, message, fields
+            | order by timestamp desc
+            | take 120
+            """,
+            cancellationToken);
+
+        await Task.WhenAll(countsTask, volumeTask, entriesTask);
+
+        var countsRows = countsTask.Result;
+        var volumeRows = volumeTask.Result;
+        var entryRows = entriesTask.Result;
+
+        var counts = countsRows.Count > 0
+            ? new StructuredLogSeverityCounts(
+                (long)ParseDouble(countsRows[0], 0),
+                (long)ParseDouble(countsRows[0], 1),
+                (long)ParseDouble(countsRows[0], 2),
+                (long)ParseDouble(countsRows[0], 3))
+            : new StructuredLogSeverityCounts(0, 0, 0, 0);
+
+        var volume = volumeRows.Select(r => new StructuredLogVolumePoint(
+            ParseDateTime(r, 0),
+            (long)ParseDouble(r, 1),
+            (long)ParseDouble(r, 2))).ToList();
+
+        var entries = entryRows.Select(r => new StructuredLogEntry(
+            ParseDateTime(r, 0),
+            NormalizeSeverity(GetString(r, 1)),
+            NullIfEmpty(GetString(r, 2)) ?? "—",
+            NullIfEmpty(GetString(r, 3)) ?? "—",
+            NullIfEmpty(GetString(r, 4)) ?? "—",
+            NullIfEmpty(GetString(r, 5)) ?? "—",
+            ParseStringDictionary(r, 6))).ToList();
+
+        var totalEvents = counts.Debug + counts.Info + counts.Warn + counts.Error;
+
+        return new StructuredLogsResponse(true, totalEvents, counts, volume, entries);
+    }
+
     public async Task<AiPerformanceResponse> GetAiPerformanceAsync(
         string timeRange, CancellationToken cancellationToken = default)
     {
@@ -1049,6 +1149,17 @@ public class AppInsightsQueryService : IObservabilityService
     private static string? NullIfEmpty(string s) =>
         string.IsNullOrWhiteSpace(s) ? null : s;
 
+    private static string NormalizeSeverity(string severity)
+    {
+        return severity.Trim().ToLowerInvariant() switch
+        {
+            "warning" => "warn",
+            "critical" => "error",
+            "" => "info",
+            var value => value,
+        };
+    }
+
     private static double ComputeHitRate(long hits, long misses)
     {
         var total = hits + misses;
@@ -1107,6 +1218,66 @@ public class AppInsightsQueryService : IObservabilityService
 
             default:
                 return [];
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseStringDictionary(JsonElement[] row, int index)
+    {
+        if (index >= row.Length) return new Dictionary<string, string>(StringComparer.Ordinal);
+        var cell = row[index];
+        if (cell.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+
+        JsonElement root;
+        JsonDocument? doc = null;
+        try
+        {
+            if (cell.ValueKind == JsonValueKind.Object)
+            {
+                root = cell;
+            }
+            else if (cell.ValueKind == JsonValueKind.String)
+            {
+                var raw = cell.GetString();
+                if (string.IsNullOrWhiteSpace(raw))
+                    return new Dictionary<string, string>(StringComparer.Ordinal);
+
+                doc = JsonDocument.Parse(raw);
+                root = doc.RootElement;
+            }
+            else
+            {
+                return new Dictionary<string, string>(StringComparer.Ordinal);
+            }
+
+            if (root.ValueKind != JsonValueKind.Object)
+                return new Dictionary<string, string>(StringComparer.Ordinal);
+
+            var result = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var prop in root.EnumerateObject())
+            {
+                var value = prop.Value.ValueKind switch
+                {
+                    JsonValueKind.String => prop.Value.GetString() ?? string.Empty,
+                    JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+                    _ => prop.Value.ToString(),
+                };
+
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    result[prop.Name] = value;
+                }
+            }
+
+            return result;
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+        finally
+        {
+            doc?.Dispose();
         }
     }
 
