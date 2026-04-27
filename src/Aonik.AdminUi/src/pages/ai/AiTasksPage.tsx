@@ -239,7 +239,11 @@ export function AiTasksPage() {
   const loadRuns = useCallback(async (useCase: string, page: number) => {
     setRunsLoading(true);
     try {
-      const result: ListAiRunsResponse = await aiRunService.list(useCase, page, runsPageSize);
+      const result: ListAiRunsResponse = await aiRunService.list({
+        useCase,
+        page,
+        pageSize: runsPageSize,
+      });
       setRuns(result.items);
       setRunsTotalCount(result.totalCount);
       setRunsPage(result.page);

@@ -455,10 +455,52 @@ export const aiTaskService = {
 
 // ── AI Run service ─────────────────────────────────────────────────
 
+export interface ListAiRunsParams {
+  /** Optional — filters by AiRun.UseCase. Omit to list every run in the tenant. */
+  useCase?: string;
+  /** Optional — filters by AiRun.Outcome (e.g. "Success", "Failed"). */
+  outcome?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export const aiRunService = {
-  list: async (useCase: string, page: number = 1, pageSize: number = 20): Promise<ListAiRunsResponse> => {
-    return api.get<ListAiRunsResponse>(
-      `/ai/runs?useCase=${encodeURIComponent(useCase)}&page=${page}&pageSize=${pageSize}`,
+  list: async (params: ListAiRunsParams = {}): Promise<ListAiRunsResponse> => {
+    const search = new URLSearchParams();
+    if (params.useCase) search.set('useCase', params.useCase);
+    if (params.outcome) search.set('outcome', params.outcome);
+    if (params.page) search.set('page', String(params.page));
+    if (params.pageSize) search.set('pageSize', String(params.pageSize));
+    const qs = search.toString();
+    return api.get<ListAiRunsResponse>(`/ai/runs${qs ? `?${qs}` : ''}`);
+  },
+};
+
+// ── AI Policy service ──────────────────────────────────────────────
+
+export interface AiPolicySummary {
+  id: string;
+  name: string;
+  isActive: boolean;
+  allowedDataFieldsJson: string;
+  redactionRulesJson: string;
+  bannedActionsJson: string;
+  escalationRulesJson: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface ListAiPoliciesResponse {
+  items: AiPolicySummary[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export const aiPolicyService = {
+  list: async (page: number = 1, pageSize: number = 50): Promise<ListAiPoliciesResponse> => {
+    return api.get<ListAiPoliciesResponse>(
+      `/admin/ai/policies?page=${page}&pageSize=${pageSize}`,
     );
   },
 };

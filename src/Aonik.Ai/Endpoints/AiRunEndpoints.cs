@@ -30,7 +30,12 @@ internal sealed class ListAiRunsEndpoint : EndpointWithoutRequest<ListAiRunsResp
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var useCase = Query<string>("useCase", isRequired: true);
+        // useCase used to be required; relaxed to optional so the AI Tasks
+        // queue UI can list all runs in the tenant without picking a use case
+        // up front. Existing callers that pass useCase still get the same
+        // filtered behaviour.
+        var useCase = Query<string?>("useCase", isRequired: false);
+        var outcome = Query<string?>("outcome", isRequired: false);
         var page = Query<int?>("page", isRequired: false) ?? 1;
         var pageSize = Query<int?>("pageSize", isRequired: false) ?? 20;
 
@@ -38,9 +43,18 @@ internal sealed class ListAiRunsEndpoint : EndpointWithoutRequest<ListAiRunsResp
         if (pageSize < 1) pageSize = 1;
         if (pageSize > 100) pageSize = 100;
 
-        var query = _dbContext.AiRuns
-            .Where(r => r.UseCase == useCase)
-            .OrderByDescending(r => r.CreatedAt);
+        var query = _dbContext.AiRuns.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(useCase))
+        {
+            var trimmedUseCase = useCase.Trim();
+            query = query.Where(r => r.UseCase == trimmedUseCase);
+        }
+        if (!string.IsNullOrWhiteSpace(outcome))
+        {
+            var trimmedOutcome = outcome.Trim();
+            query = query.Where(r => r.Outcome == trimmedOutcome);
+        }
+        query = query.OrderByDescending(r => r.CreatedAt);
 
         var totalCount = await query.CountAsync(ct);
 
