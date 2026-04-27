@@ -60,11 +60,30 @@ internal sealed class AiRunWriter : IAiRunWriter
             throw new ArgumentException("useCase is required.", nameof(useCase));
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        // Kill-switch enforcement (Wave 7b follow-up). Reads the tenant's
+        // singleton TenantAgentSettings row; the absence of a row is
+        // treated as "not engaged". When engaged, throw a domain exception
+        // before any model resolution or DB write happens — callers
+        // surface this as a friendly "agents paused" message.
+        var settings = await _dbContext.TenantAgentSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+
+        if (settings is { KillSwitchEngaged: true })
+        {
+            throw new KillSwitchEngagedException(
+                tenantId,
+                settings.KillSwitchEngagedAt,
+                settings.KillSwitchEngagedByUserId);
+        }
+
         var model = await EnsureDefaultModelAsync(cancellationToken);
 
         var run = new AiRun
         {
-            TenantId = _tenantProvider.GetCurrentTenantId(),
+            TenantId = tenantId,
             UserId = _currentUserProvider.GetCurrentUserId(),
             UseCase = useCase.Trim(),
             AiModelId = model.Id,
