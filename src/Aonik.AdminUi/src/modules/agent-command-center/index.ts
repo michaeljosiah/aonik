@@ -6,7 +6,7 @@ import { AgentPerformancePanel } from '@/workspace/apps/AgentPerformancePanel';
 import { AgentCostPanel } from '@/workspace/apps/AgentCostPanel';
 import { AgentErrorsPanel } from '@/workspace/apps/AgentErrorsPanel';
 import { ApprovalsPage } from '@/pages/approvals';
-import { AiRunQueuePage, AiPoliciesPage } from '@/pages/ai-ops';
+import { AiRunQueuePage, AiPoliciesPage, AiUsagePage } from '@/pages/ai-ops';
 
 // ── Navigation ─────────────────────────────────────────────────────────
 
@@ -32,6 +32,12 @@ const navigation: NavigationSection[] = [
         label: 'Policies',
         icon: 'ShieldCheck',
         href: '/ai/policies',
+      },
+      {
+        id: 'ai-usage',
+        label: 'Usage',
+        icon: 'TrendingUp',
+        href: '/ai/usage',
       },
     ],
   },
@@ -110,6 +116,7 @@ export const agentCommandCenterModule: AdminModule = {
     { path: '/approvals', element: ApprovalsPage },
     { path: '/ai/runs', element: AiRunQueuePage },
     { path: '/ai/policies', element: AiPoliciesPage },
+    { path: '/ai/usage', element: AiUsagePage },
   ],
   panels,
   panelComponents,
@@ -119,5 +126,6 @@ export const agentCommandCenterModule: AdminModule = {
     { pathPrefix: '/approvals', trail: ['Approvals'] },
     { pathPrefix: '/ai/runs', trail: ['AI', 'Run queue'] },
     { pathPrefix: '/ai/policies', trail: ['AI', 'Policies'] },
+    { pathPrefix: '/ai/usage', trail: ['AI', 'Usage'] },
   ],
 };
