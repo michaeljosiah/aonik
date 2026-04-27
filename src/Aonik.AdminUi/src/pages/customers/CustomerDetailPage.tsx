@@ -1,55 +1,153 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+// Customer Detail — visual port of
+// templates/aonik-admin-starterkit/screens/customer-detail.jsx, kept on top
+// of the existing data wiring (customerService.get / getStats / listInsights
+// + documentService) and the existing Finance sub-tab components.
+//
+// Differences from the template (called out so they don't read as gaps):
+//   • Template's ARR / MRR / LTV / Runway / Open-orders KPIs are not on the
+//     backend yet; we surface fields the API actually carries — Total
+//     orders, Total paid, Outstanding, Last activity, Customer since.
+//   • "Recent activity" is a placeholder card — no /customers/:id/activity
+//     audit feed exists yet.
+//   • Template's "Orders" tab is omitted because the orders endpoint can't
+//     filter by party today.
 
+import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AlertCircle,
+  Building2,
   Download,
   FileText,
+  Globe,
   Lightbulb,
   Mail,
-  MapPin,
-  Phone,
+  Plus,
   RefreshCw,
-  ShieldCheck,
-  User,
-  Users,
-  UsersRound,
-  Wallet,
+  Sparkles,
 } from 'lucide-react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
+import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import { customerService } from '@/services/customerService';
 import type { CustomerInsightsResponse } from '@/services/customerService';
 import { documentService } from '@/services/documentService';
+import type {
+  CurrencyAmount,
+  CustomerDetail,
+  CustomerStats,
+  DocumentListItem,
+} from '@/types';
+
 import { AccountsSubTab } from './finance/AccountsSubTab';
 import { BudgetsSubTab } from './finance/BudgetsSubTab';
 import { CommitmentsSubTab } from './finance/CommitmentsSubTab';
 import { FinancialGraphSubTab } from './finance/FinancialGraphSubTab';
 import { TransactionsSubTab } from './finance/TransactionsSubTab';
-import type { CurrencyAmount, CustomerDetail, CustomerStats, DocumentListItem } from '@/types';
 
-const statusStyles: Record<string, { text: string; bg: string }> = {
-  Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Pending: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  Suspended: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
-  Inactive: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+const STATUS_TONE: Record<string, PillTone> = {
+  Active: 'success',
+  Pending: 'warning',
+  Suspended: 'danger',
+  Inactive: 'muted',
+  Deactivated: 'muted',
 };
 
+const VERIFICATION_TONE: Record<string, PillTone> = {
+  Verified: 'success',
+  Pending: 'warning',
+  ReReview: 'pending',
+  Rejected: 'danger',
+};
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-2">
-      <span className="text-xs text-[var(--color-text-tertiary)]">{label}</span>
-      <span className="text-sm text-[var(--color-text-primary)] text-right">{value}</span>
-    </div>
-  );
+type TabKey = 'overview' | 'finance' | 'insights' | 'documents' | 'activity';
+type FinanceSubKey = 'accounts' | 'transactions' | 'budgets' | 'commitments' | 'graph';
+
+const TABS: Array<{ value: TabKey; label: string }> = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'insights', label: 'Insights' },
+  { value: 'documents', label: 'Documents' },
+  { value: 'activity', label: 'Activity' },
+];
+
+const FINANCE_SUBS: Array<{ value: FinanceSubKey; label: string }> = [
+  { value: 'accounts', label: 'Accounts' },
+  { value: 'transactions', label: 'Transactions' },
+  { value: 'budgets', label: 'Budgets' },
+  { value: 'commitments', label: 'Commitments' },
+  { value: 'graph', label: 'Financial graph' },
+];
+
+function formatDate(value?: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
+
+function formatDateTime(value?: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatRelative(value?: string | null): string {
+  if (!value) return '—';
+  const diff = Date.now() - new Date(value).getTime();
+  const minutes = Math.round(diff / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(value);
+}
+
+function formatCurrency(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currency} ${Math.round(amount).toLocaleString()}`;
+  }
+}
+
+function summariseAmounts(amounts?: CurrencyAmount[] | null): string {
+  if (!amounts || amounts.length === 0) return '—';
+  if (amounts.length === 1) {
+    const entry = amounts[0];
+    return formatCurrency(entry.amount, entry.currency);
+  }
+  return `${amounts.length} currencies`;
+}
+
+function deriveInitials(name?: string | null): string {
+  if (!name) return 'C';
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase();
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────
 
 export function CustomerDetailPage() {
   const navigate = useNavigate();
@@ -58,27 +156,29 @@ export function CustomerDetailPage() {
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [financeSubTab, setFinanceSubTab] = useState<'accounts' | 'transactions' | 'budgets' | 'commitments' | 'graph'>('accounts');
+
   const [stats, setStats] = useState<CustomerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [financeSub, setFinanceSub] = useState<FinanceSubKey>('accounts');
+
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
+
   const [insights, setInsights] = useState<CustomerInsightsResponse | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
-
     setLoading(true);
     setError(null);
     try {
       const data = await customerService.get(partyId);
       setCustomer(data);
     } catch (err: unknown) {
-      console.error('Failed to load customer:', err);
       const message =
         err && typeof err === 'object' && 'userMessage' in err
           ? String((err as { userMessage?: string }).userMessage ?? '')
@@ -91,13 +191,11 @@ export function CustomerDetailPage() {
 
   const loadStats = useCallback(async () => {
     if (!partyId) return;
-
     setStatsLoading(true);
     try {
       const data = await customerService.getStats(partyId);
       setStats(data);
-    } catch (err: unknown) {
-      console.error('Failed to load customer stats:', err);
+    } catch {
       setStats(null);
     } finally {
       setStatsLoading(false);
@@ -106,21 +204,20 @@ export function CustomerDetailPage() {
 
   const loadDocuments = useCallback(async () => {
     if (!partyId) return;
-
     setDocumentsLoading(true);
     setDocumentsError(null);
     try {
       const result = await documentService.list({
         ownerPartyId: partyId,
         pageNumber: 1,
-        pageSize: 5,
+        pageSize: 10,
       });
       setDocuments(result.items);
     } catch (err: unknown) {
-      console.error('Failed to load customer documents:', err);
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
       setDocumentsError(message || 'Failed to load documents.');
     } finally {
       setDocumentsLoading(false);
@@ -129,17 +226,16 @@ export function CustomerDetailPage() {
 
   const loadInsights = useCallback(async () => {
     if (!partyId) return;
-
     setInsightsLoading(true);
     setInsightsError(null);
     try {
       const result = await customerService.listInsights(partyId);
       setInsights(result);
     } catch (err: unknown) {
-      console.error('Failed to load customer insights:', err);
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
       setInsightsError(message || 'Failed to load insights.');
     } finally {
       setInsightsLoading(false);
@@ -147,121 +243,23 @@ export function CustomerDetailPage() {
   }, [partyId]);
 
   useEffect(() => {
-    loadCustomer();
-    loadStats();
+    void loadCustomer();
+    void loadStats();
   }, [loadCustomer, loadStats]);
 
   useEffect(() => {
-    if (activeTab === 'documents') {
-      loadDocuments();
-    }
-    if (activeTab === 'insights') {
-      loadInsights();
-    }
+    if (activeTab === 'documents') void loadDocuments();
+    if (activeTab === 'insights') void loadInsights();
   }, [activeTab, loadDocuments, loadInsights]);
 
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return '—';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString?: string | null) => {
-    if (!dateString) return '—';
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatDateShort = (dateString?: string | null) => {
-    if (!dateString) return '—';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatCurrencyValue = (amount: number, currency: string) => {
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 2,
-      }).format(amount);
-    } catch {
-      return `${amount.toLocaleString('en-US')} ${currency}`;
-    }
-  };
-
-  const formatCurrencySummary = (amounts?: CurrencyAmount[] | null) => {
-    if (!amounts || amounts.length === 0) return '—';
-    if (amounts.length === 1) {
-      const entry = amounts[0];
-      return formatCurrencyValue(entry.amount, entry.currency);
-    }
-    return `Multiple (${amounts.length})`;
-  };
-
-  const getInitials = (name?: string | null, email?: string | null) => {
-    if (name) {
-      return name
-        .split(' ')
-        .filter(Boolean)
-        .map((part) => part[0])
-        .join('')
-        .toUpperCase();
-    }
-    return email?.charAt(0).toUpperCase() || 'C';
-  };
-
-  const getPhotoUrl = (size: 'original' | 'medium' | 'small' | 'tiny' = 'small') => {
-    if (!customer?.personProfile) return null;
-
-    let photoUrl: string | null | undefined;
-    switch (size) {
-      case 'original':
-        photoUrl = customer.personProfile.photoUrl;
-        break;
-      case 'medium':
-        photoUrl = customer.personProfile.photoUrlMedium || customer.personProfile.photoUrl;
-        break;
-      case 'small':
-        photoUrl = customer.personProfile.photoUrlSmall || customer.personProfile.photoUrl;
-        break;
-      case 'tiny':
-        photoUrl = customer.personProfile.photoUrlTiny || customer.personProfile.photoUrl;
-        break;
-    }
-
-    if (!photoUrl) return null;
-
-    if (photoUrl.startsWith('http')) {
-      return photoUrl;
-    }
-
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://localhost:5001';
-    return `${apiBaseUrl}${photoUrl}`;
-  };
-
-  const breadcrumbItems = [
-    { label: 'Customers', href: '/customers', icon: <UsersRound className="w-3.5 h-3.5" /> },
-    { label: 'Customer', icon: <User className="w-3.5 h-3.5" /> },
-  ];
+  // ─── Loading / not-found states ───────────────────────────────────────
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-[var(--color-brand-primary)]" />
-          <p className="text-[var(--color-text-secondary)]">Loading customer...</p>
+          <RefreshCw className="mx-auto mb-3 h-8 w-8 animate-spin text-[var(--color-brand-primary)]" />
+          <p className="text-sm text-[var(--color-text-secondary)]">Loading customer…</p>
         </div>
       </div>
     );
@@ -269,11 +267,13 @@ export function CustomerDetailPage() {
 
   if (!customer) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-[var(--color-error)]" />
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">Customer Not Found</h2>
-          <p className="text-[var(--color-text-secondary)] mb-4">
+          <AlertCircle className="mx-auto mb-3 h-12 w-12 text-[var(--color-error)]" />
+          <h2 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">
+            Customer not found
+          </h2>
+          <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
             The customer you're looking for doesn't exist or you don't have access.
           </p>
           <Button onClick={() => navigate('/customers')}>Back to Customers</Button>
@@ -282,754 +282,770 @@ export function CustomerDetailPage() {
     );
   }
 
+  // ─── Derived values ───────────────────────────────────────────────────
+
   const contacts = customer.contacts ?? [];
   const addresses = customer.addresses ?? [];
   const consents = customer.consents ?? [];
   const externalAccounts = customer.externalAccounts ?? [];
-  const relationships = customer.relationships ?? [];
-  const roleAssignments = customer.roleAssignments ?? [];
 
   const primaryEmail = contacts.find((c) => c.type === 'Email' && c.isPrimary)?.value;
   const primaryPhone = contacts.find((c) => c.type === 'Phone' && c.isPrimary)?.value;
+  const primaryAddress = addresses[0];
 
   const verificationStatus =
     customer.partyType === 'Business'
       ? customer.businessProfile?.kybStatus
       : customer.personProfile?.idvStatus;
 
-  const statusStyle =
-    statusStyles[customer.status] ??
-    ({ text: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]' } as const);
+  const registrationCode =
+    customer.partyType === 'Business'
+      ? customer.businessProfile?.registrationNumber
+      : null;
 
   const profileSubtitle =
     customer.partyType === 'Business'
       ? customer.businessProfile?.industry || 'Business customer'
       : customer.personProfile?.occupation || 'Individual customer';
 
-  const lastActivityAt = stats?.lastActivityAt || customer.updatedAt || customer.createdAt;
   const totalOrders = stats?.totalOrders;
-  const totalPaidSummary = formatCurrencySummary(stats?.totalPaidByCurrency);
-  const outstandingSummary = formatCurrencySummary(stats?.outstandingByCurrency);
-  const primaryAddress = addresses[0];
+  const totalPaidSummary = summariseAmounts(stats?.totalPaidByCurrency);
+  const outstandingSummary = summariseAmounts(stats?.outstandingByCurrency);
+  const lastActivityAt = stats?.lastActivityAt || customer.updatedAt || customer.createdAt;
+
+  // ─── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full overflow-auto bg-[var(--color-background)]">
-      <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
-        <div>
-          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Customer Details</h1>
-          <Breadcrumb items={breadcrumbItems} className="mt-1" />
+    <div className="flex flex-col gap-5 p-6 md:px-8">
+      {error && (
+        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          <AlertCircle className="h-4 w-4 flex-none" />
+          <span className="flex-1">{error}</span>
+          <Button variant="outline" size="sm" onClick={() => void loadCustomer()}>
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
         </div>
-        <div className="flex items-center gap-2">
+      )}
+
+      {/* Header card */}
+      <div className="flex items-center gap-5 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-5">
+        <div
+          className="flex h-[68px] w-[68px] flex-none items-center justify-center font-[family-name:var(--font-brand)] font-semibold leading-none text-white"
+          style={{
+            borderRadius: 14,
+            fontSize: 26,
+            background:
+              'linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-primary-dark) 100%)',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          {deriveInitials(customer.displayName)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="font-[family-name:var(--font-brand)] text-[22px] font-bold tracking-[-0.01em] text-[var(--color-text-primary)]">
+              {customer.displayName}
+            </div>
+            <Pill tone={STATUS_TONE[customer.status] ?? 'default'} dot>
+              {customer.status}
+            </Pill>
+            {registrationCode && (
+              <span className="rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                {registrationCode}
+              </span>
+            )}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-3.5 text-xs text-[var(--color-text-secondary)]">
+            <span className="inline-flex items-center gap-1.5">
+              <Building2 className="h-3 w-3" />
+              {customer.partyType}
+              {customer.customerTierCode ? ` · Tier ${customer.customerTierCode}` : ''}
+              {profileSubtitle ? ` · ${profileSubtitle}` : ''}
+            </span>
+            {primaryAddress?.country && (
+              <span className="inline-flex items-center gap-1.5">
+                <Globe className="h-3 w-3" />
+                {primaryAddress.country}
+              </span>
+            )}
+            <span className="font-[family-name:var(--font-mono)]">
+              customer since · {formatDate(customer.createdAt)}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-none gap-1.5">
           <Button
             variant="outline"
             size="sm"
             onClick={async () => {
+              if (!partyId) return;
               try {
-                await customerService.exportData(partyId!);
+                await customerService.exportData(partyId);
               } catch {
-                /* toast or ignore */
+                /* swallow — error toast handled by service in future iterations */
               }
             }}
           >
-            <Download className="w-4 h-4 mr-1.5" />
-            Export Data
+            <Download className="h-3 w-3" />
+            Export
           </Button>
-          <Button variant="outline" size="sm" onClick={loadCustomer}>
-            Refresh
+          <Button variant="outline" size="sm" onClick={() => setActiveTab('insights')}>
+            <Sparkles className="h-3 w-3" />
+            Generate insight
+          </Button>
+          <Button size="sm" disabled>
+            <Plus className="h-3 w-3" />
+            New order
           </Button>
         </div>
       </div>
 
-      {error && (
-        <div className="px-6 pt-4">
-          <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-              <AlertCircle className="w-5 h-5" />
-              <span className="flex-1">{error}</span>
-              <Button variant="ghost" size="sm" onClick={loadCustomer}>
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+      {/* KPI strip — fields the backend actually carries */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <KpiCell
+          label="Total orders"
+          value={
+            statsLoading && totalOrders === undefined
+              ? '—'
+              : totalOrders != null
+              ? totalOrders.toLocaleString()
+              : '—'
+          }
+          dot="var(--color-brand-primary)"
+          sub={statsLoading ? 'loading…' : 'lifetime'}
+        />
+        <KpiCell
+          label="Total paid"
+          value={statsLoading && !stats ? '—' : totalPaidSummary}
+          dot="var(--color-success)"
+          sub={stats?.totalPaidByCurrency.length === 1 ? stats.totalPaidByCurrency[0].currency : ''}
+        />
+        <KpiCell
+          label="Outstanding"
+          value={statsLoading && !stats ? '—' : outstandingSummary}
+          dot="var(--color-warning)"
+          sub={stats?.outstandingByCurrency.length === 1 ? stats.outstandingByCurrency[0].currency : ''}
+        />
+        <KpiCell
+          label="Last activity"
+          value={formatRelative(lastActivityAt)}
+          dot="var(--color-brand-secondary)"
+          sub={lastActivityAt ? formatDate(lastActivityAt) : ''}
+        />
+        <KpiCell
+          label="Linked accounts"
+          value={String(externalAccounts.length)}
+          dot="var(--color-text-tertiary)"
+          sub={externalAccounts.length === 0 ? 'none on file' : 'external'}
+        />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-0.5 border-b border-[var(--color-border-light)] px-0.5">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              className={
+                'h-[38px] -mb-px border-b-2 px-3.5 text-[13px] transition-colors ' +
+                (isActive
+                  ? 'border-[var(--color-brand-primary)] font-semibold text-[var(--color-text-primary)]'
+                  : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')
+              }
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      {activeTab === 'overview' && (
+        <OverviewTab
+          customer={customer}
+          consents={consents}
+          contacts={{ primaryEmail, primaryPhone }}
+          primaryAddress={primaryAddress}
+          externalAccounts={externalAccounts}
+          verificationStatus={verificationStatus}
+        />
       )}
 
-      <div className="p-6">
-        <div className="flex flex-col xl:flex-row gap-6">
-          <div className="w-full xl:w-80 flex-shrink-0 space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center mb-6">
-                  <Avatar className="h-20 w-20 mx-auto mb-3">
-                    {getPhotoUrl('small') && (
-                      <AvatarImage src={getPhotoUrl('small')!} alt={customer.displayName} />
-                    )}
-                    <AvatarFallback className="text-lg">
-                      {getInitials(customer.displayName, primaryEmail)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                    {customer.displayName}
-                  </h2>
-                  <p className="text-sm text-[var(--color-text-tertiary)]">{profileSubtitle}</p>
-                  <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
-                    <Badge className={`${statusStyle.bg} ${statusStyle.text} text-xs`}>{customer.status}</Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {customer.partyType}
-                    </Badge>
-                    {customer.customerTierCode && (
-                      <Badge variant="outline" className="text-xs">
-                        Tier {customer.customerTierCode}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
+      {activeTab === 'finance' && (
+        <FinanceTab
+          financeSub={financeSub}
+          onSubChange={setFinanceSub}
+          userId={customer.userId}
+        />
+      )}
 
-                <div className="space-y-3 border-t border-[var(--color-border-light)] pt-4">
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Mail className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                    <span>{primaryEmail || 'No primary email'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Phone className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                    <span>{primaryPhone || 'No primary phone'}</span>
-                  </div>
-                </div>
+      {activeTab === 'insights' && (
+        <InsightsTab
+          insights={insights}
+          loading={insightsLoading}
+          error={insightsError}
+        />
+      )}
 
-                <div className="mt-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-[var(--color-text-primary)]">Live stats</span>
-                    <Badge className="bg-[var(--color-info-light)] text-[var(--color-info)] text-xs">Live</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg border border-[var(--color-border-light)] p-3">
-                      <p className="text-xs text-[var(--color-text-tertiary)]">Total orders</p>
-                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                        {statsLoading && totalOrders === undefined ? 'Loading...' : totalOrders ?? '—'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-[var(--color-border-light)] p-3">
-                      <p className="text-xs text-[var(--color-text-tertiary)]">Total paid</p>
-                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                        {statsLoading && !stats ? 'Loading...' : totalPaidSummary}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-[var(--color-border-light)] p-3">
-                      <p className="text-xs text-[var(--color-text-tertiary)]">Outstanding</p>
-                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                        {statsLoading && !stats ? 'Loading...' : outstandingSummary}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-[var(--color-border-light)] p-3">
-                      <p className="text-xs text-[var(--color-text-tertiary)]">Accounts linked</p>
-                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                        {externalAccounts.length}
-                      </p>
-                    </div>
-                    <div className="col-span-2 rounded-lg border border-[var(--color-border-light)] p-3">
-                      <p className="text-xs text-[var(--color-text-tertiary)]">Last activity</p>
-                      <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {formatDateTime(lastActivityAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+      {activeTab === 'documents' && (
+        <DocumentsTab
+          documents={documents}
+          loading={documentsLoading}
+          error={documentsError}
+          onView={(id) => navigate(`/compliance/documents/${id}`)}
+        />
+      )}
 
-          <div className="flex-1 min-w-0">
-            <Card>
-              <CardContent className="p-0">
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4">
-                    <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-0">
-                      {[
-                        { value: 'overview', label: 'Overview' },
-                        { value: 'finance', label: 'Finance' },
-                        { value: 'contacts', label: 'Contacts' },
-                        { value: 'addresses', label: 'Addresses' },
-                        { value: 'accounts', label: 'Accounts' },
-                        { value: 'relationships', label: 'Relationships' },
-                        { value: 'consents', label: 'Consents' },
-                        { value: 'insights', label: 'Insights' },
-                        { value: 'documents', label: 'Documents' },
-                      ].map((tab) => (
-                        <TabsTrigger
-                          key={tab.value}
-                          value={tab.value}
-                          className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]"
-                        >
-                          {tab.label}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </div>
-
-                  <div className="p-6">
-                    <TabsContent value="finance" className="mt-0">
-                      {!customer?.userId ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <p className="text-sm text-[var(--color-text-tertiary)]">
-                            No user account linked to this customer.
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Sub-tab navigation */}
-                          <div className="flex items-center gap-1 border-b border-[var(--color-border-light)] -mx-6 px-6 mb-5">
-                            {(['accounts', 'transactions', 'budgets', 'commitments', 'graph'] as const).map((sub) => {
-                              const labels: Record<string, string> = {
-                                accounts: 'Accounts',
-                                transactions: 'Transactions',
-                                budgets: 'Budgets',
-                                commitments: 'Commitments',
-                                graph: 'Financial Graph',
-                              };
-                              return (
-                                <button
-                                  key={sub}
-                                  type="button"
-                                  onClick={() => setFinanceSubTab(sub)}
-                                  className={`pb-2.5 px-1 mr-4 text-sm border-b-2 transition-colors ${
-                                    financeSubTab === sub
-                                      ? 'border-[var(--color-brand-primary)] text-[var(--color-brand-primary)] font-medium'
-                                      : 'border-transparent text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
-                                  }`}
-                                >
-                                  {labels[sub]}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Sub-tab content */}
-                          {financeSubTab === 'accounts' && (
-                            <AccountsSubTab key="accounts" userId={customer.userId} />
-                          )}
-                          {financeSubTab === 'transactions' && (
-                            <TransactionsSubTab key="transactions" userId={customer.userId} />
-                          )}
-                          {financeSubTab === 'budgets' && (
-                            <BudgetsSubTab key="budgets" userId={customer.userId} />
-                          )}
-                          {financeSubTab === 'commitments' && (
-                            <CommitmentsSubTab key="commitments" userId={customer.userId} />
-                          )}
-                          {financeSubTab === 'graph' && (
-                            <FinancialGraphSubTab key="graph" userId={customer.userId} />
-                          )}
-                        </>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="overview" className="mt-0">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Profile Summary</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-sm">
-                            {customer.partyType === 'Business' ? (
-                              <div className="space-y-1">
-                                <DetailRow label="Business name" value={customer.displayName} />
-                                <DetailRow
-                                  label="Registration number"
-                                  value={customer.businessProfile?.registrationNumber || '—'}
-                                />
-                                <DetailRow
-                                  label="Incorporation country"
-                                  value={customer.businessProfile?.incorporationCountry || '—'}
-                                />
-                                <DetailRow label="Industry" value={customer.businessProfile?.industry || '—'} />
-                                <DetailRow label="Verification" value={verificationStatus || '—'} />
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                <DetailRow label="Full name" value={customer.displayName} />
-                                <DetailRow
-                                  label="Date of birth"
-                                  value={formatDate(customer.personProfile?.dob || null)}
-                                />
-                                <DetailRow
-                                  label="Nationality"
-                                  value={customer.personProfile?.nationality || '—'}
-                                />
-                                <DetailRow
-                                  label="Occupation"
-                                  value={customer.personProfile?.occupation || '—'}
-                                />
-                                <DetailRow label="Verification" value={verificationStatus || '—'} />
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Account Information</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-sm">
-                            <div className="space-y-1">
-                              <DetailRow label="Status" value={customer.status} />
-                              <DetailRow label="Party type" value={customer.partyType} />
-                              <DetailRow label="Customer tier" value={customer.customerTierCode || '—'} />
-                              <DetailRow label="Roles" value={String(roleAssignments.length)} />
-                              <DetailRow label="Created" value={formatDate(customer.createdAt)} />
-                              <DetailRow label="Updated" value={formatDate(customer.updatedAt)} />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Primary Contact</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-sm space-y-3">
-                            <div className="flex items-center gap-2">
-                              <Mail className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                              <span>{primaryEmail || 'No primary email'}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Phone className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                              <span>{primaryPhone || 'No primary phone'}</span>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Primary Address</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-sm">
-                            {primaryAddress ? (
-                              <div className="space-y-1">
-                                <DetailRow label="Type" value={primaryAddress.type} />
-                                <DetailRow
-                                  label="Address"
-                                  value={
-                                    [
-                                      primaryAddress.line1,
-                                      primaryAddress.line2,
-                                      primaryAddress.city,
-                                      primaryAddress.state,
-                                      primaryAddress.postcode,
-                                      primaryAddress.country,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(', ') || '—'
-                                  }
-                                />
-                              </div>
-                            ) : (
-                              <p className="text-sm text-[var(--color-text-tertiary)]">No address on file</p>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="contacts" className="mt-0">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-sm">Contacts</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {contacts.length === 0 ? (
-                            <p className="text-sm text-[var(--color-text-tertiary)]">No contacts available.</p>
-                          ) : (
-                            contacts.map((contact) => (
-                              <div
-                                key={contact.contactId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
-                              >
-                                <div className="flex items-start gap-3">
-                                  {contact.type === 'Email' ? (
-                                    <Mail className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
-                                  ) : (
-                                    <Phone className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
-                                  )}
-                                  <div>
-                                    <div className="text-sm text-[var(--color-text-primary)]">{contact.value}</div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)]">{contact.type}</div>
-                                  </div>
-                                </div>
-                                {contact.isPrimary && (
-                                  <Badge className="bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] text-xs">
-                                    Primary
-                                  </Badge>
-                                )}
-                              </div>
-                            ))
-                          )}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    <TabsContent value="addresses" className="mt-0">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-sm">Addresses</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {addresses.length === 0 ? (
-                            <p className="text-sm text-[var(--color-text-tertiary)]">No addresses available.</p>
-                          ) : (
-                            addresses.map((address) => (
-                              <div
-                                key={address.addressId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
-                              >
-                                <div className="flex items-start gap-3">
-                                  <MapPin className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
-                                  <div>
-                                    <div className="text-sm text-[var(--color-text-primary)]">{address.type}</div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)]">
-                                      {[address.line1, address.line2, address.city, address.state, address.postcode, address.country]
-                                        .filter(Boolean)
-                                        .join(', ')}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    <TabsContent value="accounts" className="mt-0">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-sm">External Accounts</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {externalAccounts.length === 0 ? (
-                            <p className="text-sm text-[var(--color-text-tertiary)]">No external accounts linked.</p>
-                          ) : (
-                            externalAccounts.map((account) => (
-                              <div
-                                key={account.partyAccountId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
-                              >
-                                <div className="flex items-start gap-3">
-                                  <Wallet className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
-                                  <div>
-                                    <div className="text-sm text-[var(--color-text-primary)]">
-                                      {account.accountType}
-                                    </div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)]">{account.maskedIdentifier}</div>
-                                    {account.providerRef && (
-                                      <div className="text-xs text-[var(--color-text-tertiary)]">
-                                        Provider: {account.providerRef}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <Badge variant="outline" className="text-xs">
-                                  {account.verificationStatus}
-                                </Badge>
-                              </div>
-                            ))
-                          )}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    <TabsContent value="relationships" className="mt-0">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-sm">Relationships</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {relationships.length === 0 ? (
-                            <p className="text-sm text-[var(--color-text-tertiary)]">No relationships available.</p>
-                          ) : (
-                            relationships.map((relationship) => (
-                              <div
-                                key={relationship.relationshipId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
-                              >
-                                <div className="flex items-start gap-3">
-                                  <Users className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
-                                  <div>
-                                    <div className="text-sm text-[var(--color-text-primary)]">
-                                      {relationship.relationshipTypeCode}
-                                    </div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)]">
-                                      From {relationship.fromPartyId} to {relationship.toPartyId}
-                                    </div>
-                                    {relationship.notes && (
-                                      <div className="text-xs text-[var(--color-text-tertiary)]">{relationship.notes}</div>
-                                    )}
-                                  </div>
-                                </div>
-                                <Badge variant="outline" className="text-xs">
-                                  {relationship.isActive ? 'Active' : 'Inactive'}
-                                </Badge>
-                              </div>
-                            ))
-                          )}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    <TabsContent value="consents" className="mt-0">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-sm">Consents</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {consents.length === 0 ? (
-                            <p className="text-sm text-[var(--color-text-tertiary)]">No consents recorded.</p>
-                          ) : (
-                            consents.map((consent) => (
-                              <div
-                                key={consent.consentId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
-                              >
-                                <div className="flex items-start gap-3">
-                                  <ShieldCheck className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
-                                  <div>
-                                    <div className="text-sm text-[var(--color-text-primary)]">{consent.consentType}</div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)]">
-                                      Granted {formatDate(consent.grantedAt)}
-                                    </div>
-                                    {consent.revokedAt && (
-                                      <div className="text-xs text-[var(--color-text-tertiary)]">
-                                        Revoked {formatDate(consent.revokedAt)}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <Badge variant="outline" className="text-xs">
-                                  {consent.revokedAt ? 'Revoked' : 'Active'}
-                                </Badge>
-                              </div>
-                            ))
-                          )}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    <TabsContent value="insights" className="mt-0">
-                      <div className="space-y-4">
-                        {insightsError && (
-                          <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-                            {insightsError}
-                          </div>
-                        )}
-                        {insightsLoading ? (
-                          <Card>
-                            <CardContent className="flex items-center justify-center py-10">
-                              <div className="w-6 h-6 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
-                            </CardContent>
-                          </Card>
-                        ) : !insights?.aiSummary && !insights?.snapshot ? (
-                          <Card>
-                            <CardContent className="text-center py-10">
-                              <Lightbulb className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                              <p className="text-sm text-[var(--color-text-secondary)]">No customer insights generated yet.</p>
-                              <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                                Insights appear after the customer insight snapshot and AI summary pipeline runs.
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ) : (
-                          <>
-                            {insights.aiSummary && (
-                              <Card>
-                                <CardHeader>
-                                  <div className="flex items-center gap-2">
-                                    <Lightbulb className="w-4 h-4 text-[var(--color-warning)]" />
-                                    <CardTitle className="text-sm">AI Summary</CardTitle>
-                                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">AI</Badge>
-                                  </div>
-                                  <p className="text-base font-medium text-[var(--color-text-primary)] mt-1">
-                                    {insights.aiSummary.headline}
-                                  </p>
-                                  <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-                                    {insights.aiSummary.summary}
-                                  </p>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                  {insights.aiSummary.keyObservations.length > 0 && (
-                                    <div>
-                                      <h4 className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-2">Key Observations</h4>
-                                      <ul className="space-y-1">
-                                        {insights.aiSummary.keyObservations.map((obs, i) => (
-                                          <li key={i} className="text-sm text-[var(--color-text-secondary)] flex items-start gap-2">
-                                            <span className="text-[var(--color-text-tertiary)] mt-0.5 shrink-0">&#8226;</span>
-                                            <span>{obs}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {insights.aiSummary.positivePatterns.length > 0 && (
-                                      <div className="border border-[var(--color-border-light)] rounded-md p-3">
-                                        <h4 className="text-xs font-medium text-[var(--color-success)] uppercase tracking-wide mb-2">Positive Patterns</h4>
-                                        <ul className="space-y-1">
-                                          {insights.aiSummary.positivePatterns.map((p, i) => (
-                                            <li key={i} className="text-sm text-[var(--color-text-secondary)]">{p}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                    {insights.aiSummary.riskPatterns.length > 0 && (
-                                      <div className="border border-[var(--color-border-light)] rounded-md p-3">
-                                        <h4 className="text-xs font-medium text-[var(--color-error)] uppercase tracking-wide mb-2">Risk Patterns</h4>
-                                        <ul className="space-y-1">
-                                          {insights.aiSummary.riskPatterns.map((p, i) => (
-                                            <li key={i} className="text-sm text-[var(--color-text-secondary)]">{p}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {insights.aiSummary.recommendedFocusAreas.length > 0 && (
-                                    <div>
-                                      <h4 className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-2">Recommended Focus Areas</h4>
-                                      <ul className="space-y-1">
-                                        {insights.aiSummary.recommendedFocusAreas.map((area, i) => (
-                                          <li key={i} className="text-sm text-[var(--color-text-secondary)] flex items-start gap-2">
-                                            <span className="text-[var(--color-brand-primary)] mt-0.5 shrink-0">&#8594;</span>
-                                            <span>{area}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-
-                                  {insights.aiSummary.caveats.length > 0 && (
-                                    <div className="bg-[var(--color-surface-inset)] rounded-md p-3">
-                                      <h4 className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-2">Caveats</h4>
-                                      <ul className="space-y-1">
-                                        {insights.aiSummary.caveats.map((c, i) => (
-                                          <li key={i} className="text-xs text-[var(--color-text-tertiary)]">{c}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-
-                                  <div className="text-xs text-[var(--color-text-tertiary)] pt-2 border-t border-[var(--color-border-light)]">
-                                    Generated {formatDateTime(insights.aiSummary.createdUtc)}
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-
-                            {insights.snapshot && !insights.aiSummary && (
-                              <Card>
-                                <CardHeader>
-                                  <div className="flex items-center gap-2">
-                                    <Lightbulb className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                                    <CardTitle className="text-sm">Snapshot</CardTitle>
-                                    {insights.snapshot.isPartial && (
-                                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">Partial</Badge>
-                                    )}
-                                  </div>
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                  {insights.snapshot.topSignalTitle && (
-                                    <div>
-                                      <div className="text-sm font-medium text-[var(--color-text-primary)]">{insights.snapshot.topSignalTitle}</div>
-                                      {insights.snapshot.topSignalDescription && (
-                                        <div className="text-sm text-[var(--color-text-secondary)] mt-1">{insights.snapshot.topSignalDescription}</div>
-                                      )}
-                                    </div>
-                                  )}
-                                  {insights.snapshot.cashflowStressLevel && insights.snapshot.cashflowStressLevel !== 'Low' && (
-                                    <div className="text-sm text-[var(--color-text-secondary)]">
-                                      Cashflow stress: <span className="font-medium">{insights.snapshot.cashflowStressLevel}</span>
-                                    </div>
-                                  )}
-                                  <div className="text-xs text-[var(--color-text-tertiary)]">
-                                    Snapshot as of {formatDateTime(insights.snapshot.asOfUtc)}
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="documents" className="mt-0">
-                      <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                          <div>
-                            <CardTitle className="text-sm">Documents</CardTitle>
-                            <p className="text-xs text-[var(--color-text-tertiary)]">Recent compliance documents.</p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate('/compliance/documents')}
-                          >
-                            View all
-                          </Button>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {documentsError && (
-                            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-                              {documentsError}
-                            </div>
-                          )}
-                          {documentsLoading ? (
-                            <div className="flex items-center justify-center py-6">
-                              <div className="w-6 h-6 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
-                            </div>
-                          ) : documents.length === 0 ? (
-                            <div className="text-center py-6">
-                              <FileText className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                              <p className="text-sm text-[var(--color-text-secondary)]">No documents recorded.</p>
-                            </div>
-                          ) : (
-                            documents.map((doc) => (
-                              <div
-                                key={doc.documentId}
-                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
-                              >
-                                <div>
-                                  <div className="text-sm text-[var(--color-text-primary)] font-medium">{doc.documentType}</div>
-                                  <div className="text-xs text-[var(--color-text-tertiary)]">
-                                    Issued {formatDateShort(doc.issuedOn)} · Expires {formatDateShort(doc.expiresOn)}
-                                  </div>
-                                  <div className="text-xs text-[var(--color-text-tertiary)]">
-                                    Reference {doc.referenceNumber || '—'}
-                                  </div>
-                                </div>
-                                <div className="flex flex-col items-end gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {doc.status}
-                                  </Badge>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => navigate(`/compliance/documents/${doc.documentId}`)}
-                                  >
-                                    View
-                                  </Button>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  </div>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+      {activeTab === 'activity' && <ActivityPlaceholder />}
     </div>
   );
 }
+
+// ─── KPI cell ────────────────────────────────────────────────────────────
+
+function KpiCell({
+  label,
+  value,
+  sub,
+  dot,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: ReactNode;
+  dot: string;
+}) {
+  return (
+    <div className="rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+        {label}
+      </div>
+      <div className="mt-1 font-[family-name:var(--font-mono)] text-[20px] font-semibold leading-none text-[var(--color-text-primary)]">
+        {value}
+      </div>
+      {sub && (
+        <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">{sub}</div>
+      )}
+    </div>
+  );
+}
+
+// ─── Overview tab ────────────────────────────────────────────────────────
+
+interface OverviewTabProps {
+  customer: CustomerDetail;
+  consents: CustomerDetail['consents'];
+  contacts: { primaryEmail?: string; primaryPhone?: string };
+  primaryAddress?: CustomerDetail['addresses'][number];
+  externalAccounts: CustomerDetail['externalAccounts'];
+  verificationStatus?: string | null;
+}
+
+function OverviewTab({
+  customer,
+  consents,
+  contacts,
+  primaryAddress,
+  externalAccounts,
+  verificationStatus,
+}: OverviewTabProps) {
+  const detailRows: Array<[string, ReactNode, boolean?]> = customer.partyType === 'Business'
+    ? [
+        ['Legal name', customer.displayName],
+        ['Type', `${customer.partyType}${customer.customerTierCode ? ` · Tier ${customer.customerTierCode}` : ''}`],
+        ['Industry', customer.businessProfile?.industry || '—'],
+        ['Registration', customer.businessProfile?.registrationNumber || '—', true],
+        ['Incorporation', customer.businessProfile?.incorporationCountry || '—'],
+        ['Email', contacts.primaryEmail || '—'],
+        ['Phone', contacts.primaryPhone || '—', true],
+        [
+          'Registered address',
+          primaryAddress
+            ? [primaryAddress.line1, primaryAddress.city, primaryAddress.country]
+                .filter(Boolean)
+                .join(', ')
+            : '—',
+        ],
+      ]
+    : [
+        ['Full name', customer.displayName],
+        ['Type', customer.partyType],
+        ['Date of birth', formatDate(customer.personProfile?.dob ?? null)],
+        ['Nationality', customer.personProfile?.nationality || '—'],
+        ['Occupation', customer.personProfile?.occupation || '—'],
+        ['Email', contacts.primaryEmail || '—'],
+        ['Phone', contacts.primaryPhone || '—', true],
+        [
+          'Address',
+          primaryAddress
+            ? [primaryAddress.line1, primaryAddress.city, primaryAddress.country]
+                .filter(Boolean)
+                .join(', ')
+            : '—',
+        ],
+      ];
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <AonikCard title="Details">
+        <div className="flex flex-col">
+          {detailRows.map(([label, value, mono], idx) => (
+            <div
+              key={String(label)}
+              className={
+                'grid gap-3 py-2 ' +
+                (idx < detailRows.length - 1
+                  ? 'border-b border-[var(--color-border-light)]'
+                  : '')
+              }
+              style={{ gridTemplateColumns: '140px 1fr' }}
+            >
+              <span className="text-[11px] tracking-[0.02em] text-[var(--color-text-tertiary)]">
+                {label}
+              </span>
+              <span
+                className={
+                  'text-[12.5px] text-[var(--color-text-primary)] ' +
+                  (mono ? 'font-[family-name:var(--font-mono)]' : '')
+                }
+              >
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </AonikCard>
+
+      <AonikCard
+        title="Compliance"
+        subtitle="Verification · consents"
+        action={
+          verificationStatus ? (
+            <Pill tone={VERIFICATION_TONE[verificationStatus] ?? 'muted'} dot>
+              {verificationStatus}
+            </Pill>
+          ) : (
+            <Pill tone="muted">Unverified</Pill>
+          )
+        }
+      >
+        <div className="flex flex-col gap-2.5">
+          {consents.length === 0 ? (
+            <p className="text-xs text-[var(--color-text-tertiary)]">No consents recorded.</p>
+          ) : (
+            consents.map((consent) => (
+              <div
+                key={consent.consentId}
+                className="flex items-center gap-2.5 py-1"
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    background: consent.revokedAt
+                      ? 'var(--color-text-tertiary)'
+                      : 'var(--color-success)',
+                  }}
+                />
+                <span className="flex-1 text-[12.5px] text-[var(--color-text-primary)]">
+                  {consent.consentType}
+                </span>
+                <Pill tone={consent.revokedAt ? 'muted' : 'success'} size="sm">
+                  {consent.revokedAt ? 'Revoked' : 'Active'}
+                </Pill>
+                <span className="min-w-[60px] text-right font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+                  {formatDate(consent.grantedAt)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </AonikCard>
+
+      {externalAccounts.length > 0 && (
+        <AonikCard title="External accounts" subtitle={`${externalAccounts.length} linked`}>
+          <div className="flex flex-col gap-2">
+            {externalAccounts.map((acct) => (
+              <div
+                key={acct.externalAccountId}
+                className="flex items-center gap-3 rounded-md border border-[var(--color-border-light)] p-3"
+              >
+                <Building2 className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+                    {acct.accountType}
+                    {acct.currency ? ` · ${acct.currency}` : ''}
+                  </div>
+                  <div className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                    {acct.maskedIdentifier}
+                    {acct.providerRef ? ` · ${acct.providerRef}` : ''}
+                  </div>
+                </div>
+                <Pill tone={VERIFICATION_TONE[acct.verificationStatus] ?? 'muted'} size="sm">
+                  {acct.verificationStatus}
+                </Pill>
+              </div>
+            ))}
+          </div>
+        </AonikCard>
+      )}
+
+      <AonikCard
+        title="Recent activity"
+        subtitle="Audit feed not yet wired — coming with the activity service"
+        className="lg:col-span-2"
+      >
+        <div className="flex items-center justify-center py-6 text-xs text-[var(--color-text-tertiary)]">
+          No activity feed available for this customer yet.
+        </div>
+      </AonikCard>
+    </div>
+  );
+}
+
+// ─── Finance tab ─────────────────────────────────────────────────────────
+
+interface FinanceTabProps {
+  financeSub: FinanceSubKey;
+  onSubChange: (sub: FinanceSubKey) => void;
+  userId: string | null | undefined;
+}
+
+function FinanceTab({ financeSub, onSubChange, userId }: FinanceTabProps) {
+  if (!userId) {
+    return (
+      <AonikCard>
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <Globe className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
+          <p className="text-sm text-[var(--color-text-tertiary)]">
+            No user account linked to this customer.
+          </p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">
+            Finance views require a linked Aonik user.
+          </p>
+        </div>
+      </AonikCard>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-0.5">
+        {FINANCE_SUBS.map((sub) => {
+          const isActive = financeSub === sub.value;
+          return (
+            <button
+              key={sub.value}
+              type="button"
+              onClick={() => onSubChange(sub.value)}
+              className={
+                'inline-flex h-[30px] items-center rounded-md px-3 text-xs transition-colors ' +
+                (isActive
+                  ? 'bg-[var(--color-brand-primary-10)] font-semibold text-[var(--color-brand-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')
+              }
+            >
+              {sub.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {financeSub === 'accounts' && <AccountsSubTab key="accounts" userId={userId} />}
+      {financeSub === 'transactions' && <TransactionsSubTab key="transactions" userId={userId} />}
+      {financeSub === 'budgets' && <BudgetsSubTab key="budgets" userId={userId} />}
+      {financeSub === 'commitments' && <CommitmentsSubTab key="commitments" userId={userId} />}
+      {financeSub === 'graph' && <FinancialGraphSubTab key="graph" userId={userId} />}
+    </div>
+  );
+}
+
+// ─── Insights tab ────────────────────────────────────────────────────────
+
+interface InsightsTabProps {
+  insights: CustomerInsightsResponse | null;
+  loading: boolean;
+  error: string | null;
+}
+
+function InsightsTab({ insights, loading, error }: InsightsTabProps) {
+  if (loading && !insights) {
+    return (
+      <AonikCard>
+        <div className="flex items-center justify-center py-10">
+          <RefreshCw className="h-6 w-6 animate-spin text-[var(--color-brand-primary)]" />
+        </div>
+      </AonikCard>
+    );
+  }
+
+  if (error) {
+    return (
+      <AonikCard>
+        <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      </AonikCard>
+    );
+  }
+
+  if (!insights?.aiSummary && !insights?.snapshot) {
+    return (
+      <AonikCard>
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <Lightbulb className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            No insights generated yet for this customer.
+          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+            Insights appear after the snapshot pipeline and AI summary run.
+          </p>
+        </div>
+      </AonikCard>
+    );
+  }
+
+  const summary = insights.aiSummary;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
+      {summary ? (
+        <AonikCard
+          title="AI summary"
+          subtitle={`Generated ${formatRelative(summary.createdUtc)} · v${summary.narrativeVersion}`}
+          action={<Pill tone="info" dot>fresh</Pill>}
+        >
+          <div className="text-[15px] font-semibold leading-snug text-[var(--color-text-primary)]">
+            {summary.headline}
+          </div>
+          <p className="mt-2.5 text-[13px] leading-relaxed text-[var(--color-text-secondary)]">
+            {summary.summary}
+          </p>
+
+          {summary.keyObservations.length > 0 && (
+            <>
+              <SectionEyebrow>Key observations</SectionEyebrow>
+              <ul className="ml-4 list-disc space-y-1.5 text-[12.5px] text-[var(--color-text-primary)]">
+                {summary.keyObservations.map((obs, i) => (
+                  <li key={i}>{obs}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {(summary.positivePatterns.length > 0 || summary.riskPatterns.length > 0) && (
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {summary.positivePatterns.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-success)]">
+                    Positive patterns
+                  </div>
+                  <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-[var(--color-text-primary)]">
+                    {summary.positivePatterns.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {summary.riskPatterns.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-danger)]">
+                    Risk patterns
+                  </div>
+                  <ul className="mt-1.5 ml-4 list-disc space-y-1 text-[12px] text-[var(--color-text-primary)]">
+                    {summary.riskPatterns.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {summary.recommendedFocusAreas.length > 0 && (
+            <>
+              <SectionEyebrow>Recommended focus</SectionEyebrow>
+              <div className="flex flex-wrap gap-1.5">
+                {summary.recommendedFocusAreas.map((area, i) => (
+                  <Pill key={i} tone="info" size="sm">
+                    {area}
+                  </Pill>
+                ))}
+              </div>
+            </>
+          )}
+
+          {summary.caveats.length > 0 && (
+            <div className="mt-4 rounded-md bg-[var(--color-surface-inset)] p-3">
+              <SectionEyebrow inset>Caveats</SectionEyebrow>
+              <ul className="space-y-1 text-[11px] text-[var(--color-text-tertiary)]">
+                {summary.caveats.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </AonikCard>
+      ) : null}
+
+      {insights.snapshot && (
+        <AonikCard
+          title="Snapshot"
+          subtitle={`As of ${formatDateTime(insights.snapshot.asOfUtc)}`}
+          action={
+            insights.snapshot.isPartial ? (
+              <Pill tone="warning" size="sm">Partial</Pill>
+            ) : null
+          }
+        >
+          {insights.snapshot.topSignalTitle && (
+            <>
+              <div className="text-[14px] font-semibold text-[var(--color-text-primary)]">
+                {insights.snapshot.topSignalTitle}
+              </div>
+              {insights.snapshot.topSignalDescription && (
+                <p className="mt-1 text-[13px] text-[var(--color-text-secondary)]">
+                  {insights.snapshot.topSignalDescription}
+                </p>
+              )}
+            </>
+          )}
+          {insights.snapshot.cashflowStressLevel &&
+            insights.snapshot.cashflowStressLevel !== 'Low' && (
+              <div className="mt-3 text-sm text-[var(--color-text-secondary)]">
+                Cashflow stress:{' '}
+                <span className="font-medium">{insights.snapshot.cashflowStressLevel}</span>
+              </div>
+            )}
+        </AonikCard>
+      )}
+    </div>
+  );
+}
+
+function SectionEyebrow({ children, inset }: { children: ReactNode; inset?: boolean }) {
+  return (
+    <div
+      className={
+        'text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)] ' +
+        (inset ? 'mb-1.5' : 'mb-1.5 mt-4')
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Documents tab ───────────────────────────────────────────────────────
+
+interface DocumentsTabProps {
+  documents: DocumentListItem[];
+  loading: boolean;
+  error: string | null;
+  onView: (id: string) => void;
+}
+
+function DocumentsTab({ documents, loading, error, onView }: DocumentsTabProps) {
+  return (
+    <AonikCard
+      title="Documents"
+      subtitle="Recent compliance uploads"
+      action={
+        <Link
+          to="/compliance/documents"
+          className="text-xs text-[var(--color-brand-primary)] hover:underline"
+        >
+          View all
+        </Link>
+      }
+    >
+      {error && (
+        <div className="mb-3 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-6">
+          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+        </div>
+      ) : documents.length === 0 ? (
+        <div className="py-6 text-center">
+          <FileText className="mx-auto mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
+          <p className="text-sm text-[var(--color-text-secondary)]">No documents recorded.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          {documents.map((doc, idx) => {
+            const tone =
+              VERIFICATION_TONE[doc.status] ??
+              (doc.status === 'Rejected' ? 'danger' : 'muted');
+            const isLast = idx === documents.length - 1;
+            return (
+              <div
+                key={doc.documentId}
+                className={
+                  'grid items-center gap-3 py-3 ' +
+                  (isLast ? '' : 'border-b border-[var(--color-border-light)]')
+                }
+                style={{ gridTemplateColumns: '24px 1fr auto auto auto auto' }}
+              >
+                <FileText className="h-[18px] w-[18px] text-[var(--color-text-tertiary)]" />
+                <div className="min-w-0">
+                  <div className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                    {doc.documentType}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-tertiary)]">
+                    Reference {doc.referenceNumber || '—'}
+                  </div>
+                </div>
+                <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                  uploaded {formatDate(doc.issuedOn)}
+                </span>
+                <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+                  expires {formatDate(doc.expiresOn)}
+                </span>
+                <Pill tone={tone} dot>
+                  {doc.status}
+                </Pill>
+                <button
+                  type="button"
+                  onClick={() => onView(doc.documentId)}
+                  className="hover-halo"
+                  aria-label={`View ${doc.documentType}`}
+                >
+                  <Download className="h-[13px] w-[13px]" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </AonikCard>
+  );
+}
+
+// ─── Activity tab (placeholder) ──────────────────────────────────────────
+
+function ActivityPlaceholder() {
+  return (
+    <AonikCard>
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <Mail className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
+        <p className="text-sm text-[var(--color-text-primary)]">
+          Audit trail not yet wired
+        </p>
+        <p className="mt-1 max-w-md text-xs text-[var(--color-text-tertiary)]">
+          A per-customer activity feed (orders, payments, document uploads, AI runs) is
+          planned but not yet exposed by the API. Audit data is currently centralised in
+          the global Audit Log service.
+        </p>
+      </div>
+    </AonikCard>
+  );
+}
+
