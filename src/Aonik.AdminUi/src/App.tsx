@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, createElement, useCallback } from 'react';
 import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AiChatPanel, LoadingScreen } from '@/components/layout';
-import { AonikSidebar, AonikTopBar } from '@/components/layout/aonik';
+import { AonikSidebar } from '@/components/layout/aonik/AonikSidebar';
+import { AonikTopBar } from '@/components/layout/aonik/AonikTopBar';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
