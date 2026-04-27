@@ -134,6 +134,8 @@ export interface MySpaceSummaryResponse {
 
 export interface CashTimelineDto {
   currency: string;
+  /** Tenant's configured currency set — drives the switcher options. */
+  availableCurrencies: string[];
   historical: CashTimelinePointDto[];
   projected: CashTimelinePointDto[];
   events: CashTimelineEventDto[];

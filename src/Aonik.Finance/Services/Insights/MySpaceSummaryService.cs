@@ -37,7 +37,9 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
         _tenantCurrencyProvider = tenantCurrencyProvider;
     }
 
-    public async Task<MySpaceSummaryResponse> GetSummaryAsync(CancellationToken cancellationToken = default)
+    public async Task<MySpaceSummaryResponse> GetSummaryAsync(
+        string? currencyOverride = null,
+        CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
@@ -46,17 +48,25 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
         var proposalsTask = _agentProposals.ListPendingAsync(5, cancellationToken);
         var currencyTask = _tenantCurrencyProvider.GetTenantCurrencyCodesAsync(tenantId, cancellationToken);
 
+        // Resolve the timeline currency before the finance reads so the daily
+        // series can filter by it.
+        var currencyCodes = await currencyTask;
+        var primaryCurrency = currencyCodes.Count > 0 ? currencyCodes[0] : "USD";
+        var timelineCurrency = ResolveTimelineCurrency(currencyOverride, currencyCodes, primaryCurrency);
+
         // Finance-context reads share a single DbContext — must run serially.
         var metrics = await BuildFinancialMetricsAsync(tenantId, cancellationToken);
         var activity = await BuildActivityFeedAsync(tenantId, cancellationToken);
-        var historical = await BuildDailyCashSeriesAsync(tenantId, cancellationToken);
+        var historical = await BuildDailyCashSeriesAsync(tenantId, timelineCurrency, cancellationToken);
         var cashUpdatedAt = await GetCashPositionUpdatedAtAsync(tenantId, cancellationToken);
 
-        await Task.WhenAll(agentOpsTask, proposalsTask, currencyTask);
+        await Task.WhenAll(agentOpsTask, proposalsTask);
         var agentOpsToday = agentOpsTask.Result;
         var proposalSummaries = proposalsTask.Result;
-        var currencyCodes = currencyTask.Result;
-        var primaryCurrency = currencyCodes.Count > 0 ? currencyCodes[0] : "USD";
+
+        var availableCurrencies = currencyCodes.Count > 0
+            ? (IReadOnlyList<string>)currencyCodes
+            : new[] { "USD" };
 
         var apiProposals = proposalSummaries
             .Select(s => new AgentProposalDto(
@@ -72,7 +82,8 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
             .ToList();
 
         var cashTimeline = new CashTimelineDto(
-            Currency: primaryCurrency,
+            Currency: timelineCurrency,
+            AvailableCurrencies: availableCurrencies,
             Historical: historical,
             Projected: Array.Empty<CashTimelinePointDto>(),
             Events: Array.Empty<CashTimelineEventDto>(),
@@ -86,6 +97,29 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
             cashUpdatedAt,
             cashTimeline,
             apiProposals);
+    }
+
+    /// <summary>
+    /// Picks the timeline currency: caller override if it's in the tenant's
+    /// configured list, otherwise the tenant primary, with USD as the final
+    /// fallback. Case-insensitive — codes are normalised to upper-case.
+    /// </summary>
+    private static string ResolveTimelineCurrency(
+        string? requested,
+        IReadOnlyList<string> available,
+        string primary)
+    {
+        if (string.IsNullOrWhiteSpace(requested)) return primary;
+
+        var normalized = requested.Trim().ToUpperInvariant();
+        foreach (var code in available)
+        {
+            if (string.Equals(code, normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return code;
+            }
+        }
+        return primary;
     }
 
     private async Task<IReadOnlyList<FinancialMetricDto>> BuildFinancialMetricsAsync(
@@ -310,15 +344,16 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
     }
 
     /// <summary>
-    /// Builds a 30-day daily running cash balance for the current tenant by
-    /// projecting asset-account journal entries into per-day deltas applied
-    /// to a baseline computed from all entries before the window. The series
-    /// always returns exactly <see cref="CashTimelineDays"/> points covering
-    /// today and the previous 29 days inclusive — days with no activity carry
-    /// the previous balance forward.
+    /// Builds a 30-day daily running cash balance for the current tenant in
+    /// the supplied <paramref name="currency"/>, by projecting asset-account
+    /// journal entry lines (filtered to that currency) into per-day deltas
+    /// applied to a baseline computed from all matching entries before the
+    /// window. The series always returns exactly <c>CashTimelineDays</c>
+    /// points covering today and the previous 29 days inclusive — days with
+    /// no activity carry the previous balance forward.
     /// </summary>
     private async Task<IReadOnlyList<CashTimelinePointDto>> BuildDailyCashSeriesAsync(
-        Guid tenantId, CancellationToken ct)
+        Guid tenantId, string currency, CancellationToken ct)
     {
         var todayUtc = DateTime.UtcNow.Date;
         var windowStart = todayUtc.AddDays(-(CashTimelineDays - 1));
@@ -336,9 +371,11 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
 
         var assetSet = assetAccountIds.ToHashSet();
 
-        // Baseline = sum of all asset-side debits/credits before the window.
+        // Baseline = sum of asset-side debits/credits in this currency before the window.
         var baselineLines = await _dbContext.JournalEntryLines
-            .Where(l => l.TenantId == tenantId && assetSet.Contains(l.LedgerAccountId))
+            .Where(l => l.TenantId == tenantId
+                && assetSet.Contains(l.LedgerAccountId)
+                && l.Currency == currency)
             .Join(
                 _dbContext.JournalEntries.Where(e => e.TenantId == tenantId && e.Timestamp < windowStart),
                 l => l.JournalEntryId,
@@ -349,9 +386,11 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
         var baseline = baselineLines.Sum(l =>
             l.Direction.Equals("Debit", StringComparison.OrdinalIgnoreCase) ? l.Amount : -l.Amount);
 
-        // Daily deltas across the window.
+        // Daily deltas across the window, in the requested currency only.
         var windowLines = await _dbContext.JournalEntryLines
-            .Where(l => l.TenantId == tenantId && assetSet.Contains(l.LedgerAccountId))
+            .Where(l => l.TenantId == tenantId
+                && assetSet.Contains(l.LedgerAccountId)
+                && l.Currency == currency)
             .Join(
                 _dbContext.JournalEntries.Where(e =>
                     e.TenantId == tenantId &&

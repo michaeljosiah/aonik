@@ -112,12 +112,14 @@ export function MySpacePage() {
   const [data, setData] = useState<MySpaceSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Selected timeline currency — null means "use tenant primary on first load".
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (currency?: string | null) => {
     try {
       setLoading(true);
       setError(null);
-      const summary = await mySpaceService.getSummary();
+      const summary = await mySpaceService.getSummary(currency ?? undefined);
       setData(summary);
     } catch (err: unknown) {
       const message =
@@ -130,8 +132,8 @@ export function MySpacePage() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(selectedCurrency);
+  }, [loadData, selectedCurrency]);
 
   const metricByKey = useMemo(() => {
     const map = new Map<string, FinancialMetricDto>();
@@ -302,7 +304,7 @@ export function MySpacePage() {
 
       {/* Cash timeline + Agent proposals */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <CashTimelineCard data={cashTimeline} />
+        <CashTimelineCard data={cashTimeline} onCurrencyChange={setSelectedCurrency} />
         <AgentProposalsCard
           proposals={proposals}
           onApprove={handleApproveProposal}
@@ -394,41 +396,48 @@ export function MySpacePage() {
 const CASH_CHART_WIDTH = 600;
 const CASH_CHART_HEIGHT = 200;
 const CASH_CHART_PADDING = 12;
-const CASH_SWITCHER_CODES = ['NGN', 'USD', 'GBP'] as const;
 
 interface CashTimelineCardProps {
   data: CashTimelineDto | undefined;
+  onCurrencyChange: (currency: string) => void;
 }
 
-function CashTimelineCard({ data }: CashTimelineCardProps) {
+function CashTimelineCard({ data, onCurrencyChange }: CashTimelineCardProps) {
   const points = data?.historical ?? [];
   const currency = data?.currency ?? 'USD';
+  const codes = data?.availableCurrencies ?? [];
 
   return (
     <Card
       title="Cash timeline · last 30 days"
       subtitle="Daily running balance across all asset accounts"
       action={
-        <div className="flex gap-1 text-[12px]">
-          {CASH_SWITCHER_CODES.map((code) => {
-            const isActive = currency === code;
-            return (
-              <button
-                key={code}
-                type="button"
-                className="h-7 rounded-md px-2 font-medium hover:bg-[var(--color-surface-inset)]"
-                style={{
-                  color: isActive
-                    ? 'var(--color-brand-primary)'
-                    : 'var(--color-text-secondary)',
-                }}
-                title={isActive ? `${code} (active)` : `${code} (coming soon)`}
-              >
-                {code}
-              </button>
-            );
-          })}
-        </div>
+        codes.length > 0 ? (
+          <div className="flex gap-1 text-[12px]">
+            {codes.map((code) => {
+              const isActive = currency === code;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => {
+                    if (!isActive) onCurrencyChange(code);
+                  }}
+                  className="h-7 rounded-md px-2 font-medium transition-colors hover:bg-[var(--color-surface-inset)]"
+                  style={{
+                    color: isActive
+                      ? 'var(--color-brand-primary)'
+                      : 'var(--color-text-secondary)',
+                  }}
+                  title={isActive ? `${code} (active)` : `Switch to ${code}`}
+                  aria-pressed={isActive}
+                >
+                  {code}
+                </button>
+              );
+            })}
+          </div>
+        ) : null
       }
       padding={20}
     >

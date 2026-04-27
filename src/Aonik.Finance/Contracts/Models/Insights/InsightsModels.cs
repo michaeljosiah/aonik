@@ -27,11 +27,14 @@ public record ActivityItemDto(
 
 /// <summary>
 /// Daily cash position series for the dashboard's Cash Timeline chart.
-/// Wave 4b ships historical only — Projected, Events, and ProjectedLow are
-/// reserved for Wave 4c when a forecast endpoint lands.
+/// Currency is the one the series is computed in; AvailableCurrencies is the
+/// tenant's configured currency set so the switcher can offer alternates.
+/// Wave 4b shipped historical only; Projected / Events / ProjectedLow are
+/// populated by Wave 4c.4 (cash projection + event markers).
 /// </summary>
 public record CashTimelineDto(
     string Currency,
+    IReadOnlyList<string> AvailableCurrencies,
     IReadOnlyList<CashTimelinePointDto> Historical,
     IReadOnlyList<CashTimelinePointDto> Projected,
     IReadOnlyList<CashTimelineEventDto> Events,

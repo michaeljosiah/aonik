@@ -210,5 +210,83 @@ public class MySpaceSummaryServiceTests
         result.CashPositionUpdatedAt.Should().BeNull();
         result.AgentOpsToday.Should().Be(0);
         result.AgentProposals.Should().BeEmpty();
+        result.CashTimeline.AvailableCurrencies.Should().Contain("NGN",
+            "the test fixture seeds NGN/USD/GBP into the tenant currency stub");
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_Should_FilterCashTimelineByRequestedCurrency()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var db = CreateDbContext(tenantId);
+
+        var asset = new LedgerAccount
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            LedgerId = Guid.NewGuid(),
+            AccountType = "Asset",
+            Name = "Cash",
+            Code = "1000",
+            DimensionsJson = "{}",
+        };
+        db.LedgerAccounts.Add(asset);
+
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            LedgerId = asset.LedgerId,
+            Timestamp = DateTime.UtcNow,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            Status = "Posted",
+        };
+        db.JournalEntries.Add(entry);
+
+        // 1000 NGN debit + 50 USD debit on the same entry — but we want only
+        // the requested currency to count toward each timeline.
+        db.JournalEntryLines.AddRange(
+            new JournalEntryLine
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId, JournalEntryId = entry.Id,
+                LedgerAccountId = asset.Id, Direction = "Debit", Amount = 1000m,
+                Currency = "NGN", DimensionsJson = "{}",
+            },
+            new JournalEntryLine
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId, JournalEntryId = entry.Id,
+                LedgerAccountId = asset.Id, Direction = "Debit", Amount = 50m,
+                Currency = "USD", DimensionsJson = "{}",
+            });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(
+            db, tenantId,
+            currencyCodes: new List<string> { "NGN", "USD", "GBP" });
+
+        var ngnResult = await service.GetSummaryAsync(currencyOverride: "NGN");
+        ngnResult.CashTimeline.Currency.Should().Be("NGN");
+        ngnResult.CashTimeline.Historical[^1].Balance.Should().Be(1000m);
+
+        var usdResult = await service.GetSummaryAsync(currencyOverride: "USD");
+        usdResult.CashTimeline.Currency.Should().Be("USD");
+        usdResult.CashTimeline.Historical[^1].Balance.Should().Be(50m);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_Should_FallBackToPrimary_When_OverrideNotInTenantSet()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var db = CreateDbContext(tenantId);
+        var service = CreateService(
+            db, tenantId,
+            currencyCodes: new List<string> { "NGN", "USD" });
+
+        // EUR is not in the tenant's configured currency list.
+        var result = await service.GetSummaryAsync(currencyOverride: "EUR");
+
+        result.CashTimeline.Currency.Should().Be("NGN", "primary is used when override is unrecognised");
+        result.CashTimeline.AvailableCurrencies.Should().Equal("NGN", "USD");
     }
 }
