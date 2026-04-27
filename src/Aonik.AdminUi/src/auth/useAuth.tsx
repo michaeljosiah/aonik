@@ -281,8 +281,19 @@ function useAuth0Auth(): AuthContextType {
       setAccessToken(token);
       return token;
     } catch (error) {
+      // Skip the auto-redirect when the user is already on the login page.
+      // getAccessToken is called by the api request interceptor on every
+      // outbound call, including the public listForLogin fetch the
+      // LoginPage fires on mount. Without this guard we'd race the user
+      // and bounce to Auth0 before they ever click Sign in.
+      const onLoginPage =
+        typeof window !== 'undefined' && window.location.pathname.startsWith('/login');
+
       if (isLoginRequiredError(error)) {
         setAccessToken(null);
+        if (onLoginPage) {
+          return null;
+        }
         try {
           if (!sessionStorage.getItem(loginPromptKey)) {
             sessionStorage.setItem(loginPromptKey, 'true');
@@ -299,6 +310,9 @@ function useAuth0Auth(): AuthContextType {
         return null;
       }
       if (isConsentRequiredError(error)) {
+        if (onLoginPage) {
+          return null;
+        }
         try {
           if (!sessionStorage.getItem(consentPromptKey)) {
             sessionStorage.setItem(consentPromptKey, 'true');
