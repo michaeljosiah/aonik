@@ -13,6 +13,8 @@ namespace Aonik.Finance.Services.Insights;
 internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryService
 {
     private const int CashTimelineDays = 30;
+    private const int CashProjectionDays = 30;
+    private const int CashProjectionTrendWindow = 7;
 
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
@@ -59,6 +61,9 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
         var activity = await BuildActivityFeedAsync(tenantId, cancellationToken);
         var historical = await BuildDailyCashSeriesAsync(tenantId, timelineCurrency, cancellationToken);
         var cashUpdatedAt = await GetCashPositionUpdatedAtAsync(tenantId, cancellationToken);
+        var (projected, projectedLow, projectedLowAt) = BuildProjection(historical, CashProjectionDays);
+        var revenueEvents = await BuildRevenueEventsAsync(
+            tenantId, timelineCurrency, CashProjectionDays, cancellationToken);
 
         await Task.WhenAll(agentOpsTask, proposalsTask);
         var agentOpsToday = agentOpsTask.Result;
@@ -85,10 +90,10 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
             Currency: timelineCurrency,
             AvailableCurrencies: availableCurrencies,
             Historical: historical,
-            Projected: Array.Empty<CashTimelinePointDto>(),
-            Events: Array.Empty<CashTimelineEventDto>(),
-            ProjectedLow: null,
-            ProjectedLowAt: null);
+            Projected: projected,
+            Events: revenueEvents,
+            ProjectedLow: projectedLow,
+            ProjectedLowAt: projectedLowAt);
 
         return new MySpaceSummaryResponse(
             metrics,
@@ -445,5 +450,89 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
             .OrderByDescending(e => e.Timestamp)
             .Select(e => (DateTime?)e.Timestamp)
             .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>
+    /// Naive forward projection — extrapolates a 7-day moving-average daily
+    /// delta from the tail of the historical series for <paramref name="forwardDays"/>
+    /// days. Cheap and useful for v1 dashboards; replaced by a real
+    /// scheduled-entry projection when those domain primitives land.
+    /// ProjectedLow is the minimum balance across "now and forward" — i.e.
+    /// the last historical point and every projected point.
+    /// </summary>
+    private static (IReadOnlyList<CashTimelinePointDto> Projected, decimal? ProjectedLow, DateTime? ProjectedLowAt)
+        BuildProjection(IReadOnlyList<CashTimelinePointDto> historical, int forwardDays)
+    {
+        if (historical.Count == 0)
+        {
+            return (Array.Empty<CashTimelinePointDto>(), null, null);
+        }
+
+        // Per-day average delta over the trend window (capped at the available history).
+        var window = Math.Min(CashProjectionTrendWindow, historical.Count);
+        decimal averageDelta = 0m;
+        if (window >= 2)
+        {
+            var startIndex = historical.Count - window;
+            var spread = historical[^1].Balance - historical[startIndex].Balance;
+            averageDelta = spread / (window - 1);
+        }
+
+        var lastDate = historical[^1].Date;
+        var lastBalance = historical[^1].Balance;
+
+        var projected = new List<CashTimelinePointDto>(forwardDays);
+        var running = lastBalance;
+        for (var i = 1; i <= forwardDays; i++)
+        {
+            running += averageDelta;
+            projected.Add(new CashTimelinePointDto(lastDate.AddDays(i), running));
+        }
+
+        // Compute the low across "from here on" (last historical + projected).
+        var low = lastBalance;
+        var lowAt = lastDate;
+        foreach (var point in projected)
+        {
+            if (point.Balance < low)
+            {
+                low = point.Balance;
+                lowAt = point.Date;
+            }
+        }
+        return (projected, low, lowAt);
+    }
+
+    /// <summary>
+    /// Builds revenue event markers from invoices in the requested currency
+    /// whose <c>DueDate</c> falls inside the projection window. The
+    /// projection itself is currency-naive (it just trends the historical
+    /// series); the markers are a separate signal — when revenue is
+    /// expected to land — so the dashboard can show context dots even
+    /// though the projection line is naive.
+    /// </summary>
+    private async Task<IReadOnlyList<CashTimelineEventDto>> BuildRevenueEventsAsync(
+        Guid tenantId, string currency, int forwardDays, CancellationToken ct)
+    {
+        var todayUtc = DateTime.UtcNow.Date;
+        var windowEnd = todayUtc.AddDays(forwardDays);
+
+        var invoices = await _dbContext.Invoices
+            .Where(i => i.TenantId == tenantId
+                && i.Status == "Issued"
+                && i.Currency == currency
+                && i.DueDate >= todayUtc
+                && i.DueDate <= windowEnd)
+            .OrderBy(i => i.DueDate)
+            .Select(i => new { i.DueDate, i.Total })
+            .ToListAsync(ct);
+
+        return invoices
+            .Select(i => new CashTimelineEventDto(
+                Date: i.DueDate.Date,
+                Kind: "revenue",
+                Label: $"Invoice due · {i.Total:N0}",
+                Amount: i.Total))
+            .ToList();
     }
 }

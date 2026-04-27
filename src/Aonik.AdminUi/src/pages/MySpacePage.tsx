@@ -403,14 +403,16 @@ interface CashTimelineCardProps {
 }
 
 function CashTimelineCard({ data, onCurrencyChange }: CashTimelineCardProps) {
-  const points = data?.historical ?? [];
+  const historical = data?.historical ?? [];
+  const projected = data?.projected ?? [];
+  const events = data?.events ?? [];
   const currency = data?.currency ?? 'USD';
   const codes = data?.availableCurrencies ?? [];
 
   return (
     <Card
-      title="Cash timeline · last 30 days"
-      subtitle="Daily running balance across all asset accounts"
+      title="Cash timeline · 30 days back · 30 forward"
+      subtitle="Daily running balance plus a naive forward projection"
       action={
         codes.length > 0 ? (
           <div className="flex gap-1 text-[12px]">
@@ -441,25 +443,42 @@ function CashTimelineCard({ data, onCurrencyChange }: CashTimelineCardProps) {
       }
       padding={20}
     >
-      <CashTimelineChart points={points} currency={currency} />
+      <CashTimelineChart
+        historical={historical}
+        projected={projected}
+        events={events}
+        currency={currency}
+      />
       <div
         className="mt-3.5 flex flex-wrap gap-4 rounded-lg bg-[var(--color-surface-inset)] px-3 py-2.5 text-[11px] text-[var(--color-text-secondary)]"
         style={{ fontFamily: 'var(--font-mono)' }}
       >
-        <CashTimelineSummary points={points} currency={currency} />
+        <CashTimelineSummary
+          historical={historical}
+          projectedLow={data?.projectedLow ?? null}
+          projectedLowAt={data?.projectedLowAt ?? null}
+          eventCount={events.length}
+          currency={currency}
+        />
       </div>
     </Card>
   );
 }
 
-function CashTimelineChart({
-  points,
-  currency,
-}: {
-  points: CashTimelinePointDto[];
+interface CashTimelineChartProps {
+  historical: CashTimelinePointDto[];
+  projected: CashTimelinePointDto[];
+  events: CashTimelineEventDto[];
   currency: string;
-}) {
-  if (points.length === 0) {
+}
+
+function CashTimelineChart({ historical, projected, events, currency }: CashTimelineChartProps) {
+  // Combined series: historical occupies the left half, projected the right.
+  // The "TODAY" boundary sits at the last historical point, which is also
+  // the last point used for trend extrapolation by the backend.
+  const combined = [...historical, ...projected];
+
+  if (combined.length === 0) {
     return (
       <div
         className="flex h-[220px] items-center justify-center text-[12px] text-[var(--color-text-tertiary)]"
@@ -470,24 +489,60 @@ function CashTimelineChart({
     );
   }
 
-  const balances = points.map((p) => p.balance);
+  const balances = combined.map((p) => p.balance);
   const max = Math.max(...balances);
   const min = Math.min(...balances);
   const range = max - min || 1;
 
   const xFor = (i: number) =>
     CASH_CHART_PADDING +
-    (i / Math.max(1, points.length - 1)) * (CASH_CHART_WIDTH - 2 * CASH_CHART_PADDING);
+    (i / Math.max(1, combined.length - 1)) * (CASH_CHART_WIDTH - 2 * CASH_CHART_PADDING);
   const yFor = (balance: number) =>
     CASH_CHART_PADDING +
     (1 - (balance - min) / range) * (CASH_CHART_HEIGHT - 2 * CASH_CHART_PADDING);
 
-  const polyline = points.map((p, i) => `${xFor(i).toFixed(1)},${yFor(p.balance).toFixed(1)}`).join(' ');
-  const polygon = `${polyline} ${xFor(points.length - 1).toFixed(1)},${CASH_CHART_HEIGHT} ${xFor(0).toFixed(1)},${CASH_CHART_HEIGHT}`;
+  const histPolyline = historical
+    .map((p, i) => `${xFor(i).toFixed(1)},${yFor(p.balance).toFixed(1)}`)
+    .join(' ');
+  const histPolygon = histPolyline
+    ? `${histPolyline} ${xFor(historical.length - 1).toFixed(1)},${CASH_CHART_HEIGHT} ${xFor(0).toFixed(1)},${CASH_CHART_HEIGHT}`
+    : '';
 
-  // 6 evenly-spaced date labels across the bottom.
-  const labelIndices = points.length >= 6 ? [0, 6, 12, 18, 24, points.length - 1] : points.map((_, i) => i);
-  const labelDates = labelIndices.map((i) => points[i]?.date).filter(Boolean) as string[];
+  // Projected polyline starts at the last historical point so the line is
+  // visually continuous from solid into dashed at the TODAY boundary.
+  const projPoints =
+    historical.length > 0 && projected.length > 0
+      ? [historical[historical.length - 1], ...projected]
+      : projected;
+  const projStartIndex = historical.length > 0 ? historical.length - 1 : 0;
+  const projPolyline = projPoints
+    .map((p, i) => `${xFor(projStartIndex + i).toFixed(1)},${yFor(p.balance).toFixed(1)}`)
+    .join(' ');
+
+  // Map event dates to projected indices so each marker lands on the dashed line.
+  const projectedIndexByDate = new Map<string, number>();
+  projected.forEach((p, i) => projectedIndexByDate.set(p.date.slice(0, 10), historical.length + i));
+  const eventDots = events
+    .map((event) => {
+      const key = event.date.slice(0, 10);
+      const idx = projectedIndexByDate.get(key);
+      if (idx === undefined) return null;
+      const point = combined[idx];
+      return { x: xFor(idx), y: yFor(point.balance), event };
+    })
+    .filter((e): e is { x: number; y: number; event: CashTimelineEventDto } => e !== null);
+
+  const todayIndex = historical.length > 0 ? historical.length - 1 : 0;
+  const todayX = xFor(todayIndex);
+
+  // 7 evenly-spaced date labels across the bottom (start, +10d, +20d, today, +10d, +20d, end).
+  const labelIndices =
+    combined.length >= 7
+      ? [0, 10, 20, todayIndex, todayIndex + 10, todayIndex + 20, combined.length - 1]
+      : combined.map((_, i) => i);
+  const labelDates = labelIndices
+    .filter((i) => i >= 0 && i < combined.length)
+    .map((i) => combined[i].date);
 
   return (
     <div className="relative h-[220px]">
@@ -507,25 +562,36 @@ function CashTimelineChart({
           </pattern>
         </defs>
         <rect width={CASH_CHART_WIDTH} height={CASH_CHART_HEIGHT} fill="url(#ms-grid)" />
-        <polygon fill="url(#ms-cashGrad)" points={polygon} />
-        <polyline
-          fill="none"
-          stroke="var(--color-brand-primary)"
-          strokeWidth="2"
-          points={polyline}
-        />
-        {/* TODAY marker at the right edge of the historical series */}
+        {histPolygon && <polygon fill="url(#ms-cashGrad)" points={histPolygon} />}
+        {histPolyline && (
+          <polyline
+            fill="none"
+            stroke="var(--color-brand-primary)"
+            strokeWidth="2"
+            points={histPolyline}
+          />
+        )}
+        {projPolyline && (
+          <polyline
+            fill="none"
+            stroke="var(--color-brand-primary)"
+            strokeWidth="2"
+            strokeDasharray="4 4"
+            points={projPolyline}
+          />
+        )}
+        {/* TODAY marker at the historical/projected boundary */}
         <line
-          x1={xFor(points.length - 1)}
+          x1={todayX}
           y1={CASH_CHART_PADDING}
-          x2={xFor(points.length - 1)}
+          x2={todayX}
           y2={CASH_CHART_HEIGHT - CASH_CHART_PADDING}
           stroke="var(--color-brand-secondary)"
           strokeWidth="1.5"
           strokeDasharray="3 3"
         />
         <rect
-          x={xFor(points.length - 1) - 32}
+          x={todayX - 32}
           y={4}
           width="64"
           height="18"
@@ -533,7 +599,7 @@ function CashTimelineChart({
           fill="var(--color-brand-secondary-10)"
         />
         <text
-          x={xFor(points.length - 1)}
+          x={todayX}
           y={17}
           fill="var(--color-brand-secondary)"
           fontSize="10"
@@ -543,6 +609,20 @@ function CashTimelineChart({
         >
           TODAY
         </text>
+        {/* Revenue / payroll / payout event markers — coral revenue dots for now */}
+        {eventDots.map(({ x, y, event }, i) => (
+          <circle
+            key={`${event.date}-${i}`}
+            cx={x}
+            cy={y}
+            r={4}
+            fill="var(--color-accent-ent)"
+            stroke="var(--color-surface)"
+            strokeWidth="1.5"
+          >
+            <title>{event.label}</title>
+          </circle>
+        ))}
       </svg>
       <div
         className="absolute bottom-0 left-0 right-0 flex justify-between px-3 text-[10px] text-[var(--color-text-tertiary)]"
@@ -559,38 +639,45 @@ function CashTimelineChart({
 }
 
 function CashTimelineSummary({
-  points,
+  historical,
+  projectedLow,
+  projectedLowAt,
+  eventCount,
   currency,
 }: {
-  points: CashTimelinePointDto[];
+  historical: CashTimelinePointDto[];
+  projectedLow: number | null;
+  projectedLowAt: string | null;
+  eventCount: number;
   currency: string;
 }) {
-  if (points.length === 0) {
+  if (historical.length === 0) {
     return <span>◆ No activity in the window</span>;
   }
-  const balances = points.map((p) => p.balance);
-  const minBalance = Math.min(...balances);
-  const minIndex = balances.indexOf(minBalance);
-  const minDate = points[minIndex]?.date;
-  const latest = points[points.length - 1]?.balance ?? 0;
-  const earliest = points[0]?.balance ?? 0;
+  const latest = historical[historical.length - 1]?.balance ?? 0;
+  const earliest = historical[0]?.balance ?? 0;
   const delta = latest - earliest;
 
   return (
     <>
+      <span>◆ Latest: {formatCurrency(latest, currency)}</span>
+      {projectedLow !== null && (
+        <span>
+          ◆ Projected low: {formatCurrency(projectedLow, currency)}
+          {projectedLowAt
+            ? ` · ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(projectedLowAt))}`
+            : ''}
+        </span>
+      )}
       <span>
-        ◆ Latest: {formatCurrency(latest, currency)}
-      </span>
-      <span>
-        ◆ 30-day low: {formatCurrency(minBalance, currency)}
-        {minDate
-          ? ` · ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(minDate))}`
-          : ''}
-      </span>
-      <span>
-        ◆ Net change: {delta >= 0 ? '+' : ''}
+        ◆ 30-day net: {delta >= 0 ? '+' : ''}
         {formatCurrency(delta, currency)}
       </span>
+      {eventCount > 0 && (
+        <span>
+          ◆ {eventCount} revenue event{eventCount === 1 ? '' : 's'} ahead
+        </span>
+      )}
     </>
   );
 }

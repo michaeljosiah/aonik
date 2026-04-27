@@ -173,10 +173,10 @@ public class MySpaceSummaryServiceTests
         result.CashTimeline.Historical.Should().HaveCount(30);
         result.CashTimeline.Historical[^1].Balance.Should().Be(700m,
             "the running balance includes both today's debit (500) and yesterday's debit (200)");
-        result.CashTimeline.Projected.Should().BeEmpty(
-            "Wave 4b ships historical only — projection lands in Wave 4c");
-        result.CashTimeline.Events.Should().BeEmpty();
-        result.CashTimeline.ProjectedLow.Should().BeNull();
+        result.CashTimeline.Projected.Should().HaveCount(30,
+            "Wave 4c.4 emits a 30-day naive projection forward from the last historical point");
+        result.CashTimeline.ProjectedLow.Should().NotBeNull(
+            "ProjectedLow tracks the minimum across the last historical point and every projected point");
 
         result.AgentProposals.Should().HaveCount(1);
         result.AgentProposals[0].AgentName.Should().Be("Billing");
@@ -288,5 +288,97 @@ public class MySpaceSummaryServiceTests
 
         result.CashTimeline.Currency.Should().Be("NGN", "primary is used when override is unrecognised");
         result.CashTimeline.AvailableCurrencies.Should().Equal("NGN", "USD");
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_Should_PopulateRevenueEventsFromInvoiceDueDates()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var db = CreateDbContext(tenantId);
+
+        var todayUtc = DateTime.UtcNow.Date;
+        db.Invoices.AddRange(
+            new Aonik.Finance.Entities.Billing.Invoice
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId,
+                CustomerAccountId = Guid.NewGuid(),
+                IssueDate = todayUtc.AddDays(-5),
+                DueDate = todayUtc.AddDays(7),
+                Currency = "NGN", Subtotal = 5000m, TaxTotal = 0m, DiscountTotal = 0m, Total = 5000m,
+                Status = "Issued", ProvenanceJson = "{}",
+            },
+            new Aonik.Finance.Entities.Billing.Invoice
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId,
+                CustomerAccountId = Guid.NewGuid(),
+                IssueDate = todayUtc.AddDays(-3),
+                DueDate = todayUtc.AddDays(14),
+                Currency = "NGN", Subtotal = 3000m, TaxTotal = 0m, DiscountTotal = 0m, Total = 3000m,
+                Status = "Issued", ProvenanceJson = "{}",
+            },
+            // Outside the window — should be filtered out
+            new Aonik.Finance.Entities.Billing.Invoice
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId,
+                CustomerAccountId = Guid.NewGuid(),
+                IssueDate = todayUtc.AddDays(-2),
+                DueDate = todayUtc.AddDays(45),
+                Currency = "NGN", Subtotal = 1000m, TaxTotal = 0m, DiscountTotal = 0m, Total = 1000m,
+                Status = "Issued", ProvenanceJson = "{}",
+            },
+            // Different currency — should be filtered out for an NGN timeline
+            new Aonik.Finance.Entities.Billing.Invoice
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId,
+                CustomerAccountId = Guid.NewGuid(),
+                IssueDate = todayUtc.AddDays(-1),
+                DueDate = todayUtc.AddDays(10),
+                Currency = "USD", Subtotal = 200m, TaxTotal = 0m, DiscountTotal = 0m, Total = 200m,
+                Status = "Issued", ProvenanceJson = "{}",
+            });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId, currencyCodes: new List<string> { "NGN" });
+        var result = await service.GetSummaryAsync();
+
+        result.CashTimeline.Events.Should().HaveCount(2,
+            "only the two NGN invoices due inside the 30-day window are surfaced");
+        result.CashTimeline.Events.Should().OnlyContain(e => e.Kind == "revenue");
+        result.CashTimeline.Events.Should().OnlyContain(e => e.Date <= todayUtc.AddDays(30));
+    }
+
+    [Fact]
+    public async Task BuildProjection_Should_ExtrapolateForwardFromHistoricalTrend()
+    {
+        // Arrange a 30-day historical series with a steady +100/day climb
+        // over the trailing window so the moving-average delta is +100.
+        var today = DateTime.UtcNow.Date;
+        var historical = Enumerable.Range(0, 30)
+            .Select(i => new Aonik.Finance.Contracts.Models.Insights.CashTimelinePointDto(
+                today.AddDays(-29 + i), 1000m + 100m * i))
+            .ToList();
+
+        // Use reflection to invoke the private static helper — keeps the
+        // test lightweight without exposing internals.
+        var method = typeof(MySpaceSummaryService)
+            .GetMethod("BuildProjection",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var result = method.Invoke(null, new object[] { historical, 30 })!;
+        var tuple = (System.Runtime.CompilerServices.ITuple)result;
+
+        var projected = (IReadOnlyList<Aonik.Finance.Contracts.Models.Insights.CashTimelinePointDto>)tuple[0]!;
+        var projectedLow = (decimal?)tuple[1];
+        var projectedLowAt = (DateTime?)tuple[2];
+
+        projected.Should().HaveCount(30);
+        projected[0].Date.Should().Be(today.AddDays(1),
+            "projection starts the day after the last historical point");
+        projected[0].Balance.Should().Be(historical[^1].Balance + 100m,
+            "first projected point applies one day of average delta");
+        projected[^1].Balance.Should().Be(historical[^1].Balance + 100m * 30,
+            "last projected point reflects 30 days of compounded average delta");
+        projectedLow.Should().Be(historical[^1].Balance,
+            "an upward trend means the lowest forward balance is today's balance");
+        projectedLowAt.Should().Be(historical[^1].Date);
     }
 }
