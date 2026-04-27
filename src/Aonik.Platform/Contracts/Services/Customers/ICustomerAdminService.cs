@@ -18,6 +18,18 @@ public interface ICustomerAdminService
         Guid partyId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns the most recent activity entries for the customer, merged
+    /// across finance events (via ICustomerActivityProvider), audit logs
+    /// scoped to the party, and document uploads. Returns null when the
+    /// party doesn't exist; otherwise an empty list when there is no
+    /// activity yet.
+    /// </summary>
+    Task<IReadOnlyList<CustomerActivityEntryDto>?> GetCustomerActivityAsync(
+        Guid partyId,
+        int take = 20,
+        CancellationToken cancellationToken = default);
+
     Task<CreateCustomerResponse> CreateCustomerAsync(
         CreateCustomerRequest request,
         CancellationToken cancellationToken = default);

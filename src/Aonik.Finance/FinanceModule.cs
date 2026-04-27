@@ -70,6 +70,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Orders.IPublicOrderService, Services.Orders.PublicOrderService>();
         services.AddScoped<SharedKernel.Abstractions.IOrderExistenceChecker, Services.Orders.OrderExistenceChecker>();
         services.AddScoped<SharedKernel.Abstractions.ICustomerFinanceStatsProvider, Services.Orders.CustomerFinanceStatsProvider>();
+        services.AddScoped<SharedKernel.Abstractions.ICustomerActivityProvider, Services.Orders.CustomerActivityProvider>();
 
         // Cross-module customer data export/import
         services.AddScoped<SharedKernel.Abstractions.ICustomerDataExportProvider, Services.PersonalFinance.CustomerDataExportProvider>();

@@ -22,7 +22,6 @@ import {
   FileText,
   Globe,
   Lightbulb,
-  Mail,
   Plus,
   RefreshCw,
   Sparkles,
@@ -31,7 +30,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
 import { customerService } from '@/services/customerService';
-import type { CustomerInsightsResponse } from '@/services/customerService';
+import type {
+  CustomerActivityEntry,
+  CustomerInsightsResponse,
+} from '@/services/customerService';
 import { documentService } from '@/services/documentService';
 import { orderService } from '@/services/orderService';
 import type {
@@ -179,6 +181,10 @@ export function CustomerDetailPage() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
 
+  const [activity, setActivity] = useState<CustomerActivityEntry[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
     setLoading(true);
@@ -255,6 +261,24 @@ export function CustomerDetailPage() {
     }
   }, [partyId]);
 
+  const loadActivity = useCallback(async () => {
+    if (!partyId) return;
+    setActivityLoading(true);
+    setActivityError(null);
+    try {
+      const result = await customerService.getActivity(partyId, 25);
+      setActivity(result.items);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
+      setActivityError(message || 'Failed to load activity.');
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [partyId]);
+
   const loadInsights = useCallback(async () => {
     if (!partyId) return;
     setInsightsLoading(true);
@@ -282,7 +306,8 @@ export function CustomerDetailPage() {
     if (activeTab === 'documents') void loadDocuments();
     if (activeTab === 'insights') void loadInsights();
     if (activeTab === 'orders') void loadOrders();
-  }, [activeTab, loadDocuments, loadInsights, loadOrders]);
+    if (activeTab === 'overview' || activeTab === 'activity') void loadActivity();
+  }, [activeTab, loadDocuments, loadInsights, loadOrders, loadActivity]);
 
   // ─── Loading / not-found states ───────────────────────────────────────
 
@@ -504,6 +529,9 @@ export function CustomerDetailPage() {
           primaryAddress={primaryAddress}
           externalAccounts={externalAccounts}
           verificationStatus={verificationStatus}
+          activity={activity.slice(0, 5)}
+          activityLoading={activityLoading}
+          activityError={activityError}
         />
       )}
 
@@ -543,7 +571,14 @@ export function CustomerDetailPage() {
         />
       )}
 
-      {activeTab === 'activity' && <ActivityPlaceholder />}
+      {activeTab === 'activity' && (
+        <ActivityTab
+          entries={activity}
+          loading={activityLoading}
+          error={activityError}
+          onView={(linkPath) => navigate(linkPath)}
+        />
+      )}
     </div>
   );
 }
@@ -586,6 +621,9 @@ interface OverviewTabProps {
   primaryAddress?: CustomerDetail['addresses'][number];
   externalAccounts: CustomerDetail['externalAccounts'];
   verificationStatus?: string | null;
+  activity: CustomerActivityEntry[];
+  activityLoading: boolean;
+  activityError: string | null;
 }
 
 function OverviewTab({
@@ -595,6 +633,9 @@ function OverviewTab({
   primaryAddress,
   externalAccounts,
   verificationStatus,
+  activity,
+  activityLoading,
+  activityError,
 }: OverviewTabProps) {
   const detailRows: Array<[string, ReactNode, boolean?]> = customer.partyType === 'Business'
     ? [
@@ -738,12 +779,14 @@ function OverviewTab({
 
       <AonikCard
         title="Recent activity"
-        subtitle="Audit feed not yet wired — coming with the activity service"
+        subtitle="Most recent 5 events across orders, payments, audit, and documents"
         className="lg:col-span-2"
       >
-        <div className="flex items-center justify-center py-6 text-xs text-[var(--color-text-tertiary)]">
-          No activity feed available for this customer yet.
-        </div>
+        <ActivityList
+          entries={activity}
+          loading={activityLoading}
+          error={activityError}
+        />
       </AonikCard>
     </div>
   );
@@ -1193,22 +1236,142 @@ function OrdersTab({ orders, totalCount, loading, error, onView, onReload }: Ord
   );
 }
 
-// ─── Activity tab (placeholder) ──────────────────────────────────────────
+// ─── Activity feed ───────────────────────────────────────────────────────
 
-function ActivityPlaceholder() {
-  return (
-    <AonikCard>
-      <div className="flex flex-col items-center justify-center py-10 text-center">
-        <Mail className="mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
-        <p className="text-sm text-[var(--color-text-primary)]">
-          Audit trail not yet wired
-        </p>
-        <p className="mt-1 max-w-md text-xs text-[var(--color-text-tertiary)]">
-          A per-customer activity feed (orders, payments, document uploads, AI runs) is
-          planned but not yet exposed by the API. Audit data is currently centralised in
-          the global Audit Log service.
-        </p>
+const ACTIVITY_KIND_VISUAL: Record<
+  string,
+  { icon: typeof Sparkles; color: string }
+> = {
+  order_created: { icon: Plus, color: 'var(--color-brand-secondary)' },
+  order_updated: { icon: RefreshCw, color: 'var(--color-text-secondary)' },
+  payment_captured: { icon: Sparkles, color: 'var(--color-success)' },
+  document_uploaded: { icon: FileText, color: 'var(--color-text-secondary)' },
+  audit_log: { icon: Lightbulb, color: 'var(--color-warning)' },
+};
+
+function ActivityList({
+  entries,
+  loading,
+  error,
+  onView,
+}: {
+  entries: CustomerActivityEntry[];
+  loading: boolean;
+  error: string | null;
+  onView?: (linkPath: string) => void;
+}) {
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
+        <AlertCircle className="h-4 w-4" />
+        {error}
       </div>
+    );
+  }
+
+  if (loading && entries.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="py-6 text-center text-sm text-[var(--color-text-tertiary)]">
+        No activity recorded for this customer yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      {entries.map((entry, idx) => {
+        const visual =
+          ACTIVITY_KIND_VISUAL[entry.kind] ?? {
+            icon: Sparkles,
+            color: 'var(--color-text-secondary)',
+          };
+        const Icon = visual.icon;
+        const isLast = idx === entries.length - 1;
+        const clickable = onView && entry.linkPath;
+        return (
+          <div
+            key={`${entry.timestamp}-${idx}`}
+            onClick={clickable ? () => onView!(entry.linkPath!) : undefined}
+            role={clickable ? 'button' : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onKeyDown={
+              clickable
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onView!(entry.linkPath!);
+                    }
+                  }
+                : undefined
+            }
+            className={
+              'grid items-center gap-2.5 py-2.5 ' +
+              (isLast ? '' : 'border-b border-[var(--color-border-light)] ') +
+              (clickable
+                ? 'cursor-pointer transition-colors hover:bg-[var(--color-surface-inset)] -mx-2 px-2 rounded-md'
+                : '')
+            }
+            style={{ gridTemplateColumns: '28px 1fr auto' }}
+          >
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-md"
+              style={{
+                background: `${visual.color}1f`,
+                color: visual.color,
+              }}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-[12.5px] text-[var(--color-text-primary)]">
+                {entry.title}
+              </div>
+              {entry.subtitle && (
+                <div className="truncate text-[11px] text-[var(--color-text-tertiary)]">
+                  {entry.subtitle}
+                </div>
+              )}
+            </div>
+            <span className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+              {formatRelative(entry.timestamp)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivityTab({
+  entries,
+  loading,
+  error,
+  onView,
+}: {
+  entries: CustomerActivityEntry[];
+  loading: boolean;
+  error: string | null;
+  onView: (linkPath: string) => void;
+}) {
+  return (
+    <AonikCard
+      title="Activity feed"
+      subtitle="Up to the most recent 25 events across all sources"
+    >
+      <ActivityList
+        entries={entries}
+        loading={loading}
+        error={error}
+        onView={onView}
+      />
     </AonikCard>
   );
 }

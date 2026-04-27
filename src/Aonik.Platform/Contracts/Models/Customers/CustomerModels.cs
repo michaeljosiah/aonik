@@ -67,6 +67,29 @@ public record CustomerStats(
     DateTime? LastActivityAt
 );
 
+/// <summary>
+/// A single entry in a customer's recent activity feed. Sourced from
+/// finance events, audit logs, and document uploads — merged and sorted
+/// server-side so the UI can render them as a single timeline.
+/// </summary>
+/// <param name="Timestamp">When the event happened (UTC).</param>
+/// <param name="Kind">Stable kind discriminator (e.g. "order_created",
+/// "payment_captured", "document_uploaded", "audit_log"). UI maps this to
+/// an icon + tone.</param>
+/// <param name="Title">One-line headline shown to the user.</param>
+/// <param name="Subtitle">Optional secondary line (amount, reference, or
+/// short description).</param>
+/// <param name="LinkPath">Optional client-side route to drill into the
+/// underlying record (e.g. "/orders/{id}"). Null when the entry is purely
+/// informational.</param>
+public record CustomerActivityEntryDto(
+    DateTime Timestamp,
+    string Kind,
+    string Title,
+    string? Subtitle,
+    string? LinkPath
+);
+
 public record CustomerDetail(
     Guid PartyId,
     Guid? UserId,

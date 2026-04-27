@@ -28,6 +28,7 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly ICustomerFinanceStatsProvider _financeStatsProvider;
+    private readonly ICustomerActivityProvider _activityProvider;
 
     public CustomerAdminService(
         PlatformDbContext dbContext,
@@ -36,7 +37,8 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         IAuditLogWriter auditLogWriter,
         ICurrentUserProvider currentUserProvider,
         IPermissionService permissionService,
-        ICustomerFinanceStatsProvider financeStatsProvider)
+        ICustomerFinanceStatsProvider financeStatsProvider,
+        ICustomerActivityProvider activityProvider)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -44,6 +46,7 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         _clock = clock;
         _auditLogWriter = auditLogWriter;
         _financeStatsProvider = financeStatsProvider;
+        _activityProvider = activityProvider;
     }
 
     public async Task<PagedResult<CustomerListItem>> ListCustomersAsync(
@@ -395,6 +398,157 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             totalPaidByCurrency,
             outstandingByCurrency,
             stats.LastActivityAt);
+    }
+
+    public async Task<IReadOnlyList<CustomerActivityEntryDto>?> GetCustomerActivityAsync(
+        Guid partyId,
+        int take = 20,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Customers.Read", cancellationToken);
+
+        if (take <= 0)
+        {
+            take = 20;
+        }
+        if (take > 100)
+        {
+            take = 100;
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var partyExists = await _dbContext.Parties
+            .AsNoTracking()
+            .AnyAsync(p => p.TenantId == tenantId && p.Id == partyId, cancellationToken);
+
+        if (!partyExists)
+        {
+            return null;
+        }
+
+        // Pull a slightly larger page from each source so the merged top-N
+        // doesn't drop a recent doc because too many old orders were
+        // returned. Capped to keep the queries cheap.
+        var perSource = Math.Min(Math.Max(take, 5), 25);
+
+        var financeEntries = await _activityProvider.GetRecentActivityAsync(
+            tenantId,
+            partyId,
+            perSource,
+            cancellationToken);
+
+        var auditRows = await _dbContext.AuditLogs
+            .AsNoTracking()
+            .Where(log =>
+                log.TenantId == tenantId &&
+                log.ResourceType == "Party" &&
+                log.ResourceId == partyId)
+            .OrderByDescending(log => log.Timestamp)
+            .Take(perSource)
+            .Select(log => new
+            {
+                log.Timestamp,
+                log.Action,
+                log.ActorType,
+            })
+            .ToListAsync(cancellationToken);
+
+        var documentRows = await _dbContext.Documents
+            .AsNoTracking()
+            .Where(doc => doc.TenantId == tenantId && doc.OwnerPartyId == partyId)
+            .OrderByDescending(doc => doc.CreatedAt)
+            .Take(perSource)
+            .Select(doc => new
+            {
+                doc.Id,
+                doc.CreatedAt,
+                doc.DocumentType,
+                doc.Status,
+                doc.ReferenceNumber,
+            })
+            .ToListAsync(cancellationToken);
+
+        var merged = new List<CustomerActivityEntryDto>(
+            financeEntries.Count + auditRows.Count + documentRows.Count);
+
+        foreach (var fe in financeEntries)
+        {
+            merged.Add(new CustomerActivityEntryDto(
+                fe.Timestamp,
+                fe.Kind,
+                fe.Title,
+                fe.Subtitle,
+                fe.LinkPath));
+        }
+
+        foreach (var audit in auditRows)
+        {
+            merged.Add(new CustomerActivityEntryDto(
+                audit.Timestamp,
+                "audit_log",
+                FormatAuditTitle(audit.Action),
+                $"by {audit.ActorType}",
+                LinkPath: null));
+        }
+
+        foreach (var doc in documentRows)
+        {
+            var subtitle = string.IsNullOrWhiteSpace(doc.ReferenceNumber)
+                ? doc.Status
+                : $"{doc.Status} · {doc.ReferenceNumber}";
+            merged.Add(new CustomerActivityEntryDto(
+                doc.CreatedAt,
+                "document_uploaded",
+                $"Document · {doc.DocumentType}",
+                subtitle,
+                $"/compliance/documents/{doc.Id}"));
+        }
+
+        return merged
+            .OrderByDescending(entry => entry.Timestamp)
+            .Take(take)
+            .ToList();
+    }
+
+    private static string FormatAuditTitle(string action)
+    {
+        // Audit log Action values look like "Customer.Created" or
+        // "Compliance.DocumentVerified". Prettify for display without
+        // forcing every event author to also write a friendly label.
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return "Audit event";
+        }
+
+        var parts = action.Split('.');
+        if (parts.Length < 2)
+        {
+            return action;
+        }
+
+        var verb = SplitPascalCase(parts[^1]);
+        var domain = parts[0];
+        return $"{domain} · {verb.ToLowerInvariant()}";
+    }
+
+    private static string SplitPascalCase(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        var sb = new System.Text.StringBuilder(input.Length + 4);
+        for (var i = 0; i < input.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(input[i]) && !char.IsUpper(input[i - 1]))
+            {
+                sb.Append(' ');
+            }
+            sb.Append(input[i]);
+        }
+        return sb.ToString();
     }
 
     public async Task<CreateCustomerResponse> CreateCustomerAsync(

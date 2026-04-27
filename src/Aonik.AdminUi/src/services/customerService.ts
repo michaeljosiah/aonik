@@ -42,6 +42,16 @@ export const customerService = {
     return api.get<CustomerInsightsResponse>(`/admin/customers/${partyId}/insights`);
   },
 
+  /** Returns a unified activity feed (orders, payments, audit, documents). */
+  getActivity: async (
+    partyId: string,
+    take: number = 20,
+  ): Promise<CustomerActivityResponse> => {
+    return api.get<CustomerActivityResponse>(
+      `/admin/customers/${partyId}/activity?take=${take}`,
+    );
+  },
+
   /** Downloads the customer data bundle as a JSON file. */
   exportData: async (partyId: string): Promise<void> => {
     const response = await apiClient.get(`/admin/customers/${partyId}/export`, {
@@ -113,4 +123,19 @@ export interface CustomerDataImportResponse {
 export interface CustomerInsightsResponse {
   aiSummary: CustomerInsightAiSummaryDetail | null;
   snapshot: CustomerInsightSnapshotOverview | null;
+}
+
+export interface CustomerActivityEntry {
+  /** ISO-8601 UTC timestamp. */
+  timestamp: string;
+  /** Stable kind discriminator: order_created, order_updated, payment_captured, audit_log, document_uploaded. */
+  kind: string;
+  title: string;
+  subtitle: string | null;
+  /** Optional client-side route to drill into the underlying record. */
+  linkPath: string | null;
+}
+
+export interface CustomerActivityResponse {
+  items: CustomerActivityEntry[];
 }
