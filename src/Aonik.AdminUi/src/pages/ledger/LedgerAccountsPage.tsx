@@ -1,18 +1,93 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { AlertCircle, Landmark, Plus } from 'lucide-react';
+// Ledger Accounts list — visual port of ScreenAccounts in
+// templates/aonik-admin-starterkit/screens/invoices-accounts.jsx, wired to
+// the existing /ledger endpoints.
+//
+// Differences from the template, called out so they don't read as gaps:
+//   • Balance / Δ vs prior columns are dropped — the LedgerAccountSummary
+//     DTO does not carry running balances. Surfacing those would require
+//     summing journal entry lines per account, an aggregation that
+//     belongs on the API side.
+//   • Bank column is dropped — there is no link from a LedgerAccount to
+//     an external bank account in the current model.
+//   • Hierarchy (Assets → Cash & equivalents → Operating · Chase USD) is
+//     shown via account-type grouping rather than the template's
+//     code-prefix-driven indentation. Same effect for the typical chart
+//     of accounts.
+//   • Account-level document upload (previously on this page) moved
+//     out — documents are managed centrally via /compliance/documents.
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { AlertCircle, Plus, RefreshCw } from 'lucide-react';
+
+import {
+  Card as AonikCard,
+  FilterBar,
+  type FilterBarTab,
+  PageHeader,
+  Pill,
+  type PillTone,
+} from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { documentService } from '@/services/documentService';
-import { identityService } from '@/services/identityService';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { ledgerService } from '@/services/ledgerService';
-import type { CreateLedgerAccountRequest, DocumentListItem, LedgerAccountSummary, LedgerSummary, PagedResult } from '@/types';
+import type {
+  CreateLedgerAccountRequest,
+  LedgerAccountSummary,
+  LedgerSummary,
+} from '@/types';
 
-const accountTypes = ['Asset', 'Liability', 'Equity', 'Income', 'Expense'];
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+const ACCOUNT_TYPES = ['Asset', 'Liability', 'Equity', 'Income', 'Expense'] as const;
+
+const TYPE_TONE: Record<string, PillTone> = {
+  Asset: 'info',
+  Liability: 'warning',
+  Equity: 'pending',
+  Income: 'success',
+  Expense: 'danger',
+};
+
+const FILTER_TABS: FilterBarTab[] = [
+  { value: '', label: 'All' },
+  ...ACCOUNT_TYPES.map((t) => ({ value: t, label: t })),
+];
+
+function formatDate(value?: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+// Group flat account list by accountType, preserving entry order within
+// each group. Mirrors the template's hierarchy by surfacing the type as
+// a section header instead of code-prefix indentation.
+function groupByType(accounts: LedgerAccountSummary[]): Array<[string, LedgerAccountSummary[]]> {
+  const groups = new Map<string, LedgerAccountSummary[]>();
+  for (const t of ACCOUNT_TYPES) groups.set(t, []);
+  for (const acct of accounts) {
+    const list = groups.get(acct.accountType) ?? [];
+    list.push(acct);
+    groups.set(acct.accountType, list);
+  }
+  return Array.from(groups.entries()).filter(([, list]) => list.length > 0);
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────
 
 export function LedgerAccountsPage() {
   const [ledgers, setLedgers] = useState<LedgerSummary[]>([]);
@@ -20,6 +95,10 @@ export function LedgerAccountsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ledgerFilter, setLedgerFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [createOpen, setCreateOpen] = useState(false);
   const [formState, setFormState] = useState<CreateLedgerAccountRequest>({
     ledgerId: '',
     name: '',
@@ -27,11 +106,7 @@ export function LedgerAccountsPage() {
     accountType: 'Asset',
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [ownerPartyId, setOwnerPartyId] = useState<string>('');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [documents, setDocuments] = useState<DocumentListItem[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const loadLedgers = useCallback(async () => {
     try {
@@ -44,36 +119,13 @@ export function LedgerAccountsPage() {
         setFormState((prev) => ({ ...prev, ledgerId: response[0].id }));
       }
     } catch (err: unknown) {
-      console.error('Failed to load ledgers:', err);
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
       setError(message || 'Failed to load ledgers.');
     }
   }, [formState.ledgerId, ledgerFilter]);
-
-  const loadOwnerParty = useCallback(async () => {
-    try {
-      const userInfo = await identityService.getUserInfo();
-      setOwnerPartyId(userInfo.partyId);
-    } catch (err: unknown) {
-      console.error('Failed to load user info:', err);
-    }
-  }, []);
-
-  const loadDocuments = useCallback(async (accountId: string) => {
-    try {
-      const response: PagedResult<DocumentListItem> = await documentService.list({
-        relatedEntityType: 'LedgerAccount',
-        relatedEntityId: accountId,
-        pageSize: 10,
-        pageNumber: 1,
-      });
-      setDocuments(response.items);
-    } catch (err: unknown) {
-      console.error('Failed to load account documents:', err);
-    }
-  }, []);
 
   const loadAccounts = useCallback(async (ledgerId?: string) => {
     setLoading(true);
@@ -82,10 +134,10 @@ export function LedgerAccountsPage() {
       const response = await ledgerService.listAccounts(ledgerId);
       setAccounts(response);
     } catch (err: unknown) {
-      console.error('Failed to load ledger accounts:', err);
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
       setError(message || 'Failed to load ledger accounts.');
     } finally {
       setLoading(false);
@@ -93,355 +145,341 @@ export function LedgerAccountsPage() {
   }, []);
 
   useEffect(() => {
-    loadLedgers();
-    loadOwnerParty();
-  }, [loadLedgers, loadOwnerParty]);
+    void loadLedgers();
+  }, [loadLedgers]);
 
   useEffect(() => {
     if (ledgerFilter) {
-      loadAccounts(ledgerFilter);
+      void loadAccounts(ledgerFilter);
     }
   }, [ledgerFilter, loadAccounts]);
 
-  useEffect(() => {
-    if (accounts.length > 0 && !selectedAccountId) {
-      setSelectedAccountId(accounts[0].id);
-    }
-  }, [accounts, selectedAccountId]);
+  const handleCreate = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!formState.ledgerId || !formState.name.trim() || !formState.code.trim()) {
+        setFormError('Ledger, name, and code are required.');
+        return;
+      }
+      setIsSaving(true);
+      setFormError(null);
+      try {
+        await ledgerService.createAccount({
+          ledgerId: formState.ledgerId,
+          name: formState.name.trim(),
+          code: formState.code.trim(),
+          accountType: formState.accountType,
+        });
+        await loadAccounts(ledgerFilter || formState.ledgerId);
+        setFormState((prev) => ({ ...prev, name: '', code: '' }));
+        setCreateOpen(false);
+      } catch (err: unknown) {
+        const message =
+          err && typeof err === 'object' && 'userMessage' in err
+            ? String((err as { userMessage?: string }).userMessage ?? '')
+            : '';
+        setFormError(message || 'Unable to create ledger account.');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [formState, ledgerFilter, loadAccounts],
+  );
 
-  useEffect(() => {
-    if (selectedAccountId) {
-      loadDocuments(selectedAccountId);
+  // Filter to active type filter + search
+  const filteredAccounts = useMemo(() => {
+    let result = accounts;
+    if (typeFilter) {
+      result = result.filter((a) => a.accountType === typeFilter);
     }
-  }, [loadDocuments, selectedAccountId]);
-
-  const handleCreateAccount = useCallback(async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!formState.ledgerId || !formState.name.trim() || !formState.code.trim()) {
-      setError('Ledger, name, and code are required.');
-      return;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.code.toLowerCase().includes(q) ||
+          a.accountType.toLowerCase().includes(q),
+      );
     }
-    setIsSaving(true);
-    setError(null);
-    try {
-      await ledgerService.createAccount({
-        ledgerId: formState.ledgerId,
-        name: formState.name.trim(),
-        code: formState.code.trim(),
-        accountType: formState.accountType,
-      });
-      await loadAccounts(ledgerFilter || formState.ledgerId);
-      setFormState((prev) => ({ ...prev, name: '', code: '' }));
-    } catch (err: unknown) {
-      console.error('Failed to create ledger account:', err);
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
-      setError(message || 'Unable to create ledger account.');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [formState, ledgerFilter, loadAccounts]);
+    return result;
+  }, [accounts, typeFilter, searchQuery]);
 
-  const ledgerOptions = useMemo(() => ledgers.map((ledger) => ({
-    value: ledger.id,
-    label: `${ledger.baseCurrency} • ${ledger.id.slice(0, 8)}`,
-  })), [ledgers]);
+  const grouped = useMemo(() => groupByType(filteredAccounts), [filteredAccounts]);
 
-  const accountOptions = useMemo(() => accounts.map((account) => ({
-    value: account.id,
-    label: `${account.code} • ${account.name}`,
-  })), [accounts]);
+  const ledgerLabel = (id: string) => {
+    const ledger = ledgers.find((l) => l.id === id);
+    return ledger ? `${ledger.baseCurrency} · ${id.slice(0, 8)}` : id.slice(0, 8);
+  };
 
-  const handleUploadDocument = useCallback(async () => {
-    if (!ownerPartyId) {
-      setError('Owner party ID is required to upload documents.');
-      return;
-    }
-    if (!selectedAccountId) {
-      setError('Select a ledger account to attach this document.');
-      return;
-    }
-    if (!documentFile) {
-      setError('Select a file to upload.');
-      return;
-    }
-    setIsUploading(true);
-    setError(null);
-    try {
-      const document = await documentService.create({
-        ownerPartyId,
-        documentType: 'LedgerAccountAttachment',
-        status: undefined,
-        issuedOn: undefined,
-        expiresOn: undefined,
-        issuerName: undefined,
-        countryCode: undefined,
-        referenceNumber: undefined,
-        tags: ['ledger-account'],
-        attributesJson: undefined,
-      });
-
-      await documentService.uploadFile(document.documentId, {
-        file: documentFile,
-      });
-
-      await documentService.addUsage(document.documentId, {
-        ownerPartyId,
-        purpose: 'LedgerAccountAttachment',
-        relatedEntityType: 'LedgerAccount',
-        relatedEntityId: selectedAccountId,
-        status: 'Active',
-        notes: 'Ledger account document',
-      });
-
-      setDocumentFile(null);
-      await loadDocuments(selectedAccountId);
-    } catch (err: unknown) {
-      console.error('Failed to upload ledger account document:', err);
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
-      setError(message || 'Unable to upload document.');
-    } finally {
-      setIsUploading(false);
-    }
-  }, [documentFile, loadDocuments, ownerPartyId, selectedAccountId]);
+  const subtitle = ledgers.length === 0
+    ? 'Chart of accounts'
+    : `${accounts.length.toLocaleString()} account${
+        accounts.length === 1 ? '' : 's'
+      } · ${ledgers.length} ledger${ledgers.length === 1 ? '' : 's'}`;
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Ledger', href: '/ledger' },
-          { label: 'Accounts', icon: <Landmark className="w-3.5 h-3.5" /> },
-        ]}
-        className="mb-4"
+    <div className="flex flex-col gap-5 p-6 md:px-8">
+      <PageHeader
+        eyebrow="Finance · Ledger"
+        title="Accounts"
+        subtitle={subtitle}
+        actions={
+          <>
+            <div className="w-[180px]">
+              <Select value={ledgerFilter} onValueChange={setLedgerFilter}>
+                <SelectTrigger className="h-8 rounded-sm text-xs">
+                  <SelectValue placeholder="Select ledger" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ledgers.map((ledger) => (
+                    <SelectItem key={ledger.id} value={ledger.id}>
+                      {ledgerLabel(ledger.id)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => ledgerFilter && void loadAccounts(ledgerFilter)}
+              disabled={loading || !ledgerFilter}
+            >
+              <RefreshCw className={'h-3 w-3 ' + (loading ? 'animate-spin' : '')} />
+              Refresh
+            </Button>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" disabled={!ledgerFilter}>
+                  <Plus className="h-3 w-3" />
+                  New account
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>New ledger account</DialogTitle>
+                  <DialogDescription>
+                    Create an entry in the chart of accounts. Codes follow your
+                    ledger's existing convention.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreate} className="flex flex-col gap-3.5">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="account-ledger">Ledger</Label>
+                    <Select
+                      value={formState.ledgerId}
+                      onValueChange={(value) =>
+                        setFormState((prev) => ({ ...prev, ledgerId: value }))
+                      }
+                    >
+                      <SelectTrigger id="account-ledger" className="h-9">
+                        <SelectValue placeholder="Select ledger" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ledgers.map((ledger) => (
+                          <SelectItem key={ledger.id} value={ledger.id}>
+                            {ledgerLabel(ledger.id)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="account-name">Name</Label>
+                    <Input
+                      id="account-name"
+                      value={formState.name}
+                      onChange={(e) =>
+                        setFormState((prev) => ({ ...prev, name: e.target.value }))
+                      }
+                      placeholder="Cash on hand"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="account-code">Code</Label>
+                    <Input
+                      id="account-code"
+                      value={formState.code}
+                      onChange={(e) =>
+                        setFormState((prev) => ({ ...prev, code: e.target.value }))
+                      }
+                      placeholder="1000"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="account-type">Type</Label>
+                    <Select
+                      value={formState.accountType}
+                      onValueChange={(value) =>
+                        setFormState((prev) => ({ ...prev, accountType: value }))
+                      }
+                    >
+                      <SelectTrigger id="account-type" className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ACCOUNT_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {formError && (
+                    <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                      {formError}
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCreateOpen(false)}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving ? 'Saving…' : 'Create'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </>
+        }
       />
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Ledger Accounts</h1>
-          <p className="text-[var(--color-text-secondary)]">Create and manage your chart of accounts.</p>
-        </div>
-      </div>
-
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-            <AlertCircle className="w-5 h-5" />
-            <span className="flex-1">{error}</span>
-            <Button variant="outline" size="sm" onClick={() => loadAccounts(ledgerFilter)}>
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          <AlertCircle className="h-4 w-4 flex-none" />
+          <span className="flex-1">{error}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => ledgerFilter && void loadAccounts(ledgerFilter)}
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Account list</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">Accounts by ledger.</p>
-              </div>
-              <div className="w-48">
-                <Select value={ledgerFilter} onValueChange={setLedgerFilter}>
-                  <SelectTrigger className="h-9 rounded-sm">
-                    <SelectValue placeholder="Select ledger" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ledgerOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+      <FilterBar
+        tabs={FILTER_TABS}
+        active={typeFilter}
+        onTabChange={setTypeFilter}
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Filter accounts by name, code, type…"
+        hideFilterButton
+      />
 
-            <div className="border border-[var(--color-border-light)] rounded-md overflow-hidden">
-              {loading ? (
-                <div className="p-6 text-sm text-[var(--color-text-secondary)]">Loading accounts...</div>
-              ) : accounts.length === 0 ? (
-                <div className="p-6 text-sm text-[var(--color-text-secondary)]">No accounts yet.</div>
+      <AonikCard padding={0}>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                <th className="px-4 py-3 w-[120px]">Code</th>
+                <th className="px-4 py-3">Account</th>
+                <th className="px-4 py-3 w-[140px]">Type</th>
+                <th className="px-4 py-3 w-[100px]">Currency</th>
+                <th className="px-4 py-3 w-[120px]">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-12 text-center">
+                    <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                      Loading accounts…
+                    </p>
+                  </td>
+                </tr>
+              ) : filteredAccounts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-12 text-center">
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                      No accounts found
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                      {searchQuery || typeFilter
+                        ? 'Try adjusting the active tab or search.'
+                        : 'Create the first account in this ledger.'}
+                    </p>
+                  </td>
+                </tr>
               ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-[var(--color-surface-inset)]/60 border-b border-[var(--color-border-light)]">
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Account</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Type</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Code</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Currency</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {accounts.map((account) => (
-                      <tr key={account.id} className="border-b border-[var(--color-border-light)]">
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-medium text-[var(--color-text-primary)]">{account.name}</p>
-                          <p className="text-xs text-[var(--color-text-tertiary)] font-mono">{account.id.slice(0, 8)}</p>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">{account.accountType}</td>
-                        <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)] font-mono">{account.code}</td>
-                        <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">{account.currency || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                grouped.map(([type, list]) => (
+                  <RenderTypeGroup key={type} type={type} list={list} />
+                ))
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full bg-[var(--color-surface-inset)] flex items-center justify-center text-[var(--color-text-secondary)]">
-                <Landmark className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Create account</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">Add a new ledger account.</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateAccount} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="account-ledger">Ledger</Label>
-                <Select
-                  value={formState.ledgerId}
-                  onValueChange={(value) => setFormState((prev) => ({ ...prev, ledgerId: value }))}
-                >
-                  <SelectTrigger id="account-ledger" className="h-9 rounded-sm">
-                    <SelectValue placeholder="Select ledger" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ledgerOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="account-name">Account name</Label>
-                <Input
-                  id="account-name"
-                  value={formState.name}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="Cash on hand"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="account-code">Account code</Label>
-                <Input
-                  id="account-code"
-                  value={formState.code}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, code: event.target.value }))}
-                  placeholder="1000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="account-type">Account type</Label>
-                <Select
-                  value={formState.accountType}
-                  onValueChange={(value) => setFormState((prev) => ({ ...prev, accountType: value }))}
-                >
-                  <SelectTrigger id="account-type" className="h-9 rounded-sm">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accountTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full rounded-sm" disabled={isSaving}>
-                <Plus className="w-4 h-4 mr-2" />
-                {isSaving ? 'Saving...' : 'Create account'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 mt-6 lg:grid-cols-[1fr,1fr]">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Account documents</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">Files linked to the selected account.</p>
-              </div>
-              <div className="w-56">
-                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger className="h-9 rounded-sm">
-                    <SelectValue placeholder="Select account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accountOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {documents.length === 0 ? (
-              <p className="text-sm text-[var(--color-text-tertiary)]">No documents attached.</p>
-            ) : (
-              <div className="space-y-3">
-                {documents.map((doc) => (
-                  <div key={doc.documentId} className="flex items-center justify-between border-b border-[var(--color-border-light)] pb-3 last:border-b-0">
-                    <div>
-                      <p className="text-sm font-medium text-[var(--color-text-primary)]">{doc.documentType}</p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">Status: {doc.status}</p>
-                    </div>
-                    <div className="text-xs text-[var(--color-text-tertiary)]">
-                      {new Date(doc.createdAt).toLocaleDateString('en-US')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-full bg-[var(--color-surface-inset)] flex items-center justify-center text-[var(--color-text-secondary)]">
-                <Landmark className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Upload document</h2>
-                <p className="text-sm text-[var(--color-text-secondary)]">Attach evidence to a ledger account.</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="ledger-account-doc-file">Document file</Label>
-                <Input
-                  id="ledger-account-doc-file"
-                  type="file"
-                  onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)}
-                />
-              </div>
-              <Button onClick={handleUploadDocument} disabled={isUploading} className="w-full rounded-sm">
-                {isUploading ? 'Uploading...' : 'Upload document'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </tbody>
+          </table>
+        </div>
+      </AonikCard>
     </div>
+  );
+}
+
+// ─── Type group ──────────────────────────────────────────────────────────
+
+function RenderTypeGroup({
+  type,
+  list,
+}: {
+  type: string;
+  list: LedgerAccountSummary[];
+}) {
+  return (
+    <>
+      <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/40">
+        <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-bold text-[var(--color-brand-primary)]">
+          {type === 'Asset'
+            ? '1000'
+            : type === 'Liability'
+              ? '2000'
+              : type === 'Equity'
+                ? '3000'
+                : type === 'Income'
+                  ? '4000'
+                  : '5000'}
+        </td>
+        <td colSpan={4} className="px-4 py-3 text-[13px] font-bold text-[var(--color-text-primary)]">
+          {type === 'Income' ? 'Revenue' : type === 'Expense' ? 'Expenses' : `${type}s`}
+          <span className="ml-2 text-[11px] font-normal text-[var(--color-text-tertiary)]">
+            {list.length} {list.length === 1 ? 'account' : 'accounts'}
+          </span>
+        </td>
+      </tr>
+      {list.map((account) => (
+        <tr
+          key={account.id}
+          className="border-b border-[var(--color-border-light)] transition-colors hover:bg-[var(--color-surface-inset)]"
+        >
+          <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-text-tertiary)]">
+            {account.code}
+          </td>
+          <td className="px-4 py-3 pl-8">
+            <span className="text-[13px] text-[var(--color-text-primary)]">
+              {account.name}
+            </span>
+          </td>
+          <td className="px-4 py-3">
+            <Pill tone={TYPE_TONE[account.accountType] ?? 'default'} size="sm">
+              {account.accountType}
+            </Pill>
+          </td>
+          <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+            {account.currency || '—'}
+          </td>
+          <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+            {formatDate(account.createdUtc)}
+          </td>
+        </tr>
+      ))}
+    </>
   );
 }
