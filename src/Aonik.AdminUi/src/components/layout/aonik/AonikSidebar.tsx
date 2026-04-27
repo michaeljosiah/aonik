@@ -2,31 +2,19 @@
 // templates/aonik-admin-starterkit/kit/shell-aonik.jsx (AonikSidebar).
 //
 // Preserves the live admin behaviours that the template doesn't model:
-//   - module-driven nav (`useModules()`)
-//   - audience filtering (host vs tenant)
+//   - runtime audience filtering (host vs tenant)
 //   - workspace flyout (templates + saved layouts) on the Workspace nav item
 //   - role hydration from /admin manifest + identity service
 //   - theme / logout / profile menu inside the bottom user card
 //   - collapse-with-hover-expand (mouse over collapsed sidebar visually expands)
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ElementType } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  // navigation icons (full set used across module nav configs)
-  Search, LayoutDashboard, Grid3x3, Sparkles, Folders, Users, Store, Settings,
+  Search,
   ChevronRight, ChevronDown, PanelLeftClose, PanelLeft, X, Check,
   Award, UserCog, Info, FileText, Sun, Moon, Monitor, LogOut,
-  CreditCard, BookOpen, Building, Receipt, Building2, AlertTriangle,
-  ArrowRightLeft, RotateCcw, ShieldAlert, Banknote, ClipboardCheck,
-  Landmark, ClipboardList, GitCompare, Bot, Brain, Workflow, MessageSquare,
-  Network, Shield, Key, Cog, KeyRound, Webhook, ScrollText, Hash, Wrench,
-  Globe, Layers, Image, BarChart3, PanelsTopLeft, Layout, Timer, Bell,
-  AudioLines, FlaskConical, Route,
-  // Wave 6+ Command Center icons
-  CheckCircle2, Activity, ShieldCheck, TrendingUp, SlidersHorizontal,
-  // Consolidated AI & Agents nav (post-Wave-7b nav simplification)
-  ListChecks,
+  Layout, Bell,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -47,27 +35,10 @@ import { loadWorkspaceState } from '@/workspace/storage';
 import type { WorkspaceTemplate } from '@/workspace/types';
 
 import { AonikMark, AonikWordmark } from './AonikMark';
+import { AonikTemplateIcon } from './AonikTemplateIcon';
 import { NavPopover } from './NavPopover';
-
-// ─── Lucide icon registry (NavItem.icon string -> component) ─────────────
-const iconMap: Record<string, ElementType> = {
-  Search, LayoutDashboard, Grid3x3, Sparkles, Folders, Users, Store, Settings,
-  FileText, Receipt, Building2, AlertTriangle,
-  CreditCard, ArrowRightLeft, RotateCcw, ShieldAlert, Banknote,
-  BookOpen, Landmark, ClipboardList, GitCompare, ClipboardCheck,
-  Bot, Brain, Workflow, MessageSquare, Network,
-  UserCog, Shield, Key,
-  Building,
-  Cog, KeyRound, Webhook, ScrollText, Hash, Wrench,
-  Globe,
-  Layers, Image, BarChart3,
-  PanelsTopLeft, Layout,
-  Timer, Bell, AudioLines, FlaskConical, Route,
-  // Command Center (Wave 6+)
-  CheckCircle2, Activity, ShieldCheck, TrendingUp, SlidersHorizontal,
-  // Consolidated AI & Agents nav
-  ListChecks,
-};
+import { getViewportFlyoutPosition } from './flyoutPosition';
+import { STARTERKIT_SIDEBAR_NAV, collectNavItemHrefs } from './starterkitSidebarNav';
 
 interface AonikSidebarProps {
   collapsed?: boolean;
@@ -91,17 +62,11 @@ function NavItemRow({
   const location = useLocation();
   const triggerRef = useRef<HTMLDivElement>(null);
   const [openRect, setOpenRect] = useState<DOMRect | null>(null);
-  const Icon = iconMap[item.icon] ?? LayoutDashboard;
 
   const hasChildren =
     (item.children && item.children.length > 0) || (item.childGroups && item.childGroups.length > 0);
 
-  const childHrefs: string[] = useMemo(() => {
-    const all: string[] = [];
-    item.children?.forEach((c) => c.href && all.push(c.href));
-    item.childGroups?.forEach((g) => g.items.forEach((c) => c.href && all.push(c.href)));
-    return all;
-  }, [item.children, item.childGroups]);
+  const childHrefs = useMemo(() => collectNavItemHrefs(item), [item]);
 
   const isActive = useMemo(() => {
     if (item.href && item.href === location.pathname) return true;
@@ -133,11 +98,11 @@ function NavItemRow({
 
   const content = (
     <>
-      <Icon
-        className={cn(
-          'h-4 w-4 shrink-0',
-          isActive ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]',
-        )}
+      <AonikTemplateIcon
+        name={item.icon}
+        size={16}
+        color={isActive ? 'var(--color-brand-primary)' : 'var(--color-text-secondary)'}
+        className="h-4 w-4 shrink-0"
       />
       {!collapsed && <span className="flex-1 truncate text-[13px]">{item.label}</span>}
       {!collapsed && item.badge != null && (
@@ -212,7 +177,6 @@ function NavItemRow({
       {openRect && (
         <NavPopover
           parent={item}
-          iconMap={iconMap}
           anchorRect={openRect}
           onClose={handleClose}
         />
@@ -265,15 +229,14 @@ function WorkspaceNavItemRow({ item, collapsed }: { item: NavItem; collapsed: bo
   const [templates] = useState<WorkspaceTemplate[]>(() => getWorkspaceTemplates());
   const triggerRef = useRef<HTMLDivElement>(null);
   const [showFlyout, setShowFlyout] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
-  const Icon = iconMap[item.icon] ?? PanelsTopLeft;
+  const [position, setPosition] = useState({ top: 0, left: 0, maxHeight: 160, pointerTop: 14 });
   const isActive = location.pathname === '/workspace';
   const hasContent = layouts.length > 0 || templates.length > 0;
 
   useEffect(() => {
     if (showFlyout && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      setPosition({ top: rect.top, left: rect.right + 8 });
+      setPosition(getViewportFlyoutPosition(rect));
     }
   }, [showFlyout]);
 
@@ -330,11 +293,11 @@ function WorkspaceNavItemRow({ item, collapsed }: { item: NavItem; collapsed: bo
 
   const content = (
     <>
-      <Icon
-        className={cn(
-          'h-4 w-4 shrink-0',
-          isActive ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]',
-        )}
+      <AonikTemplateIcon
+        name={item.icon}
+        size={16}
+        color={isActive ? 'var(--color-brand-primary)' : 'var(--color-text-secondary)'}
+        className="h-4 w-4 shrink-0"
       />
       {!collapsed && <span className="flex-1 truncate text-[13px]">{item.label}</span>}
       {!collapsed && hasContent && (
@@ -363,102 +326,110 @@ function WorkspaceNavItemRow({ item, collapsed }: { item: NavItem; collapsed: bo
       style={{
         left: position.left,
         top: position.top,
+        maxHeight: position.maxHeight,
         boxShadow: '0 18px 40px -10px rgb(0 0 0 / 0.22), 0 0 0 1px rgb(0 0 0 / 0.02)',
       }}
     >
       <span
         aria-hidden
-        className="absolute -left-[5px] top-[14px] h-[9px] w-[9px] rotate-45 border-b border-l border-[var(--color-border-light)] bg-[var(--color-surface)]"
+        className="absolute -left-[5px] h-[9px] w-[9px] rotate-45 border-b border-l border-[var(--color-border-light)] bg-[var(--color-surface)]"
+        style={{ top: position.pointerTop }}
       />
-      <div className="mb-1 flex items-center justify-between gap-2 border-b border-[var(--color-border-light)] px-2.5 pb-2.5 pt-2">
-        <span className="flex items-center gap-2">
-          <Icon className="h-[13px] w-[13px] text-[var(--color-brand-primary)]" />
-          <span className="text-[12.5px] font-semibold text-[var(--color-text-primary)]">
-            {item.label}
+      <div className="overflow-y-auto" style={{ maxHeight: position.maxHeight - 12 }}>
+        <div className="mb-1 flex items-center justify-between gap-2 border-b border-[var(--color-border-light)] px-2.5 pb-2.5 pt-2">
+          <span className="flex items-center gap-2">
+            <AonikTemplateIcon name={item.icon} size={13} color="var(--color-brand-primary)" />
+            <span className="text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+              {item.label}
+            </span>
           </span>
-        </span>
-      </div>
-
-      {templates.length > 0 && (
-        <>
-          <div className="px-2.5 pb-0.5 pt-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-              Templates
-            </span>
-          </div>
-          {templates.map((template) => {
-            const TemplateIcon = iconMap[template.icon ?? ''] ?? Sparkles;
-            return (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => handleSelectTemplate(template.id)}
-                title={template.description}
-                className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12.5px] text-[var(--color-text-primary)] transition-colors hover:bg-black/[0.04]"
-              >
-                <TemplateIcon className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
-                <span className="flex-1 truncate">{template.name}</span>
-              </button>
-            );
-          })}
-        </>
-      )}
-
-      {layouts.length > 0 && (
-        <>
-          {templates.length > 0 && (
-            <div className="my-1 border-t border-[var(--color-border-light)]" />
-          )}
-          <div className="px-2.5 pb-0.5 pt-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-              Layouts
-            </span>
-          </div>
-          {layouts.map((layout) => {
-            const isLayoutActive = layout.id === activeLayoutId;
-            return (
-              <button
-                key={layout.id}
-                type="button"
-                onClick={() => handleSelectLayout(layout.id)}
-                className={cn(
-                  'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12.5px] transition-colors',
-                  isLayoutActive
-                    ? 'bg-[var(--color-brand-primary-10)] font-semibold text-[var(--color-brand-primary)]'
-                    : 'text-[var(--color-text-primary)] hover:bg-black/[0.04]',
-                )}
-              >
-                <Layout
-                  className={cn(
-                    'h-3.5 w-3.5 shrink-0',
-                    isLayoutActive
-                      ? 'text-[var(--color-brand-primary)]'
-                      : 'text-[var(--color-text-secondary)]',
-                  )}
-                />
-                <span className="flex-1 truncate">{layout.name}</span>
-                {layout.isDefault && (
-                  <Badge variant="outline" className="px-1 py-0 text-[9px]">
-                    Default
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
-        </>
-      )}
-
-      {item.viewAllHref && (
-        <div className="mt-1 border-t border-[var(--color-border-light)] pt-1">
-          <Link
-            to={item.viewAllHref}
-            onClick={() => setShowFlyout(false)}
-            className="flex items-center justify-center rounded-md px-2 py-1 text-sm text-[var(--color-brand-primary)] transition-colors hover:bg-[var(--color-sidebar-hover)]"
-          >
-            {item.viewAllLabel ?? 'View all'}
-          </Link>
         </div>
-      )}
+
+        {templates.length > 0 && (
+          <>
+            <div className="px-2.5 pb-0.5 pt-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Templates
+              </span>
+            </div>
+            {templates.map((template) => {
+              return (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => handleSelectTemplate(template.id)}
+                  title={template.description}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12.5px] text-[var(--color-text-primary)] transition-colors hover:bg-black/[0.04]"
+                >
+                  <AonikTemplateIcon
+                    name={template.icon ?? 'sparkles'}
+                    size={14}
+                    color="var(--color-text-secondary)"
+                    className="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span className="flex-1 truncate">{template.name}</span>
+                </button>
+              );
+            })}
+          </>
+        )}
+
+        {layouts.length > 0 && (
+          <>
+            {templates.length > 0 && (
+              <div className="my-1 border-t border-[var(--color-border-light)]" />
+            )}
+            <div className="px-2.5 pb-0.5 pt-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Layouts
+              </span>
+            </div>
+            {layouts.map((layout) => {
+              const isLayoutActive = layout.id === activeLayoutId;
+              return (
+                <button
+                  key={layout.id}
+                  type="button"
+                  onClick={() => handleSelectLayout(layout.id)}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[12.5px] transition-colors',
+                    isLayoutActive
+                      ? 'bg-[var(--color-brand-primary-10)] font-semibold text-[var(--color-brand-primary)]'
+                      : 'text-[var(--color-text-primary)] hover:bg-black/[0.04]',
+                  )}
+                >
+                  <Layout
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0',
+                      isLayoutActive
+                        ? 'text-[var(--color-brand-primary)]'
+                        : 'text-[var(--color-text-secondary)]',
+                    )}
+                  />
+                  <span className="flex-1 truncate">{layout.name}</span>
+                  {layout.isDefault && (
+                    <Badge variant="outline" className="px-1 py-0 text-[9px]">
+                      Default
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </>
+        )}
+
+        {item.viewAllHref && (
+          <div className="mt-1 border-t border-[var(--color-border-light)] pt-1">
+            <Link
+              to={item.viewAllHref}
+              onClick={() => setShowFlyout(false)}
+              className="flex items-center justify-center rounded-md px-2 py-1 text-sm text-[var(--color-brand-primary)] transition-colors hover:bg-[var(--color-sidebar-hover)]"
+            >
+              {item.viewAllLabel ?? 'View all'}
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -907,7 +878,7 @@ function UserProfileCard({
 // ─── Sidebar ─────────────────────────────────────────────────────────────
 export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps) {
   const { user, logout } = useAuth();
-  const { navigation: moduleNavigation } = useModules();
+  const { manifest } = useModules();
   const [navRoles, setNavRoles] = useState<string[]>([]);
   const [isLoadingNavRoles, setIsLoadingNavRoles] = useState(false);
   const [menuHover, setMenuHover] = useState(false);
@@ -923,7 +894,7 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
     }
   }, [logout]);
 
-  // Hydrate roles for nav audience filtering.
+      // Hydrate roles for nav audience filtering.
   useEffect(() => {
     let cancelled = false;
     const hydrate = async () => {
@@ -952,14 +923,18 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
   }, [user]);
 
   const isPortalAdmin = resolvePortalAdmin(navRoles);
+  const disabledNavIds = useMemo(() => new Set(manifest?.disabledNavItems ?? []), [manifest]);
+  const disabledRoutes = useMemo(() => new Set(manifest?.disabledRoutes ?? []), [manifest]);
 
   const isItemVisible = useCallback(
     (it: NavItem) => {
+      if (disabledNavIds.has(it.id)) return false;
+      if (it.href && disabledRoutes.has(it.href)) return false;
       if (it.audience === 'host') return isPortalAdmin;
       if (it.audience === 'tenant') return !isPortalAdmin && !isLoadingNavRoles;
       return true;
     },
-    [isPortalAdmin, isLoadingNavRoles],
+    [disabledNavIds, disabledRoutes, isPortalAdmin, isLoadingNavRoles],
   );
 
   const filterItems = useCallback(
@@ -970,13 +945,16 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
         const filteredChildGroups = item.childGroups
           ?.map((g) => ({ ...g, items: g.items.filter(isItemVisible) }))
           .filter((g) => g.items.length > 0);
+        const hasVisibleChildren = (filteredChildren?.length ?? 0) > 0 || (filteredChildGroups?.length ?? 0) > 0;
+        const hasVisibleHref = Boolean(item.href && !disabledRoutes.has(item.href));
+        if (!hasVisibleChildren && !hasVisibleHref) return acc;
         acc.push({ ...item, children: filteredChildren, childGroups: filteredChildGroups });
         return acc;
       }, []),
-    [isItemVisible],
+    [disabledRoutes, isItemVisible],
   );
 
-  const visibleSections = moduleNavigation.filter((s: NavigationSection) => {
+  const visibleSections = STARTERKIT_SIDEBAR_NAV.filter((s: NavigationSection) => {
     if (s.audience === 'host') return isPortalAdmin;
     if (s.audience === 'tenant') return !isPortalAdmin && !isLoadingNavRoles;
     return true;

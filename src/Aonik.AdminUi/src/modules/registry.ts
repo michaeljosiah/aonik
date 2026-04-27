@@ -16,9 +16,9 @@ import { agentCommandCenterModule } from './agent-command-center';
 // ---------------------------------------------------------------------------
 const allModules: AdminModule[] = [
   coreModule,
+  agentCommandCenterModule,
   financeModule,
   platformModule,
-  agentCommandCenterModule,
 ];
 
 /**

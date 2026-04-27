@@ -14,7 +14,6 @@ import {
 } from '@/pages/tenants';
 import {
   SettingsLandingPage,
-  SettingsAuditLogsPage,
   SettingsTextToSpeechPage,
   SystemToolsPage,
   NotificationTemplatesPage,
@@ -23,7 +22,12 @@ import {
   GlobalSettingsPage,
 } from '@/pages/settings';
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
-import { ObservabilityPage } from '@/pages/observability';
+import {
+  ObservabilityPage,
+  ObservabilityTracesPage,
+  ObservabilityLogsPage,
+  ObservabilityAuditLogPage,
+} from '@/pages/observability';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
 import { ContentWizardPage } from '@/pages/ContentWizardPage';
@@ -35,12 +39,11 @@ import { wrapPage } from '../utils';
 // ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
-// Single "Platform" section gathers Team + Admin under one host-only
-// label, matching the starterkit's Platform group.
+// Single unlabeled host-only section. Ordering is curated to match the
+// current shell IA: Team, then Admin.
 const navigation: NavigationSection[] = [
   {
-    id: 'platform',
-    label: 'Platform',
+    id: 'admin-host',
     audience: 'host',
     items: [
       {
@@ -71,18 +74,35 @@ const navigation: NavigationSection[] = [
           {
             label: 'Infrastructure',
             items: [
+              { id: 'compliance-documents', label: 'Documents', icon: 'FileText', href: '/compliance/documents' },
               { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
               { id: 'platform-alerts', label: 'Platform Alerts', icon: 'Bell', href: '/admin/alerts' },
               { id: 'background-jobs', label: 'Background Jobs', icon: 'Timer', href: '/settings/background-jobs' },
               { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
-              { id: 'observability', label: 'Observability', icon: 'Activity', href: '/admin/observability' },
+              {
+                id: 'observability',
+                label: 'Observability',
+                icon: 'Activity',
+                viewAllHref: '/admin/observability',
+                viewAllLabel: 'Open overview',
+                childGroups: [
+                  {
+                    label: 'Observability',
+                    items: [
+                      { id: 'observability-overview', label: 'Overview', icon: 'BarChart3', href: '/admin/observability' },
+                      { id: 'observability-traces', label: 'Traces', icon: 'GitCompare', href: '/admin/observability/traces' },
+                      { id: 'observability-logs', label: 'Logs', icon: 'ScrollText', href: '/admin/observability/logs' },
+                      { id: 'observability-audit', label: 'Audit Log', icon: 'ClipboardCheck', href: '/admin/observability/audit' },
+                    ],
+                  },
+                ],
+              },
             ],
           },
           {
             label: 'Settings',
             items: [
               { id: 'settings-global', label: 'Settings', icon: 'SlidersHorizontal', href: '/settings/global' },
-              { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
               { id: 'settings-text-to-speech', label: 'Text to Speech', icon: 'AudioLines', href: '/settings/text-to-speech' },
               { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
               { id: 'settings-notification-templates', label: 'Notifications', icon: 'Bell', href: '/settings/notification-templates' },
@@ -110,7 +130,6 @@ const routes = [
   { path: '/settings', element: SettingsLandingPage },
   { path: '/settings/general', element: GlobalSettingsPage },
   { path: '/settings/global', element: GlobalSettingsPage },
-  { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   { path: '/settings/text-to-speech', element: SettingsTextToSpeechPage },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
   { path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
@@ -122,6 +141,9 @@ const routes = [
   { path: '/cms/content-wizard', element: ContentWizardPage },
   { path: '/cms/media', element: MediaLibraryPage },
   { path: '/admin/observability', element: ObservabilityPage },
+  { path: '/admin/observability/traces', element: ObservabilityTracesPage },
+  { path: '/admin/observability/logs', element: ObservabilityLogsPage },
+  { path: '/admin/observability/audit', element: ObservabilityAuditLogPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -136,7 +158,6 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'platform-alerts', title: 'Platform Alerts', type: 'internal', category: 'page', componentKey: 'platform-alerts', route: '/admin/alerts' },
   { id: 'settings', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-home', route: '/settings' },
   { id: 'settings-global', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-global', route: '/settings/global' },
-  { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', category: 'page', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
   { id: 'settings-text-to-speech', title: 'Text to Speech', type: 'internal', category: 'page', componentKey: 'settings-text-to-speech', route: '/settings/text-to-speech' },
   { id: 'background-jobs', title: 'Background Jobs', type: 'internal', category: 'page', componentKey: 'background-jobs', route: '/settings/background-jobs' },
   { id: 'settings-system-tools', title: 'System Tools', type: 'internal', category: 'page', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
@@ -157,7 +178,6 @@ const panelComponents = {
   'platform-alerts': wrapPage(AlertsPage),
   'settings-home': wrapPage(SettingsLandingPage),
   'settings-global': wrapPage(GlobalSettingsPage),
-  'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
   'settings-text-to-speech': wrapPage(SettingsTextToSpeechPage),
   'background-jobs': wrapPage(BackgroundJobsPage),
   'settings-system-tools': wrapPage(SystemToolsPage),
@@ -188,7 +208,10 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/access', trail: ['Team'] },
-  { pathPrefix: '/admin/observability', trail: ['Admin', 'Infrastructure'] },
+  { pathPrefix: '/admin/observability/traces', trail: ['Admin', 'Observability', 'Traces'] },
+  { pathPrefix: '/admin/observability/logs', trail: ['Admin', 'Observability', 'Logs'] },
+  { pathPrefix: '/admin/observability/audit', trail: ['Admin', 'Observability', 'Audit Log'] },
+  { pathPrefix: '/admin/observability', trail: ['Admin', 'Observability', 'Overview'] },
   { pathPrefix: '/admin', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/tenants', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/settings', trail: ['Admin', 'Settings'] },

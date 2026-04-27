@@ -17,14 +17,12 @@ import { AiRunQueuePage, AiPoliciesPage, AiUsagePage } from '@/pages/ai-ops';
 // & Agents entry, just with more depth because Aonik exposes the
 // configuration surfaces too.
 //
-// Approvals does NOT appear here even though /approvals is wired in
-// this module's routes — it's surfaced under finance/Transact alongside
-// Orders, since cross-cutting decisions aren't AI-only.
+// Approvals is intentionally grouped here in the shell IA because the
+// approval queue is primarily agent/operator-facing in the current admin.
 
 const navigation: NavigationSection[] = [
   {
     id: 'ai-agents',
-    label: 'AI & Agents',
     items: [
       {
         id: 'ai-agents-parent',
@@ -36,6 +34,7 @@ const navigation: NavigationSection[] = [
           {
             label: 'Operations',
             items: [
+              { id: 'approvals', label: 'Approvals', icon: 'CheckCircle2', href: '/approvals' },
               { id: 'ai-runs', label: 'Run queue', icon: 'Activity', href: '/ai/runs' },
               { id: 'ai-policies', label: 'Policies', icon: 'ShieldCheck', href: '/ai/policies' },
               { id: 'ai-usage', label: 'Usage', icon: 'TrendingUp', href: '/ai/usage' },

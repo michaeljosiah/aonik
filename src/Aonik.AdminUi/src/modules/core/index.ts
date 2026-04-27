@@ -36,14 +36,8 @@ const navigation: NavigationSection[] = [
         icon: 'LayoutDashboard',
         href: '/',
       },
-      {
-        id: 'workspace',
-        label: 'Workspace',
-        icon: 'PanelsTopLeft',
-        href: '/workspace',
-        viewAllHref: '/workspace',
-        viewAllLabel: 'View all',
-      },
+      // Temporarily hidden from the sidebar while the shell IA is being
+      // revised. Keep the route/panel wiring intact so we can restore it.
     ],
   },
 ];

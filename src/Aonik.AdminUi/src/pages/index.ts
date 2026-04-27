@@ -36,4 +36,9 @@ export {
   GlobalSettingsPage,
 } from './settings';
 export { FxRatesPage } from './FxRatesPage';
-export { ObservabilityPage } from './observability';
+export {
+  ObservabilityPage,
+  ObservabilityTracesPage,
+  ObservabilityLogsPage,
+  ObservabilityAuditLogPage,
+} from './observability';
