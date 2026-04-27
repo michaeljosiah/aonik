@@ -73,6 +73,40 @@ function formatDate(value?: string | null): string {
   });
 }
 
+function formatBalance(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+    })}`;
+  }
+}
+
+function summariseBalance(account: LedgerAccountSummary): {
+  primary: string;
+  secondary: string | null;
+} {
+  const balances = account.balancesByCurrency ?? [];
+  if (balances.length === 0) {
+    return { primary: '—', secondary: null };
+  }
+  if (balances.length === 1) {
+    const entry = balances[0];
+    return { primary: formatBalance(entry.balance, entry.currency), secondary: null };
+  }
+  return {
+    primary: formatBalance(balances[0].balance, balances[0].currency),
+    secondary: `+${balances.length - 1} ${balances.length === 2 ? 'currency' : 'currencies'}`,
+  };
+}
+
 // Group flat account list by accountType, preserving entry order within
 // each group. Mirrors the template's hierarchy by surfacing the type as
 // a section header instead of code-prefix indentation.
@@ -385,13 +419,14 @@ export function LedgerAccountsPage() {
                 <th className="px-4 py-3">Account</th>
                 <th className="px-4 py-3 w-[140px]">Type</th>
                 <th className="px-4 py-3 w-[100px]">Currency</th>
+                <th className="px-4 py-3 w-[160px] text-right">Balance</th>
                 <th className="px-4 py-3 w-[120px]">Created</th>
               </tr>
             </thead>
             <tbody>
               {loading && accounts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
                     <p className="text-sm text-[var(--color-text-secondary)]">
                       Loading accounts…
@@ -400,7 +435,7 @@ export function LedgerAccountsPage() {
                 </tr>
               ) : filteredAccounts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <p className="text-sm font-medium text-[var(--color-text-primary)]">
                       No accounts found
                     </p>
@@ -433,6 +468,20 @@ function RenderTypeGroup({
   type: string;
   list: LedgerAccountSummary[];
 }) {
+  // Group total: sum balances per currency across the type's accounts.
+  const groupTotalsByCurrency = new Map<string, number>();
+  for (const account of list) {
+    for (const b of account.balancesByCurrency ?? []) {
+      groupTotalsByCurrency.set(b.currency, (groupTotalsByCurrency.get(b.currency) ?? 0) + b.balance);
+    }
+  }
+  const groupTotalDisplay = (() => {
+    const entries = Array.from(groupTotalsByCurrency.entries());
+    if (entries.length === 0) return '';
+    if (entries.length === 1) return formatBalance(entries[0][1], entries[0][0]);
+    return `${entries.length} currencies`;
+  })();
+
   return (
     <>
       <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/40">
@@ -447,39 +496,56 @@ function RenderTypeGroup({
                   ? '4000'
                   : '5000'}
         </td>
-        <td colSpan={4} className="px-4 py-3 text-[13px] font-bold text-[var(--color-text-primary)]">
+        <td colSpan={3} className="px-4 py-3 text-[13px] font-bold text-[var(--color-text-primary)]">
           {type === 'Income' ? 'Revenue' : type === 'Expense' ? 'Expenses' : `${type}s`}
           <span className="ml-2 text-[11px] font-normal text-[var(--color-text-tertiary)]">
             {list.length} {list.length === 1 ? 'account' : 'accounts'}
           </span>
         </td>
+        <td className="px-4 py-3 text-right font-[family-name:var(--font-mono)] text-[12px] font-bold text-[var(--color-text-primary)]">
+          {groupTotalDisplay}
+        </td>
+        <td className="px-4 py-3" />
       </tr>
-      {list.map((account) => (
-        <tr
-          key={account.id}
-          className="border-b border-[var(--color-border-light)] transition-colors hover:bg-[var(--color-surface-inset)]"
-        >
-          <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-text-tertiary)]">
-            {account.code}
-          </td>
-          <td className="px-4 py-3 pl-8">
-            <span className="text-[13px] text-[var(--color-text-primary)]">
-              {account.name}
-            </span>
-          </td>
-          <td className="px-4 py-3">
-            <Pill tone={TYPE_TONE[account.accountType] ?? 'default'} size="sm">
-              {account.accountType}
-            </Pill>
-          </td>
-          <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
-            {account.currency || '—'}
-          </td>
-          <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
-            {formatDate(account.createdUtc)}
-          </td>
-        </tr>
-      ))}
+      {list.map((account) => {
+        const balanceSummary = summariseBalance(account);
+        return (
+          <tr
+            key={account.id}
+            className="border-b border-[var(--color-border-light)] transition-colors hover:bg-[var(--color-surface-inset)]"
+          >
+            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-text-tertiary)]">
+              {account.code}
+            </td>
+            <td className="px-4 py-3 pl-8">
+              <span className="text-[13px] text-[var(--color-text-primary)]">
+                {account.name}
+              </span>
+            </td>
+            <td className="px-4 py-3">
+              <Pill tone={TYPE_TONE[account.accountType] ?? 'default'} size="sm">
+                {account.accountType}
+              </Pill>
+            </td>
+            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+              {account.currency || '—'}
+            </td>
+            <td className="px-4 py-3 text-right">
+              <div className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-[var(--color-text-primary)]">
+                {balanceSummary.primary}
+              </div>
+              {balanceSummary.secondary && (
+                <div className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+                  {balanceSummary.secondary}
+                </div>
+              )}
+            </td>
+            <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+              {formatDate(account.createdUtc)}
+            </td>
+          </tr>
+        );
+      })}
     </>
   );
 }

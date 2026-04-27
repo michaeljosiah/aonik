@@ -45,7 +45,10 @@ public class CreateLedgerAccountEndpoint : Endpoint<CreateLedgerAccountRequest, 
             result.Code,
             result.AccountType,
             result.Currency,
-            result.CreatedUtc);
+            result.CreatedUtc,
+            result.BalancesByCurrency
+                .Select(b => new LedgerAccountBalance(b.Currency, b.Balance))
+                .ToList());
 
         await Send.CreatedAtAsync<CreateLedgerAccountEndpoint>(
             routeValues: new { id = response.Id },

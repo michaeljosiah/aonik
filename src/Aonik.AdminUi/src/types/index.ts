@@ -1337,6 +1337,13 @@ export interface LedgerAccountSummary {
   accountType: string;
   currency: string;
   createdUtc: string;
+  /** Running balance per currency. Empty when the account has no posted lines. */
+  balancesByCurrency: LedgerAccountBalance[];
+}
+
+export interface LedgerAccountBalance {
+  currency: string;
+  balance: number;
 }
 
 export interface CreateLedgerAccountRequest {

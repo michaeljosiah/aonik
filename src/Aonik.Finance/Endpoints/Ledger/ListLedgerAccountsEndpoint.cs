@@ -39,7 +39,10 @@ public class ListLedgerAccountsEndpoint : Endpoint<ListLedgerAccountsRequest, Li
             account.Code,
             account.AccountType,
             account.Currency,
-            account.CreatedUtc)).ToList();
+            account.CreatedUtc,
+            account.BalancesByCurrency
+                .Select(b => new LedgerAccountBalance(b.Currency, b.Balance))
+                .ToList())).ToList();
 
         await Send.OkAsync(response, ct);
     }

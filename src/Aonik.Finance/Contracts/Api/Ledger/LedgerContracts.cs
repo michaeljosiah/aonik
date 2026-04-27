@@ -37,7 +37,12 @@ public record LedgerAccountResponse(
     string Code,
     string AccountType,
     string Currency,
-    DateTime CreatedUtc);
+    DateTime CreatedUtc,
+    IReadOnlyList<LedgerAccountBalance> BalancesByCurrency);
+
+public record LedgerAccountBalance(
+    string Currency,
+    decimal Balance);
 
 public record JournalEntryLineResponse(
     Guid Id,

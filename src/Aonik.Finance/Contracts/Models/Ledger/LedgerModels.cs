@@ -37,7 +37,18 @@ public record LedgerAccountResponse(
     string Code,
     string AccountType,
     string Currency,
-    DateTime CreatedUtc);
+    DateTime CreatedUtc,
+    /// <summary>
+    /// Running balance per currency, computed from posted JournalEntryLines.
+    /// Sign follows accounting convention for the account type:
+    /// Asset / Expense → debit positive; Liability / Equity / Income → credit positive.
+    /// Empty when the account has no lines yet.
+    /// </summary>
+    IReadOnlyList<LedgerAccountBalance> BalancesByCurrency);
+
+public record LedgerAccountBalance(
+    string Currency,
+    decimal Balance);
 
 public record JournalEntryLineResponse(
     Guid Id,

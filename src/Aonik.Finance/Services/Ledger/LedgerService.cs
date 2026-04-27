@@ -92,7 +92,9 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
             account.Code,
             account.AccountType,
             ledger.BaseCurrency,
-            account.CreatedAt);
+            account.CreatedAt,
+            // A freshly-created account has no posted lines yet.
+            new List<LedgerAccountBalance>());
     }
 
     public async Task<IReadOnlyList<LedgerAccountResponse>> ListAccountsAsync(ListLedgerAccountsRequest request, CancellationToken cancellationToken = default)
@@ -116,6 +118,27 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
             .OrderBy(account => account.Name)
             .ToListAsync(cancellationToken);
 
+        var accountIds = accounts.Select(a => a.Id).ToList();
+
+        // Group all journal-entry-line activity for the listed accounts,
+        // bucketing by (account, currency, direction). Done in a single
+        // GroupBy on the database so a tenant with thousands of accounts
+        // doesn't fan out to N queries.
+        var lineSums = accountIds.Count == 0
+            ? new List<LineSumRow>()
+            : await _dbContext.JournalEntryLines
+                .AsNoTracking()
+                .Where(line => line.TenantId == tenantId && accountIds.Contains(line.LedgerAccountId))
+                .GroupBy(line => new { line.LedgerAccountId, line.Currency, line.Direction })
+                .Select(g => new LineSumRow(
+                    g.Key.LedgerAccountId,
+                    g.Key.Currency,
+                    g.Key.Direction,
+                    g.Sum(x => x.Amount)))
+                .ToListAsync(cancellationToken);
+
+        var balancesByAccount = ComputeBalances(accounts, lineSums);
+
         return accounts
             .Select(account => new LedgerAccountResponse(
                 account.Id,
@@ -124,8 +147,70 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
                 account.Code,
                 account.AccountType,
                 ledgerCurrencyLookup.TryGetValue(account.LedgerId, out var currency) ? currency : string.Empty,
-                account.CreatedAt))
+                account.CreatedAt,
+                balancesByAccount.TryGetValue(account.Id, out var balances)
+                    ? balances
+                    : new List<LedgerAccountBalance>()))
             .ToList();
+    }
+
+    private sealed record LineSumRow(
+        Guid LedgerAccountId,
+        string Currency,
+        string Direction,
+        decimal Amount);
+
+    private static Dictionary<Guid, IReadOnlyList<LedgerAccountBalance>> ComputeBalances(
+        IReadOnlyList<Aonik.Finance.Entities.Ledger.LedgerAccount> accounts,
+        IReadOnlyList<LineSumRow> lineSums)
+    {
+        var accountTypeById = accounts.ToDictionary(a => a.Id, a => a.AccountType);
+        var result = new Dictionary<Guid, IReadOnlyList<LedgerAccountBalance>>();
+
+        foreach (var perAccount in lineSums.GroupBy(r => r.LedgerAccountId))
+        {
+            var accountId = perAccount.Key;
+            if (!accountTypeById.TryGetValue(accountId, out var accountType))
+            {
+                continue;
+            }
+
+            // Asset / Expense use a debit-positive normal balance; everything
+            // else (Liability / Equity / Income) is credit-positive. Anything
+            // unrecognised falls back to debit-positive so balances are still
+            // intelligible — they just may show negative for the unusual side.
+            var debitPositive = accountType is "Asset" or "Expense";
+
+            var perCurrency = perAccount
+                .GroupBy(r => r.Currency)
+                .Select(currencyGroup =>
+                {
+                    decimal debit = 0m, credit = 0m;
+                    foreach (var row in currencyGroup)
+                    {
+                        if (string.Equals(row.Direction, "Debit", StringComparison.OrdinalIgnoreCase))
+                        {
+                            debit += row.Amount;
+                        }
+                        else if (string.Equals(row.Direction, "Credit", StringComparison.OrdinalIgnoreCase))
+                        {
+                            credit += row.Amount;
+                        }
+                    }
+                    var balance = debitPositive ? debit - credit : credit - debit;
+                    return new LedgerAccountBalance(currencyGroup.Key, balance);
+                })
+                .Where(b => b.Balance != 0m)
+                .OrderBy(b => b.Currency)
+                .ToList();
+
+            if (perCurrency.Count > 0)
+            {
+                result[accountId] = perCurrency;
+            }
+        }
+
+        return result;
     }
 
     public async Task<JournalEntryResponse> AddJournalEntryAsync(AddJournalEntryRequest request, CancellationToken cancellationToken = default)
