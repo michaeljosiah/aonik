@@ -1,91 +1,106 @@
+// Customers — 1:1 visual port of
+// templates/aonik-admin-starterkit/screens/customers-orders.jsx (Customers
+// half), wired to the existing /admin/customers list endpoint.
+//
+// Columns are constrained to fields the backend currently returns
+// (CustomerListItem). The template's Country / Orders / Total spend / Owner
+// columns are left out until the backend exposes them; the row layout still
+// matches the template so the page reads as the same screen.
+
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle, Download, Plus, RefreshCw, Upload } from 'lucide-react';
 
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, Building2, Eye, Plus, Upload, User, UserCheck, UsersRound, UserX } from 'lucide-react';
-
-import { customerService } from '@/services/customerService';
-import type { CustomerDataImportResponse } from '@/services/customerService';
-import type { CreateCustomerRequest, CustomerListItem, PagedResult } from '@/types';
+import {
+  AgentAvatar,
+  Card as AonikCard,
+  FilterBar,
+  type FilterBarTab,
+  PageHeader,
+  Pill,
+  type PillTone,
+} from '@/components/layout/aonik';
 import {
   DataTable,
-  DataTableGridView,
-  DataTableHeader,
   DataTablePagination,
   DataTableRowActions,
   type ColumnDef,
   type DataTableAction,
-  type FilterOption,
-  type ViewMode,
 } from '@/components/ui/data-table';
+import { Button } from '@/components/ui/button';
 import { CreateCustomerDialog } from '@/components/dialogs/CreateCustomerDialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { customerService } from '@/services/customerService';
+import type { CustomerDataImportResponse } from '@/services/customerService';
+import type { CreateCustomerRequest, CustomerListItem, PagedResult } from '@/types';
 
-const statusStyles: Record<string, { text: string; bg: string; iconColor: string }> = {
-  Active: {
-    text: 'text-[var(--color-success)]',
-    bg: 'bg-[var(--color-success-light)]',
-    iconColor: 'text-[var(--color-brand-primary)]',
-  },
-  Pending: {
-    text: 'text-[var(--color-warning)]',
-    bg: 'bg-[var(--color-warning-light)]',
-    iconColor: 'text-[var(--color-warning)]',
-  },
-  Deactivated: {
-    text: 'text-[var(--color-text-tertiary)]',
-    bg: 'bg-[var(--color-surface-inset)]',
-    iconColor: 'text-[var(--color-text-tertiary)]',
-  },
-  Suspended: {
-    text: 'text-[var(--color-error)]',
-    bg: 'bg-[var(--color-error-light)]',
-    iconColor: 'text-[var(--color-error)]',
-  },
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+function formatDate(value?: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/**
+ * Render a Party GUID as a stable "CUS-XXXXXXXX" handle. The first 8 hex
+ * chars are sufficient to disambiguate within a tenant and matches the
+ * template's mono-spaced ID column.
+ */
+function formatCustomerId(partyId: string): string {
+  const compact = partyId.replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `CUS-${compact}`;
+}
+
+const STATUS_TONE: Record<string, PillTone> = {
+  Active: 'success',
+  Pending: 'warning',
+  Suspended: 'danger',
+  Deactivated: 'muted',
 };
 
-const statusFilterOptions: FilterOption[] = [
-  { value: 'Active', label: 'Active' },
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Deactivated', label: 'Deactivated' },
-  { value: 'Suspended', label: 'Suspended' },
+const VERIFICATION_TONE: Record<string, PillTone> = {
+  Verified: 'success',
+  Pending: 'warning',
+  ReReview: 'pending',
+  Rejected: 'danger',
+};
+
+const STATUS_TABS: FilterBarTab[] = [
+  { value: '', label: 'All' },
+  { value: 'Business', label: 'Business' },
+  { value: 'Person', label: 'Person' },
+  { value: 'Pending', label: 'Pending KYC' },
 ];
 
-const partyTypeFilterOptions: FilterOption[] = [
-  { value: 'Person', label: 'Person' },
-  { value: 'Business', label: 'Business' },
-];
+// ─── Page ────────────────────────────────────────────────────────────────
 
 export function CustomersListPage() {
   const navigate = useNavigate();
+
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [partyTypeFilter, setPartyTypeFilter] = useState('');
+  // Active tab maps to either a partyType filter ("Business"/"Person") or a
+  // status filter ("Pending" — used for "Pending KYC" until the API exposes
+  // a verificationStatus query). "" means no filter.
+  const [activeTab, setActiveTab] = useState<string>('');
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const requestIdRef = useRef(0);
-  const [imageLoadStates, setImageLoadStates] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
-  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<CustomerDataImportResponse | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
+  const requestIdRef = useRef(0);
+
+  const partyTypeFilter = activeTab === 'Business' || activeTab === 'Person' ? activeTab : undefined;
+  const statusFilter = activeTab === 'Pending' ? 'Pending' : undefined;
 
   const loadCustomers = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
@@ -96,65 +111,46 @@ export function CustomersListPage() {
       const result: PagedResult<CustomerListItem> = await customerService.list({
         pageNumber,
         pageSize,
-        status: statusFilter || undefined,
-        partyType: partyTypeFilter || undefined,
+        partyType: partyTypeFilter,
+        status: statusFilter,
         search: searchQuery || undefined,
       });
-      if (requestIdRef.current !== requestId) {
-        return;
-      }
+      if (requestIdRef.current !== requestId) return;
       setCustomers(result.items);
       setTotalCount(result.totalCount);
-      setLoading(false);
     } catch (err: unknown) {
-      if (requestIdRef.current !== requestId) {
-        return;
-      }
-      console.error('Failed to load customers:', err);
+      if (requestIdRef.current !== requestId) return;
       const message =
         err && typeof err === 'object' && 'userMessage' in err
           ? String((err as { userMessage?: string }).userMessage ?? '')
           : '';
       setError(message || 'Failed to load customers. Please try again.');
-      setLoading(false);
+    } finally {
+      if (requestIdRef.current === requestId) setLoading(false);
     }
-  }, [pageNumber, pageSize, partyTypeFilter, searchQuery, statusFilter]);
+  }, [pageNumber, pageSize, partyTypeFilter, statusFilter, searchQuery]);
 
   useEffect(() => {
-    loadCustomers();
+    void loadCustomers();
   }, [loadCustomers]);
 
+  // Reset to page 1 whenever a filter changes.
   useEffect(() => {
     setPageNumber(1);
-  }, [searchQuery, statusFilter, partyTypeFilter]);
+  }, [searchQuery, activeTab]);
 
-  useEffect(() => {
-    setImageLoadStates({});
-    setImageErrors(new Set());
-  }, [customers]);
-
-  const handleImageLoad = useCallback((partyId: string) => {
-    setImageLoadStates((prev) => ({ ...prev, [partyId]: 'loaded' }));
-  }, []);
-
-  const handleImageError = useCallback((partyId: string) => {
-    setImageLoadStates((prev) => ({ ...prev, [partyId]: 'error' }));
-    setImageErrors((prev) => new Set([...prev, partyId]));
-  }, []);
-
-  const handleCreateCustomer = useCallback(
+  const handleCreate = useCallback(
     async (data: CreateCustomerRequest) => {
       await customerService.create(data);
       await loadCustomers();
     },
-    [loadCustomers]
+    [loadCustomers],
   );
 
-  const handleImportFile = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
-
       setIsImporting(true);
       setError(null);
       setImportResult(null);
@@ -165,13 +161,12 @@ export function CustomersListPage() {
       } catch (err: unknown) {
         let msg = 'Import failed';
         if (err && typeof err === 'object' && 'response' in err) {
-          const axiosErr = err as { response?: { data?: { errors?: { generalErrors?: string[] }; message?: string } } };
+          const axiosErr = err as {
+            response?: { data?: { errors?: { generalErrors?: string[] }; message?: string } };
+          };
           const generalErrors = axiosErr.response?.data?.errors?.generalErrors;
-          if (generalErrors && generalErrors.length > 0) {
-            msg = generalErrors.join('; ');
-          } else if (axiosErr.response?.data?.message) {
-            msg = axiosErr.response.data.message;
-          }
+          if (generalErrors && generalErrors.length > 0) msg = generalErrors.join('; ');
+          else if (axiosErr.response?.data?.message) msg = axiosErr.response.data.message;
         } else if (err instanceof Error) {
           msg = err.message;
         }
@@ -181,90 +176,41 @@ export function CustomersListPage() {
         if (importFileRef.current) importFileRef.current.value = '';
       }
     },
-    [loadCustomers]
+    [loadCustomers],
   );
 
-  const getPhotoUrl = (customer: CustomerListItem) => {
-    const photoUrl = customer.photoUrlTiny;
-    if (!photoUrl) return null;
-    if (photoUrl.startsWith('http')) return photoUrl;
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://localhost:5001';
-    return `${apiBaseUrl}${photoUrl}`;
-  };
-
-  const getCustomerInitials = (customer: CustomerListItem) => {
-    const base = customer.displayName || customer.primaryEmail || 'Customer';
-    return base
-      .split(' ')
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const getRowActions = (customer: CustomerListItem): DataTableAction[] => [
-    {
-      label: 'View Details',
-      icon: <Eye className="w-4 h-4" />,
-      onClick: () => navigate(`/customers/${customer.partyId}`),
-    },
-  ];
-
-  const renderCustomerIcon = (customer: CustomerListItem) => {
-    const style = statusStyles[customer.status] ?? { iconColor: 'text-[var(--color-text-tertiary)]' };
-    const photoUrl = getPhotoUrl(customer);
-    const initials = getCustomerInitials(customer);
-    const hasError = imageErrors.has(customer.partyId);
-    const isLoading = imageLoadStates[customer.partyId] === 'loading';
-
-    return (
-      <Avatar className="w-6 h-6">
-        {photoUrl && !hasError ? (
-          <>
-            <AvatarImage
-              src={photoUrl}
-              alt={customer.displayName}
-              onLoadStart={() => setImageLoadStates((prev) => ({ ...prev, [customer.partyId]: 'loading' }))}
-              onLoad={() => handleImageLoad(customer.partyId)}
-              onError={() => handleImageError(customer.partyId)}
-              className={isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
-            />
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
-                <div className="w-3 h-3 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
-              </div>
-            )}
-          </>
-        ) : null}
-        <AvatarFallback className={`text-xs ${style.iconColor} bg-[var(--color-surface-inset)]`}>
-          {initials}
-        </AvatarFallback>
-      </Avatar>
-    );
-  };
+  // ─── Columns ──────────────────────────────────────────────────────────
 
   const columns: ColumnDef<CustomerListItem>[] = [
     {
-      id: 'customer',
+      id: 'id',
+      header: 'ID',
+      accessorFn: (row) => row.partyId,
+      cell: (row) => (
+        <span className="font-[family-name:var(--font-mono)] text-xs font-medium text-[var(--color-text-primary)]">
+          {formatCustomerId(row.partyId)}
+        </span>
+      ),
+      className: 'w-[140px]',
+    },
+    {
+      id: 'name',
       header: 'Customer',
-      accessorFn: (row) => row.displayName || row.primaryEmail || '',
+      accessorFn: (row) => row.displayName ?? '',
       sortable: true,
-      cell: (customer) => (
-        <div>
-          <p className="font-medium text-[var(--color-text-primary)]">{customer.displayName}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">
-            {customer.primaryEmail || customer.primaryPhone || '—'}
-          </p>
+      cell: (row) => (
+        <div className="flex items-center gap-2.5">
+          <AgentAvatar name={row.displayName || row.primaryEmail || 'Customer'} size={26} />
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+              {row.displayName || row.primaryEmail || '—'}
+            </span>
+            {row.primaryEmail && row.displayName && (
+              <span className="truncate text-[11px] text-[var(--color-text-tertiary)]">
+                {row.primaryEmail}
+              </span>
+            )}
+          </div>
         </div>
       ),
     },
@@ -273,177 +219,108 @@ export function CustomersListPage() {
       header: 'Type',
       accessorKey: 'partyType',
       sortable: true,
-      cell: (customer) => (
-        <Badge variant="outline" className="text-xs">
-          {customer.partyType}
-        </Badge>
+      cell: (row) => (
+        <span className="text-xs text-[var(--color-text-secondary)]">{row.partyType}</span>
       ),
+      className: 'w-[100px]',
+    },
+    {
+      id: 'kyc',
+      header: 'KYC',
+      accessorFn: (row) => row.verificationStatus ?? '',
+      cell: (row) => {
+        const tone = row.verificationStatus
+          ? VERIFICATION_TONE[row.verificationStatus] ?? 'muted'
+          : 'muted';
+        return (
+          <Pill tone={tone} dot>
+            {row.verificationStatus ?? 'Unverified'}
+          </Pill>
+        );
+      },
+      className: 'w-[140px]',
     },
     {
       id: 'status',
       header: 'Status',
       accessorKey: 'status',
       sortable: true,
-      cell: (customer) => {
-        const style = statusStyles[customer.status] ?? {
-          text: 'text-[var(--color-text-secondary)]',
-          bg: 'bg-[var(--color-surface-inset)]',
-        };
-        return (
-          <span
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
-          >
-            {customer.status}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'verification',
-      header: 'Verification',
-      accessorFn: (row) => row.verificationStatus || '',
-      sortable: true,
-      cell: (customer) => {
-        return <span className="text-sm text-[var(--color-text-secondary)]">{customer.verificationStatus || '—'}</span>;
-      },
+      cell: (row) => (
+        <Pill tone={STATUS_TONE[row.status] ?? 'default'}>{row.status}</Pill>
+      ),
+      className: 'w-[120px]',
     },
     {
       id: 'createdAt',
       header: 'Created',
-      accessorFn: (row) => row.createdAt ? new Date(row.createdAt) : null,
+      accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : null),
       sortable: true,
-      cell: (customer) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{formatDate(customer.createdAt)}</span>
+      cell: (row) => (
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+          {formatDate(row.createdAt)}
+        </span>
       ),
+      className: 'w-[120px]',
     },
   ];
 
-  const renderCustomerCard = (customer: CustomerListItem) => {
-    const style = statusStyles[customer.status] ?? {
-      text: 'text-[var(--color-text-secondary)]',
-      bg: 'bg-[var(--color-surface-inset)]',
-      iconColor: 'text-[var(--color-text-tertiary)]',
-    };
-    const photoUrl = getPhotoUrl(customer);
-    const initials = getCustomerInitials(customer);
-    const hasError = imageErrors.has(customer.partyId);
-    const isLoading = imageLoadStates[customer.partyId] === 'loading';
-    const verification = customer.verificationStatus;
-
-    return (
-      <div className="space-y-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="w-8 h-8 relative">
-              {photoUrl && !hasError ? (
-                <>
-                  <AvatarImage
-                    src={photoUrl}
-                    alt={customer.displayName}
-                    onLoadStart={() => setImageLoadStates((prev) => ({ ...prev, [customer.partyId]: 'loading' }))}
-                    onLoad={() => handleImageLoad(customer.partyId)}
-                    onError={() => handleImageError(customer.partyId)}
-                    className={isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
-                  />
-                  {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
-                      <div className="w-4 h-4 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
-                    </div>
-                  )}
-                </>
-              ) : null}
-              <AvatarFallback className={`text-sm ${style.iconColor} bg-[var(--color-surface-inset)]`}>
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium text-[var(--color-text-primary)]">{customer.displayName}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">
-                {customer.primaryEmail || customer.primaryPhone || '—'}
-              </p>
-            </div>
-          </div>
-          <DataTableRowActions actions={getRowActions(customer)} />
-        </div>
-        <div className="flex items-center gap-3">
-          <span
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
-          >
-            {customer.status}
-          </span>
-          <Badge variant="outline" className="text-xs">
-            {customer.partyType}
-          </Badge>
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Verification</p>
-            <p className="text-sm text-[var(--color-text-primary)]">{verification || '—'}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Created</p>
-            <p className="text-sm text-[var(--color-text-primary)]">{formatDate(customer.createdAt)}</p>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize);
-    setPageNumber(1);
-  };
-
-  const breadcrumbItems = [
-    { label: 'Customers', icon: <User className="w-3.5 h-3.5" /> },
+  const rowActions = (customer: CustomerListItem): DataTableAction[] => [
+    {
+      label: 'View details',
+      onClick: () => navigate(`/customers/${customer.partyId}`),
+    },
   ];
 
-  const totalCustomers = totalCount;
-  const activeCustomers = customers.filter((customer) => customer.status === 'Active').length;
-  const pendingCustomers = customers.filter((customer) => customer.status === 'Pending').length;
-  const businessCustomers = customers.filter((customer) => customer.partyType === 'Business').length;
+  // ─── Header counts ────────────────────────────────────────────────────
+
+  const subtitle = totalCount > 0
+    ? `${totalCount.toLocaleString()} total${
+        statusFilter ? ` · filtered by ${statusFilter}` : ''
+      }`
+    : 'Browse people and businesses connected to this tenant';
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
-
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Customers</h1>
-          <p className="text-[var(--color-text-secondary)]">
-            Browse people and businesses connected to this tenant.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            ref={importFileRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-          <Button
-            variant="outline"
-            className="rounded-sm"
-            disabled={isImporting}
-            onClick={() => importFileRef.current?.click()}
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            {isImporting ? 'Importing...' : 'Import Customer'}
-          </Button>
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="rounded-sm">
-            <Plus className="w-4 h-4 mr-2" />
-            New Customer
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col gap-5 p-6 md:px-8">
+      <PageHeader
+        eyebrow="Finance · Customers"
+        title="Customers"
+        subtitle={subtitle}
+        actions={
+          <>
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleImport}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isImporting}
+              onClick={() => importFileRef.current?.click()}
+            >
+              <Upload className="h-3 w-3" />
+              {isImporting ? 'Importing…' : 'Import'}
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              <Download className="h-3 w-3" />
+              Export
+            </Button>
+            <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+              <Plus className="h-3 w-3" />
+              New customer
+            </Button>
+          </>
+        }
+      />
 
       {importResult && (
-        <div className="mb-4 rounded border border-[var(--color-success)] bg-[var(--color-success-light)] p-4 text-sm">
+        <div className="rounded-md border border-[var(--color-success)] bg-[var(--color-success-light)] p-3 text-sm">
           <p className="font-medium text-[var(--color-success)]">
-            Import successful — {importResult.totalEntities} entities imported
+            Imported {importResult.totalEntities} entities
           </p>
-          <p className="text-[var(--color-text-secondary)] mt-1">
+          <p className="mt-1 text-[var(--color-text-secondary)]">
             New customer ID: <code className="text-xs">{importResult.newPartyId}</code>
           </p>
           {importResult.warnings.length > 0 && (
@@ -456,166 +333,60 @@ export function CustomersListPage() {
         </div>
       )}
 
-      <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
-              <UsersRound className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total customers</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalCustomers}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">Matches current filters</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active customers</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activeCustomers}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-warning-light)] text-[var(--color-warning)]">
-              <UserX className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending customers</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{pendingCustomers}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Businesses</p>
-              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{businessCustomers}</p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-            <AlertCircle className="w-5 h-5" />
-            <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={loadCustomers} className="ml-auto">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          <AlertCircle className="h-4 w-4 flex-none" />
+          <span className="flex-1">{error}</span>
+          <Button variant="outline" size="sm" onClick={() => void loadCustomers()}>
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
       )}
 
-      <Card>
-        <CardContent className="p-4">
-          <DataTableHeader
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-            searchPlaceholder="Search customers"
-            filterValue={statusFilter}
-            onFilterChange={setStatusFilter}
-            filterOptions={statusFilterOptions}
-            filterPlaceholder="Status"
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            showViewToggle={true}
-            actions={
-              <div className="flex items-center gap-2">
-                <Select
-                  value={partyTypeFilter || undefined}
-                  onValueChange={(value) => setPartyTypeFilter(value === '__all__' ? '' : value)}
-                >
-                  <SelectTrigger aria-label="Party type" className="h-9 rounded-sm">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Type</SelectItem>
-                    {partyTypeFilterOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            }
-            className="px-0 border-b-0"
-          />
+      <FilterBar
+        tabs={STATUS_TABS}
+        active={activeTab}
+        onTabChange={setActiveTab}
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Filter by name, email, ID…"
+      />
 
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
-            {viewMode === 'list' ? (
-              <DataTable
-                data={customers}
-                columns={columns}
-                getRowId={(c) => c.partyId}
-                selectedIds={selectedIds}
-                onSelectionChange={setSelectedIds}
-                showCheckboxes={true}
-                rowIcon={renderCustomerIcon}
-                loading={loading}
-                loadingMessage="Loading customers..."
-                emptyIcon={<UsersRound className="w-12 h-12" />}
-                emptyTitle="No customers found"
-                emptyDescription={
-                  searchQuery || statusFilter || partyTypeFilter
-                    ? 'Try adjusting your filters.'
-                    : 'Customers will appear here as they are created or linked.'
-                }
-                rowActions={(customer) => <DataTableRowActions actions={getRowActions(customer)} />}
-                rowActionsPosition="start"
-              />
-            ) : (
-              <DataTableGridView
-                data={customers}
-                getRowId={(c) => c.partyId}
-                renderCard={renderCustomerCard}
-                selectedIds={selectedIds}
-                onSelectionChange={setSelectedIds}
-                showCheckboxes={true}
-                loading={loading}
-                loadingMessage="Loading customers..."
-                emptyIcon={<UsersRound className="w-12 h-12" />}
-                emptyTitle="No customers found"
-                emptyDescription={
-                  searchQuery || statusFilter || partyTypeFilter
-                    ? 'Try adjusting your filters.'
-                    : 'Customers will appear here as they are created or linked.'
-                }
-                columns={3}
-              />
-            )}
-          </div>
-
-          <div className="pt-4">
-            <DataTablePagination
-              pageNumber={pageNumber}
-              pageSize={pageSize}
-              totalCount={totalCount}
-              onPageChange={setPageNumber}
-              onPageSizeChange={handlePageSizeChange}
-              className="px-0 border-t-0"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <AonikCard padding={0}>
+        <DataTable
+          data={customers}
+          columns={columns}
+          getRowId={(c) => c.partyId}
+          showCheckboxes={false}
+          loading={loading}
+          loadingMessage="Loading customers…"
+          emptyTitle="No customers found"
+          emptyDescription={
+            searchQuery || activeTab
+              ? 'Try adjusting the active tab or search.'
+              : 'Customers will appear here as they are created or linked.'
+          }
+          rowActions={(c) => <DataTableRowActions actions={rowActions(c)} />}
+          rowActionsPosition="end"
+        />
+        <DataTablePagination
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={setPageNumber}
+          onPageSizeChange={(n) => {
+            setPageSize(n);
+            setPageNumber(1);
+          }}
+          className="border-t border-[var(--color-border-light)]"
+        />
+      </AonikCard>
 
       <CreateCustomerDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-        onSave={handleCreateCustomer}
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        onSave={handleCreate}
       />
     </div>
   );
