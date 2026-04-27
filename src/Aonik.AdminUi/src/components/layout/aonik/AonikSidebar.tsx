@@ -23,6 +23,8 @@ import {
   Network, Shield, Key, Cog, KeyRound, Webhook, ScrollText, Hash, Wrench,
   Globe, Layers, Image, BarChart3, PanelsTopLeft, Layout, Timer, Bell,
   AudioLines, FlaskConical, Route,
+  // Wave 6+ Command Center icons
+  CheckCircle2, Activity, ShieldCheck, TrendingUp, SlidersHorizontal,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -59,6 +61,8 @@ const iconMap: Record<string, ElementType> = {
   Layers, Image, BarChart3,
   PanelsTopLeft, Layout,
   Timer, Bell, AudioLines, FlaskConical, Route,
+  // Command Center (Wave 6+)
+  CheckCircle2, Activity, ShieldCheck, TrendingUp, SlidersHorizontal,
 };
 
 interface AonikSidebarProps {
