@@ -29,6 +29,7 @@ import { useAuth } from '@/auth';
 import type {
   AgentProposalDto,
   CashTimelineDto,
+  CashTimelineEventDto,
   CashTimelinePointDto,
   FinancialMetricDto,
   MySpaceSummaryResponse,
@@ -210,7 +211,7 @@ export function MySpacePage() {
           <p className="text-sm text-[var(--color-text-secondary)]">{error}</p>
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => void loadData()}
             className="inline-flex h-8 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-surface-inset)]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
