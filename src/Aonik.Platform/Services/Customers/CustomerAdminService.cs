@@ -392,12 +392,23 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             .Select(c => new CurrencyAmount(c.Currency, c.Amount))
             .ToList();
 
+        var trailingTwelveMonthsByCurrency = stats.TrailingTwelveMonthsByCurrency
+            .Select(c => new CurrencyAmount(c.Currency, c.Amount))
+            .ToList();
+
+        var trailingThirtyDaysByCurrency = stats.TrailingThirtyDaysByCurrency
+            .Select(c => new CurrencyAmount(c.Currency, c.Amount))
+            .ToList();
+
         return new CustomerStats(
             partyId,
             stats.TotalOrders,
             totalPaidByCurrency,
             outstandingByCurrency,
-            stats.LastActivityAt);
+            stats.LastActivityAt,
+            stats.OpenOrderCount,
+            trailingTwelveMonthsByCurrency,
+            trailingThirtyDaysByCurrency);
     }
 
     public async Task<IReadOnlyList<CustomerActivityEntryDto>?> GetCustomerActivityAsync(

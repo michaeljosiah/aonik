@@ -52,8 +52,16 @@ internal class CustomerFinanceStatsProvider : ICustomerFinanceStatsProvider
             OrderStatuses.Expired
         };
 
-        var outstandingByCurrency = orders
+        var nonTerminalOrders = orders
             .Where(order => !terminalStatuses.Contains(order.Status))
+            .ToList();
+
+        var openOrderCount = nonTerminalOrders
+            .Select(order => order.Id)
+            .Distinct()
+            .Count();
+
+        var outstandingByCurrency = nonTerminalOrders
             .GroupBy(order => order.CurrencyIn)
             .Select(group => new CustomerFinanceCurrencyAmount(group.Key, group.Sum(order => order.AmountIn)))
             .ToList();
@@ -65,11 +73,32 @@ internal class CustomerFinanceStatsProvider : ICustomerFinanceStatsProvider
             .Select(intent => new
             {
                 intent.Amount,
-                intent.Currency
+                intent.Currency,
+                intent.CreatedAt
             })
             .ToListAsync(cancellationToken);
 
         var totalPaidByCurrency = capturedPayments
+            .GroupBy(payment => payment.Currency)
+            .Select(group => new CustomerFinanceCurrencyAmount(group.Key, group.Sum(payment => payment.Amount)))
+            .ToList();
+
+        // Trailing windows are computed in memory off the captured-payment
+        // list. The list is bounded by the customer's lifetime payment
+        // count, which for any realistic customer is small enough that an
+        // additional .Where on the database wouldn't pay off.
+        var nowUtc = DateTime.UtcNow;
+        var twelveMonthsAgo = nowUtc.AddMonths(-12);
+        var thirtyDaysAgo = nowUtc.AddDays(-30);
+
+        var trailingTwelveMonthsByCurrency = capturedPayments
+            .Where(payment => payment.CreatedAt >= twelveMonthsAgo)
+            .GroupBy(payment => payment.Currency)
+            .Select(group => new CustomerFinanceCurrencyAmount(group.Key, group.Sum(payment => payment.Amount)))
+            .ToList();
+
+        var trailingThirtyDaysByCurrency = capturedPayments
+            .Where(payment => payment.CreatedAt >= thirtyDaysAgo)
             .GroupBy(payment => payment.Currency)
             .Select(group => new CustomerFinanceCurrencyAmount(group.Key, group.Sum(payment => payment.Amount)))
             .ToList();
@@ -93,6 +122,9 @@ internal class CustomerFinanceStatsProvider : ICustomerFinanceStatsProvider
             totalOrders,
             totalPaidByCurrency,
             outstandingByCurrency,
-            lastActivityAt);
+            lastActivityAt,
+            openOrderCount,
+            trailingTwelveMonthsByCurrency,
+            trailingThirtyDaysByCurrency);
     }
 }

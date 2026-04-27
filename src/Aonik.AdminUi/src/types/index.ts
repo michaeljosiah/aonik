@@ -966,9 +966,17 @@ export interface CurrencyAmount {
 export interface CustomerStats {
   partyId: string;
   totalOrders: number;
+  /** Lifetime captured payments grouped by currency. */
   totalPaidByCurrency: CurrencyAmount[];
+  /** Sum of AmountIn on non-terminal orders, grouped by currency. */
   outstandingByCurrency: CurrencyAmount[];
   lastActivityAt?: string | null;
+  /** Count of orders not yet in a terminal status. */
+  openOrderCount: number;
+  /** Captured payments in the trailing 12 months — closest analogue to ARR. */
+  trailingTwelveMonthsByCurrency: CurrencyAmount[];
+  /** Captured payments in the trailing 30 days — rough monthly run rate. */
+  trailingThirtyDaysByCurrency: CurrencyAmount[];
 }
 
 export interface CustomerDetail {

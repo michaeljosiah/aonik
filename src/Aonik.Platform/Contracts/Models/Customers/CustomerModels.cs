@@ -64,7 +64,10 @@ public record CustomerStats(
     int TotalOrders,
     IReadOnlyList<CurrencyAmount> TotalPaidByCurrency,
     IReadOnlyList<CurrencyAmount> OutstandingByCurrency,
-    DateTime? LastActivityAt
+    DateTime? LastActivityAt,
+    int OpenOrderCount,
+    IReadOnlyList<CurrencyAmount> TrailingTwelveMonthsByCurrency,
+    IReadOnlyList<CurrencyAmount> TrailingThirtyDaysByCurrency
 );
 
 /// <summary>

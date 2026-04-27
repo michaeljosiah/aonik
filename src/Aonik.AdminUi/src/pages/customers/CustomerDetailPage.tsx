@@ -368,6 +368,9 @@ export function CustomerDetailPage() {
   const totalOrders = stats?.totalOrders;
   const totalPaidSummary = summariseAmounts(stats?.totalPaidByCurrency);
   const outstandingSummary = summariseAmounts(stats?.outstandingByCurrency);
+  const trailingTwelveSummary = summariseAmounts(stats?.trailingTwelveMonthsByCurrency);
+  const trailingThirtySummary = summariseAmounts(stats?.trailingThirtyDaysByCurrency);
+  const openOrderCount = stats?.openOrderCount;
   const lastActivityAt = stats?.lastActivityAt || customer.updatedAt || customer.createdAt;
 
   // ─── Render ───────────────────────────────────────────────────────────
@@ -458,43 +461,51 @@ export function CustomerDetailPage() {
         </div>
       </div>
 
-      {/* KPI strip — fields the backend actually carries */}
+      {/* KPI strip — backend-grounded mappings, no faked metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <KpiCell
-          label="Total orders"
+          label="T12M revenue"
+          value={statsLoading && !stats ? '—' : trailingTwelveSummary}
+          dot="var(--color-brand-primary)"
+          sub="captured · trailing 12mo"
+        />
+        <KpiCell
+          label="T30D revenue"
+          value={statsLoading && !stats ? '—' : trailingThirtySummary}
+          dot="var(--color-success)"
+          sub="rough monthly run rate"
+        />
+        <KpiCell
+          label="LTV"
+          value={statsLoading && !stats ? '—' : totalPaidSummary}
+          dot="var(--color-accent-team)"
+          sub={
+            totalOrders != null
+              ? `${totalOrders.toLocaleString()} order${totalOrders === 1 ? '' : 's'}`
+              : 'lifetime captured'
+          }
+        />
+        <KpiCell
+          label="Open orders"
           value={
-            statsLoading && totalOrders === undefined
+            statsLoading && openOrderCount === undefined
               ? '—'
-              : totalOrders != null
-              ? totalOrders.toLocaleString()
+              : openOrderCount != null
+              ? openOrderCount.toLocaleString()
               : '—'
           }
-          dot="var(--color-brand-primary)"
-          sub={statsLoading ? 'loading…' : 'lifetime'}
-        />
-        <KpiCell
-          label="Total paid"
-          value={statsLoading && !stats ? '—' : totalPaidSummary}
-          dot="var(--color-success)"
-          sub={stats?.totalPaidByCurrency.length === 1 ? stats.totalPaidByCurrency[0].currency : ''}
-        />
-        <KpiCell
-          label="Outstanding"
-          value={statsLoading && !stats ? '—' : outstandingSummary}
           dot="var(--color-warning)"
-          sub={stats?.outstandingByCurrency.length === 1 ? stats.outstandingByCurrency[0].currency : ''}
+          sub={
+            stats && stats.outstandingByCurrency.length > 0
+              ? `${outstandingSummary} open`
+              : 'no open work'
+          }
         />
         <KpiCell
           label="Last activity"
           value={formatRelative(lastActivityAt)}
           dot="var(--color-brand-secondary)"
-          sub={lastActivityAt ? formatDate(lastActivityAt) : ''}
-        />
-        <KpiCell
-          label="Linked accounts"
-          value={String(externalAccounts.length)}
-          dot="var(--color-text-tertiary)"
-          sub={externalAccounts.length === 0 ? 'none on file' : 'external'}
+          sub={lastActivityAt ? formatDate(lastActivityAt) : 'no activity yet'}
         />
       </div>
 
