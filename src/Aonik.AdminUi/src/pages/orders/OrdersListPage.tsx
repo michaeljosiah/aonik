@@ -1,326 +1,421 @@
+// Orders list — visual port of the ScreenOrders half of
+// templates/aonik-admin-starterkit/screens/customers-orders.jsx, wired to
+// the existing /orders endpoint.
+//
+// Differences from the template, called out so they don't read as gaps:
+//   • The 4 mini-stat tiles say "all time" rather than "today" because the
+//     /orders endpoint can't filter by date today. Counts come from four
+//     small concurrent listOrders(pageSize:1) calls per status. Replace
+//     with a stats endpoint when one ships.
+//   • Rail / FX column maps to OriginCurrency → DestinationCurrency when
+//     both are set; otherwise just OriginCurrency.
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle, Plus, RefreshCw } from 'lucide-react';
 
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, ClipboardList, Eye, Plus } from 'lucide-react';
-
-import type { OrderListItem, PagedResult } from '@/types';
+import {
+  AgentAvatar,
+  Card as AonikCard,
+  FilterBar,
+  type FilterBarTab,
+  PageHeader,
+  Pill,
+  type PillTone,
+} from '@/components/layout/aonik';
 import {
   DataTable,
-  DataTableHeader,
   DataTablePagination,
   DataTableRowActions,
   type ColumnDef,
   type DataTableAction,
-  type FilterOption,
 } from '@/components/ui/data-table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { orderService, type ListOrdersParams } from '@/services/orderService';
+import type { OrderListItem, PagedResult } from '@/types';
 
-const statusStyles: Record<string, { text: string; bg: string }> = {
-  Draft: { text: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]' },
-  PendingCompliance: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  Submitted: { text: 'text-[var(--color-brand-primary)]', bg: 'bg-[var(--color-brand-primary-light)]' },
-  Complete: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Completed: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Cancelled: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
-  Failed: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
-  Expired: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
-};
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
-const statusFilterOptions: FilterOption[] = [
-  { value: 'Draft', label: 'Draft' },
-  { value: 'Submitted', label: 'Submitted' },
-  { value: 'PendingCompliance', label: 'Pending compliance' },
-  { value: 'Complete', label: 'Complete' },
-  { value: 'Cancelled', label: 'Cancelled' },
-  { value: 'Failed', label: 'Failed' },
-  { value: 'Expired', label: 'Expired' },
-];
-
-const orderTypeFilterOptions: FilterOption[] = [
-  { value: 'BillPayment', label: 'Bill payment' },
-];
-
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-US', {
+function formatDate(value?: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
-};
+}
 
-const formatMoney = (amount: number | null | undefined, currency?: string | null) => {
+function formatMoney(amount: number | null | undefined, currency?: string | null): string {
   if (amount == null) return '—';
   const cur = (currency ?? '').trim();
-  if (!cur) return amount.toLocaleString('en-US');
-  return `${cur} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (!cur) return amount.toLocaleString();
+  return `${cur} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function shortOrderId(orderId: string): string {
+  const compact = orderId.replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `ORD-${compact}`;
+}
+
+const STATUS_TONE: Record<string, PillTone> = {
+  Draft: 'muted',
+  PendingCompliance: 'warning',
+  Submitted: 'info',
+  Active: 'info',
+  Captured: 'success',
+  Settled: 'success',
+  Complete: 'success',
+  Completed: 'success',
+  Cancelled: 'muted',
+  Failed: 'danger',
+  Expired: 'muted',
 };
 
-const shortId = (id: string) => {
-  if (!id) return '';
-  return id.length <= 10 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`;
-};
+const FILTER_TABS: FilterBarTab[] = [
+  { value: 'all', label: 'All' },
+  { value: 'type:BillPayment', label: 'Bill payments' },
+  { value: 'status:Submitted', label: 'Submitted' },
+  { value: 'status:PendingCompliance', label: 'Pending compliance' },
+  { value: 'status:Failed', label: 'Failed' },
+];
+
+interface OrderStatBucket {
+  /** Tab value mapped from the same encoding as FILTER_TABS. */
+  key: string;
+  label: string;
+  status?: string;
+  orderType?: string;
+  /** Brand colour for the leading dot. */
+  tone: string;
+}
+
+const STAT_BUCKETS: OrderStatBucket[] = [
+  { key: 'settled', label: 'Settled', status: 'Complete', tone: 'var(--color-success)' },
+  { key: 'inflight', label: 'In flight', status: 'Submitted', tone: 'var(--color-brand-primary)' },
+  {
+    key: 'pending',
+    label: 'Pending compliance',
+    status: 'PendingCompliance',
+    tone: 'var(--color-warning)',
+  },
+  { key: 'failed', label: 'Failed', status: 'Failed', tone: 'var(--color-danger)' },
+];
+
+// ─── Page ────────────────────────────────────────────────────────────────
 
 export function OrdersListPage() {
   const navigate = useNavigate();
+
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [orderTypeFilter, setOrderTypeFilter] = useState('');
+  const [activeTab, setActiveTab] = useState<string>('all');
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [stats, setStats] = useState<Record<string, number>>({});
+  const [statsLoading, setStatsLoading] = useState(false);
+
   const requestIdRef = useRef(0);
+
+  // Tab encoding: "type:X" → orderType filter; "status:X" → status filter;
+  // "all" → no filter.
+  const tabFilter = (() => {
+    if (activeTab.startsWith('type:')) return { orderType: activeTab.slice(5) };
+    if (activeTab.startsWith('status:')) return { status: activeTab.slice(7) };
+    return {};
+  })();
 
   const loadOrders = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setLoading(true);
     setError(null);
-
     try {
       const params: ListOrdersParams = {
         pageNumber,
         pageSize,
-        status: statusFilter || undefined,
-        orderType: orderTypeFilter || undefined,
         search: searchQuery || undefined,
+        ...tabFilter,
       };
-
       const result: PagedResult<OrderListItem> = await orderService.listOrders(params);
       if (requestIdRef.current !== requestId) return;
-
       setOrders(result.items);
       setTotalCount(result.totalCount);
-      setLoading(false);
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) return;
-      console.error('Failed to load orders:', err);
       const message =
         err && typeof err === 'object' && 'userMessage' in err
           ? String((err as { userMessage?: string }).userMessage ?? '')
           : '';
       setError(message || 'Failed to load orders. Please try again.');
-      setLoading(false);
+    } finally {
+      if (requestIdRef.current === requestId) setLoading(false);
     }
-  }, [orderTypeFilter, pageNumber, pageSize, searchQuery, statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageNumber, pageSize, searchQuery, activeTab]);
+
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const results = await Promise.all(
+        STAT_BUCKETS.map((bucket) =>
+          orderService.listOrders({
+            pageSize: 1,
+            status: bucket.status,
+            orderType: bucket.orderType,
+          }),
+        ),
+      );
+      const next: Record<string, number> = {};
+      STAT_BUCKETS.forEach((bucket, idx) => {
+        next[bucket.key] = results[idx].totalCount;
+      });
+      setStats(next);
+    } catch {
+      // Stats are decorative — silent fail keeps the table working.
+      setStats({});
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    loadOrders();
+    void loadOrders();
   }, [loadOrders]);
 
   useEffect(() => {
-    setPageNumber(1);
-  }, [searchQuery, statusFilter, orderTypeFilter]);
+    void loadStats();
+  }, [loadStats]);
 
-  const getRowActions = (order: OrderListItem): DataTableAction[] => {
-    const canView = order.orderType === 'BillPayment';
-    return [
-      {
-        label: 'View',
-        icon: <Eye className="w-4 h-4" />,
-        onClick: () => {
-          if (canView) {
-            navigate(`/orders/bill-payments/${order.orderId}`);
-          }
-        },
-        disabled: !canView,
-      },
-    ];
-  };
+  // Reset to page 1 whenever the filter changes.
+  useEffect(() => {
+    setPageNumber(1);
+  }, [searchQuery, activeTab]);
+
+  // ─── Columns ──────────────────────────────────────────────────────────
 
   const columns: ColumnDef<OrderListItem>[] = [
     {
       id: 'order',
       header: 'Order',
-      accessorFn: (row) => row.orderId,
+      accessorKey: 'orderId',
+      cell: (row) => (
+        <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-brand-primary)]">
+          {shortOrderId(row.orderId)}
+        </span>
+      ),
+      className: 'w-[140px] pl-4',
+      headerClassName: 'pl-4',
+    },
+    {
+      id: 'date',
+      header: 'Submitted',
+      accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : null),
       sortable: true,
-      cell: (order) => (
-        <div>
-          <p className="font-medium text-[var(--color-text-primary)]">{shortId(order.orderId)}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">{order.orderType}</p>
+      cell: (row) => (
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+          {formatDate(row.createdAt)}
+        </span>
+      ),
+      className: 'w-[120px]',
+    },
+    {
+      id: 'type',
+      header: 'Type',
+      accessorKey: 'orderType',
+      sortable: true,
+      cell: (row) => (
+        <span className="text-xs text-[var(--color-text-secondary)]">{row.orderType}</span>
+      ),
+      className: 'w-[120px]',
+    },
+    {
+      id: 'party',
+      header: 'Counterparty',
+      accessorFn: (row) => row.payerName ?? '',
+      sortable: true,
+      cell: (row) => (
+        <div className="flex items-center gap-2.5">
+          <AgentAvatar name={row.payerName || 'Unknown'} size={22} />
+          <span className="truncate text-[13px] text-[var(--color-text-primary)]">
+            {row.payerName || '—'}
+          </span>
         </div>
       ),
+    },
+    {
+      id: 'rail',
+      header: 'Rail / FX',
+      accessorFn: (row) =>
+        row.destinationCurrency
+          ? `${row.originCurrency}→${row.destinationCurrency}`
+          : row.originCurrency,
+      cell: (row) => (
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+          {row.originCountry ? `${row.originCountry} · ` : ''}
+          {row.destinationCurrency
+            ? `${row.originCurrency}→${row.destinationCurrency}`
+            : row.originCurrency}
+        </span>
+      ),
+      className: 'w-[140px]',
     },
     {
       id: 'status',
       header: 'Status',
       accessorKey: 'status',
       sortable: true,
-      cell: (order) => {
-        const style = statusStyles[order.status] ?? {
-          text: 'text-[var(--color-text-secondary)]',
-          bg: 'bg-[var(--color-surface-inset)]',
-        };
-        return (
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
-            {order.status}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'payer',
-      header: 'Payer',
-      accessorFn: (row) => row.payerName || '',
-      sortable: true,
-      cell: (order) => (
-        <div>
-          <p className="text-sm text-[var(--color-text-primary)]">{order.payerName || '—'}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">{order.originCountry || '—'}</p>
-        </div>
+      cell: (row) => (
+        <Pill tone={STATUS_TONE[row.status] ?? 'default'} dot>
+          {row.status}
+        </Pill>
       ),
+      className: 'w-[140px]',
     },
     {
-      id: 'amountIn',
-      header: 'Total In',
+      id: 'amount',
+      header: 'Amount',
       accessorFn: (row) => row.totalAmountIn,
       sortable: true,
-      className: 'text-right',
-      headerClassName: 'text-right',
-      cell: (order) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
-          {formatMoney(order.totalAmountIn, order.originCurrency)}
+      cell: (row) => (
+        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+          {formatMoney(row.totalAmountIn, row.originCurrency)}
         </span>
       ),
-    },
-    {
-      id: 'amountOut',
-      header: 'Total Out',
-      accessorFn: (row) => row.totalAmountOut ?? null,
-      sortable: true,
-      className: 'text-right',
+      className: 'w-[140px] text-right',
       headerClassName: 'text-right',
-      cell: (order) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
-          {order.totalAmountOut == null ? '—' : formatMoney(order.totalAmountOut, order.destinationCurrency)}
-        </span>
-      ),
-    },
-    {
-      id: 'createdAt',
-      header: 'Created',
-      accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : null),
-      sortable: true,
-      cell: (order) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{formatDate(order.createdAt)}</span>
-      ),
     },
   ];
 
-  const breadcrumbItems = [{ label: 'Orders', icon: <ClipboardList className="w-3.5 h-3.5" /> }];
+  const rowActions = (order: OrderListItem): DataTableAction[] => [
+    {
+      label: 'View order',
+      onClick: () => {
+        if (order.orderType === 'BillPayment') {
+          navigate(`/orders/bill-payments/${order.orderId}`);
+        }
+      },
+      disabled: order.orderType !== 'BillPayment',
+    },
+  ];
+
+  // ─── Header counts ────────────────────────────────────────────────────
+
+  const subtitle = totalCount > 0
+    ? `${totalCount.toLocaleString()} total · bill payments, payouts, and collections`
+    : 'Bill payments, payouts, and collections';
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
+    <div className="flex flex-col gap-5 p-6 md:px-8">
+      <PageHeader
+        eyebrow="Finance · Orders"
+        title="Orders"
+        subtitle={subtitle}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => void loadStats()} disabled={statsLoading}>
+              <RefreshCw className={'h-3 w-3 ' + (statsLoading ? 'animate-spin' : '')} />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => navigate('/orders/bill-payments/new')}>
+              <Plus className="h-3 w-3" />
+              New bill payment
+            </Button>
+          </>
+        }
+      />
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Orders</h1>
-          <p className="text-[var(--color-text-secondary)]">Track business intent across products and fulfilment.</p>
-        </div>
-        <Button onClick={() => navigate('/orders/bill-payments/new')} className="rounded-sm">
-          <Plus className="w-4 h-4 mr-2" />
-          New bill payment
-        </Button>
+      {/* Mini stats — 4 status buckets, all-time counts (date filter not yet supported) */}
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+        {STAT_BUCKETS.map((bucket) => (
+          <button
+            key={bucket.key}
+            type="button"
+            onClick={() => {
+              if (bucket.status) {
+                setActiveTab(`status:${bucket.status}`);
+              } else if (bucket.orderType) {
+                setActiveTab(`type:${bucket.orderType}`);
+              }
+            }}
+            className="flex flex-col items-start gap-1 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5 text-left transition-colors hover:bg-[var(--color-surface-inset)]"
+          >
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]">
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: bucket.tone }}
+              />
+              {bucket.label}
+            </div>
+            <div className="font-[family-name:var(--font-mono)] text-[22px] font-semibold leading-none text-[var(--color-text-primary)]">
+              {statsLoading
+                ? '—'
+                : (stats[bucket.key] ?? 0).toLocaleString()}
+            </div>
+            <div className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
+              all time · click to filter
+            </div>
+          </button>
+        ))}
       </div>
 
       {error && (
-        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-            <AlertCircle className="w-5 h-5" />
-            <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={loadOrders} className="ml-auto">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          <AlertCircle className="h-4 w-4 flex-none" />
+          <span className="flex-1">{error}</span>
+          <Button variant="outline" size="sm" onClick={() => void loadOrders()}>
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
       )}
 
-      <Card>
-        <CardContent className="p-4">
-          <DataTableHeader
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-            searchPlaceholder="Search orders"
-            filterValue={statusFilter}
-            onFilterChange={setStatusFilter}
-            filterOptions={statusFilterOptions}
-            filterPlaceholder="Status"
-            showViewToggle={false}
-            actions={
-              <div className="flex items-center gap-2">
-                <Select
-                  value={orderTypeFilter || undefined}
-                  onValueChange={(value) => setOrderTypeFilter(value === '__all__' ? '' : value)}
-                >
-                  <SelectTrigger aria-label="Order type" className="h-9 w-[180px] rounded-sm">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Type</SelectItem>
-                    {orderTypeFilterOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <FilterBar
+        tabs={FILTER_TABS}
+        active={activeTab}
+        onTabChange={setActiveTab}
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Filter by order ref, party, amount…"
+        hideFilterButton
+      />
+
+      <AonikCard padding={0}>
+        <DataTable
+          data={orders}
+          columns={columns}
+          getRowId={(o) => o.orderId}
+          showCheckboxes={false}
+          loading={loading}
+          loadingMessage="Loading orders…"
+          emptyTitle="No orders found"
+          emptyDescription={
+            searchQuery || activeTab !== 'all'
+              ? 'Try adjusting the active tab or search.'
+              : 'Orders will appear here as they are created.'
+          }
+          rowActions={(o) => <DataTableRowActions actions={rowActions(o)} />}
+          rowActionsPosition="end"
+          onRowClick={(order) => {
+            if (order.orderType === 'BillPayment') {
+              navigate(`/orders/bill-payments/${order.orderId}`);
             }
-            className="px-0 border-b-0"
-          />
-
-          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
-            <DataTable
-              data={orders}
-              columns={columns}
-              getRowId={(o) => o.orderId}
-              selectedIds={selectedIds}
-              onSelectionChange={setSelectedIds}
-              showCheckboxes={true}
-              loading={loading}
-              loadingMessage="Loading orders..."
-              emptyIcon={<ClipboardList className="w-12 h-12" />}
-              emptyTitle="No orders found"
-              emptyDescription={
-                searchQuery || statusFilter || orderTypeFilter
-                  ? 'Try adjusting your filters.'
-                  : 'Orders will appear here as they are created.'
-              }
-              rowActions={(order) => <DataTableRowActions actions={getRowActions(order)} />}
-              rowActionsPosition="start"
-            />
-          </div>
-
-          <div className="pt-4">
-            <DataTablePagination
-              pageNumber={pageNumber}
-              pageSize={pageSize}
-              totalCount={totalCount}
-              onPageChange={setPageNumber}
-              onPageSizeChange={(newSize) => {
-                setPageSize(newSize);
-                setPageNumber(1);
-              }}
-              className="px-0 border-t-0"
-            />
-          </div>
-        </CardContent>
-      </Card>
+          }}
+        />
+        <DataTablePagination
+          pageNumber={pageNumber}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={setPageNumber}
+          onPageSizeChange={(n) => {
+            setPageSize(n);
+            setPageNumber(1);
+          }}
+          className="border-t border-[var(--color-border-light)]"
+        />
+      </AonikCard>
     </div>
   );
 }
