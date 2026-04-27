@@ -765,14 +765,13 @@ function OverviewTab({
           <div className="flex flex-col gap-2">
             {externalAccounts.map((acct) => (
               <div
-                key={acct.externalAccountId}
+                key={acct.partyAccountId}
                 className="flex items-center gap-3 rounded-md border border-[var(--color-border-light)] p-3"
               >
                 <Building2 className="h-4 w-4 text-[var(--color-text-tertiary)]" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
                     {acct.accountType}
-                    {acct.currency ? ` · ${acct.currency}` : ''}
                   </div>
                   <div className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
                     {acct.maskedIdentifier}
@@ -1386,4 +1385,3 @@ function ActivityTab({
     </AonikCard>
   );
 }
-
