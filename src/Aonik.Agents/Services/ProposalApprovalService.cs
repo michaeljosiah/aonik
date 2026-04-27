@@ -33,6 +33,55 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         return row is null ? null : Map(row);
     }
 
+    public async Task<ListProposalsResponse> ListPendingAsync(
+        ListProposalsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var take = request.Take <= 0 ? 100 : Math.Min(request.Take, 500);
+
+        var query = JoinedQuery().Where(r => r.Proposal.Status == ProposalStatus.Proposed);
+
+        if (!string.IsNullOrWhiteSpace(request.ProposalType))
+        {
+            var proposalType = request.ProposalType.Trim();
+            query = query.Where(r => r.Proposal.ProposalType == proposalType);
+        }
+        if (!string.IsNullOrWhiteSpace(request.AgentDomain))
+        {
+            var domain = request.AgentDomain.Trim();
+            query = query.Where(r => r.AgentDomain == domain);
+        }
+        if (!string.IsNullOrWhiteSpace(request.RiskTier))
+        {
+            var risk = request.RiskTier.Trim();
+            query = query.Where(r => r.Proposal.RiskTier == risk);
+        }
+
+        // Total reflects post-filter so a "type rail" badge can show real
+        // counts; client paginates by passing different filters.
+        var total = await query.CountAsync(cancellationToken);
+
+        var rows = await query
+            .OrderByDescending(r => r.Proposal.CreatedAt)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        var items = rows
+            .Select(r => new ProposalListItem(
+                Id: r.Proposal.Id,
+                ProposalType: r.Proposal.ProposalType,
+                AgentName: r.AgentName,
+                AgentDomain: r.AgentDomain,
+                AgentIconUrl: r.AgentIconUrl,
+                Confidence: r.Proposal.Confidence,
+                Summary: r.Proposal.ImpactSummary,
+                RiskTier: r.Proposal.RiskTier,
+                CreatedAt: r.Proposal.CreatedAt))
+            .ToList();
+
+        return new ListProposalsResponse(items, total);
+    }
+
     public Task<ProposalDetailResponse> ApproveAsync(Guid proposalId, CancellationToken ct = default) =>
         TransitionAsync(proposalId, ProposalStatus.Approved, ct);
 

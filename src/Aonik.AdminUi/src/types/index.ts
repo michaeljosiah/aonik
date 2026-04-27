@@ -187,6 +187,24 @@ export interface ProposalDetailResponse {
   createdAt: string;
 }
 
+/** Compact list-row view used by the Approvals queue (Wave 6). */
+export interface ProposalListItem {
+  id: string;
+  proposalType: string;
+  agentName: string;
+  agentDomain: string;
+  agentIconUrl: string | null;
+  confidence: number;
+  summary: string;
+  riskTier: string;
+  createdAt: string;
+}
+
+export interface ListProposalsResponse {
+  items: ProposalListItem[];
+  total: number;
+}
+
 // Tenant Types
 export type TenantStatus = 'Active' | 'Provisioning' | 'Deactivated' | 'Suspended';
 export type TenantEnvironment = 'Dev' | 'Test' | 'Staging' | 'Prod';

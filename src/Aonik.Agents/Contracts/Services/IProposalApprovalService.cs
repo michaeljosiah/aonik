@@ -15,6 +15,16 @@ public interface IProposalApprovalService
     Task<ProposalDetailResponse?> GetByIdAsync(Guid proposalId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns pending (Status == Proposed) proposals for the current
+    /// tenant, optionally filtered by ProposalType, AgentDomain, or
+    /// RiskTier. Sorted newest-first. The Approvals queue UI is the
+    /// primary consumer.
+    /// </summary>
+    Task<ListProposalsResponse> ListPendingAsync(
+        ListProposalsRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Transitions a Proposed proposal to Approved. Throws
     /// <see cref="InvalidOperationException"/> if the proposal is already
     /// resolved (Approved/Rejected). Returns the updated detail.

@@ -5,6 +5,7 @@ import { AgentFleetPanel } from '@/workspace/apps/AgentFleetPanel';
 import { AgentPerformancePanel } from '@/workspace/apps/AgentPerformancePanel';
 import { AgentCostPanel } from '@/workspace/apps/AgentCostPanel';
 import { AgentErrorsPanel } from '@/workspace/apps/AgentErrorsPanel';
+import { ApprovalsPage } from '@/pages/approvals';
 
 // ── Navigation ─────────────────────────────────────────────────────────
 
@@ -12,7 +13,14 @@ const navigation: NavigationSection[] = [
   {
     id: 'agent-command-center',
     label: 'Command Center',
-    items: [],
+    items: [
+      {
+        id: 'approvals',
+        label: 'Approvals',
+        icon: 'CheckCircle2',
+        href: '/approvals',
+      },
+    ],
   },
 ];
 
@@ -85,10 +93,14 @@ export const agentCommandCenterModule: AdminModule = {
   id: 'agent-command-center',
   name: 'Agent Command Center',
   navigation,
-  routes: [],
+  routes: [
+    { path: '/approvals', element: ApprovalsPage },
+  ],
   panels,
   panelComponents,
   defaultWorkspacePanels: ['agent-fleet', 'agent-performance'],
   workspaceTemplates,
-  breadcrumbs: [],
+  breadcrumbs: [
+    { pathPrefix: '/approvals', trail: ['Approvals'] },
+  ],
 };

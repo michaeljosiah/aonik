@@ -22,3 +22,31 @@ public sealed record ProposalDetailResponse(
     DateTime? ApprovedAt,
     string PayloadJson,
     DateTime CreatedAt);
+
+/// <summary>
+/// Compact list-row view of a pending agent proposal, returned by the
+/// Approvals queue endpoint. Excludes <c>PayloadJson</c> to keep list
+/// responses small — call <c>GET /ai/proposals/{id}</c> for the full
+/// detail when the user opens a row.
+/// </summary>
+public sealed record ProposalListItem(
+    Guid Id,
+    string ProposalType,
+    string AgentName,
+    string AgentDomain,
+    string? AgentIconUrl,
+    decimal Confidence,
+    string Summary,
+    string RiskTier,
+    DateTime CreatedAt);
+
+/// <summary>Filter and shape for the proposals queue.</summary>
+public sealed record ListProposalsRequest(
+    string? ProposalType = null,
+    string? AgentDomain = null,
+    string? RiskTier = null,
+    int Take = 100);
+
+public sealed record ListProposalsResponse(
+    IReadOnlyList<ProposalListItem> Items,
+    int Total);
