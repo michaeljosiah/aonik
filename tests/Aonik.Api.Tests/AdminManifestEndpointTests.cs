@@ -27,5 +27,6 @@ public class AdminManifestEndpointTests
         payload!.EnabledModules.Should().Contain("core");
         payload.EnabledModules.Should().Contain("platform");
         payload.EnabledModules.Should().Contain("finance");
+        payload.EnabledModules.Should().Contain("agent-command-center");
     }
 }

@@ -36,8 +36,14 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
     {
         // For now, return all modules enabled with no overrides.
         // Future: resolve from tenant features, user roles, feature flags.
+        //
+        // NOTE: every module the AdminUi registers must appear in
+        // EnabledModules — useModules() filters its build-time aggregation
+        // by this list. A missing entry causes the entire nav section to
+        // disappear (Approvals / Run queue / Policies / Usage all live in
+        // agent-command-center, for example).
         var response = new AdminManifestResponse(
-            EnabledModules: ["core", "platform", "finance"],
+            EnabledModules: ["core", "platform", "finance", "agent-command-center"],
             FeatureFlags: new Dictionary<string, bool>
             {
                 ["finance:billing"] = true,
@@ -48,6 +54,10 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
                 ["platform:cms"] = true,
                 ["core:ai"] = true,
                 ["core:workspace"] = true,
+                ["agent-command-center:approvals"] = true,
+                ["agent-command-center:run-queue"] = true,
+                ["agent-command-center:policies"] = true,
+                ["agent-command-center:usage"] = true,
             },
             DisabledRoutes: [],
             DisabledNavItems: []);
