@@ -38,7 +38,8 @@ public class ListOrdersEndpoint : Endpoint<ApiContracts.ListOrdersRequest, Paged
                 req.PageSize,
                 req.Status,
                 req.OrderType,
-                req.Search),
+                req.Search,
+                req.PayerPartyId),
             ct);
 
         var response = new PagedResult<ApiContracts.OrderListItemResponse>(

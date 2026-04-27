@@ -16,6 +16,7 @@ export interface ListOrdersParams {
   status?: string;
   orderType?: string;
   search?: string;
+  payerPartyId?: string;
 }
 
 export const orderService = {
@@ -26,6 +27,7 @@ export const orderService = {
     if (params.status) queryParams.append('status', params.status);
     if (params.orderType) queryParams.append('orderType', params.orderType);
     if (params.search) queryParams.append('search', params.search);
+    if (params.payerPartyId) queryParams.append('payerPartyId', params.payerPartyId);
 
     const query = queryParams.toString();
     return api.get<PagedResult<OrderListItem>>(`/orders${query ? `?${query}` : ''}`);

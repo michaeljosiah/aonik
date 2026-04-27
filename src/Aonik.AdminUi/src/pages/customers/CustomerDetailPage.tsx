@@ -33,11 +33,13 @@ import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aoni
 import { customerService } from '@/services/customerService';
 import type { CustomerInsightsResponse } from '@/services/customerService';
 import { documentService } from '@/services/documentService';
+import { orderService } from '@/services/orderService';
 import type {
   CurrencyAmount,
   CustomerDetail,
   CustomerStats,
   DocumentListItem,
+  OrderListItem,
 } from '@/types';
 
 import { AccountsSubTab } from './finance/AccountsSubTab';
@@ -63,12 +65,13 @@ const VERIFICATION_TONE: Record<string, PillTone> = {
   Rejected: 'danger',
 };
 
-type TabKey = 'overview' | 'finance' | 'insights' | 'documents' | 'activity';
+type TabKey = 'overview' | 'finance' | 'insights' | 'documents' | 'orders' | 'activity';
 type FinanceSubKey = 'accounts' | 'transactions' | 'budgets' | 'commitments' | 'graph';
 
 const TABS: Array<{ value: TabKey; label: string }> = [
   { value: 'overview', label: 'Overview' },
   { value: 'finance', label: 'Finance' },
+  { value: 'orders', label: 'Orders' },
   { value: 'insights', label: 'Insights' },
   { value: 'documents', label: 'Documents' },
   { value: 'activity', label: 'Activity' },
@@ -171,6 +174,11 @@ export function CustomerDetailPage() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
     setLoading(true);
@@ -224,6 +232,29 @@ export function CustomerDetailPage() {
     }
   }, [partyId]);
 
+  const loadOrders = useCallback(async () => {
+    if (!partyId) return;
+    setOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const result = await orderService.listOrders({
+        payerPartyId: partyId,
+        pageNumber: 1,
+        pageSize: 25,
+      });
+      setOrders(result.items);
+      setOrdersTotal(result.totalCount);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
+      setOrdersError(message || 'Failed to load orders.');
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [partyId]);
+
   const loadInsights = useCallback(async () => {
     if (!partyId) return;
     setInsightsLoading(true);
@@ -250,7 +281,8 @@ export function CustomerDetailPage() {
   useEffect(() => {
     if (activeTab === 'documents') void loadDocuments();
     if (activeTab === 'insights') void loadInsights();
-  }, [activeTab, loadDocuments, loadInsights]);
+    if (activeTab === 'orders') void loadOrders();
+  }, [activeTab, loadDocuments, loadInsights, loadOrders]);
 
   // ─── Loading / not-found states ───────────────────────────────────────
 
@@ -497,6 +529,17 @@ export function CustomerDetailPage() {
           loading={documentsLoading}
           error={documentsError}
           onView={(id) => navigate(`/compliance/documents/${id}`)}
+        />
+      )}
+
+      {activeTab === 'orders' && (
+        <OrdersTab
+          orders={orders}
+          totalCount={ordersTotal}
+          loading={ordersLoading}
+          error={ordersError}
+          onView={(id) => navigate(`/orders/${id}`)}
+          onReload={() => void loadOrders()}
         />
       )}
 
@@ -1023,6 +1066,127 @@ function DocumentsTab({ documents, loading, error, onView }: DocumentsTabProps) 
               </div>
             );
           })}
+        </div>
+      )}
+    </AonikCard>
+  );
+}
+
+// ─── Orders tab ──────────────────────────────────────────────────────────
+
+const ORDER_STATUS_TONE: Record<string, PillTone> = {
+  Complete: 'success',
+  Settled: 'success',
+  Captured: 'success',
+  Submitted: 'info',
+  Active: 'info',
+  Pending: 'warning',
+  AwaitingFunds: 'warning',
+  Cancelled: 'muted',
+  Failed: 'danger',
+  Expired: 'muted',
+};
+
+interface OrdersTabProps {
+  orders: OrderListItem[];
+  totalCount: number;
+  loading: boolean;
+  error: string | null;
+  onView: (orderId: string) => void;
+  onReload: () => void;
+}
+
+function OrdersTab({ orders, totalCount, loading, error, onView, onReload }: OrdersTabProps) {
+  return (
+    <AonikCard
+      title="Orders"
+      subtitle={
+        totalCount > 0
+          ? `${totalCount.toLocaleString()} total · most recent ${Math.min(orders.length, totalCount)}`
+          : 'Bill payments, payouts, and collections from this customer'
+      }
+      action={
+        <button
+          type="button"
+          onClick={onReload}
+          className="text-xs text-[var(--color-brand-primary)] hover:underline"
+        >
+          Refresh
+        </button>
+      }
+    >
+      {error && (
+        <div className="mb-3 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-6">
+          <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="py-6 text-center">
+          <FileText className="mx-auto mb-2 h-8 w-8 text-[var(--color-text-tertiary)]" />
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            No orders recorded for this customer yet.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-[var(--color-border-light)] text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-tertiary)]">
+                <th className="px-2 py-2.5">Order</th>
+                <th className="px-2 py-2.5">Date</th>
+                <th className="px-2 py-2.5">Type</th>
+                <th className="px-2 py-2.5">Status</th>
+                <th className="px-2 py-2.5 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order, idx) => {
+                const isLast = idx === orders.length - 1;
+                const tone = ORDER_STATUS_TONE[order.status] ?? 'default';
+                return (
+                  <tr
+                    key={order.orderId}
+                    onClick={() => onView(order.orderId)}
+                    className={
+                      'cursor-pointer transition-colors hover:bg-[var(--color-surface-inset)] ' +
+                      (isLast ? '' : 'border-b border-[var(--color-border-light)]')
+                    }
+                  >
+                    <td className="px-2 py-2.5">
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] font-medium text-[var(--color-brand-primary)]">
+                        ORD-{order.orderId.replace(/-/g, '').slice(0, 8).toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+                        {formatDate(order.createdAt)}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <span className="text-[12.5px] text-[var(--color-text-primary)]">
+                        {order.orderType}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <Pill tone={tone} dot size="sm">
+                        {order.status}
+                      </Pill>
+                    </td>
+                    <td className="px-2 py-2.5 text-right">
+                      <span className="font-[family-name:var(--font-mono)] text-[12.5px] font-medium text-[var(--color-text-primary)]">
+                        {formatCurrency(order.totalAmountIn, order.originCurrency)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </AonikCard>
