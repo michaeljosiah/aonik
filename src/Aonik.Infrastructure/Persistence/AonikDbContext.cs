@@ -358,6 +358,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAiTable<ToolSpec>(modelBuilder, "ToolSpecs");
         MapAiTable<AiPolicy>(modelBuilder, "AiPolicies");
         MapAiTable<AiRun>(modelBuilder, "AiRuns");
+        MapAiTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");
         MapAiTable<AiTrace>(modelBuilder, "AiTraces");
         MapAiTable<AiFeedback>(modelBuilder, "AiFeedbacks");
         MapAiTable<EvalSuite>(modelBuilder, "EvalSuites");

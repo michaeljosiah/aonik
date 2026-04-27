@@ -85,3 +85,70 @@ public sealed class AiPolicySummaryResponse
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
 }
+
+// ── Update AI Policy (toggle IsActive) ─────────────────────────────────
+
+/// <summary>
+/// Toggles the <c>IsActive</c> flag on an <see cref="AiPolicy"/>. Scoped
+/// down to the single mutable field the Policies UI exposes today; the
+/// JSON columns are still owned by configuration tooling.
+/// </summary>
+internal sealed class UpdateAiPolicyEndpoint : Endpoint<UpdateAiPolicyEndpointRequest, AiPolicySummaryResponse>
+{
+    private readonly AiDbContext _dbContext;
+
+    public UpdateAiPolicyEndpoint(AiDbContext dbContext) => _dbContext = dbContext;
+
+    public override void Configure()
+    {
+        Patch("/admin/ai/policies/{Id}");
+        Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update an AI policy";
+            s.Description =
+                "Currently exposes only IsActive — flips a policy on or off. " +
+                "JSON column edits are routed through configuration tooling.";
+            s.Response(200, "Updated");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Policy not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
+    }
+
+    public override async Task HandleAsync(UpdateAiPolicyEndpointRequest req, CancellationToken ct)
+    {
+        var policy = await _dbContext.AiPolicies.FirstOrDefaultAsync(p => p.Id == req.Id, ct);
+        if (policy is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        if (req.IsActive.HasValue)
+        {
+            policy.IsActive = req.IsActive.Value;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        await Send.OkAsync(new AiPolicySummaryResponse
+        {
+            Id = policy.Id,
+            Name = policy.Name,
+            IsActive = policy.IsActive,
+            AllowedDataFieldsJson = policy.AllowedDataFieldsJson,
+            RedactionRulesJson = policy.RedactionRulesJson,
+            BannedActionsJson = policy.BannedActionsJson,
+            EscalationRulesJson = policy.EscalationRulesJson,
+            CreatedAt = policy.CreatedAt,
+            UpdatedAt = policy.UpdatedAt,
+        }, ct);
+    }
+}
+
+public sealed record UpdateAiPolicyEndpointRequest
+{
+    public Guid Id { get; init; }
+    public bool? IsActive { get; init; }
+}

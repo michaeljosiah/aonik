@@ -503,6 +503,32 @@ export const aiPolicyService = {
       `/admin/ai/policies?page=${page}&pageSize=${pageSize}`,
     );
   },
+  /** Toggles IsActive on a single policy and returns the updated row. */
+  setActive: async (id: string, isActive: boolean): Promise<AiPolicySummary> => {
+    return api.patch<AiPolicySummary>(`/admin/ai/policies/${encodeURIComponent(id)}`, {
+      isActive,
+    });
+  },
+};
+
+// ── Tenant agent settings (global kill switch) ─────────────────────
+
+export interface TenantAgentSettingsResponse {
+  killSwitchEngaged: boolean;
+  killSwitchEngagedAt: string | null;
+  killSwitchEngagedByUserId: string | null;
+  updatedAt: string | null;
+}
+
+export const tenantAgentSettingsService = {
+  get: async (): Promise<TenantAgentSettingsResponse> => {
+    return api.get<TenantAgentSettingsResponse>('/admin/ai/agent-settings');
+  },
+  setKillSwitch: async (engaged: boolean): Promise<TenantAgentSettingsResponse> => {
+    return api.patch<TenantAgentSettingsResponse>('/admin/ai/agent-settings', {
+      killSwitchEngaged: engaged,
+    });
+  },
 };
 
 export const aiTraceService = {

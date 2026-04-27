@@ -1,6 +1,7 @@
 // AI Policies — visual port of the "AI Policies" half of
 // templates/aonik-admin-starterkit/screens/ai-tasks-policies.jsx, wired to
-// the new /admin/ai/policies endpoint.
+// /admin/ai/policies (list + IsActive PATCH) and /admin/ai/agent-settings
+// (kill-switch state).
 //
 // Differences from the template, called out so they don't read as gaps:
 //   • The AiPolicy entity has only Name / IsActive / four JSON columns
@@ -8,10 +9,8 @@
 //     template's Severity / Category / EnforcementMode / TriggerCount /
 //     UpdatedBy / Version are not yet on the entity. We surface what's
 //     real and tag the missing ones in the UI.
-//   • Toggle is read-only for now — there's no PATCH endpoint for
-//     IsActive yet. Click rolls a toast explaining the gap.
-//   • Kill-switch banner is still rendered but the action is a stub
-//     until a global agent-pause endpoint exists.
+//   • Kill switch persists per-tenant but its enforcement on the run
+//     pipeline is not yet wired — the banner stays honest about that.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -24,8 +23,11 @@ import {
   type PillTone,
 } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
-import { aiPolicyService } from '@/services/aiService';
-import type { AiPolicySummary } from '@/services/aiService';
+import { aiPolicyService, tenantAgentSettingsService } from '@/services/aiService';
+import type {
+  AiPolicySummary,
+  TenantAgentSettingsResponse,
+} from '@/services/aiService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -74,7 +76,10 @@ export function AiPoliciesPage() {
   const [policies, setPolicies] = useState<AiPolicySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [killSwitchEngaged, setKillSwitchEngaged] = useState(false);
+
+  const [agentSettings, setAgentSettings] =
+    useState<TenantAgentSettingsResponse | null>(null);
+  const [killSwitchSaving, setKillSwitchSaving] = useState(false);
 
   const loadPolicies = useCallback(async () => {
     setLoading(true);
@@ -93,9 +98,73 @@ export function AiPoliciesPage() {
     }
   }, []);
 
+  const loadAgentSettings = useCallback(async () => {
+    try {
+      const result = await tenantAgentSettingsService.get();
+      setAgentSettings(result);
+    } catch {
+      // Settings are best-effort; keep the banner in default state.
+      setAgentSettings({
+        killSwitchEngaged: false,
+        killSwitchEngagedAt: null,
+        killSwitchEngagedByUserId: null,
+        updatedAt: null,
+      });
+    }
+  }, []);
+
   useEffect(() => {
     void loadPolicies();
-  }, [loadPolicies]);
+    void loadAgentSettings();
+  }, [loadPolicies, loadAgentSettings]);
+
+  const handleKillSwitchToggle = useCallback(async () => {
+    if (!agentSettings || killSwitchSaving) return;
+    const next = !agentSettings.killSwitchEngaged;
+    // Optimistic flip so the banner reads correctly while we save.
+    setKillSwitchSaving(true);
+    setAgentSettings((prev) =>
+      prev ? { ...prev, killSwitchEngaged: next } : prev,
+    );
+    try {
+      const updated = await tenantAgentSettingsService.setKillSwitch(next);
+      setAgentSettings(updated);
+      toast.success(next ? 'Kill switch engaged' : 'Kill switch released');
+    } catch (err) {
+      // Roll back on failure.
+      setAgentSettings((prev) =>
+        prev ? { ...prev, killSwitchEngaged: !next } : prev,
+      );
+      const message = err instanceof Error ? err.message : 'Failed to update kill switch';
+      toast.error(message);
+    } finally {
+      setKillSwitchSaving(false);
+    }
+  }, [agentSettings, killSwitchSaving]);
+
+  const handlePolicyToggle = useCallback(
+    async (policy: AiPolicySummary) => {
+      const next = !policy.isActive;
+      // Optimistic update on the row.
+      setPolicies((prev) =>
+        prev.map((p) => (p.id === policy.id ? { ...p, isActive: next } : p)),
+      );
+      try {
+        const updated = await aiPolicyService.setActive(policy.id, next);
+        setPolicies((prev) => prev.map((p) => (p.id === policy.id ? updated : p)));
+        toast.success(next ? `${policy.name} enabled` : `${policy.name} disabled`);
+      } catch (err) {
+        // Roll back on failure.
+        setPolicies((prev) =>
+          prev.map((p) => (p.id === policy.id ? { ...p, isActive: !next } : p)),
+        );
+        const message =
+          err instanceof Error ? err.message : 'Failed to update policy';
+        toast.error(message);
+      }
+    },
+    [],
+  );
 
   const stats = useMemo(() => {
     const active = policies.filter((p) => p.isActive).length;
@@ -120,17 +189,11 @@ export function AiPoliciesPage() {
         }
       />
 
-      {/* Kill-switch banner — stub action until backend wires global-pause */}
+      {/* Kill-switch banner — state persists per tenant; enforcement on the run pipeline is still pending. */}
       <KillSwitchBanner
-        engaged={killSwitchEngaged}
-        onToggle={() => {
-          toast(
-            killSwitchEngaged
-              ? 'Resume requires a global-pause API — not yet wired.'
-              : 'Kill switch needs a global agent-pause endpoint — not yet wired.',
-          );
-          setKillSwitchEngaged((v) => !v);
-        }}
+        engaged={agentSettings?.killSwitchEngaged ?? false}
+        saving={killSwitchSaving}
+        onToggle={() => void handleKillSwitchToggle()}
       />
 
       {/* KPI strip */}
@@ -187,7 +250,13 @@ export function AiPoliciesPage() {
             </div>
           </AonikCard>
         ) : (
-          policies.map((policy) => <PolicyRow key={policy.id} policy={policy} />)
+          policies.map((policy) => (
+            <PolicyRow
+              key={policy.id}
+              policy={policy}
+              onToggle={() => void handlePolicyToggle(policy)}
+            />
+          ))
         )}
       </div>
     </div>
@@ -196,7 +265,13 @@ export function AiPoliciesPage() {
 
 // ─── Policy row ──────────────────────────────────────────────────────────
 
-function PolicyRow({ policy }: { policy: AiPolicySummary }) {
+function PolicyRow({
+  policy,
+  onToggle,
+}: {
+  policy: AiPolicySummary;
+  onToggle: () => void;
+}) {
   const tone: PillTone = policy.isActive ? 'success' : 'muted';
   const tags: Array<[string, string]> = [
     ['allowed', summariseJson(policy.allowedDataFieldsJson, 'field')],
@@ -248,19 +323,20 @@ function PolicyRow({ policy }: { policy: AiPolicySummary }) {
       </div>
 
       <div className="flex items-center gap-2.5">
-        <ToggleStub on={policy.isActive} />
+        <Toggle on={policy.isActive} onClick={onToggle} />
       </div>
     </div>
   );
 }
 
-function ToggleStub({ on }: { on: boolean }) {
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={() => toast('Toggling policies needs a backend PATCH — not yet wired.')}
-      aria-label={on ? 'Active (read-only)' : 'Inactive (read-only)'}
-      className="relative inline-flex h-4 w-[30px] flex-none cursor-pointer rounded-full"
+      onClick={onClick}
+      aria-pressed={on}
+      aria-label={on ? 'Disable policy' : 'Enable policy'}
+      className="relative inline-flex h-4 w-[30px] flex-none cursor-pointer rounded-full transition-colors"
       style={{
         background: on ? 'var(--color-brand-primary)' : 'var(--color-surface-inset)',
       }}
@@ -277,9 +353,11 @@ function ToggleStub({ on }: { on: boolean }) {
 
 function KillSwitchBanner({
   engaged,
+  saving,
   onToggle,
 }: {
   engaged: boolean;
+  saving: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -307,8 +385,8 @@ function KillSwitchBanner({
         </div>
         <div className="mt-0.5 text-[12px] text-[var(--color-text-secondary)]">
           {engaged
-            ? 'Banner engaged — global-pause endpoint not yet wired, so this is a UI-only state.'
-            : 'Pause every agent and reject new runs. Endpoint is on the roadmap.'}
+            ? 'State persisted for this tenant. Run-pipeline enforcement is not yet wired — track that as a follow-up.'
+            : 'Pause every agent for this tenant. Persists across reloads; enforcement on the run pipeline is pending.'}
         </div>
       </div>
       <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
@@ -318,6 +396,7 @@ function KillSwitchBanner({
         variant={engaged ? 'default' : 'outline'}
         size="sm"
         onClick={onToggle}
+        disabled={saving}
         style={
           engaged
             ? undefined
@@ -327,7 +406,7 @@ function KillSwitchBanner({
               }
         }
       >
-        {engaged ? 'Resume agents' : 'Engage kill switch'}
+        {saving ? 'Saving…' : engaged ? 'Resume agents' : 'Engage kill switch'}
       </Button>
     </div>
   );
