@@ -1,80 +1,107 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+// Invoices list — visual port of ScreenInvoices in
+// templates/aonik-admin-starterkit/screens/invoices-accounts.jsx, wired to
+// the existing /billing/invoices endpoint.
+//
+// Differences from the template, called out so they don't read as gaps:
+//   • Counterparty column shows a truncated customerId because the
+//     InvoiceResponse DTO does not include party display name. Lookup is
+//     deferred until the billing list endpoint is enriched.
+//   • The template's "Memo" column with agent-suggestion sparkles maps to
+//     a relative "Issued / Due" hint here; a true memo field + invoice-
+//     level agent proposals are not yet wired.
+//   • Overdue is computed client-side (status=Issued & dueUtc<now) — same
+//     as the previous shadcn page.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Receipt,
-  Plus,
-  Eye,
-  Send,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  FileText,
-  DollarSign,
-  Clock,
-} from 'lucide-react';
+import { AlertCircle, Plus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import {
+  AgentAvatar,
+  Card as AonikCard,
+  FilterBar,
+  type FilterBarTab,
+  PageHeader,
+  Pill,
+  type PillTone,
+} from '@/components/layout/aonik';
 import {
   DataTable,
-  DataTableHeader,
-  DataTablePagination,
   DataTableRowActions,
   type ColumnDef,
   type DataTableAction,
 } from '@/components/ui/data-table';
+import { Button } from '@/components/ui/button';
 import { billingService } from '@/services/billingService';
 import type { InvoiceResponse } from '@/types';
 
-// ── Helpers ─────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+function formatDate(value?: string | null): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString(undefined, {
+    year: 'numeric',
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
   });
 }
 
 function formatMoney(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  }
 }
 
-function shortId(id: string): string {
-  if (id.length <= 10) return id;
-  return id.slice(0, 8) + '…';
+function shortInvoiceNumber(num: string): string {
+  // Most tenants use sequential invoice numbers (INV-2041); render as-is
+  // when short enough, otherwise truncate.
+  if (num.length <= 12) return num;
+  return `${num.slice(0, 10)}…`;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  Draft: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-  Issued: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  Paid: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  Cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+function shortPartyId(partyId: string): string {
+  const compact = partyId.replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `CUS-${compact}`;
+}
+
+const STATUS_TONE: Record<string, PillTone> = {
+  Draft: 'muted',
+  Issued: 'info',
+  Paid: 'success',
+  Cancelled: 'muted',
+  Overdue: 'danger',
 };
+
+const FILTER_TABS: FilterBarTab[] = [
+  { value: '', label: 'All' },
+  { value: 'Draft', label: 'Draft' },
+  { value: 'Issued', label: 'Issued' },
+  { value: 'Paid', label: 'Paid' },
+  { value: 'Cancelled', label: 'Cancelled' },
+];
 
 function isOverdue(invoice: InvoiceResponse): boolean {
   return invoice.status === 'Issued' && new Date(invoice.dueUtc) < new Date();
 }
 
-// ── Component ───────────────────────────────────────────────────────
+// ─── Page ────────────────────────────────────────────────────────────────
 
 export function InvoicesListPage() {
   const navigate = useNavigate();
+
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const requestIdRef = useRef(0);
 
   const loadInvoices = useCallback(async () => {
@@ -83,14 +110,14 @@ export function InvoicesListPage() {
     setError(null);
     try {
       const result = await billingService.listInvoices(statusFilter || undefined);
-      if (requestId !== requestIdRef.current) return;
+      if (requestIdRef.current !== requestId) return;
       setInvoices(result);
     } catch (err: unknown) {
-      if (requestId !== requestIdRef.current) return;
+      if (requestIdRef.current !== requestId) return;
       const message = err instanceof Error ? err.message : 'Failed to load invoices';
       setError(message);
     } finally {
-      if (requestId === requestIdRef.current) setLoading(false);
+      if (requestIdRef.current === requestId) setLoading(false);
     }
   }, [statusFilter]);
 
@@ -98,339 +125,266 @@ export function InvoicesListPage() {
     void loadInvoices();
   }, [loadInvoices]);
 
-  useEffect(() => {
-    setPageNumber(1);
-  }, [searchQuery, statusFilter]);
-
-  // Client-side search filtering
-  const filteredInvoices = useMemo(() => {
-    if (!searchQuery.trim()) return invoices;
-    const q = searchQuery.toLowerCase();
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return invoices;
     return invoices.filter(
       (inv) =>
         inv.invoiceNumber.toLowerCase().includes(q) ||
-        inv.currency.toLowerCase().includes(q),
+        inv.currency.toLowerCase().includes(q) ||
+        inv.customerId.toLowerCase().includes(q),
     );
   }, [invoices, searchQuery]);
 
-  // Client-side pagination
-  const totalCount = filteredInvoices.length;
-  const pagedInvoices = useMemo(() => {
-    const start = (pageNumber - 1) * pageSize;
-    return filteredInvoices.slice(start, start + pageSize);
-  }, [filteredInvoices, pageNumber, pageSize]);
-
-  // ── Summary metrics ───────────────────────────────────────────────
-
-  const metrics = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    let draftCount = 0;
-    let outstandingAmount = 0;
-    let overdueAmount = 0;
-    let paidThisMonth = 0;
-
+  const summary = useMemo(() => {
+    let outstandingByCurrency = new Map<string, number>();
+    let overdueCount = 0;
+    let paidCount = 0;
     for (const inv of invoices) {
-      if (inv.status === 'Draft') draftCount++;
       if (inv.status === 'Issued') {
-        outstandingAmount += inv.totalAmount;
-        if (new Date(inv.dueUtc) < now) overdueAmount += inv.totalAmount;
+        outstandingByCurrency.set(
+          inv.currency,
+          (outstandingByCurrency.get(inv.currency) ?? 0) + inv.totalAmount,
+        );
+        if (new Date(inv.dueUtc) < new Date()) overdueCount += 1;
       }
-      if (inv.status === 'Paid' && new Date(inv.issuedUtc) >= startOfMonth) {
-        paidThisMonth += inv.totalAmount;
-      }
+      if (inv.status === 'Paid') paidCount += 1;
     }
-
-    return { draftCount, outstandingAmount, overdueAmount, paidThisMonth };
+    return { outstandingByCurrency, overdueCount, paidCount, total: invoices.length };
   }, [invoices]);
 
-  // ── Row actions ───────────────────────────────────────────────────
+  const subtitle = (() => {
+    if (invoices.length === 0) return 'Customer invoices · billing module';
+    const outstandingParts = Array.from(summary.outstandingByCurrency.entries()).map(
+      ([cur, amt]) => formatMoney(amt, cur),
+    );
+    const outstandingFragment = outstandingParts.length > 0
+      ? ` · ${outstandingParts.join(' / ')} outstanding`
+      : '';
+    const overdueFragment = summary.overdueCount > 0
+      ? ` · ${summary.overdueCount} overdue`
+      : '';
+    return `${summary.total.toLocaleString()} total${outstandingFragment}${overdueFragment}`;
+  })();
 
-  const getRowActions = useCallback(
-    (invoice: InvoiceResponse): DataTableAction[] => {
-      const actions: DataTableAction[] = [
-        {
-          label: 'View',
-          icon: <Eye className="w-4 h-4" />,
-          onClick: () => navigate(`/billing/invoices/${invoice.id}`),
-        },
-      ];
+  // ─── Actions ──────────────────────────────────────────────────────────
 
-      if (invoice.status === 'Draft') {
-        actions.push({
-          label: 'Issue',
-          icon: <Send className="w-4 h-4" />,
-          onClick: async () => {
-            try {
-              await billingService.issueInvoice(invoice.id);
-              toast.success('Invoice issued.');
-              void loadInvoices();
-            } catch {
-              toast.error('Failed to issue invoice.');
-            }
-          },
-        });
+  const issue = useCallback(
+    async (id: string) => {
+      try {
+        await billingService.issueInvoice(id);
+        toast.success('Invoice issued');
+        void loadInvoices();
+      } catch {
+        toast.error('Failed to issue invoice');
       }
-
-      if (invoice.status === 'Issued') {
-        actions.push({
-          label: 'Mark Paid',
-          icon: <CheckCircle2 className="w-4 h-4" />,
-          onClick: async () => {
-            try {
-              await billingService.markPaid(invoice.id);
-              toast.success('Invoice marked as paid.');
-              void loadInvoices();
-            } catch {
-              toast.error('Failed to mark invoice as paid.');
-            }
-          },
-        });
-      }
-
-      if (invoice.status === 'Draft' || invoice.status === 'Issued') {
-        actions.push({
-          label: 'Cancel',
-          icon: <XCircle className="w-4 h-4" />,
-          variant: 'danger' as const,
-          onClick: async () => {
-            try {
-              await billingService.cancelInvoice(invoice.id);
-              toast.success('Invoice cancelled.');
-              void loadInvoices();
-            } catch {
-              toast.error('Failed to cancel invoice.');
-            }
-          },
-        });
-      }
-
-      return actions;
     },
-    [navigate, loadInvoices],
+    [loadInvoices],
   );
 
-  // ── Column definitions ────────────────────────────────────────────
+  const markPaid = useCallback(
+    async (id: string) => {
+      try {
+        await billingService.markPaid(id);
+        toast.success('Invoice marked paid');
+        void loadInvoices();
+      } catch {
+        toast.error('Failed to mark invoice as paid');
+      }
+    },
+    [loadInvoices],
+  );
+
+  const cancel = useCallback(
+    async (id: string) => {
+      try {
+        await billingService.cancelInvoice(id);
+        toast.success('Invoice cancelled');
+        void loadInvoices();
+      } catch {
+        toast.error('Failed to cancel invoice');
+      }
+    },
+    [loadInvoices],
+  );
+
+  const rowActions = (invoice: InvoiceResponse): DataTableAction[] => {
+    const actions: DataTableAction[] = [
+      {
+        label: 'View',
+        onClick: () => navigate(`/billing/invoices/${invoice.id}`),
+      },
+    ];
+    if (invoice.status === 'Draft') {
+      actions.push({ label: 'Issue', onClick: () => void issue(invoice.id) });
+    }
+    if (invoice.status === 'Issued') {
+      actions.push({ label: 'Mark paid', onClick: () => void markPaid(invoice.id) });
+    }
+    if (invoice.status === 'Draft' || invoice.status === 'Issued') {
+      actions.push({
+        label: 'Cancel',
+        variant: 'danger',
+        onClick: () => void cancel(invoice.id),
+      });
+    }
+    return actions;
+  };
+
+  // ─── Columns ──────────────────────────────────────────────────────────
 
   const columns: ColumnDef<InvoiceResponse>[] = [
     {
-      id: 'invoiceNumber',
+      id: 'invoice',
       header: 'Invoice',
-      accessorFn: (row) => row.invoiceNumber,
+      accessorKey: 'invoiceNumber',
       sortable: true,
-      cell: (invoice) => (
-        <div>
-          <div className="font-medium text-[var(--color-text-primary)]">
-            {shortId(invoice.invoiceNumber)}
+      cell: (row) => (
+        <span className="font-[family-name:var(--font-mono)] text-[12px] font-medium text-[var(--color-text-primary)]">
+          {shortInvoiceNumber(row.invoiceNumber)}
+        </span>
+      ),
+      className: 'w-[140px] pl-4',
+      headerClassName: 'pl-4',
+    },
+    {
+      id: 'party',
+      header: 'Counterparty',
+      accessorKey: 'customerId',
+      cell: (row) => (
+        <div className="flex items-center gap-2.5">
+          <AgentAvatar name={row.customerId} size={26} />
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+              {shortPartyId(row.customerId)}
+            </span>
           </div>
-          <div className="text-xs text-[var(--color-text-tertiary)]">{invoice.currency}</div>
         </div>
       ),
+    },
+    {
+      id: 'memo',
+      header: 'Memo',
+      cell: (row) => {
+        const overdue = isOverdue(row);
+        const issued = formatDate(row.issuedUtc);
+        const due = formatDate(row.dueUtc);
+        return (
+          <span className="text-[12px] text-[var(--color-text-secondary)]">
+            issued {issued} · due {due}
+            {overdue && (
+              <span className="ml-2 text-[var(--color-danger)]">overdue</span>
+            )}
+          </span>
+        );
+      },
+      className: 'w-[260px]',
+    },
+    {
+      id: 'date',
+      header: 'Date',
+      accessorFn: (row) => (row.issuedUtc ? new Date(row.issuedUtc) : null),
+      sortable: true,
+      cell: (row) => (
+        <span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-secondary)]">
+          {formatDate(row.issuedUtc)}
+        </span>
+      ),
+      className: 'w-[110px]',
     },
     {
       id: 'status',
       header: 'Status',
-      accessorFn: (row) => row.status,
+      accessorKey: 'status',
       sortable: true,
-      cell: (invoice) => (
-        <Badge className={STATUS_STYLES[invoice.status] ?? STATUS_STYLES.Draft}>
-          {invoice.status}
-        </Badge>
-      ),
+      cell: (row) => {
+        const overdue = isOverdue(row);
+        const tone = overdue
+          ? STATUS_TONE.Overdue
+          : STATUS_TONE[row.status] ?? 'default';
+        return (
+          <Pill tone={tone} dot>
+            {overdue ? 'Overdue' : row.status}
+          </Pill>
+        );
+      },
+      className: 'w-[120px]',
     },
     {
-      id: 'issuedUtc',
-      header: 'Issue Date',
-      accessorFn: (row) => row.issuedUtc,
-      sortable: true,
-      cell: (invoice) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">
-          {formatDate(invoice.issuedUtc)}
-        </span>
-      ),
-    },
-    {
-      id: 'dueUtc',
-      header: 'Due Date',
-      accessorFn: (row) => row.dueUtc,
-      sortable: true,
-      cell: (invoice) => (
-        <span
-          className={`text-sm ${
-            isOverdue(invoice)
-              ? 'text-red-600 font-medium'
-              : 'text-[var(--color-text-secondary)]'
-          }`}
-        >
-          {formatDate(invoice.dueUtc)}
-          {isOverdue(invoice) && (
-            <span className="ml-1 text-xs text-red-500">Overdue</span>
-          )}
-        </span>
-      ),
-    },
-    {
-      id: 'totalAmount',
+      id: 'amount',
       header: 'Amount',
       accessorFn: (row) => row.totalAmount,
       sortable: true,
-      headerClassName: 'text-right',
-      className: 'text-right',
-      cell: (invoice) => (
-        <span className="font-medium text-[var(--color-text-primary)]">
-          {formatMoney(invoice.totalAmount, invoice.currency)}
+      cell: (row) => (
+        <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] font-semibold text-[var(--color-text-primary)]">
+          {formatMoney(row.totalAmount, row.currency)}
         </span>
       ),
+      className: 'w-[140px] text-right',
+      headerClassName: 'text-right',
     },
   ];
 
-  // ── Render ────────────────────────────────────────────────────────
-
-  const breadcrumbItems = [
-    { label: 'Billing', href: '/billing/invoices', icon: <Receipt className="w-3.5 h-3.5" /> },
-    { label: 'Invoices', icon: <FileText className="w-3.5 h-3.5" /> },
-  ];
-
-  const statusFilterOptions = [
-    { label: 'All Statuses', value: '__all__' },
-    { label: 'Draft', value: 'Draft' },
-    { label: 'Issued', value: 'Issued' },
-    { label: 'Paid', value: 'Paid' },
-    { label: 'Cancelled', value: 'Cancelled' },
-  ];
-
   return (
-    <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
-
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Invoices</h1>
-          <p className="text-[var(--color-text-secondary)]">
-            Create, manage, and track invoices across your billing operations.
-          </p>
-        </div>
-        <Button onClick={() => navigate('/billing/invoices/new')}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Invoice
-        </Button>
-      </div>
-
-      {/* Summary metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-md bg-zinc-100 dark:bg-zinc-800 p-2">
-                <FileText className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--color-text-tertiary)]">Drafts</div>
-                <div className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  {metrics.draftCount}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-md bg-blue-100 dark:bg-blue-900/30 p-2">
-                <DollarSign className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--color-text-tertiary)]">Outstanding</div>
-                <div className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  {formatMoney(metrics.outstandingAmount, 'USD')}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-md bg-red-100 dark:bg-red-900/30 p-2">
-                <Clock className="w-4 h-4 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--color-text-tertiary)]">Overdue</div>
-                <div className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  {formatMoney(metrics.overdueAmount, 'USD')}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-md bg-emerald-100 dark:bg-emerald-900/30 p-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-xs text-[var(--color-text-tertiary)]">Paid this month</div>
-                <div className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  {formatMoney(metrics.paidThisMonth, 'USD')}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="flex flex-col gap-5 p-6 md:px-8">
+      <PageHeader
+        eyebrow="Finance · Ledger"
+        title="Invoices"
+        subtitle={subtitle}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => void loadInvoices()} disabled={loading}>
+              <RefreshCw className={'h-3 w-3 ' + (loading ? 'animate-spin' : '')} />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={() => navigate('/billing/invoices/new')}>
+              <Plus className="h-3 w-3" />
+              New invoice
+            </Button>
+          </>
+        }
+      />
 
       {error && (
-        <Card className="mb-6 border-red-200 bg-red-50/60 dark:border-red-900/30 dark:bg-red-950/10">
-          <CardContent className="pt-4 pb-4 flex items-center gap-3 text-sm text-red-700 dark:text-red-300">
-            <AlertCircle className="w-4 h-4" />
-            <span>{error}</span>
-            <Button size="sm" variant="outline" onClick={() => void loadInvoices()} className="ml-auto">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          <AlertCircle className="h-4 w-4 flex-none" />
+          <span className="flex-1">{error}</span>
+          <Button variant="outline" size="sm" onClick={() => void loadInvoices()}>
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
       )}
 
-      <DataTableHeader
-        searchValue={searchQuery}
+      <FilterBar
+        tabs={FILTER_TABS}
+        active={statusFilter}
+        onTabChange={setStatusFilter}
+        search={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search invoices..."
-        filterValue={statusFilter || '__all__'}
-        onFilterChange={(v) => setStatusFilter(v === '__all__' ? '' : v)}
-        filterOptions={statusFilterOptions}
-        showViewToggle={false}
+        searchPlaceholder="Filter by invoice, customer, currency…"
+        hideFilterButton
       />
 
-      <Card className="mt-4">
-        <CardContent className="p-0">
-          <DataTable
-            data={pagedInvoices}
-            columns={columns}
-            getRowId={(inv) => inv.id}
-            selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
-            showCheckboxes={false}
-            loading={loading}
-            onRowClick={(invoice) => navigate(`/billing/invoices/${invoice.id}`)}
-            rowActions={(invoice) => (
-              <DataTableRowActions actions={getRowActions(invoice)} />
-            )}
-          />
-        </CardContent>
-      </Card>
-
-      <DataTablePagination
-        pageNumber={pageNumber}
-        pageSize={pageSize}
-        totalCount={totalCount}
-        onPageChange={setPageNumber}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPageNumber(1);
-        }}
-      />
+      <AonikCard padding={0}>
+        <DataTable
+          data={filtered}
+          columns={columns}
+          getRowId={(inv) => inv.id}
+          showCheckboxes={false}
+          loading={loading}
+          loadingMessage="Loading invoices…"
+          emptyTitle="No invoices found"
+          emptyDescription={
+            searchQuery || statusFilter
+              ? 'Try adjusting the active tab or search.'
+              : 'Invoices will appear here as they are issued.'
+          }
+          rowActions={(inv) => <DataTableRowActions actions={rowActions(inv)} />}
+          rowActionsPosition="end"
+          onRowClick={(inv) => navigate(`/billing/invoices/${inv.id}`)}
+        />
+      </AonikCard>
     </div>
   );
 }
