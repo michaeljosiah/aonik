@@ -126,6 +126,43 @@ export interface ActivityItemDto {
 export interface MySpaceSummaryResponse {
   financialMetrics: FinancialMetricDto[];
   recentActivity: ActivityItemDto[];
+  agentOpsToday: number;
+  cashPositionUpdatedAt: string | null;
+  cashTimeline: CashTimelineDto;
+  agentProposals: AgentProposalDto[];
+}
+
+export interface CashTimelineDto {
+  currency: string;
+  historical: CashTimelinePointDto[];
+  projected: CashTimelinePointDto[];
+  events: CashTimelineEventDto[];
+  projectedLow: number | null;
+  projectedLowAt: string | null;
+}
+
+export interface CashTimelinePointDto {
+  date: string;
+  balance: number;
+}
+
+export interface CashTimelineEventDto {
+  date: string;
+  kind: string;
+  label: string;
+  amount: number;
+}
+
+export interface AgentProposalDto {
+  id: string;
+  agentName: string;
+  agentDomain: string;
+  agentIconUrl: string | null;
+  confidence: number;
+  summary: string;
+  reason: string | null;
+  riskTier: string;
+  createdAt: string;
 }
 
 // Tenant Types

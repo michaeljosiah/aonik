@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Contracts.Models.Insights;
 using Aonik.Finance.Contracts.Services.Insights;
@@ -10,28 +12,80 @@ namespace Aonik.Finance.Services.Insights;
 
 internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryService
 {
+    private const int CashTimelineDays = 30;
+
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IAiRunStatsService _aiRunStats;
+    private readonly IAgentProposalQueryService _agentProposals;
+    private readonly ITenantCurrencyProvider _tenantCurrencyProvider;
 
     public MySpaceSummaryService(
         FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IPermissionService permissionService)
+        IPermissionService permissionService,
+        IAiRunStatsService aiRunStats,
+        IAgentProposalQueryService agentProposals,
+        ITenantCurrencyProvider tenantCurrencyProvider)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _aiRunStats = aiRunStats;
+        _agentProposals = agentProposals;
+        _tenantCurrencyProvider = tenantCurrencyProvider;
     }
 
     public async Task<MySpaceSummaryResponse> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        // Cross-module reads — different DbContexts, safe to run in parallel.
+        var agentOpsTask = _aiRunStats.CountForTodayAsync(cancellationToken);
+        var proposalsTask = _agentProposals.ListPendingAsync(5, cancellationToken);
+        var currencyTask = _tenantCurrencyProvider.GetTenantCurrencyCodesAsync(tenantId, cancellationToken);
+
+        // Finance-context reads share a single DbContext — must run serially.
         var metrics = await BuildFinancialMetricsAsync(tenantId, cancellationToken);
         var activity = await BuildActivityFeedAsync(tenantId, cancellationToken);
+        var historical = await BuildDailyCashSeriesAsync(tenantId, cancellationToken);
+        var cashUpdatedAt = await GetCashPositionUpdatedAtAsync(tenantId, cancellationToken);
 
-        return new MySpaceSummaryResponse(metrics, activity);
+        await Task.WhenAll(agentOpsTask, proposalsTask, currencyTask);
+        var agentOpsToday = agentOpsTask.Result;
+        var proposalSummaries = proposalsTask.Result;
+        var currencyCodes = currencyTask.Result;
+        var primaryCurrency = currencyCodes.Count > 0 ? currencyCodes[0] : "USD";
+
+        var apiProposals = proposalSummaries
+            .Select(s => new AgentProposalDto(
+                s.Id,
+                s.AgentName,
+                s.AgentDomain,
+                s.AgentIconUrl,
+                s.Confidence,
+                s.Summary,
+                s.Reason,
+                s.RiskTier,
+                s.CreatedAt))
+            .ToList();
+
+        var cashTimeline = new CashTimelineDto(
+            Currency: primaryCurrency,
+            Historical: historical,
+            Projected: Array.Empty<CashTimelinePointDto>(),
+            Events: Array.Empty<CashTimelineEventDto>(),
+            ProjectedLow: null,
+            ProjectedLowAt: null);
+
+        return new MySpaceSummaryResponse(
+            metrics,
+            activity,
+            agentOpsToday,
+            cashUpdatedAt,
+            cashTimeline,
+            apiProposals);
     }
 
     private async Task<IReadOnlyList<FinancialMetricDto>> BuildFinancialMetricsAsync(
@@ -253,5 +307,104 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
         if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
         if (diff.TotalDays < 30) return $"{(int)diff.TotalDays}d ago";
         return eventAt.ToString("MMM dd");
+    }
+
+    /// <summary>
+    /// Builds a 30-day daily running cash balance for the current tenant by
+    /// projecting asset-account journal entries into per-day deltas applied
+    /// to a baseline computed from all entries before the window. The series
+    /// always returns exactly <see cref="CashTimelineDays"/> points covering
+    /// today and the previous 29 days inclusive — days with no activity carry
+    /// the previous balance forward.
+    /// </summary>
+    private async Task<IReadOnlyList<CashTimelinePointDto>> BuildDailyCashSeriesAsync(
+        Guid tenantId, CancellationToken ct)
+    {
+        var todayUtc = DateTime.UtcNow.Date;
+        var windowStart = todayUtc.AddDays(-(CashTimelineDays - 1));
+        var windowEndExclusive = todayUtc.AddDays(1);
+
+        var assetAccountIds = await _dbContext.LedgerAccounts
+            .Where(a => a.TenantId == tenantId && a.AccountType == "Asset")
+            .Select(a => a.Id)
+            .ToListAsync(ct);
+
+        if (assetAccountIds.Count == 0)
+        {
+            return BuildFlatSeries(windowStart, 0m);
+        }
+
+        var assetSet = assetAccountIds.ToHashSet();
+
+        // Baseline = sum of all asset-side debits/credits before the window.
+        var baselineLines = await _dbContext.JournalEntryLines
+            .Where(l => l.TenantId == tenantId && assetSet.Contains(l.LedgerAccountId))
+            .Join(
+                _dbContext.JournalEntries.Where(e => e.TenantId == tenantId && e.Timestamp < windowStart),
+                l => l.JournalEntryId,
+                e => e.Id,
+                (l, _) => new { l.Direction, l.Amount })
+            .ToListAsync(ct);
+
+        var baseline = baselineLines.Sum(l =>
+            l.Direction.Equals("Debit", StringComparison.OrdinalIgnoreCase) ? l.Amount : -l.Amount);
+
+        // Daily deltas across the window.
+        var windowLines = await _dbContext.JournalEntryLines
+            .Where(l => l.TenantId == tenantId && assetSet.Contains(l.LedgerAccountId))
+            .Join(
+                _dbContext.JournalEntries.Where(e =>
+                    e.TenantId == tenantId &&
+                    e.Timestamp >= windowStart &&
+                    e.Timestamp < windowEndExclusive),
+                l => l.JournalEntryId,
+                e => e.Id,
+                (l, e) => new { l.Direction, l.Amount, EntryDate = e.Timestamp.Date })
+            .ToListAsync(ct);
+
+        var deltaByDate = windowLines
+            .GroupBy(l => l.EntryDate)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(l => l.Direction.Equals("Debit", StringComparison.OrdinalIgnoreCase)
+                    ? l.Amount
+                    : -l.Amount));
+
+        var series = new List<CashTimelinePointDto>(CashTimelineDays);
+        var running = baseline;
+        for (var i = 0; i < CashTimelineDays; i++)
+        {
+            var day = windowStart.AddDays(i);
+            if (deltaByDate.TryGetValue(day, out var delta))
+            {
+                running += delta;
+            }
+            series.Add(new CashTimelinePointDto(day, running));
+        }
+        return series;
+    }
+
+    private static IReadOnlyList<CashTimelinePointDto> BuildFlatSeries(DateTime windowStart, decimal value)
+    {
+        var series = new List<CashTimelinePointDto>(CashTimelineDays);
+        for (var i = 0; i < CashTimelineDays; i++)
+        {
+            series.Add(new CashTimelinePointDto(windowStart.AddDays(i), value));
+        }
+        return series;
+    }
+
+    /// <summary>
+    /// Returns the most recent journal-entry timestamp for the tenant — used
+    /// as the "cash position updated …" freshness signal in the dashboard
+    /// header. Null when the tenant has no entries yet.
+    /// </summary>
+    private async Task<DateTime?> GetCashPositionUpdatedAtAsync(Guid tenantId, CancellationToken ct)
+    {
+        return await _dbContext.JournalEntries
+            .Where(e => e.TenantId == tenantId)
+            .OrderByDescending(e => e.Timestamp)
+            .Select(e => (DateTime?)e.Timestamp)
+            .FirstOrDefaultAsync(ct);
     }
 }

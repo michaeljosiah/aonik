@@ -220,6 +220,9 @@ public sealed class AiModule : IModule
         // Cross-module data provider for the UserBriefProjector (Agents module)
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IUserBriefAiDataProvider, UserBriefAiDataProvider>();
 
+        // Cross-module read aggregate consumed by Finance dashboards (e.g. MySpace).
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IAiRunStatsService, Services.Insights.AiRunStatsService>();
+
         // Cross-module recall provider for agent tools (semantic user memory search)
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IUserMemoryRecallProvider, UserMemoryRecallProvider>();
 

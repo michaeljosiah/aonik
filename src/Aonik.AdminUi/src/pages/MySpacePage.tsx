@@ -1,26 +1,31 @@
 // MySpace dashboard — 1:1 visual port of
-// templates/aonik-admin-starterkit/screens/myspace.jsx.
+// templates/aonik-admin-starterkit/screens/myspace.jsx, fully wired to the
+// extended /insights/myspace-summary backend (Wave 4b):
+//   • header subtitle stats now come from agentProposals.length, the
+//     outstanding-invoices count, and cashPositionUpdatedAt freshness
+//   • KPI 4 reads agentOpsToday
+//   • cash timeline plots the historical[] series in the tenant's primary
+//     settlement currency (currency switcher remains visual-only for now)
+//   • agent proposals card renders ProposalCard rows when proposals exist,
+//     otherwise an empty state
 //
-// Header (eyebrow date + greeting + subtitle stats + CTAs), 4-column KPI
-// grid, two-column row (cash timeline + agent proposals), full-width
-// recent activity. Carousel / quick links / agent grid / databoxes from
-// the prior page are intentionally dropped so the layout matches the
-// template canvas exactly.
-//
-// Data is wired from `mySpaceService.getSummary()` where it exists.
-// Three placeholder regions are tagged for follow-up backend work:
-//   • Agent ops today  — fixed 0 until a backend metric exists.
-//   • Cash timeline    — placeholder SVG (no projection endpoint yet).
-//   • Agent proposals  — empty state (no proposals feed yet).
+// Carousel / quick links / agent grid / databoxes from the prior page are
+// intentionally dropped so the layout matches the template canvas exactly.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Calendar, Filter, Loader2, Plus, RefreshCw, Sparkles } from 'lucide-react';
 
-import { Card, KpiTile } from '@/components/layout/aonik';
+import { Card, KpiTile, ProposalCard } from '@/components/layout/aonik';
 import { mySpaceService } from '@/services/mySpaceService';
 import { useAuth } from '@/auth';
-import type { FinancialMetricDto, MySpaceSummaryResponse } from '@/types';
+import type {
+  AgentProposalDto,
+  CashTimelineDto,
+  CashTimelinePointDto,
+  FinancialMetricDto,
+  MySpaceSummaryResponse,
+} from '@/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -48,10 +53,12 @@ function firstName(fullName: string | undefined | null): string {
   return trimmed.split(/\s+/)[0];
 }
 
-function formatRelative(timestamp: string): string {
+function formatRelative(timestamp: string | null | undefined): string {
+  if (!timestamp) return 'never';
   const then = new Date(timestamp).getTime();
-  if (Number.isNaN(then)) return '—';
+  if (Number.isNaN(then)) return 'never';
   const diffMs = Date.now() - then;
+  if (diffMs < 0) return 'just now';
   const m = Math.round(diffMs / 60_000);
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;
@@ -62,8 +69,6 @@ function formatRelative(timestamp: string): string {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(timestamp));
 }
 
-// Map an activity icon hint to one of the template's dot tones. Falls back
-// to a neutral muted dot when the icon doesn't match a known pattern.
 function activityDotColor(iconHint: string | undefined): string {
   const hint = (iconHint ?? '').toLowerCase();
   if (/check|success|complete|posted|settled/.test(hint)) return 'var(--color-success)';
@@ -72,8 +77,18 @@ function activityDotColor(iconHint: string | undefined): string {
   return 'var(--color-gray-400)';
 }
 
-// Sparkline accent per metric — mirrors the template's KPI palette so the
-// dashboard reads as four distinct streams at a glance.
+function formatCurrency(value: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${currency} ${Math.round(value).toLocaleString()}`;
+  }
+}
+
 const KPI_SPARK_COLOR: Record<string, string> = {
   'cash-position': 'var(--color-brand-primary)',
   revenue: 'var(--color-accent-ent)',
@@ -124,13 +139,10 @@ export function MySpacePage() {
   const greeting = `${greetingForHour(now.getHours())}, ${firstName(user?.name)}.`;
   const eyebrow = formatEyebrowDate(now);
 
-  // Subtitle stats — proposals count is 0 until the backend feed exists,
-  // unpaid invoice count comes from the outstanding-invoices metric, and
-  // freshness is "just now" placeholder until the summary returns a sync
-  // timestamp. Tagged for the Wave 4b backend pass.
-  const proposalsWaiting = 0; // TODO(Wave 4b): wire to agent proposals feed
+  const agentProposals: AgentProposalDto[] = data?.agentProposals ?? [];
+  const proposalsWaiting = agentProposals.length;
   const unpaidInvoiceCount = outstanding?.count ?? 0;
-  const cashFreshness = 'just now'; // TODO(Wave 4b): cashPositionUpdatedAt
+  const cashFreshness = formatRelative(data?.cashPositionUpdatedAt);
 
   if (loading) {
     return (
@@ -163,6 +175,7 @@ export function MySpacePage() {
   }
 
   const activity = data?.recentActivity ?? [];
+  const cashTimeline = data?.cashTimeline;
 
   return (
     <div className="flex flex-col gap-6 p-7 md:px-8">
@@ -201,7 +214,7 @@ export function MySpacePage() {
         </div>
       </div>
 
-      {/* KPI row — always exactly four, same width (per design system) */}
+      {/* KPI row — always exactly four, same width */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           label="Cash position"
@@ -233,11 +246,10 @@ export function MySpacePage() {
           sparkline={outstanding?.sparkline}
           sparkColor={KPI_SPARK_COLOR['outstanding-invoices']}
         />
-        {/* Placeholder until a backend agent-ops metric ships. */}
         <KpiTile
           label="Agent ops today"
-          value="0"
-          delta="—"
+          value={String(data?.agentOpsToday ?? 0)}
+          delta="today"
           deltaTone="neutral"
           sparkColor={KPI_SPARK_COLOR['agent-ops-today']}
         />
@@ -245,8 +257,8 @@ export function MySpacePage() {
 
       {/* Cash timeline + Agent proposals */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <CashTimelineCard />
-        <AgentProposalsCard />
+        <CashTimelineCard data={cashTimeline} />
+        <AgentProposalsCard proposals={agentProposals} />
       </div>
 
       {/* Recent activity */}
@@ -299,7 +311,7 @@ export function MySpacePage() {
                   className="text-[11px] text-[var(--color-text-tertiary)]"
                   style={{ fontFamily: 'var(--font-mono)' }}
                 >
-                  {formatRelative(row.timestamp)}
+                  {row.timestamp}
                 </div>
               </div>
             ))}
@@ -310,125 +322,210 @@ export function MySpacePage() {
   );
 }
 
-// ─── Cash timeline placeholder ───────────────────────────────────────────
-// Renders the template's static demo polyline + projection so the page
-// reads correctly before a real cashTimeline endpoint exists. The currency
-// switcher is visual-only for now. Replace with a charted dataset (Wave 4b).
+// ─── Cash timeline ───────────────────────────────────────────────────────
+// Renders a 30-day historical balance polyline + filled gradient area.
+// Wave 4b ships historical only; projection (dashed forward extension and
+// event markers) lands in Wave 4c. Currency switcher buttons highlight the
+// tenant's primary currency but don't yet fetch alternatives.
 
-function CashTimelineCard() {
+const CASH_CHART_WIDTH = 600;
+const CASH_CHART_HEIGHT = 200;
+const CASH_CHART_PADDING = 12;
+const CASH_SWITCHER_CODES = ['NGN', 'USD', 'GBP'] as const;
+
+interface CashTimelineCardProps {
+  data: CashTimelineDto | undefined;
+}
+
+function CashTimelineCard({ data }: CashTimelineCardProps) {
+  const points = data?.historical ?? [];
+  const currency = data?.currency ?? 'USD';
+
   return (
     <Card
-      title="Cash timeline · next 30 days"
-      subtitle="Projected from scheduled invoices, payouts, and recurring entries"
+      title="Cash timeline · last 30 days"
+      subtitle="Daily running balance across all asset accounts"
       action={
         <div className="flex gap-1 text-[12px]">
-          <button
-            type="button"
-            className="h-7 rounded-md px-2 font-medium text-[var(--color-brand-primary)] hover:bg-[var(--color-surface-inset)]"
-          >
-            NGN
-          </button>
-          <button
-            type="button"
-            className="h-7 rounded-md px-2 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]"
-          >
-            USD
-          </button>
-          <button
-            type="button"
-            className="h-7 rounded-md px-2 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]"
-          >
-            GBP
-          </button>
+          {CASH_SWITCHER_CODES.map((code) => {
+            const isActive = currency === code;
+            return (
+              <button
+                key={code}
+                type="button"
+                className="h-7 rounded-md px-2 font-medium hover:bg-[var(--color-surface-inset)]"
+                style={{
+                  color: isActive
+                    ? 'var(--color-brand-primary)'
+                    : 'var(--color-text-secondary)',
+                }}
+                title={isActive ? `${code} (active)` : `${code} (coming soon)`}
+              >
+                {code}
+              </button>
+            );
+          })}
         </div>
       }
       padding={20}
     >
-      <div className="relative h-[220px]">
-        <svg viewBox="0 0 600 220" preserveAspectRatio="none" className="h-full w-full">
-          <defs>
-            <linearGradient id="ms-cashGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-brand-primary)" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="var(--color-brand-primary)" stopOpacity="0" />
-            </linearGradient>
-            <pattern id="ms-grid" width="60" height="44" patternUnits="userSpaceOnUse">
-              <path d="M 60 0 L 0 0 0 44" fill="none" stroke="var(--color-border-light)" strokeWidth="1" />
-            </pattern>
-          </defs>
-          <rect width="600" height="220" fill="url(#ms-grid)" />
-          <polyline
-            fill="none"
-            stroke="var(--color-brand-primary)"
-            strokeWidth="2"
-            points="0,120 40,112 80,115 120,100 160,105 200,92 240,94 280,80"
-          />
-          <polygon
-            fill="url(#ms-cashGrad)"
-            points="0,120 40,112 80,115 120,100 160,105 200,92 240,94 280,80 280,220 0,220"
-          />
-          <polyline
-            fill="none"
-            stroke="var(--color-brand-primary)"
-            strokeWidth="2"
-            strokeDasharray="4 4"
-            points="280,80 320,78 360,70 400,85 440,68 480,60 520,66 560,50 600,55"
-          />
-          <line
-            x1="280"
-            y1="20"
-            x2="280"
-            y2="200"
-            stroke="var(--color-brand-secondary)"
-            strokeWidth="1.5"
-            strokeDasharray="3 3"
-          />
-          <rect x="240" y="8" width="80" height="18" rx="3" fill="var(--color-brand-secondary-10)" />
-          <text
-            x="280"
-            y="21"
-            fill="var(--color-brand-secondary)"
-            fontSize="10"
-            fontFamily="var(--font-mono)"
-            textAnchor="middle"
-            fontWeight="600"
-          >
-            TODAY
-          </text>
-          <circle cx="340" cy="72" r="4" fill="var(--color-accent-ent)" />
-          <circle cx="420" cy="82" r="4" fill="var(--color-brand-secondary)" />
-          <circle cx="500" cy="62" r="4" fill="var(--color-accent-ent)" />
-        </svg>
-        <div
-          className="absolute bottom-0 left-0 right-0 flex justify-between text-[10px] text-[var(--color-text-tertiary)]"
-          style={{ fontFamily: 'var(--font-mono)' }}
-        >
-          <span>Mar 27</span>
-          <span>Apr 3</span>
-          <span>Apr 10</span>
-          <span>Apr 17</span>
-          <span>Apr 24</span>
-          <span>May 1</span>
-          <span>May 8</span>
-        </div>
-      </div>
+      <CashTimelineChart points={points} currency={currency} />
       <div
         className="mt-3.5 flex flex-wrap gap-4 rounded-lg bg-[var(--color-surface-inset)] px-3 py-2.5 text-[11px] text-[var(--color-text-secondary)]"
         style={{ fontFamily: 'var(--font-mono)' }}
       >
-        <span>◆ Projected low: $58,100 · May 6</span>
-        <span>◆ 3 revenue events</span>
-        <span>◆ 1 payroll · Apr 30</span>
+        <CashTimelineSummary points={points} currency={currency} />
       </div>
     </Card>
   );
 }
 
-// ─── Agent proposals empty state ─────────────────────────────────────────
-// Placeholder until a pending-proposals feed exists on the backend. Once
-// agentProposals[] lands on MySpaceSummaryResponse, render <ProposalCard>
-// rows here in compact mode.
+function CashTimelineChart({
+  points,
+  currency,
+}: {
+  points: CashTimelinePointDto[];
+  currency: string;
+}) {
+  if (points.length === 0) {
+    return (
+      <div
+        className="flex h-[220px] items-center justify-center text-[12px] text-[var(--color-text-tertiary)]"
+        style={{ fontFamily: 'var(--font-mono)' }}
+      >
+        No cash entries in the last 30 days.
+      </div>
+    );
+  }
 
-function AgentProposalsCard() {
+  const balances = points.map((p) => p.balance);
+  const max = Math.max(...balances);
+  const min = Math.min(...balances);
+  const range = max - min || 1;
+
+  const xFor = (i: number) =>
+    CASH_CHART_PADDING +
+    (i / Math.max(1, points.length - 1)) * (CASH_CHART_WIDTH - 2 * CASH_CHART_PADDING);
+  const yFor = (balance: number) =>
+    CASH_CHART_PADDING +
+    (1 - (balance - min) / range) * (CASH_CHART_HEIGHT - 2 * CASH_CHART_PADDING);
+
+  const polyline = points.map((p, i) => `${xFor(i).toFixed(1)},${yFor(p.balance).toFixed(1)}`).join(' ');
+  const polygon = `${polyline} ${xFor(points.length - 1).toFixed(1)},${CASH_CHART_HEIGHT} ${xFor(0).toFixed(1)},${CASH_CHART_HEIGHT}`;
+
+  // 6 evenly-spaced date labels across the bottom.
+  const labelIndices = points.length >= 6 ? [0, 6, 12, 18, 24, points.length - 1] : points.map((_, i) => i);
+  const labelDates = labelIndices.map((i) => points[i]?.date).filter(Boolean) as string[];
+
+  return (
+    <div className="relative h-[220px]">
+      <svg
+        viewBox={`0 0 ${CASH_CHART_WIDTH} ${CASH_CHART_HEIGHT}`}
+        preserveAspectRatio="none"
+        className="block h-full w-full"
+        aria-label={`Cash timeline in ${currency}`}
+      >
+        <defs>
+          <linearGradient id="ms-cashGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-brand-primary)" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="var(--color-brand-primary)" stopOpacity="0" />
+          </linearGradient>
+          <pattern id="ms-grid" width="60" height="44" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 44" fill="none" stroke="var(--color-border-light)" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect width={CASH_CHART_WIDTH} height={CASH_CHART_HEIGHT} fill="url(#ms-grid)" />
+        <polygon fill="url(#ms-cashGrad)" points={polygon} />
+        <polyline
+          fill="none"
+          stroke="var(--color-brand-primary)"
+          strokeWidth="2"
+          points={polyline}
+        />
+        {/* TODAY marker at the right edge of the historical series */}
+        <line
+          x1={xFor(points.length - 1)}
+          y1={CASH_CHART_PADDING}
+          x2={xFor(points.length - 1)}
+          y2={CASH_CHART_HEIGHT - CASH_CHART_PADDING}
+          stroke="var(--color-brand-secondary)"
+          strokeWidth="1.5"
+          strokeDasharray="3 3"
+        />
+        <rect
+          x={xFor(points.length - 1) - 32}
+          y={4}
+          width="64"
+          height="18"
+          rx="3"
+          fill="var(--color-brand-secondary-10)"
+        />
+        <text
+          x={xFor(points.length - 1)}
+          y={17}
+          fill="var(--color-brand-secondary)"
+          fontSize="10"
+          fontFamily="var(--font-mono)"
+          textAnchor="middle"
+          fontWeight="600"
+        >
+          TODAY
+        </text>
+      </svg>
+      <div
+        className="absolute bottom-0 left-0 right-0 flex justify-between px-3 text-[10px] text-[var(--color-text-tertiary)]"
+        style={{ fontFamily: 'var(--font-mono)' }}
+      >
+        {labelDates.map((iso) => (
+          <span key={iso}>
+            {new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso))}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CashTimelineSummary({
+  points,
+  currency,
+}: {
+  points: CashTimelinePointDto[];
+  currency: string;
+}) {
+  if (points.length === 0) {
+    return <span>◆ No activity in the window</span>;
+  }
+  const balances = points.map((p) => p.balance);
+  const minBalance = Math.min(...balances);
+  const minIndex = balances.indexOf(minBalance);
+  const minDate = points[minIndex]?.date;
+  const latest = points[points.length - 1]?.balance ?? 0;
+  const earliest = points[0]?.balance ?? 0;
+  const delta = latest - earliest;
+
+  return (
+    <>
+      <span>
+        ◆ Latest: {formatCurrency(latest, currency)}
+      </span>
+      <span>
+        ◆ 30-day low: {formatCurrency(minBalance, currency)}
+        {minDate
+          ? ` · ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(minDate))}`
+          : ''}
+      </span>
+      <span>
+        ◆ Net change: {delta >= 0 ? '+' : ''}
+        {formatCurrency(delta, currency)}
+      </span>
+    </>
+  );
+}
+
+// ─── Agent proposals ─────────────────────────────────────────────────────
+
+function AgentProposalsCard({ proposals }: { proposals: AgentProposalDto[] }) {
   return (
     <Card
       title="Agent proposals"
@@ -436,27 +533,42 @@ function AgentProposalsCard() {
       action={
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-pending-light)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-pending)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-pending)]" aria-hidden />
-          0 pending
+          {proposals.length} pending
         </span>
       }
       padding={20}
     >
-      <div className="flex h-[220px] flex-col items-center justify-center gap-3 text-center">
-        <div
-          className="grid h-10 w-10 place-items-center rounded-full"
-          style={{ background: 'var(--color-brand-primary-10)' }}
-        >
-          <Sparkles className="h-5 w-5 text-[var(--color-brand-primary)]" />
-        </div>
-        <div>
-          <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
-            No pending proposals
+      {proposals.length === 0 ? (
+        <div className="flex h-[220px] flex-col items-center justify-center gap-3 text-center">
+          <div
+            className="grid h-10 w-10 place-items-center rounded-full"
+            style={{ background: 'var(--color-brand-primary-10)' }}
+          >
+            <Sparkles className="h-5 w-5 text-[var(--color-brand-primary)]" />
           </div>
-          <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
-            Agents will surface proposals here when they need a human decision.
-          </p>
+          <div>
+            <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+              No pending proposals
+            </div>
+            <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+              Agents will surface proposals here when they need a human decision.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {proposals.map((p) => (
+            <ProposalCard
+              key={p.id}
+              agent={p.agentDomain || p.agentName}
+              confidence={p.confidence}
+              summary={p.summary}
+              reason={p.reason ?? undefined}
+              compact
+            />
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
