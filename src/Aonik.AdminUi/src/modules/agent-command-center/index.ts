@@ -9,35 +9,56 @@ import { ApprovalsPage } from '@/pages/approvals';
 import { AiRunQueuePage, AiPoliciesPage, AiUsagePage } from '@/pages/ai-ops';
 
 // ── Navigation ─────────────────────────────────────────────────────────
+//
+// One "AI & Agents" parent that pops out into three child groups —
+// Operations / Configuration / Build & debug — replacing both the old
+// "Command Center" section here and the loose "AI" parent that used to
+// live in core/index.ts. Mirrors the starterkit's single Platform > AI
+// & Agents entry, just with more depth because Aonik exposes the
+// configuration surfaces too.
+//
+// Approvals does NOT appear here even though /approvals is wired in
+// this module's routes — it's surfaced under finance/Transact alongside
+// Orders, since cross-cutting decisions aren't AI-only.
 
 const navigation: NavigationSection[] = [
   {
-    id: 'agent-command-center',
-    label: 'Command Center',
+    id: 'ai-agents',
+    label: 'AI & Agents',
     items: [
       {
-        id: 'approvals',
-        label: 'Approvals',
-        icon: 'CheckCircle2',
-        href: '/approvals',
-      },
-      {
-        id: 'ai-runs',
-        label: 'Run queue',
-        icon: 'Activity',
-        href: '/ai/runs',
-      },
-      {
-        id: 'ai-policies',
-        label: 'Policies',
-        icon: 'ShieldCheck',
-        href: '/ai/policies',
-      },
-      {
-        id: 'ai-usage',
-        label: 'Usage',
-        icon: 'TrendingUp',
-        href: '/ai/usage',
+        id: 'ai-agents-parent',
+        label: 'AI & Agents',
+        icon: 'Bot',
+        viewAllHref: '/ai/runs',
+        viewAllLabel: 'Open run queue',
+        childGroups: [
+          {
+            label: 'Operations',
+            items: [
+              { id: 'ai-runs', label: 'Run queue', icon: 'Activity', href: '/ai/runs' },
+              { id: 'ai-policies', label: 'Policies', icon: 'ShieldCheck', href: '/ai/policies' },
+              { id: 'ai-usage', label: 'Usage', icon: 'TrendingUp', href: '/ai/usage' },
+            ],
+          },
+          {
+            label: 'Configuration',
+            items: [
+              { id: 'ai-agents-item', label: 'Agents', icon: 'Bot', href: '/ai/agents' },
+              { id: 'ai-models-item', label: 'AI Models', icon: 'Brain', href: '/ai/models' },
+              { id: 'ai-tasks-item', label: 'LLM Tasks', icon: 'ListChecks', href: '/ai/tasks' },
+              { id: 'ai-prompts-item', label: 'Prompt Templates', icon: 'FileText', href: '/ai/prompts' },
+              { id: 'ai-routing-item', label: 'Route Policies', icon: 'Route', href: '/ai/routing' },
+            ],
+          },
+          {
+            label: 'Build & debug',
+            items: [
+              { id: 'ai-playground-item', label: 'AI Playground', icon: 'FlaskConical', href: '/ai/playground' },
+              { id: 'ai-traces-item', label: 'AI Traces', icon: 'Activity', href: '/ai/traces' },
+            ],
+          },
+        ],
       },
     ],
   },

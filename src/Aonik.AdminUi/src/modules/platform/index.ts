@@ -35,9 +35,12 @@ import { wrapPage } from '../utils';
 // ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
+// Single "Platform" section gathers Team + Admin under one host-only
+// label, matching the starterkit's Platform group.
 const navigation: NavigationSection[] = [
   {
-    id: 'team',
+    id: 'platform',
+    label: 'Platform',
     audience: 'host',
     items: [
       {
@@ -51,12 +54,6 @@ const navigation: NavigationSection[] = [
           { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions' },
         ],
       },
-    ],
-  },
-  {
-    id: 'admin',
-    audience: 'host',
-    items: [
       {
         id: 'admin',
         label: 'Admin',

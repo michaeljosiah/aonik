@@ -50,27 +50,40 @@ import { wrapPage } from '../utils';
 // ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
+// Two sections, mirroring the starterkit's "Transact" (cross-cutting
+// verb layer) and a Finance group for operational data. Approvals lives
+// in Transact alongside Orders since both are cross-cutting decision
+// queues — see templates/aonik-admin-starterkit/kit/shell-aonik.jsx.
 const navigation: NavigationSection[] = [
   {
+    id: 'transact',
+    label: 'Transact',
+    items: [
+      {
+        id: 'orders',
+        label: 'Orders',
+        icon: 'ClipboardList',
+        href: '/orders/activity',
+      },
+      // /approvals is owned by the agent-command-center module; surfaced
+      // here for discoverability — it's a cross-cutting decision queue.
+      {
+        id: 'approvals',
+        label: 'Approvals',
+        icon: 'CheckCircle2',
+        href: '/approvals',
+      },
+    ],
+  },
+  {
     id: 'finance',
+    label: 'Finance',
     items: [
       {
         id: 'party-profiles',
         label: 'Customers',
         icon: 'Building2',
         href: '/customers',
-      },
-      {
-        id: 'accounts',
-        label: 'Accounts',
-        icon: 'Landmark',
-        href: '/accounts',
-      },
-      {
-        id: 'orders',
-        label: 'Orders',
-        icon: 'ClipboardList',
-        href: '/orders/activity',
       },
       {
         id: 'billing-invoices',
@@ -89,11 +102,19 @@ const navigation: NavigationSection[] = [
             label: 'Accounting',
             items: [
               { id: 'ledger-overview', label: 'Books', icon: 'BookOpen', href: '/ledger' },
-              { id: 'ledger-accounts', label: 'Accounts', icon: 'Landmark', href: '/ledger/accounts' },
-              { id: 'ledger-journal-entries', label: 'Transactions', icon: 'ClipboardList', href: '/ledger/journal-entries' },
+              { id: 'ledger-accounts', label: 'Chart of accounts', icon: 'Landmark', href: '/ledger/accounts' },
+              { id: 'ledger-journal-entries', label: 'Journal entries', icon: 'ClipboardList', href: '/ledger/journal-entries' },
             ],
           },
         ],
+      },
+      // Renamed from "Accounts" to disambiguate from Accounting > Chart
+      // of accounts. /accounts is the external bank-connection list.
+      {
+        id: 'bank-accounts',
+        label: 'Bank accounts',
+        icon: 'Landmark',
+        href: '/accounts',
       },
       {
         id: 'service-catalog',

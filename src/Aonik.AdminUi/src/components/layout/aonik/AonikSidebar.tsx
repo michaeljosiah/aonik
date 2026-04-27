@@ -25,6 +25,8 @@ import {
   AudioLines, FlaskConical, Route,
   // Wave 6+ Command Center icons
   CheckCircle2, Activity, ShieldCheck, TrendingUp, SlidersHorizontal,
+  // Consolidated AI & Agents nav (post-Wave-7b nav simplification)
+  ListChecks,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -63,6 +65,8 @@ const iconMap: Record<string, ElementType> = {
   Timer, Bell, AudioLines, FlaskConical, Route,
   // Command Center (Wave 6+)
   CheckCircle2, Activity, ShieldCheck, TrendingUp, SlidersHorizontal,
+  // Consolidated AI & Agents nav
+  ListChecks,
 };
 
 interface AonikSidebarProps {

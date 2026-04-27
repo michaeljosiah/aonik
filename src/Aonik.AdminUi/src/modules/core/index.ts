@@ -18,7 +18,13 @@ import { AiPlaygroundPage } from '@/pages/ai/AiPlaygroundPage';
 import { AiPlaygroundPanel } from '@/workspace/apps/AiPlaygroundPanel';
 
 // ---------------------------------------------------------------------------
-// Navigation — "Home" section shared across all modules
+// Navigation — "Home" section only.
+//
+// AI/agent nav lives in the agent-command-center module (post-Wave-7b nav
+// simplification): every AI surface — Run queue, Policies, Usage,
+// Playground, Traces, Models, Prompts, etc. — is grouped under a single
+// "AI & Agents" parent there. This module just owns the top-of-rail
+// shortcuts every signed-in user sees.
 // ---------------------------------------------------------------------------
 const navigation: NavigationSection[] = [
   {
@@ -37,67 +43,6 @@ const navigation: NavigationSection[] = [
         href: '/workspace',
         viewAllHref: '/workspace',
         viewAllLabel: 'View all',
-      },
-    ],
-  },
-  {
-    id: 'ai',
-    items: [
-      {
-        id: 'ai',
-        label: 'AI',
-        icon: 'Bot',
-        viewAllHref: '/ai/agents',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Configuration',
-            items: [
-              {
-                id: 'ai-agents-item',
-                label: 'Agents',
-                icon: 'Bot',
-                href: '/ai/agents',
-              },
-              {
-                id: 'ai-models-item',
-                label: 'AI Models',
-                icon: 'Brain',
-                href: '/ai/models',
-              },
-              {
-                id: 'ai-tasks-item',
-                label: 'LLM Tasks',
-                icon: 'ListChecks',
-                href: '/ai/tasks',
-              },
-              {
-                id: 'ai-prompts-item',
-                label: 'Prompt Templates',
-                icon: 'FileText',
-                href: '/ai/prompts',
-              },
-              {
-                id: 'ai-routing-item',
-                label: 'Route Policies',
-                icon: 'Route',
-                href: '/ai/routing',
-              },
-              {
-                id: 'ai-playground-item',
-                label: 'AI Playground',
-                icon: 'FlaskConical',
-                href: '/ai/playground',
-              },
-              {
-                id: 'ai-traces-item',
-                label: 'AI Traces',
-                icon: 'Activity',
-                href: '/ai/traces',
-              },
-            ],
-          },
-        ],
       },
     ],
   },
