@@ -51,7 +51,9 @@ public record ListOrdersRequest(
     string? Status = null,
     string? OrderType = null,
     string? Search = null,
-    Guid? PayerPartyId = null);
+    Guid? PayerPartyId = null,
+    DateTime? CreatedFromUtc = null,
+    DateTime? CreatedToUtc = null);
 
 public record OrderListItemResponse(
     Guid OrderId,

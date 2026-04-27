@@ -158,6 +158,14 @@ export function OrdersListPage() {
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
+    // "Today" = orders created since 00:00 local. The backend filter is
+    // inclusive on the lower bound and exclusive on the upper bound, so we
+    // pass start-of-today and start-of-tomorrow.
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
     try {
       const results = await Promise.all(
         STAT_BUCKETS.map((bucket) =>
@@ -165,6 +173,8 @@ export function OrdersListPage() {
             pageSize: 1,
             status: bucket.status,
             orderType: bucket.orderType,
+            createdFromUtc: startOfToday.toISOString(),
+            createdToUtc: startOfTomorrow.toISOString(),
           }),
         ),
       );
@@ -355,7 +365,7 @@ export function OrdersListPage() {
                 : (stats[bucket.key] ?? 0).toLocaleString()}
             </div>
             <div className="font-[family-name:var(--font-mono)] text-[10px] text-[var(--color-text-tertiary)]">
-              all time · click to filter
+              today · click to filter status
             </div>
           </button>
         ))}

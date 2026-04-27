@@ -17,6 +17,10 @@ export interface ListOrdersParams {
   orderType?: string;
   search?: string;
   payerPartyId?: string;
+  /** Inclusive lower bound on Order.CreatedAt — ISO-8601 UTC string. */
+  createdFromUtc?: string;
+  /** Exclusive upper bound on Order.CreatedAt — ISO-8601 UTC string. */
+  createdToUtc?: string;
 }
 
 export const orderService = {
@@ -28,6 +32,8 @@ export const orderService = {
     if (params.orderType) queryParams.append('orderType', params.orderType);
     if (params.search) queryParams.append('search', params.search);
     if (params.payerPartyId) queryParams.append('payerPartyId', params.payerPartyId);
+    if (params.createdFromUtc) queryParams.append('createdFromUtc', params.createdFromUtc);
+    if (params.createdToUtc) queryParams.append('createdToUtc', params.createdToUtc);
 
     const query = queryParams.toString();
     return api.get<PagedResult<OrderListItem>>(`/orders${query ? `?${query}` : ''}`);

@@ -6,7 +6,11 @@ public record ListOrdersRequest(
     string? Status = null,
     string? OrderType = null,
     string? Search = null,
-    Guid? PayerPartyId = null
+    Guid? PayerPartyId = null,
+    /// <summary>Inclusive lower bound on Order.CreatedAt (UTC).</summary>
+    DateTime? CreatedFromUtc = null,
+    /// <summary>Exclusive upper bound on Order.CreatedAt (UTC).</summary>
+    DateTime? CreatedToUtc = null
 );
 
 public record OrderListItem(

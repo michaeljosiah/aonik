@@ -75,6 +75,18 @@ internal class OrderService : IOrderService
             query = query.Where(order => order.PayerPartyId == payerPartyId);
         }
 
+        if (request.CreatedFromUtc.HasValue)
+        {
+            var fromUtc = request.CreatedFromUtc.Value;
+            query = query.Where(order => order.CreatedAt >= fromUtc);
+        }
+
+        if (request.CreatedToUtc.HasValue)
+        {
+            var toUtc = request.CreatedToUtc.Value;
+            query = query.Where(order => order.CreatedAt < toUtc);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
