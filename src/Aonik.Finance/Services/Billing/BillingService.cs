@@ -258,10 +258,60 @@ internal class BillingService : FinanceServiceBase, IBillingService
             .OrderByDescending(i => i.IssueDate)
             .ToListAsync(cancellationToken);
 
-        return invoices.Select(MapToResponse).ToList();
+        if (invoices.Count == 0)
+        {
+            return new List<InvoiceResponse>();
+        }
+
+        // Two-hop lookup: Invoice → CustomerAccount → Party. We post-fetch
+        // both sides in batched queries rather than navigation Includes
+        // because the relations are FK-only (no navigation properties on
+        // the entities). This mirrors OrderService.ListOrdersAsync.
+        var customerAccountIds = invoices
+            .Select(i => i.CustomerAccountId)
+            .Distinct()
+            .ToList();
+
+        var customerAccountToParty = await _dbContext.CustomerAccounts
+            .AsNoTracking()
+            .Where(ca => ca.TenantId == tenantId && customerAccountIds.Contains(ca.Id))
+            .Select(ca => new { ca.Id, ca.CustomerPartyId })
+            .ToDictionaryAsync(x => x.Id, x => x.CustomerPartyId, cancellationToken);
+
+        var partyIds = customerAccountToParty.Values.Distinct().ToList();
+        var partyNamesById = partyIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _dbContext.Parties
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantId && partyIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.DisplayName })
+                .ToDictionaryAsync(p => p.Id, p => p.DisplayName, cancellationToken);
+
+        return invoices.Select(invoice =>
+        {
+            Guid? partyId = null;
+            string partyName = string.Empty;
+            if (customerAccountToParty.TryGetValue(invoice.CustomerAccountId, out var resolvedPartyId))
+            {
+                partyId = resolvedPartyId;
+                if (partyNamesById.TryGetValue(resolvedPartyId, out var name))
+                {
+                    partyName = name;
+                }
+            }
+            return MapToResponse(invoice, partyId, partyName);
+        }).ToList();
     }
 
     private static InvoiceResponse MapToResponse(Invoice invoice)
+    {
+        return MapToResponse(invoice, customerPartyId: null, customerName: string.Empty);
+    }
+
+    private static InvoiceResponse MapToResponse(
+        Invoice invoice,
+        Guid? customerPartyId,
+        string customerName)
     {
         return new InvoiceResponse(
             invoice.Id,
@@ -277,7 +327,9 @@ internal class BillingService : FinanceServiceBase, IBillingService
                 li.Description,
                 li.Quantity,
                 li.UnitPrice,
-                li.LineTotal)).ToList());
+                li.LineTotal)).ToList(),
+            customerPartyId,
+            customerName);
     }
 
 }

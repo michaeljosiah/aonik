@@ -72,6 +72,19 @@ function shortPartyId(partyId: string): string {
   return `CUS-${compact}`;
 }
 
+/** Display label preferring real party name, falling back to truncated ID. */
+function partyDisplay(invoice: InvoiceResponse): { label: string; sub?: string } {
+  if (invoice.customerName && invoice.customerName.trim().length > 0) {
+    return {
+      label: invoice.customerName,
+      sub: invoice.customerPartyId ? shortPartyId(invoice.customerPartyId) : undefined,
+    };
+  }
+  // Backend couldn't resolve the party — show the customerAccountId as a
+  // last-resort handle so each row is still distinguishable.
+  return { label: shortPartyId(invoice.customerId) };
+}
+
 const STATUS_TONE: Record<string, PillTone> = {
   Draft: 'muted',
   Issued: 'info',
@@ -132,7 +145,9 @@ export function InvoicesListPage() {
       (inv) =>
         inv.invoiceNumber.toLowerCase().includes(q) ||
         inv.currency.toLowerCase().includes(q) ||
-        inv.customerId.toLowerCase().includes(q),
+        inv.customerId.toLowerCase().includes(q) ||
+        (inv.customerPartyId ?? '').toLowerCase().includes(q) ||
+        (inv.customerName ?? '').toLowerCase().includes(q),
     );
   }, [invoices, searchQuery]);
 
@@ -250,17 +265,26 @@ export function InvoicesListPage() {
     {
       id: 'party',
       header: 'Counterparty',
-      accessorKey: 'customerId',
-      cell: (row) => (
-        <div className="flex items-center gap-2.5">
-          <AgentAvatar name={row.customerId} size={26} />
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
-              {shortPartyId(row.customerId)}
-            </span>
+      accessorFn: (row) => row.customerName || row.customerPartyId || row.customerId,
+      sortable: true,
+      cell: (row) => {
+        const { label, sub } = partyDisplay(row);
+        return (
+          <div className="flex items-center gap-2.5">
+            <AgentAvatar name={label} size={26} />
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                {label}
+              </span>
+              {sub && (
+                <span className="font-[family-name:var(--font-mono)] truncate text-[11px] text-[var(--color-text-tertiary)]">
+                  {sub}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: 'memo',

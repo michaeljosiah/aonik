@@ -1633,6 +1633,7 @@ export interface UpdateNotificationTemplateBindingRequest {
 
 export interface InvoiceResponse {
   id: string;
+  /** CustomerAccount FK on the invoice. Prefer customerPartyId for display. */
   customerId: string;
   invoiceNumber: string;
   currency: string;
@@ -1641,6 +1642,10 @@ export interface InvoiceResponse {
   issuedUtc: string;
   dueUtc: string;
   lineItems: InvoiceLineItemResponse[];
+  /** Party.Id resolved via Invoice.CustomerAccountId → CustomerAccount.CustomerPartyId. */
+  customerPartyId?: string | null;
+  /** Party.DisplayName. Empty string when the party row couldn't be resolved. */
+  customerName?: string;
 }
 
 export interface InvoiceLineItemResponse {
