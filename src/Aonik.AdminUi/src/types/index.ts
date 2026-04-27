@@ -165,6 +165,26 @@ export interface AgentProposalDto {
   createdAt: string;
 }
 
+/** Full detail for a proposal — returned by /ai/proposals/{id} (Wave 4c.2). */
+export interface ProposalDetailResponse {
+  id: string;
+  proposalType: string;
+  proposedByAgentId: string;
+  agentName: string;
+  agentDomain: string;
+  agentIconUrl: string | null;
+  aiRunId: string;
+  summary: string;
+  riskTier: string;
+  confidence: number;
+  /** "Proposed" | "Approved" | "Rejected" — string for forward compatibility */
+  status: string;
+  approvedByUserId: string | null;
+  approvedAt: string | null;
+  payloadJson: string;
+  createdAt: string;
+}
+
 // Tenant Types
 export type TenantStatus = 'Active' | 'Provisioning' | 'Deactivated' | 'Suspended';
 export type TenantEnvironment = 'Dev' | 'Test' | 'Staging' | 'Prod';

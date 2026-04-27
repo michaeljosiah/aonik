@@ -53,6 +53,9 @@ public sealed class AgentsModule : IModule
         // Cross-module read aggregate consumed by Finance dashboards (e.g. MySpace).
         services.AddScoped<Aonik.SharedKernel.Abstractions.Agents.IAgentProposalQueryService, Services.Insights.AgentProposalQueryService>();
 
+        // Proposal approval pipeline — wires the dashboard's Apply / Dismiss / Review actions.
+        services.AddScoped<IProposalApprovalService, Services.ProposalApprovalService>();
+
         // Seed global default agent configurations on startup
         services.AddHostedService<AgentConfigurationSeedingService>();
 

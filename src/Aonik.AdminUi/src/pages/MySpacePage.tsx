@@ -15,9 +15,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Calendar, Filter, Loader2, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Card, KpiTile, ProposalCard } from '@/components/layout/aonik';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { mySpaceService } from '@/services/mySpaceService';
+import { agentProposalsService } from '@/services/agentProposalsService';
 import { useAuth } from '@/auth';
 import type {
   AgentProposalDto,
@@ -25,6 +32,7 @@ import type {
   CashTimelinePointDto,
   FinancialMetricDto,
   MySpaceSummaryResponse,
+  ProposalDetailResponse,
 } from '@/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -139,10 +147,47 @@ export function MySpacePage() {
   const greeting = `${greetingForHour(now.getHours())}, ${firstName(user?.name)}.`;
   const eyebrow = formatEyebrowDate(now);
 
-  const agentProposals: AgentProposalDto[] = data?.agentProposals ?? [];
-  const proposalsWaiting = agentProposals.length;
+  // Local proposals copy so Apply / Dismiss can optimistically remove the
+  // card before the server round-trip completes; on failure we restore.
+  const [proposals, setProposals] = useState<AgentProposalDto[]>([]);
+  useEffect(() => {
+    setProposals(data?.agentProposals ?? []);
+  }, [data]);
+
+  const proposalsWaiting = proposals.length;
   const unpaidInvoiceCount = outstanding?.count ?? 0;
   const cashFreshness = formatRelative(data?.cashPositionUpdatedAt);
+
+  const handleApproveProposal = useCallback(async (id: string) => {
+    const previous = proposals;
+    setProposals((current) => current.filter((p) => p.id !== id));
+    try {
+      await agentProposalsService.approve(id);
+      toast.success('Proposal applied');
+    } catch (err) {
+      const message = (err as { userMessage?: string })?.userMessage
+        ?? (err instanceof Error ? err.message : 'Could not apply proposal.');
+      toast.error(message);
+      setProposals(previous);
+    }
+  }, [proposals]);
+
+  const handleDismissProposal = useCallback(async (id: string) => {
+    const previous = proposals;
+    setProposals((current) => current.filter((p) => p.id !== id));
+    try {
+      await agentProposalsService.dismiss(id);
+      toast.success('Proposal dismissed');
+    } catch (err) {
+      const message = (err as { userMessage?: string })?.userMessage
+        ?? (err instanceof Error ? err.message : 'Could not dismiss proposal.');
+      toast.error(message);
+      setProposals(previous);
+    }
+  }, [proposals]);
+
+  const [reviewProposalId, setReviewProposalId] = useState<string | null>(null);
+  const handleReviewProposal = useCallback((id: string) => setReviewProposalId(id), []);
 
   if (loading) {
     return (
@@ -258,8 +303,26 @@ export function MySpacePage() {
       {/* Cash timeline + Agent proposals */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
         <CashTimelineCard data={cashTimeline} />
-        <AgentProposalsCard proposals={agentProposals} />
+        <AgentProposalsCard
+          proposals={proposals}
+          onApprove={handleApproveProposal}
+          onReview={handleReviewProposal}
+          onDismiss={handleDismissProposal}
+        />
       </div>
+
+      <ProposalReviewDialog
+        proposalId={reviewProposalId}
+        onClose={() => setReviewProposalId(null)}
+        onApprove={async (id) => {
+          setReviewProposalId(null);
+          await handleApproveProposal(id);
+        }}
+        onDismiss={async (id) => {
+          setReviewProposalId(null);
+          await handleDismissProposal(id);
+        }}
+      />
 
       {/* Recent activity */}
       <Card
@@ -525,7 +588,19 @@ function CashTimelineSummary({
 
 // ─── Agent proposals ─────────────────────────────────────────────────────
 
-function AgentProposalsCard({ proposals }: { proposals: AgentProposalDto[] }) {
+interface AgentProposalsCardProps {
+  proposals: AgentProposalDto[];
+  onApprove: (id: string) => void;
+  onReview: (id: string) => void;
+  onDismiss: (id: string) => void;
+}
+
+function AgentProposalsCard({
+  proposals,
+  onApprove,
+  onReview,
+  onDismiss,
+}: AgentProposalsCardProps) {
   return (
     <Card
       title="Agent proposals"
@@ -565,10 +640,178 @@ function AgentProposalsCard({ proposals }: { proposals: AgentProposalDto[] }) {
               summary={p.summary}
               reason={p.reason ?? undefined}
               compact
+              onApply={() => onApprove(p.id)}
+              onReview={() => onReview(p.id)}
+              onDismiss={() => onDismiss(p.id)}
             />
           ))}
         </div>
       )}
     </Card>
+  );
+}
+
+// ─── Review dialog ───────────────────────────────────────────────────────
+// Lightweight inspector for a single proposal — fetches the full detail
+// (including PayloadJson) on open. Per-ProposalType custom views can land
+// later; for now we render a generic key-value layout plus a JSON dump.
+
+function ProposalReviewDialog({
+  proposalId,
+  onClose,
+  onApprove,
+  onDismiss,
+}: {
+  proposalId: string | null;
+  onClose: () => void;
+  onApprove: (id: string) => Promise<void>;
+  onDismiss: (id: string) => Promise<void>;
+}) {
+  const open = proposalId !== null;
+  const [detail, setDetail] = useState<ProposalDetailResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!proposalId) {
+      setDetail(null);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    agentProposalsService
+      .get(proposalId)
+      .then((d) => {
+        if (cancelled) return;
+        setDetail(d);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(
+          (err as { userMessage?: string })?.userMessage ??
+            (err instanceof Error ? err.message : 'Could not load proposal.'),
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [proposalId]);
+
+  const prettyPayload = useMemo(() => {
+    if (!detail?.payloadJson) return '';
+    try {
+      return JSON.stringify(JSON.parse(detail.payloadJson), null, 2);
+    } catch {
+      return detail.payloadJson;
+    }
+  }, [detail]);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
+      <DialogContent className="max-w-[640px]">
+        <DialogHeader>
+          <DialogTitle>Review proposal</DialogTitle>
+          <DialogDescription>
+            Inspect the full agent payload before applying or dismissing.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading && (
+          <div className="flex items-center justify-center py-8 text-sm text-[var(--color-text-secondary)]">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading proposal…
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="flex items-center gap-2 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-sm text-[var(--color-error)]">
+            <AlertCircle className="h-4 w-4" />
+            {error}
+          </div>
+        )}
+
+        {detail && !loading && !error && (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
+              <ReviewField label="Agent" value={`${detail.agentName} · ${detail.agentDomain}`} />
+              <ReviewField label="Type" value={detail.proposalType} />
+              <ReviewField
+                label="Confidence"
+                value={
+                  <span className="font-mono">{detail.confidence.toFixed(2)}</span>
+                }
+              />
+              <ReviewField
+                label="Risk"
+                value={
+                  <Badge variant="outline" className="text-[11px]">
+                    {detail.riskTier || 'unknown'}
+                  </Badge>
+                }
+              />
+              <ReviewField label="Status" value={detail.status} />
+              <ReviewField
+                label="Created"
+                value={new Date(detail.createdAt).toLocaleString()}
+              />
+            </div>
+
+            <div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Summary
+              </div>
+              <div className="rounded-md bg-[var(--color-surface-inset)] px-3 py-2 text-[13px] text-[var(--color-text-primary)]">
+                {detail.summary}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Payload
+              </div>
+              <pre className="max-h-[260px] overflow-auto rounded-md bg-[var(--color-surface-inset)] px-3 py-2 font-mono text-[11px] leading-relaxed text-[var(--color-text-primary)]">
+                {prettyPayload || '(empty)'}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          {detail && detail.status === 'Proposed' ? (
+            <>
+              <Button variant="ghost" onClick={() => detail && onDismiss(detail.id)}>
+                Dismiss
+              </Button>
+              <Button onClick={() => detail && onApprove(detail.id)}>Apply</Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReviewField({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+        {label}
+      </div>
+      <div className="mt-0.5 text-[13px] text-[var(--color-text-primary)]">{value}</div>
+    </div>
   );
 }
