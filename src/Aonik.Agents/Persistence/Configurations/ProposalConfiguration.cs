@@ -19,5 +19,10 @@ internal class ProposalConfiguration : IEntityTypeConfiguration<Proposal>
             .HasConversion<string>()
             .IsRequired()
             .HasMaxLength(50);
+
+        // Confidence is a 0..1 score; (5,4) gives 0.0000–9.9999 with headroom.
+        builder.Property(x => x.Confidence)
+            .HasPrecision(5, 4)
+            .HasDefaultValue(0.85m);
     }
 }

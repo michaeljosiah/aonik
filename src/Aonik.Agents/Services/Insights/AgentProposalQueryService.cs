@@ -44,6 +44,7 @@ internal sealed class AgentProposalQueryService : IAgentProposalQueryService
                 AgentName = agent != null ? agent.Name : "Unknown agent",
                 AgentDomain = agent != null ? agent.Domain : string.Empty,
                 AgentIconUrl = agent != null ? agent.IconUrl : null,
+                p.Confidence,
                 p.RiskTier,
                 p.ImpactSummary,
                 p.CreatedAt,
@@ -57,20 +58,11 @@ internal sealed class AgentProposalQueryService : IAgentProposalQueryService
                 AgentName: r.AgentName,
                 AgentDomain: r.AgentDomain,
                 AgentIconUrl: r.AgentIconUrl,
-                Confidence: MapRiskTierToConfidence(r.RiskTier),
+                Confidence: r.Confidence,
                 Summary: r.ImpactSummary,
                 Reason: null,
                 RiskTier: r.RiskTier,
                 CreatedAt: r.CreatedAt))
             .ToList();
     }
-
-    private static decimal MapRiskTierToConfidence(string? riskTier) =>
-        riskTier?.ToLowerInvariant() switch
-        {
-            "low" => 0.95m,
-            "medium" => 0.85m,
-            "high" => 0.70m,
-            _ => 0.80m,
-        };
 }
