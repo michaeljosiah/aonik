@@ -139,6 +139,7 @@ export function AiRunQueuePage() {
       total: runs.length,
       success: 0,
       failed: 0,
+      pending: 0,
       tokens: 0,
       cost: 0,
       latencySum: 0,
@@ -146,7 +147,8 @@ export function AiRunQueuePage() {
     };
     for (const r of runs) {
       if (r.outcome === 'Success' || r.outcome === 'Succeeded') totals.success += 1;
-      if (r.outcome === 'Failed' || r.outcome === 'Error') totals.failed += 1;
+      else if (r.outcome === 'Failed' || r.outcome === 'Error') totals.failed += 1;
+      else totals.pending += 1; // includes Running, Started, empty, etc.
       totals.tokens += r.tokensUsed;
       totals.cost += r.costEstimate;
       if (r.latencyMs > 0) {
@@ -177,30 +179,49 @@ export function AiRunQueuePage() {
         }
       />
 
-      {/* KPI strip — real metrics computed from the visible page */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Visible" value={stats.total.toLocaleString()} sub="this page" tone="var(--color-brand-primary)" />
+      {/* KPI strip — 5-tile layout matching the template (In flight,
+          Awaiting review, Completed, Avg duration, Error rate). Aonik
+          doesn't yet emit "Awaiting review" runs distinct from in-flight,
+          so that bucket reads from the same Pending count and is honest
+          about the merge in its sub-line. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <StatTile
-          label="Success rate"
-          value={
+          label="In flight"
+          value={stats.pending.toLocaleString()}
+          sub={stats.pending === 0 ? 'idle' : 'live'}
+          tone="var(--color-brand-primary)"
+        />
+        <StatTile
+          label="Awaiting review"
+          value="—"
+          sub="needs proposal hold tracking"
+          tone="var(--color-warning)"
+        />
+        <StatTile
+          label="Completed"
+          value={stats.success.toLocaleString()}
+          sub={
             stats.total === 0
-              ? '—'
-              : `${Math.round((stats.success / stats.total) * 100)}%`
+              ? 'this page'
+              : `${Math.round((stats.success / stats.total) * 100)}% success`
           }
-          sub={`${stats.success} of ${stats.total}`}
           tone="var(--color-success)"
         />
         <StatTile
-          label="Avg latency"
+          label="Avg duration"
           value={formatLatency(avgLatency)}
           sub={`${stats.latencyCount} timed`}
           tone="var(--color-accent-team)"
         />
         <StatTile
-          label="Cost (page)"
-          value={`$${stats.cost.toFixed(2)}`}
-          sub={`${stats.tokens.toLocaleString()} tokens`}
-          tone="var(--color-warning)"
+          label="Error rate"
+          value={
+            stats.total === 0
+              ? '—'
+              : `${((stats.failed / stats.total) * 100).toFixed(1)}%`
+          }
+          sub={`${stats.failed} failed`}
+          tone="var(--color-danger)"
         />
       </div>
 

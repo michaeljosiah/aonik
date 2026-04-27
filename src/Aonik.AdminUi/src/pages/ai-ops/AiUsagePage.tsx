@@ -192,32 +192,40 @@ export function AiUsagePage() {
         }
       />
 
-      {/* KPI strip */}
+      {/* KPI strip — 4-tile layout matching the template (Tokens · input,
+          Tokens · output, Tool calls, Monthly cost). AiRun.TokensUsed is
+          a single counter — no input/output split — so we surface a
+          single Tokens tile twice with honest sub-lines, plus Tool calls
+          which needs AiTrace aggregation we don't yet have. Monthly cost
+          is real. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <UsageTile label="Tokens" value={formatTokens(totals.tokens)} sub={`${runs.length} runs`} tone="var(--color-brand-primary)" />
         <UsageTile
-          label="Cost (window)"
-          value={formatCost(totals.cost)}
-          sub={runs.length > 0 ? `${formatCost(totals.cost / runs.length)} avg` : '—'}
-          tone="var(--color-brand-secondary)"
+          label="Tokens"
+          value={formatTokens(totals.tokens)}
+          sub={`${runs.length} runs · in+out combined`}
+          tone="var(--color-brand-primary)"
         />
         <UsageTile
-          label="Avg latency"
+          label="Avg per run"
           value={
-            totals.avgLatencyMs > 0
-              ? totals.avgLatencyMs >= 1000
-                ? `${(totals.avgLatencyMs / 1000).toFixed(2)}s`
-                : `${Math.round(totals.avgLatencyMs)}ms`
-              : '—'
+            runs.length === 0
+              ? '—'
+              : formatTokens(Math.round(totals.tokens / runs.length))
           }
-          sub="all runs"
+          sub="needs in/out split for parity"
           tone="var(--color-accent-team)"
         />
         <UsageTile
-          label="Success rate"
-          value={runs.length === 0 ? '—' : `${Math.round(totals.successRate * 100)}%`}
-          sub={runs.length === 0 ? '' : 'of completed runs'}
-          tone="var(--color-success)"
+          label="Tool calls"
+          value="—"
+          sub="needs AiTrace aggregation"
+          tone="var(--color-brand-secondary)"
+        />
+        <UsageTile
+          label="Monthly cost"
+          value={formatCost(totals.cost)}
+          sub={runs.length > 0 ? `${formatCost(totals.cost / runs.length)} avg` : 'no runs'}
+          tone="var(--color-warning)"
         />
       </div>
 

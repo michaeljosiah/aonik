@@ -168,10 +168,19 @@ export function AiPoliciesPage() {
 
   const stats = useMemo(() => {
     const active = policies.filter((p) => p.isActive).length;
+    let mostRecentUpdate: Date | null = null;
+    for (const p of policies) {
+      const candidate = p.updatedAt ?? p.createdAt;
+      const d = new Date(candidate);
+      if (!mostRecentUpdate || d > mostRecentUpdate) {
+        mostRecentUpdate = d;
+      }
+    }
     return {
       total: policies.length,
       active,
       inactive: policies.length - active,
+      mostRecentUpdate,
     };
   }, [policies]);
 
@@ -196,8 +205,11 @@ export function AiPoliciesPage() {
         onToggle={() => void handleKillSwitchToggle()}
       />
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {/* KPI strip — 4-tile layout matching the template. Three tiles map
+          to data we track (Active / Blocks needs AiRun aggregation /
+          Holds needs proposal-hold tracking) plus one honest substitute
+          for false-positive rate which has no backing dataset yet. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile
           label="Active policies"
           value={String(stats.active)}
@@ -205,15 +217,21 @@ export function AiPoliciesPage() {
           tone="var(--color-brand-primary)"
         />
         <StatTile
-          label="Inactive"
-          value={String(stats.inactive)}
-          sub={stats.inactive === 0 ? 'all enabled' : 'currently bypassed'}
+          label="Blocks · 7d"
+          value="—"
+          sub="needs run aggregation"
+          tone="var(--color-danger)"
+        />
+        <StatTile
+          label="Holds · 7d"
+          value="—"
+          sub="needs proposal counts"
           tone="var(--color-warning)"
         />
         <StatTile
-          label="Coverage"
-          value={stats.total === 0 ? '—' : '✓'}
-          sub="enforced server-side"
+          label="Last updated"
+          value={stats.mostRecentUpdate ? formatRelative(stats.mostRecentUpdate.toISOString()) : '—'}
+          sub={stats.inactive > 0 ? `${stats.inactive} inactive` : 'all active'}
           tone="var(--color-success)"
         />
       </div>
