@@ -191,7 +191,11 @@ export function CustomersListPage() {
           {formatCustomerId(row.partyId)}
         </span>
       ),
-      className: 'w-[140px]',
+      // The DataTable's first-column rule defaults to pl-0 (it assumes a
+      // leading checkbox or row-icon column will supply the gutter). With
+      // both disabled, restore the gutter on the ID column itself.
+      className: 'w-[140px] pl-4',
+      headerClassName: 'pl-4',
     },
     {
       id: 'name',
@@ -351,6 +355,7 @@ export function CustomersListPage() {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Filter by name, email, ID…"
+        hideFilterButton
       />
 
       <AonikCard padding={0}>
