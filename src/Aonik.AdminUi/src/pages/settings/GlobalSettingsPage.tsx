@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Cog, Save, RotateCcw, Loader2, Eye, EyeOff, AlertTriangle, ShieldCheck,
-  Search, X, Info, CheckCircle2, CircleAlert,
+  AlertTriangle,
+  CheckCircle2,
+  CircleAlert,
+  Cog,
+  Eye,
+  EyeOff,
+  Info,
+  Loader2,
+  RotateCcw,
+  Save,
+  Search,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -12,11 +23,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { globalSettingsService } from '@/services/globalSettingsService';
 import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import { getSelectedTenant } from '@/lib/tenantContext';
 import { tenantService } from '@/services/tenantService';
+import { cn } from '@/lib/utils';
 import type { UpdateTenantRequest } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -376,9 +387,14 @@ function ToggleRow({ title, description, checked, onCheckedChange }: {
 // Tab definitions (order determines tab order)
 // ---------------------------------------------------------------------------
 
-const ALL_TABS = [
-  { id: 'general', label: 'General' },
-  ...GLOBAL_TABS.map((t) => ({ id: t.id, label: t.label })),
+const STARTERKIT_PLATFORM_TABS: Array<{ id: string; label: string; badge?: string }> = [
+  { id: 'ai', label: 'AI' },
+  { id: 'storage', label: 'Storage' },
+  { id: 'communication', label: 'Communication' },
+  { id: 'features', label: 'Feature Flags' },
+  { id: 'general', label: 'Workspace' },
+  { id: 'platform', label: 'Platform Ops', badge: 'host' },
+  { id: 'observability', label: 'Observability' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -984,27 +1000,109 @@ export function GlobalSettingsPage() {
   // ---------------------------------------------------------------------------
 
   const isGlobalTab = activeTab !== 'general';
+  const activeStarterkitTab = STARTERKIT_PLATFORM_TABS.find((tab) => tab.id === activeTab);
+  const activeGlobalTab = GLOBAL_TABS.find((tab) => tab.id === activeTab);
+  const activeGlobalDirtyCount = activeGlobalTab
+    ? globalDirtyKeys.filter((key) => activeGlobalTab.sections.some((section) => section.fields.some((field) => field.key === key))).length
+    : 0;
+  const unsavedSummary = globalDirtyKeys.length > 0
+    ? `${globalDirtyKeys.length} field${globalDirtyKeys.length === 1 ? '' : 's'} have pending edits across platform settings.`
+    : 'No pending edits in platform settings.';
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="p-6 pb-0">
+    <div className="flex h-full min-h-0">
+      <div className="flex w-[260px] flex-none flex-col border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5">
         <Breadcrumb
           items={[{ label: 'Settings', href: '/settings', icon: <Cog className="h-3.5 w-3.5" /> }]}
           className="mb-4"
         />
 
-        <div className="mb-4 flex items-start justify-between gap-4">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Platform</p>
+        <h1 className="mb-1 text-[17px] font-semibold text-[var(--color-text-primary)]">Global settings</h1>
+        <p className="mb-5 text-[12.5px] leading-5 text-[var(--color-text-secondary)]">
+          Workspace identity, AI provider, storage, communication, and feature configuration.
+        </p>
+
+        <div className="flex flex-col gap-px">
+          {STARTERKIT_PLATFORM_TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const hasSearchMatch = searchLower && searchMatchingTabs.has(tab.id);
+            const noSearchMatch = searchLower && !searchMatchingTabs.has(tab.id);
+            const tabConfig = GLOBAL_TABS.find((item) => item.id === tab.id);
+            const tabDirtyCount = tabConfig
+              ? globalDirtyKeys.filter((key) => tabConfig.sections.some((section) => section.fields.some((field) => field.key === key))).length
+              : 0;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  'flex items-center justify-between rounded-md px-3 py-2 text-left text-[13px] transition-colors',
+                  isActive
+                    ? 'bg-[var(--color-brand-primary-light)] font-semibold text-[var(--color-brand-primary)]'
+                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]',
+                  noSearchMatch && 'opacity-40'
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <span>{tab.label}</span>
+                  {hasSearchMatch && <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  {tabDirtyCount > 0 && (
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-primary)] px-1 text-[10px] font-semibold text-white">
+                      {tabDirtyCount}
+                    </span>
+                  )}
+                  {tab.badge && (
+                    <span className={cn(
+                      'rounded-full border border-[var(--color-border-light)] px-1.5 py-0.5 text-[10px] leading-none',
+                      isActive ? 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+                    )}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-auto rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
+          <div className="mb-1.5 flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-[var(--color-warning)]" />
+            <p className="text-xs font-semibold text-[var(--color-text-primary)]">Unsaved changes</p>
+          </div>
+          <p className="mb-3 text-[11.5px] leading-5 text-[var(--color-text-secondary)]">{unsavedSummary}</p>
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1" onClick={handleSaveGlobal} disabled={!isGlobalDirty || globalSaving}>
+              {globalSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+              Save
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleResetGlobal} disabled={!isGlobalDirty || globalSaving}>
+              Discard
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="min-w-0 flex-1 overflow-auto p-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Settings</h1>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Settings · Platform</p>
+            <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">{activeStarterkitTab?.label ?? 'Settings'}</h2>
             <p className="text-[var(--color-text-secondary)]">
-              Workspace identity, AI provider, storage, communication, and feature configuration.
+              {activeTab === 'general'
+                ? 'Workspace identity, locale defaults, tenant country access, and approval controls.'
+                : activeGlobalTab?.sections[0]?.description ?? 'Configure platform-wide settings for the active environment.'}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Search toggle */}
+          <div className="flex shrink-0 items-center gap-2">
             {searchOpen ? (
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
                 <Input
                   ref={searchInputRef}
                   value={searchQuery}
@@ -1012,7 +1110,10 @@ export function GlobalSettingsPage() {
                   placeholder="Search settings..."
                   className="h-8 w-56 pl-8 pr-8 text-sm"
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape') { setSearchQuery(''); setSearchOpen(false); }
+                    if (e.key === 'Escape') {
+                      setSearchQuery('');
+                      setSearchOpen(false);
+                    }
                   }}
                 />
                 {searchQuery && (
@@ -1028,125 +1129,76 @@ export function GlobalSettingsPage() {
             ) : (
               <Button variant="outline" size="sm" onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}>
                 <Search className="mr-1.5 h-3.5 w-3.5" />
-                Search
+                Search settings
               </Button>
             )}
-            {isGlobalTab && (
+            {isGlobalTab ? (
               <>
                 <Button variant="outline" size="sm" onClick={handleResetGlobal} disabled={!isGlobalDirty || globalSaving}>
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                  Reset
+                  Reset to defaults
                 </Button>
                 <Button size="sm" onClick={handleSaveGlobal} disabled={!isGlobalDirty || globalSaving}>
                   {globalSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
-                  Save {isGlobalDirty ? `(${globalDirtyKeys.length})` : ''}
+                  Save changes{activeGlobalDirtyCount > 0 ? ` (${activeGlobalDirtyCount})` : ''}
                 </Button>
               </>
-            )}
+            ) : null}
           </div>
         </div>
-      </div>
 
-      {globalError && (
-        <div className="px-6">
+        {globalError && (
           <Card className="mb-4 border-[var(--color-error)]/30 bg-[var(--color-error)]/5">
             <CardContent className="flex items-center gap-3 p-4">
               <AlertTriangle className="h-5 w-5 text-[var(--color-error)]" />
               <p className="text-sm text-[var(--color-error)]">{globalError}</p>
             </CardContent>
           </Card>
-        </div>
-      )}
+        )}
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-6">
-          <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-0">
-            {ALL_TABS.map((tab) => {
-              const globalTab = GLOBAL_TABS.find((t) => t.id === tab.id);
-              const tabDirtyCount = globalTab
-                ? globalDirtyKeys.filter((k) =>
-                    globalTab.sections.flatMap((s) => s.fields.map((f) => f.key)).includes(k)
-                  ).length
-                : 0;
-              const hasSearchMatch = searchLower && searchMatchingTabs.has(tab.id);
-              const noSearchMatch = searchLower && !searchMatchingTabs.has(tab.id);
+        {activeTab === 'general' ? (
+          renderGeneralTab()
+        ) : globalLoading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-16">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin text-[var(--color-text-tertiary)]" />
+              <span className="text-[var(--color-text-secondary)]">Loading settings...</span>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {activeGlobalTab?.sections.map((section) => {
+              const hidden = section.visibleWhen && (globalValues[section.visibleWhen.key] ?? '') !== section.visibleWhen.value;
+              const sectionDimmed = searchLower && !sectionMatchesSearch(section);
               return (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className={`px-4 py-3 text-sm rounded-none border-b-2 border-transparent transition-opacity data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)] data-[state=active]:shadow-none ${
-                    noSearchMatch ? 'opacity-40' : ''
-                  }`}
+                <Card
+                  key={section.title}
+                  className={cn(
+                    'transition-all duration-300',
+                    hidden && 'pointer-events-none select-none opacity-30',
+                    sectionDimmed && 'opacity-30'
+                  )}
                 >
-                  {tab.label}
-                  {hasSearchMatch && (
-                    <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)] inline-block" />
-                  )}
-                  {tabDirtyCount > 0 && (
-                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand-primary)] px-1 text-[10px] font-semibold text-white">
-                      {tabDirtyCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </div>
-
-        <div className="p-6">
-          <TabsContent value="general" className="mt-0">
-            {renderGeneralTab()}
-          </TabsContent>
-
-          {globalLoading ? (
-            GLOBAL_TABS.map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="mt-0">
-                <Card>
-                  <CardContent className="flex items-center justify-center py-16">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin text-[var(--color-text-tertiary)]" />
-                    <span className="text-[var(--color-text-secondary)]">Loading settings...</span>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">{section.title}</CardTitle>
+                      {hidden && (
+                        <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    {section.description && <CardDescription>{section.description}</CardDescription>}
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    {section.fields.map((field) => renderField(field))}
                   </CardContent>
                 </Card>
-              </TabsContent>
-            ))
-          ) : (
-            GLOBAL_TABS.map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="mt-0">
-                <div className="space-y-6">
-                  {tab.sections.map((section) => {
-                    // Conditional visibility
-                    const hidden = section.visibleWhen && (globalValues[section.visibleWhen.key] ?? '') !== section.visibleWhen.value;
-                    const sectionDimmed = searchLower && !sectionMatchesSearch(section);
-                    return (
-                      <Card
-                        key={section.title}
-                        className={`transition-all duration-300 ${
-                          hidden ? 'opacity-30 pointer-events-none select-none' : ''
-                        } ${sectionDimmed ? 'opacity-30' : ''}`}
-                      >
-                        <CardHeader>
-                          <div className="flex items-center gap-2">
-                            <CardTitle className="text-base">{section.title}</CardTitle>
-                            {hidden && (
-                              <span className="rounded-full bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
-                                Inactive
-                              </span>
-                            )}
-                          </div>
-                          {section.description && <CardDescription>{section.description}</CardDescription>}
-                        </CardHeader>
-                        <CardContent className="space-y-5">
-                          {section.fields.map((field) => renderField(field))}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </TabsContent>
-            ))
-          )}
-        </div>
-      </Tabs>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -742,6 +742,7 @@ export function SettingsTextToSpeechPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Settings · AI</p>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Text to Speech</h1>
           <p className="text-[var(--color-text-secondary)]">
             Configure provider credentials, voice selection, playback behavior, and usage limits.
@@ -752,26 +753,9 @@ export function SettingsTextToSpeechPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => void handlePreview()}
-            disabled={loading || saving || previewing || !formState || previewBlockedMessage != null}
-          >
-            <Volume2 className="mr-2 h-4 w-4" />
-            {previewing ? 'Previewing...' : 'Preview'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleDownloadPreview}
-            disabled={!previewBlob || previewing}
-            title={previewBlob ? 'Download the last previewed audio' : 'Preview audio first, then download'}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download
-          </Button>
           <Button onClick={() => void handleSave()} disabled={loading || saving || previewing || !formState}>
             <Save className="mr-2 h-4 w-4" />
-            Save settings
+            Save changes
           </Button>
         </div>
       </div>
@@ -793,115 +777,117 @@ export function SettingsTextToSpeechPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-
-          {/* ── 1. Provider & Playback ─────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <CardTitle>Provider & Playback</CardTitle>
-                  <CardDescription>Choose your TTS provider and enable speech synthesis for this tenant. The provider selection determines credentials, voices, and options below.</CardDescription>
-                </div>
-                <Badge variant={formState.enabled ? 'success' : 'outline'}>
-                  {formState.enabled ? 'Enabled' : 'Disabled'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Provider"
-                  helpTitle="Provider"
-                  helpDescription="The backend text-to-speech provider. ElevenLabs offers high-quality multilingual voices. Mistral (Voxtral) supports zero-shot voice cloning from short audio samples."
-                />
-                <Select value={formState.provider} onValueChange={(value) => void handleProviderChange(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROVIDER_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Tenant TTS enabled</p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Allow backend speech synthesis for this tenant.</p>
-                </div>
-                <Switch checked={formState.enabled} onCheckedChange={(checked) => updateField('enabled', checked)} />
-              </div>
-
-              <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Fallback to native on failure</p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Use device-native speech when backend synthesis or playback fails.</p>
-                </div>
-                <Switch
-                  checked={formState.fallbackToNativeOnFailure}
-                  onCheckedChange={(checked) => updateField('fallbackToNativeOnFailure', checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── 2. API Credential ─────────────────────────────────────── */}
-          {isPlatformAdmin ? (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <CardTitle>Host Credential</CardTitle>
-                    <CardDescription>Default {providerLabel} API key used when a tenant does not provide an override.</CardDescription>
+                    <CardTitle>Provider & Playback</CardTitle>
+                    <CardDescription>Choose your TTS provider and enable speech synthesis for this tenant.</CardDescription>
                   </div>
-                  <Badge variant={toCredentialBadgeVariant(hostCredential?.hasHostCredential ?? false)}>
-                    {hostCredential?.hasHostCredential ? 'Configured' : 'Missing'}
+                  <Badge variant={formState.enabled ? 'success' : 'outline'}>
+                    {formState.enabled ? 'Enabled' : 'Disabled'}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-md border border-[var(--color-border-light)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                  Effective source: <span className="font-medium text-[var(--color-text-primary)]">{hostCredential?.effectiveSource ?? 'Unknown'}</span>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {PROVIDER_OPTIONS.map((option) => {
+                    const active = formState.provider === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => void handleProviderChange(option.value)}
+                        className={`rounded-lg border p-4 text-left transition-colors ${
+                          active
+                            ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
+                            : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-secondary)]'
+                        }`}
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-[var(--color-text-primary)]">{option.label}</span>
+                          {active ? <Badge variant="success">Active</Badge> : null}
+                        </div>
+                        <p className="text-xs leading-5 text-[var(--color-text-secondary)]">
+                          {option.value === 'ElevenLabs'
+                            ? 'High-quality multilingual voices with configurable output and latency tuning.'
+                            : 'Voxtral-based synthesis with zero-shot voice cloning from uploaded samples.'}
+                        </p>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="tts-host-api-key">{providerLabel} API Key (update only)</Label>
+                <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">Tenant TTS enabled</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Allow backend speech synthesis for this tenant.</p>
                   </div>
-                  <Input
-                    id="tts-host-api-key"
-                    type="password"
-                    value={formState.hostApiKey}
-                    placeholder="Leave empty to keep existing host key"
-                    onChange={(event) => updateField('hostApiKey', event.target.value)}
-                  />
+                  <Switch checked={formState.enabled} onCheckedChange={(checked) => updateField('enabled', checked)} />
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => void handleSaveHostCredential(false)}
-                    disabled={savingHostCredential || saving || previewing}
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    Save host key
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => void handleSaveHostCredential(true)}
-                    disabled={savingHostCredential || saving || previewing || !(hostCredential?.hasHostCredential ?? false)}
-                  >
-                    Clear host key
-                  </Button>
+                <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">Fallback to native on failure</p>
+                    <p className="text-xs text-[var(--color-text-tertiary)]">Use device-native speech when backend synthesis or playback fails.</p>
+                  </div>
+                  <Switch
+                    checked={formState.fallbackToNativeOnFailure}
+                    onCheckedChange={(checked) => updateField('fallbackToNativeOnFailure', checked)}
+                  />
                 </div>
               </CardContent>
             </Card>
-          ) : (
+
+            {isPlatformAdmin && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle>Host Credential</CardTitle>
+                      <CardDescription>Default {providerLabel} API key used when a tenant does not provide an override.</CardDescription>
+                    </div>
+                    <Badge variant={toCredentialBadgeVariant(hostCredential?.hasHostCredential ?? false)}>
+                      {hostCredential?.hasHostCredential ? 'Configured' : 'Missing'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-md border border-[var(--color-border-light)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+                    Effective source: <span className="font-medium text-[var(--color-text-primary)]">{hostCredential?.effectiveSource ?? 'Unknown'}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tts-host-api-key">{providerLabel} API Key (update only)</Label>
+                    <Input
+                      id="tts-host-api-key"
+                      type="password"
+                      value={formState.hostApiKey}
+                      placeholder="Leave empty to keep existing host key"
+                      onChange={(event) => updateField('hostApiKey', event.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => void handleSaveHostCredential(false)} disabled={savingHostCredential || saving || previewing}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save host key
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleSaveHostCredential(true)}
+                      disabled={savingHostCredential || saving || previewing || !(hostCredential?.hasHostCredential ?? false)}
+                    >
+                      Clear host key
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle>Tenant Credential</CardTitle>
                     <CardDescription>Your {providerLabel} API key for the currently selected tenant.</CardDescription>
@@ -917,11 +903,8 @@ export function SettingsTextToSpeechPage() {
                   <br />
                   Effective source: <span className="font-medium text-[var(--color-text-primary)]">{tenantCredential?.effectiveSource ?? 'Unknown'}</span>
                 </div>
-
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="tts-tenant-api-key">Tenant {providerLabel} API Key (update only)</Label>
-                  </div>
+                  <Label htmlFor="tts-tenant-api-key">Tenant {providerLabel} API Key (update only)</Label>
                   <Input
                     id="tts-tenant-api-key"
                     type="password"
@@ -930,7 +913,6 @@ export function SettingsTextToSpeechPage() {
                     onChange={(event) => updateField('tenantApiKey', event.target.value)}
                   />
                 </div>
-
                 <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={() => void handleSaveTenantCredential(false)}
@@ -949,172 +931,183 @@ export function SettingsTextToSpeechPage() {
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* ── 3. Voice Creation (upload) ────────────────────────────── */}
-          {isMistral && (
+            {isMistral && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <CardTitle>Create a Voice</CardTitle>
+                      <CardDescription>Upload an audio sample to clone a custom voice via Mistral. Created voices appear in the voice selection below.</CardDescription>
+                    </div>
+                    <VoiceUploadInstructionsDialog />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tts-voice-name">Voice name</Label>
+                    <Input
+                      id="tts-voice-name"
+                      placeholder="e.g. Customer Support - Sarah"
+                      value={voiceCreateName}
+                      onChange={(e) => setVoiceCreateName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <input
+                      ref={voiceFileRef}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={handleCreateVoice}
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={creatingVoice || !toTrimmed(voiceCreateName)}
+                      onClick={() => voiceFileRef.current?.click()}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {creatingVoice ? 'Creating voice...' : 'Upload sample'}
+                    </Button>
+                    {!toTrimmed(voiceCreateName) && (
+                      <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Enter a voice name above to enable uploading.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <CardTitle>Create a Voice</CardTitle>
-                    <CardDescription>Upload an audio sample to clone a custom voice via Mistral. Created voices appear in the voice selection below.</CardDescription>
+                    <CardTitle>Voice selection</CardTitle>
+                    <CardDescription>The voice used for playback. The list comes from the provider API for the current effective credential.</CardDescription>
                   </div>
-                  <VoiceUploadInstructionsDialog />
+                  <Button variant="outline" size="sm" onClick={() => void loadVoices(formState.provider)} disabled={loading || previewing}>
+                    <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                    Refresh voices
+                  </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="tts-voice-name">Voice name</Label>
-                  <Input
-                    id="tts-voice-name"
-                    placeholder="e.g. Customer Support - Sarah"
-                    value={voiceCreateName}
-                    onChange={(e) => setVoiceCreateName(e.target.value)}
+                  <FieldLabel
+                    label="Voice"
+                    helpTitle="Voice"
+                    helpDescription="The voice used for playback. The list comes from the provider API for the currently effective credential."
                   />
+                  <Select value={voiceSelectValue} onValueChange={(value) => updateField('voiceId', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select voice" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {savedVoiceUnavailable && formState.voiceId && (
+                        <SelectItem value={voiceSelectValue} disabled>
+                          Current saved voice unavailable
+                        </SelectItem>
+                      )}
+                      {voices.map((voice) => (
+                        <SelectItem key={voice.voiceId} value={voice.voiceId}>
+                          {voice.name}
+                          {voice.labels?.gender ? ` (${voice.labels.gender})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {activeVoice && (
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      {activeVoice.category ?? 'General'}
+                      {activeVoice.labels?.gender ? ` · ${activeVoice.labels.gender}` : ''}
+                      {activeVoice.labels?.accent ? ` · ${activeVoice.labels.accent}` : ''}
+                      {activeVoice.labels?.languages ? ` · ${activeVoice.labels.languages}` : ''}
+                    </p>
+                  )}
+                  {savedVoiceUnavailable && formState.voiceId && (
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      The saved voice is not available for the current effective credential.
+                    </p>
+                  )}
+                  {voices.length === 0 && (
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      No voices loaded yet. Configure a valid credential, then refresh or reselect the provider.
+                    </p>
+                  )}
+                  {voiceLoadError && (
+                    <p className="text-xs text-[var(--color-error)]">{voiceLoadError}</p>
+                  )}
                 </div>
 
-                <div>
-                  <input
-                    ref={voiceFileRef}
-                    type="file"
-                    accept="audio/*"
-                    className="hidden"
-                    onChange={handleCreateVoice}
+                <div className="space-y-2">
+                  <FieldLabel
+                    label="Model"
+                    htmlFor="tts-model-id"
+                    helpTitle="Model"
+                    helpDescription={isElevenLabs
+                      ? 'ElevenLabs model used for generation. Multilingual v2 is the default. Turbo and Flash variants trade some quality for lower latency.'
+                      : 'Mistral model used for generation. Voxtral Mini TTS is the default zero-shot voice cloning model.'}
                   />
-                  <Button
-                    variant="outline"
-                    disabled={creatingVoice || !toTrimmed(voiceCreateName)}
-                    onClick={() => voiceFileRef.current?.click()}
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    {creatingVoice ? 'Creating voice...' : 'Upload Sample'}
-                  </Button>
-                  {!toTrimmed(voiceCreateName) && (
-                    <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Enter a voice name above to enable uploading.</p>
-                  )}
+                  <Select value={formState.modelId} onValueChange={(value) => updateField('modelId', value)}>
+                    <SelectTrigger id="tts-model-id">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {modelOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <FieldLabel
+                    label="Locale"
+                    htmlFor="tts-locale"
+                    helpTitle="Locale"
+                    helpDescription="Language and regional accent hint sent to the provider."
+                  />
+                  <Select value={formState.locale} onValueChange={(value) => updateField('locale', value)}>
+                    <SelectTrigger id="tts-locale">
+                      <SelectValue placeholder="Select locale" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LOCALE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <FieldLabel
+                    label="Output format"
+                    htmlFor="tts-output-format"
+                    helpTitle="Output format"
+                    helpDescription={isElevenLabs
+                      ? 'Audio encoding returned by ElevenLabs. Compressed MP3 is usually best for browser and mobile playback.'
+                      : 'Audio format returned by Mistral. PCM offers lowest latency (~0.8s). MP3 is best for general use (~3s).'}
+                  />
+                  <Select value={formState.outputFormat} onValueChange={(value) => updateField('outputFormat', value)}>
+                    <SelectTrigger id="tts-output-format">
+                      <SelectValue placeholder="Select output format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {outputFormatOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* ── 4. Voice & Output Configuration ───────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Voice & Output Configuration</CardTitle>
-              <CardDescription>Select a voice, model, locale, and output format for speech synthesis.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Voice"
-                  helpTitle="Voice"
-                  helpDescription="The voice used for playback. The list comes from the provider API for the currently effective credential."
-                />
-                <Select value={voiceSelectValue} onValueChange={(value) => updateField('voiceId', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {savedVoiceUnavailable && formState.voiceId && (
-                      <SelectItem value={voiceSelectValue} disabled>
-                        Current saved voice unavailable
-                      </SelectItem>
-                    )}
-                    {voices.map((voice) => (
-                      <SelectItem key={voice.voiceId} value={voice.voiceId}>
-                        {voice.name}
-                        {voice.labels?.gender ? ` (${voice.labels.gender})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {activeVoice && (
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    {activeVoice.category ?? 'General'}
-                    {activeVoice.labels?.gender ? ` · ${activeVoice.labels.gender}` : ''}
-                    {activeVoice.labels?.accent ? ` · ${activeVoice.labels.accent}` : ''}
-                    {activeVoice.labels?.languages ? ` · ${activeVoice.labels.languages}` : ''}
-                  </p>
-                )}
-                {savedVoiceUnavailable && formState.voiceId && (
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    The saved voice is not available for the current effective credential.
-                  </p>
-                )}
-                {voices.length === 0 && (
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    No voices loaded yet. Configure a valid credential, then refresh or reselect the provider.
-                  </p>
-                )}
-                {voiceLoadError && (
-                  <p className="text-xs text-[var(--color-error)]">{voiceLoadError}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Model"
-                  htmlFor="tts-model-id"
-                  helpTitle="Model"
-                  helpDescription={isElevenLabs
-                    ? 'ElevenLabs model used for generation. Multilingual v2 is the default. Turbo and Flash variants trade some quality for lower latency.'
-                    : 'Mistral model used for generation. Voxtral Mini TTS is the default zero-shot voice cloning model.'}
-                />
-                <Select value={formState.modelId} onValueChange={(value) => updateField('modelId', value)}>
-                  <SelectTrigger id="tts-model-id">
-                    <SelectValue placeholder="Select model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {modelOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Locale"
-                  htmlFor="tts-locale"
-                  helpTitle="Locale"
-                  helpDescription="Language and regional accent hint sent to the provider."
-                />
-                <Select value={formState.locale} onValueChange={(value) => updateField('locale', value)}>
-                  <SelectTrigger id="tts-locale">
-                    <SelectValue placeholder="Select locale" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LOCALE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Output format"
-                  htmlFor="tts-output-format"
-                  helpTitle="Output format"
-                  helpDescription={isElevenLabs
-                    ? 'Audio encoding returned by ElevenLabs. Compressed MP3 is usually best for browser and mobile playback.'
-                    : 'Audio format returned by Mistral. PCM offers lowest latency (~0.8s). MP3 is best for general use (~3s).'}
-                />
-                <Select value={formState.outputFormat} onValueChange={(value) => updateField('outputFormat', value)}>
-                  <SelectTrigger id="tts-output-format">
-                    <SelectValue placeholder="Select output format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {outputFormatOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {isElevenLabs && (
-                <>
+            {isElevenLabs && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Synthesis options</CardTitle>
+                  <CardDescription>Provider-specific tuning for latency, consistency, and voice fidelity.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
                     <FieldLabel
                       label="Streaming latency optimization"
@@ -1173,57 +1166,146 @@ export function SettingsTextToSpeechPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* ── 5. Usage Policy ────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Usage Policy</CardTitle>
-              <CardDescription>Guardrails applied before synthesis starts.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="tts-max-characters">Max characters per utterance</Label>
-                <Input id="tts-max-characters" value={formState.maxCharactersPerUtterance} onChange={(event) => updateField('maxCharactersPerUtterance', event.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tts-max-requests">Max requests per minute per user</Label>
-                <Input id="tts-max-requests" value={formState.maxRequestsPerMinutePerUser} onChange={(event) => updateField('maxRequestsPerMinutePerUser', event.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tts-monthly-budget">Monthly character budget</Label>
-                <Input id="tts-monthly-budget" value={formState.monthlyCharacterBudget} onChange={(event) => updateField('monthlyCharacterBudget', event.target.value)} placeholder="Optional" />
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Usage Policy</CardTitle>
+                <CardDescription>Guardrails applied before synthesis starts.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="tts-max-characters">Max characters per utterance</Label>
+                  <Input id="tts-max-characters" value={formState.maxCharactersPerUtterance} onChange={(event) => updateField('maxCharactersPerUtterance', event.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tts-max-requests">Max requests per minute per user</Label>
+                  <Input id="tts-max-requests" value={formState.maxRequestsPerMinutePerUser} onChange={(event) => updateField('maxRequestsPerMinutePerUser', event.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tts-monthly-budget">Monthly character budget</Label>
+                  <Input id="tts-monthly-budget" value={formState.monthlyCharacterBudget} onChange={(event) => updateField('monthlyCharacterBudget', event.target.value)} placeholder="Optional" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* ── 6. Preview ─────────────────────────────────────────────── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Preview</CardTitle>
-              <CardDescription>Validate the current voice configuration against the backend preview endpoint.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="tts-preview-text">Preview text</Label>
-                <Textarea
-                  id="tts-preview-text"
-                  value={formState.previewText}
-                  onChange={(event) => updateField('previewText', event.target.value)}
-                  rows={4}
-                />
-              </div>
-              <p className="text-xs text-[var(--color-text-tertiary)]">
-                Preview validates provider access, stores an AiRun for audit, and plays the synthesized audio in-browser.
-              </p>
-              {previewBlockedMessage && (
-                <p className="text-xs text-[var(--color-text-secondary)]">{previewBlockedMessage}</p>
-              )}
-            </CardContent>
-          </Card>
+          <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+            <Card>
+              <CardHeader>
+                <CardTitle>Preview</CardTitle>
+                <CardDescription>Validate the current voice configuration against the backend preview endpoint.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tts-preview-text">Preview text</Label>
+                  <Textarea
+                    id="tts-preview-text"
+                    value={formState.previewText}
+                    onChange={(event) => updateField('previewText', event.target.value)}
+                    rows={5}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    onClick={() => void handlePreview()}
+                    disabled={loading || saving || previewing || !formState || previewBlockedMessage != null}
+                    className="w-full"
+                  >
+                    <Volume2 className="mr-2 h-4 w-4" />
+                    {previewing ? 'Previewing...' : 'Synthesize & play'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadPreview}
+                    disabled={!previewBlob || previewing}
+                    title={previewBlob ? 'Download the last previewed audio' : 'Preview audio first, then download'}
+                    className="w-full"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download last preview
+                  </Button>
+                </div>
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Preview validates provider access, stores an AiRun for audit, and plays the synthesized audio in-browser.
+                </p>
+                {previewBlockedMessage && (
+                  <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-secondary)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                    {previewBlockedMessage}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Effective Access</CardTitle>
+                <CardDescription>Credential and tenant context currently in effect for preview and synthesis.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <span className="text-[var(--color-text-secondary)]">Provider</span>
+                  <span className="font-medium text-[var(--color-text-primary)]">{providerLabel}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <span className="text-[var(--color-text-secondary)]">Tenant</span>
+                  <span className="max-w-[180px] truncate font-medium text-[var(--color-text-primary)]">{selectedTenant?.name ?? selectedTenant?.tenantId ?? 'No tenant selected'}</span>
+                </div>
+                {isPlatformAdmin && (
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                    <span className="text-[var(--color-text-secondary)]">Host default</span>
+                    <Badge variant={toCredentialBadgeVariant(hostCredential?.hasHostCredential ?? false)}>
+                      {hostCredential?.hasHostCredential ? 'Configured' : 'Missing'}
+                    </Badge>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <span className="text-[var(--color-text-secondary)]">Tenant override</span>
+                  <Badge variant={toCredentialBadgeVariant(tenantCredential?.hasTenantOverride ?? false)}>
+                    {tenantCredential?.hasTenantOverride ? 'Active' : 'None'}
+                  </Badge>
+                </div>
+                <div className="rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <p className="mb-1 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Effective source</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{tenantCredential?.effectiveSource ?? hostCredential?.effectiveSource ?? 'Unknown'}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Voice</CardTitle>
+                <CardDescription>Quick summary of the selected voice and synthesis profile.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <p className="mb-1 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Voice</p>
+                  <p className="font-medium text-[var(--color-text-primary)]">{activeVoice?.name ?? (formState.voiceId ? 'Saved voice unavailable' : 'No voice selected')}</p>
+                  {activeVoice && (
+                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                      {activeVoice.category ?? 'General'}
+                      {activeVoice.labels?.gender ? ` · ${activeVoice.labels.gender}` : ''}
+                      {activeVoice.labels?.accent ? ` · ${activeVoice.labels.accent}` : ''}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <span className="text-[var(--color-text-secondary)]">Model</span>
+                  <span className="max-w-[180px] truncate font-medium text-[var(--color-text-primary)]">{formState.modelId}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <span className="text-[var(--color-text-secondary)]">Locale</span>
+                  <span className="font-medium text-[var(--color-text-primary)]">{formState.locale}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
+                  <span className="text-[var(--color-text-secondary)]">Output</span>
+                  <span className="font-medium text-[var(--color-text-primary)]">{formState.outputFormat}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </div>

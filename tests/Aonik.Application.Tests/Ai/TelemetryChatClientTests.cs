@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
 
 namespace Aonik.Application.Tests.Ai;
 
@@ -95,6 +96,21 @@ public class TelemetryChatClientTests
         entry.State.Should().Contain(kv => kv.Key == "Operation" && (string)kv.Value! == "chat.stream");
         entry.State.Should().Contain(kv => kv.Key == "InputTokens" && (int)kv.Value! == 10);
         entry.State.Should().Contain(kv => kv.Key == "OutputTokens" && (int)kv.Value! == 2);
+    }
+
+    [Fact]
+    public async Task GetResponseAsync_ShouldLogNullParentObservationId_ForRootActivity()
+    {
+        var inner = new FakeChatClient(response: BuildResponse(input: 1, output: 1, model: "gpt-4o-mini"));
+        var capture = new CapturingLogger<TelemetryChatClient>();
+        var sut = new TelemetryChatClient(inner, capture);
+
+        using var activity = new Activity("root-chat").Start();
+
+        await sut.GetResponseAsync(new[] { new ChatMessage(ChatRole.User, "hello") });
+
+        var entry = capture.Entries.Single(e => e.Message.StartsWith("AiTraceObservation"));
+        entry.State.Should().Contain(kv => kv.Key == "ParentObservationId" && kv.Value == null);
     }
 
     private static ChatResponse BuildResponse(int input, int output, string model)

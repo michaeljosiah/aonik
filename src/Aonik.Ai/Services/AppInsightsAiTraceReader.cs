@@ -166,7 +166,12 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             filters.Add($"agentName == \"{agentName}\" or agentId == \"{agentName}\"");
         }
         if (!string.IsNullOrWhiteSpace(request.Level)) filters.Add($"level == \"{EscapeKql(request.Level.Trim().ToUpperInvariant())}\"");
-        if (request.IsRootObservation is { } isRoot) filters.Add(isRoot ? "isempty(parentObservationId)" : "isnotempty(parentObservationId)");
+        if (request.IsRootObservation is { } isRoot)
+        {
+            filters.Add(isRoot
+                ? "isempty(parentObservationId) or parentObservationId == \"0000000000000000\" or parentObservationId == \"00000000-0000-0000-0000-000000000000\""
+                : "isnotempty(parentObservationId) and parentObservationId != \"0000000000000000\" and parentObservationId != \"00000000-0000-0000-0000-000000000000\"");
+        }
 
         var whereFilters = filters.Count == 0 ? string.Empty : "| where " + string.Join(" and ", filters);
         var skip = (page - 1) * pageSize;
@@ -204,6 +209,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  traceId = iff(isempty(traceId), operationId, traceId),
                  observationId = iff(isempty(observationId), tostring(itemId), observationId),
                  parentObservationId = iff(isempty(parentObservationId), tostring(operation_ParentId), parentObservationId),
+                 parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId),
                  latencySeconds = iff(isnan(latencySeconds), todouble(customDimensions["LatencyMs"]) / 1000.0, latencySeconds),
                  durationMs = iff(isnan(durationMs), latencySeconds * 1000.0, durationMs),
                  costUsd = iff(isnan(costUsd), todouble(customDimensions["EstimatedCostUsd"]), costUsd),
@@ -215,6 +221,11 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let dependencySpans = dependencies
         | where timestamp > {ago}
+        | where isnotempty(tostring(customDimensions["aonik.ai_run_id"]))
+            or isnotempty(tostring(customDimensions["aonik.observation.id"]))
+            or isnotempty(tostring(customDimensions["gen_ai.agent.name"]))
+            or isnotempty(tostring(customDimensions["gen_ai.request.model"]))
+            or isnotempty(tostring(customDimensions["gen_ai.response.model"]))
         | extend operationId = tostring(operation_Id),
                  traceId = tostring(operation_Id),
                  observationId = tostring(id),
@@ -237,9 +248,15 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
                  agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"])),
                  serviceName = tostring(target)
+        | extend parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId)
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let requestSpans = requests
         | where timestamp > {ago}
+        | where isnotempty(tostring(customDimensions["aonik.ai_run_id"]))
+            or isnotempty(tostring(customDimensions["aonik.observation.id"]))
+            or isnotempty(tostring(customDimensions["gen_ai.agent.name"]))
+            or isnotempty(tostring(customDimensions["gen_ai.request.model"]))
+            or isnotempty(tostring(customDimensions["gen_ai.response.model"]))
         | extend operationId = tostring(operation_Id),
                  traceId = tostring(operation_Id),
                  observationId = tostring(id),
@@ -262,6 +279,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
                  agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"])),
                  serviceName = tostring(cloud_RoleName)
+        | extend parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId)
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         union traceLogs, dependencySpans, requestSpans
         {whereFilters}

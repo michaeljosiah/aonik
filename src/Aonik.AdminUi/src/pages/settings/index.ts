@@ -2,6 +2,7 @@ export { AutonumberingPage } from './AutonumberingPage';
 export { SystemToolsPage } from './SystemToolsPage';
 export { SettingsLandingPage } from './SettingsLandingPage';
 export { SettingsAuditLogsPage } from './SettingsAuditLogsPage';
+export { SettingsAuthenticationPage } from './SettingsAuthenticationPage';
 export { SettingsTextToSpeechPage } from './SettingsTextToSpeechPage';
 export { NotificationTemplatesPage } from './NotificationTemplatesPage';
 export { BackgroundJobsPage } from './BackgroundJobsPage';

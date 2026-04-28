@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { AlertCircle, Cog, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -107,6 +108,33 @@ function SettingField({
   );
 }
 
+function SettingsSection({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">{title}</CardTitle>
+            {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
+          </div>
+          {action}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">{children}</CardContent>
+    </Card>
+  );
+}
+
 export function SettingsAuthenticationPage() {
   const [formState, setFormState] = useState<AuthProviderFormState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -194,9 +222,10 @@ export function SettingsAuthenticationPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Authentication Settings</h1>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Settings · Platform</p>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Authentication</h1>
           <p className="text-[var(--color-text-secondary)]">
-            Manage provider-level identity settings, including keys like `Auth.AzureAd.TenantId` and `Auth.Auth0.Domain`.
+            Identity providers, SSO, callback configuration, and management client secrets.
           </p>
         </div>
         <div className="flex gap-2">
@@ -234,18 +263,52 @@ export function SettingsAuthenticationPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Provider</CardTitle>
-              <CardDescription>Select which identity provider is currently active for authentication.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
+          <SettingsSection
+            title="Provider"
+            description="Select which identity provider is active for control-plane authentication."
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              {[
+                {
+                  value: 'AzureAd' as AuthProviderType,
+                  title: 'Azure AD',
+                  description: 'Microsoft Entra ID authority, audience, client, and tenant configuration.',
+                },
+                {
+                  value: 'Auth0' as AuthProviderType,
+                  title: 'Auth0',
+                  description: 'Tenant domain, management client, callback connection, and audience configuration.',
+                },
+              ].map((provider) => {
+                const active = formState.activeProvider === provider.value;
+                return (
+                  <button
+                    key={provider.value}
+                    type="button"
+                    onClick={() => updateField('activeProvider', provider.value)}
+                    className={cn(
+                      'rounded-lg border p-4 text-left transition-colors',
+                      active
+                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
+                        : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-secondary)]'
+                    )}
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-[var(--color-text-primary)]">{provider.title}</span>
+                      {active ? <Badge variant="success">Active</Badge> : null}
+                    </div>
+                    <p className="text-xs leading-5 text-[var(--color-text-secondary)]">{provider.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="max-w-sm space-y-2">
               <Label>Auth.Provider</Label>
               <Select
                 value={formState.activeProvider}
                 onValueChange={(value) => updateField('activeProvider', value as AuthProviderType)}
               >
-                <SelectTrigger className="w-full sm:w-72">
+                <SelectTrigger>
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
@@ -253,24 +316,22 @@ export function SettingsAuthenticationPage() {
                   <SelectItem value="Auth0">Auth0</SelectItem>
                 </SelectContent>
               </Select>
-            </CardContent>
-          </Card>
+            </div>
+          </SettingsSection>
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <Card className={cn(formState.activeProvider === 'Auth0' && 'border-[var(--color-brand-primary)]')}>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle>Auth0 Configuration</CardTitle>
-                  <div className="flex items-center gap-2">
-                    {formState.activeProvider === 'Auth0' && <Badge variant="success">Active</Badge>}
-                    <Badge variant={formState.hasAuth0ManagementClientSecret ? 'success' : 'outline'}>
-                      {formState.hasAuth0ManagementClientSecret ? 'Secret configured' : 'Secret missing'}
-                    </Badge>
-                  </div>
+            <SettingsSection
+              title="Auth0 Configuration"
+              description="Provider settings stored under `Auth.Auth0.*` keys."
+              action={
+                <div className="flex items-center gap-2">
+                  {formState.activeProvider === 'Auth0' ? <Badge variant="success">Active</Badge> : null}
+                  <Badge variant={formState.hasAuth0ManagementClientSecret ? 'success' : 'outline'}>
+                    {formState.hasAuth0ManagementClientSecret ? 'Secret configured' : 'Secret missing'}
+                  </Badge>
                 </div>
-                <CardDescription>Provider settings stored under `Auth.Auth0.*` keys.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              }
+            >
                 <SettingField
                   htmlFor="auth0-domain"
                   label="Domain"
@@ -322,23 +383,20 @@ export function SettingsAuthenticationPage() {
                   onChange={(value) => updateField('auth0ManagementClientSecret', value)}
                   type="password"
                 />
-              </CardContent>
-            </Card>
+            </SettingsSection>
 
-            <Card className={cn(formState.activeProvider === 'AzureAd' && 'border-[var(--color-brand-primary)]')}>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle>Azure AD Configuration</CardTitle>
-                  <div className="flex items-center gap-2">
-                    {formState.activeProvider === 'AzureAd' && <Badge variant="success">Active</Badge>}
-                    <Badge variant={formState.hasAzureAdClientSecret ? 'success' : 'outline'}>
-                      {formState.hasAzureAdClientSecret ? 'Secret configured' : 'Secret missing'}
-                    </Badge>
-                  </div>
+            <SettingsSection
+              title="Azure AD Configuration"
+              description="Provider settings stored under `Auth.AzureAd.*` keys."
+              action={
+                <div className="flex items-center gap-2">
+                  {formState.activeProvider === 'AzureAd' ? <Badge variant="success">Active</Badge> : null}
+                  <Badge variant={formState.hasAzureAdClientSecret ? 'success' : 'outline'}>
+                    {formState.hasAzureAdClientSecret ? 'Secret configured' : 'Secret missing'}
+                  </Badge>
                 </div>
-                <CardDescription>Provider settings stored under `Auth.AzureAd.*` keys.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              }
+            >
                 <SettingField
                   htmlFor="azure-ad-authority"
                   label="Authority"
@@ -383,8 +441,7 @@ export function SettingsAuthenticationPage() {
                   onChange={(value) => updateField('azureAdClientSecret', value)}
                   type="password"
                 />
-              </CardContent>
-            </Card>
+            </SettingsSection>
           </div>
         </div>
       )}

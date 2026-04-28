@@ -382,7 +382,9 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
         var current = Activity.Current;
         var observationId = current?.SpanId.ToString() ?? Guid.NewGuid().ToString("N");
         var traceId = current?.TraceId.ToString() ?? observationId;
-        var parentObservationId = current?.ParentSpanId.ToString();
+        var parentObservationId = current is null || current.ParentSpanId == default
+            ? null
+            : current.ParentSpanId.ToString();
         var latencySeconds = latencyMs / 1000.0;
         var ttftSeconds = ttftMs is null ? (double?)null : ttftMs.Value / 1000.0;
         var level = error is null ? "DEFAULT" : "ERROR";

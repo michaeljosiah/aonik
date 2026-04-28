@@ -33,6 +33,7 @@ export {
   SystemToolsPage,
   SettingsLandingPage,
   SettingsAuditLogsPage,
+  SettingsAuthenticationPage,
   GlobalSettingsPage,
 } from './settings';
 export { FxRatesPage } from './FxRatesPage';
