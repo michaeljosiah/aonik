@@ -210,6 +210,19 @@ function statusPill(status: 'ok' | 'held' | 'error') {
   return 'bg-emerald-500/10 text-emerald-600';
 }
 
+function getSpanKind(item: AiTraceObservationResponse): string {
+  const type = item.type.toLowerCase();
+  if (type === 'generation') return 'llm';
+  if (type === 'request') return 'request';
+  if (type === 'http') return 'http';
+  if (type === 'db') return 'db';
+  return 'span';
+}
+
+function getSpanActor(item: AiTraceObservationResponse): string {
+  return item.agentName ?? item.agentId ?? item.serviceName ?? item.source;
+}
+
 export function ObservabilityTracesPage() {
   const requestIdRef = useRef(0);
 
@@ -311,7 +324,7 @@ export function ObservabilityTracesPage() {
   const selectedStatus = selectedTrace ? formatStatus(selectedTrace.level, selectedTrace) : 'ok';
   const selectedDurationMs = selectedTrace ? getDurationMs(selectedTrace) : null;
   const selectedSpans = waterfallItems.length;
-  const selectedTools = waterfallItems.filter((item) => item.type.toLowerCase() === 'span').length;
+  const selectedTools = waterfallItems.filter((item) => ['span', 'http', 'db'].includes(item.type.toLowerCase())).length;
   const selectedAgents = Array.from(new Set(selectedTraceItems.map((item) => item.agentName ?? item.agentId).filter(Boolean)));
 
   return (
@@ -533,9 +546,9 @@ export function ObservabilityTracesPage() {
                             </div>
                             <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
                               <span className="rounded bg-[var(--color-brand-primary)]/10 px-1.5 py-0.5 font-medium text-[var(--color-brand-primary)]">
-                                {item.type.toLowerCase()}
+                                {getSpanKind(item)}
                               </span>
-                              <span>{item.agentName ?? item.agentId ?? item.source}</span>
+                              <span>{getSpanActor(item)}</span>
                             </div>
                           </div>
 
@@ -552,11 +565,15 @@ export function ObservabilityTracesPage() {
                                 'absolute inset-y-1 rounded-sm',
                                 item.level.toLowerCase() === 'error'
                                   ? 'bg-red-500'
-                                  : item.level.toLowerCase() === 'warning'
+                                : item.level.toLowerCase() === 'warning'
                                   ? 'bg-amber-500'
-                                  : item.type.toLowerCase() === 'generation'
+                                : item.type.toLowerCase() === 'generation'
                                   ? 'bg-[var(--color-brand-primary)]'
-                                  : 'bg-sky-500',
+                                  : item.type.toLowerCase() === 'db'
+                                    ? 'bg-teal-500'
+                                    : item.type.toLowerCase() === 'http'
+                                      ? 'bg-violet-500'
+                                      : 'bg-sky-500',
                               )}
                               style={{
                                 left: `${item.offsetPct}%`,

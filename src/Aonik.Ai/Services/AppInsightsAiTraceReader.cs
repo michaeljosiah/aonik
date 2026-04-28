@@ -105,15 +105,19 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             return null;
         }
 
+        var observationId = GetString(row, 0);
+        var parentObservationId = NullIfWhiteSpace(GetString(row, 2));
+        var spanId = NormalizeSpanId(observationId) ?? NullIfWhiteSpace(observationId);
+        var parentSpanId = NormalizeSpanId(parentObservationId);
         Guid? aiRunId = Guid.TryParse(GetString(row, 3), out var parsedRunId) ? parsedRunId : null;
 
         return new AiTraceObservationResponse
         {
-            ObservationId = GetString(row, 0),
+            ObservationId = observationId,
             TraceId = GetString(row, 1),
-            ParentObservationId = NullIfWhiteSpace(GetString(row, 2)),
-            SpanId = NullIfWhiteSpace(GetString(row, 0)),
-            ParentSpanId = NullIfWhiteSpace(GetString(row, 2)),
+            ParentObservationId = parentObservationId,
+            SpanId = spanId,
+            ParentSpanId = parentSpanId,
             OperationId = NullIfWhiteSpace(GetString(row, 20)) ?? GetString(row, 1),
             AiRunId = aiRunId,
             StartTime = ParseDateTime(row, 4),
@@ -136,12 +140,12 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             InputTokens = ParseIntNullable(row, 17),
             OutputTokens = ParseIntNullable(row, 18),
             TotalTokens = row.Length > 19 ? ParseIntNullable(row, 19) : null,
-            IsRootObservation = string.IsNullOrWhiteSpace(GetString(row, 2)),
+            IsRootObservation = string.IsNullOrWhiteSpace(parentSpanId ?? parentObservationId),
             Source = "AppInsights",
         };
     }
 
-    private static string BuildKql(ListAiTraceObservationsRequest request, int page, int pageSize)
+    internal static string BuildKql(ListAiTraceObservationsRequest request, int page, int pageSize)
     {
         var ago = request.TimeRange switch
         {
@@ -175,6 +179,8 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
 
         var whereFilters = filters.Count == 0 ? string.Empty : "| where " + string.Join(" and ", filters);
         var skip = (page - 1) * pageSize;
+        var dependencyScopeFilter = BuildDependencyScopeFilter(request);
+        var requestScopeFilter = BuildRequestScopeFilter(request);
 
         return $"""
         let traceLogs = traces
@@ -221,17 +227,13 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let dependencySpans = dependencies
         | where timestamp > {ago}
-        | where isnotempty(tostring(customDimensions["aonik.ai_run_id"]))
-            or isnotempty(tostring(customDimensions["aonik.observation.id"]))
-            or isnotempty(tostring(customDimensions["gen_ai.agent.name"]))
-            or isnotempty(tostring(customDimensions["gen_ai.request.model"]))
-            or isnotempty(tostring(customDimensions["gen_ai.response.model"]))
+        {dependencyScopeFilter}
         | extend operationId = tostring(operation_Id),
                  traceId = tostring(operation_Id),
                  observationId = tostring(id),
                  parentObservationId = tostring(operation_ParentId),
                  aiRunId = tostring(customDimensions["AiRunId"]),
-                 type = "SPAN",
+                 type = iff(tolower(type) == "http", "HTTP", iff(tolower(type) == "sql", "DB", "SPAN")),
                  traceName = coalesce(tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
                  input = "",
                  output = "",
@@ -252,17 +254,13 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let requestSpans = requests
         | where timestamp > {ago}
-        | where isnotempty(tostring(customDimensions["aonik.ai_run_id"]))
-            or isnotempty(tostring(customDimensions["aonik.observation.id"]))
-            or isnotempty(tostring(customDimensions["gen_ai.agent.name"]))
-            or isnotempty(tostring(customDimensions["gen_ai.request.model"]))
-            or isnotempty(tostring(customDimensions["gen_ai.response.model"]))
+        {requestScopeFilter}
         | extend operationId = tostring(operation_Id),
                  traceId = tostring(operation_Id),
                  observationId = tostring(id),
                  parentObservationId = tostring(operation_ParentId),
                  aiRunId = tostring(customDimensions["AiRunId"]),
-                 type = "SPAN",
+                 type = "REQUEST",
                  traceName = coalesce(tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
                  input = "",
                  output = "",
@@ -290,7 +288,80 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         """;
     }
 
+    private static string BuildDependencyScopeFilter(ListAiTraceObservationsRequest request)
+    {
+        if (request.IsRootObservation is true)
+        {
+            return "| where false";
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.TraceId))
+        {
+            return $"| where operation_Id == \"{EscapeKql(request.TraceId.Trim())}\"";
+        }
+
+        return """
+        | where isnotempty(tostring(customDimensions["aonik.ai_run_id"]))
+            or isnotempty(tostring(customDimensions["aonik.observation.id"]))
+            or isnotempty(tostring(customDimensions["gen_ai.agent.name"]))
+            or isnotempty(tostring(customDimensions["gen_ai.request.model"]))
+            or isnotempty(tostring(customDimensions["gen_ai.response.model"]))
+        """;
+    }
+
+    private static string BuildRequestScopeFilter(ListAiTraceObservationsRequest request)
+    {
+        if (request.IsRootObservation is true)
+        {
+            return "| where false";
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.TraceId))
+        {
+            return $"| where operation_Id == \"{EscapeKql(request.TraceId.Trim())}\"";
+        }
+
+        return """
+        | where isnotempty(tostring(customDimensions["aonik.ai_run_id"]))
+            or isnotempty(tostring(customDimensions["aonik.observation.id"]))
+            or isnotempty(tostring(customDimensions["gen_ai.agent.name"]))
+            or isnotempty(tostring(customDimensions["gen_ai.request.model"]))
+            or isnotempty(tostring(customDimensions["gen_ai.response.model"]))
+        """;
+    }
+
     private static string EscapeKql(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+    internal static string? NormalizeSpanId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+
+        if (trimmed.StartsWith("00-", StringComparison.Ordinal))
+        {
+            var parts = trimmed.Split('-', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 4 && !string.IsNullOrWhiteSpace(parts[2]))
+            {
+                return parts[2];
+            }
+        }
+
+        if (trimmed.StartsWith('|'))
+        {
+            var hierarchical = trimmed.TrimStart('|').TrimEnd('.');
+            var parts = hierarchical.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+            {
+                return parts[^1];
+            }
+        }
+
+        return trimmed;
+    }
 
     private static string GetString(JsonElement[] row, int index)
     {
