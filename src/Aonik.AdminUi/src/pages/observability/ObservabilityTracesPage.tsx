@@ -213,7 +213,7 @@ function statusPill(status: 'ok' | 'held' | 'error') {
 export function ObservabilityTracesPage() {
   const requestIdRef = useRef(0);
 
-  const [timeRange, setTimeRange] = useState('1h');
+  const [timeRange, setTimeRange] = useState('24h');
   const [statusFilter, setStatusFilter] = useState('all');
   const [traceItems, setTraceItems] = useState<AiTraceObservationResponse[]>([]);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
