@@ -209,7 +209,6 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  traceId = iff(isempty(traceId), operationId, traceId),
                  observationId = iff(isempty(observationId), tostring(itemId), observationId),
                  parentObservationId = iff(isempty(parentObservationId), tostring(operation_ParentId), parentObservationId),
-                 parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId),
                  latencySeconds = iff(isnan(latencySeconds), todouble(customDimensions["LatencyMs"]) / 1000.0, latencySeconds),
                  durationMs = iff(isnan(durationMs), latencySeconds * 1000.0, durationMs),
                  costUsd = iff(isnan(costUsd), todouble(customDimensions["EstimatedCostUsd"]), costUsd),
@@ -218,6 +217,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  inputTokens = iff(isnull(inputTokens), toint(customDimensions["InputTokens"]), inputTokens),
                  outputTokens = iff(isnull(outputTokens), toint(customDimensions["OutputTokens"]), outputTokens),
                  totalTokens = iff(isnull(totalTokens), toint(customDimensions["TotalTokens"]), totalTokens)
+        | extend parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId)
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let dependencySpans = dependencies
         | where timestamp > {ago}
