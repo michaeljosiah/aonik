@@ -94,6 +94,7 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<ToolSpec>(modelBuilder, "ToolSpecs");
         MapTable<AiPolicy>(modelBuilder, "AiPolicies");
         MapTable<AiRun>(modelBuilder, "AiRuns");
+        MapTable<TenantAgentSettings>(modelBuilder, "TenantAgentSettings");
         MapTable<AiTrace>(modelBuilder, "AiTraces");
         MapTable<AiFeedback>(modelBuilder, "AiFeedbacks");
         MapTable<EvalSuite>(modelBuilder, "EvalSuites");
