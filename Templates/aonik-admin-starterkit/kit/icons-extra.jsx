@@ -1,10 +1,17 @@
 // Extra icons beyond components.jsx — merged into the ICONS map at boot.
 const EXTRA_ICONS = {
+  'chevron-up':    '<path d="M6 15l6-6 6 6"/>',
+  'chevron-left':  '<path d="M15 6l-6 6 6 6"/>',
+  'chevron-right': '<path d="M9 6l6 6-6 6"/>',
   building:   '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h2M8 11h2M8 15h2M14 7h2M14 11h2M14 15h2"/>',
   users2:     '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="8" r="2.5"/><path d="M14 20c0-2.5 2.5-4 4-4"/>',
   user:       '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/>',
   file:       '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>',
   files:      '<path d="M9 2h7l4 4v11H9z"/><path d="M15 2v5h5"/><path d="M5 7v14h10"/>',
+  folder:     '<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  folderOpen: '<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3z"/><path d="M3 9h18l-2 9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  markdown:   '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15V9l2.5 3L12 9v6"/><path d="M16 9v6M14 13l2 2 2-2"/>',
+  package:    '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
   shield2:    '<path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6z"/>',
   check2:     '<path d="M5 12l5 5L20 7"/>',
   dollar:     '<path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H7"/>',

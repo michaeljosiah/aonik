@@ -72,6 +72,13 @@
 <script type="text/babel" src="screens/obs-logs-audit.jsx"></script>
 <script type="text/babel" src="screens/rest.jsx"></script>
 <script type="text/babel" src="screens/forms.jsx"></script>
+<script type="text/babel" src="screens/agents-page.jsx"></script>
+<script type="text/babel" src="screens/agent-detail.jsx"></script>
+<script type="text/babel" src="screens/workflows.jsx"></script>
+<script type="text/babel" src="screens/workflow-editor.jsx"></script>
+<script type="text/babel" src="screens/workflow-editor-chrome.jsx"></script>
+<script type="text/babel" src="screens/workflow-editor-screen.jsx"></script>
+<script type="text/babel" src="screens/invoice-edit.jsx"></script>
 <script type="text/babel" src="screens/notifications.jsx"></script>
 <script type="text/babel" src="screens/orders.jsx"></script>
 <script type="text/babel" src="screens/order-flow.jsx"></script>
@@ -82,6 +89,7 @@
 <script type="text/babel" src="screens/billers.jsx"></script>
 <script type="text/babel" src="screens/remittances.jsx"></script>
 <script type="text/babel" src="screens/approvals.jsx"></script>
+<script type="text/babel" src="screens/tenant-signup.jsx"></script>
 
 <!-- App -->
 <script type="text/babel">
@@ -90,8 +98,8 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "compact",
   "accent": "teal",
   "sidebarCollapsed": false,
-  "showAgentRail": true,
-  "proposalStyle": "tinted",
+  "showAgentRail": false,
+  "proposalStyle": "coral-rail",
   "agentAvatars": true
 }/*EDITMODE-END*/;
 
@@ -286,6 +294,18 @@ function App() {
           <DCArtboard id="agents"   label="Agent Command Center · roster + live trace" width={W} height={H}>
             {mkShell('agents',   ['Admin', 'Agents'], ScreenAgents)}
           </DCArtboard>
+          <DCArtboard id="agents-page" label="Agents · profile cards + slide-out edit panel" width={W} height={H}>
+            {mkShell('agents', ['AI', 'Agents'], ScreenAgentsPage)}
+          </DCArtboard>
+          <DCArtboard id="agent-detail" label="Agent detail · Billing Agent · sub-agents, tools, skills, MCP servers + edit slide-out" width={W} height={H}>
+            {mkShell('agents', ['AI', 'Agents', 'Billing Agent'], ScreenAgentDetail)}
+          </DCArtboard>
+          <DCArtboard id="workflows" label="Agent Workflows · reusable procedures · step rails + detail pane" width={W} height={H}>
+            {mkShell('workflows', ['AI', 'Workflows'], ScreenWorkflows)}
+          </DCArtboard>
+          <DCArtboard id="workflow-editor" label="Workflow editor · canvas + palette + inspector + live test" width={1720} height={1080}>
+            <ArtboardFrame><ScreenWorkflowEditor/></ArtboardFrame>
+          </DCArtboard>
         </DCSection>
 
         <DCSection id="ia" title="New IA · Transact / Products / Platform" subtitle="Orders is universal · Bill Payments and Remittances are catalog + config">
@@ -370,6 +390,9 @@ function App() {
           <DCArtboard id="form-fullpage" label="Full page · New customer · multi-section, agent-assisted" width={W} height={H}>
             {mkShell('customers', ['Finance', 'Customers', 'New customer'], ScreenFormFullPage)}
           </DCArtboard>
+          <DCArtboard id="invoice-edit" label="Slide-out · Edit invoice · INV-2041 with line items + agent reconciliation" width={W} height={H}>
+            {mkShell('invoices', ['Finance', 'Invoices', 'INV-2041'], ScreenInvoiceEdit, 'invoices')}
+          </DCArtboard>
         </DCSection>
 
         <DCSection id="notifications" title="Notifications" subtitle="System · agents · mentions · approvals">
@@ -423,6 +446,18 @@ function App() {
           </DCArtboard>
           <DCArtboard id="invoice-detail" label="Invoice detail · line items + dialogs + payment rail" width={W} height={H}>
             {mkShell('invoices', ['Finance', 'Invoices', 'INV-0047'], ScreenInvoiceDetail)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="onboarding" title="Tenant onboarding · 3 directions" subtitle="Same content domain · same brand · different form-factor — A · split / B · single-page / C · conversational">
+          <DCArtboard id="onboarding-split" label="A · Editorial split-screen · brand wall + 5-step form (showing Features step)" width={W} height={H}>
+            <ArtboardFrame><ScreenTenantSignupSplit/></ArtboardFrame>
+          </DCArtboard>
+          <DCArtboard id="onboarding-single" label="B · Single-page anchored scroll · all sections at once · TOC rail" width={W} height={H}>
+            <ArtboardFrame><ScreenTenantSignupSinglePage/></ArtboardFrame>
+          </DCArtboard>
+          <DCArtboard id="onboarding-chat" label="C · Conversational · agent-led chat reveals form chunks inline" width={W} height={H}>
+            <ArtboardFrame><ScreenTenantSignupChat/></ArtboardFrame>
           </DCArtboard>
         </DCSection>
 
