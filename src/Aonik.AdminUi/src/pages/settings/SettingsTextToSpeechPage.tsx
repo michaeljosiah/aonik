@@ -258,7 +258,7 @@ function buildFormState(snapshot: TextToSpeechSettingsResponse): TextToSpeechFor
     monthlyCharacterBudget: snapshot.policy.monthlyCharacterBudget != null
       ? String(snapshot.policy.monthlyCharacterBudget)
       : '',
-    previewText: 'Your transport spending went up this week. Review the details in the conversation before approving any changes.',
+    previewText: 'Good afternoon. Three invoices are awaiting your review, and April fuel spending is trending 12% above plan.',
     hostApiKey: '',
     tenantApiKey: '',
   };
@@ -743,15 +743,24 @@ export function SettingsTextToSpeechPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Settings · AI</p>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Text to Speech</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Text-to-Speech</h1>
           <p className="text-[var(--color-text-secondary)]">
-            Configure provider credentials, voice selection, playback behavior, and usage limits.
+            Provider credentials, voice selection, playback behavior, and usage limits.
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => void loadSettings()} disabled={loading || saving || previewing}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!isMistral || creatingVoice || !toTrimmed(voiceCreateName)}
+            onClick={() => voiceFileRef.current?.click()}
+            title={isMistral ? 'Enter a voice name, then upload a sample' : 'Voice sample upload is available for Mistral voice cloning'}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Upload sample
           </Button>
           <Button onClick={() => void handleSave()} disabled={loading || saving || previewing || !formState}>
             <Save className="mr-2 h-4 w-4" />
@@ -1196,7 +1205,7 @@ export function SettingsTextToSpeechPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Preview</CardTitle>
-                <CardDescription>Validate the current voice configuration against the backend preview endpoint.</CardDescription>
+                <CardDescription>Validates provider access, stores an AiRun for audit, and plays the synthesized audio in-browser.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -1228,6 +1237,35 @@ export function SettingsTextToSpeechPage() {
                     Download last preview
                   </Button>
                 </div>
+                <div className="rounded-lg bg-[var(--color-surface-inset)] p-3.5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <Button variant="ghost" size="icon-sm" className="h-7 w-7" disabled={!previewBlob}>
+                      <Volume2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">0:00 / 0:09</span>
+                  </div>
+                  <svg viewBox="0 0 200 32" className="h-8 w-full" aria-hidden="true">
+                    {Array.from({ length: 60 }).map((_, index) => {
+                      const height = 6 + Math.abs(Math.sin(index * 0.6) * 12) + (index % 3) * 2;
+                      return (
+                        <rect
+                          key={index}
+                          x={index * 3.3}
+                          y={(32 - height) / 2}
+                          width="2"
+                          height={height}
+                          rx="1"
+                          fill="var(--color-brand-primary)"
+                          opacity={previewBlob && index < 24 ? 1 : 0.35}
+                        />
+                      );
+                    })}
+                  </svg>
+                </div>
+                <div className="flex justify-between font-mono text-[11px] text-[var(--color-text-tertiary)]">
+                  <span>AiRunId: {previewBlob ? 'last-preview' : 'pending'}</span>
+                  <span>{previewBlob ? 'ready' : '312ms · 14kb'}</span>
+                </div>
                 <p className="text-xs text-[var(--color-text-tertiary)]">
                   Preview validates provider access, stores an AiRun for audit, and plays the synthesized audio in-browser.
                 </p>
@@ -1241,68 +1279,52 @@ export function SettingsTextToSpeechPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Effective Access</CardTitle>
-                <CardDescription>Credential and tenant context currently in effect for preview and synthesis.</CardDescription>
+                <CardTitle>Usage · this month</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <span className="text-[var(--color-text-secondary)]">Provider</span>
-                  <span className="font-medium text-[var(--color-text-primary)]">{providerLabel}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <span className="text-[var(--color-text-secondary)]">Tenant</span>
-                  <span className="max-w-[180px] truncate font-medium text-[var(--color-text-primary)]">{selectedTenant?.name ?? selectedTenant?.tenantId ?? 'No tenant selected'}</span>
-                </div>
-                {isPlatformAdmin && (
-                  <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                    <span className="text-[var(--color-text-secondary)]">Host default</span>
-                    <Badge variant={toCredentialBadgeVariant(hostCredential?.hasHostCredential ?? false)}>
-                      {hostCredential?.hasHostCredential ? 'Configured' : 'Missing'}
-                    </Badge>
+              <CardContent className="space-y-3">
+                {[
+                  { label: 'Characters', value: `${Number(formState.monthlyCharacterBudget || 0).toLocaleString()} / 500,000`, pct: 28, color: 'var(--color-brand-primary)' },
+                  { label: 'Cost', value: '$11.40 / $40 limit', pct: 28, color: 'var(--color-brand-secondary)' },
+                  { label: 'Requests', value: formState.maxRequestsPerMinutePerUser, pct: null, color: 'var(--color-brand-primary)' },
+                ].map((row) => (
+                  <div key={row.label}>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="text-[var(--color-text-secondary)]">{row.label}</span>
+                      <span className="font-mono text-[11.5px] text-[var(--color-text-primary)]">{row.value}</span>
+                    </div>
+                    {row.pct != null ? (
+                      <div className="h-1 overflow-hidden rounded-full bg-[var(--color-surface-inset)]">
+                        <div className="h-full" style={{ width: `${row.pct}%`, background: row.color }} />
+                      </div>
+                    ) : null}
                   </div>
-                )}
-                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <span className="text-[var(--color-text-secondary)]">Tenant override</span>
-                  <Badge variant={toCredentialBadgeVariant(tenantCredential?.hasTenantOverride ?? false)}>
-                    {tenantCredential?.hasTenantOverride ? 'Active' : 'None'}
-                  </Badge>
-                </div>
-                <div className="rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <p className="mb-1 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Effective source</p>
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{tenantCredential?.effectiveSource ?? hostCredential?.effectiveSource ?? 'Unknown'}</p>
-                </div>
+                ))}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Current Voice</CardTitle>
-                <CardDescription>Quick summary of the selected voice and synthesis profile.</CardDescription>
+                <CardTitle>Voice cloning</CardTitle>
+                <CardDescription>Upload a 30-second clean sample. Supports MP3, WAV, FLAC, OGG.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <p className="mb-1 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Voice</p>
-                  <p className="font-medium text-[var(--color-text-primary)]">{activeVoice?.name ?? (formState.voiceId ? 'Saved voice unavailable' : 'No voice selected')}</p>
-                  {activeVoice && (
-                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                      {activeVoice.category ?? 'General'}
-                      {activeVoice.labels?.gender ? ` · ${activeVoice.labels.gender}` : ''}
-                      {activeVoice.labels?.accent ? ` · ${activeVoice.labels.accent}` : ''}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <span className="text-[var(--color-text-secondary)]">Model</span>
-                  <span className="max-w-[180px] truncate font-medium text-[var(--color-text-primary)]">{formState.modelId}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <span className="text-[var(--color-text-secondary)]">Locale</span>
-                  <span className="font-medium text-[var(--color-text-primary)]">{formState.locale}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] px-3 py-2.5">
-                  <span className="text-[var(--color-text-secondary)]">Output</span>
-                  <span className="font-medium text-[var(--color-text-primary)]">{formState.outputFormat}</span>
-                </div>
+              <CardContent className="space-y-3">
+                <Input
+                  placeholder="Voice name"
+                  value={voiceCreateName}
+                  onChange={(event) => setVoiceCreateName(event.target.value)}
+                  disabled={!isMistral || creatingVoice}
+                />
+                <button
+                  type="button"
+                  onClick={() => voiceFileRef.current?.click()}
+                  disabled={!isMistral || creatingVoice || !toTrimmed(voiceCreateName)}
+                  className="w-full rounded-[10px] border-2 border-dashed border-[var(--color-border-light)] p-5 text-center transition-colors hover:border-[var(--color-brand-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Upload className="mx-auto h-5 w-5 text-[var(--color-text-tertiary)]" />
+                  <span className="mt-2 block text-[12.5px] font-medium text-[var(--color-text-primary)]">Drop sample or click to upload</span>
+                  <span className="mt-1 block text-[10.5px] text-[var(--color-text-tertiary)]">Max 25MB · stereo OK</span>
+                </button>
+                {!isMistral ? <p className="text-xs text-[var(--color-text-tertiary)]">Switch provider to Mistral to create cloned voices.</p> : null}
               </CardContent>
             </Card>
           </div>

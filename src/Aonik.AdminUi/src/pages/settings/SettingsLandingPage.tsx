@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   ArrowUpRight,
   AudioLines,
+  BookOpen,
+  Search,
   ShieldCheck,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -26,7 +28,7 @@ const settingsTiles: SettingsTile[] = [
   {
     section: 'Platform',
     title: 'Platform Settings',
-    description: 'Workspace profile, AI provider, storage, communication, feature flags, and platform configuration.',
+    description: 'Workspace profile, AI provider, storage, communication, feature flags.',
     href: '/settings/global',
     icon: <AonikTemplateIcon name="settings" size={18} />,
     badge: 'Configuration',
@@ -34,7 +36,7 @@ const settingsTiles: SettingsTile[] = [
   {
     section: 'Platform',
     title: 'Authentication',
-    description: 'Identity providers, SSO, OAuth callbacks, and management client credentials.',
+    description: 'Identity providers, SSO, OAuth callbacks, key rotation.',
     href: '/settings/authentication',
     icon: <AonikTemplateIcon name="shield" size={18} />,
     badge: 'Security',
@@ -42,7 +44,7 @@ const settingsTiles: SettingsTile[] = [
   {
     section: 'Platform',
     title: 'Audit Logs',
-    description: 'Review operator actions, authentication events, and security decisions.',
+    description: 'Operator actions, authentication events, security decisions.',
     href: '/settings/audit-logs',
     icon: <AonikTemplateIcon name="invoice" size={18} />,
     badge: 'Observability',
@@ -50,15 +52,23 @@ const settingsTiles: SettingsTile[] = [
   {
     section: 'Platform',
     title: 'System Tools',
-    description: 'Run maintenance utilities such as cache invalidation and seed operations.',
+    description: 'Maintenance utilities, cache invalidation, demo seed datasets.',
     href: '/settings/system-tools',
     icon: <AonikTemplateIcon name="wrench" size={18} />,
     badge: 'Ops',
   },
   {
     section: 'Finance',
+    title: 'Payment Gateways',
+    description: 'Configure Stripe, Paystack, Wise, Flutterwave routing & credentials.',
+    href: '/settings/payment-gateways',
+    icon: <AonikTemplateIcon name="bank" size={18} />,
+    badge: 'Integrations',
+  },
+  {
+    section: 'Finance',
     title: 'FX Rates',
-    description: 'Manage FX quote sources and maintain exchange rate governance.',
+    description: 'Manage FX quote sources and exchange rate governance.',
     href: '/settings/fx-rates',
     icon: <AonikTemplateIcon name="arrows" size={18} />,
     badge: 'Pricing',
@@ -86,6 +96,14 @@ const settingsTiles: SettingsTile[] = [
     href: '/ai/policies',
     icon: <ShieldCheck className="h-[18px] w-[18px]" />,
     badge: 'Governance',
+  },
+  {
+    section: 'AI & Agents',
+    title: 'Tool Catalog',
+    description: 'Browse, enable, and version the tools available to agents.',
+    href: '/settings/tool-catalog',
+    icon: <AonikTemplateIcon name="list" size={18} />,
+    badge: 'AI',
   },
 ];
 
@@ -126,15 +144,27 @@ export function SettingsLandingPage() {
   const aiTiles = settingsTiles.filter((tile) => tile.section === 'AI & Agents');
 
   return (
-    <div className="h-full overflow-auto p-6">
+    <div className="h-full overflow-auto px-8 py-6">
       <Breadcrumb items={[{ label: 'Settings', icon: <SlidersHorizontal className="h-3.5 w-3.5" /> }]} className="mb-4" />
 
-      <div className="mb-7">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Admin</p>
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Settings</h1>
-        <p className="max-w-3xl text-[var(--color-text-secondary)]">
-          Centralized controls for workspace behavior, integration security, and operational governance.
-        </p>
+      <div className="mb-7 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Admin</p>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Settings</h1>
+          <p className="max-w-3xl text-[var(--color-text-secondary)]">
+            Centralized controls for workspace behavior, integration security, and operational governance.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+            <Search className="h-3 w-3" />
+            Search settings
+          </button>
+          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+            <BookOpen className="h-3 w-3" />
+            Settings docs
+          </button>
+        </div>
       </div>
 
       <div className="space-y-8">
