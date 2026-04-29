@@ -63,7 +63,8 @@ public class AppInsightsAiTraceReaderTests
 
         kql.Should().Contain("isCandidateRootObservation = isempty(parentObservationId) or parentObservationId == normalizedParentId or normalizedParentId == traceId");
         kql.Should().Contain("| where isCandidateRootObservation == true");
-        kql.Should().Contain("| project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;\n        let dependencySpans = dependencies");
+        kql.Should().Contain("| project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;");
+        kql.Should().Contain("let dependencySpans = dependencies");
         kql.Should().NotContain("union traceLogs, dependencySpans, requestSpans\n        | where isCandidateRootObservation == true");
     }
 
