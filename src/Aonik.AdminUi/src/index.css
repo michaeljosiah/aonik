@@ -639,6 +639,67 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: 0px 4px 0px -2px var(--theme-color-600, rgba(5, 90, 96, 0.6));
 }
 
+/* ─── Aonik form fields (bottom-bar focus) ─────────────────────────────────── */
+/* Signature input pattern from templates/aonik-admin-starterkit/tokens.css —
+   1px border on three sides, 2px bottom border that turns brand-teal on
+   focus, plus a 4px teal bar below via --shadow-focus. Use these classes for
+   text inputs and selects in form-heavy pages (orders, billing, settings).
+   Do NOT replace the bottom-bar focus with a full-ring focus — that's a hard
+   rule in the Aonik design skill. */
+.aonik-input {
+  height: 38px;
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-bottom: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--color-text-primary);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.aonik-input::placeholder { color: var(--color-text-tertiary); }
+.aonik-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-brand-primary);
+  box-shadow: var(--shadow-focus);
+}
+.aonik-input:disabled {
+  background: var(--color-surface-inset);
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+}
+
+.aonik-select {
+  height: 38px;
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-bottom: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0 28px 0 12px;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ba3ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.aonik-select:focus {
+  outline: none;
+  border-bottom-color: var(--color-brand-primary);
+  box-shadow: var(--shadow-focus);
+}
+.aonik-select:disabled {
+  background-color: var(--color-surface-inset);
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+}
+
 .chat-file-drop-zone {
   min-height: 100px;
   border: 1px dashed var(--color-text-primary);
