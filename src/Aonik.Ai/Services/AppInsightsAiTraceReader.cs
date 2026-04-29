@@ -186,17 +186,10 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             }
         }
 
-        var traceLogFilters = new List<string>(filters);
         var whereFilters = filters.Count == 0 ? string.Empty : "| where " + string.Join(" and ", filters);
         var skip = (page - 1) * pageSize;
         var dependencyScopeFilter = BuildDependencyScopeFilter(request);
         var requestScopeFilter = BuildRequestScopeFilter(request);
-
-        if (request.IsRootObservation is true)
-        {
-            traceLogFilters.Add("isCandidateRootObservation == true");
-            whereFilters = traceLogFilters.Count == 0 ? string.Empty : "| where " + string.Join(" and ", traceLogFilters);
-        }
 
         return $"""
         let traceLogs = traces
