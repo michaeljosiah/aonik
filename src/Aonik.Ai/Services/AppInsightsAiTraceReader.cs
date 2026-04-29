@@ -109,6 +109,11 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         var parentObservationId = NullIfWhiteSpace(GetString(row, 2));
         var spanId = NormalizeSpanId(observationId) ?? NullIfWhiteSpace(observationId);
         var parentSpanId = NormalizeSpanId(parentObservationId);
+        if (spanId is not null && parentSpanId == spanId)
+        {
+            parentObservationId = null;
+            parentSpanId = null;
+        }
         Guid? aiRunId = Guid.TryParse(GetString(row, 3), out var parsedRunId) ? parsedRunId : null;
 
         return new AiTraceObservationResponse
@@ -175,15 +180,23 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         if (!string.IsNullOrWhiteSpace(request.Level)) filters.Add($"level == \"{EscapeKql(request.Level.Trim().ToUpperInvariant())}\"");
         if (request.IsRootObservation is { } isRoot)
         {
-            filters.Add(isRoot
-                ? "isCandidateRootObservation == true"
-                : "isnotempty(parentObservationId) and parentObservationId != \"0000000000000000\" and parentObservationId != \"00000000-0000-0000-0000-000000000000\"");
+            if (!isRoot)
+            {
+                filters.Add("isnotempty(parentObservationId) and parentObservationId != \"0000000000000000\" and parentObservationId != \"00000000-0000-0000-0000-000000000000\"");
+            }
         }
 
+        var traceLogFilters = new List<string>(filters);
         var whereFilters = filters.Count == 0 ? string.Empty : "| where " + string.Join(" and ", filters);
         var skip = (page - 1) * pageSize;
         var dependencyScopeFilter = BuildDependencyScopeFilter(request);
         var requestScopeFilter = BuildRequestScopeFilter(request);
+
+        if (request.IsRootObservation is true)
+        {
+            traceLogFilters.Add("isCandidateRootObservation == true");
+            whereFilters = traceLogFilters.Count == 0 ? string.Empty : "| where " + string.Join(" and ", traceLogFilters);
+        }
 
         return $"""
         let traceLogs = traces
@@ -230,6 +243,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         | extend parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId)
         | extend normalizedParentId = iff(normalizedParentId == "0000000000000000" or normalizedParentId == "00000000-0000-0000-0000-000000000000", "", normalizedParentId)
         | extend isCandidateRootObservation = isempty(parentObservationId) or parentObservationId == normalizedParentId or normalizedParentId == traceId
+        {(request.IsRootObservation is true ? "| where isCandidateRootObservation == true" : string.Empty)}
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let dependencySpans = dependencies
         | where timestamp > {ago}
