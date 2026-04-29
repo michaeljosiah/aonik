@@ -317,15 +317,12 @@ export function ObservabilityTracesPage() {
   const waterfallItems = useMemo(() => buildWaterfall(selectedTraceItems), [selectedTraceItems]);
   const traceTotalMs = useMemo(() => getTraceTotalMs(selectedTraceItems), [selectedTraceItems]);
 
-  const allStatuses = traceItems.map((item) => formatStatus(item.level, item));
-  const okCount = allStatuses.filter((status) => status === 'ok').length;
-  const heldCount = allStatuses.filter((status) => status === 'held').length;
-  const errorCount = allStatuses.filter((status) => status === 'error').length;
   const selectedStatus = selectedTrace ? formatStatus(selectedTrace.level, selectedTrace) : 'ok';
   const selectedDurationMs = selectedTrace ? getDurationMs(selectedTrace) : null;
   const selectedSpans = waterfallItems.length;
   const selectedTools = waterfallItems.filter((item) => ['span', 'http', 'db'].includes(item.type.toLowerCase())).length;
   const selectedAgents = Array.from(new Set(selectedTraceItems.map((item) => item.agentName ?? item.agentId).filter(Boolean)));
+  const selectedAgentLabel = selectedTrace?.agentName ?? selectedTrace?.agentId ?? selectedTrace?.serviceName ?? '--';
 
   return (
     <div className="flex h-full flex-col overflow-auto">
@@ -364,30 +361,6 @@ export function ObservabilityTracesPage() {
       </div>
 
       <div className="flex-1 p-6">
-        <div className="mb-4 grid gap-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div>
-            <div className="text-sm font-semibold text-[var(--color-text-primary)]">
-              {errorCount > 0 ? 'Trace errors detected' : heldCount > 0 ? 'Trace warnings detected' : 'Trace stream healthy'}
-            </div>
-            <div className="mt-1 text-xs text-[var(--color-text-secondary)]">
-              {traceItems.length} root traces surfaced from the live observation feed for the selected window.
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-4 text-left lg:text-right">
-            {[
-              { label: 'Tail', value: traceItems.length.toString() },
-              { label: 'OK', value: okCount.toString() },
-              { label: 'Held', value: heldCount.toString() },
-              { label: 'Errors', value: errorCount.toString() },
-            ].map((item) => (
-              <div key={item.label}>
-                <div className="font-mono text-sm font-semibold text-[var(--color-text-primary)]">{item.value}</div>
-                <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{item.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px] bg-[var(--color-surface)]">
@@ -474,7 +447,7 @@ export function ObservabilityTracesPage() {
                           {trace.traceId}
                         </div>
                         <div className="flex items-center justify-between gap-3 text-[10.5px] text-[var(--color-text-secondary)]">
-                          <span>{trace.agentName ?? trace.agentId ?? trace.source}</span>
+                          <span>{trace.agentName ?? trace.agentId ?? trace.serviceName ?? trace.source}</span>
                           <span className="font-mono">{formatDurationMs(getDurationMs(trace))} · {formatAgo(trace.startTime)}</span>
                         </div>
                       </button>
@@ -502,8 +475,8 @@ export function ObservabilityTracesPage() {
                       <span>spans <b className="text-[var(--color-text-primary)]">{selectedSpans}</b></span>
                       <span>tokens <b className="text-[var(--color-text-primary)]">{formatTokens(selectedTrace.totalTokens)}</b></span>
                       <span>tools <b className="text-[var(--color-text-primary)]">{selectedTools}</b></span>
-                      <span>agent <b className="text-[var(--color-text-primary)]">{selectedTrace.agentName ?? selectedTrace.agentId ?? '--'}</b></span>
-                      <span>source <b className="text-[var(--color-text-primary)]">{selectedTrace.source}</b></span>
+                      <span>agent <b className="text-[var(--color-text-primary)]">{selectedAgentLabel}</b></span>
+                      <span>tail <b className="text-[var(--color-text-primary)]">{filteredTraceItems.length}</b></span>
                     </div>
                     {selectedAgents.length > 1 ? (
                       <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">

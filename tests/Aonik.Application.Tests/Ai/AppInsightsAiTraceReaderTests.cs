@@ -47,4 +47,19 @@ public class AppInsightsAiTraceReaderTests
     {
         AppInsightsAiTraceReader.NormalizeSpanId(input).Should().Be(expected);
     }
+
+    [Fact]
+    public void BuildKql_ShouldTreatAiObservationsUnderTraceRoot_AsRootCandidates()
+    {
+        var request = new ListAiTraceObservationsRequest
+        {
+            IsRootObservation = true,
+            TimeRange = "24h",
+        };
+
+        var kql = AppInsightsAiTraceReader.BuildKql(request, 1, 100);
+
+        kql.Should().Contain("isCandidateRootObservation = isempty(parentObservationId) or parentObservationId == normalizedParentId or normalizedParentId == traceId");
+        kql.Should().Contain("| where isCandidateRootObservation == true");
+    }
 }

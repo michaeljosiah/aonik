@@ -156,6 +156,9 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         };
 
         var filters = new List<string>();
+        var traceIdFilter = !string.IsNullOrWhiteSpace(request.TraceId)
+            ? EscapeKql(request.TraceId.Trim())
+            : null;
         if (!string.IsNullOrWhiteSpace(request.Type)) filters.Add($"type == \"{EscapeKql(request.Type.Trim().ToUpperInvariant())}\"");
         if (!string.IsNullOrWhiteSpace(request.Name)) filters.Add($"name contains \"{EscapeKql(request.Name.Trim())}\"");
         if (!string.IsNullOrWhiteSpace(request.TraceName))
@@ -163,7 +166,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
             var traceValue = EscapeKql(request.TraceName.Trim());
             filters.Add($"traceName contains \"{traceValue}\" or traceId contains \"{traceValue}\" or operationId contains \"{traceValue}\"");
         }
-        if (!string.IsNullOrWhiteSpace(request.TraceId)) filters.Add($"traceId == \"{EscapeKql(request.TraceId.Trim())}\" or operationId == \"{EscapeKql(request.TraceId.Trim())}\"");
+        if (traceIdFilter is not null) filters.Add($"traceId == \"{traceIdFilter}\" or operationId == \"{traceIdFilter}\"");
         if (!string.IsNullOrWhiteSpace(request.AgentName))
         {
             var agentName = EscapeKql(request.AgentName.Trim());
@@ -173,7 +176,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         if (request.IsRootObservation is { } isRoot)
         {
             filters.Add(isRoot
-                ? "isempty(parentObservationId) or parentObservationId == \"0000000000000000\" or parentObservationId == \"00000000-0000-0000-0000-000000000000\""
+                ? "isCandidateRootObservation == true"
                 : "isnotempty(parentObservationId) and parentObservationId != \"0000000000000000\" and parentObservationId != \"00000000-0000-0000-0000-000000000000\"");
         }
 
@@ -208,7 +211,8 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  agentId = coalesce(tostring(customDimensions["gen_ai.agent.id"]), tostring(customDimensions["aonik.agent.name"])),
                  agentName = coalesce(tostring(customDimensions["gen_ai.agent.name"]), tostring(customDimensions["aonik.agent.name"])),
                  serviceName = tostring(cloud_RoleName),
-                 durationMs = todouble(customDimensions["duration_ms"])
+                 durationMs = todouble(customDimensions["duration_ms"]),
+                 normalizedParentId = tostring(operation_ParentId)
         | extend type = iff(isempty(type), "GENERATION", type),
                  name = iff(isempty(name), tostring(customDimensions["Operation"]), name),
                  traceName = iff(isempty(traceName), tostring(customDimensions["UseCase"]), traceName),
@@ -224,6 +228,8 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  outputTokens = iff(isnull(outputTokens), toint(customDimensions["OutputTokens"]), outputTokens),
                  totalTokens = iff(isnull(totalTokens), toint(customDimensions["TotalTokens"]), totalTokens)
         | extend parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId)
+        | extend normalizedParentId = iff(normalizedParentId == "0000000000000000" or normalizedParentId == "00000000-0000-0000-0000-000000000000", "", normalizedParentId)
+        | extend isCandidateRootObservation = isempty(parentObservationId) or parentObservationId == normalizedParentId or normalizedParentId == traceId
         | project observationId, traceId, parentObservationId, aiRunId, timestamp, endTime=datetime(null), type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let dependencySpans = dependencies
         | where timestamp > {ago}
