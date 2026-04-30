@@ -109,15 +109,55 @@ internal static class WorkflowSeedCatalog
     {
         var fast = new[] { n[0], n[1], n[2], n[3], n[5], n[6], n[7] };
         var held = new[] { n[0], n[1], n[2], n[3], n[4] };
-        return new[]
+
+        // Six hand-tuned runs at the top of the list — these are what the
+        // detail-rail's "Recent runs" + the editor's trace-replay dropdown
+        // need: a mix of success / held / failed within the last 3 hours
+        // so each status colour has at least one row to render.
+        var hero = new List<WorkflowRunSeed>
         {
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000001"), now.AddMinutes(-2),  now.AddMinutes(-2).AddSeconds(2),  WorkflowRunStatuses.Success, 2200,   "auto · banking.transaction.received", fast),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000002"), now.AddMinutes(-14), now.AddMinutes(-14).AddSeconds(2), WorkflowRunStatuses.Success, 2480,   "auto · banking.transaction.received", fast),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000003"), now.AddMinutes(-38), null,                                WorkflowRunStatuses.Held,    434000, "held · over ceiling",                  held),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000004"), now.AddHours(-1),    now.AddHours(-1).AddSeconds(2),    WorkflowRunStatuses.Success, 2350,   "auto",                                 fast),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000005"), now.AddHours(-2),    now.AddHours(-2).AddMilliseconds(960), WorkflowRunStatuses.Failed, 960,   "tool: read_timeout",                   new[] { n[0], n[1] }),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000006"), now.AddHours(-3),    now.AddHours(-3).AddSeconds(2),    WorkflowRunStatuses.Success, 2430,   "auto",                                 fast),
+            new(Guid.Parse("11111111-aaaa-0001-0072-000000000001"), now.AddMinutes(-2),  now.AddMinutes(-2).AddSeconds(2),  WorkflowRunStatuses.Success, 2200,   "auto · banking.transaction.received", fast),
+            new(Guid.Parse("11111111-aaaa-0001-0072-000000000002"), now.AddMinutes(-14), now.AddMinutes(-14).AddSeconds(2), WorkflowRunStatuses.Success, 2480,   "auto · banking.transaction.received", fast),
+            new(Guid.Parse("11111111-aaaa-0001-0072-000000000003"), now.AddMinutes(-38), null,                                WorkflowRunStatuses.Held,    434000, "held · over ceiling",                  held),
+            new(Guid.Parse("11111111-aaaa-0001-0072-000000000004"), now.AddHours(-1),    now.AddHours(-1).AddSeconds(2),    WorkflowRunStatuses.Success, 2350,   "auto",                                 fast),
+            new(Guid.Parse("11111111-aaaa-0001-0072-000000000005"), now.AddHours(-2),    now.AddHours(-2).AddMilliseconds(960), WorkflowRunStatuses.Failed, 960,   "tool: read_timeout",                   new[] { n[0], n[1] }),
+            new(Guid.Parse("11111111-aaaa-0001-0072-000000000006"), now.AddHours(-3),    now.AddHours(-3).AddSeconds(2),    WorkflowRunStatuses.Success, 2430,   "auto",                                 fast),
         };
+
+        // Plus 120 background runs across the remaining 21h so the
+        // "Runs · today" KPI lands on a believable demo number and the
+        // workflow earns its spot at the top of the "Most run" sort
+        // (template's static value was 318 — 126 keeps the demo brisk
+        // without bloating the run table).
+        var rng = new Random(unchecked("match_and_apply_bg".GetHashCode()));
+        for (var i = 0; i < 120; i++)
+        {
+            var minutesAgo = 180 + rng.Next(0, 21 * 60);
+            var startedAt = now.AddMinutes(-minutesAgo);
+            var roll = rng.NextDouble();
+            var status = roll < 0.962 ? WorkflowRunStatuses.Success
+                       : roll < 0.988 ? WorkflowRunStatuses.Held
+                       : WorkflowRunStatuses.Failed;
+            var duration = status == WorkflowRunStatuses.Held ? 200000 + rng.Next(-30000, 60000)
+                         : status == WorkflowRunStatuses.Failed ? 600 + rng.Next(0, 800)
+                         : 2200 + rng.Next(-300, 400);
+            var sequence = status == WorkflowRunStatuses.Held ? held
+                         : status == WorkflowRunStatuses.Failed ? new[] { n[0], n[1] }
+                         : fast;
+            var by = status == WorkflowRunStatuses.Held ? "held · over ceiling"
+                   : status == WorkflowRunStatuses.Failed ? "tool: read_timeout"
+                   : "auto · banking.transaction.received";
+
+            hero.Add(new WorkflowRunSeed(
+                RunId: Guid.NewGuid(),
+                StartedAt: startedAt,
+                CompletedAt: status == WorkflowRunStatuses.Held ? null : startedAt.AddMilliseconds(duration),
+                Status: status,
+                DurationMs: duration,
+                StartedBy: by,
+                Sequence: sequence));
+        }
+        return hero;
     }
 
     // ── sweep_unmatched ────────────────────────────────────────────────
