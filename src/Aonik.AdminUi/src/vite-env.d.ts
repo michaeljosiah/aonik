@@ -2,7 +2,7 @@
 
 interface ImportMetaEnv {
   // Auth Provider
-  readonly VITE_AUTH_PROVIDER: 'azure-ad' | 'auth0';
+  readonly VITE_AUTH_PROVIDER: 'azure-ad' | 'auth0' | 'mock';
 
   // Azure AD
   readonly VITE_AZURE_AD_CLIENT_ID: string;

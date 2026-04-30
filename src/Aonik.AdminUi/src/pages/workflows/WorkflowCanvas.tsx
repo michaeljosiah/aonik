@@ -148,7 +148,7 @@ export function WorkflowCanvas({
   const handleBgDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
     const isSpace = window.__aonikEditorSpaceDown;
-    if (isSpace || e.button === 1) {
+    if (isSpace) {
       setDrag({ kind: 'pan', start: { x: e.clientX, y: e.clientY }, view0: view });
     } else {
       const w = clientToWorld(e.clientX, e.clientY);
