@@ -20,6 +20,7 @@ using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Ai.Entities;
 using Aonik.Agents.Entities;
+using Aonik.Agents.Entities.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
@@ -140,6 +141,14 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Playground Scenarios (Agents module)
     public virtual DbSet<PlaygroundScenario> PlaygroundScenarios { get; set; } = null!;
     public virtual DbSet<PlaygroundScenarioTurn> PlaygroundScenarioTurns { get; set; } = null!;
+
+    // Workflows (Agents module)
+    public virtual DbSet<Workflow> Workflows { get; set; } = null!;
+    public virtual DbSet<WorkflowNode> WorkflowNodes { get; set; } = null!;
+    public virtual DbSet<WorkflowEdge> WorkflowEdges { get; set; } = null!;
+    public virtual DbSet<WorkflowVersion> WorkflowVersions { get; set; } = null!;
+    public virtual DbSet<WorkflowComment> WorkflowComments { get; set; } = null!;
+    public virtual DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
 
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,
@@ -375,6 +384,13 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
         MapAgentsTable<PlaygroundScenario>(modelBuilder, "PlaygroundScenarios");
         MapAgentsTable<PlaygroundScenarioTurn>(modelBuilder, "PlaygroundScenarioTurns");
+
+        MapAgentsTable<Workflow>(modelBuilder, "Workflows");
+        MapAgentsTable<WorkflowNode>(modelBuilder, "WorkflowNodes");
+        MapAgentsTable<WorkflowEdge>(modelBuilder, "WorkflowEdges");
+        MapAgentsTable<WorkflowVersion>(modelBuilder, "WorkflowVersions");
+        MapAgentsTable<WorkflowComment>(modelBuilder, "WorkflowComments");
+        MapAgentsTable<WorkflowRun>(modelBuilder, "WorkflowRuns");
     }
 
     private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)
