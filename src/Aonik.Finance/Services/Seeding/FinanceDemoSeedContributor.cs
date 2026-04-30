@@ -7,6 +7,7 @@ using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Contracts.Models.Pricing;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Finance.Entities.Ledger;
+using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Entities.Pricing;
@@ -160,6 +161,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             DemoSeedPhase.CrossBorderCatalog => await SeedCrossBorderCatalogAsync(context, cancellationToken),
             DemoSeedPhase.Households => await SeedHouseholdsAsync(context, cancellationToken),
             DemoSeedPhase.CrossBorderPricing => await SeedCrossBorderPricingAsync(context, cancellationToken),
+            DemoSeedPhase.Activity => await SeedOrderActivityAsync(context, cancellationToken),
             _ => Array.Empty<string>()
         };
     }
@@ -1637,4 +1639,274 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
 
         return limitsPolicy.Id;
     }
+
+    // ── Phase: Activity (Orders) ─────────────────────────────────────
+    //
+    // Seeds ~10 orders across the seeded personas so the /orders list isn't
+    // empty after a fresh demo install. Mix of bill-payments and money-
+    // transfers, mix of statuses (Pending / Transmitted / Complete / Failed),
+    // spread across the last 14 days. Re-seeding is idempotent — orders
+    // are upserted by deterministic Guid.
+
+    private static readonly Guid OrderKwameEcg          = Guid.Parse("aaaa0001-0000-0000-0000-000000000001");
+    private static readonly Guid OrderKwameWater        = Guid.Parse("aaaa0001-0000-0000-0000-000000000002");
+    private static readonly Guid OrderTundeIkeja        = Guid.Parse("aaaa0001-0000-0000-0000-000000000003");
+    private static readonly Guid OrderTundeLagosWater   = Guid.Parse("aaaa0001-0000-0000-0000-000000000004");
+    private static readonly Guid OrderAcmePayoutNg      = Guid.Parse("aaaa0001-0000-0000-0000-000000000005");
+    private static readonly Guid OrderAdwoaWaterFailed  = Guid.Parse("aaaa0001-0000-0000-0000-000000000006");
+    private static readonly Guid OrderOliviaToNaledi    = Guid.Parse("aaaa0001-0000-0000-0000-000000000007");
+    private static readonly Guid OrderLiamToKwame       = Guid.Parse("aaaa0001-0000-0000-0000-000000000008");
+    private static readonly Guid OrderKofiAmaTransfer   = Guid.Parse("aaaa0001-0000-0000-0000-000000000009");
+    private static readonly Guid OrderPeterKenyaPower   = Guid.Parse("aaaa0001-0000-0000-0000-00000000000a");
+
+    private static readonly Guid DemoPayerPartyId    = Guid.Parse("bfe9921e-2f3e-4c56-b8d1-4f5b2a7c3d44");
+    private static readonly Guid DemoReceiverPartyId = Guid.Parse("2a3e1f59-44f7-4df4-a8f1-936f9d9d13cd");
+    private static readonly Guid TundePartyIdRef     = Guid.Parse("5ef5e008-8d3d-485f-8718-67ab4d4da2cf");
+    private static readonly Guid AdwoaPartyIdRef     = Guid.Parse("5c882622-4958-4e0e-8cad-cb20f6e720ca");
+    private static readonly Guid PeterPartyIdRef     = Guid.Parse("cb94f5cd-ed2d-4e95-99be-6d8bb6acdbbe");
+    private static readonly Guid NalediPartyIdRef    = Guid.Parse("40ee8396-c640-4d0a-a262-2d32743cb95a");
+    private static readonly Guid KofiPartyIdRef      = Guid.Parse("563b6348-c34f-423f-8b22-c92ca6f9f195");
+    private static readonly Guid AcmeImportsPartyIdRef = Guid.Parse("f0f72256-f43b-455a-af08-8fab70115794");
+    private static readonly Guid OliviaPartyIdRef    = Guid.Parse("fb229001-e24c-4fd3-a87d-e0458a2cf8cb");
+    private static readonly Guid LiamPartyIdRef      = Guid.Parse("3f48a4fc-c7ce-4f78-af09-a2796e735f85");
+
+    private async Task<IReadOnlyList<string>> SeedOrderActivityAsync(
+        DemoSeedContext context,
+        CancellationToken cancellationToken)
+    {
+        var operations = new List<string>();
+        var now = context.Now;
+        var userId = context.UserId;
+        var orderIds = new List<Guid>();
+
+        var seeds = BuildOrderSeeds(context.SeedType, now);
+
+        foreach (var seed in seeds)
+        {
+            var existing = await _financeDbContext.Orders
+                .FirstOrDefaultAsync(o => o.Id == seed.OrderId && o.TenantId == context.TenantId,
+                    cancellationToken);
+
+            if (existing is null)
+            {
+                existing = new Aonik.Finance.Entities.Orders.Order
+                {
+                    Id = seed.OrderId,
+                    TenantId = context.TenantId,
+                    OrderType = seed.OrderType,
+                    PayerPartyId = seed.PayerPartyId,
+                    PurposeCode = seed.PurposeCode,
+                    OriginCountry = seed.OriginCountry,
+                    DestinationCountry = seed.DestinationCountry,
+                    AmountIn = seed.AmountIn,
+                    CurrencyIn = seed.CurrencyIn,
+                    AmountOut = seed.AmountOut,
+                    CurrencyOut = seed.CurrencyOut,
+                    FeesJson = "[]",
+                    Status = seed.Status,
+                    ProvenanceJson = "{\"source\":\"demo-seed\"}",
+                    CreatedAt = seed.CreatedAt,
+                    CreatedBy = userId,
+                };
+                _financeDbContext.Orders.Add(existing);
+                operations.Add($"Seeded order {seed.OrderId:D}");
+            }
+            else
+            {
+                existing.OrderType = seed.OrderType;
+                existing.Status = seed.Status;
+                existing.AmountIn = seed.AmountIn;
+                existing.CurrencyIn = seed.CurrencyIn;
+                existing.AmountOut = seed.AmountOut;
+                existing.CurrencyOut = seed.CurrencyOut;
+                existing.UpdatedAt = now;
+                existing.UpdatedBy = userId;
+            }
+
+            orderIds.Add(seed.OrderId);
+
+            // Replace items + party roles each run — cheap for demo volumes
+            // and avoids tracking conflicts on rerun.
+            var existingItems = await _financeDbContext.OrderItems
+                .Where(i => i.OrderId == seed.OrderId)
+                .ToListAsync(cancellationToken);
+            if (existingItems.Count > 0) _financeDbContext.OrderItems.RemoveRange(existingItems);
+
+            for (var idx = 0; idx < seed.Items.Count; idx++)
+            {
+                var item = seed.Items[idx];
+                _financeDbContext.OrderItems.Add(new Aonik.Finance.Entities.Orders.OrderItem
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = context.TenantId,
+                    OrderId = seed.OrderId,
+                    ItemType = item.ItemType,
+                    ItemIndex = idx,
+                    DetailsJson = item.DetailsJson,
+                    Status = seed.Status,
+                    ReceiverPartyId = item.ReceiverPartyId,
+                    AmountIn = item.AmountIn,
+                    CurrencyIn = item.CurrencyIn,
+                    AmountOut = item.AmountOut,
+                    CurrencyOut = item.CurrencyOut,
+                    FeesTotal = item.FeesTotal,
+                    CreatedAt = seed.CreatedAt,
+                    CreatedBy = userId,
+                });
+            }
+
+            var existingRoles = await _financeDbContext.OrderPartyRoles
+                .Where(r => r.OrderId == seed.OrderId)
+                .ToListAsync(cancellationToken);
+            if (existingRoles.Count > 0) _financeDbContext.OrderPartyRoles.RemoveRange(existingRoles);
+
+            foreach (var role in seed.PartyRoles)
+            {
+                _financeDbContext.OrderPartyRoles.Add(new Aonik.Finance.Entities.Orders.OrderPartyRole
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = context.TenantId,
+                    OrderId = seed.OrderId,
+                    PartyId = role.PartyId,
+                    Role = role.Role,
+                    CreatedAt = seed.CreatedAt,
+                    CreatedBy = userId,
+                });
+            }
+        }
+
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _results[DemoSeedResultKeys.OrderIds] = orderIds.ToArray();
+        return operations;
+    }
+
+    private static IReadOnlyList<DemoOrderSeed> BuildOrderSeeds(string seedType, DateTime now)
+    {
+        // Spread orders across the last 14 days. Mix BillPayment / BankTransfer
+        // and statuses to populate the registry filters with actual variety.
+        // Bill collection is the default seed; cross-border adds three
+        // UK→Africa flows that exercise the corridor pages too.
+        var seeds = new List<DemoOrderSeed>
+        {
+            BillPay(OrderKwameEcg,         DemoPayerPartyId,  "GH", 250m,  "GHS", "ECG",          OrderStatuses.Pending,     now.AddDays(-1)),
+            BillPay(OrderKwameWater,       DemoPayerPartyId,  "GH",  90m,  "GHS", "GhanaWater",   OrderStatuses.Complete,    now.AddDays(-3)),
+            BillPay(OrderTundeIkeja,       TundePartyIdRef,   "NG", 8500m, "NGN", "IkejaElectric", OrderStatuses.Pending,    now.AddHours(-6)),
+            BillPay(OrderTundeLagosWater,  TundePartyIdRef,   "NG", 4200m, "NGN", "LagosWater",   OrderStatuses.Transmitted, now.AddDays(-2)),
+            BillPay(OrderAdwoaWaterFailed, AdwoaPartyIdRef,   "GH",  60m,  "GHS", "GhanaWater",   OrderStatuses.Failed,      now.AddDays(-9),
+                detailsExtra: ",\"failureReason\":\"insufficient_funds\""),
+            Transfer(OrderAcmePayoutNg, AcmeImportsPartyIdRef, PeterPartyIdRef, "GB", "NG", 2500m, "GBP", 4_902_500m, "NGN", 8.50m,
+                "supplier_payment", OrderStatuses.Complete, now.AddDays(-5)),
+            Transfer(OrderKofiAmaTransfer, KofiPartyIdRef, DemoReceiverPartyId, "GH", "GH", 200m, "GHS", 200m, "GHS", 1.50m,
+                "family_support", OrderStatuses.Complete, now.AddDays(-7)),
+        };
+
+        if (string.Equals(seedType, "CrossBorderPayments", StringComparison.OrdinalIgnoreCase))
+        {
+            seeds.Add(Transfer(OrderOliviaToNaledi, OliviaPartyIdRef, NalediPartyIdRef, "GB", "ZA", 1500m, "GBP", 35_550m, "ZAR", 6.50m,
+                "remittance", OrderStatuses.Complete, now.AddDays(-4)));
+            seeds.Add(Transfer(OrderLiamToKwame, LiamPartyIdRef, DemoPayerPartyId, "GB", "GH", 750m, "GBP", 11_400m, "GHS", 4.50m,
+                "remittance", OrderStatuses.Pending, now.AddHours(-12)));
+            seeds.Add(BillPay(OrderPeterKenyaPower, PeterPartyIdRef, "KE", 1200m, "KES", "KenyaPower", OrderStatuses.Complete, now.AddDays(-8)));
+        }
+
+        return seeds;
+    }
+
+    private static DemoOrderSeed BillPay(
+        Guid orderId,
+        Guid payerPartyId,
+        string country,
+        decimal amount,
+        string currency,
+        string biller,
+        string status,
+        DateTime createdAt,
+        string detailsExtra = "")
+    {
+        var details = $"{{\"biller\":\"{biller}\"{detailsExtra}}}";
+        return new DemoOrderSeed(
+            OrderId: orderId,
+            OrderType: "BillPayment",
+            PayerPartyId: payerPartyId,
+            PurposeCode: "BillPayment",
+            OriginCountry: country,
+            DestinationCountry: country,
+            AmountIn: amount,
+            CurrencyIn: currency,
+            AmountOut: amount,
+            CurrencyOut: currency,
+            Status: status,
+            CreatedAt: createdAt,
+            Items: new[] { new DemoOrderItemSeed("BillPayment", payerPartyId, amount, currency, amount, currency, 0m, details) },
+            PartyRoles: new[]
+            {
+                new DemoOrderRoleSeed(payerPartyId, "Payer"),
+                new DemoOrderRoleSeed(payerPartyId, "Payee"),
+            });
+    }
+
+    private static DemoOrderSeed Transfer(
+        Guid orderId,
+        Guid payerPartyId,
+        Guid receiverPartyId,
+        string originCountry,
+        string destinationCountry,
+        decimal amountIn,
+        string currencyIn,
+        decimal amountOut,
+        string currencyOut,
+        decimal feesTotal,
+        string purpose,
+        string status,
+        DateTime createdAt)
+    {
+        var details = $"{{\"purpose\":\"{purpose}\",\"corridor\":\"{originCountry}-{destinationCountry}\"}}";
+        return new DemoOrderSeed(
+            OrderId: orderId,
+            OrderType: "BankTransfer",
+            PayerPartyId: payerPartyId,
+            PurposeCode: purpose,
+            OriginCountry: originCountry,
+            DestinationCountry: destinationCountry,
+            AmountIn: amountIn,
+            CurrencyIn: currencyIn,
+            AmountOut: amountOut,
+            CurrencyOut: currencyOut,
+            Status: status,
+            CreatedAt: createdAt,
+            Items: new[] { new DemoOrderItemSeed("BankTransfer", receiverPartyId, amountIn, currencyIn, amountOut, currencyOut, feesTotal, details) },
+            PartyRoles: new[]
+            {
+                new DemoOrderRoleSeed(payerPartyId, "Payer"),
+                new DemoOrderRoleSeed(receiverPartyId, "Receiver"),
+            });
+    }
+
+    private sealed record DemoOrderSeed(
+        Guid OrderId,
+        string OrderType,
+        Guid PayerPartyId,
+        string PurposeCode,
+        string OriginCountry,
+        string DestinationCountry,
+        decimal AmountIn,
+        string CurrencyIn,
+        decimal AmountOut,
+        string CurrencyOut,
+        string Status,
+        DateTime CreatedAt,
+        IReadOnlyList<DemoOrderItemSeed> Items,
+        IReadOnlyList<DemoOrderRoleSeed> PartyRoles);
+
+    private sealed record DemoOrderItemSeed(
+        string ItemType,
+        Guid ReceiverPartyId,
+        decimal AmountIn,
+        string CurrencyIn,
+        decimal AmountOut,
+        string CurrencyOut,
+        decimal FeesTotal,
+        string DetailsJson);
+
+    private sealed record DemoOrderRoleSeed(Guid PartyId, string Role);
 }

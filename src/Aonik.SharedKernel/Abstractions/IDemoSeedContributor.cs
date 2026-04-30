@@ -71,7 +71,16 @@ public enum DemoSeedPhase
     Households,
 
     /// <summary>Cross-border pricing</summary>
-    CrossBorderPricing
+    CrossBorderPricing,
+
+    /// <summary>
+    /// Demo activity — orders + items, agent runs, proposals, notifications.
+    /// Runs after all the catalog/pricing/workflows phases so it can reference
+    /// every seeded entity by id. Populates the user-visible activity pages
+    /// (/orders, /approvals, /ai/runs, the notifications bell) so a fresh
+    /// demo install isn't a sea of empty tables.
+    /// </summary>
+    Activity
 }
 
 /// <summary>
@@ -125,4 +134,10 @@ public static class DemoSeedResultKeys
     // Workflow phase results
     public const string AgentIdsByName = "AgentIdsByName";
     public const string WorkflowIdsBySlug = "WorkflowIdsBySlug";
+
+    // Activity phase results
+    public const string OrderIds = "OrderIds";
+    public const string AgentRunIds = "AgentRunIds";
+    public const string ProposalIds = "ProposalIds";
+    public const string NotificationIds = "NotificationIds";
 }

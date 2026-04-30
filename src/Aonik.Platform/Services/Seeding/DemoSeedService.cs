@@ -198,6 +198,14 @@ internal class DemoSeedService : IDemoSeedService
                     cancellationToken);
             }
 
+            // Phase 18: Activity — orders, agent runs, proposals,
+            // notifications. Runs last so it can reference every seeded
+            // entity (catalog, pricing, parties, workflows, partners,
+            // households) regardless of seed type.
+            await SeedContributorsAsync(DemoSeedPhase.Activity, seedContext, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+            ClearContributorTracking();
+
             var now = _clock.UtcNow;
             var userId = _currentUserProvider.GetCurrentUserId();
 
