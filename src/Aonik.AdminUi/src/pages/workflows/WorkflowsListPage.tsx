@@ -8,8 +8,8 @@
 // (workflow cards left · selected workflow detail rail right).
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw, Search, Sprout, Upload, Workflow } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, RefreshCw, Search, Upload, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KpiTile, PageHeader } from '@/components/layout/aonik';
 import { cn } from '@/lib/utils';
@@ -308,17 +308,11 @@ function EmptyState() {
         className="mb-5 max-w-md text-[12.5px] text-[var(--color-text-secondary)]"
         style={{ lineHeight: 1.5 }}
       >
-        Workflows are reusable procedures agents run when a trigger fires. Run
-        the demo seed to populate seven sample workflows for billing, FX,
-        compliance and close — or start one from scratch.
+        Workflows are reusable procedures agents run when a trigger fires.
+        Build one from scratch — or load sample data from System Tools if
+        this is a demo tenant.
       </div>
       <div className="flex gap-2">
-        <Link to="/settings/system-tools">
-          <Button size="sm" variant="outline">
-            <Sprout className="h-3 w-3" />
-            Run demo seed
-          </Button>
-        </Link>
         <Button size="sm">
           <Plus className="h-3 w-3" />
           New workflow
