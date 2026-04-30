@@ -112,6 +112,50 @@ export function WorkflowCanvas({
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<DragState>(null);
 
+  // Compute a view that frames every node in the viewport with a small
+  // padding. Used by ZoomControls' Fit-view button and once on mount so a
+  // fresh editor opens with the whole graph visible instead of the
+  // top-left corner.
+  const computeFitView = useCallback((): CanvasView | null => {
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r || nodes.length === 0) return null;
+
+    const xs = nodes.map((n) => n.x);
+    const ys = nodes.map((n) => n.y);
+    const x0 = Math.min(...xs);
+    const y0 = Math.min(...ys);
+    const x1 = Math.max(...xs.map((x) => x + NODE_W));
+    const y1 = Math.max(...ys.map((y) => y + NODE_H));
+
+    const graphW = x1 - x0;
+    const graphH = y1 - y0;
+    const padding = 64;
+    const availW = Math.max(1, r.width - padding * 2);
+    const availH = Math.max(1, r.height - padding * 2);
+
+    // Scale to fit, capped at 1.0 so small graphs don't render gigantic.
+    const scale = Math.min(1, Math.min(availW / graphW, availH / graphH));
+
+    // Centre the graph within the viewport.
+    const tx = (r.width - graphW * scale) / 2 - x0 * scale;
+    const ty = (r.height - graphH * scale) / 2 - y0 * scale;
+
+    return { scale, tx, ty };
+  }, [nodes]);
+
+  // Auto-fit once when the node count first becomes non-zero (the page
+  // navigates to the editor and the API resolves). Subsequent edits don't
+  // re-fit so the user's scroll/zoom is preserved.
+  const hasFitRef = useRef(false);
+  useEffect(() => {
+    if (hasFitRef.current || nodes.length === 0) return;
+    const fit = computeFitView();
+    if (fit) {
+      setView(fit);
+      hasFitRef.current = true;
+    }
+  }, [nodes.length, computeFitView, setView]);
+
   // Convert client coords → world coords (account for pan + zoom).
   const clientToWorld = useCallback(
     (cx: number, cy: number) => {
@@ -523,7 +567,7 @@ export function WorkflowCanvas({
       </svg>
 
       {showMinimap && <Minimap nodes={nodes} view={view} />}
-      <ZoomControls view={view} setView={setView} />
+      <ZoomControls view={view} setView={setView} computeFitView={computeFitView} />
     </div>
   );
 }

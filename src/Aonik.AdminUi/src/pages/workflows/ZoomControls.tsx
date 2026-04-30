@@ -29,9 +29,21 @@ function Btn({ children, onClick, title }: ButtonProps) {
 export interface ZoomControlsProps {
   view: CanvasView;
   setView: (v: CanvasView) => void;
+  /**
+   * Computes a view that fits all current canvas content into the viewport.
+   * Wired by the parent so it has access to nodes + svg container size.
+   * Returning null is a no-op (e.g. when nothing is on the canvas yet).
+   */
+  computeFitView?: () => CanvasView | null;
 }
 
-export function ZoomControls({ view, setView }: ZoomControlsProps) {
+export function ZoomControls({ view, setView, computeFitView }: ZoomControlsProps) {
+  const handleFit = () => {
+    const next = computeFitView?.();
+    if (next) setView(next);
+    else setView({ scale: 1, tx: 60, ty: 100 });
+  };
+
   return (
     <div
       className="absolute z-[5] flex items-center gap-1.5 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)]"
@@ -61,7 +73,7 @@ export function ZoomControls({ view, setView }: ZoomControlsProps) {
         <Plus size={12} />
       </Btn>
       <span className="h-4 w-px bg-[var(--color-border-light)]" />
-      <Btn title="Fit view" onClick={() => setView({ scale: 1, tx: 60, ty: 100 })}>
+      <Btn title="Fit view" onClick={handleFit}>
         <Maximize2 size={12} />
       </Btn>
     </div>

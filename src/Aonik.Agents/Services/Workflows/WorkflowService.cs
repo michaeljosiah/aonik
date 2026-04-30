@@ -228,12 +228,21 @@ internal sealed class WorkflowService : IWorkflowService
         var versions = await _dbContext.WorkflowVersions
             .AsNoTracking()
             .Where(v => v.WorkflowId == workflowId)
-            .OrderByDescending(v => v.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var now = _clock.UtcNow;
 
-        return versions.Select(v => new WorkflowVersionResponse(
+        // Order by tag descending — version tags are monotonically
+        // increasing semver-ish strings ("v1.4" > "v1.3" > "v1.1") so a
+        // natural-sort comparison gives newest-first reliably. We avoid
+        // ordering by CreatedAt because the audit hook stamps every
+        // seeded row with the seed's "now", erasing the historical
+        // timestamps the seed catalog supplies.
+        var ordered = versions
+            .OrderByDescending(v => v.Tag, NaturalVersionComparer.Instance)
+            .ToList();
+
+        return ordered.Select(v => new WorkflowVersionResponse(
             Id: v.Id,
             Tag: v.Tag,
             Message: v.Message,
@@ -279,6 +288,49 @@ internal sealed class WorkflowService : IWorkflowService
         if (ms < 60_000) return $"{ms / 1000.0:F1}s";
         if (ms < 3_600_000) return $"{ms / 60_000}m";
         return $"{ms / 3_600_000.0:F1}h";
+    }
+
+    /// <summary>
+    /// Compares version tag strings in natural numeric order: "v1.4" &gt;
+    /// "v1.3" &gt; "v1.1" &gt; "v0.9". Pulls digit runs and compares them
+    /// numerically rather than lexicographically (so "v1.10" sorts above
+    /// "v1.2", not below).
+    /// </summary>
+    private sealed class NaturalVersionComparer : IComparer<string>
+    {
+        public static readonly NaturalVersionComparer Instance = new();
+
+        public int Compare(string? x, string? y)
+        {
+            if (string.IsNullOrEmpty(x) && string.IsNullOrEmpty(y)) return 0;
+            if (string.IsNullOrEmpty(x)) return -1;
+            if (string.IsNullOrEmpty(y)) return 1;
+
+            int i = 0, j = 0;
+            while (i < x.Length && j < y.Length)
+            {
+                if (char.IsDigit(x[i]) && char.IsDigit(y[j]))
+                {
+                    var iEnd = i;
+                    while (iEnd < x.Length && char.IsDigit(x[iEnd])) iEnd++;
+                    var jEnd = j;
+                    while (jEnd < y.Length && char.IsDigit(y[jEnd])) jEnd++;
+                    var xNum = long.Parse(x.AsSpan(i, iEnd - i));
+                    var yNum = long.Parse(y.AsSpan(j, jEnd - j));
+                    if (xNum != yNum) return xNum.CompareTo(yNum);
+                    i = iEnd;
+                    j = jEnd;
+                }
+                else
+                {
+                    var cmp = x[i].CompareTo(y[j]);
+                    if (cmp != 0) return cmp;
+                    i++;
+                    j++;
+                }
+            }
+            return x.Length.CompareTo(y.Length);
+        }
     }
 
     private static string FormatRelative(DateTime now, DateTime past)
