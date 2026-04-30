@@ -10,6 +10,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Search, Upload, Workflow } from 'lucide-react';
+// `Plus` is still used by the page header's "New workflow" action; the
+// empty-state CTA was removed because no create-workflow flow exists yet.
 import { Button } from '@/components/ui/button';
 import { KpiTile, PageHeader } from '@/components/layout/aonik';
 import { cn } from '@/lib/utils';
@@ -95,7 +97,10 @@ export function WorkflowsListPage() {
 
   if (error) {
     return (
-      <div className="flex w-full min-w-0 flex-1 flex-col gap-5 p-6 lg:p-8">
+      <div
+        className="flex flex-col gap-5 p-6 lg:p-8"
+        style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
+      >
         <PageHeader
           eyebrow="AI · Workflows"
           title="Agent Workflows"
@@ -117,7 +122,10 @@ export function WorkflowsListPage() {
 
   if (!loading && workflows.length === 0) {
     return (
-      <div className="flex w-full min-w-0 flex-1 flex-col gap-5 p-6 lg:p-8">
+      <div
+        className="flex flex-col gap-5 p-6 lg:p-8"
+        style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
+      >
         <PageHeader
           eyebrow="AI · Workflows"
           title="Agent Workflows"
@@ -129,7 +137,10 @@ export function WorkflowsListPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6 lg:p-8">
+    <div
+      className="flex flex-col gap-5 p-6 lg:p-8"
+      style={{ width: '100%', minWidth: 0, flex: 1, boxSizing: 'border-box' }}
+    >
       <PageHeader
         eyebrow="AI · Workflows"
         title="Agent Workflows"
@@ -292,8 +303,15 @@ function LoadingPlaceholder() {
 function EmptyState() {
   return (
     <div
-      className="flex w-full flex-col items-center rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
-      style={{ padding: '64px 32px' }}
+      className="flex flex-col items-center rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
+      style={{
+        // Inline width: Tailwind's `w-full` wasn't sticking on dev — likely a
+        // build cache or specificity issue with the parent flex container.
+        // Inline style bypasses all of that.
+        width: '100%',
+        boxSizing: 'border-box',
+        padding: '64px 32px',
+      }}
     >
       <span
         className="mb-4 inline-flex items-center justify-center rounded-full bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]"
@@ -305,18 +323,12 @@ function EmptyState() {
         No workflows yet
       </div>
       <div
-        className="mb-5 max-w-md text-[12.5px] text-[var(--color-text-secondary)]"
-        style={{ lineHeight: 1.5 }}
+        className="text-[12.5px] text-[var(--color-text-secondary)]"
+        style={{ lineHeight: 1.5, maxWidth: 480 }}
       >
         Workflows are reusable procedures agents run when a trigger fires.
-        Build one from scratch — or load sample data from System Tools if
-        this is a demo tenant.
-      </div>
-      <div className="flex gap-2">
-        <Button size="sm">
-          <Plus className="h-3 w-3" />
-          New workflow
-        </Button>
+        Run the demo seed from System Tools to populate seven sample
+        workflows — or come back here once a "New workflow" wizard ships.
       </div>
     </div>
   );
