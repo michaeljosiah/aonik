@@ -50,6 +50,9 @@ public sealed class AgentsModule : IModule
         // Agent run service — queries agent execution history.
         services.AddScoped<IAgentRunService, AgentRunService>();
 
+        // Workflow registry — list / get / runs / versions.
+        services.AddScoped<IWorkflowService, Services.Workflows.WorkflowService>();
+
         // Cross-module read aggregate consumed by Finance dashboards (e.g. MySpace).
         services.AddScoped<Aonik.SharedKernel.Abstractions.Agents.IAgentProposalQueryService, Services.Insights.AgentProposalQueryService>();
 
