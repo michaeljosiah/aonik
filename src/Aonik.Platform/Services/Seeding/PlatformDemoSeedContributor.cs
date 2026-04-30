@@ -59,12 +59,13 @@ internal sealed class PlatformDemoSeedContributor : IDemoSeedContributor
         var userId = context.UserId.Value;
         var now = context.Now;
 
-        // Wipe prior demo notifications for this user — cheap and avoids
-        // the bell counter growing every reseed.
-        var existing = await _dbContext.Notifications
+        // Hard-delete prior demo notifications for this user. Plain
+        // RemoveRange would be soft-deleted by the audit hook, leaving
+        // ghost rows that re-seeds would leak into the bell counter.
+        await _dbContext.Notifications
+            .IgnoreQueryFilters()
             .Where(n => n.TenantId == context.TenantId && n.UserId == userId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.Notifications.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         var seeds = new[]
         {

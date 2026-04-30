@@ -225,14 +225,19 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         IReadOnlyList<WorkflowNodeSeed> seeds,
         CancellationToken cancellationToken)
     {
-        // The seed catalog uses deterministic node ids (n1, n2, …) for edge
-        // wiring. Strategy: blow away existing rows for this workflow and
-        // re-insert. Cheap for demo volumes and side-steps the
-        // version-token / soft-delete dance for re-seeds.
-        var existing = await _dbContext.WorkflowNodes
+        // The seed catalog uses deterministic ids for nodes/edges/comments/
+        // versions/runs (and re-seeds need to land the same Guids). A plain
+        // RemoveRange would be intercepted by the audit hook and turned
+        // into a soft-delete (IsDeleted=true), leaving the row in place —
+        // the next insert with the same Guid would then PK-violate.
+        // ExecuteDeleteAsync issues a hard SQL DELETE and bypasses the
+        // audit hook. IgnoreQueryFilters is included so previously
+        // soft-deleted rows from older versions of this contributor are
+        // also wiped clean.
+        await _dbContext.WorkflowNodes
+            .IgnoreQueryFilters()
             .Where(n => n.WorkflowId == workflowId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.WorkflowNodes.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         foreach (var seed in seeds)
         {
@@ -262,10 +267,10 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         IReadOnlyList<WorkflowEdgeSeed> seeds,
         CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.WorkflowEdges
+        await _dbContext.WorkflowEdges
+            .IgnoreQueryFilters()
             .Where(e => e.WorkflowId == workflowId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.WorkflowEdges.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         foreach (var seed in seeds)
         {
@@ -292,10 +297,10 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         IReadOnlyList<WorkflowCommentSeed> seeds,
         CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.WorkflowComments
+        await _dbContext.WorkflowComments
+            .IgnoreQueryFilters()
             .Where(c => c.WorkflowId == workflowId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.WorkflowComments.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         foreach (var seed in seeds)
         {
@@ -322,10 +327,10 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         IReadOnlyList<WorkflowVersionSeed> seeds,
         CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.WorkflowVersions
+        await _dbContext.WorkflowVersions
+            .IgnoreQueryFilters()
             .Where(v => v.WorkflowId == workflowId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.WorkflowVersions.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         foreach (var seed in seeds)
         {
@@ -352,10 +357,10 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         IReadOnlyList<WorkflowRunSeed> seeds,
         CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.WorkflowRuns
+        await _dbContext.WorkflowRuns
+            .IgnoreQueryFilters()
             .Where(r => r.WorkflowId == workflowId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.WorkflowRuns.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         foreach (var seed in seeds)
         {
@@ -419,11 +424,14 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         List<string> operations,
         CancellationToken cancellationToken)
     {
-        // Wipe prior demo runs first — cheap, demo volumes only.
-        var existing = await _dbContext.AgentRuns
+        // Hard-delete prior demo runs so re-seeds don't accumulate. Plain
+        // RemoveRange would be soft-deleted by the audit hook, leaving
+        // ghost rows that re-seeds would PK-conflict with. ExecuteDelete
+        // bypasses the audit hook.
+        await _dbContext.AgentRuns
+            .IgnoreQueryFilters()
             .Where(r => r.TenantId == context.TenantId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.AgentRuns.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         var runIds = new List<Guid>();
         var rng = new Random(unchecked(context.TenantId.GetHashCode() ^ 0x5eed));
@@ -485,10 +493,10 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         List<string> operations,
         CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.Proposals
+        await _dbContext.Proposals
+            .IgnoreQueryFilters()
             .Where(p => p.TenantId == context.TenantId)
-            .ToListAsync(cancellationToken);
-        if (existing.Count > 0) _dbContext.Proposals.RemoveRange(existing);
+            .ExecuteDeleteAsync(cancellationToken);
 
         if (runIds.Count == 0) return Array.Empty<Guid>();
 

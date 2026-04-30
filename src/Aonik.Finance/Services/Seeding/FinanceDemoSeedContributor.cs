@@ -1725,12 +1725,13 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
 
             orderIds.Add(seed.OrderId);
 
-            // Replace items + party roles each run — cheap for demo volumes
-            // and avoids tracking conflicts on rerun.
-            var existingItems = await _financeDbContext.OrderItems
+            // Replace items + party roles each run — hard-delete via
+            // ExecuteDeleteAsync so the audit hook doesn't soft-delete
+            // them and leave ghost rows on the next re-seed.
+            await _financeDbContext.OrderItems
+                .IgnoreQueryFilters()
                 .Where(i => i.OrderId == seed.OrderId)
-                .ToListAsync(cancellationToken);
-            if (existingItems.Count > 0) _financeDbContext.OrderItems.RemoveRange(existingItems);
+                .ExecuteDeleteAsync(cancellationToken);
 
             for (var idx = 0; idx < seed.Items.Count; idx++)
             {
@@ -1755,10 +1756,10 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
                 });
             }
 
-            var existingRoles = await _financeDbContext.OrderPartyRoles
+            await _financeDbContext.OrderPartyRoles
+                .IgnoreQueryFilters()
                 .Where(r => r.OrderId == seed.OrderId)
-                .ToListAsync(cancellationToken);
-            if (existingRoles.Count > 0) _financeDbContext.OrderPartyRoles.RemoveRange(existingRoles);
+                .ExecuteDeleteAsync(cancellationToken);
 
             foreach (var role in seed.PartyRoles)
             {
