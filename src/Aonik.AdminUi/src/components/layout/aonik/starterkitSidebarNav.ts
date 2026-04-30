@@ -31,6 +31,12 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         ],
       },
       {
+        id: 'customers',
+        label: 'Customers',
+        icon: 'users2',
+        href: '/customers',
+      },
+      {
         id: 'approvals',
         label: 'Approvals',
         icon: 'clipcheck',
@@ -70,7 +76,6 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         icon: 'book',
         children: [
           { id: 'billing-invoices', label: 'Invoices', icon: 'invoice', href: '/billing/invoices' },
-          { id: 'party-profiles', label: 'Customers', icon: 'building', href: '/customers' },
           { id: 'bank-accounts', label: 'Customer accounts', icon: 'users2', href: '/accounts' },
           { id: 'collections', label: 'Collections', icon: 'arrows', badge: '3', href: '/billing/invoices' },
           {
