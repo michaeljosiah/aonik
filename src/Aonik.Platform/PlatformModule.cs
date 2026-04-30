@@ -137,6 +137,10 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.Contributors.SettingsSeedContributor>();
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.Contributors.NotificationTemplateSeedContributor>();
 
+        // Demo seed contributor — owns the Notifications part of the
+        // Activity phase so a fresh demo install populates the bell badge.
+        services.AddScoped<IDemoSeedContributor, Services.Seeding.PlatformDemoSeedContributor>();
+
         // ── Platform Domain Agent ────────────────────────────────────
         services.AddSingleton<IDomainAgentDescriptor, PlatformAgentDescriptor>();
 
