@@ -95,7 +95,7 @@ export function WorkflowsListPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col gap-5 p-6 lg:p-8">
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-5 p-6 lg:p-8">
         <PageHeader
           eyebrow="AI · Workflows"
           title="Agent Workflows"
@@ -117,7 +117,7 @@ export function WorkflowsListPage() {
 
   if (!loading && workflows.length === 0) {
     return (
-      <div className="flex flex-col gap-5 p-6 lg:p-8">
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-5 p-6 lg:p-8">
         <PageHeader
           eyebrow="AI · Workflows"
           title="Agent Workflows"
@@ -292,7 +292,7 @@ function LoadingPlaceholder() {
 function EmptyState() {
   return (
     <div
-      className="flex flex-col items-center rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
+      className="flex w-full flex-col items-center rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
       style={{ padding: '64px 32px' }}
     >
       <span
