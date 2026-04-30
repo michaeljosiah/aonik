@@ -116,6 +116,7 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         children: [
           { id: 'ai-playground-item', label: 'Playground', icon: 'bot', href: '/ai/playground' },
           { id: 'ai-agents-item', label: 'Agents', icon: 'sparkles', href: '/ai/agents' },
+          { id: 'ai-workflows-item', label: 'Workflows', icon: 'workflow', href: '/ai/workflows' },
           { id: 'ai-tasks-item', label: 'Tasks', icon: 'clipcheck', badge: '3', href: '/ai/tasks' },
           { id: 'ai-policies', label: 'Policies', icon: 'shield', href: '/ai/policies' },
           { id: 'ai-usage', label: 'Usage', icon: 'chart', href: '/ai/usage' },

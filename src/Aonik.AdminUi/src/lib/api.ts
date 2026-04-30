@@ -152,6 +152,12 @@ apiClient.interceptors.response.use(
 
     const redirectToLogin = (reason?: 'session-expired' | 'tenant-missing') => {
       try {
+        // Mock auth provider — used by the Claude preview server (.env.mock-preview.local).
+        // The mock token is rejected by the real API; suppressing the redirect lets us
+        // render protected pages for visual review without a live login flow.
+        if (import.meta.env.VITE_AUTH_PROVIDER === 'mock') {
+          return;
+        }
         if (window.location.pathname.startsWith('/login')) {
           return;
         }

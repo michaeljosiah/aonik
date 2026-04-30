@@ -441,6 +441,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   overflow: hidden;
 }
 
+/* Status pulse — for "active" workflow / agent state dots.
+   Mirrors the @keyframes pulse declaration in
+   templates/aonik-admin-starterkit/index.html (the template uses the bare
+   `pulse` name; we namespace ours as `aonik-pulse` to avoid colliding with
+   tailwind's built-in animate-pulse keyframe). */
+@keyframes aonik-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
 /* Flyout Menu Animations */
 @keyframes flyout-in {
   from {

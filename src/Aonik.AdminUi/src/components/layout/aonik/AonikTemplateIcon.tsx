@@ -49,6 +49,7 @@ const ICON_PATHS: Record<string, string> = {
   gitbranch: '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="19" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v10"/><path d="M18 17V9a4 4 0 0 0-4-4h-2"/>',
   terminal: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m6 9 3 3-3 3M12 15h5"/>',
   route: '<circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h4a4 4 0 0 1 4 4v4a4 4 0 0 0 4 4"/>',
+  workflow: '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M6 9v3a2 2 0 0 0 2 2h4"/><path d="M18 9v3a2 2 0 0 1-2 2h-4"/>',
 };
 
 interface AonikTemplateIconProps extends Omit<SVGProps<SVGSVGElement>, 'color'> {

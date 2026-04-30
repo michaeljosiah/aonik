@@ -7,6 +7,7 @@ import { AgentCostPanel } from '@/workspace/apps/AgentCostPanel';
 import { AgentErrorsPanel } from '@/workspace/apps/AgentErrorsPanel';
 import { ApprovalsPage } from '@/pages/approvals';
 import { AiRunQueuePage, AiPoliciesPage, AiUsagePage } from '@/pages/ai-ops';
+import { WorkflowsListPage, WorkflowEditorPage } from '@/pages/workflows';
 
 // ── Navigation ─────────────────────────────────────────────────────────
 //
@@ -53,6 +54,7 @@ const navigation: NavigationSection[] = [
           {
             label: 'Build & debug',
             items: [
+              { id: 'ai-workflows-item', label: 'Workflows', icon: 'Workflow', href: '/ai/workflows' },
               { id: 'ai-playground-item', label: 'AI Playground', icon: 'FlaskConical', href: '/ai/playground' },
               { id: 'ai-traces-item', label: 'AI Traces', icon: 'Activity', href: '/ai/traces' },
             ],
@@ -137,6 +139,8 @@ export const agentCommandCenterModule: AdminModule = {
     { path: '/ai/runs', element: AiRunQueuePage },
     { path: '/ai/policies', element: AiPoliciesPage },
     { path: '/ai/usage', element: AiUsagePage },
+    { path: '/ai/workflows', element: WorkflowsListPage },
+    { path: '/ai/workflows/:workflowId', element: WorkflowEditorPage },
   ],
   panels,
   panelComponents,
@@ -147,5 +151,7 @@ export const agentCommandCenterModule: AdminModule = {
     { pathPrefix: '/ai/runs', trail: ['AI', 'Run queue'] },
     { pathPrefix: '/ai/policies', trail: ['AI', 'Policies'] },
     { pathPrefix: '/ai/usage', trail: ['AI', 'Usage'] },
+    { pathPrefix: '/ai/workflows/', trail: ['AI', 'Workflows', 'Editor'] },
+    { pathPrefix: '/ai/workflows', trail: ['AI', 'Workflows'] },
   ],
 };
