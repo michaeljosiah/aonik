@@ -97,10 +97,10 @@ internal static class WorkflowSeedCatalog
             },
             Versions: new[]
             {
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-vvvv-000000000004"), "v1.4", "Raised approval ceiling £25K → £50K. Added Treasury approval branch.", "Maria",  "#eb5c37", now.AddHours(-3)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-vvvv-000000000003"), "v1.3", "Auto-link to receipt template after journal entry posted.",                  "Aonik",  "#055a60", now.AddDays(-8)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-vvvv-000000000002"), "v1.2", "Switch matcher from regex to fuzzy + score.",                                "Rafa",   "#7b76b6", now.AddDays(-21)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-vvvv-000000000001"), "v1.1", "Initial draft auto-generated from playbook.",                                 "Aonik",  "#055a60", now.AddDays(-60)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-0076-000000000004"), "v1.4", "Raised approval ceiling £25K → £50K. Added Treasury approval branch.", "Maria",  "#eb5c37", now.AddHours(-3)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-0076-000000000003"), "v1.3", "Auto-link to receipt template after journal entry posted.",                  "Aonik",  "#055a60", now.AddDays(-8)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-0076-000000000002"), "v1.2", "Switch matcher from regex to fuzzy + score.",                                "Rafa",   "#7b76b6", now.AddDays(-21)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0001-0076-000000000001"), "v1.1", "Initial draft auto-generated from playbook.",                                 "Aonik",  "#055a60", now.AddDays(-60)),
             },
             Runs: BuildMatchAndApplyRuns(now, n1, n2, n3, n4, n5, n6, n7, n8));
     }
@@ -111,12 +111,12 @@ internal static class WorkflowSeedCatalog
         var held = new[] { n[0], n[1], n[2], n[3], n[4] };
         return new[]
         {
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-rrrr-000000000001"), now.AddMinutes(-2),  now.AddMinutes(-2).AddSeconds(2),  WorkflowRunStatuses.Success, 2200,   "auto · banking.transaction.received", fast),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-rrrr-000000000002"), now.AddMinutes(-14), now.AddMinutes(-14).AddSeconds(2), WorkflowRunStatuses.Success, 2480,   "auto · banking.transaction.received", fast),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-rrrr-000000000003"), now.AddMinutes(-38), null,                                WorkflowRunStatuses.Held,    434000, "held · over ceiling",                  held),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-rrrr-000000000004"), now.AddHours(-1),    now.AddHours(-1).AddSeconds(2),    WorkflowRunStatuses.Success, 2350,   "auto",                                 fast),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-rrrr-000000000005"), now.AddHours(-2),    now.AddHours(-2).AddMilliseconds(960), WorkflowRunStatuses.Failed, 960,   "tool: read_timeout",                   new[] { n[0], n[1] }),
-            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-rrrr-000000000006"), now.AddHours(-3),    now.AddHours(-3).AddSeconds(2),    WorkflowRunStatuses.Success, 2430,   "auto",                                 fast),
+            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000001"), now.AddMinutes(-2),  now.AddMinutes(-2).AddSeconds(2),  WorkflowRunStatuses.Success, 2200,   "auto · banking.transaction.received", fast),
+            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000002"), now.AddMinutes(-14), now.AddMinutes(-14).AddSeconds(2), WorkflowRunStatuses.Success, 2480,   "auto · banking.transaction.received", fast),
+            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000003"), now.AddMinutes(-38), null,                                WorkflowRunStatuses.Held,    434000, "held · over ceiling",                  held),
+            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000004"), now.AddHours(-1),    now.AddHours(-1).AddSeconds(2),    WorkflowRunStatuses.Success, 2350,   "auto",                                 fast),
+            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000005"), now.AddHours(-2),    now.AddHours(-2).AddMilliseconds(960), WorkflowRunStatuses.Failed, 960,   "tool: read_timeout",                   new[] { n[0], n[1] }),
+            new WorkflowRunSeed(Guid.Parse("11111111-aaaa-0001-0072-000000000006"), now.AddHours(-3),    now.AddHours(-3).AddSeconds(2),    WorkflowRunStatuses.Success, 2430,   "auto",                                 fast),
         };
     }
 
@@ -164,8 +164,8 @@ internal static class WorkflowSeedCatalog
             Comments: Array.Empty<WorkflowCommentSeed>(),
             Versions: new[]
             {
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0002-vvvv-000000000001"), "v0.9", "Loosen tier-3 threshold to 0.6.",  "Rafa", "#7b76b6", now.AddDays(-7)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0002-vvvv-000000000000"), "v0.1", "Initial draft.",                    "Aonik", "#055a60", now.AddDays(-30)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0002-0076-000000000001"), "v0.9", "Loosen tier-3 threshold to 0.6.",  "Rafa", "#7b76b6", now.AddDays(-7)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0002-0076-000000000000"), "v0.1", "Initial draft.",                    "Aonik", "#055a60", now.AddDays(-30)),
             },
             Runs: BuildScheduledRuns(now, "sweep", 24, 18000, 0.71, n1, n2, n3, n4, n5, n6));
     }
@@ -219,8 +219,8 @@ internal static class WorkflowSeedCatalog
             Comments: Array.Empty<WorkflowCommentSeed>(),
             Versions: new[]
             {
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0003-vvvv-000000000002"), "v2.0", "Pause + add Compliance approval gate while we re-run KYB.", "Maria", "#eb5c37", now.AddDays(-11)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0003-vvvv-000000000001"), "v1.4", "Tier-1 customers always require human approval.",            "Aonik", "#055a60", now.AddDays(-65)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0003-0076-000000000002"), "v2.0", "Pause + add Compliance approval gate while we re-run KYB.", "Maria", "#eb5c37", now.AddDays(-11)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0003-0076-000000000001"), "v1.4", "Tier-1 customers always require human approval.",            "Aonik", "#055a60", now.AddDays(-65)),
             },
             Runs: BuildScheduledRuns(now, "dunning", 14, 4100, 0.88, n1, n2, n3, n4, n5, n6, n7, n8));
     }
@@ -268,8 +268,8 @@ internal static class WorkflowSeedCatalog
             Comments: Array.Empty<WorkflowCommentSeed>(),
             Versions: new[]
             {
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0004-vvvv-000000000001"), "v1.1", "Switched to WMR fixings during London close window.", "Rafa", "#7b76b6", now.AddDays(-6)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0004-vvvv-000000000000"), "v1.0", "Initial cut.",                                         "Aonik", "#055a60", now.AddDays(-45)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0004-0076-000000000001"), "v1.1", "Switched to WMR fixings during London close window.", "Rafa", "#7b76b6", now.AddDays(-6)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0004-0076-000000000000"), "v1.0", "Initial cut.",                                         "Aonik", "#055a60", now.AddDays(-45)),
             },
             Runs: BuildScheduledRuns(now, "fx", 8, 1800, 0.99, n1, n2, n3, n4, n5, n6));
     }
@@ -321,8 +321,8 @@ internal static class WorkflowSeedCatalog
             Comments: Array.Empty<WorkflowCommentSeed>(),
             Versions: new[]
             {
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0005-vvvv-000000000002"), "v3.2", "Add UK sanctions list to the screening fan-out.", "Maria", "#eb5c37", now.AddDays(-2)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0005-vvvv-000000000001"), "v3.0", "Restructure: emit instead of notify when clear.", "Aonik", "#055a60", now.AddDays(-90)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0005-0076-000000000002"), "v3.2", "Add UK sanctions list to the screening fan-out.", "Maria", "#eb5c37", now.AddDays(-2)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0005-0076-000000000001"), "v3.0", "Restructure: emit instead of notify when clear.", "Aonik", "#055a60", now.AddDays(-90)),
             },
             Runs: BuildScheduledRuns(now, "kyc", 6, 920, 0.99, n1, n2, n3, n4, n5, n6, n7));
     }
@@ -376,8 +376,8 @@ internal static class WorkflowSeedCatalog
             Comments: Array.Empty<WorkflowCommentSeed>(),
             Versions: new[]
             {
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0006-vvvv-000000000001"), "v2.7", "Add intercompany elimination step before lock.", "Aonik", "#055a60", now.AddDays(-17)),
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0006-vvvv-000000000000"), "v2.0", "Initial close playbook.",                          "Aonik", "#055a60", now.AddDays(-180)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0006-0076-000000000001"), "v2.7", "Add intercompany elimination step before lock.", "Aonik", "#055a60", now.AddDays(-17)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0006-0076-000000000000"), "v2.0", "Initial close playbook.",                          "Aonik", "#055a60", now.AddDays(-180)),
             },
             // Long-running, no runs in last 24h — match template.
             Runs: Array.Empty<WorkflowRunSeed>());
@@ -427,7 +427,7 @@ internal static class WorkflowSeedCatalog
             Comments: Array.Empty<WorkflowCommentSeed>(),
             Versions: new[]
             {
-                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0007-vvvv-000000000001"), "v0.3", "Tweaked threshold from 1.5σ to 2σ.", "Rafa", "#7b76b6", now.AddHours(-4)),
+                new WorkflowVersionSeed(Guid.Parse("11111111-aaaa-0007-0076-000000000001"), "v0.3", "Tweaked threshold from 1.5σ to 2σ.", "Rafa", "#7b76b6", now.AddHours(-4)),
             },
             Runs: BuildScheduledRuns(now, "anomaly", 3, 5400, 0.85, n1, n2, n3, n4, n5, n6));
     }
