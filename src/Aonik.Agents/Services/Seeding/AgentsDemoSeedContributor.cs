@@ -41,6 +41,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         return phase switch
         {
             DemoSeedPhase.Workflows => await SeedWorkflowsAsync(context, cancellationToken),
+            DemoSeedPhase.Activity => await SeedAgentActivityAsync(context, cancellationToken),
             _ => Array.Empty<string>(),
         };
     }
@@ -376,6 +377,230 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    // ── Phase: Activity (AgentRuns + Proposals) ────────────────────────
+    //
+    // Seeds ~30 AgentRun rows across the seven domain agents (mix of
+    // Success / Failed / InProgress, spread across the last 24h) and
+    // 6 Proposals (mix of Proposed / Approved / Rejected). Re-seeding is
+    // idempotent — the contributor wipes prior agent activity for this
+    // tenant before reinserting.
+
+    private async Task<IReadOnlyList<string>> SeedAgentActivityAsync(
+        DemoSeedContext context,
+        CancellationToken cancellationToken)
+    {
+        var operations = new List<string>();
+
+        // Resolve agents we seeded in the Workflows phase.
+        var agents = await _dbContext.Agents
+            .Where(a => a.TenantId == context.TenantId)
+            .ToListAsync(cancellationToken);
+
+        if (agents.Count == 0)
+        {
+            // Workflows phase didn't seed any agents — nothing to attach
+            // runs/proposals to. (E.g. test seeds that skipped earlier
+            // phases.) Bail rather than orphaning rows.
+            return operations;
+        }
+
+        var agentRunIds = await SeedAgentRunsAsync(context, agents, operations, cancellationToken);
+        var proposalIds = await SeedProposalsAsync(context, agents, agentRunIds, operations, cancellationToken);
+
+        _results[DemoSeedResultKeys.AgentRunIds] = agentRunIds.ToArray();
+        _results[DemoSeedResultKeys.ProposalIds] = proposalIds.ToArray();
+        return operations;
+    }
+
+    private async Task<IReadOnlyList<Guid>> SeedAgentRunsAsync(
+        DemoSeedContext context,
+        IReadOnlyList<Agent> agents,
+        List<string> operations,
+        CancellationToken cancellationToken)
+    {
+        // Wipe prior demo runs first — cheap, demo volumes only.
+        var existing = await _dbContext.AgentRuns
+            .Where(r => r.TenantId == context.TenantId)
+            .ToListAsync(cancellationToken);
+        if (existing.Count > 0) _dbContext.AgentRuns.RemoveRange(existing);
+
+        var runIds = new List<Guid>();
+        var rng = new Random(unchecked(context.TenantId.GetHashCode() ^ 0x5eed));
+
+        // ~5 runs per agent, jittered timestamps over the last 24h.
+        var goalsByAgent = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Billing"]    = new[] { "Reconcile bank transaction tx_9f2c1a", "Score invoice match for INV-2041", "Apply payment to AR-1200" },
+            ["Ledger"]     = new[] { "Post period accruals", "Run intercompany elimination", "Lock April period" },
+            ["FX"]         = new[] { "Quote forward NGN→GBP", "Revalue GBP holdings", "Refresh WMR fixings" },
+            ["Compliance"] = new[] { "Re-screen Primrose Logistics against UK sanctions", "Open KYC case for Naledi Dlamini", "Review high-risk transfer NG-GB" },
+            ["Dunning"]    = new[] { "Compose 14-day overdue reminder for INV-2018", "Escalate dunning tier on Acme Imports", "Schedule phone hand-off for >21d invoices" },
+            ["Close"]      = new[] { "Sequence April close playbook", "Verify intercompany balances", "Generate close package" },
+            ["Insights"]   = new[] { "Detect spend anomaly in Fuel category", "Summarise cash position", "Narrate weekly variance" },
+        };
+
+        foreach (var agent in agents)
+        {
+            if (!goalsByAgent.TryGetValue(agent.Name, out var goals)) continue;
+
+            for (var i = 0; i < 5; i++)
+            {
+                var minutesAgo = rng.Next(15, 24 * 60);
+                var status = rng.NextDouble() switch
+                {
+                    < 0.78 => "Success",
+                    < 0.92 => "Failed",
+                    _      => "InProgress",
+                };
+
+                var run = new AgentRun
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = context.TenantId,
+                    AgentId = agent.Id,
+                    Goal = goals[i % goals.Length],
+                    PlanJson = "{\"steps\":[]}",
+                    StepsJson = "[]",
+                    LinkedAiRunIdsJson = "[]",
+                    ArtifactsProducedJson = "[]",
+                    Status = status,
+                    CreatedAt = context.Now.AddMinutes(-minutesAgo),
+                    CreatedBy = context.UserId,
+                };
+                _dbContext.AgentRuns.Add(run);
+                runIds.Add(run.Id);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        operations.Add($"Seeded {runIds.Count} agent runs across {agents.Count} agents");
+        return runIds;
+    }
+
+    private async Task<IReadOnlyList<Guid>> SeedProposalsAsync(
+        DemoSeedContext context,
+        IReadOnlyList<Agent> agents,
+        IReadOnlyList<Guid> runIds,
+        List<string> operations,
+        CancellationToken cancellationToken)
+    {
+        var existing = await _dbContext.Proposals
+            .Where(p => p.TenantId == context.TenantId)
+            .ToListAsync(cancellationToken);
+        if (existing.Count > 0) _dbContext.Proposals.RemoveRange(existing);
+
+        if (runIds.Count == 0) return Array.Empty<Guid>();
+
+        var billing    = agents.FirstOrDefault(a => a.Name == "Billing");
+        var compliance = agents.FirstOrDefault(a => a.Name == "Compliance");
+        var fx         = agents.FirstOrDefault(a => a.Name == "FX");
+        var insights   = agents.FirstOrDefault(a => a.Name == "Insights");
+
+        var proposalSeeds = new List<ProposalSeed>();
+
+        if (billing != null)
+        {
+            proposalSeeds.Add(new ProposalSeed(
+                "BillingMatchApply", billing.Id,
+                "Match INV-2041 (£12,480) to bank txn 9f2c1a from Primrose Logistics. Reference, amount and counterparty all align — confidence 0.94.",
+                "Low", 0.94m, ProposalStatus.Proposed,
+                "{\"invoiceId\":\"INV-2041\",\"txnId\":\"tx_9f2c1a\",\"amount\":12480.00}",
+                context.Now.AddMinutes(-12)));
+        }
+
+        if (fx != null)
+        {
+            proposalSeeds.Add(new ProposalSeed(
+                "FxForwardQuote", fx.Id,
+                "Quote 1-month GBP→NGN forward at ₦2,012. Locks rate for cross-border invoices over the next 30 days.",
+                "Medium", 0.88m, ProposalStatus.Proposed,
+                "{\"corridor\":\"GBP-NGN\",\"tenor\":\"1M\",\"rate\":2012}",
+                context.Now.AddHours(-2)));
+        }
+
+        if (compliance != null)
+        {
+            proposalSeeds.Add(new ProposalSeed(
+                "ComplianceCaseOpen", compliance.Id,
+                "Open KYB review on Naledi Dlamini after risk score moved above 0.6 on the latest sanctions screening.",
+                "High", 0.91m, ProposalStatus.Proposed,
+                "{\"partyName\":\"Naledi Dlamini\",\"riskScore\":0.62}",
+                context.Now.AddHours(-4)));
+        }
+
+        if (billing != null)
+        {
+            proposalSeeds.Add(new ProposalSeed(
+                "DunningReminder", billing.Id,
+                "Send 14-day overdue reminder to Acme Imports Ltd for INV-2018 (£1,200). Already chased once at the 7-day mark.",
+                "Low", 0.82m, ProposalStatus.Approved,
+                "{\"invoiceId\":\"INV-2018\",\"daysOverdue\":14}",
+                context.Now.AddDays(-1),
+                ApprovedAt: context.Now.AddHours(-22)));
+        }
+
+        if (insights != null)
+        {
+            proposalSeeds.Add(new ProposalSeed(
+                "InsightsAnomalyAlert", insights.Id,
+                "Spend anomaly: Fuel category up 47% on the 30-day rolling average. Driver fleet running on weekend trips this week.",
+                "Low", 0.76m, ProposalStatus.Approved,
+                "{\"category\":\"Fuel\",\"deltaPct\":47}",
+                context.Now.AddDays(-3),
+                ApprovedAt: context.Now.AddDays(-3).AddHours(2)));
+        }
+
+        if (compliance != null)
+        {
+            proposalSeeds.Add(new ProposalSeed(
+                "ComplianceCaseOpen", compliance.Id,
+                "Open KYB review on Safari Freight Co after registration number drift detected.",
+                "High", 0.71m, ProposalStatus.Rejected,
+                "{\"partyName\":\"Safari Freight Co\",\"reason\":\"name_match_only\"}",
+                context.Now.AddDays(-5),
+                ApprovedAt: context.Now.AddDays(-5).AddHours(1)));
+        }
+
+        var proposalIds = new List<Guid>();
+        foreach (var seed in proposalSeeds)
+        {
+            var proposal = new Proposal
+            {
+                Id = Guid.NewGuid(),
+                TenantId = context.TenantId,
+                ProposalType = seed.ProposalType,
+                ProposedByAgentId = seed.ProposedByAgentId,
+                AiRunId = runIds[Math.Abs(seed.GetHashCode()) % runIds.Count],
+                ImpactSummary = seed.ImpactSummary,
+                RiskTier = seed.RiskTier,
+                Confidence = seed.Confidence,
+                Status = seed.Status,
+                PayloadJson = seed.PayloadJson,
+                ApprovedAt = seed.ApprovedAt,
+                ApprovedByUserId = seed.Status == ProposalStatus.Approved ? context.UserId : null,
+                CreatedAt = seed.CreatedAt,
+                CreatedBy = context.UserId,
+            };
+            _dbContext.Proposals.Add(proposal);
+            proposalIds.Add(proposal.Id);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        operations.Add($"Seeded {proposalIds.Count} proposals");
+        return proposalIds;
+    }
+
+    private sealed record ProposalSeed(
+        string ProposalType,
+        Guid ProposedByAgentId,
+        string ImpactSummary,
+        string RiskTier,
+        decimal Confidence,
+        ProposalStatus Status,
+        string PayloadJson,
+        DateTime CreatedAt,
+        DateTime? ApprovedAt = null);
 
     private sealed record AgentSeed(
         string Name,
