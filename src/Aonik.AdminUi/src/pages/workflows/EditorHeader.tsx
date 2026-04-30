@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { WorkflowGraph } from './workflowMockData';
+import type { WorkflowGraph } from './workflowTypes';
 import type { ValidationError } from './WorkflowCanvas';
 
 interface ToggleProps {

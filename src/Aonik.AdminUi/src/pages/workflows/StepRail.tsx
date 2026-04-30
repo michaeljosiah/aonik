@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { STEP_KIND } from './stepKindCatalog';
-import type { WorkflowStep } from './workflowMockData';
+import type { WorkflowStep } from './workflowTypes';
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   Wrench,

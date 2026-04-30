@@ -5,7 +5,7 @@
 
 import { NODE_KIND } from './stepKindCatalog';
 import { NODE_H, NODE_W } from './editorGeometry';
-import type { WorkflowNode } from './workflowMockData';
+import type { WorkflowNode } from './workflowTypes';
 
 export interface CanvasView {
   scale: number;

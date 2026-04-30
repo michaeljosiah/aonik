@@ -26,7 +26,7 @@ import type {
   WorkflowComment,
   WorkflowEdge,
   WorkflowNode,
-} from './workflowMockData';
+} from './workflowTypes';
 
 export interface Selection {
   nodes: string[];

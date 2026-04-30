@@ -19,7 +19,7 @@ import type {
   WorkflowGraph,
   WorkflowNode,
   WorkflowNodeParams,
-} from './workflowMockData';
+} from './workflowTypes';
 import type { Selection, ValidationError } from './WorkflowCanvas';
 
 // ─── Field primitives ───────────────────────────────────────────────

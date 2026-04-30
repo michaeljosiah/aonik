@@ -24,7 +24,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { STEP_KIND } from './stepKindCatalog';
-import { formatDuration, type WorkflowSummary } from './workflowMockData';
+import { formatDuration, type WorkflowRunSummary, type WorkflowSummary } from './workflowTypes';
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   Wrench,
@@ -41,32 +41,12 @@ const ICON_BY_NAME: Record<string, LucideIcon> = {
   Bolt,
 };
 
-interface RecentRun {
-  id: string;
-  when: string;
-  status: 'ok' | 'review' | 'fail';
-  ms: number;
-  by: string;
-}
-
-const STATUS_TONES: Record<RecentRun['status'], { c: string; label: string }> = {
-  ok: { c: 'var(--color-success, #1f7a5e)', label: 'ok' },
-  review: { c: '#b4741e', label: 'held' },
-  fail: { c: '#c44536', label: 'fail' },
+const STATUS_TONES: Record<WorkflowRunSummary['status'], { c: string; label: string }> = {
+  success: { c: 'var(--color-success, #1f7a5e)', label: 'ok' },
+  held: { c: '#b4741e', label: 'held' },
+  failed: { c: '#c44536', label: 'fail' },
+  running: { c: 'var(--color-brand-primary)', label: 'live' },
 };
-
-function buildRecentRuns(wf: WorkflowSummary): RecentRun[] {
-  // Synthesize plausible recent runs for the selected workflow — mirrors
-  // the inline mock in screens/workflows.jsx WorkflowDetail.
-  return [
-    { id: 'run_8421', when: '2m ago', status: 'ok', ms: wf.avgMs - 200, by: 'auto · banking.transaction.received' },
-    { id: 'run_8418', when: '14m ago', status: 'ok', ms: wf.avgMs + 80, by: 'auto · banking.transaction.received' },
-    { id: 'run_8412', when: '38m ago', status: 'review', ms: wf.avgMs * 3.2, by: 'held · over ceiling' },
-    { id: 'run_8407', when: '1h ago', status: 'ok', ms: wf.avgMs - 50, by: 'auto' },
-    { id: 'run_8402', when: '2h ago', status: 'fail', ms: wf.avgMs * 0.4, by: 'tool: read_timeout' },
-    { id: 'run_8395', when: '3h ago', status: 'ok', ms: wf.avgMs + 30, by: 'auto' },
-  ];
-}
 
 function ownerInitials(name: string): string {
   return name
@@ -93,11 +73,15 @@ function SectionEyebrow({ children }: SectionEyebrowProps) {
 
 export interface WorkflowDetailRailProps {
   wf: WorkflowSummary;
+  /** Real recent runs from the API. Top 6 are rendered. */
+  runs?: WorkflowRunSummary[];
+  /** True while the runs request is in flight. */
+  runsLoading?: boolean;
   onOpenEditor?: () => void;
 }
 
-export function WorkflowDetailRail({ wf, onOpenEditor }: WorkflowDetailRailProps) {
-  const recent = buildRecentRuns(wf);
+export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenEditor }: WorkflowDetailRailProps) {
+  const recent = runs.slice(0, 6);
 
   return (
     <aside
@@ -306,42 +290,52 @@ export function WorkflowDetailRail({ wf, onOpenEditor }: WorkflowDetailRailProps
             </a>
           </div>
           <div className="flex flex-col gap-1">
-            {recent.map((r) => {
-              const tone = STATUS_TONES[r.status];
-              return (
-                <div
-                  key={r.id}
-                  className="grid items-center gap-2.5 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]"
-                  style={{
-                    gridTemplateColumns: '60px 1fr auto auto',
-                    padding: '8px 10px',
-                  }}
-                >
-                  <span
-                    className="inline-flex items-center gap-1.5 text-[10.5px] font-medium"
-                    style={{ color: tone.c }}
+            {runsLoading && recent.length === 0 ? (
+              <div className="text-[11px] text-[var(--color-text-tertiary)]" style={{ padding: '8px 2px' }}>
+                Loading…
+              </div>
+            ) : recent.length === 0 ? (
+              <div className="text-[11px] text-[var(--color-text-tertiary)]" style={{ padding: '8px 2px' }}>
+                No runs in the last 24h.
+              </div>
+            ) : (
+              recent.map((r) => {
+                const tone = STATUS_TONES[r.status];
+                return (
+                  <div
+                    key={r.id}
+                    className="grid items-center gap-2.5 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)]"
+                    style={{
+                      gridTemplateColumns: '60px 1fr auto auto',
+                      padding: '8px 10px',
+                    }}
                   >
                     <span
-                      className="rounded-full"
-                      style={{ width: 6, height: 6, background: tone.c }}
-                    />
-                    {tone.label}
-                  </span>
-                  <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[var(--color-text-secondary)]">
-                    {r.by}
-                  </span>
-                  <span
-                    className="text-[10.5px] text-[var(--color-text-tertiary)]"
-                    style={{ fontFamily: 'var(--font-mono)' }}
-                  >
-                    {formatDuration(Math.max(80, r.ms))}
-                  </span>
-                  <span className="text-[10.5px] text-[var(--color-text-tertiary)]">
-                    {r.when}
-                  </span>
-                </div>
-              );
-            })}
+                      className="inline-flex items-center gap-1.5 text-[10.5px] font-medium"
+                      style={{ color: tone.c }}
+                    >
+                      <span
+                        className="rounded-full"
+                        style={{ width: 6, height: 6, background: tone.c }}
+                      />
+                      {tone.label}
+                    </span>
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[var(--color-text-secondary)]">
+                      {r.by}
+                    </span>
+                    <span
+                      className="text-[10.5px] text-[var(--color-text-tertiary)]"
+                      style={{ fontFamily: 'var(--font-mono)' }}
+                    >
+                      {r.duration}
+                    </span>
+                    <span className="text-[10.5px] text-[var(--color-text-tertiary)]">
+                      {r.when}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

@@ -20,7 +20,7 @@ import type {
   WorkflowGraph,
   WorkflowRunSummary,
   WorkflowVersion,
-} from './workflowMockData';
+} from './workflowTypes';
 import type { TraceState } from './WorkflowCanvas';
 
 // ─── Bottom test panel ──────────────────────────────────────────────

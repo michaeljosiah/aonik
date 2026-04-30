@@ -1,24 +1,27 @@
 // Workflow editor — full-page surface composing header, palette, canvas,
-// inspector and the optional bottom panels. State (graph, selection,
-// view, validation, trace) lives here and threads down via props.
+// inspector and the optional bottom panels. Reads its initial workflow
+// graph + comments + recent runs + version history from the live API
+// (workflowService.getBySlug / listRuns / listVersions). Edits stay
+// in-memory — there's no PUT endpoint yet, so save/discard cycle the
+// fetched copy rather than persisting.
 //
-// 1:1 port of ScreenWorkflowEditor from
-// templates/aonik-admin-starterkit/screens/workflow-editor-screen.jsx.
+// Initial port: templates/aonik-admin-starterkit/screens/workflow-editor-screen.jsx
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Workflow as WorkflowIcon } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { useWorkflow, useWorkflowRuns, useWorkflowVersions } from '@/hooks/useWorkflows';
+import { adaptComment, adaptGraph, adaptRun, adaptVersion } from './workflowAdapters';
 import { NODE_KIND } from './stepKindCatalog';
 import {
-  DEFAULT_COMMENTS,
-  DEFAULT_RUNS,
-  DEFAULT_VERSIONS,
-  DEFAULT_WORKFLOW_GRAPH,
+  type EditorNodeKind,
+  type WorkflowComment,
   type WorkflowEdge,
   type WorkflowGraph,
   type WorkflowNode,
   type WorkflowNodeParams,
-  type EditorNodeKind,
-} from './workflowMockData';
+} from './workflowTypes';
 import { WorkflowCanvas, type Selection, type TraceState, type ValidationError } from './WorkflowCanvas';
 import type { CanvasView } from './Minimap';
 import { EditorHeader } from './EditorHeader';
@@ -70,13 +73,26 @@ function computeValidation(
 
 export function WorkflowEditorPage() {
   const navigate = useNavigate();
-  // Route param is reserved for the future "load by id" API. Currently we
-  // always seed from DEFAULT_WORKFLOW_GRAPH — there's no backend yet.
-  useParams<{ workflowId?: string }>();
+  const { workflowId: slug } = useParams<{ workflowId: string }>();
 
-  const [wf, setWf] = useState<WorkflowGraph>(DEFAULT_WORKFLOW_GRAPH);
+  const { workflow: dto, loading, error } = useWorkflow(slug);
+  const { runs: rawRuns } = useWorkflowRuns(dto?.id);
+  const { versions: rawVersions } = useWorkflowVersions(dto?.id);
+
+  const initialGraph = useMemo<WorkflowGraph | null>(
+    () => (dto ? adaptGraph(dto) : null),
+    [dto],
+  );
+  const initialComments = useMemo<WorkflowComment[]>(
+    () => (dto ? dto.comments.map(adaptComment) : []),
+    [dto],
+  );
+  const runs = useMemo(() => rawRuns.map(adaptRun), [rawRuns]);
+  const versions = useMemo(() => rawVersions.map(adaptVersion), [rawVersions]);
+
+  const [wf, setWf] = useState<WorkflowGraph | null>(null);
   const [view, setView] = useState<CanvasView>({ scale: 0.8, tx: 60, ty: 80 });
-  const [selection, setSelection] = useState<Selection>({ nodes: ['n3'], edges: [] });
+  const [selection, setSelection] = useState<Selection>({ nodes: [], edges: [] });
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [paletteCollapsed, setPaletteCollapsed] = useState(false);
@@ -89,15 +105,25 @@ export function WorkflowEditorPage() {
   // Trace
   const [trace, setTrace] = useState<TraceState | null>(null);
 
+  // Hydrate workflow state when API returns. Keep in-memory edits if they exist.
+  useEffect(() => {
+    if (initialGraph) {
+      setWf(initialGraph);
+      setHasChanges(false);
+      setSelection({ nodes: [], edges: [] });
+    }
+  }, [initialGraph]);
+
   const dirty = useCallback(() => setHasChanges(true), []);
 
   // ── Mutations ──
   const onMoveNode = useCallback(
     (id: string, x: number, y: number) => {
-      setWf((w) => ({
-        ...w,
-        nodes: w.nodes.map((n) => (n.id === id ? { ...n, x, y } : n)),
-      }));
+      setWf((w) =>
+        w
+          ? { ...w, nodes: w.nodes.map((n) => (n.id === id ? { ...n, x, y } : n)) }
+          : w,
+      );
       dirty();
     },
     [dirty],
@@ -108,18 +134,22 @@ export function WorkflowEditorPage() {
       id: string,
       patch: Partial<WorkflowNode> & { params?: Partial<WorkflowNodeParams> },
     ) => {
-      setWf((w) => ({
-        ...w,
-        nodes: w.nodes.map((n) =>
-          n.id === id
-            ? {
-                ...n,
-                ...patch,
-                params: { ...n.params, ...(patch.params ?? {}) },
-              }
-            : n,
-        ),
-      }));
+      setWf((w) =>
+        w
+          ? {
+              ...w,
+              nodes: w.nodes.map((n) =>
+                n.id === id
+                  ? {
+                      ...n,
+                      ...patch,
+                      params: { ...n.params, ...(patch.params ?? {}) },
+                    }
+                  : n,
+              ),
+            }
+          : w,
+      );
       dirty();
     },
     [dirty],
@@ -127,11 +157,15 @@ export function WorkflowEditorPage() {
 
   const onDeleteNode = useCallback(
     (id: string) => {
-      setWf((w) => ({
-        ...w,
-        nodes: w.nodes.filter((n) => n.id !== id),
-        edges: w.edges.filter((e) => e.from !== id && e.to !== id),
-      }));
+      setWf((w) =>
+        w
+          ? {
+              ...w,
+              nodes: w.nodes.filter((n) => n.id !== id),
+              edges: w.edges.filter((e) => e.from !== id && e.to !== id),
+            }
+          : w,
+      );
       setSelection({ nodes: [], edges: [] });
       dirty();
     },
@@ -141,6 +175,7 @@ export function WorkflowEditorPage() {
   const onAddEdge = useCallback(
     ({ from, to, fromIdx }: { from: string; to: string; fromIdx: number }) => {
       setWf((w) => {
+        if (!w) return w;
         const key = `${from}-${fromIdx}-${to}`;
         const exists = w.edges.some(
           (e) => `${e.from}-${e.fromIdx ?? 0}-${e.to}` === key,
@@ -164,7 +199,7 @@ export function WorkflowEditorPage() {
 
   const onDeleteEdge = useCallback(
     (id: string) => {
-      setWf((w) => ({ ...w, edges: w.edges.filter((e) => e.id !== id) }));
+      setWf((w) => (w ? { ...w, edges: w.edges.filter((e) => e.id !== id) } : w));
       setSelection({ nodes: [], edges: [] });
       dirty();
     },
@@ -176,21 +211,25 @@ export function WorkflowEditorPage() {
       const k = NODE_KIND[kind as EditorNodeKind];
       if (!k) return;
       const id = 'n' + Math.random().toString(36).slice(2, 7);
-      setWf((w) => ({
-        ...w,
-        nodes: [
-          ...w.nodes,
-          {
-            id,
-            kind: kind as EditorNodeKind,
-            x,
-            y,
-            label: k.label,
-            summary: '',
-            params: { ...(k.defaults as WorkflowNodeParams) },
-          },
-        ],
-      }));
+      setWf((w) =>
+        w
+          ? {
+              ...w,
+              nodes: [
+                ...w.nodes,
+                {
+                  id,
+                  kind: kind as EditorNodeKind,
+                  x,
+                  y,
+                  label: k.label,
+                  summary: '',
+                  params: { ...(k.defaults as WorkflowNodeParams) },
+                },
+              ],
+            }
+          : w,
+      );
       setSelection({ nodes: [id], edges: [] });
       dirty();
     },
@@ -199,27 +238,27 @@ export function WorkflowEditorPage() {
 
   // ── Validation ──
   const validationErrors = useMemo(
-    () => computeValidation(wf.nodes, wf.edges),
-    [wf.nodes, wf.edges],
+    () => (wf ? computeValidation(wf.nodes, wf.edges) : []),
+    [wf],
   );
 
   // ── Trace control ──
   const startTrace = useCallback(
-    (runId: string = DEFAULT_RUNS[0]?.id ?? '', atStep = 1) => {
-      const run = DEFAULT_RUNS.find((r) => r.id === runId);
+    (runId: string = runs[0]?.id ?? '', atStep = 1) => {
+      const run = runs.find((r) => r.id === runId);
       if (!run) return;
       const completed = run.sequence.slice(0, atStep);
       const current = run.sequence[atStep] ?? run.sequence[run.sequence.length - 1];
       setTrace({ runId, current, completed });
       setTraceOpen(true);
     },
-    [],
+    [runs],
   );
 
   const stepTrace = useCallback(
     (delta: number) => {
       if (!trace) return;
-      const run = DEFAULT_RUNS.find((r) => r.id === trace.runId);
+      const run = runs.find((r) => r.id === trace.runId);
       if (!run) return;
       const next = Math.max(0, Math.min(run.sequence.length, trace.completed.length + delta));
       setTrace({
@@ -228,7 +267,7 @@ export function WorkflowEditorPage() {
         completed: run.sequence.slice(0, next),
       });
     },
-    [trace],
+    [runs, trace],
   );
 
   useEffect(() => {
@@ -250,6 +289,45 @@ export function WorkflowEditorPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selection, onDeleteNode, onDeleteEdge]);
 
+  // ── States: error / loading / not-found / loaded ──────────────────────
+
+  if (error) {
+    return (
+      <CenteredMessage
+        title="Couldn't load workflow"
+        body={error}
+        action={
+          <Link to="/ai/workflows">
+            <Button size="sm" variant="outline">Back to Workflows</Button>
+          </Link>
+        }
+      />
+    );
+  }
+
+  if (loading || !wf) {
+    return (
+      <CenteredMessage
+        title="Loading workflow…"
+        body="Fetching graph, runs, and version history."
+      />
+    );
+  }
+
+  if (!initialGraph) {
+    return (
+      <CenteredMessage
+        title="Workflow not found"
+        body={`We couldn't find a workflow with slug "${slug}".`}
+        action={
+          <Link to="/ai/workflows">
+            <Button size="sm" variant="outline">Back to Workflows</Button>
+          </Link>
+        }
+      />
+    );
+  }
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-[var(--color-background)]">
       <EditorHeader
@@ -258,7 +336,7 @@ export function WorkflowEditorPage() {
         hasChanges={hasChanges}
         onSave={() => setHasChanges(false)}
         onDiscard={() => {
-          setWf(DEFAULT_WORKFLOW_GRAPH);
+          if (initialGraph) setWf(initialGraph);
           setHasChanges(false);
         }}
         testOpen={testOpen}
@@ -276,7 +354,7 @@ export function WorkflowEditorPage() {
       {traceOpen && (
         <TraceBar
           trace={trace}
-          runs={DEFAULT_RUNS}
+          runs={runs}
           onPick={(id) => startTrace(id, 1)}
           onStep={stepTrace}
           onClose={() => setTraceOpen(false)}
@@ -299,7 +377,7 @@ export function WorkflowEditorPage() {
             onMoveNode={onMoveNode}
             onAddEdge={onAddEdge}
             onDropPaletteItem={onDropPaletteItem}
-            comments={DEFAULT_COMMENTS}
+            comments={initialComments}
             trace={trace}
             validationErrors={validationErrors}
           />
@@ -325,11 +403,42 @@ export function WorkflowEditorPage() {
 
         {historyOpen && (
           <HistoryPanel
-            versions={DEFAULT_VERSIONS}
+            versions={versions}
             onClose={() => setHistoryOpen(false)}
             onRestore={() => {}}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+interface CenteredMessageProps {
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+}
+
+function CenteredMessage({ title, body, action }: CenteredMessageProps) {
+  return (
+    <div className="flex h-full w-full items-center justify-center p-12">
+      <div
+        className="flex max-w-md flex-col items-center rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
+        style={{ padding: '40px 32px' }}
+      >
+        <span
+          className="mb-4 inline-flex items-center justify-center rounded-full bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]"
+          style={{ width: 40, height: 40 }}
+        >
+          <WorkflowIcon className="h-5 w-5" />
+        </span>
+        <div className="mb-1.5 text-[14px] font-semibold text-[var(--color-text-primary)]">
+          {title}
+        </div>
+        <div className="mb-4 text-[12.5px] text-[var(--color-text-secondary)]" style={{ lineHeight: 1.5 }}>
+          {body}
+        </div>
+        {action}
       </div>
     </div>
   );

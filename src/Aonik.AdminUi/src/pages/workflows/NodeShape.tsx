@@ -27,7 +27,7 @@ import {
   PORT_R,
   outPortPos,
 } from './editorGeometry';
-import type { WorkflowNode } from './workflowMockData';
+import type { WorkflowNode } from './workflowTypes';
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
   Wrench,

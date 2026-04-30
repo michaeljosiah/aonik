@@ -3,7 +3,7 @@
 // templates/aonik-admin-starterkit/screens/workflow-editor.jsx so the
 // canvas, palette-drop logic, and inspector stay in sync.
 
-import type { WorkflowNode } from './workflowMockData';
+import type { WorkflowNode } from './workflowTypes';
 import { NODE_KIND } from './stepKindCatalog';
 
 export const NODE_W = 220;

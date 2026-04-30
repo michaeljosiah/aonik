@@ -4,7 +4,7 @@
 // components in the consumer (StepRail, NodeShape) — kept as strings here
 // so the catalog has no JSX dependency and can be reused by both pages.
 
-import type { StepKind, EditorNodeKind } from './workflowMockData';
+import type { StepKind, EditorNodeKind } from './workflowTypes';
 
 export interface StepKindMeta {
   /** lucide-react icon name. */
@@ -21,10 +21,13 @@ export interface StepKindMeta {
   defaults?: Record<string, string | number>;
 }
 
-// List-page step rail kinds (read from screens/workflows.jsx STEP_KIND).
+// List-page step rail kinds. Now identical to NODE_KIND below since the
+// API normalises every node visit to the canonical 10-kind enum (the
+// template's legacy 'start' / 'ledger' aliases became 'trigger' / 'tool'
+// after the de-mock).
 export const STEP_KIND: Record<StepKind, StepKindMeta> = {
-  start: { icon: 'Play', label: 'Start', tint: '#055a60' },
-  tool: { icon: 'Wrench', label: 'Tool call', tint: '#055a60' },
+  trigger: { icon: 'Zap', label: 'Trigger', tint: '#055a60' },
+  tool: { icon: 'Wrench', label: 'Tool call', tint: '#0097a9' },
   agent: { icon: 'Sparkles', label: 'Sub-agent', tint: '#7b76b6' },
   decision: { icon: 'GitFork', label: 'Decision', tint: '#b4741e' },
   human: { icon: 'Users', label: 'Human approval', tint: '#c44536' },
@@ -32,7 +35,6 @@ export const STEP_KIND: Record<StepKind, StepKindMeta> = {
   end: { icon: 'Check', label: 'End', tint: '#1f7a5e' },
   notify: { icon: 'Send', label: 'Notify', tint: '#3ab795' },
   emit: { icon: 'Zap', label: 'Emit event', tint: '#d4a843' },
-  ledger: { icon: 'Columns', label: 'Post to ledger', tint: '#055a60' },
   loop: { icon: 'RefreshCw', label: 'Loop', tint: '#a35dac' },
 };
 

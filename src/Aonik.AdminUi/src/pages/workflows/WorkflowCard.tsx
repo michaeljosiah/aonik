@@ -7,7 +7,7 @@
 import { Play, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StepRail } from './StepRail';
-import { formatDuration, type WorkflowSummary } from './workflowMockData';
+import { formatDuration, type WorkflowSummary } from './workflowTypes';
 
 export interface WorkflowCardProps {
   wf: WorkflowSummary;
@@ -22,9 +22,9 @@ interface StateTone {
 }
 
 const STATE_TONES: Record<WorkflowSummary['state'], StateTone> = {
-  active: { c: 'var(--color-success, #1f7a5e)', label: 'active', pulse: true },
-  paused: { c: '#b4741e', label: 'paused', pulse: false },
-  draft: { c: 'var(--color-text-tertiary)', label: 'draft', pulse: false },
+  Active: { c: 'var(--color-success, #1f7a5e)', label: 'active', pulse: true },
+  Paused: { c: '#b4741e', label: 'paused', pulse: false },
+  Draft: { c: 'var(--color-text-tertiary)', label: 'draft', pulse: false },
 };
 
 function successColor(value: number): string {

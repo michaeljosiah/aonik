@@ -1,19 +1,23 @@
 // Agent Workflows registry — visual port of
-// templates/aonik-admin-starterkit/screens/workflows.jsx.
+// templates/aonik-admin-starterkit/screens/workflows.jsx, now sourced from
+// the live API (workflowService.list). When the API returns zero rows we
+// show an empty-state CTA pointing at System Tools so the operator can
+// run the demo seed.
 //
-// Mock-only: data comes from `workflowMockData.MOCK_WORKFLOWS`. Layout:
-//   PageHeader → KPI strip (4) → filter pills + sort → two-pane
-//   (workflow cards left · selected workflow detail rail right).
+// Layout: PageHeader → KPI strip (4) → filter pills + sort → two-pane
+// (workflow cards left · selected workflow detail rail right).
 
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Upload } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, RefreshCw, Search, Sprout, Upload, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KpiTile, PageHeader } from '@/components/layout/aonik';
 import { cn } from '@/lib/utils';
+import { useWorkflows, useWorkflowRuns } from '@/hooks/useWorkflows';
+import { adaptRun, adaptSummary } from './workflowAdapters';
 import { WorkflowCard } from './WorkflowCard';
 import { WorkflowDetailRail } from './WorkflowDetailRail';
-import { MOCK_WORKFLOWS, type WorkflowState, type WorkflowSummary } from './workflowMockData';
+import type { WorkflowState, WorkflowSummary } from './workflowTypes';
 
 type Filter = 'All' | 'Active' | 'Paused' | 'Draft';
 type Sort = 'Most run' | 'Recent' | 'Success';
@@ -21,9 +25,9 @@ type Sort = 'Most run' | 'Recent' | 'Success';
 const FILTER_LABELS: Filter[] = ['All', 'Active', 'Paused', 'Draft'];
 const FILTER_TO_STATE: Record<Filter, WorkflowState | null> = {
   All: null,
-  Active: 'active',
-  Paused: 'paused',
-  Draft: 'draft',
+  Active: 'Active',
+  Paused: 'Paused',
+  Draft: 'Draft',
 };
 
 const SPARK_TEAL = '#055a60';
@@ -32,42 +36,97 @@ const SPARK_MINT = '#3ab795';
 
 export function WorkflowsListPage() {
   const navigate = useNavigate();
-  const [selectedId, setSelectedId] = useState<string>(MOCK_WORKFLOWS[0]?.id ?? '');
+  const { workflows: rawWorkflows, loading, error, refresh } = useWorkflows();
+
+  const workflows = useMemo<WorkflowSummary[]>(
+    () => rawWorkflows.map(adaptSummary),
+    [rawWorkflows],
+  );
+
+  const [selectedSlug, setSelectedSlug] = useState<string>('');
   const [filter, setFilter] = useState<Filter>('All');
   const [sort, setSort] = useState<Sort>('Most run');
 
+  // Default-select the first workflow once data arrives.
+  useEffect(() => {
+    if (!selectedSlug && workflows.length > 0) {
+      setSelectedSlug(workflows[0].slug);
+    }
+  }, [selectedSlug, workflows]);
+
   const counts = useMemo(() => {
     const acc: Record<Filter, number> = { All: 0, Active: 0, Paused: 0, Draft: 0 };
-    acc.All = MOCK_WORKFLOWS.length;
-    for (const wf of MOCK_WORKFLOWS) {
-      if (wf.state === 'active') acc.Active += 1;
-      else if (wf.state === 'paused') acc.Paused += 1;
-      else if (wf.state === 'draft') acc.Draft += 1;
+    acc.All = workflows.length;
+    for (const wf of workflows) {
+      if (wf.state === 'Active') acc.Active += 1;
+      else if (wf.state === 'Paused') acc.Paused += 1;
+      else if (wf.state === 'Draft') acc.Draft += 1;
     }
     return acc;
-  }, []);
+  }, [workflows]);
 
   const list = useMemo(() => {
     const stateFilter = FILTER_TO_STATE[filter];
     let next: WorkflowSummary[] = stateFilter
-      ? MOCK_WORKFLOWS.filter((w) => w.state === stateFilter)
-      : [...MOCK_WORKFLOWS];
+      ? workflows.filter((w) => w.state === stateFilter)
+      : [...workflows];
     if (sort === 'Most run') next = next.sort((a, b) => b.runsToday - a.runsToday);
     else if (sort === 'Recent') next = next.sort((a, b) => a.updated.localeCompare(b.updated));
     else if (sort === 'Success') next = next.sort((a, b) => b.success - a.success);
     return next;
-  }, [filter, sort]);
+  }, [filter, sort, workflows]);
 
   const selected = useMemo(
-    () => MOCK_WORKFLOWS.find((w) => w.id === selectedId) ?? MOCK_WORKFLOWS[0],
-    [selectedId],
+    () => workflows.find((w) => w.slug === selectedSlug) ?? workflows[0],
+    [selectedSlug, workflows],
   );
 
+  // Recent runs for the detail rail. Hook is no-op while selected.id is empty.
+  const { runs: rawRuns, loading: runsLoading } = useWorkflowRuns(selected?.id);
+  const runs = useMemo(() => rawRuns.map(adaptRun), [rawRuns]);
+
   // KPI summary
-  const totalRuns = MOCK_WORKFLOWS.reduce((acc, w) => acc + w.runsToday, 0);
+  const totalRuns = workflows.reduce((acc, w) => acc + w.runsToday, 0);
   const wAvgSuccess =
-    MOCK_WORKFLOWS.reduce((acc, w) => acc + w.success * w.runsToday, 0) / Math.max(1, totalRuns);
-  const totalTriggers = MOCK_WORKFLOWS.reduce((acc, w) => acc + w.triggers, 0);
+    workflows.reduce((acc, w) => acc + w.success * w.runsToday, 0) / Math.max(1, totalRuns);
+  const totalTriggers = workflows.reduce((acc, w) => acc + w.triggers, 0);
+
+  // ── States: error / loading / empty / loaded ──────────────────────────
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-5 p-6 lg:p-8">
+        <PageHeader
+          eyebrow="AI · Workflows"
+          title="Agent Workflows"
+          subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
+        />
+        <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-8 text-center">
+          <div className="mb-2 text-[14px] font-semibold text-[var(--color-text-primary)]">
+            Couldn't load workflows
+          </div>
+          <div className="mb-4 text-[12px] text-[var(--color-text-secondary)]">{error}</div>
+          <Button size="sm" variant="outline" onClick={refresh}>
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loading && workflows.length === 0) {
+    return (
+      <div className="flex flex-col gap-5 p-6 lg:p-8">
+        <PageHeader
+          eyebrow="AI · Workflows"
+          title="Agent Workflows"
+          subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
+        />
+        <EmptyState />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5 p-6 lg:p-8">
@@ -106,24 +165,24 @@ export function WorkflowsListPage() {
         <KpiTile
           label="Runs · today"
           value={totalRuns.toLocaleString()}
-          delta="+218 vs. yesterday"
-          deltaTone="up"
+          delta="last 24h"
+          deltaTone="neutral"
           sparkline={[18, 15, 12, 10, 7]}
           sparkColor={SPARK_JADE}
         />
         <KpiTile
           label="Wired triggers"
           value={String(totalTriggers)}
-          delta={`across ${MOCK_WORKFLOWS.length} workflows`}
+          delta={`across ${workflows.length} workflows`}
           deltaTone="neutral"
           sparkline={[11, 11, 10, 9, 9]}
           sparkColor={SPARK_MINT}
         />
         <KpiTile
           label="Weighted success"
-          value={`${(wAvgSuccess * 100).toFixed(1)}%`}
-          delta="+0.4%"
-          deltaTone="up"
+          value={totalRuns > 0 ? `${(wAvgSuccess * 100).toFixed(1)}%` : '—'}
+          delta="weighted by runs"
+          deltaTone="neutral"
           sparkline={[8, 7, 6, 5, 4]}
           sparkColor={SPARK_JADE}
         />
@@ -178,29 +237,92 @@ export function WorkflowsListPage() {
         style={{ gridTemplateColumns: 'minmax(0, 1fr) 420px' }}
       >
         <div className="flex min-w-0 flex-col gap-2.5">
-          {list.map((wf) => (
-            <WorkflowCard
-              key={wf.id}
-              wf={wf}
-              active={wf.id === selectedId}
-              onClick={() => setSelectedId(wf.id)}
-            />
-          ))}
-          {list.length === 0 && (
-            <div
-              className="rounded-[10px] border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-center text-[12.5px] text-[var(--color-text-tertiary)]"
-              style={{ padding: 40 }}
-            >
-              No workflows in this state yet.
-            </div>
+          {loading && list.length === 0 ? (
+            <LoadingPlaceholder />
+          ) : (
+            <>
+              {list.map((wf) => (
+                <WorkflowCard
+                  key={wf.id}
+                  wf={wf}
+                  active={wf.slug === selectedSlug}
+                  onClick={() => setSelectedSlug(wf.slug)}
+                />
+              ))}
+              {list.length === 0 && (
+                <div
+                  className="rounded-[10px] border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-center text-[12.5px] text-[var(--color-text-tertiary)]"
+                  style={{ padding: 40 }}
+                >
+                  No workflows in this state yet.
+                </div>
+              )}
+            </>
           )}
         </div>
         {selected && (
           <WorkflowDetailRail
             wf={selected}
-            onOpenEditor={() => navigate(`/ai/workflows/${selected.id}`)}
+            runs={runs}
+            runsLoading={runsLoading}
+            onOpenEditor={() => navigate(`/ai/workflows/${selected.slug}`)}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────
+
+function LoadingPlaceholder() {
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="animate-pulse rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)]"
+          style={{ height: 132, padding: 18 }}
+        />
+      ))}
+    </>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div
+      className="flex flex-col items-center rounded-xl border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface)] text-center"
+      style={{ padding: '64px 32px' }}
+    >
+      <span
+        className="mb-4 inline-flex items-center justify-center rounded-full bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]"
+        style={{ width: 48, height: 48 }}
+      >
+        <Workflow className="h-6 w-6" />
+      </span>
+      <div className="mb-1.5 text-[15px] font-semibold text-[var(--color-text-primary)]">
+        No workflows yet
+      </div>
+      <div
+        className="mb-5 max-w-md text-[12.5px] text-[var(--color-text-secondary)]"
+        style={{ lineHeight: 1.5 }}
+      >
+        Workflows are reusable procedures agents run when a trigger fires. Run
+        the demo seed to populate seven sample workflows for billing, FX,
+        compliance and close — or start one from scratch.
+      </div>
+      <div className="flex gap-2">
+        <Link to="/settings/system-tools">
+          <Button size="sm" variant="outline">
+            <Sprout className="h-3 w-3" />
+            Run demo seed
+          </Button>
+        </Link>
+        <Button size="sm">
+          <Plus className="h-3 w-3" />
+          New workflow
+        </Button>
       </div>
     </div>
   );
