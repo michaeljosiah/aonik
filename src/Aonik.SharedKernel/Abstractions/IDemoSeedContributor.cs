@@ -54,6 +54,13 @@ public enum DemoSeedPhase
     /// <summary>Pricing (FX quotes, fee policies, limits policies)</summary>
     Pricing,
 
+    /// <summary>
+    /// Agents fleet + workflow registry (Agents module). Seeds the seven
+    /// domain agents the workflows reference, then the workflow rows + nodes
+    /// + edges + comments + version history + recent runs.
+    /// </summary>
+    Workflows,
+
     /// <summary>Cross-border partner network</summary>
     CrossBorderPartnerNetwork,
 
@@ -114,4 +121,8 @@ public static class DemoSeedResultKeys
     public const string CrossBorderFxQuoteIds = "CrossBorderFxQuoteIds";
     public const string CrossBorderFeePolicyIds = "CrossBorderFeePolicyIds";
     public const string CrossBorderLimitsPolicyIds = "CrossBorderLimitsPolicyIds";
+
+    // Workflow phase results
+    public const string AgentIdsByName = "AgentIdsByName";
+    public const string WorkflowIdsBySlug = "WorkflowIdsBySlug";
 }

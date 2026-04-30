@@ -53,6 +53,10 @@ public sealed class AgentsModule : IModule
         // Workflow registry — list / get / runs / versions.
         services.AddScoped<IWorkflowService, Services.Workflows.WorkflowService>();
 
+        // Demo seed contributor — owns the Workflows phase (seven domain
+        // agents + seven workflow registry rows with full graphs).
+        services.AddScoped<Aonik.SharedKernel.Abstractions.IDemoSeedContributor, Services.Seeding.AgentsDemoSeedContributor>();
+
         // Cross-module read aggregate consumed by Finance dashboards (e.g. MySpace).
         services.AddScoped<Aonik.SharedKernel.Abstractions.Agents.IAgentProposalQueryService, Services.Insights.AgentProposalQueryService>();
 

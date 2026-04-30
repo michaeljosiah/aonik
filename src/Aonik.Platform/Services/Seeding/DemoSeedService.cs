@@ -144,6 +144,12 @@ internal class DemoSeedService : IDemoSeedService
             ClearTrackingIfSupported(_dbContext);
             ClearContributorTracking();
 
+            // Phase 8.5: Workflows (Agents module — seeds the agent fleet
+            // referenced by the workflow rows, then the workflow registry).
+            await SeedContributorsAsync(DemoSeedPhase.Workflows, seedContext, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+            ClearContributorTracking();
+
             // Phase 9: Seed marker
             await UpsertMarkerAsync(tenantId, partyIds, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
