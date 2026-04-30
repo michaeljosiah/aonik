@@ -255,7 +255,7 @@ export function ObservabilityAuditLogPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-4">
-            <AuditKpi label="Events · current page" value={String(kpis.events)} tone="var(--color-brand-primary)" />
+            <AuditKpi label="Events · total" value={String(kpis.events)} tone="var(--color-brand-primary)" />
             <AuditKpi label="Human actions" value={String(kpis.human)} tone="#3f41a0" />
             <AuditKpi label="Policy overrides" value={String(kpis.overrides)} tone="#c44536" />
             <AuditKpi label="High-risk events" value={String(kpis.highRisk)} tone="#b4741e" />
