@@ -52,21 +52,19 @@ internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
 
         var workflow = GraphWorkflowBuilder.Build(slug, sp, out var recorder);
 
-        var run = await InProcessExecution.RunAsync<string>(
+        // RunAsync's NewEvents misses WorkflowOutputEvents in MAF rc4 —
+        // the streaming API exposes the full event stream including the
+        // YieldOutputAsync emissions. Walk the stream to completion and
+        // pick up the terminal output and any executor failures.
+        var streamingRun = await InProcessExecution.RunStreamingAsync<string>(
             workflow,
             input ?? string.Empty,
             cancellationToken: cancellationToken);
 
-        // Drain the events emitted by the run. RunAsync halts at the
-        // first stop, so any WorkflowOutputEvent is already captured.
-        // MAF surfaces executor exceptions as ExecutorFailedEvents
-        // rather than propagating them out of RunAsync — re-throw the
-        // first one we see so the endpoint reports a failed run instead
-        // of silently returning success with empty output.
         var output = string.Empty;
         Exception? failure = null;
         var eventTypes = new List<string>();
-        foreach (var ev in run.NewEvents)
+        await foreach (var ev in streamingRun.WatchStreamAsync(cancellationToken))
         {
             eventTypes.Add(ev.GetType().Name);
             switch (ev)
@@ -79,6 +77,7 @@ internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
                     break;
             }
         }
+
         _logger.LogInformation(
             "Graph workflow '{Slug}' emitted {Count} events: {Types}, output len={OutLen}",
             slug, eventTypes.Count, string.Join(", ", eventTypes), output.Length);
