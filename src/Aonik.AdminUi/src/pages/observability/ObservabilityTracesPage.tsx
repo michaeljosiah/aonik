@@ -89,15 +89,59 @@ function getObservationCompleteness(item: AiTraceObservationResponse): number {
   return score;
 }
 
+// Merge two observations sharing a spanId — typically a SPAN (from
+// dependencies, with full activity duration) and a GENERATION (from log,
+// with LLM-call duration but richer metadata). Keep the widest time
+// window so children render inside the parent's bar, then overlay any
+// non-null metadata fields from either source.
+function mergeObservations(
+  a: AiTraceObservationResponse,
+  b: AiTraceObservationResponse,
+): AiTraceObservationResponse {
+  const aStart = new Date(a.startTime).getTime();
+  const bStart = new Date(b.startTime).getTime();
+  const aDur = getDurationMs(a);
+  const bDur = getDurationMs(b);
+  const aEnd = aStart + aDur;
+  const bEnd = bStart + bDur;
+
+  const earliest = aStart <= bStart ? a : b;
+  const widerEnd = aEnd >= bEnd ? aEnd : bEnd;
+  const widerDuration = Math.max(aDur, bDur);
+
+  const richer = getObservationCompleteness(a) >= getObservationCompleteness(b) ? a : b;
+  const other = richer === a ? b : a;
+  const pick = <K extends keyof AiTraceObservationResponse>(key: K) =>
+    richer[key] ?? other[key];
+
+  return {
+    ...other,
+    ...richer,
+    startTime: earliest.startTime,
+    endTime: new Date(widerEnd).toISOString(),
+    durationMs: widerDuration,
+    latencySeconds: widerDuration / 1000,
+    input: pick('input'),
+    output: pick('output'),
+    metadata: pick('metadata'),
+    aiRunId: pick('aiRunId'),
+    inputTokens: pick('inputTokens'),
+    outputTokens: pick('outputTokens'),
+    totalTokens: pick('totalTokens'),
+    costUsd: pick('costUsd'),
+    providedModel: pick('providedModel'),
+    parentSpanId: pick('parentSpanId'),
+    parentObservationId: pick('parentObservationId'),
+  };
+}
+
 function dedupeObservations(items: AiTraceObservationResponse[]): AiTraceObservationResponse[] {
   const deduped = new Map<string, AiTraceObservationResponse>();
 
   for (const item of items) {
     const id = getObservationNodeId(item);
     const existing = deduped.get(id);
-    if (!existing || getObservationCompleteness(item) > getObservationCompleteness(existing)) {
-      deduped.set(id, item);
-    }
+    deduped.set(id, existing ? mergeObservations(existing, item) : item);
   }
 
   return Array.from(deduped.values());
