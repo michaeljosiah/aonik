@@ -88,6 +88,23 @@ public class AppInsightsAiTraceReaderTests
     }
 
     [Fact]
+    public void BuildKql_ShouldBackfillDurationMs_FromLatencySeconds_WhenDurationCustomDimensionIsMissing()
+    {
+        // The AiTraceObservation log line records LatencySeconds (not
+        // duration_ms), so todouble(customDimensions["duration_ms"]) returns
+        // null. The original `iff(isnan(durationMs), ...)` backfill never
+        // fired because isnan(null) is null and iff(null, A, B) is null,
+        // leaving durationMs null even though latencySeconds was populated.
+        // Use `case` so a null predicate falls through to the next branch.
+        var request = new ListAiTraceObservationsRequest { TimeRange = "24h" };
+
+        var kql = AppInsightsAiTraceReader.BuildKql(request, 1, 100);
+
+        kql.Should().Contain("latencySeconds = case(isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds, todouble(customDimensions[\"LatencyMs\"]) / 1000.0)");
+        kql.Should().Contain("durationMs = case(isnotnull(durationMs) and not(isnan(durationMs)) and durationMs > 0, durationMs, isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds * 1000.0, real(null))");
+    }
+
+    [Fact]
     public void ParseRow_ShouldProduceStartTimePlusDurationApproximatelyEqualToEndTime_ForGenerationRow()
     {
         // Row shape mirrors the corrected KQL projection for traceLogs:
