@@ -38,6 +38,7 @@ function getSpanKind(type: string): string {
   const lower = (type ?? '').toLowerCase();
   if (lower === 'generation') return 'llm';
   if (lower === 'request') return 'rpc';
+  if (lower === 'tool') return 'tool';
   if (lower === 'span' || lower === '') return 'span';
   return lower;
 }
