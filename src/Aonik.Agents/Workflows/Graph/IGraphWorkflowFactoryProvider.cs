@@ -65,8 +65,10 @@ internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
         // of silently returning success with empty output.
         var output = string.Empty;
         Exception? failure = null;
+        var eventTypes = new List<string>();
         foreach (var ev in run.NewEvents)
         {
+            eventTypes.Add(ev.GetType().Name);
             switch (ev)
             {
                 case WorkflowOutputEvent oe when oe.Data is not null:
@@ -77,6 +79,9 @@ internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
                     break;
             }
         }
+        _logger.LogInformation(
+            "Graph workflow '{Slug}' emitted {Count} events: {Types}, output len={OutLen}",
+            slug, eventTypes.Count, string.Join(", ", eventTypes), output.Length);
 
         if (failure is not null)
         {

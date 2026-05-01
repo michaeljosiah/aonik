@@ -1,4 +1,5 @@
 using Microsoft.Agents.AI.Workflows;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Workflows.Graph.Executors;
 
@@ -10,12 +11,14 @@ internal sealed class EndExecutor : Executor<string>
 {
     private readonly Guid _nodeId;
     private readonly IWorkflowRunRecorder _recorder;
+    private readonly ILogger<EndExecutor>? _logger;
 
-    public EndExecutor(Guid nodeId, IWorkflowRunRecorder recorder)
+    public EndExecutor(Guid nodeId, IWorkflowRunRecorder recorder, ILogger<EndExecutor>? logger = null)
         : base($"end-{nodeId:N}")
     {
         _nodeId = nodeId;
         _recorder = recorder;
+        _logger = logger;
     }
 
     /// <summary>
@@ -32,6 +35,11 @@ internal sealed class EndExecutor : Executor<string>
         CancellationToken cancellationToken = default)
     {
         _recorder.RecordVisit(_nodeId);
-        await context.YieldOutputAsync(message ?? string.Empty, cancellationToken);
+        var payload = message ?? string.Empty;
+        _logger?.LogInformation(
+            "[End] Yielding output (len={Len}): {Preview}",
+            payload.Length,
+            payload.Length > 80 ? payload[..80] + "…" : payload);
+        await context.YieldOutputAsync(payload, cancellationToken);
     }
 }

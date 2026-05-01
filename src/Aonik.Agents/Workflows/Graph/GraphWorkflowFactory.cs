@@ -179,7 +179,7 @@ internal static class GraphWorkflowBuilder
                     loggerFactory.CreateLogger<EmitExecutor>());
             }
             case "end":
-                return new EndExecutor(node.Id, recorder);
+                return new EndExecutor(node.Id, recorder, loggerFactory.CreateLogger<EndExecutor>());
 
             // Deferred kinds — see GraphWorkflowBuilder class doc.
             case "tool":
