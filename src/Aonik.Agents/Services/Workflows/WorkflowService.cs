@@ -262,14 +262,18 @@ internal sealed class WorkflowService : IWorkflowService
         }
         else
         {
-            // Snapshot the prior graph as a version row before overwriting,
-            // so the history panel keeps its breadcrumb trail.
-            await SnapshotVersionAsync(existing, request.VersionMessage, cancellationToken);
+            // Each save bumps the minor version and stamps a new
+            // WorkflowVersion audit row. We pick a tag that doesn't
+            // already exist for this workflow — the seed catalog can
+            // pre-populate version rows (e.g. v1.4 already exists for
+            // match_and_apply), so a naive bump can collide.
+            var newVersion = await NextAvailableVersionAsync(existing, cancellationToken);
+            await SnapshotVersionAsync(existing, newVersion, request.VersionMessage, cancellationToken);
 
             existing.Name = request.Name;
             existing.Description = request.Description ?? string.Empty;
             existing.State = string.IsNullOrWhiteSpace(request.State) ? existing.State : request.State;
-            existing.Version = BumpPatchVersion(existing.Version);
+            existing.Version = newVersion;
             existing.AutoRetry = request.AutoRetry;
             existing.OwnerColor = request.OwnerColor ?? existing.OwnerColor;
             existing.OwnerAgentId = request.OwnerAgentId ?? existing.OwnerAgentId;
@@ -429,18 +433,16 @@ internal sealed class WorkflowService : IWorkflowService
 
     private async Task SnapshotVersionAsync(
         Workflow workflow,
+        string tag,
         string? message,
         CancellationToken cancellationToken)
     {
-        // Snapshot uses the workflow's *current* version tag — the
-        // about-to-be-overwritten state is the row that should be
-        // preserved, not the upcoming one.
         var snapshot = new WorkflowVersion
         {
             WorkflowId = workflow.Id,
-            Tag = string.IsNullOrWhiteSpace(workflow.Version) ? "v0.1" : workflow.Version,
-            Message = message ?? "Auto-snapshot before save.",
-            AuthorName = workflow.OwnerColor.Length > 0 ? "Editor" : "Editor",
+            Tag = tag,
+            Message = string.IsNullOrWhiteSpace(message) ? "Saved by editor." : message!,
+            AuthorName = "Editor",
             AuthorColor = workflow.OwnerColor,
         };
         _dbContext.WorkflowVersions.Add(snapshot);
@@ -448,10 +450,38 @@ internal sealed class WorkflowService : IWorkflowService
     }
 
     /// <summary>
-    /// Bumps the patch component of a "vMAJOR.MINOR" tag. "v0.1" → "v0.2",
+    /// Picks the next "vMAJOR.MINOR" version tag that doesn't yet have
+    /// a <see cref="WorkflowVersion"/> row for this workflow. Walks from
+    /// the existing tag forward — most saves only bump by one, but the
+    /// seed can pre-populate intermediate tags so we keep stepping past
+    /// any collisions instead of failing the save.
+    /// </summary>
+    private async Task<string> NextAvailableVersionAsync(
+        Workflow workflow,
+        CancellationToken cancellationToken)
+    {
+        var existingTags = await _dbContext.WorkflowVersions
+            .AsNoTracking()
+            .Where(v => v.WorkflowId == workflow.Id)
+            .Select(v => v.Tag)
+            .ToListAsync(cancellationToken);
+        var taken = new HashSet<string>(existingTags, StringComparer.OrdinalIgnoreCase);
+
+        var candidate = BumpMinorVersion(workflow.Version);
+        // Defensive bound — workflows with hundreds of versions are
+        // pathological, but we'd rather throw than loop forever.
+        for (var i = 0; i < 1000 && taken.Contains(candidate); i++)
+        {
+            candidate = BumpMinorVersion(candidate);
+        }
+        return candidate;
+    }
+
+    /// <summary>
+    /// Bumps the minor component of a "vMAJOR.MINOR" tag. "v0.1" → "v0.2",
     /// "v1.4" → "v1.5". If the input doesn't parse, falls back to "v0.1".
     /// </summary>
-    private static string BumpPatchVersion(string current)
+    private static string BumpMinorVersion(string current)
     {
         if (string.IsNullOrWhiteSpace(current)) return "v0.1";
         var trimmed = current.StartsWith("v", StringComparison.OrdinalIgnoreCase)
