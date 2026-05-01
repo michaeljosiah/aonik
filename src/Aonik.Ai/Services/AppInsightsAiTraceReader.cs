@@ -237,7 +237,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         | extend normalizedParentId = iff(normalizedParentId == "0000000000000000" or normalizedParentId == "00000000-0000-0000-0000-000000000000", "", normalizedParentId)
         | extend isCandidateRootObservation = isempty(parentObservationId) or parentObservationId == normalizedParentId or normalizedParentId == traceId
         | extend logEndTime = timestamp,
-                 logStartTime = iff(isnan(durationMs) or durationMs <= 0, timestamp, timestamp - 1ms * durationMs)
+                 logStartTime = case(isnotnull(durationMs) and durationMs > 0, timestamp - 1ms * durationMs, timestamp)
         {(request.IsRootObservation is true ? "| where isCandidateRootObservation == true" : string.Empty)}
         | project observationId, traceId, parentObservationId, aiRunId, timestamp = logStartTime, endTime = logEndTime, type, name, traceName, input, output, metadata, level, latencySeconds, costUsd, ttftSeconds, providedModel, inputTokens, outputTokens, totalTokens, operationId, agentId, agentName, durationMs, serviceName;
         let dependencySpans = dependencies

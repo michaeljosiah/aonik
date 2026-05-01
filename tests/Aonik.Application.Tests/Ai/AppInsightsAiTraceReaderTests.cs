@@ -75,13 +75,15 @@ public class AppInsightsAiTraceReaderTests
         // the chat call finishes), so the AppInsights timestamp is the END
         // of the operation. We must subtract durationMs to recover the real
         // start, otherwise the GENERATION root span renders to the right of
-        // its children in the waterfall.
+        // its children in the waterfall. `case` is used (not `iff`) because
+        // it treats a null predicate as false — when durationMs is null,
+        // iff(null, ...) propagates null and timestamp becomes unparseable.
         var request = new ListAiTraceObservationsRequest { TimeRange = "24h" };
 
         var kql = AppInsightsAiTraceReader.BuildKql(request, 1, 100);
 
         kql.Should().Contain("logEndTime = timestamp");
-        kql.Should().Contain("logStartTime = iff(isnan(durationMs) or durationMs <= 0, timestamp, timestamp - 1ms * durationMs)");
+        kql.Should().Contain("logStartTime = case(isnotnull(durationMs) and durationMs > 0, timestamp - 1ms * durationMs, timestamp)");
         kql.Should().Contain("| project observationId, traceId, parentObservationId, aiRunId, timestamp = logStartTime, endTime = logEndTime,");
     }
 
