@@ -132,11 +132,12 @@ public sealed class AgentsModule : IModule
         services.AddKeyedSingleton<IWorkflowFactory, ReconciliationWorkflowFactory>(
             ReconciliationWorkflowFactory.Name);
 
-        // Generic graph-driven factory provider — translates the editor's
-        // saved Workflow + WorkflowNode + WorkflowEdge rows into a MAF
-        // Workflow at run time. RunWorkflowEndpoint falls through to this
-        // when no keyed legacy factory matches the requested slug.
-        services.AddSingleton<IGraphWorkflowFactoryProvider, GraphWorkflowFactoryProvider>();
+        // Generic graph-driven runner — translates the editor's saved
+        // Workflow + WorkflowNode + WorkflowEdge rows into a MAF Workflow
+        // and runs it directly via InProcessExecution. RunWorkflowEndpoint
+        // falls through to this when no keyed legacy factory matches the
+        // requested slug.
+        services.AddScoped<IGraphWorkflowRunner, GraphWorkflowRunner>();
 
         // NOTE: RagContextProvider registration is deferred to the composition root (Program.cs)
         // where both Infrastructure and Agents modules are registered, avoiding circular dependencies.

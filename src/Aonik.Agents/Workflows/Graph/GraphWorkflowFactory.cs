@@ -1,109 +1,113 @@
 using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Contracts.Services;
-using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Workflows.Graph.Executors;
 using Aonik.SharedKernel.Events;
-using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using WorkflowNodeKinds = Aonik.Agents.Entities.Workflows.WorkflowNodeKinds;
 
 namespace Aonik.Agents.Workflows.Graph;
 
 /// <summary>
-/// Generic <see cref="IWorkflowFactory"/> that hydrates a saved editor
-/// graph (<c>Workflow</c> + <c>WorkflowNode</c> + <c>WorkflowEdge</c> rows)
-/// into a Microsoft Agent Framework <see cref="Workflow"/> at run time.
+/// Translates a saved editor graph (<c>Workflow</c> + <c>WorkflowNode</c>
+/// + <c>WorkflowEdge</c> rows) into a Microsoft Agent Framework
+/// <see cref="Workflow"/> instance.
 ///
-/// <para><b>Mapping:</b>
+/// <para>The legacy keyed factories ([Invoice|Onboarding|Reconciliation]
+/// WorkflowFactory) wrap their workflow with <c>.AsAIAgent(...)</c>
+/// because they're built from <see cref="AgentWorkflowBuilder.BuildSequential"/>
+/// — that path produces a workflow whose start executor speaks the
+/// MAF chat protocol (<c>List&lt;ChatMessage&gt;</c> + <c>TurnToken</c>).
+/// Our custom executors (<see cref="AgentExecutor"/>, etc.) speak plain
+/// <c>string</c>, so wrapping them with <c>.AsAIAgent()</c> fails at run
+/// time with "Workflow does not support ChatProtocol". Instead, the
+/// caller invokes the workflow through
+/// <see cref="GraphWorkflowRunner"/> which uses
+/// <see cref="InProcessExecution.RunAsync{TInput}"/> with a string
+/// payload directly.</para>
+///
+/// <para><b>Per-kind mapping:</b>
 /// <list type="bullet">
 ///   <item><c>trigger</c> — has no executor; the first downstream node
 ///   becomes the workflow's start.</item>
-///   <item><c>agent</c> — <see cref="AgentExecutor"/> resolving the named
-///   domain agent via <see cref="IDomainAgentResolver"/>.</item>
+///   <item><c>agent</c> — <see cref="AgentExecutor"/>.</item>
 ///   <item><c>notify</c>, <c>emit</c>, <c>end</c> — wired through their
 ///   respective executor classes.</item>
 ///   <item><c>tool</c>, <c>decision</c>, <c>loop</c>, <c>human</c>, <c>wait</c>
 ///   — translated to <see cref="UnsupportedKindExecutor"/> which throws
-///   <see cref="NotSupportedException"/> at run time. These are deferred
+///   <see cref="NotSupportedException"/> when the workflow runs. Deferred
 ///   to follow-up PRs (NCalc decisions, Quartz-backed waits, HITL via
 ///   MAF's <c>RequestInfoExecutor</c> + checkpointing).</item>
 /// </list>
 /// </para>
-///
-/// <para>One factory instance per slug. <see cref="IWorkflowFactory.Build"/>
-/// is called per workflow run, which keeps the per-run
-/// <see cref="IWorkflowRunRecorder"/> isolated.</para>
 /// </summary>
-internal sealed class GraphWorkflowFactory : IWorkflowFactory
+internal static class GraphWorkflowBuilder
 {
-    private readonly string _slug;
-
-    public GraphWorkflowFactory(string slug)
+    /// <summary>
+    /// Loads the workflow graph identified by <paramref name="slug"/> and
+    /// builds a runnable MAF <see cref="Workflow"/>.
+    /// </summary>
+    /// <param name="slug">The workflow slug as stored on the
+    /// <c>Workflow</c> row (e.g. <c>"match_and_apply"</c>).</param>
+    /// <param name="sp">Service provider used to resolve dependencies for
+    /// each executor (<see cref="IDomainAgentResolver"/>,
+    /// <see cref="IEventBus"/>, etc.).</param>
+    /// <param name="recorder">Receives a <see cref="WorkflowRunRecorder"/>
+    /// instance the caller can inspect after the run finishes for the
+    /// visited-node sequence.</param>
+    public static Workflow Build(string slug, IServiceProvider sp, out IWorkflowRunRecorder recorder)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
             throw new ArgumentException("Slug is required.", nameof(slug));
         }
-        _slug = slug;
-    }
 
-    public string WorkflowName => _slug;
-
-    public AIAgent Build(IServiceProvider serviceProvider)
-    {
-        var workflowService = serviceProvider.GetRequiredService<IWorkflowService>();
-        var graph = workflowService.GetBySlugAsync(_slug).GetAwaiter().GetResult()
+        var workflowService = sp.GetRequiredService<IWorkflowService>();
+        var graph = workflowService.GetBySlugAsync(slug).GetAwaiter().GetResult()
             ?? throw new InvalidOperationException(
-                $"Workflow '{_slug}' not found — cannot build runtime workflow.");
+                $"Workflow '{slug}' not found — cannot build runtime workflow.");
 
         if (graph.Nodes.Count == 0)
         {
             throw new InvalidOperationException(
-                $"Workflow '{_slug}' has no nodes — nothing to run.");
+                $"Workflow '{slug}' has no nodes — nothing to run.");
         }
 
-        // Per-run recorder — we want a fresh sequence list per Build call.
-        var recorder = new WorkflowRunRecorder();
+        var run = new WorkflowRunRecorder();
+        recorder = run;
 
-        // Build executors for every non-trigger node. The trigger is
-        // metadata; the workflow's start is the trigger's first downstream.
-        var executors = BuildExecutors(graph, recorder, serviceProvider);
+        var executors = BuildExecutors(graph, run, sp);
 
         var trigger = graph.Nodes.FirstOrDefault(n =>
-            string.Equals(n.Kind, WorkflowNodeKinds.Trigger, StringComparison.OrdinalIgnoreCase));
-        if (trigger is null)
-        {
-            throw new InvalidOperationException(
-                $"Workflow '{_slug}' has no trigger node — cannot determine start.");
-        }
-        var startEdge = graph.Edges.FirstOrDefault(e => e.FromNodeId == trigger.Id);
-        if (startEdge is null)
-        {
-            throw new InvalidOperationException(
-                $"Workflow '{_slug}' trigger has no downstream edge — workflow has no entry point.");
-        }
+            string.Equals(n.Kind, WorkflowNodeKinds.Trigger, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"Workflow '{slug}' has no trigger node — cannot determine start.");
+
+        var startEdge = graph.Edges.FirstOrDefault(e => e.FromNodeId == trigger.Id)
+            ?? throw new InvalidOperationException(
+                $"Workflow '{slug}' trigger has no downstream edge — workflow has no entry point.");
+
         if (!executors.TryGetValue(startEdge.ToNodeId, out var startExecutor))
         {
             throw new InvalidOperationException(
-                $"Workflow '{_slug}' references unknown start node {startEdge.ToNodeId}.");
+                $"Workflow '{slug}' references unknown start node {startEdge.ToNodeId}.");
         }
 
         var builder = new WorkflowBuilder(startExecutor)
             .WithName(graph.Name)
             .WithDescription(graph.Description);
 
-        // Wire edges. Skip edges whose source is the trigger — the trigger
-        // is virtual and the start executor is already the trigger's
-        // downstream.
         foreach (var edge in graph.Edges)
         {
+            // Skip edges whose source is the trigger — the trigger is
+            // virtual and the start executor is already its downstream.
             if (edge.FromNodeId == trigger.Id) continue;
 
             if (!executors.TryGetValue(edge.FromNodeId, out var from)
                 || !executors.TryGetValue(edge.ToNodeId, out var to))
             {
-                continue; // Edge references a node not in the graph — skip.
+                continue;
             }
 
             // Conditional routing for decision / loop nodes is deferred
@@ -114,11 +118,7 @@ internal sealed class GraphWorkflowFactory : IWorkflowFactory
             builder.AddEdge(from, to);
         }
 
-        var workflow = builder.Build();
-        return workflow.AsAIAgent(
-            id: _slug,
-            name: graph.Name,
-            description: graph.Description);
+        return builder.Build();
     }
 
     private static Dictionary<Guid, Executor> BuildExecutors(
@@ -181,7 +181,7 @@ internal sealed class GraphWorkflowFactory : IWorkflowFactory
             case "end":
                 return new EndExecutor(node.Id, recorder);
 
-            // Deferred kinds — see GraphWorkflowFactory class doc.
+            // Deferred kinds — see GraphWorkflowBuilder class doc.
             case "tool":
             case "decision":
             case "loop":

@@ -1,19 +1,78 @@
-using Aonik.Agents.Contracts.Services;
+using Microsoft.Agents.AI.Workflows;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Workflows.Graph;
 
 /// <summary>
-/// Produces a <see cref="GraphWorkflowFactory"/> for a given slug. Used by
-/// <see cref="Endpoints.RunWorkflowEndpoint"/> as a fallback when no
-/// keyed legacy factory matches — every saved editor workflow becomes
-/// runnable through this path.
+/// Runs a saved editor workflow by slug. <see cref="Endpoints.RunWorkflowEndpoint"/>
+/// falls through to this when no keyed legacy factory matches — every
+/// editor-saved workflow becomes runnable through this path.
 /// </summary>
-public interface IGraphWorkflowFactoryProvider
+public interface IGraphWorkflowRunner
 {
-    IWorkflowFactory For(string slug);
+    /// <summary>
+    /// Resolves the workflow graph by <paramref name="slug"/>, builds the
+    /// MAF <see cref="Workflow"/>, runs it with <paramref name="input"/>
+    /// as a string seed, and returns the workflow's terminal output (the
+    /// content the <c>End</c> executor yields).
+    /// </summary>
+    Task<GraphWorkflowResult> RunAsync(string slug, string input, CancellationToken cancellationToken = default);
 }
 
-internal sealed class GraphWorkflowFactoryProvider : IGraphWorkflowFactoryProvider
+/// <summary>
+/// Result of a graph workflow run. Carries the terminal output (from the
+/// End executor's <see cref="IWorkflowContext.YieldOutputAsync"/> call)
+/// plus the visited-node sequence the
+/// <see cref="IWorkflowRunRecorder"/> captured.
+/// </summary>
+public sealed record GraphWorkflowResult(string Output, IReadOnlyList<Guid> Sequence);
+
+internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
 {
-    public IWorkflowFactory For(string slug) => new GraphWorkflowFactory(slug);
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<GraphWorkflowRunner> _logger;
+
+    public GraphWorkflowRunner(IServiceProvider serviceProvider, ILogger<GraphWorkflowRunner> logger)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+    }
+
+    public async Task<GraphWorkflowResult> RunAsync(
+        string slug,
+        string input,
+        CancellationToken cancellationToken = default)
+    {
+        // Build the workflow inside a fresh DI scope so per-run scoped
+        // services (DbContext, IDomainAgentResolver, IEventBus impls)
+        // are isolated to this run and disposed when it ends.
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+
+        var workflow = GraphWorkflowBuilder.Build(slug, sp, out var recorder);
+
+        var run = await InProcessExecution.RunAsync<string>(
+            workflow,
+            input ?? string.Empty,
+            cancellationToken: cancellationToken);
+
+        // Drain the events emitted by the run to completion. RunAsync
+        // halts at the first stop, so any WorkflowOutputEvent is already
+        // captured in NewEvents.
+        var output = string.Empty;
+        foreach (var ev in run.NewEvents)
+        {
+            if (ev is WorkflowOutputEvent oe && oe.Data is not null)
+            {
+                output = oe.Data.ToString() ?? string.Empty;
+            }
+        }
+
+        _logger.LogInformation(
+            "Graph workflow '{Slug}' completed with sequence length {Count}.",
+            slug, recorder.Sequence.Count);
+
+        return new GraphWorkflowResult(output, recorder.Sequence);
+    }
 }

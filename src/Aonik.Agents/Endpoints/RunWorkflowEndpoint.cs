@@ -50,30 +50,35 @@ internal sealed class RunWorkflowEndpoint : Endpoint<WorkflowRequest, WorkflowRe
         try
         {
             // Resolve workflow via keyed services (R10).
-            // Each workflow factory is registered as a keyed singleton:
+            // Each legacy workflow factory is registered as a keyed singleton:
             //   services.AddKeyedSingleton<IWorkflowFactory, XxxWorkflowFactory>("workflow-name");
             //
-            // If no legacy keyed factory matches, fall back to the generic
-            // graph-driven factory which loads the workflow's saved
-            // nodes + edges and translates them into a MAF Workflow at
-            // run time. This is how editor-saved workflows execute.
+            // If no legacy keyed factory matches, fall through to the
+            // graph workflow runner which loads the workflow's saved
+            // nodes + edges and runs them as a MAF Workflow directly
+            // (bypassing AsAIAgent because our string-typed executors
+            // don't speak the MAF chat protocol).
             var factory = _serviceProvider.GetKeyedService<IWorkflowFactory>(
                 req.WorkflowName.ToLowerInvariant());
 
-            if (factory is null)
+            string output;
+            if (factory is not null)
             {
-                var graphProvider = _serviceProvider.GetRequiredService<IGraphWorkflowFactoryProvider>();
-                factory = graphProvider.For(req.WorkflowName);
+                var workflowAgent = factory.Build(_serviceProvider);
+                var response = await workflowAgent.RunAsync(req.Input, cancellationToken: ct);
+                output = response.Text ?? string.Empty;
             }
-
-            var workflowAgent = factory.Build(_serviceProvider);
-
-            var response = await workflowAgent.RunAsync(req.Input, cancellationToken: ct);
+            else
+            {
+                var runner = _serviceProvider.GetRequiredService<IGraphWorkflowRunner>();
+                var result = await runner.RunAsync(req.WorkflowName, req.Input, ct);
+                output = result.Output;
+            }
 
             await Send.OkAsync(new WorkflowResponse
             {
                 WorkflowName = req.WorkflowName,
-                Output = response.Text ?? string.Empty,
+                Output = output,
                 Success = true
             }, ct);
         }
