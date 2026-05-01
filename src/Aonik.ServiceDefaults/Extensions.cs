@@ -10,6 +10,7 @@ using Microsoft.Extensions.ServiceDiscovery;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
+using OpenTelemetry.Instrumentation.SqlClient;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -89,6 +90,7 @@ public static class Extensions
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
                     .AddHttpClientInstrumentation()
+                    .AddSqlClientInstrumentation()
                     // AI / Agent Framework tracing (GenAI semantic conventions)
                     .AddSource("Aonik.Ai")
                     // Retrieval tracing — Qdrant upsert/search + embedding calls.
@@ -97,10 +99,30 @@ public static class Extensions
                     .AddSource("*Microsoft.Extensions.Agents*");
             });
 
+        // SQL command text capture is gated to development only — query text
+        // can contain PII and adds non-trivial telemetry volume. Production /
+        // staging records target + db.name + duration only.
+        if (IsDevLikeEnvironment(builder.Environment))
+        {
+            builder.Services.Configure<SqlClientTraceInstrumentationOptions>(options =>
+            {
+                options.EnrichWithSqlCommand = (activity, command) =>
+                {
+                    if (command is System.Data.IDbCommand dbCommand && !string.IsNullOrEmpty(dbCommand.CommandText))
+                    {
+                        activity.SetTag("db.statement", dbCommand.CommandText);
+                    }
+                };
+            });
+        }
+
         builder.AddOpenTelemetryExporters();
 
         return builder;
     }
+
+    private static bool IsDevLikeEnvironment(IHostEnvironment environment) =>
+        environment.IsDevelopment() || string.Equals(environment.EnvironmentName, "dev", StringComparison.OrdinalIgnoreCase);
 
     private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {

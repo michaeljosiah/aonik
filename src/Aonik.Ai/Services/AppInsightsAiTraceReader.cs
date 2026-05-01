@@ -250,8 +250,15 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  aiRunId = tostring(customDimensions["AiRunId"]),
                  type = iff(tolower(type) == "http", "HTTP", iff(tolower(type) == "sql", "DB", "SPAN")),
                  traceName = coalesce(tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
-                 input = "",
-                 output = "",
+                 input = case(
+                     isnotempty(tostring(customDimensions["gen_ai.tool.call.arguments"])), tostring(customDimensions["gen_ai.tool.call.arguments"]),
+                     tolower(type) == "sql" and isnotempty(tostring(data)), tostring(data),
+                     ""
+                 ),
+                 output = case(
+                     isnotempty(tostring(customDimensions["gen_ai.tool.call.result"])), tostring(customDimensions["gen_ai.tool.call.result"]),
+                     ""
+                 ),
                  metadata = tostring(customDimensions),
                  level = iff(success == false, "ERROR", "DEFAULT"),
                  durationMs = todouble(duration),

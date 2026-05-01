@@ -111,6 +111,37 @@ public class AppInsightsAiTraceReaderTests
     }
 
     [Fact]
+    public void BuildKql_ShouldSurfaceToolCallArgumentsAndResult_OnDependencyRows()
+    {
+        // execute_tool dependency spans carry their input/output as
+        // gen_ai.tool.call.arguments / gen_ai.tool.call.result custom
+        // dimensions per the GenAI semantic conventions. They previously
+        // went into the row's metadata blob as raw JSON; surface them on
+        // input/output so the slide-out's Input/Output panels render them.
+        var request = new ListAiTraceObservationsRequest { TimeRange = "24h" };
+
+        var kql = AppInsightsAiTraceReader.BuildKql(request, 1, 100);
+
+        kql.Should().Contain("isnotempty(tostring(customDimensions[\"gen_ai.tool.call.arguments\"])), tostring(customDimensions[\"gen_ai.tool.call.arguments\"])");
+        kql.Should().Contain("isnotempty(tostring(customDimensions[\"gen_ai.tool.call.result\"])), tostring(customDimensions[\"gen_ai.tool.call.result\"])");
+    }
+
+    [Fact]
+    public void BuildKql_ShouldSurfaceSqlCommandText_OnDbDependencyRows()
+    {
+        // SQL dependency rows' AppInsights `data` column holds the SQL
+        // command text when the SqlClient instrumentation is configured to
+        // emit it (we gate that to dev-only in ServiceDefaults). The KQL
+        // copies `data` into `input` for SQL rows so the trace detail's
+        // Input panel shows the query text without a metadata dive.
+        var request = new ListAiTraceObservationsRequest { TimeRange = "24h" };
+
+        var kql = AppInsightsAiTraceReader.BuildKql(request, 1, 100);
+
+        kql.Should().Contain("tolower(type) == \"sql\" and isnotempty(tostring(data)), tostring(data)");
+    }
+
+    [Fact]
     public void ParseRow_ShouldProduceStartTimePlusDurationApproximatelyEqualToEndTime_ForGenerationRow()
     {
         // Row shape mirrors the corrected KQL projection for traceLogs:
