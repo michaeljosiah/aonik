@@ -57,16 +57,33 @@ internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
             input ?? string.Empty,
             cancellationToken: cancellationToken);
 
-        // Drain the events emitted by the run to completion. RunAsync
-        // halts at the first stop, so any WorkflowOutputEvent is already
-        // captured in NewEvents.
+        // Drain the events emitted by the run. RunAsync halts at the
+        // first stop, so any WorkflowOutputEvent is already captured.
+        // MAF surfaces executor exceptions as ExecutorFailedEvents
+        // rather than propagating them out of RunAsync — re-throw the
+        // first one we see so the endpoint reports a failed run instead
+        // of silently returning success with empty output.
         var output = string.Empty;
+        Exception? failure = null;
         foreach (var ev in run.NewEvents)
         {
-            if (ev is WorkflowOutputEvent oe && oe.Data is not null)
+            switch (ev)
             {
-                output = oe.Data.ToString() ?? string.Empty;
+                case WorkflowOutputEvent oe when oe.Data is not null:
+                    output = oe.Data.ToString() ?? string.Empty;
+                    break;
+                case ExecutorFailedEvent fe when fe.Data is Exception err && failure is null:
+                    failure = err;
+                    break;
             }
+        }
+
+        if (failure is not null)
+        {
+            _logger.LogWarning(
+                "Graph workflow '{Slug}' failed after {Count} step(s): {Error}",
+                slug, recorder.Sequence.Count, failure.Message);
+            throw failure;
         }
 
         _logger.LogInformation(
