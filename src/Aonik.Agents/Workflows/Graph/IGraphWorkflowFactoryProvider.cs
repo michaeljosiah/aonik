@@ -90,9 +90,14 @@ internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
             throw failure;
         }
 
+        // Prefer the streamed WorkflowOutputEvent when present; fall
+        // back to the recorder's side-channel for MAF rc4 builds where
+        // the stream omits it.
+        if (string.IsNullOrEmpty(output)) output = recorder.Output;
+
         _logger.LogInformation(
-            "Graph workflow '{Slug}' completed with sequence length {Count}.",
-            slug, recorder.Sequence.Count);
+            "Graph workflow '{Slug}' completed with sequence length {Count}, final output len={Len}.",
+            slug, recorder.Sequence.Count, output.Length);
 
         return new GraphWorkflowResult(output, recorder.Sequence);
     }
