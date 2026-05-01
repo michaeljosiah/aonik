@@ -226,13 +226,13 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  observationId = iff(isempty(observationId), tostring(itemId), observationId),
                  parentObservationId = iff(isempty(parentObservationId), tostring(operation_ParentId), parentObservationId),
                  latencySeconds = case(isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds, todouble(customDimensions["LatencyMs"]) / 1000.0),
-                 durationMs = case(isnotnull(durationMs) and not(isnan(durationMs)) and durationMs > 0, durationMs, isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds * 1000.0, real(null)),
                  costUsd = iff(isnan(costUsd), todouble(customDimensions["EstimatedCostUsd"]), costUsd),
                  ttftSeconds = iff(isnan(ttftSeconds), todouble(customDimensions["TtftMs"]) / 1000.0, ttftSeconds),
                  providedModel = iff(isempty(providedModel), tostring(customDimensions["ActualModel"]), providedModel),
                  inputTokens = iff(isnull(inputTokens), toint(customDimensions["InputTokens"]), inputTokens),
                  outputTokens = iff(isnull(outputTokens), toint(customDimensions["OutputTokens"]), outputTokens),
                  totalTokens = iff(isnull(totalTokens), toint(customDimensions["TotalTokens"]), totalTokens)
+        | extend durationMs = case(isnotnull(durationMs) and not(isnan(durationMs)) and durationMs > 0, durationMs, isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds * 1000.0, real(null))
         | extend parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId)
         | extend normalizedParentId = iff(normalizedParentId == "0000000000000000" or normalizedParentId == "00000000-0000-0000-0000-000000000000", "", normalizedParentId)
         | extend isCandidateRootObservation = isempty(parentObservationId) or parentObservationId == normalizedParentId or normalizedParentId == traceId

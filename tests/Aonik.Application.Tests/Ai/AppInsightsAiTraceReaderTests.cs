@@ -90,18 +90,24 @@ public class AppInsightsAiTraceReaderTests
     [Fact]
     public void BuildKql_ShouldBackfillDurationMs_FromLatencySeconds_WhenDurationCustomDimensionIsMissing()
     {
-        // The AiTraceObservation log line records LatencySeconds (not
-        // duration_ms), so todouble(customDimensions["duration_ms"]) returns
-        // null. The original `iff(isnan(durationMs), ...)` backfill never
-        // fired because isnan(null) is null and iff(null, A, B) is null,
-        // leaving durationMs null even though latencySeconds was populated.
-        // Use `case` so a null predicate falls through to the next branch.
+        // The AiTraceObservation log records LatencySeconds (not duration_ms),
+        // so todouble(customDimensions["duration_ms"]) is null. The original
+        // `iff(isnan(durationMs), ...)` never fired because isnan(null) is
+        // null and iff(null, A, B) is null. Use `case` so a null predicate
+        // falls through to the next branch.
+        //
+        // The durationMs case must live in a SEPARATE extend block from the
+        // latencySeconds case — within a single extend, downstream column
+        // expressions don't see new values assigned to columns earlier in
+        // the same block. Without the split, AiCallCompleted log rows
+        // (which only set LatencyMs) had latencySeconds backfilled but
+        // durationMs stayed null because it saw the pre-backfill latency.
         var request = new ListAiTraceObservationsRequest { TimeRange = "24h" };
 
         var kql = AppInsightsAiTraceReader.BuildKql(request, 1, 100);
 
         kql.Should().Contain("latencySeconds = case(isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds, todouble(customDimensions[\"LatencyMs\"]) / 1000.0)");
-        kql.Should().Contain("durationMs = case(isnotnull(durationMs) and not(isnan(durationMs)) and durationMs > 0, durationMs, isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds * 1000.0, real(null))");
+        kql.Should().Contain("| extend durationMs = case(isnotnull(durationMs) and not(isnan(durationMs)) and durationMs > 0, durationMs, isnotnull(latencySeconds) and not(isnan(latencySeconds)) and latencySeconds > 0, latencySeconds * 1000.0, real(null))");
     }
 
     [Fact]
