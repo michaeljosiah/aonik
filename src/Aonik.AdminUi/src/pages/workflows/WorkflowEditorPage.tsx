@@ -12,7 +12,8 @@ import { Workflow as WorkflowIcon } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useWorkflow, useWorkflowRuns, useWorkflowVersions } from '@/hooks/useWorkflows';
-import { adaptComment, adaptGraph, adaptRun, adaptVersion } from './workflowAdapters';
+import { workflowService } from '@/services/workflowService';
+import { adaptComment, adaptGraph, adaptRun, adaptVersion, buildSaveRequest } from './workflowAdapters';
 import { NODE_KIND } from './stepKindCatalog';
 import {
   type EditorNodeKind,
@@ -75,9 +76,11 @@ export function WorkflowEditorPage() {
   const navigate = useNavigate();
   const { workflowId: slug } = useParams<{ workflowId: string }>();
 
-  const { workflow: dto, loading, error } = useWorkflow(slug);
+  const { workflow: dto, loading, error, refresh: refreshWorkflow } = useWorkflow(slug);
   const { runs: rawRuns } = useWorkflowRuns(dto?.id);
   const { versions: rawVersions } = useWorkflowVersions(dto?.id);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const initialGraph = useMemo<WorkflowGraph | null>(
     () => (dto ? adaptGraph(dto) : null),
@@ -242,6 +245,39 @@ export function WorkflowEditorPage() {
     [wf],
   );
 
+  // ── Save ──
+  const onSave = useCallback(async () => {
+    if (!wf || !slug) return;
+    if (validationErrors.length > 0) {
+      setSaveError('Fix validation errors before saving.');
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const payload = buildSaveRequest(wf, {
+        autoRetry: false,
+        contributors: [],
+        versionMessage: null,
+      });
+      await workflowService.update(slug, payload);
+      // Re-fetch so the canvas picks up server-canonical Guids and the
+      // bumped version tag without a manual reload.
+      refreshWorkflow();
+      setHasChanges(false);
+    } catch (err) {
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? 'Save failed')
+          : err instanceof Error
+            ? err.message
+            : 'Save failed';
+      setSaveError(message);
+    } finally {
+      setSaving(false);
+    }
+  }, [wf, slug, validationErrors, refreshWorkflow]);
+
   // ── Trace control ──
   const startTrace = useCallback(
     (runId: string = runs[0]?.id ?? '', atStep = 1) => {
@@ -334,10 +370,13 @@ export function WorkflowEditorPage() {
         workflow={wf}
         onClose={() => navigate('/ai/workflows')}
         hasChanges={hasChanges}
-        onSave={() => setHasChanges(false)}
+        onSave={() => { void onSave(); }}
+        saving={saving}
+        saveError={saveError}
         onDiscard={() => {
           if (initialGraph) setWf(initialGraph);
           setHasChanges(false);
+          setSaveError(null);
         }}
         testOpen={testOpen}
         setTestOpen={setTestOpen}

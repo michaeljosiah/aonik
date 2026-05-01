@@ -221,6 +221,179 @@ internal sealed class WorkflowService : IWorkflowService
         }).ToList();
     }
 
+    public async Task<WorkflowGraphResponse> SaveAsync(
+        WorkflowSaveRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Slug))
+        {
+            throw new ArgumentException("Slug is required.", nameof(request));
+        }
+        if (request.Nodes.Count == 0)
+        {
+            throw new ArgumentException("Workflow must have at least one node.", nameof(request));
+        }
+
+        ValidateGraph(request);
+
+        var existing = await _dbContext.Workflows
+            .FirstOrDefaultAsync(w => w.Slug == request.Slug, cancellationToken);
+
+        var contributorsJson = JsonSerializer.Serialize(request.Contributors);
+
+        Workflow workflow;
+        bool isNew = existing is null;
+
+        if (existing is null)
+        {
+            workflow = new Workflow
+            {
+                Slug = request.Slug,
+                Name = request.Name,
+                Description = request.Description ?? string.Empty,
+                State = string.IsNullOrWhiteSpace(request.State) ? WorkflowStates.Draft : request.State,
+                Version = string.IsNullOrWhiteSpace(request.Version) ? "v0.1" : request.Version,
+                AutoRetry = request.AutoRetry,
+                OwnerColor = request.OwnerColor ?? string.Empty,
+                OwnerAgentId = request.OwnerAgentId,
+                ContributorsJson = contributorsJson,
+            };
+            _dbContext.Workflows.Add(workflow);
+        }
+        else
+        {
+            // Snapshot the prior graph as a version row before overwriting,
+            // so the history panel keeps its breadcrumb trail.
+            await SnapshotVersionAsync(existing, request.VersionMessage, cancellationToken);
+
+            existing.Name = request.Name;
+            existing.Description = request.Description ?? string.Empty;
+            existing.State = string.IsNullOrWhiteSpace(request.State) ? existing.State : request.State;
+            existing.Version = BumpPatchVersion(existing.Version);
+            existing.AutoRetry = request.AutoRetry;
+            existing.OwnerColor = request.OwnerColor ?? existing.OwnerColor;
+            existing.OwnerAgentId = request.OwnerAgentId ?? existing.OwnerAgentId;
+            existing.ContributorsJson = contributorsJson;
+            workflow = existing;
+
+            // Replace nodes + edges fully — diffing isn't worth the
+            // complexity for the graph sizes we have.
+            var oldNodes = await _dbContext.WorkflowNodes
+                .Where(n => n.WorkflowId == existing.Id)
+                .ToListAsync(cancellationToken);
+            var oldEdges = await _dbContext.WorkflowEdges
+                .Where(e => e.WorkflowId == existing.Id)
+                .ToListAsync(cancellationToken);
+            _dbContext.WorkflowNodes.RemoveRange(oldNodes);
+            _dbContext.WorkflowEdges.RemoveRange(oldEdges);
+        }
+
+        // Build the new node + edge rows. Map client ids → fresh Guids
+        // so edges can find their endpoints regardless of whether the
+        // client used a server Guid or an editor-local id.
+        var clientToGuid = new Dictionary<string, Guid>(request.Nodes.Count, StringComparer.Ordinal);
+        var newNodes = new List<WorkflowNode>(request.Nodes.Count);
+        foreach (var n in request.Nodes)
+        {
+            var id = Guid.NewGuid();
+            clientToGuid[n.ClientId] = id;
+            newNodes.Add(new WorkflowNode
+            {
+                Id = id,
+                WorkflowId = workflow.Id,
+                Kind = n.Kind ?? string.Empty,
+                Label = n.Label ?? string.Empty,
+                Summary = n.Summary ?? string.Empty,
+                Notes = n.Notes ?? string.Empty,
+                X = n.X,
+                Y = n.Y,
+                ParamsJson = string.IsNullOrWhiteSpace(n.ParamsJson) ? "{}" : n.ParamsJson,
+            });
+        }
+        _dbContext.WorkflowNodes.AddRange(newNodes);
+
+        var newEdges = new List<WorkflowEdge>(request.Edges.Count);
+        foreach (var e in request.Edges)
+        {
+            if (!clientToGuid.TryGetValue(e.FromClientId, out var fromId)
+                || !clientToGuid.TryGetValue(e.ToClientId, out var toId))
+            {
+                // Edge references a node that wasn't in the request — drop
+                // it rather than leaving an orphan row. Validation should
+                // have caught this earlier; this is a safety net.
+                continue;
+            }
+            newEdges.Add(new WorkflowEdge
+            {
+                Id = Guid.NewGuid(),
+                WorkflowId = workflow.Id,
+                FromNodeId = fromId,
+                ToNodeId = toId,
+                FromIndex = e.FromIndex,
+                Label = e.Label ?? string.Empty,
+            });
+        }
+        _dbContext.WorkflowEdges.AddRange(newEdges);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var graph = await GetBySlugAsync(request.Slug, cancellationToken);
+        return graph!;
+
+        // Local helper — keeps SaveAsync readable.
+        static void ValidateGraph(WorkflowSaveRequest req)
+        {
+            var triggers = req.Nodes.Count(n => string.Equals(n.Kind, "trigger", StringComparison.OrdinalIgnoreCase));
+            if (triggers != 1)
+            {
+                throw new ArgumentException(
+                    $"Workflow must have exactly one trigger node (found {triggers}).",
+                    nameof(req));
+            }
+
+            var clientIds = new HashSet<string>(req.Nodes.Select(n => n.ClientId), StringComparer.Ordinal);
+            foreach (var edge in req.Edges)
+            {
+                if (!clientIds.Contains(edge.FromClientId) || !clientIds.Contains(edge.ToClientId))
+                {
+                    throw new ArgumentException(
+                        "Edge references a node id that is not present in the request.",
+                        nameof(req));
+                }
+            }
+        }
+    }
+
+    public async Task<bool> DeleteAsync(string slug, CancellationToken cancellationToken = default)
+    {
+        var workflow = await _dbContext.Workflows
+            .FirstOrDefaultAsync(w => w.Slug == slug, cancellationToken);
+        if (workflow is null) return false;
+
+        // Soft-delete the workflow + its graph children. Runs and
+        // version history are preserved as historical record.
+        workflow.IsDeleted = true;
+        workflow.DeletedAt = _clock.UtcNow;
+
+        var nodes = await _dbContext.WorkflowNodes
+            .Where(n => n.WorkflowId == workflow.Id)
+            .ToListAsync(cancellationToken);
+        var edges = await _dbContext.WorkflowEdges
+            .Where(e => e.WorkflowId == workflow.Id)
+            .ToListAsync(cancellationToken);
+        var comments = await _dbContext.WorkflowComments
+            .Where(c => c.WorkflowId == workflow.Id)
+            .ToListAsync(cancellationToken);
+
+        var now = _clock.UtcNow;
+        foreach (var n in nodes) { n.IsDeleted = true; n.DeletedAt = now; }
+        foreach (var e in edges) { e.IsDeleted = true; e.DeletedAt = now; }
+        foreach (var c in comments) { c.IsDeleted = true; c.DeletedAt = now; }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<IReadOnlyList<WorkflowVersionResponse>> ListVersionsAsync(
         Guid workflowId,
         CancellationToken cancellationToken = default)
@@ -253,6 +426,44 @@ internal sealed class WorkflowService : IWorkflowService
     }
 
     // ── Helpers ──────────────────────────────────────────────────
+
+    private async Task SnapshotVersionAsync(
+        Workflow workflow,
+        string? message,
+        CancellationToken cancellationToken)
+    {
+        // Snapshot uses the workflow's *current* version tag — the
+        // about-to-be-overwritten state is the row that should be
+        // preserved, not the upcoming one.
+        var snapshot = new WorkflowVersion
+        {
+            WorkflowId = workflow.Id,
+            Tag = string.IsNullOrWhiteSpace(workflow.Version) ? "v0.1" : workflow.Version,
+            Message = message ?? "Auto-snapshot before save.",
+            AuthorName = workflow.OwnerColor.Length > 0 ? "Editor" : "Editor",
+            AuthorColor = workflow.OwnerColor,
+        };
+        _dbContext.WorkflowVersions.Add(snapshot);
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Bumps the patch component of a "vMAJOR.MINOR" tag. "v0.1" → "v0.2",
+    /// "v1.4" → "v1.5". If the input doesn't parse, falls back to "v0.1".
+    /// </summary>
+    private static string BumpPatchVersion(string current)
+    {
+        if (string.IsNullOrWhiteSpace(current)) return "v0.1";
+        var trimmed = current.StartsWith("v", StringComparison.OrdinalIgnoreCase)
+            ? current.Substring(1)
+            : current;
+        var parts = trimmed.Split('.');
+        if (parts.Length < 2 || !int.TryParse(parts[0], out var major) || !int.TryParse(parts[1], out var minor))
+        {
+            return "v0.1";
+        }
+        return $"v{major}.{minor + 1}";
+    }
 
     private static IReadOnlyList<Guid> ParseGuidArray(string? json)
     {

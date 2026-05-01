@@ -2,6 +2,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Framework;
 using Aonik.Agents.Persistence;
 using Aonik.Agents.Workflows;
+using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -130,6 +131,12 @@ public sealed class AgentsModule : IModule
             OnboardingWorkflowFactory.Name);
         services.AddKeyedSingleton<IWorkflowFactory, ReconciliationWorkflowFactory>(
             ReconciliationWorkflowFactory.Name);
+
+        // Generic graph-driven factory provider — translates the editor's
+        // saved Workflow + WorkflowNode + WorkflowEdge rows into a MAF
+        // Workflow at run time. RunWorkflowEndpoint falls through to this
+        // when no keyed legacy factory matches the requested slug.
+        services.AddSingleton<IGraphWorkflowFactoryProvider, GraphWorkflowFactoryProvider>();
 
         // NOTE: RagContextProvider registration is deferred to the composition root (Program.cs)
         // where both Infrastructure and Agents modules are registered, avoiding circular dependencies.

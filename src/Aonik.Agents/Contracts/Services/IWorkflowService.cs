@@ -3,10 +3,10 @@ using Aonik.Agents.Contracts.Models.Workflows;
 namespace Aonik.Agents.Contracts.Services;
 
 /// <summary>
-/// Read-only access to the workflow registry + run history. Mutating
-/// operations (create / update / delete / move-node / add-edge) are
-/// deliberately not exposed yet — the editor edits in-memory and persists
-/// only when explicitly wired in a follow-up.
+/// Workflow registry + run history access. Read paths back the editor and
+/// the registry list page; mutating paths back the editor's save / delete
+/// actions and replace the whole graph (full delete-then-insert of nodes
+/// and edges) on each save.
 /// </summary>
 public interface IWorkflowService
 {
@@ -43,5 +43,25 @@ public interface IWorkflowService
     /// </summary>
     Task<IReadOnlyList<WorkflowVersionResponse>> ListVersionsAsync(
         Guid workflowId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists the editor graph. If a workflow with the request's slug
+    /// exists, replaces its nodes and edges, snapshots the prior graph
+    /// into a <c>WorkflowVersion</c> row, and bumps the version tag.
+    /// Otherwise creates a new workflow row plus its initial version
+    /// snapshot. Returns the freshly-loaded graph (with canonical Guids)
+    /// so the editor can rehydrate.
+    /// </summary>
+    Task<WorkflowGraphResponse> SaveAsync(
+        WorkflowSaveRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soft-deletes the workflow (and its nodes/edges/comments). Runs
+    /// and version history are preserved.
+    /// </summary>
+    Task<bool> DeleteAsync(
+        string slug,
         CancellationToken cancellationToken = default);
 }

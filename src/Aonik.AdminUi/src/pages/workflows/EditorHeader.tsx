@@ -54,6 +54,8 @@ export interface EditorHeaderProps {
   onClose: () => void;
   hasChanges: boolean;
   onSave: () => void;
+  saving?: boolean;
+  saveError?: string | null;
   onDiscard: () => void;
   testOpen: boolean;
   setTestOpen: (v: boolean) => void;
@@ -69,6 +71,8 @@ export function EditorHeader({
   onClose,
   hasChanges,
   onSave,
+  saving = false,
+  saveError = null,
   onDiscard,
   testOpen,
   setTestOpen,
@@ -151,6 +155,16 @@ export function EditorHeader({
         </div>
       )}
 
+      {saveError && (
+        <div
+          className="ml-2 inline-flex items-center gap-1.5 rounded-full text-[11px] font-medium"
+          style={{ padding: '3px 9px', background: '#c4453618', color: '#c44536' }}
+          title={saveError}
+        >
+          <AlertTriangle size={11} /> Save failed
+        </div>
+      )}
+
       <div className="flex-1" />
 
       {/* View toggles */}
@@ -193,11 +207,11 @@ export function EditorHeader({
         <Button
           size="sm"
           onClick={onSave}
-          disabled={!hasChanges && validationErrors.length === 0}
+          disabled={saving || (!hasChanges && validationErrors.length === 0)}
           className="h-7 px-3"
         >
           <Check size={11} />
-          {hasChanges ? 'Save changes' : 'Saved'}
+          {saving ? 'Saving…' : hasChanges ? 'Save changes' : 'Saved'}
         </Button>
       </div>
     </div>

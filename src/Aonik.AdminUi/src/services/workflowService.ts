@@ -1,7 +1,8 @@
-// Workflows API client. Wraps the four read endpoints exposed by
-// Aonik.Agents/Endpoints/Workflows/*. Mutating operations (create / update /
-// delete / move-node / add-edge) are not exposed yet — the editor edits
-// in-memory; persistence is a follow-up.
+// Workflows API client. Wraps the workflow endpoints exposed by
+// Aonik.Agents/Endpoints/Workflows/*. Reads (list / get / runs / versions)
+// back the registry list page and the editor; writes (create / update /
+// delete) are how the editor persists. Save replaces the whole graph —
+// see WorkflowSaveRequest.cs server-side for the contract.
 
 import { api } from '@/lib/api';
 
@@ -104,6 +105,42 @@ export interface WorkflowVersionDto {
   when: string;
 }
 
+// ── Save payload (mirror of WorkflowSaveRequest.cs) ────────────────────
+
+export interface WorkflowSaveNodeDto {
+  /** Either an existing server Guid or a transient editor id (e.g. "n3xa9f"). */
+  clientId: string;
+  kind: string;
+  label: string;
+  summary: string;
+  notes: string;
+  x: number;
+  y: number;
+  paramsJson: string;
+}
+
+export interface WorkflowSaveEdgeDto {
+  fromClientId: string;
+  toClientId: string;
+  fromIndex: number;
+  label: string;
+}
+
+export interface WorkflowSaveRequestDto {
+  slug: string;
+  name: string;
+  description: string;
+  state: string;
+  version: string;
+  autoRetry: boolean;
+  ownerColor: string;
+  ownerAgentId: string | null;
+  contributors: string[];
+  nodes: WorkflowSaveNodeDto[];
+  edges: WorkflowSaveEdgeDto[];
+  versionMessage: string | null;
+}
+
 // ── Service ─────────────────────────────────────────────────────────────
 
 export const workflowService = {
@@ -121,5 +158,17 @@ export const workflowService = {
 
   listVersions: async (workflowId: string): Promise<WorkflowVersionDto[]> => {
     return api.get<WorkflowVersionDto[]>(`/ai/workflows/${workflowId}/versions`);
+  },
+
+  create: async (req: WorkflowSaveRequestDto): Promise<WorkflowGraphDto> => {
+    return api.post<WorkflowGraphDto>('/ai/workflows', req);
+  },
+
+  update: async (slug: string, req: WorkflowSaveRequestDto): Promise<WorkflowGraphDto> => {
+    return api.put<WorkflowGraphDto>(`/ai/workflows/${encodeURIComponent(slug)}`, req);
+  },
+
+  delete: async (slug: string): Promise<void> => {
+    await api.delete(`/ai/workflows/${encodeURIComponent(slug)}`);
   },
 };

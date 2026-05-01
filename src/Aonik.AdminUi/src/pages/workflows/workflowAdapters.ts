@@ -11,6 +11,7 @@ import type {
   WorkflowGraphEdgeDto,
   WorkflowGraphNodeDto,
   WorkflowRunDto,
+  WorkflowSaveRequestDto,
   WorkflowSummaryDto,
   WorkflowVersionDto,
 } from '@/services/workflowService';
@@ -157,6 +158,51 @@ function adaptEdge(dto: WorkflowGraphEdgeDto): WorkflowEdge {
 
 export function adaptComment(dto: WorkflowGraphCommentDto): WorkflowComment {
   return { id: dto.id, x: dto.x, y: dto.y, author: dto.author, body: dto.body };
+}
+
+/**
+ * Inverse of {@link adaptGraph}: turns the editor's working graph back into
+ * the save payload the API expects. Node ids round-trip as `clientId`s; the
+ * server assigns fresh canonical Guids and returns them in the response so
+ * the editor can rehydrate.
+ */
+export function buildSaveRequest(
+  graph: WorkflowGraph,
+  options: {
+    autoRetry?: boolean;
+    ownerAgentId?: string | null;
+    contributors?: string[];
+    versionMessage?: string | null;
+  } = {},
+): WorkflowSaveRequestDto {
+  return {
+    slug: graph.slug,
+    name: graph.name,
+    description: graph.desc,
+    state: graph.state,
+    version: graph.version,
+    autoRetry: options.autoRetry ?? false,
+    ownerColor: graph.ownerColor,
+    ownerAgentId: options.ownerAgentId ?? null,
+    contributors: options.contributors ?? [],
+    nodes: graph.nodes.map((n) => ({
+      clientId: n.id,
+      kind: n.kind,
+      label: n.label,
+      summary: n.summary ?? '',
+      notes: n.notes ?? '',
+      x: n.x,
+      y: n.y,
+      paramsJson: JSON.stringify(n.params ?? {}),
+    })),
+    edges: graph.edges.map((e) => ({
+      fromClientId: e.from,
+      toClientId: e.to,
+      fromIndex: e.fromIdx ?? 0,
+      label: e.label ?? '',
+    })),
+    versionMessage: options.versionMessage ?? null,
+  };
 }
 
 // ── Runs + versions ────────────────────────────────────────────────────

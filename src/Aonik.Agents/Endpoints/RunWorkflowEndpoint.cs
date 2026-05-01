@@ -1,5 +1,6 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Workflows.Graph;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,14 +52,18 @@ internal sealed class RunWorkflowEndpoint : Endpoint<WorkflowRequest, WorkflowRe
             // Resolve workflow via keyed services (R10).
             // Each workflow factory is registered as a keyed singleton:
             //   services.AddKeyedSingleton<IWorkflowFactory, XxxWorkflowFactory>("workflow-name");
+            //
+            // If no legacy keyed factory matches, fall back to the generic
+            // graph-driven factory which loads the workflow's saved
+            // nodes + edges and translates them into a MAF Workflow at
+            // run time. This is how editor-saved workflows execute.
             var factory = _serviceProvider.GetKeyedService<IWorkflowFactory>(
                 req.WorkflowName.ToLowerInvariant());
 
             if (factory is null)
             {
-                _logger.LogWarning("Unknown workflow: {WorkflowName}", req.WorkflowName);
-                await Send.NotFoundAsync(ct);
-                return;
+                var graphProvider = _serviceProvider.GetRequiredService<IGraphWorkflowFactoryProvider>();
+                factory = graphProvider.For(req.WorkflowName);
             }
 
             var workflowAgent = factory.Build(_serviceProvider);
