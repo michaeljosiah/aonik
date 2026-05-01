@@ -18,6 +18,14 @@ internal sealed class EndExecutor : Executor<string>
         _recorder = recorder;
     }
 
+    /// <summary>
+    /// MAF validates yielded output against the protocol's declared
+    /// yield types — without this declaration the run fails with
+    /// "Cannot output object of type String. Expecting one of []".
+    /// </summary>
+    protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocol)
+        => base.ConfigureProtocol(protocol).YieldsOutput<string>();
+
     public override async ValueTask HandleAsync(
         string message,
         IWorkflowContext context,
