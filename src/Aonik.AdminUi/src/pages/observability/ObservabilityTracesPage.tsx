@@ -16,6 +16,7 @@ import {
   aiTraceService,
   type AiTraceObservationResponse,
 } from '@/services/aiService';
+import { SpanDetailSlideOut } from './SpanDetailSlideOut';
 
 const TIME_RANGE_OPTIONS = [
   { value: '1h', label: 'Last hour' },
@@ -234,6 +235,7 @@ export function ObservabilityTracesPage() {
   const [loading, setLoading] = useState(true);
   const [traceLoading, setTraceLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openSpanId, setOpenSpanId] = useState<string | null>(null);
 
   const loadTraceList = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -317,6 +319,28 @@ export function ObservabilityTracesPage() {
   const waterfallItems = useMemo(() => buildWaterfall(selectedTraceItems), [selectedTraceItems]);
   const traceTotalMs = useMemo(() => getTraceTotalMs(selectedTraceItems), [selectedTraceItems]);
 
+  // Reset the slide-out whenever we switch traces — span ids only make
+  // sense within the trace they were captured in.
+  useEffect(() => {
+    setOpenSpanId(null);
+  }, [selectedTraceId]);
+
+  const openSpanIndex = waterfallItems.findIndex((item) => item.id === openSpanId);
+  const openSpan = openSpanIndex >= 0 ? waterfallItems[openSpanIndex] : null;
+  const traceStartMs = useMemo(() => {
+    if (selectedTraceItems.length === 0) return 0;
+    return Math.min(...selectedTraceItems.map((item) => new Date(item.startTime).getTime()));
+  }, [selectedTraceItems]);
+
+  const handlePrevSpan = () => {
+    if (openSpanIndex > 0) setOpenSpanId(waterfallItems[openSpanIndex - 1].id);
+  };
+  const handleNextSpan = () => {
+    if (openSpanIndex >= 0 && openSpanIndex < waterfallItems.length - 1) {
+      setOpenSpanId(waterfallItems[openSpanIndex + 1].id);
+    }
+  };
+
   const selectedStatus = selectedTrace ? formatStatus(selectedTrace.level, selectedTrace) : 'ok';
   const selectedDurationMs = selectedTrace ? getDurationMs(selectedTrace) : null;
   const selectedSpans = waterfallItems.length;
@@ -325,7 +349,7 @@ export function ObservabilityTracesPage() {
   const selectedAgentLabel = selectedTrace?.agentName ?? selectedTrace?.agentId ?? selectedTrace?.serviceName ?? '--';
 
   return (
-    <div className="flex h-full flex-col overflow-auto">
+    <div className="relative flex h-full flex-col overflow-hidden">
       <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
         <div className="px-6 pt-5 pb-4">
           <Breadcrumb
@@ -360,7 +384,7 @@ export function ObservabilityTracesPage() {
         </div>
       </div>
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 overflow-auto p-6">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px] bg-[var(--color-surface)]">
@@ -508,10 +532,19 @@ export function ObservabilityTracesPage() {
                         No correlated spans found for this trace.
                       </div>
                     ) : (
-                      waterfallItems.map((item) => (
-                        <div
+                      waterfallItems.map((item) => {
+                        const isOpen = item.id === openSpanId;
+                        return (
+                        <button
                           key={`${item.source}-${item.id}`}
-                          className="grid grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-[var(--color-border-light)] px-5 py-2.5 last:border-b-0"
+                          type="button"
+                          onClick={() => setOpenSpanId(item.id)}
+                          className={cn(
+                            'grid w-full cursor-pointer grid-cols-[minmax(240px,320px)_90px_minmax(0,1fr)] gap-3 border-b border-l-[3px] border-[var(--color-border-light)] py-2.5 pr-5 text-left transition-colors last:border-b-0',
+                            isOpen
+                              ? 'border-l-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)] pl-[17px]'
+                              : 'border-l-transparent pl-5 hover:bg-[var(--color-surface-inset)]',
+                          )}
                         >
                           <div className="min-w-0" style={{ paddingLeft: `${item.depth * 14}px` }}>
                             <div className="truncate font-mono text-[11.5px] text-[var(--color-text-primary)]" title={item.name}>
@@ -554,8 +587,9 @@ export function ObservabilityTracesPage() {
                               }}
                             />
                           </div>
-                        </div>
-                      ))
+                        </button>
+                        );
+                      })
                     )}
                   </div>
                 </>
@@ -568,6 +602,20 @@ export function ObservabilityTracesPage() {
           </div>
         ) : null}
       </div>
+
+      {openSpan && (
+        <SpanDetailSlideOut
+          span={openSpan}
+          totalMs={traceTotalMs}
+          traceStartMs={traceStartMs}
+          durationMs={getDurationMs(openSpan)}
+          onClose={() => setOpenSpanId(null)}
+          hasPrev={openSpanIndex > 0}
+          hasNext={openSpanIndex >= 0 && openSpanIndex < waterfallItems.length - 1}
+          onPrev={handlePrevSpan}
+          onNext={handleNextSpan}
+        />
+      )}
     </div>
   );
 }
