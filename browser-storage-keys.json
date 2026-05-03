@@ -1,0 +1,11 @@
+{
+  "localStorage": [
+    "aonik:workspace:layouts",
+    "@@auth0spajs@@::ZoiNbhyAsfjKiNHYPudqsZ75zI1vFyYb::https://api.aonik.com::openid profile email offline_access",
+    "@@auth0spajs@@::ZoiNbhyAsfjKiNHYPudqsZ75zI1vFyYb::@@user@@",
+    "aonik:trace-insights:voice-mode",
+    "selected_tenant",
+    "selected_tenant_id"
+  ],
+  "sessionStorage": []
+}

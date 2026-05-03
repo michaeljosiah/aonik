@@ -1,0 +1,10 @@
+[GET] https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/ai/agents/configurations => [200] 
+  Request headers:
+    sec-ch-ua-platform: "Windows"
+    authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ii0xYTlWOUFiNmRrRkdGZFhrT1V1RSJ9.eyJodHRwczovL2FvbmlrLmFwcC9lbWFpbCI6Im1pY2hhZWwuam9zaWFoQG1haWxpbmF0b3IuY29tIiwiaXNzIjoiaHR0cHM6Ly9hb25pay51ay5hdXRoMC5jb20vIiwic3ViIjoiYXV0aDB8Njk2YWNkNjJlYmVhZTM1MzE3NWFiODgzIiwiYXVkIjpbImh0dHBzOi8vYXBpLmFvbmlrLmNvbSIsImh0dHBzOi8vYW9uaWsudWsuYXV0aDAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTc3NzQ1MDMwNywiZXhwIjoxNzc3NTM2NzA3LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIiwiYXpwIjoiWm9pTmJoeUFzZmpLaU5IWVB1ZHFzWjc1ekkxdkZ5WWIifQ.ffgcp6zZc9xfkxKk2xH3qFhaQvGMZdwNorGMbB2ULBivmgbBKHGaNQJD07SNohWIvOYWrba4Pngbf1Ck4Qwa6ZkOdQTbd6OHxh-YdJw1lihIb8g_53en-VyJTF2LAQieas2iBvmx1L-hjOWldCYN8aaueOPv1C9fqEG4PInc60ZQaXXz-9PB0JTNKm1IF6hWku9eyfEufSgkhSu-NwW4XOimEZaW-sqOl6dOL5WhvrO_Hy_LFVXH1qsy9m_t-vT9Wds-0q_1MeT87X34dReJ3W2jNFuLi9_U3S0R5sHWos1be4ngUZ3eTuvJ0XJpD-32Htqj6yrnW3wDhevMx_R5Pw
+    referer: https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/
+    sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"
+    sec-ch-ua-mobile: ?0
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36
+    accept: application/json, text/plain, */*
+    x-tenant-id: 7fa21f8e-e433-4077-bd66-4c2af3c67da8

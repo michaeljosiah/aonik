@@ -1,0 +1,4 @@
+Total messages: 0 (Errors: 0, Warnings: 0)
+Returning 1 messages for level "error"
+
+[ERROR] Failed to load resource: the server responded with a status of 404 () @ https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/admin/settings?scope=global:0

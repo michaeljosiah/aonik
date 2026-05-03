@@ -1,0 +1,183 @@
+- generic [ref=e3]:
+  - generic [ref=e20]:
+    - complementary [ref=e21]:
+      - generic [ref=e24]: A
+      - navigation [ref=e26]:
+        - link [ref=e29] [cursor=pointer]:
+          - /url: /
+          - img [ref=e30]
+        - generic [ref=e34]:
+          - img [ref=e37] [cursor=pointer]
+          - link [ref=e41] [cursor=pointer]:
+            - /url: /approvals
+            - img [ref=e42]
+        - generic [ref=e47]:
+          - img [ref=e50] [cursor=pointer]
+          - img [ref=e57] [cursor=pointer]
+          - img [ref=e63] [cursor=pointer]
+          - img [ref=e70] [cursor=pointer]
+        - generic [ref=e75]:
+          - link [ref=e76] [cursor=pointer]:
+            - /url: /compliance
+            - img [ref=e77]
+          - img [ref=e83] [cursor=pointer]
+          - img [ref=e89] [cursor=pointer]
+          - link [ref=e92] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e93]
+          - link [ref=e96] [cursor=pointer]:
+            - /url: /tenants
+            - img [ref=e97]
+          - link [ref=e100] [cursor=pointer]:
+            - /url: /settings/system-tools
+            - img [ref=e101]
+      - img "Michael Josiah" [ref=e106] [cursor=pointer]
+    - generic [ref=e108]:
+      - banner [ref=e109]:
+        - navigation [ref=e110]:
+          - img [ref=e111]
+          - generic [ref=e115]: Admin
+          - generic [ref=e116]:
+            - img [ref=e117]
+            - generic [ref=e119]: Observability
+          - generic [ref=e120]:
+            - img [ref=e121]
+            - generic [ref=e123]: Traces
+        - generic [ref=e124]:
+          - button "Ask Aonik ⌘/" [ref=e125]:
+            - img [ref=e126]
+            - text: Ask Aonik
+            - generic [ref=e129]: ⌘/
+          - link "Open setup guides" [ref=e131] [cursor=pointer]:
+            - /url: /setup-guides
+            - img [ref=e132]
+          - button "Toggle fullscreen" [ref=e135] [cursor=pointer]:
+            - img [ref=e136]
+          - button "Open notifications" [ref=e141] [cursor=pointer]:
+            - img [ref=e142]
+          - link "Open settings" [ref=e145] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e146]
+      - main [ref=e150]:
+        - generic [ref=e151]:
+          - generic [ref=e153]:
+            - navigation "Breadcrumb" [ref=e154]:
+              - list [ref=e155]:
+                - listitem [ref=e156]:
+                  - generic [ref=e159]: Admin
+                - listitem [ref=e160]:
+                  - img [ref=e161]
+                  - link "Observability" [ref=e163] [cursor=pointer]:
+                    - /url: /admin/observability
+                    - generic [ref=e164]:
+                      - img [ref=e166]
+                      - generic [ref=e168]: Observability
+                - listitem [ref=e169]:
+                  - img [ref=e170]
+                  - generic [ref=e174]: Traces
+            - generic [ref=e175]:
+              - generic [ref=e176]:
+                - generic [ref=e177]: Observability · Distributed tracing
+                - heading "Traces" [level=1] [ref=e178]
+                - generic [ref=e179]: Every agent run captured as a span tree using live AI observation data.
+              - generic [ref=e180]:
+                - button "Filters" [disabled]:
+                  - img
+                  - text: Filters
+                - button "Last 24 hours" [disabled]:
+                  - img
+                  - text: Last 24 hours
+                - button "Export" [disabled]:
+                  - img
+                  - text: Export
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - generic [ref=e183]:
+                - generic [ref=e184]: Trace stream healthy
+                - generic [ref=e185]: 1 root traces surfaced from the live observation feed for the selected window.
+              - generic [ref=e186]:
+                - generic [ref=e187]:
+                  - generic [ref=e188]: "1"
+                  - generic [ref=e189]: Tail
+                - generic [ref=e190]:
+                  - generic [ref=e191]: "1"
+                  - generic [ref=e192]: OK
+                - generic [ref=e193]:
+                  - generic [ref=e194]: "0"
+                  - generic [ref=e195]: Held
+                - generic [ref=e196]:
+                  - generic [ref=e197]: "0"
+                  - generic [ref=e198]: Errors
+            - generic [ref=e199]:
+              - combobox [ref=e200]:
+                - generic: All statuses
+                - img [ref=e201]
+              - combobox [ref=e203]:
+                - generic: Last 24 hours
+                - img [ref=e204]
+            - generic [ref=e206]:
+              - generic [ref=e207]:
+                - generic [ref=e208]:
+                  - img [ref=e209]
+                  - generic [ref=e211]: status:any
+                  - generic [ref=e212]: 1 traces
+                - button "chat ok 7c81fedc84747072911db1934f1ded21 AppInsights 2.49s · 15h ago" [ref=e214]:
+                  - generic [ref=e215]:
+                    - generic [ref=e216]: chat
+                    - generic [ref=e217]: ok
+                  - generic [ref=e218]: 7c81fedc84747072911db1934f1ded21
+                  - generic [ref=e219]:
+                    - generic [ref=e220]: AppInsights
+                    - generic [ref=e221]: 2.49s · 15h ago
+              - generic [ref=e222]:
+                - generic [ref=e223]:
+                  - generic [ref=e224]:
+                    - generic [ref=e225]: chat
+                    - generic [ref=e226]: 7c81fedc84747072911db1934f1ded21
+                    - generic [ref=e227]: ok
+                  - generic [ref=e228]:
+                    - generic [ref=e229]: duration 2.49s
+                    - generic [ref=e230]: spans 4
+                    - generic [ref=e231]: tokens 26
+                    - generic [ref=e232]: tools 2
+                    - generic [ref=e233]: agent --
+                    - generic [ref=e234]: source AppInsights
+                - generic [ref=e235]:
+                  - generic [ref=e236]: Span
+                  - generic [ref=e237]: Duration
+                  - generic [ref=e238]:
+                    - generic [ref=e239]: 0ms
+                    - generic [ref=e240]: 1303ms
+                    - generic [ref=e241]: 2605ms
+                    - generic [ref=e242]: 3908ms
+                    - generic [ref=e243]: 5210ms
+                - generic [ref=e244]:
+                  - generic [ref=e248]:
+                    - generic [ref=e249]:
+                      - generic "chat" [ref=e250]
+                      - generic [ref=e251]:
+                        - generic [ref=e252]: llm
+                        - generic [ref=e253]: aonik-dev-api
+                    - generic [ref=e254]: 2.49s
+                  - generic [ref=e260]:
+                    - generic [ref=e261]:
+                      - 'generic "SQL: aonik" [ref=e262]'
+                      - generic [ref=e263]:
+                        - generic [ref=e264]: db
+                        - generic [ref=e265]: tcp:aonik-dev-sql.database.windows.net,1433 | aonik
+                    - generic [ref=e266]: 9ms
+                  - generic [ref=e272]:
+                    - generic [ref=e273]:
+                      - generic "POST /v1/chat/completions" [ref=e274]
+                      - generic [ref=e275]:
+                        - generic [ref=e276]: http
+                        - generic [ref=e277]: api.openai.com
+                    - generic [ref=e278]: 2.17s
+                  - generic [ref=e284]:
+                    - generic [ref=e285]:
+                      - generic "chat" [ref=e286]
+                      - generic [ref=e287]:
+                        - generic [ref=e288]: llm
+                        - generic [ref=e289]: aonik-dev-api
+                    - generic [ref=e290]: 1ms
+  - region "Notifications alt+T"

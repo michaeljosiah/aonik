@@ -1,0 +1,57 @@
+[
+  {
+    "observationId": "59a6307613d656d6",
+    "traceId": "0a2b4930f9bbaf63cdcfebcfaf06d0d2",
+    "parentObservationId": "59a6307613d656d6",
+    "spanId": "59a6307613d656d6",
+    "parentSpanId": "59a6307613d656d6",
+    "isRootObservation": false,
+    "name": "chat",
+    "type": "GENERATION",
+    "serviceName": "aonik-dev-api"
+  },
+  {
+    "observationId": "f9ec9adb-43a2-11f1-8e1a-6045bd141def",
+    "traceId": "0a2b4930f9bbaf63cdcfebcfaf06d0d2",
+    "parentObservationId": "59a6307613d656d6",
+    "spanId": "f9ec9adb-43a2-11f1-8e1a-6045bd141def",
+    "parentSpanId": "59a6307613d656d6",
+    "isRootObservation": false,
+    "name": "chat",
+    "type": "GENERATION",
+    "serviceName": "aonik-dev-api"
+  },
+  {
+    "observationId": "59a6307613d656d6",
+    "traceId": "0a2b4930f9bbaf63cdcfebcfaf06d0d2",
+    "parentObservationId": "0a2b4930f9bbaf63cdcfebcfaf06d0d2",
+    "spanId": "59a6307613d656d6",
+    "parentSpanId": "0a2b4930f9bbaf63cdcfebcfaf06d0d2",
+    "isRootObservation": false,
+    "name": "chat gpt-5-mini",
+    "type": "SPAN",
+    "serviceName": "api.openai.com:443"
+  },
+  {
+    "observationId": "4042fd7329d6a5c2",
+    "traceId": "37aebab0357d82f44a433d0b59593afd",
+    "parentObservationId": "4042fd7329d6a5c2",
+    "spanId": "4042fd7329d6a5c2",
+    "parentSpanId": "4042fd7329d6a5c2",
+    "isRootObservation": false,
+    "name": "chat",
+    "type": "GENERATION",
+    "serviceName": "aonik-dev-worker"
+  },
+  {
+    "observationId": "f966beff-43a2-11f1-8e1a-70a8a575a203",
+    "traceId": "37aebab0357d82f44a433d0b59593afd",
+    "parentObservationId": "4042fd7329d6a5c2",
+    "spanId": "f966beff-43a2-11f1-8e1a-70a8a575a203",
+    "parentSpanId": "4042fd7329d6a5c2",
+    "isRootObservation": false,
+    "name": "chat",
+    "type": "GENERATION",
+    "serviceName": "aonik-dev-worker"
+  }
+]

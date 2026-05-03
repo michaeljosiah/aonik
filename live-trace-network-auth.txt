@@ -1,0 +1,27 @@
+[GET] https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/ai/trace-observations?page=1&pageSize=100&isRootObservation=true&timeRange=24h => [200] 
+  Request headers:
+    sec-ch-ua-platform: "Windows"
+    authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ii0xYTlWOUFiNmRrRkdGZFhrT1V1RSJ9.eyJodHRwczovL2FvbmlrLmFwcC9lbWFpbCI6Im1pY2hhZWwuam9zaWFoQG1haWxpbmF0b3IuY29tIiwiaXNzIjoiaHR0cHM6Ly9hb25pay51ay5hdXRoMC5jb20vIiwic3ViIjoiYXV0aDB8Njk2YWNkNjJlYmVhZTM1MzE3NWFiODgzIiwiYXVkIjpbImh0dHBzOi8vYXBpLmFvbmlrLmNvbSIsImh0dHBzOi8vYW9uaWsudWsuYXV0aDAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTc3NzM2MDA4OCwiZXhwIjoxNzc3NDQ2NDg4LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIiwiYXpwIjoiWm9pTmJoeUFzZmpLaU5IWVB1ZHFzWjc1ekkxdkZ5WWIifQ.ju88FSrBWIFPgUqzlZR7VLLyj8W2gWaQo-scf7EeBmHxLvh-ovrDEGEbl-VGIt0dAE6hFqLNliaaOHx544sTZbGTFIBt2GE5fSjZREw2SRXZPLTtO2Zvob9rHN-42IEl5ABKQWAR9nJXQCD3XPt6bHx1vrwo60J8FpGVcokLEJkYFO4bFM8L0pyi6A8smaGE9q1XAwqZBSCtUrhrdSJ-mpLSnSTT1_zMxKlIjv2BQZ3PTBma-A5cd_DgNUvyafzHHNnO9TqDBqwuBsTfMDf4FSr39RrBu2UsXl-yQ9PIjQNM3DZSUlOpcnQ_KDpz17MR2O6vtDdVfo95s36ahDXxjA
+    referer: https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/
+    sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"
+    sec-ch-ua-mobile: ?0
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36
+    accept: application/json, text/plain, */*
+    x-tenant-id: 7fa21f8e-e433-4077-bd66-4c2af3c67da8
+[GET] https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/ai/trace-observations?page=1&pageSize=200&traceId=7c81fedc84747072911db1934f1ded21&timeRange=24h => [200] 
+  Request headers:
+    sec-ch-ua-platform: "Windows"
+    authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ii0xYTlWOUFiNmRrRkdGZFhrT1V1RSJ9.eyJodHRwczovL2FvbmlrLmFwcC9lbWFpbCI6Im1pY2hhZWwuam9zaWFoQG1haWxpbmF0b3IuY29tIiwiaXNzIjoiaHR0cHM6Ly9hb25pay51ay5hdXRoMC5jb20vIiwic3ViIjoiYXV0aDB8Njk2YWNkNjJlYmVhZTM1MzE3NWFiODgzIiwiYXVkIjpbImh0dHBzOi8vYXBpLmFvbmlrLmNvbSIsImh0dHBzOi8vYW9uaWsudWsuYXV0aDAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTc3NzM2MDA4OCwiZXhwIjoxNzc3NDQ2NDg4LCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIiwiYXpwIjoiWm9pTmJoeUFzZmpLaU5IWVB1ZHFzWjc1ekkxdkZ5WWIifQ.ju88FSrBWIFPgUqzlZR7VLLyj8W2gWaQo-scf7EeBmHxLvh-ovrDEGEbl-VGIt0dAE6hFqLNliaaOHx544sTZbGTFIBt2GE5fSjZREw2SRXZPLTtO2Zvob9rHN-42IEl5ABKQWAR9nJXQCD3XPt6bHx1vrwo60J8FpGVcokLEJkYFO4bFM8L0pyi6A8smaGE9q1XAwqZBSCtUrhrdSJ-mpLSnSTT1_zMxKlIjv2BQZ3PTBma-A5cd_DgNUvyafzHHNnO9TqDBqwuBsTfMDf4FSr39RrBu2UsXl-yQ9PIjQNM3DZSUlOpcnQ_KDpz17MR2O6vtDdVfo95s36ahDXxjA
+    referer: https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/
+    sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"
+    sec-ch-ua-mobile: ?0
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36
+    accept: application/json, text/plain, */*
+    x-tenant-id: 7fa21f8e-e433-4077-bd66-4c2af3c67da8
+[GET] https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/api/ai/trace-observations?page=1&pageSize=20&isRootObservation=true&timeRange=24h => [401] 
+  Request headers:
+    sec-ch-ua-platform: "Windows"
+    referer: https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/admin/observability/traces
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36
+    sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"
+    sec-ch-ua-mobile: ?0

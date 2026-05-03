@@ -1,0 +1,1 @@
+[GET] https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/ai/trace-observations?page=1&pageSize=100&isRootObservation=true&timeRange=1h => [200] 

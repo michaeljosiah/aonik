@@ -1,0 +1,65 @@
+{
+  "rootStatus": 200,
+  "rootCount": 1,
+  "traceId": "7c81fedc84747072911db1934f1ded21",
+  "detailStatus": 200,
+  "detailCount": 5,
+  "types": [
+    "DB",
+    "GENERATION",
+    "HTTP",
+    "SPAN"
+  ],
+  "items": [
+    {
+      "type": "GENERATION",
+      "name": "chat",
+      "serviceName": "aonik-dev-api",
+      "metadata": "{\"tenantId\":\"00000000-0000-0000-0000-000000000000\",\"userId\":null,\"useCase\":\"chat\",\"operation\":\"chat\",\"outcome\":\"success\",\"errorType\":null}",
+      "spanId": "ff4abc67eaa9fc40",
+      "parentSpanId": null,
+      "observationId": "ff4abc67eaa9fc40",
+      "parentObservationId": null
+    },
+    {
+      "type": "GENERATION",
+      "name": "chat",
+      "serviceName": "aonik-dev-api",
+      "metadata": null,
+      "spanId": "16957c3c-42d6-11f1-8e1c-000d3a0b67ef",
+      "parentSpanId": "ff4abc67eaa9fc40",
+      "observationId": "16957c3c-42d6-11f1-8e1c-000d3a0b67ef",
+      "parentObservationId": "ff4abc67eaa9fc40"
+    },
+    {
+      "type": "HTTP",
+      "name": "POST /v1/chat/completions",
+      "serviceName": "api.openai.com",
+      "metadata": "{\"_MS.ProcessedByMetricExtractors\":\"(Name: X,Ver:'1.1')\",\"_MS.ResourceAttributeId\":\"392e89f1-014f-4e9e-9c73-7c42f6c712d8\",\"network.protocol.version\":\"1.1\"}",
+      "spanId": "bfdbbb15e814a29e",
+      "parentSpanId": "ff4abc67eaa9fc40",
+      "observationId": "bfdbbb15e814a29e",
+      "parentObservationId": "ff4abc67eaa9fc40"
+    },
+    {
+      "type": "DB",
+      "name": "SQL: aonik",
+      "serviceName": "tcp:aonik-dev-sql.database.windows.net,1433 | aonik",
+      "metadata": "{\"_MS.ProcessedByMetricExtractors\":\"(Name: X,Ver:'1.1')\",\"_MS.ResourceAttributeId\":\"392e89f1-014f-4e9e-9c73-7c42f6c712d8\",\"db.name\":\"aonik\"}",
+      "spanId": "9f5d6fb4ce29ad55",
+      "parentSpanId": "ff4abc67eaa9fc40",
+      "observationId": "9f5d6fb4ce29ad55",
+      "parentObservationId": "ff4abc67eaa9fc40"
+    },
+    {
+      "type": "SPAN",
+      "name": "chat gpt-5-mini",
+      "serviceName": "api.openai.com:443",
+      "metadata": "{\"_MS.ProcessedByMetricExtractors\":\"(Name: X,Ver:'1.1')\",\"_MS.ResourceAttributeId\":\"392e89f1-014f-4e9e-9c73-7c42f6c712d8\",\"gen_ai.response.id\":\"chatcmpl-DZXPIPbVZ4Y1pljo5gnijXYjKBRRh\",\"gen_ai.provider.name\":\"openai\",\"gen_ai.operation.name\":\"chat\",\"gen_ai.request.model\":\"gpt-5-mini\",\"gen_ai.response.model\":\"gpt-5-mini-2025-08-07\",\"gen_ai.input.messages\":\"[\\n  {\\n    \\\"role\\\": \\\"user\\\",\\n    \\\"parts\\\": [\\n      {\\n        \\\"type\\\": \\\"text\\\",\\n        \\\"content\\\": \\\"Reply with ok.\\\"\\n      }\\n    ]\\n  }\\n]\",\"gen_ai.output.messages\":\"[\\n  {\\n    \\\"role\\\": \\\"assistant\\\",\\n    \\\"parts\\\": [\\n      {\\n        \\\"type\\\": \\\"Microsoft.Extensions.AI.TextContent\\\",\\n        \\\"content\\\": {\\n          \\\"text\\\": \\\"\\\"\\n        }\\n      }\\n    ],\\n    \\\"finish_reason\\\": \\\"length\\\"\\n  }\\n]\",\"gen_ai.usage.input_tokens\":\"10\",\"gen_ai.usage.output_tokens\":\"16\",\"gen_ai.response.finish_reasons\":\"[\\\"length\\\"]\",\"openai.api.type\":\"chat_completions\",\"aonik.ai_run_id\":\"00000000-0000-0000-0000-000000000000\",\"aonik.observation.id\":\"ff4abc67eaa9fc40\",\"aonik.observation.type\":\"GENERATION\",\"aonik.observation.name\":\"chat\",\"aonik.observation.trace_name\":\"chat\",\"aonik.ai.latency_ms\":\"2493\",\"aonik.ai.cost_usd\":\"0.00034500000000000004\",\"aonik.ai.input_tokens\":\"10\",\"aonik.ai.output_tokens\":\"16\",\"aonik.ai.total_tokens\":\"26\",\"aonik.ai.model\":\"gpt-5-mini-2025-08-07\",\"aonik.ai.input\":\"[{\\\"role\\\":\\\"user\\\",\\\"text\\\":\\\"Reply with ok.\\\"}]\",\"gen_ai.usage.cache_read.input_tokens\":\"0\",\"gen_ai.request.max_tokens\":\"16\"}",
+      "spanId": "ff4abc67eaa9fc40",
+      "parentSpanId": "7c81fedc84747072911db1934f1ded21",
+      "observationId": "ff4abc67eaa9fc40",
+      "parentObservationId": "7c81fedc84747072911db1934f1ded21"
+    }
+  ]
+}
