@@ -130,13 +130,34 @@ public sealed class ChatThreadManager : IChatThreadManager
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
         }
 
+        // Capture ambient context up-front so we can re-seed it on the
+        // dedicated scope's services. The AGUI endpoint launches this task
+        // in parallel with the user-brief projector — both touch the
+        // request-scoped AgentsDbContext and trip EF Core's "second
+        // operation on this context" guard. Running the DB read in a fresh
+        // scope eliminates the race without forcing the caller to await
+        // sequentially.
+        var capturedTenantId = _tenantContext?.TenantId;
+        var capturedUserId = _userContext?.UserId;
+
         try
         {
             var historyLookup = await _historyCache.GetOrLoadAsync(
                 persistedThreadId.Value,
                 async ct =>
                 {
-                    var detail = await _chatThreadService.GetThreadAsync(persistedThreadId.Value, ct);
+                    using var dbScope = _scopeFactory.CreateScope();
+                    SeedBackgroundContext(
+                        dbScope.ServiceProvider,
+                        capturedTenantId,
+                        capturedUserId,
+                        "agui-history-reconstruct");
+
+                    var scopedThreadService = dbScope.ServiceProvider.GetService<IChatThreadService>();
+                    if (scopedThreadService is null)
+                        return [];
+
+                    var detail = await scopedThreadService.GetThreadAsync(persistedThreadId.Value, ct);
                     if (detail is null || detail.Messages.Count == 0)
                         return [];
 

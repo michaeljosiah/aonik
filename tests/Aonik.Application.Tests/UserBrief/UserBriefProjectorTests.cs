@@ -8,6 +8,7 @@ using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Aonik.SharedKernel.Abstractions.UserBrief;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.UserBrief;
@@ -89,6 +90,20 @@ public class UserBriefProjectorTests
         return new AgentsDbContext(options, new TestTenantProvider());
     }
 
+    /// <summary>
+    /// Wraps a single in-memory <see cref="AgentsDbContext"/> in a scope
+    /// factory so tests can construct <see cref="UserBriefProjector"/>
+    /// (which now resolves the context from a fresh scope per parallel
+    /// query). The scope factory hands back the same db instance every
+    /// time, mirroring the in-memory persistence the test expects.
+    /// </summary>
+    private static IServiceScopeFactory CreateScopeFactory(AgentsDbContext db)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(db);
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
+
     private static UserBriefFinancialData CreateMinimalFinancialData() => new(
         AccountCount: 2,
         TransactionCount: 12,
@@ -150,7 +165,7 @@ public class UserBriefProjectorTests
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, CreateScopeFactory(db), NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.Should().NotBeNull();
@@ -186,7 +201,7 @@ public class UserBriefProjectorTests
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, CreateScopeFactory(db), NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.Period.Should().BeNull();
@@ -213,7 +228,7 @@ public class UserBriefProjectorTests
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, CreateScopeFactory(db), NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.CashflowRisk.Should().Be(CashflowRisk.High);
@@ -235,7 +250,7 @@ public class UserBriefProjectorTests
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, CreateScopeFactory(db), NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.CashflowRisk.Should().Be(CashflowRisk.Moderate);
@@ -274,7 +289,7 @@ public class UserBriefProjectorTests
         });
         await db.SaveChangesAsync();
 
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, CreateScopeFactory(db), NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.MissingData.Should().NotContain("conversation_history");
@@ -305,7 +320,7 @@ public class UserBriefProjectorTests
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, CreateScopeFactory(db), NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.Cash.Should().BeNull();
@@ -361,7 +376,7 @@ public class UserBriefProjectorTests
         };
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, CreateScopeFactory(db), NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.User.Name.Should().Be("Jaden");

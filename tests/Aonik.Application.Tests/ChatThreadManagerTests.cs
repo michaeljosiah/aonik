@@ -112,7 +112,13 @@ public class ChatThreadManagerTests
         IChatThreadService chatThreadService,
         IChatThreadHistoryCache historyCache)
     {
+        // ReconstructHistoryAsync now resolves IChatThreadService from a
+        // fresh scope (so the DbContext can't race the request-scoped one
+        // used by UserBriefProjector), so we must register the stub on
+        // the scope factory's container, not just hand it to the
+        // constructor.
         var scopeFactory = new ServiceCollection()
+            .AddSingleton(chatThreadService)
             .BuildServiceProvider()
             .GetRequiredService<IServiceScopeFactory>();
 

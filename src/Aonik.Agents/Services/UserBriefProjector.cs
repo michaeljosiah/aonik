@@ -3,10 +3,13 @@ using System.Text.Json;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Aonik.SharedKernel.Abstractions.UserBrief;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Services;
@@ -16,20 +19,20 @@ internal sealed class UserBriefProjector : IUserBriefProjector
     private readonly IUserBriefDataProvider _financeData;
     private readonly IUserBriefAiDataProvider _aiData;
     private readonly IUserBriefContextDataProvider _userContextData;
-    private readonly AgentsDbContext _agentsDbContext;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<UserBriefProjector> _logger;
 
     public UserBriefProjector(
         IUserBriefDataProvider financeData,
         IUserBriefAiDataProvider aiData,
         IUserBriefContextDataProvider userContextData,
-        AgentsDbContext agentsDbContext,
+        IServiceScopeFactory scopeFactory,
         ILogger<UserBriefProjector> logger)
     {
         _financeData = financeData;
         _aiData = aiData;
         _userContextData = userContextData;
-        _agentsDbContext = agentsDbContext;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -61,11 +64,25 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         var userContextTask = TraceAsync(
             "aonik.user_brief.load_user_context",
             () => _userContextData.GetUserContextDataAsync(tenantId, userId, cancellationToken));
+        // Conversation-history check runs alongside finance / memory / user
+        // context tasks AND is itself launched in parallel with the AGUI
+        // endpoint's history reconstruction. Using a fresh scope here
+        // (rather than the request-scoped AgentsDbContext) means the read
+        // can't trip EF Core's "second operation on this context" guard
+        // when those concurrent paths fire simultaneously. The new scope
+        // gets its tenant/user context seeded so EF query filters resolve
+        // identically to the parent scope.
         var hasConversationHistoryTask = TraceAsync(
             "aonik.user_brief.load_conversation_history",
-            () => _agentsDbContext.ConversationSummaries
-                .Where(s => s.TenantId == tenantId && s.UserId == userId)
-                .AnyAsync(cancellationToken));
+            async () =>
+            {
+                using var scope = _scopeFactory.CreateScope();
+                SeedScopeContext(scope.ServiceProvider, tenantId, userId);
+                var db = scope.ServiceProvider.GetRequiredService<AgentsDbContext>();
+                return await db.ConversationSummaries
+                    .Where(s => s.TenantId == tenantId && s.UserId == userId)
+                    .AnyAsync(cancellationToken);
+            });
 
         await Task.WhenAll(financeTask, memoryTask, userContextTask, hasConversationHistoryTask);
 
@@ -239,5 +256,29 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         if (json is null) return null;
         try { return JsonSerializer.Deserialize<string>(json); }
         catch { return json; }
+    }
+
+    /// <summary>
+    /// Seeds the tenant / user context on a freshly-created scope so that
+    /// EF Core global query filters (which read these from
+    /// <see cref="ITenantContext"/> / <see cref="ICurrentUserContext"/>)
+    /// resolve identically to the parent scope. Mirrors the equivalent
+    /// helper on <see cref="ChatThreadManager"/>.
+    /// </summary>
+    private static void SeedScopeContext(IServiceProvider services, Guid tenantId, Guid userId)
+    {
+        var tc = services.GetService<ITenantContext>();
+        if (tc is not null)
+        {
+            tc.TenantId = tenantId;
+            tc.ResolutionSource = "user-brief-history-scope";
+        }
+
+        var uc = services.GetService<ICurrentUserContext>();
+        if (uc is not null)
+        {
+            uc.UserId = userId;
+            uc.TenantId = tenantId;
+        }
     }
 }
