@@ -28,5 +28,19 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!--
+	  ATS exception scoped to local networking only — required so the
+	  AVPlayer can fetch encoded audio bytes from just_audio's local
+	  HTTP proxy at 127.0.0.1 / localhost on macOS. The network.client
+	  / network.server entitlements alone are not sufficient: ATS still
+	  blocks cleartext loopback unless one of the local-networking keys
+	  is present. NSAllowsLocalNetworking keeps real backends locked
+	  down to HTTPS while permitting the loopback connection.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
