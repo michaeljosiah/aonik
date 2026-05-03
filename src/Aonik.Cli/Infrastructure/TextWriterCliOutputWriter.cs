@@ -198,6 +198,49 @@ public sealed class TextWriterCliOutputWriter : ICliOutputWriter
             }
         }
 
+        // speech.audio carries base64-encoded audio bytes — render a one-line
+        // summary instead of dumping the payload to the terminal. Same hook
+        // can short-circuit any future binary CUSTOM event.
+        if (string.Equals(streamEvent.Type, "CUSTOM", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(streamEvent.Name, "speech.audio", StringComparison.OrdinalIgnoreCase))
+        {
+            using var document = JsonDocument.Parse(streamEvent.Json);
+            if (document.RootElement.TryGetProperty("value", out var value))
+            {
+                var chunkIndex = value.TryGetProperty("chunkIndex", out var chunkProp) ? chunkProp.GetInt32() : -1;
+                var seq = value.TryGetProperty("seq", out var seqProp) ? seqProp.GetInt32() : -1;
+                var bytes = value.TryGetProperty("data", out var dataProp) && dataProp.ValueKind == JsonValueKind.String
+                    ? EstimateBase64DecodedLength(dataProp.GetString())
+                    : 0;
+                var isFinal = value.TryGetProperty("isFinal", out var isFinalProp) && isFinalProp.GetBoolean();
+                var cached = value.TryGetProperty("cached", out var cachedProp) && cachedProp.GetBoolean();
+                var provider = value.TryGetProperty("provider", out var providerProp) ? providerProp.GetString() : null;
+                return $"[speech.audio] chunk={chunkIndex} seq={seq} bytes={bytes} provider={provider} cached={cached} final={isFinal}";
+            }
+        }
+
+        if (string.Equals(streamEvent.Type, "CUSTOM", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(streamEvent.Name, "speech.audio.error", StringComparison.OrdinalIgnoreCase))
+        {
+            using var document = JsonDocument.Parse(streamEvent.Json);
+            if (document.RootElement.TryGetProperty("value", out var value))
+            {
+                var chunkIndex = value.TryGetProperty("chunkIndex", out var chunkProp) ? chunkProp.GetInt32() : -1;
+                var code = value.TryGetProperty("code", out var codeProp) ? codeProp.GetString() : "unknown";
+                var message = value.TryGetProperty("message", out var msgProp) ? msgProp.GetString() : null;
+                return $"[speech.audio.error] chunk={chunkIndex} code={code} {message}";
+            }
+        }
+
         return $"[{streamEvent.Type}] {streamEvent.Json}";
+    }
+
+    private static int EstimateBase64DecodedLength(string? base64)
+    {
+        if (string.IsNullOrEmpty(base64)) return 0;
+        var padding = base64.EndsWith("==", StringComparison.Ordinal) ? 2
+            : base64.EndsWith('=') ? 1
+            : 0;
+        return (base64.Length / 4) * 3 - padding;
     }
 }

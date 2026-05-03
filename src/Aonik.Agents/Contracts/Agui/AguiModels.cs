@@ -37,6 +37,27 @@ public sealed class AguiRunInput
 
     [JsonPropertyName("forwardedProps")]
     public JsonElement? ForwardedProperties { get; set; }
+
+    /// <summary>
+    /// Voice mode. When <c>true</c>, the endpoint synthesizes audio for
+    /// each emitted <c>speech.chunk</c> server-side and emits the audio
+    /// bytes inline as <c>speech.audio</c> CUSTOM events on the same SSE
+    /// stream. <c>RUN_FINISHED</c> is held until every audio frame has
+    /// been flushed to the wire (drain contract). Defaults to
+    /// <c>false</c> — non-voice clients are unaffected.
+    /// </summary>
+    [JsonPropertyName("voiceMode")]
+    public bool VoiceMode { get; set; }
+
+    /// <summary>
+    /// Requested audio container format when <see cref="VoiceMode"/> is
+    /// <c>true</c>. One of <c>mp3</c>, <c>opus</c>, or <c>wav</c>;
+    /// rejected with HTTP 400 if any other value is supplied.
+    /// Ignored entirely when <c>VoiceMode == false</c>. When omitted in
+    /// voice mode, defaults to <c>mp3</c>.
+    /// </summary>
+    [JsonPropertyName("audioFormat")]
+    public string? AudioFormat { get; set; }
 }
 
 /// <summary>

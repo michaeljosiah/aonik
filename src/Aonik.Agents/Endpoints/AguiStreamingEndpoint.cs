@@ -42,6 +42,8 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
     private readonly IToolCallClassifier _classifier;
     private readonly ISpeechRenderer _speechRenderer;
     private readonly IPostStreamPersistenceCoordinator _coordinator;
+    private readonly IStreamingTextToSpeechService? _streamingTts;
+    private readonly ITenantTextToSpeechSettingsService? _ttsSettings;
     private readonly ICurrentUserProvider? _currentUserProvider;
     private readonly ITenantContext? _tenantContext;
     private readonly ICurrentUserContext? _currentUserContext;
@@ -55,6 +57,8 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         ISpeechRenderer speechRenderer,
         IPostStreamPersistenceCoordinator coordinator,
         ILogger<AguiStreamingEndpoint> logger,
+        IStreamingTextToSpeechService? streamingTts = null,
+        ITenantTextToSpeechSettingsService? ttsSettings = null,
         ICurrentUserProvider? currentUserProvider = null,
         ITenantContext? tenantContext = null,
         ICurrentUserContext? currentUserContext = null)
@@ -66,6 +70,8 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         _speechRenderer = speechRenderer;
         _coordinator = coordinator;
         _logger = logger;
+        _streamingTts = streamingTts;
+        _ttsSettings = ttsSettings;
         _currentUserProvider = currentUserProvider;
         _tenantContext = tenantContext;
         _currentUserContext = currentUserContext;
@@ -85,11 +91,96 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
     public override async Task HandleAsync(AguiRunInput input, CancellationToken cancellationToken)
     {
+        // Voice-mode pre-flight validation MUST happen before any SSE bytes
+        // are written. Once SSE has started we can't switch to a JSON 400
+        // body — the client is already in event-stream mode.
+        var voiceMode = input.VoiceMode;
+        var requestedAbstractFormat = voiceMode
+            ? (input.AudioFormat ?? AudioFormatNegotiation.DefaultAbstractFormat)
+            : null;
+        string? providerFormat = null;
+        string? abstractFormat = null;
+        string? audioMime = null;
+
+        if (voiceMode)
+        {
+            if (_streamingTts is null || _ttsSettings is null)
+            {
+                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                HttpContext.Response.ContentType = "application/json";
+                await HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    code = "voice_mode_unavailable",
+                    message = "Voice mode is not supported in this deployment.",
+                }, cancellationToken);
+                return;
+            }
+
+            if (!AudioFormatNegotiation.IsKnownAbstractFormat(requestedAbstractFormat))
+            {
+                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                HttpContext.Response.ContentType = "application/json";
+                await HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    code = "invalid_audio_format",
+                    message = $"Unsupported audioFormat '{input.AudioFormat}'. Use one of: mp3, opus, wav.",
+                }, cancellationToken);
+                return;
+            }
+
+            // Ask the tenant settings layer for the configured TTS provider so
+            // we can validate the abstract → provider format mapping before
+            // committing to SSE.
+            var settings = await _ttsSettings.GetCurrentAsync(cancellationToken);
+            if (!settings.Enabled)
+            {
+                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                HttpContext.Response.ContentType = "application/json";
+                await HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    code = "voice_mode_disabled",
+                    message = "Text-to-speech is disabled for this tenant; voice mode is unavailable.",
+                }, cancellationToken);
+                return;
+            }
+
+            providerFormat = AudioFormatNegotiation.MapToProviderFormat(settings.DefaultProfile.Provider, requestedAbstractFormat!);
+            if (providerFormat is null)
+            {
+                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                HttpContext.Response.ContentType = "application/json";
+                await HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    code = "unsupported_audio_format",
+                    message = $"Provider '{settings.DefaultProfile.Provider}' does not support audioFormat '{requestedAbstractFormat}' for voice-mode AGUI.",
+                }, cancellationToken);
+                return;
+            }
+
+            abstractFormat = requestedAbstractFormat;
+            audioMime = AudioFormatNegotiation.MapAbstractToMime(requestedAbstractFormat!);
+        }
+
         using var chatActivity = AiTelemetry.ActivitySource.StartActivity("aonik.chat.agui", ActivityKind.Internal);
+        if (voiceMode)
+        {
+            chatActivity?.SetTag(AiTelemetry.UseCaseAttribute, "voice");
+            chatActivity?.SetTag("aonik.chat.audio_format", abstractFormat);
+        }
 
         var response = HttpContext.Response;
         var runId = input.RunId ?? Guid.NewGuid().ToString("N");
         var requestStopwatch = Stopwatch.StartNew();
+        await using var writer = new AguiResponseWriter(response, voiceMode, requestStopwatch);
+        await using VoiceSynthCoordinator? voiceCoordinator = voiceMode
+            ? new VoiceSynthCoordinator(
+                streamingTts: _streamingTts!,
+                writer: writer,
+                abstractFormat: abstractFormat!,
+                providerFormat: providerFormat!,
+                mime: audioMime!,
+                logger: _logger)
+            : null;
         var assistantTextBuilder = new System.Text.StringBuilder();
         long inputTokens = 0;
         long outputTokens = 0;
@@ -157,7 +248,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         try
         {
             await response.StartAsync(cancellationToken);
-            await WriteSseEventAsync(response, new
+            await WriteSseEventAsync(writer, new
             {
                 type = "RUN_STARTED",
                 threadId,
@@ -249,7 +340,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                                     {
                                         ["elapsed_ms"] = timeToFirstTokenMs.Value,
                                     }));
-                                await WriteSseEventAsync(response, new
+                                await WriteSseEventAsync(writer, new
                                 {
                                     type = "TEXT_MESSAGE_START",
                                     messageId,
@@ -261,7 +352,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                             assistantTextBuilder.Append(textContent.Text);
                             speechBuffer.Append(textContent.Text);
 
-                            await WriteSseEventAsync(response, new
+                            await WriteSseEventAsync(writer, new
                             {
                                 type = "TEXT_MESSAGE_CONTENT",
                                 messageId,
@@ -272,7 +363,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                             while (speechBuffer.TryPopSentence(out var rawChunk))
                             {
                                 await EmitSpeechChunkAsync(
-                                    response, messageId, speechBuffer.NextChunkIndex - 1,
+                                    writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
                                     rawChunk, isFinal: false, cancellationToken);
                             }
                             break;
@@ -283,7 +374,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                             requiresVisualAttention |= _classifier.IsDisplay(toolName);
                             requiresApproval |= _classifier.RequiresApproval(toolName);
 
-                            await WriteSseEventAsync(response, new
+                            await WriteSseEventAsync(writer, new
                             {
                                 type = "TOOL_CALL_START",
                                 toolCallId,
@@ -295,7 +386,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                             {
                                 var argsJson = JsonSerializer.Serialize(
                                     functionCall.Arguments, JsonOptions);
-                                await WriteSseEventAsync(response, new
+                                await WriteSseEventAsync(writer, new
                                 {
                                     type = "TOOL_CALL_ARGS",
                                     toolCallId,
@@ -303,7 +394,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                                 }, cancellationToken);
                             }
 
-                            await WriteSseEventAsync(response, new
+                            await WriteSseEventAsync(writer, new
                             {
                                 type = "TOOL_CALL_END",
                                 toolCallId,
@@ -311,7 +402,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                             break;
 
                         case FunctionResultContent functionResult:
-                            await WriteSseEventAsync(response, new
+                            await WriteSseEventAsync(writer, new
                             {
                                 type = "TOOL_CALL_RESULT",
                                 messageId = Guid.NewGuid().ToString("N"),
@@ -324,7 +415,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                         case TextReasoningContent reasoningContent
                             when !string.IsNullOrEmpty(reasoningContent.Text):
 
-                            await WriteSseEventAsync(response, new
+                            await WriteSseEventAsync(writer, new
                             {
                                 type = "REASONING_MESSAGE_CONTENT",
                                 messageId,
@@ -344,7 +435,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
             if (messageStarted)
             {
-                await WriteSseEventAsync(response, new
+                await WriteSseEventAsync(writer, new
                 {
                     type = "TEXT_MESSAGE_END",
                     messageId,
@@ -355,12 +446,12 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             if (tailChunk is not null)
             {
                 await EmitSpeechChunkAsync(
-                    response, messageId, speechBuffer.NextChunkIndex - 1,
+                    writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
                     tailChunk, isFinal: true, cancellationToken);
             }
 
             var guidanceText = _speechRenderer.RenderGuidance(requiresVisualAttention, requiresApproval);
-            await WriteSseEventAsync(response, new
+            await WriteSseEventAsync(writer, new
             {
                 type = "CUSTOM",
                 name = "speech.render",
@@ -374,24 +465,69 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 }
             }, cancellationToken);
 
-            requestStopwatch.Stop();
-
-            var metrics = new
+            // Voice-mode drain contract — RUN_FINISHED must come AFTER
+            // every audio frame has been flushed to the wire. Wait first
+            // for synth workers to finish enqueueing frames, then close
+            // the audio channel, then wait for the writer's pump to
+            // complete. Per the design refinement: "drained" means
+            // writer-flushed, not synth-completed.
+            if (voiceCoordinator is not null)
             {
-                inputTokens,
-                outputTokens,
-                totalTokens = inputTokens + outputTokens,
-                latencyMs = requestStopwatch.ElapsedMilliseconds,
-                timeToFirstTokenMs = timeToFirstTokenMs ?? requestStopwatch.ElapsedMilliseconds,
-            };
+                await voiceCoordinator.WaitForAllSynthesisAsync();
+                writer.CompleteAudioInput();
+                await writer.WaitForAudioDrainAsync();
+            }
+
+            requestStopwatch.Stop();
+            var audioMetrics = writer.GetAudioMetrics();
+
+            object metrics = audioMetrics.VoiceMode
+                ? new
+                {
+                    inputTokens,
+                    outputTokens,
+                    totalTokens = inputTokens + outputTokens,
+                    latencyMs = requestStopwatch.ElapsedMilliseconds,
+                    timeToFirstTokenMs = timeToFirstTokenMs ?? requestStopwatch.ElapsedMilliseconds,
+                    audioBytes = audioMetrics.AudioBytes,
+                    audioFrames = audioMetrics.AudioFrames,
+                    audioFramesDropped = audioMetrics.AudioFramesDropped,
+                    ttsCacheHits = audioMetrics.TtsCacheHits,
+                    ttsCacheMisses = audioMetrics.TtsCacheMisses,
+                    firstAudibleByteMs = audioMetrics.FirstAudibleByteMs,
+                    audioDrainMs = audioMetrics.AudioDrainMs,
+                }
+                : new
+                {
+                    inputTokens,
+                    outputTokens,
+                    totalTokens = inputTokens + outputTokens,
+                    latencyMs = requestStopwatch.ElapsedMilliseconds,
+                    timeToFirstTokenMs = timeToFirstTokenMs ?? requestStopwatch.ElapsedMilliseconds,
+                };
+
+            if (audioMetrics.VoiceMode)
+            {
+                chatActivity?.SetTag("aonik.chat.audio_bytes", audioMetrics.AudioBytes);
+                chatActivity?.SetTag("aonik.chat.audio_frames", audioMetrics.AudioFrames);
+                chatActivity?.SetTag("aonik.chat.audio_frames_dropped", audioMetrics.AudioFramesDropped);
+                chatActivity?.SetTag("aonik.chat.tts_cache_hits", audioMetrics.TtsCacheHits);
+                chatActivity?.SetTag("aonik.chat.tts_cache_misses", audioMetrics.TtsCacheMisses);
+                if (audioMetrics.FirstAudibleByteMs.HasValue)
+                    chatActivity?.SetTag("aonik.chat.first_audible_byte_ms", audioMetrics.FirstAudibleByteMs.Value);
+                if (audioMetrics.AudioDrainMs.HasValue)
+                    chatActivity?.SetTag("aonik.chat.audio_drain_ms", audioMetrics.AudioDrainMs.Value);
+            }
 
             _logger.LogInformation(
-                "AguiRunCompleted: RunId={RunId} AgentName={AgentName} ThreadId={ThreadId} LatencyMs={LatencyMs} TtftMs={TtftMs} InputTokens={InputTokens} OutputTokens={OutputTokens} TotalTokens={TotalTokens}",
+                "AguiRunCompleted: RunId={RunId} AgentName={AgentName} ThreadId={ThreadId} LatencyMs={LatencyMs} TtftMs={TtftMs} InputTokens={InputTokens} OutputTokens={OutputTokens} TotalTokens={TotalTokens} VoiceMode={VoiceMode} AudioBytes={AudioBytes} AudioFrames={AudioFrames} AudioFramesDropped={AudioFramesDropped} FirstAudibleByteMs={FirstAudibleByteMs} AudioDrainMs={AudioDrainMs}",
                 runId, input.AgentId ?? "orchestrator", threadId,
-                metrics.latencyMs, metrics.timeToFirstTokenMs,
-                inputTokens, outputTokens, inputTokens + outputTokens);
+                requestStopwatch.ElapsedMilliseconds, timeToFirstTokenMs ?? requestStopwatch.ElapsedMilliseconds,
+                inputTokens, outputTokens, inputTokens + outputTokens,
+                audioMetrics.VoiceMode, audioMetrics.AudioBytes, audioMetrics.AudioFrames,
+                audioMetrics.AudioFramesDropped, audioMetrics.FirstAudibleByteMs, audioMetrics.AudioDrainMs);
 
-            await WriteSseEventAsync(response, new
+            await WriteSseEventAsync(writer, new
             {
                 type = "RUN_FINISHED",
                 threadId,
@@ -435,7 +571,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
             try
             {
-                await WriteSseEventAsync(response, new
+                await WriteSseEventAsync(writer, new
                 {
                     type = "RUN_ERROR",
                     message = ex.Message,
@@ -524,19 +660,19 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
     /// <summary>
     /// Writes a single SSE event as a <c>data: {json}\n\n</c> line.
+    /// Routes through <see cref="AguiResponseWriter.WriteControlAsync"/>
+    /// so audio frames in voice mode never preempt control writes.
     /// </summary>
-    private static async Task WriteSseEventAsync<T>(
-        HttpResponse response,
+    private static Task WriteSseEventAsync<T>(
+        AguiResponseWriter writer,
         T eventData,
-        CancellationToken cancellationToken)
-    {
-        var json = JsonSerializer.Serialize(eventData, JsonOptions);
-        await response.WriteAsync($"data: {json}\n\n", cancellationToken);
-        await response.Body.FlushAsync(cancellationToken);
-    }
+        CancellationToken cancellationToken) =>
+        writer.WriteControlAsync(eventData, cancellationToken);
 
     private async Task EmitSpeechChunkAsync(
-        HttpResponse response,
+        AguiResponseWriter writer,
+        VoiceSynthCoordinator? voiceCoordinator,
+        string threadId,
         string messageId,
         int chunkIndex,
         string rawChunk,
@@ -547,7 +683,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         if (string.IsNullOrWhiteSpace(chunkText))
             return;
 
-        await WriteSseEventAsync(response, new
+        await WriteSseEventAsync(writer, new
         {
             type = "CUSTOM",
             name = "speech.chunk",
@@ -559,5 +695,11 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 isFinal,
             },
         }, cancellationToken);
+
+        // Voice mode fans out per-chunk synthesis; audio frames are
+        // enqueued through the prioritised writer's audio channel and
+        // flushed by its background pump while the LLM continues to
+        // emit later text deltas.
+        voiceCoordinator?.StartChunkSynthesis(messageId, chunkIndex, chunkText, threadId, cancellationToken);
     }
 }
