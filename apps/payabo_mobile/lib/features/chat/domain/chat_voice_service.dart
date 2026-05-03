@@ -962,15 +962,26 @@ class DeviceChatVoiceService implements ChatVoiceService {
   ) async {
     final source = chunk.inlineAudioSource!;
 
-    // Wait for the first frame to lock in the source's content type.
-    // If we hand the source to just_audio before this, the platform
-    // decoder reads the source's provisional `audio/mpeg` and locks
-    // it in for the rest of the stream, ignoring any later mime that
-    // [appendSpeechAudioFrame] tries to set. Awaiting here also
-    // covers the [markSpeechAudioError] / empty-close path — the
-    // future resolves on close, the empty-source skip below catches
-    // it, and we advance the queue cleanly.
-    await source.contentTypeReady;
+    // Hold off on `setAudioSource` until the source has either
+    // accumulated a useful playback prefix or closed. Two reasons:
+    //
+    // 1. ExoPlayer / AVPlayer sniff the format on the very first read
+    //    (Mp3Extractor needs ≤ 4 KB). With only the first inline frame
+    //    buffered, ExoPlayer can connect, drain it, then sit blocked on
+    //    the loopback proxy's HTTP socket while the next frame is in
+    //    flight — and the default 8 s `DefaultHttpDataSource` read
+    //    timeout fires before the next frame lands. Pre-buffering ~16 KB
+    //    (≈ 1 s of audio at 128 kbps MP3) means the platform decoder
+    //    can keep playing from buffer while frame N+1 streams in.
+    //
+    // 2. The first append also locks in the source's content type via
+    //    [updateContentTypeBeforeFirstRead]; before then, the platform
+    //    decoder would read the provisional `audio/mpeg` placeholder.
+    //
+    // The future also resolves on close, so chunks that finish small
+    // (or fail with `speech.audio.error`) fall through to the
+    // empty-source skip below.
+    await source.playbackBufferReady;
 
     // Re-check session — the user may have barged in while we were
     // waiting for the first frame.
@@ -1678,16 +1689,29 @@ class _QueuedSpeechChunk {
 /// by reading the response stream linearly.
 @visibleForTesting
 class AppendableAudioSource extends ja.StreamAudioSource {
-  AppendableAudioSource({required String contentType})
-      : _contentType = contentType;
+  AppendableAudioSource({
+    required String contentType,
+    int initialPlaybackBufferBytes = defaultInitialPlaybackBufferBytes,
+  })  : _contentType = contentType,
+        _initialPlaybackBufferBytes = initialPlaybackBufferBytes;
+
+  /// Bytes the source must accumulate before [playbackBufferReady]
+  /// resolves. Sized to comfortably cover ExoPlayer / AVPlayer's MP3
+  /// sniff (≤ 4 KB) plus a couple of decoded frames so the platform
+  /// player can keep playing while the next inline frame is in flight.
+  /// 16 KB ≈ 1 s of audio at 128 kbps — matches our server-side read
+  /// window, so the gate typically resolves on the first frame.
+  static const int defaultInitialPlaybackBufferBytes = 16 * 1024;
 
   String _contentType;
+  final int _initialPlaybackBufferBytes;
   final List<int> _buffer = <int>[];
   final List<StreamController<List<int>>> _activeReaders =
       <StreamController<List<int>>>[];
   bool _closed = false;
   Object? _terminalError;
   final Completer<void> _contentTypeReady = Completer<void>();
+  final Completer<void> _playbackBufferReady = Completer<void>();
 
   /// Resolves the moment the source's [contentType] is locked in:
   /// either the first [append] has set it, or the source has been
@@ -1695,6 +1719,22 @@ class AppendableAudioSource extends ja.StreamAudioSource {
   /// before handing the source to a player so the platform decoder
   /// gets the correct MIME on its first `request()`.
   Future<void> get contentTypeReady => _contentTypeReady.future;
+
+  /// Resolves once the source has buffered at least
+  /// [_initialPlaybackBufferBytes] of audio data **or** has been
+  /// closed (cleanly or with an error). Callers should await this
+  /// before handing the source to a player so:
+  ///
+  /// * ExoPlayer / AVPlayer have enough bytes for the format sniff
+  ///   to succeed without blocking on the proxy's HTTP socket.
+  /// * The first decoded audio frame can be served from buffer, giving
+  ///   the next inline TTS frame time to arrive without the HTTP read
+  ///   timing out.
+  ///
+  /// For very small chunks that close before reaching the threshold,
+  /// the future resolves on close — callers then play whatever is
+  /// available and move on.
+  Future<void> get playbackBufferReady => _playbackBufferReady.future;
 
   /// Total bytes appended so far (handy for tests / instrumentation).
   int get bufferedLength => _buffer.length;
@@ -1717,14 +1757,20 @@ class AppendableAudioSource extends ja.StreamAudioSource {
 
   /// Append [data] to the buffer and broadcast to any active reader.
   /// Silently no-ops if the source has already been closed. The first
-  /// non-empty append also resolves [contentTypeReady] so callers can
-  /// safely hand the source to a player after this point — the
-  /// content type will not change for subsequent reads.
+  /// non-empty append also resolves [contentTypeReady]; once the
+  /// buffered total reaches [_initialPlaybackBufferBytes],
+  /// [playbackBufferReady] resolves too, signalling that the player
+  /// can be safely connected without risking an HTTP-read timeout on
+  /// the loopback proxy.
   void append(List<int> data) {
     if (_closed || data.isEmpty) return;
     _buffer.addAll(data);
     if (!_contentTypeReady.isCompleted) {
       _contentTypeReady.complete();
+    }
+    if (!_playbackBufferReady.isCompleted &&
+        _buffer.length >= _initialPlaybackBufferBytes) {
+      _playbackBufferReady.complete();
     }
     for (final controller in _activeReaders) {
       if (!controller.isClosed) {
@@ -1736,14 +1782,17 @@ class AppendableAudioSource extends ja.StreamAudioSource {
   /// Close the source cleanly. Active readers receive the rest of the
   /// buffered bytes (already emitted) plus EOF; the player will play out
   /// the decoded audio and then transition to
-  /// [ja.ProcessingState.completed]. Also resolves [contentTypeReady]
-  /// so any caller awaiting it unblocks (typically into the empty-
-  /// source skip path).
+  /// [ja.ProcessingState.completed]. Also resolves both readiness
+  /// futures so any caller awaiting them unblocks (typically into the
+  /// "play whatever was buffered" path).
   void close() {
     if (_closed) return;
     _closed = true;
     if (!_contentTypeReady.isCompleted) {
       _contentTypeReady.complete();
+    }
+    if (!_playbackBufferReady.isCompleted) {
+      _playbackBufferReady.complete();
     }
     for (final controller in _activeReaders) {
       if (!controller.isClosed) {
@@ -1755,7 +1804,7 @@ class AppendableAudioSource extends ja.StreamAudioSource {
 
   /// Close the source with an error so any active player surfaces a
   /// playback exception instead of "completed". Used when synthesis
-  /// fails mid-stream. Also resolves [contentTypeReady] (without
+  /// fails mid-stream. Resolves both readiness futures (without
   /// raising) so awaiters proceed and observe [isClosed].
   void closeWithError(Object error) {
     if (_closed) return;
@@ -1763,6 +1812,9 @@ class AppendableAudioSource extends ja.StreamAudioSource {
     _terminalError = error;
     if (!_contentTypeReady.isCompleted) {
       _contentTypeReady.complete();
+    }
+    if (!_playbackBufferReady.isCompleted) {
+      _playbackBufferReady.complete();
     }
     for (final controller in _activeReaders) {
       if (!controller.isClosed) {

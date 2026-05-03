@@ -222,5 +222,72 @@ void main() {
       expect(response.contentType, 'audio/opus');
       source.close();
     });
+
+    test('playbackBufferReady waits for the threshold before resolving',
+        () async {
+      // Tight threshold so the test stays small.
+      final source = AppendableAudioSource(
+        contentType: 'audio/mpeg',
+        initialPlaybackBufferBytes: 8,
+      );
+      var resolved = false;
+      // ignore: unawaited_futures
+      source.playbackBufferReady.then((_) => resolved = true);
+
+      // First small append: content type ready, buffer NOT yet ready.
+      source.append([1, 2, 3]);
+      await Future<void>.value();
+      expect(source.bufferedLength, 3);
+      expect(resolved, isFalse,
+          reason: 'buffer below threshold should not resolve playbackBufferReady');
+
+      // Cross the threshold.
+      source.append([4, 5, 6, 7, 8]);
+      await source.playbackBufferReady;
+      expect(resolved, isTrue);
+      expect(source.bufferedLength, 8);
+      source.close();
+    });
+
+    test('playbackBufferReady resolves immediately once threshold is reached',
+        () async {
+      // Threshold smaller than one append — should resolve on that
+      // first append without needing more bytes.
+      final source = AppendableAudioSource(
+        contentType: 'audio/mpeg',
+        initialPlaybackBufferBytes: 4,
+      );
+      source.append([1, 2, 3, 4, 5, 6, 7, 8]);
+      await source.playbackBufferReady;
+      expect(source.bufferedLength, 8);
+      source.close();
+    });
+
+    test('playbackBufferReady resolves on close even if below threshold',
+        () async {
+      // Small chunk that closes before reaching the threshold — the
+      // gate must still resolve so the playback loop can play
+      // whatever was buffered (or skip if empty).
+      final source = AppendableAudioSource(
+        contentType: 'audio/mpeg',
+        initialPlaybackBufferBytes: 1024,
+      );
+      source.append([1, 2, 3]);
+      source.close();
+      await source.playbackBufferReady;
+      expect(source.isClosed, isTrue);
+      expect(source.bufferedLength, 3);
+    });
+
+    test('playbackBufferReady resolves on closeWithError', () async {
+      final source = AppendableAudioSource(
+        contentType: 'audio/mpeg',
+        initialPlaybackBufferBytes: 1024,
+      );
+      source.closeWithError(StateError('synth_failed'));
+      await source.playbackBufferReady;
+      expect(source.isClosed, isTrue);
+      expect(source.bufferedLength, 0);
+    });
   });
 }
