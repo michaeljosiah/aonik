@@ -962,6 +962,22 @@ class DeviceChatVoiceService implements ChatVoiceService {
   ) async {
     final source = chunk.inlineAudioSource!;
 
+    // Wait for the first frame to lock in the source's content type.
+    // If we hand the source to just_audio before this, the platform
+    // decoder reads the source's provisional `audio/mpeg` and locks
+    // it in for the rest of the stream, ignoring any later mime that
+    // [appendSpeechAudioFrame] tries to set. Awaiting here also
+    // covers the [markSpeechAudioError] / empty-close path — the
+    // future resolves on close, the empty-source skip below catches
+    // it, and we advance the queue cleanly.
+    await source.contentTypeReady;
+
+    // Re-check session — the user may have barged in while we were
+    // waiting for the first frame.
+    if (_activeQueueSessionId != sessionId) {
+      return;
+    }
+
     // If no audio bytes ever arrived AND the source is already closed
     // (the speech.audio.error path) skip playback entirely — text was
     // delivered via speech.chunk so the user already saw the message.
@@ -969,10 +985,6 @@ class DeviceChatVoiceService implements ChatVoiceService {
       _log(
         'queue chunk skipped (no audio) session=$sessionId index=${chunk.index}',
       );
-      return;
-    }
-
-    if (_activeQueueSessionId != sessionId) {
       return;
     }
 
@@ -1675,6 +1687,14 @@ class AppendableAudioSource extends ja.StreamAudioSource {
       <StreamController<List<int>>>[];
   bool _closed = false;
   Object? _terminalError;
+  final Completer<void> _contentTypeReady = Completer<void>();
+
+  /// Resolves the moment the source's [contentType] is locked in:
+  /// either the first [append] has set it, or the source has been
+  /// closed (with or without an error). Callers should await this
+  /// before handing the source to a player so the platform decoder
+  /// gets the correct MIME on its first `request()`.
+  Future<void> get contentTypeReady => _contentTypeReady.future;
 
   /// Total bytes appended so far (handy for tests / instrumentation).
   int get bufferedLength => _buffer.length;
@@ -1696,10 +1716,16 @@ class AppendableAudioSource extends ja.StreamAudioSource {
   }
 
   /// Append [data] to the buffer and broadcast to any active reader.
-  /// Silently no-ops if the source has already been closed.
+  /// Silently no-ops if the source has already been closed. The first
+  /// non-empty append also resolves [contentTypeReady] so callers can
+  /// safely hand the source to a player after this point — the
+  /// content type will not change for subsequent reads.
   void append(List<int> data) {
     if (_closed || data.isEmpty) return;
     _buffer.addAll(data);
+    if (!_contentTypeReady.isCompleted) {
+      _contentTypeReady.complete();
+    }
     for (final controller in _activeReaders) {
       if (!controller.isClosed) {
         controller.add(data);
@@ -1710,10 +1736,15 @@ class AppendableAudioSource extends ja.StreamAudioSource {
   /// Close the source cleanly. Active readers receive the rest of the
   /// buffered bytes (already emitted) plus EOF; the player will play out
   /// the decoded audio and then transition to
-  /// [ja.ProcessingState.completed].
+  /// [ja.ProcessingState.completed]. Also resolves [contentTypeReady]
+  /// so any caller awaiting it unblocks (typically into the empty-
+  /// source skip path).
   void close() {
     if (_closed) return;
     _closed = true;
+    if (!_contentTypeReady.isCompleted) {
+      _contentTypeReady.complete();
+    }
     for (final controller in _activeReaders) {
       if (!controller.isClosed) {
         controller.close();
@@ -1724,11 +1755,15 @@ class AppendableAudioSource extends ja.StreamAudioSource {
 
   /// Close the source with an error so any active player surfaces a
   /// playback exception instead of "completed". Used when synthesis
-  /// fails mid-stream.
+  /// fails mid-stream. Also resolves [contentTypeReady] (without
+  /// raising) so awaiters proceed and observe [isClosed].
   void closeWithError(Object error) {
     if (_closed) return;
     _closed = true;
     _terminalError = error;
+    if (!_contentTypeReady.isCompleted) {
+      _contentTypeReady.complete();
+    }
     for (final controller in _activeReaders) {
       if (!controller.isClosed) {
         controller.addError(error);

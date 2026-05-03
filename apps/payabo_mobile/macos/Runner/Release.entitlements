@@ -4,5 +4,16 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!--
+	  Network entitlements required by just_audio's StreamAudioSource:
+	  the package starts a local HTTP proxy (`network.server`) so the
+	  platform player can fetch streamed bytes from a loopback URL
+	  (`network.client`). Without these, the proxy fails to bind under
+	  the sandbox and voice-mode audio doesn't play on macOS.
+	-->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
 </dict>
 </plist>

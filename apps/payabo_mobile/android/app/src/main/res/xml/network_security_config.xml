@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network security policy for Payabo.
+
+  Default: cleartext is forbidden everywhere. All real network traffic
+  goes to HTTPS endpoints (Aonik API + ElevenLabs/Mistral via the API).
+
+  Exception: just_audio's StreamAudioSource pipes encoded bytes through
+  a local proxy that the platform player connects to over plaintext
+  HTTP at 127.0.0.1 / localhost. We allow cleartext ONLY to those two
+  loopback hosts; nothing else can use cleartext, including IPv6
+  loopback.
+
+  Without this scoped exception, Android 9+ would block the proxy
+  request and just_audio would surface a "Source error" before any
+  voice-mode audio plays.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

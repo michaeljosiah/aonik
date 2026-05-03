@@ -168,5 +168,59 @@ void main() {
       expect(response, isA<ja.StreamAudioResponse>());
       source.close();
     });
+
+    test('contentTypeReady resolves on first append', () async {
+      final source = AppendableAudioSource(contentType: 'audio/mpeg');
+      var resolved = false;
+      // ignore: unawaited_futures
+      source.contentTypeReady.then((_) => resolved = true);
+
+      // Microtask boundary so the .then callback can run if it would.
+      await Future<void>.value();
+      expect(resolved, isFalse);
+
+      source.append([1, 2, 3]);
+      await source.contentTypeReady;
+      expect(resolved, isTrue);
+      source.close();
+    });
+
+    test('contentTypeReady resolves on close even with no frames', () async {
+      final source = AppendableAudioSource(contentType: 'audio/mpeg');
+      var resolved = false;
+      // ignore: unawaited_futures
+      source.contentTypeReady.then((_) => resolved = true);
+
+      source.close();
+      await source.contentTypeReady;
+      expect(resolved, isTrue);
+      expect(source.isClosed, isTrue);
+      expect(source.bufferedLength, 0);
+    });
+
+    test('contentTypeReady resolves on closeWithError', () async {
+      final source = AppendableAudioSource(contentType: 'audio/mpeg');
+      source.closeWithError(StateError('boom'));
+      // Should resolve, not raise. Awaiters then proceed and check
+      // [isClosed] / buffered length.
+      await source.contentTypeReady;
+      expect(source.isClosed, isTrue);
+    });
+
+    test('content type set by frame mime is observable after contentTypeReady',
+        () async {
+      final source = AppendableAudioSource(contentType: 'audio/mpeg');
+      // Simulate the production flow: first frame sets the real mime
+      // BEFORE the player's request lands.
+      source.updateContentTypeBeforeFirstRead('audio/opus');
+      source.append([1, 2, 3]);
+
+      await source.contentTypeReady;
+      expect(source.contentType, 'audio/opus');
+
+      final response = await source.request();
+      expect(response.contentType, 'audio/opus');
+      source.close();
+    });
   });
 }

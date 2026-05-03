@@ -390,7 +390,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
 
         final String guidanceText = next.pendingSpeechText!.trim();
-        if (_voiceChunksEnqueued == 0) {
+        final bool fellBackToFullTextSynth = _voiceChunksEnqueued == 0;
+        if (fellBackToFullTextSynth) {
           // No streaming chunks arrived (single-shot render). Split the full
           // text locally and enqueue each sentence-level chunk.
           for (final String chunk
@@ -402,7 +403,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             _chatVoiceService.enqueueSpeechChunk(chunk);
           }
         }
-        unawaited(_chatVoiceService.stopThinkingLoop());
+        // Only stop the thinking loop here if we actually fell back to
+        // the legacy synthesize-then-play path. For voice-mode runs
+        // (streamed `speech.chunk` arrived), `speech.render` fires
+        // before TTS audio drain, and stopping early would create the
+        // exact silent gap this refactor is meant to avoid. The voice
+        // service's `onSpeakingStart` callback handles the loop in the
+        // streaming path — see `_beginVoiceSpeechQueue`.
+        if (fellBackToFullTextSynth) {
+          unawaited(_chatVoiceService.stopThinkingLoop());
+        }
       }
 
       if (_voiceAwaitingBackendReply &&
