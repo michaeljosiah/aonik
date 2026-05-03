@@ -24,11 +24,21 @@ namespace Aonik.Agents.Services;
 internal sealed class VoiceSynthCoordinator : IAsyncDisposable
 {
     /// <summary>
-    /// Per-chunk synth ceiling. Confirmed default during sign-off — long
-    /// enough to tolerate a slow ElevenLabs handshake, short enough that
-    /// a flaky provider doesn't make the whole run feel stuck.
+    /// Per-chunk synth ceiling. Originally 5s, raised to 10s after a dev
+    /// trace audit showed Mistral TTS regularly returning at 4.7–5.0s for
+    /// normal-length sentences — i.e. right at the edge of the previous
+    /// timeout. The wider window absorbs that variability without making
+    /// the whole run feel stuck if one provider call truly hangs.
     /// </summary>
-    public static readonly TimeSpan PerChunkTimeout = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan PerChunkTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Chunks that fail with a transient error (timeout, network fault,
+    /// 5xx) get one quick retry on a fresh scope before we fall through
+    /// to the speech.audio.error path. The retry is bounded by a tighter
+    /// timeout so a genuinely stuck provider doesn't compound delays.
+    /// </summary>
+    public static readonly TimeSpan PerChunkRetryTimeout = TimeSpan.FromSeconds(7);
 
     private readonly IStreamingTextToSpeechService _streamingTts;
     private readonly AguiResponseWriter _writer;
@@ -134,8 +144,70 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
         string threadId,
         CancellationToken runCancellation)
     {
+        var firstAttempt = await TrySynthAsync(
+            messageId, chunkIndex, speechText, threadId,
+            runCancellation, PerChunkTimeout, attempt: 1);
+
+        if (firstAttempt.Succeeded)
+        {
+            Interlocked.Increment(ref _synthTasksCompleted);
+            return;
+        }
+
+        // Run-level cancellation: client gone. Stop retrying.
+        if (firstAttempt.Outcome == SynthAttemptOutcome.RunCancelled)
+        {
+            Interlocked.Increment(ref _synthTasksCancelled);
+            return;
+        }
+
+        // If we already streamed bytes to the wire, retrying would
+        // produce a discontinuous playback (duplicate header + missing
+        // tail). Surface the partial chunk's failure instead of retrying.
+        if (firstAttempt.AnyFramesEmitted)
+        {
+            await CountFailureAndEmitErrorAsync(
+                messageId, chunkIndex, firstAttempt.Outcome,
+                firstAttempt.ErrorMessage, threadId);
+            return;
+        }
+
+        _logger.LogWarning(
+            "voice TTS chunk first attempt failed ({Outcome}) — retrying once (chunkIndex={ChunkIndex}, threadId={ThreadId})",
+            firstAttempt.Outcome, chunkIndex, threadId);
+
+        var retryAttempt = await TrySynthAsync(
+            messageId, chunkIndex, speechText, threadId,
+            runCancellation, PerChunkRetryTimeout, attempt: 2);
+
+        if (retryAttempt.Succeeded)
+        {
+            Interlocked.Increment(ref _synthTasksCompleted);
+            return;
+        }
+
+        if (retryAttempt.Outcome == SynthAttemptOutcome.RunCancelled)
+        {
+            Interlocked.Increment(ref _synthTasksCancelled);
+            return;
+        }
+
+        await CountFailureAndEmitErrorAsync(
+            messageId, chunkIndex, retryAttempt.Outcome,
+            retryAttempt.ErrorMessage, threadId);
+    }
+
+    private async Task<SynthAttemptResult> TrySynthAsync(
+        string messageId,
+        int chunkIndex,
+        string speechText,
+        string threadId,
+        CancellationToken runCancellation,
+        TimeSpan timeout,
+        int attempt)
+    {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(runCancellation, _coordinatorCts.Token);
-        linked.CancelAfter(PerChunkTimeout);
+        linked.CancelAfter(timeout);
         var ct = linked.Token;
 
         var firstFrameSeen = false;
@@ -161,12 +233,7 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
                 if (!firstFrameSeen)
                 {
                     Interlocked.Increment(ref _synthTasksThatYieldedAtLeastOneFrame);
-                    if (frame.Cached)
-                    {
-                        // Cache hits are recorded by the writer's pump as
-                        // each frame flushes; nothing to do here.
-                    }
-                    else
+                    if (!frame.Cached)
                     {
                         _writer.RecordCacheMiss();
                     }
@@ -186,43 +253,83 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
                     cancellationToken: ct).ConfigureAwait(false);
             }
 
-            Interlocked.Increment(ref _synthTasksCompleted);
+            return SynthAttemptResult.Success(attempt, firstFrameSeen);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested && !runCancellation.IsCancellationRequested)
         {
-            Interlocked.Increment(ref _synthTasksTimedOut);
-            _logger.LogWarning(
-                "voice TTS chunk synthesis timed out (chunkIndex={ChunkIndex}, threadId={ThreadId})",
-                chunkIndex, threadId);
-            try
-            {
-                await _writer.EmitAudioErrorAsync(messageId, chunkIndex, "timeout", $"TTS synthesis exceeded {PerChunkTimeout.TotalSeconds:0.#}s.", CancellationToken.None);
-            }
-            catch
-            {
-                // Connection already broken; nothing more to do.
-            }
+            return SynthAttemptResult.Failure(SynthAttemptOutcome.Timeout, $"TTS synthesis exceeded {timeout.TotalSeconds:0.#}s.", attempt, firstFrameSeen);
         }
         catch (OperationCanceledException)
         {
-            Interlocked.Increment(ref _synthTasksCancelled);
-            // Run-level cancellation — the client is gone. No error event.
+            return SynthAttemptResult.Failure(SynthAttemptOutcome.RunCancelled, "Run cancelled.", attempt, firstFrameSeen);
         }
         catch (Exception ex)
         {
-            Interlocked.Increment(ref _synthTasksErrored);
-            _logger.LogWarning(ex,
-                "voice TTS chunk synthesis failed (chunkIndex={ChunkIndex}, threadId={ThreadId})",
-                chunkIndex, threadId);
-            try
-            {
-                await _writer.EmitAudioErrorAsync(messageId, chunkIndex, "synth_failed", ex.Message, CancellationToken.None);
-            }
-            catch
-            {
-                // Connection already broken.
-            }
+            return SynthAttemptResult.Failure(SynthAttemptOutcome.Errored, ex.Message, attempt, firstFrameSeen);
         }
+    }
+
+    private async Task CountFailureAndEmitErrorAsync(
+        string messageId,
+        int chunkIndex,
+        SynthAttemptOutcome outcome,
+        string errorMessage,
+        string threadId)
+    {
+        switch (outcome)
+        {
+            case SynthAttemptOutcome.Timeout:
+                Interlocked.Increment(ref _synthTasksTimedOut);
+                _logger.LogWarning(
+                    "voice TTS chunk synthesis timed out after retry (chunkIndex={ChunkIndex}, threadId={ThreadId})",
+                    chunkIndex, threadId);
+                try
+                {
+                    await _writer.EmitAudioErrorAsync(messageId, chunkIndex, "timeout", errorMessage, CancellationToken.None);
+                }
+                catch
+                {
+                    // Connection already broken; nothing more to do.
+                }
+                break;
+            default:
+                Interlocked.Increment(ref _synthTasksErrored);
+                _logger.LogWarning(
+                    "voice TTS chunk synthesis failed after retry (chunkIndex={ChunkIndex}, threadId={ThreadId}, message={ErrorMessage})",
+                    chunkIndex, threadId, errorMessage);
+                try
+                {
+                    await _writer.EmitAudioErrorAsync(messageId, chunkIndex, "synth_failed", errorMessage, CancellationToken.None);
+                }
+                catch
+                {
+                    // Connection already broken.
+                }
+                break;
+        }
+    }
+
+    private enum SynthAttemptOutcome
+    {
+        Succeeded,
+        Timeout,
+        Errored,
+        RunCancelled,
+    }
+
+    private readonly record struct SynthAttemptResult(
+        SynthAttemptOutcome Outcome,
+        string ErrorMessage,
+        int Attempt,
+        bool AnyFramesEmitted)
+    {
+        public bool Succeeded => Outcome == SynthAttemptOutcome.Succeeded;
+
+        public static SynthAttemptResult Success(int attempt, bool anyFramesEmitted)
+            => new(SynthAttemptOutcome.Succeeded, string.Empty, attempt, anyFramesEmitted);
+
+        public static SynthAttemptResult Failure(SynthAttemptOutcome outcome, string error, int attempt, bool anyFramesEmitted)
+            => new(outcome, error, attempt, anyFramesEmitted);
     }
 }
 
