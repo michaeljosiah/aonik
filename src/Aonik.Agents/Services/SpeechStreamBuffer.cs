@@ -6,7 +6,8 @@ namespace Aonik.Agents.Services;
 /// Buffers streaming assistant text and peels off complete sentences as
 /// they arrive so they can be sent to TTS progressively. A "complete
 /// sentence" is a span ending in <c>.</c>, <c>!</c>, or <c>?</c> (that is
-/// not a decimal) followed by whitespace, or a paragraph break.
+/// not a decimal) followed by whitespace or the current buffer end, or a
+/// paragraph break.
 /// </summary>
 internal sealed class SpeechStreamBuffer
 {
@@ -28,9 +29,10 @@ internal sealed class SpeechStreamBuffer
 
     /// <summary>
     /// If the buffered text contains a recognisable sentence boundary with
-    /// additional content following it, returns the leading completed span
-    /// and removes it from the buffer. Only cuts at the FIRST boundary so
-    /// TTS can start playback as soon as one sentence is ready.
+    /// additional content following it, or terminal punctuation at the
+    /// current buffer end, returns the leading completed span and removes it
+    /// from the buffer. Only cuts at the FIRST boundary so TTS can start
+    /// playback as soon as one sentence is ready.
     /// </summary>
     public bool TryPopSentence(out string rawChunk)
     {
@@ -88,15 +90,11 @@ internal sealed class SpeechStreamBuffer
 
             if (isTerminator)
             {
-                if (next >= text.Length) continue;
-                if (!char.IsWhiteSpace(text[next])) continue;
+                if (next < text.Length && !char.IsWhiteSpace(text[next])) continue;
             }
 
             while (next < text.Length && char.IsWhiteSpace(text[next]))
                 next++;
-
-            if (next >= text.Length)
-                continue;
 
             return next;
         }
