@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 
 using Aonik.Ai.Providers;
@@ -7,8 +8,14 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Ai.Services;
 
-internal sealed class TextToSpeechService : ITextToSpeechService
+internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingTextToSpeechService
 {
+    // 16 KB read buffer matches the typical MP3 frame batch size at
+    // 128 kbps and keeps the base64-encoded SSE payload around 21 KB
+    // per event — comfortable for HTTP/2 frames and well under any
+    // reasonable proxy buffer.
+    private const int StreamReadBufferSize = 16 * 1024;
+
     private readonly IEnumerable<ITextToSpeechProvider> _providers;
     private readonly ITextToSpeechCredentialResolver _credentialResolver;
     private readonly ITenantTextToSpeechSettingsService _settingsService;
@@ -16,6 +23,7 @@ internal sealed class TextToSpeechService : ITextToSpeechService
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IAiRunWriter _aiRunWriter;
     private readonly ITextToSpeechRateLimiter _rateLimiter;
+    private readonly ITtsCache _ttsCache;
     private readonly ILogger<TextToSpeechService> _logger;
 
     public TextToSpeechService(
@@ -26,6 +34,7 @@ internal sealed class TextToSpeechService : ITextToSpeechService
         ICurrentUserProvider currentUserProvider,
         IAiRunWriter aiRunWriter,
         ITextToSpeechRateLimiter rateLimiter,
+        ITtsCache ttsCache,
         ILogger<TextToSpeechService> logger)
     {
         _providers = providers;
@@ -35,6 +44,7 @@ internal sealed class TextToSpeechService : ITextToSpeechService
         _currentUserProvider = currentUserProvider;
         _aiRunWriter = aiRunWriter;
         _rateLimiter = rateLimiter;
+        _ttsCache = ttsCache;
         _logger = logger;
     }
 
@@ -154,6 +164,252 @@ internal sealed class TextToSpeechService : ITextToSpeechService
             _logger.LogWarning(ex, "Text-to-speech synthesis failed for tenant {TenantId} user {UserId}", tenantId, userId);
             await _aiRunWriter.MarkRunFailedAsync(aiRunId, ex.Message, cancellationToken);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Streaming variant of <see cref="SynthesizeAsync"/>. Yields audio
+    /// frames as they arrive from the provider, applying the same tenant
+    /// settings, credential resolution, rate limiting, normalization,
+    /// and AiRun audit lifecycle as the buffered path.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// On a cache hit (allowlisted phrase), yields a single
+    /// <see cref="TtsAudioFrame"/> with <c>Cached=true</c> and
+    /// <c>IsFinal=true</c>; the cached entry's original AiRunId is
+    /// surfaced for audit continuity. No new AiRun row is created on a
+    /// hit.
+    /// </para>
+    /// <para>
+    /// On a miss, an AiRun is started before the provider call, the
+    /// audio stream is read in <see cref="StreamReadBufferSize"/>-byte
+    /// windows, and a final empty frame with <c>IsFinal=true</c> is
+    /// emitted after the source closes. The AiRun is marked completed on
+    /// successful drain or failed if the read or provider call throws.
+    /// </para>
+    /// </remarks>
+    public IAsyncEnumerable<TtsAudioFrame> StreamSynthesizeAsync(
+        TextToSpeechSynthesisRequest request,
+        CancellationToken cancellationToken = default) =>
+        StreamSynthesizeCoreAsync(request, cancellationToken);
+
+    private async IAsyncEnumerable<TtsAudioFrame> StreamSynthesizeCoreAsync(
+        TextToSpeechSynthesisRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetRequiredUserId();
+        var settings = await _settingsService.GetCurrentAsync(cancellationToken);
+        var effectiveSettings = ApplyVoiceOverride(settings, request.VoiceProfileOverride, request.Locale);
+
+        if (!effectiveSettings.Enabled)
+        {
+            throw new TextToSpeechPolicyViolationException("Text-to-speech is disabled for this tenant.", "tts_disabled");
+        }
+
+        var rawText = string.IsNullOrWhiteSpace(request.SpeechText) ? string.Empty : request.SpeechText.Trim();
+        if (string.IsNullOrWhiteSpace(rawText))
+        {
+            throw new TextToSpeechPolicyViolationException("Speech text is required.", "text_required");
+        }
+
+        var text = SpeechTextNormalizer.Normalize(rawText);
+
+        if (!_rateLimiter.TryConsume(tenantId, userId, effectiveSettings.Policy.MaxRequestsPerMinutePerUser, out var retryAfter))
+        {
+            throw new TextToSpeechPolicyViolationException(
+                $"Too many text-to-speech requests. Retry after {(int)Math.Ceiling(retryAfter.TotalSeconds)} seconds.",
+                "rate_limit_exceeded");
+        }
+
+        var providerName = effectiveSettings.DefaultProfile.Provider;
+        var configuredVoiceId = effectiveSettings.DefaultProfile.VoiceId;
+        var configuredModelId = effectiveSettings.DefaultProfile.ModelId;
+        var configuredFormat = effectiveSettings.DefaultProfile.OutputFormat;
+        var configuredLocale = effectiveSettings.DefaultProfile.Locale;
+
+        var allowlisted = _ttsCache.IsAllowlisted(text);
+        var cacheKey = new TtsCacheKey(
+            allowlisted ? TtsCacheAllowlist.HashText(text) : string.Empty,
+            tenantId,
+            providerName,
+            configuredVoiceId,
+            configuredModelId,
+            configuredFormat,
+            configuredLocale);
+
+        if (allowlisted)
+        {
+            var cached = await _ttsCache.TryGetAsync(cacheKey, cancellationToken);
+            if (cached is not null && cached.Audio.Length > 0)
+            {
+                yield return new TtsAudioFrame(
+                    cached.Audio,
+                    cached.ContentType,
+                    cached.Provider,
+                    cached.VoiceId,
+                    IsFinal: true,
+                    Cached: true,
+                    TtsAiRunId: cached.OriginalAiRunId);
+                yield break;
+            }
+        }
+
+        var provider = ResolveProvider(providerName);
+        var credential = await ResolveRequiredCredentialAsync(providerName, cancellationToken);
+
+        // Use the existing single-utterance shape — multi-segment chunking is
+        // a layer above (the AGUI sentence buffer drives one
+        // StreamSynthesizeAsync call per emitted speech.chunk). If the
+        // policy max-characters-per-utterance is exceeded for a single
+        // chunk, that's a higher-level concern; flagging here keeps the
+        // streaming path simple.
+        if (effectiveSettings.Policy.MaxCharactersPerUtterance > 0
+            && text.Length > effectiveSettings.Policy.MaxCharactersPerUtterance)
+        {
+            throw new TextToSpeechPolicyViolationException(
+                $"Streaming synthesis received text longer than {effectiveSettings.Policy.MaxCharactersPerUtterance} characters; chunk before invoking.",
+                "utterance_too_long");
+        }
+
+        var aiRunId = await _aiRunWriter.StartRunAsync(
+            request.UseCase ?? "payabo.chat.tts.stream",
+            BuildInputRefsJson(request, effectiveSettings, tenantId, userId),
+            cancellationToken);
+
+        TextToSpeechProviderStreamResult providerResult;
+        try
+        {
+            providerResult = await provider.SynthesizeAsync(
+                CreateProviderRequest(aiRunId, tenantId, userId, effectiveSettings, credential.ApiKey!, [text], 0),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await _aiRunWriter.MarkRunFailedAsync(aiRunId, ex.Message, CancellationToken.None);
+            throw;
+        }
+
+        var contentType = providerResult.ContentType;
+        var providerLabel = providerResult.Provider;
+        var providerVoiceId = providerResult.VoiceId;
+        var providerModelId = providerResult.ModelId;
+
+        // Buffer audio for cache write-back when allowlisted; null
+        // otherwise so user-generated speech is never accumulated in
+        // memory for caching. The cache layer also enforces the
+        // allowlist so this is defence in depth.
+        MemoryStream? cacheBuffer = allowlisted ? new MemoryStream() : null;
+        var success = false;
+        byte[]? bufferedAudio = null;
+
+        try
+        {
+            await using (var audioStream = providerResult.AudioStream)
+            using (providerResult.ResourceToDispose)
+            {
+                var buffer = new byte[StreamReadBufferSize];
+                var firstFrameEmitted = false;
+
+                while (true)
+                {
+                    int bytesRead;
+                    try
+                    {
+                        bytesRead = await audioStream.ReadAsync(buffer.AsMemory(), cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        await _aiRunWriter.MarkRunFailedAsync(aiRunId, ex.Message, CancellationToken.None);
+                        throw;
+                    }
+
+                    if (bytesRead == 0)
+                    {
+                        break;
+                    }
+
+                    cacheBuffer?.Write(buffer, 0, bytesRead);
+
+                    var frameData = new byte[bytesRead];
+                    buffer.AsSpan(0, bytesRead).CopyTo(frameData);
+
+                    yield return new TtsAudioFrame(
+                        frameData,
+                        contentType,
+                        providerLabel,
+                        providerVoiceId,
+                        IsFinal: false,
+                        Cached: false,
+                        TtsAiRunId: firstFrameEmitted ? null : aiRunId);
+
+                    firstFrameEmitted = true;
+                }
+
+                yield return new TtsAudioFrame(
+                    ReadOnlyMemory<byte>.Empty,
+                    contentType,
+                    providerLabel,
+                    providerVoiceId,
+                    IsFinal: true,
+                    Cached: false,
+                    TtsAiRunId: firstFrameEmitted ? null : aiRunId);
+
+                if (cacheBuffer is not null)
+                {
+                    bufferedAudio = cacheBuffer.ToArray();
+                }
+                success = true;
+            }
+        }
+        finally
+        {
+            cacheBuffer?.Dispose();
+
+            if (success)
+            {
+                await _aiRunWriter.MarkRunCompletedAsync(
+                    aiRunId,
+                    outputRef: System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        provider = providerLabel,
+                        voiceId = providerVoiceId,
+                        modelId = providerModelId,
+                        contentType,
+                        streamed = true
+                    }),
+                    cancellationToken: CancellationToken.None);
+            }
+            // Failure paths above already invoked MarkRunFailedAsync.
+        }
+
+        if (success && allowlisted && bufferedAudio is { Length: > 0 })
+        {
+            // Best-effort cache write — the synthesis already succeeded
+            // for the caller, so a cache write failure must not surface.
+            try
+            {
+                await _ttsCache.SetAsync(
+                    cacheKey,
+                    new TtsCacheEntry(
+                        bufferedAudio,
+                        contentType,
+                        providerLabel,
+                        providerVoiceId,
+                        providerModelId,
+                        aiRunId,
+                        DateTimeOffset.UtcNow),
+                    CancellationToken.None);
+            }
+            catch (Exception cacheEx)
+            {
+                _logger.LogWarning(
+                    cacheEx,
+                    "TTS cache write failed for tenant {TenantId} hash {Hash}",
+                    tenantId,
+                    cacheKey.TextHash);
+            }
         }
     }
 

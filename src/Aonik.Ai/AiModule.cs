@@ -205,7 +205,10 @@ public sealed class AiModule : IModule
         services.AddScoped<ICustomerInsightAiSummaryService, CustomerInsightAiSummaryService>();
         services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
         services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();
-        services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+        services.AddScoped<TextToSpeechService>();
+        services.AddScoped<ITextToSpeechService>(sp => sp.GetRequiredService<TextToSpeechService>());
+        services.AddScoped<IStreamingTextToSpeechService>(sp => sp.GetRequiredService<TextToSpeechService>());
+        services.AddSingleton<ITtsCache, TtsCache>();
         services.AddScoped<ISpeechRenderer, SpeechRenderer>();
         RegisterTtsProvider<ElevenLabsTextToSpeechProvider>(services, configuration, opts => opts.ElevenLabsBaseUrl);
         RegisterTtsProvider<MistralTextToSpeechProvider>(services, configuration, opts => opts.MistralBaseUrl);
