@@ -340,3 +340,18 @@ public record ExplainObservabilityPanelRequest(
 
 public record ExplainObservabilityPanelResponse(
     string Summary);
+
+/// <summary>
+/// "Interpret this trace with AI" request. <see cref="Spans"/> is the
+/// trace-detail observation array as returned by the trace listing
+/// endpoint — the server trims it to the most informative rows before
+/// passing it to the model. <see cref="TraceId"/> is included only for
+/// telemetry correlation; the model does not receive raw IDs in the
+/// prompt.
+/// </summary>
+public record ExplainTraceRequest(
+    string TraceId,
+    JsonElement Spans);
+
+public record ExplainTraceResponse(
+    string Analysis);

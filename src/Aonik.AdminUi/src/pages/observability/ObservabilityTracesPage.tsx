@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Calendar, Download, Filter, Loader2 } from 'lucide-react';
+import { Activity, Calendar, Download, Filter, Loader2, Sparkles } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -16,6 +16,7 @@ import {
   aiTraceService,
   type AiTraceObservationResponse,
 } from '@/services/aiService';
+import { observabilityService } from '@/services/observabilityService';
 import { SpanDetailSlideOut } from './SpanDetailSlideOut';
 
 const TIME_RANGE_OPTIONS = [
@@ -317,6 +318,14 @@ export function ObservabilityTracesPage() {
   const [error, setError] = useState<string | null>(null);
   const [openSpanId, setOpenSpanId] = useState<string | null>(null);
 
+  // AI interpretation of the currently-selected trace.
+  const [traceAnalysis, setTraceAnalysis] = useState<string | null>(null);
+  const [traceAnalysisLoading, setTraceAnalysisLoading] = useState(false);
+  const [traceAnalysisError, setTraceAnalysisError] = useState<string | null>(null);
+  // Track which traceId the analysis was generated for; if the user
+  // selects a different trace, drop the stale text.
+  const [traceAnalysisFor, setTraceAnalysisFor] = useState<string | null>(null);
+
   const loadTraceList = useCallback(async () => {
     const requestId = ++requestIdRef.current;
     setLoading(true);
@@ -383,6 +392,40 @@ export function ObservabilityTracesPage() {
       cancelled = true;
     };
   }, [selectedTraceId, timeRange]);
+
+  // Drop any stale analysis when the user picks a different trace so
+  // they never see the previous trace's interpretation under the new
+  // header.
+  useEffect(() => {
+    if (selectedTraceId !== traceAnalysisFor) {
+      setTraceAnalysis(null);
+      setTraceAnalysisError(null);
+    }
+  }, [selectedTraceId, traceAnalysisFor]);
+
+  const explainSelectedTrace = useCallback(async () => {
+    if (!selectedTraceId || selectedTraceItems.length === 0) return;
+    setTraceAnalysisLoading(true);
+    setTraceAnalysisError(null);
+    setTraceAnalysis(null);
+    try {
+      const res = await observabilityService.explainTrace(
+        selectedTraceId,
+        selectedTraceItems,
+      );
+      setTraceAnalysis(res.analysis);
+      setTraceAnalysisFor(selectedTraceId);
+    } catch (e) {
+      const message =
+        (e as { response?: { data?: { detail?: string; title?: string } } })?.response?.data?.detail
+        ?? (e as { response?: { data?: { detail?: string; title?: string } } })?.response?.data?.title
+        ?? (e instanceof Error ? e.message : null)
+        ?? 'Could not generate trace analysis.';
+      setTraceAnalysisError(message);
+    } finally {
+      setTraceAnalysisLoading(false);
+    }
+  }, [selectedTraceId, selectedTraceItems]);
 
   const filteredTraceItems = useMemo(() => traceItems.filter((item) => {
     if (statusFilter === 'all') return true;
@@ -585,6 +628,41 @@ export function ObservabilityTracesPage() {
                     {selectedAgents.length > 1 ? (
                       <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
                         Agents in trace: {selectedAgents.join(', ')}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 flex flex-wrap items-start gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={explainSelectedTrace}
+                        disabled={traceAnalysisLoading || selectedTraceItems.length === 0}
+                        className="h-8 gap-1.5 text-xs"
+                      >
+                        {traceAnalysisLoading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                        {traceAnalysisLoading ? 'Analysing...' : 'Interpret with AI'}
+                      </Button>
+                      {traceAnalysisError ? (
+                        <span className="text-[11px] text-red-500">
+                          {traceAnalysisError}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {traceAnalysis && traceAnalysisFor === selectedTraceId ? (
+                      <div className="mt-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-[12.5px] leading-relaxed text-[var(--color-text-primary)]">
+                        <div className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+                          <Sparkles className="h-3 w-3" />
+                          AI trace analysis
+                        </div>
+                        <pre className="whitespace-pre-wrap break-words font-sans text-[12.5px]">
+                          {traceAnalysis}
+                        </pre>
                       </div>
                     ) : null}
                   </div>

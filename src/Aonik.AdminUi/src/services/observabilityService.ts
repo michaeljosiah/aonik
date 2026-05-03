@@ -348,6 +348,16 @@ export interface ExplainObservabilityPanelResponse {
   summary: string;
 }
 
+export interface ExplainTraceRequest {
+  traceId: string;
+  /** Trace-detail observation array; the server trims it before LLM ingestion. */
+  spans: unknown;
+}
+
+export interface ExplainTraceResponse {
+  analysis: string;
+}
+
 // ── Service ─────────────────────────────────────────────────────────
 
 export const observabilityService = {
@@ -396,5 +406,10 @@ export const observabilityService = {
     api.post<ExplainObservabilityPanelResponse>(
       '/admin/observability/explain',
       { panelKind, metrics },
+    ),
+  explainTrace: (traceId: string, spans: unknown) =>
+    api.post<ExplainTraceResponse>(
+      '/admin/observability/traces/explain',
+      { traceId, spans },
     ),
 };

@@ -788,6 +788,67 @@ internal class AiTaskSeedService
                 {{METRICS_JSON}}
                 """),
 
+        // ── Trace Analysis ──────────────────────────────────────────────────
+        new(
+            UseCase: "trace_analysis",
+            DisplayName: "Trace Analysis",
+            Description: "Reads a single distributed trace's spans and produces a structured analysis (story, latency hotspots, errors, completeness, opportunities) for admin diagnosis.",
+            Category: "Observability",
+            PromptName: "trace_analysis",
+            PromptVersion: "v1",
+            ExecutionMode: "Realtime",
+            VariablesSchemaJson: """
+                {
+                  "TRACE_ID": "Trace identifier (for correlation only)",
+                  "SPAN_COUNT": "Total number of spans observed in the trace",
+                  "SPANS_JSON": "Trimmed span list (longest-first, most informative rows) as JSON"
+                }
+                """,
+            OutputSchemaJson: string.Empty,
+            SystemTemplate: """
+                <role>
+                You are an experienced distributed-tracing analyst helping a platform admin diagnose a single trace. Your reader is technical and is looking at the span list in front of them, so be specific and grounded in the data.
+                </role>
+
+                <task>
+                Produce a short structured analysis with these sections, in this order, exactly. Use plain markdown headings (single hash) for each section. Keep the whole response under 300 words.
+
+                ## Story
+                One short paragraph telling what this trace did, end-to-end, in plain English. Mention the entry point (e.g. "a voice chat request"), the orchestration shape (LLM rounds, tool calls), and the user-visible outcome.
+
+                ## Latency
+                Identify the two or three biggest contributors to the wall-clock duration. Give numbers from the data — model time-to-first-token, tool execution time, longest TTS call, etc. Quantify what fraction of the trace each consumes.
+
+                ## Errors
+                List every span with level=ERROR or a captured exception. For each, name the span, the error type/message if present, and the immediate consequence. If there are none, say "No errors observed." in one sentence.
+
+                ## Completeness
+                Note anything that looks missing or suspicious — e.g. expected child spans absent, a parent without an end time, duplicate rows that suggest a logging double-emit, audio metrics that don't match emitted chunks. If everything looks clean, say "Trace is consistent." in one sentence.
+
+                ## Opportunities
+                Two to four concrete, specific suggestions to make the next run of this kind of trace faster, cheaper, more reliable, or more observable. Each suggestion is one sentence and references the data (e.g. "Cache AnkSettings reads — there are 32 in this trace totaling 39 ms").
+                </task>
+
+                <constraints>
+                - Use the span list verbatim. Do not invent metrics or spans that aren't there.
+                - Quote concrete numbers and span names. Reference durations in milliseconds or seconds as suits the magnitude.
+                - Do not lecture. Skip generic advice; every line must reference this specific trace.
+                - No emojis. No code fences. No closing remarks.
+                - If the data is sparse or doesn't make sense, say so plainly under Completeness — don't fabricate.
+                </constraints>
+
+                <definition_of_done>
+                The analysis is complete when an admin can read it once and know what happened, where time went, what broke, what's missing, and what to do next.
+                </definition_of_done>
+                """,
+            UserTemplate: """
+                Trace ID: {{TRACE_ID}}
+                Total spans observed: {{SPAN_COUNT}}
+
+                Spans (top {{SPAN_COUNT}}, longest first, JSON):
+                {{SPANS_JSON}}
+                """),
+
         // ── Playground Response Reviewer ────────────────────────────────────
         new(
             UseCase: "playground_response_review",
