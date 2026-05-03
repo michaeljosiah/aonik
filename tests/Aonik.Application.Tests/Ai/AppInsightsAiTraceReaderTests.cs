@@ -26,8 +26,12 @@ public class AppInsightsAiTraceReaderTests
     }
 
     [Fact]
-    public void BuildKql_ShouldExcludeRequestAndDependencySpans_FromRootTraceListing()
+    public void BuildKql_ShouldIncludeChatLevelActivitySpans_AsRootCandidates()
     {
+        // The trace listing dedupes per traceId — without including the
+        // canonical aonik.chat.* activity spans, the listing's representative
+        // duration falls to a child GENERATION row and misrepresents the
+        // total run duration. Their inclusion is the fix.
         var request = new ListAiTraceObservationsRequest
         {
             IsRootObservation = true,
@@ -38,7 +42,26 @@ public class AppInsightsAiTraceReaderTests
 
         kql.Should().Contain("let dependencySpans = dependencies");
         kql.Should().Contain("let requestSpans = requests");
-        kql.Should().Contain("| where false");
+        kql.Should().Contain("name startswith \"aonik.chat.\"");
+        kql.Should().NotContain("| where false");
+    }
+
+    [Fact]
+    public void BuildKql_ShouldIncludeAiHttpRequestEntryPoints_AsRootCandidates()
+    {
+        // The actual root span for a chat run is the POST /ai/agui HTTP
+        // request. The listing must include it as a root candidate so the
+        // dedupe heuristic has the real entry-point row to choose from.
+        var request = new ListAiTraceObservationsRequest
+        {
+            IsRootObservation = true,
+            TimeRange = "24h",
+        };
+
+        var kql = AppInsightsAiTraceReader.BuildKql(request, 1, 100);
+
+        kql.Should().Contain("POST /ai/");
+        kql.Should().Contain("operation_ParentId");
     }
 
     [Theory]

@@ -320,7 +320,14 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
     {
         if (request.IsRootObservation is true)
         {
-            return "| where false";
+            // Include only the canonical chat-level activity span
+            // (aonik.chat.*) so the trace listing has a representative
+            // row whose duration covers the full chat run. Without this
+            // the listing would have to choose between unrelated child
+            // GENERATION rows and would surface a misleading duration.
+            return """
+            | where name startswith "aonik.chat."
+            """;
         }
 
         if (!string.IsNullOrWhiteSpace(request.TraceId))
@@ -341,7 +348,18 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
     {
         if (request.IsRootObservation is true)
         {
-            return "| where false";
+            // Include only AI-related HTTP request spans whose parent is
+            // either empty or the trace itself — i.e. the actual entry
+            // point. Filtering on the route prefix keeps unrelated
+            // requests (admin pages, health checks, etc.) out of the
+            // listing.
+            return """
+            | where (isempty(tostring(operation_ParentId))
+                    or tostring(operation_ParentId) == tostring(operation_Id))
+                and (tostring(name) startswith "POST /ai/"
+                    or tostring(url) contains "/ai/agui"
+                    or tostring(url) contains "/ai/playground")
+            """;
         }
 
         if (!string.IsNullOrWhiteSpace(request.TraceId))
