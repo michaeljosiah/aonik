@@ -1,8 +1,12 @@
+// just_audio's StreamAudioSource / StreamAudioResponse are flagged
+// `@experimental` upstream but are the package's documented mechanism
+// for app-supplied progressive sources. We knowingly opt in.
+// ignore_for_file: experimental_member_use
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:developer' as developer;
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
@@ -12,6 +16,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart' as ja;
 import 'package:path_provider/path_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -82,23 +87,28 @@ abstract class ChatVoiceService {
 
   /// Reserve a queue slot for the chunk identified by [chunkIndex] (the
   /// server's chunk id from the `speech.chunk` event). Subsequent
-  /// [appendSpeechAudioFrame] calls for the same [chunkIndex] feed
-  /// audio bytes into this slot's buffer; playback starts once the
-  /// terminal frame arrives. Voice-mode only — the legacy
-  /// [enqueueSpeechChunk] path is independent.
-  void enqueueInlineSpeechChunk({
-    required int chunkIndex,
-    required String mime,
-  });
+  /// [appendSpeechAudioFrame] calls for the same [chunkIndex] push
+  /// bytes into the slot's source and the just_audio player starts
+  /// reading them as soon as the slot is dequeued — true streaming
+  /// playback, audible audio before `isFinal` lands.
+  ///
+  /// The slot's content type is set by the first audio frame's `mime`
+  /// (passed to [appendSpeechAudioFrame]); calling enqueue here is
+  /// optional but recommended so that chunks play strictly in
+  /// chunkIndex order, regardless of frame arrival order.
+  void enqueueInlineSpeechChunk({required int chunkIndex});
 
   /// Append a decoded audio frame for the chunk identified by
-  /// [chunkIndex]. When [isFinal] is `true`, the chunk's buffer is
-  /// closed and playback is enqueued. No-op if no inline chunk has been
-  /// reserved for [chunkIndex].
+  /// [chunkIndex]. The first call for a given [chunkIndex] sets the
+  /// slot's [mime] (subsequent calls' `mime` is ignored — switching
+  /// decoders mid-stream isn't supported). When [isFinal] is `true`,
+  /// the slot's source is closed; the player will play the remaining
+  /// buffered bytes and transition to the next chunk.
   void appendSpeechAudioFrame({
     required int chunkIndex,
     required List<int> data,
     required bool isFinal,
+    required String mime,
   });
 
   /// Mark a chunk's audio synthesis as failed. The chunk's text was
@@ -174,12 +184,21 @@ class DeviceChatVoiceService implements ChatVoiceService {
   Completer<void>? _currentChunkPlaybackCompleter;
   StreamSubscription<void>? _currentChunkPlaybackSub;
 
-  /// Per-chunkIndex buffers for voice-mode inline audio. Populated by
-  /// [enqueueInlineSpeechChunk] when a `speech.chunk` arrives, fed
-  /// frames by [appendSpeechAudioFrame] as `speech.audio` events flow
-  /// in, and removed when the terminal frame closes the buffer.
-  final Map<int, _InlineAudioBuffer> _inlineChunkBuffers =
-      <int, _InlineAudioBuffer>{};
+  /// just_audio player dedicated to inline voice-mode chunks. Separate
+  /// from [_speechPlayer] (audioplayers) so the legacy file-based path
+  /// and the thinking loop are unaffected. just_audio's
+  /// [ja.StreamAudioSource] gives us true progressive playback.
+  final ja.AudioPlayer _inlineAudioPlayer = ja.AudioPlayer();
+
+  /// Per-chunkIndex streaming sources for voice-mode inline audio.
+  /// Created when a `speech.chunk` arrives ([enqueueInlineSpeechChunk])
+  /// or lazily when the first `speech.audio` frame for a new chunkIndex
+  /// arrives. Removed when [appendSpeechAudioFrame] receives the
+  /// terminal frame (or [markSpeechAudioError]) — but the source itself
+  /// stays alive on the queue entry until the player finishes
+  /// consuming it.
+  final Map<int, AppendableAudioSource> _inlineChunkSources =
+      <int, AppendableAudioSource>{};
 
   DeviceChatVoiceService({required Dio apiClient}) : _apiClient = apiClient;
 
@@ -703,28 +722,26 @@ class DeviceChatVoiceService implements ChatVoiceService {
   }
 
   @override
-  void enqueueInlineSpeechChunk({
-    required int chunkIndex,
-    required String mime,
-  }) {
+  void enqueueInlineSpeechChunk({required int chunkIndex}) {
     final int? sessionId = _activeQueueSessionId;
     if (sessionId == null) {
       _log('enqueueInlineSpeechChunk ignored: no active queue');
       return;
     }
 
-    // Reuse the existing chunk buffer for the same chunkIndex if a stray
-    // duplicate `speech.chunk` arrives — the server treats chunkIndex
-    // as the canonical id, so we trust that.
-    if (_inlineChunkBuffers.containsKey(chunkIndex)) {
+    if (_inlineChunkSources.containsKey(chunkIndex)) {
       _log(
         'enqueueInlineSpeechChunk ignored: chunkIndex=$chunkIndex already buffered',
       );
       return;
     }
 
-    final buffer = _InlineAudioBuffer(mime: mime);
-    _inlineChunkBuffers[chunkIndex] = buffer;
+    // Provisional content type — overwritten by the first frame's mime
+    // before any reader connects. Using audio/mpeg keeps just_audio's
+    // platform proxy happy if the player connects before the first
+    // frame lands (rare, but possible on slow synth).
+    final source = AppendableAudioSource(contentType: 'audio/mpeg');
+    _inlineChunkSources[chunkIndex] = source;
 
     final int queueIndex = _queueNextIndex++;
     _speechQueue.add(
@@ -733,8 +750,8 @@ class DeviceChatVoiceService implements ChatVoiceService {
         index: queueIndex,
         text: '',
         cancelToken: CancelToken(),
-        inlineAudioFuture: buffer.completer.future,
-        inlineMime: mime,
+        inlineAudioSource: source,
+        serverChunkIndex: chunkIndex,
       ),
     );
     _log(
@@ -748,28 +765,42 @@ class DeviceChatVoiceService implements ChatVoiceService {
     required int chunkIndex,
     required List<int> data,
     required bool isFinal,
+    required String mime,
   }) {
-    final buffer = _inlineChunkBuffers[chunkIndex];
-    if (buffer == null) {
-      _log(
-        'appendSpeechAudioFrame ignored: no buffer for chunkIndex=$chunkIndex',
-      );
-      return;
+    var source = _inlineChunkSources[chunkIndex];
+
+    // Lazy slot creation: the server may emit `speech.audio` for a chunk
+    // we never saw a `speech.chunk` for (compact / stripped wire shapes
+    // in the future). Reserve a slot so playback ordering still matches
+    // the chunkIndex sequence.
+    if (source == null) {
+      enqueueInlineSpeechChunk(chunkIndex: chunkIndex);
+      source = _inlineChunkSources[chunkIndex];
+      if (source == null) {
+        // enqueueInline ignored the call (no active queue) — drop frame.
+        return;
+      }
     }
-    if (buffer.completer.isCompleted) {
+
+    if (source.isClosed) {
       _log(
-        'appendSpeechAudioFrame ignored: chunkIndex=$chunkIndex already finalised',
+        'appendSpeechAudioFrame ignored: chunkIndex=$chunkIndex source already closed',
       );
       return;
     }
 
+    // First frame sets the content type. Later frames must match — if
+    // they don't, we keep the original to avoid breaking the player's
+    // already-locked-in decoder.
+    source.updateContentTypeBeforeFirstRead(mime);
+
     if (data.isNotEmpty) {
-      buffer.bytes.add(data);
+      source.append(data);
     }
 
     if (isFinal) {
-      _inlineChunkBuffers.remove(chunkIndex);
-      buffer.completer.complete(buffer.bytes.takeBytes());
+      _inlineChunkSources.remove(chunkIndex);
+      source.close();
     }
   }
 
@@ -778,17 +809,17 @@ class DeviceChatVoiceService implements ChatVoiceService {
     required int chunkIndex,
     required String code,
   }) {
-    final buffer = _inlineChunkBuffers.remove(chunkIndex);
-    if (buffer == null || buffer.completer.isCompleted) {
+    final source = _inlineChunkSources.remove(chunkIndex);
+    if (source == null || source.isClosed) {
       return;
     }
     _log(
       'markSpeechAudioError chunkIndex=$chunkIndex code=$code — chunk will be skipped',
     );
-    // Empty buffer signals "skip this chunk" to the playback loop — same
-    // terminal effect as a final frame with no bytes. Text was already
-    // delivered via the corresponding speech.chunk.
-    buffer.completer.complete(Uint8List(0));
+    // Close cleanly. The drain loop sees `bufferedLength == 0` for
+    // chunks that received only the error event and skips playback
+    // entirely. Text was already delivered via the matching speech.chunk.
+    source.close();
   }
 
   @override
@@ -819,16 +850,23 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
     _speechQueue.clear();
 
-    // Voice-mode inline buffers — complete any pending audio futures
-    // with empty bytes so the drain loop unblocks and the queue clears
-    // cleanly. Barge-in happens via the same path as
-    // cancelSpeechQueue(), so this drain runs on every barge-in too.
-    for (final buffer in _inlineChunkBuffers.values) {
-      if (!buffer.completer.isCompleted) {
-        buffer.completer.complete(Uint8List(0));
+    // Voice-mode inline streaming sources — close so any reader
+    // currently blocked in just_audio's request stream gets EOF and
+    // the drain loop unblocks. Barge-in invokes this path too.
+    for (final source in _inlineChunkSources.values) {
+      if (!source.isClosed) {
+        source.close();
       }
     }
-    _inlineChunkBuffers.clear();
+    _inlineChunkSources.clear();
+
+    if (stopPlayer) {
+      try {
+        await _inlineAudioPlayer.stop();
+      } catch (_) {
+        // Player may not have a current source — best effort.
+      }
+    }
 
     final _QueuedSpeechChunk? playing = _currentlyPlayingChunk;
     if (playing != null) {
@@ -904,22 +942,100 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _QueuedSpeechChunk chunk,
     int sessionId,
   ) async {
-    final bool isInline = chunk.inlineAudioFuture != null;
+    final bool isInline = chunk.inlineAudioSource != null;
 
-    // Resolve the audio source for this chunk — either bytes from inline
-    // SSE frames (voice-mode) or a temp file from the legacy synthesize
-    // HTTP call. Errors here mean the chunk has no audio; in voice mode
-    // an empty Uint8List is the canonical "skip this chunk" sentinel
-    // emitted when speech.audio.error fires.
-    String? filePath;
-    Uint8List? inlineBytes;
+    if (isInline) {
+      await _playInlineChunk(chunk, sessionId);
+    } else {
+      await _playLegacyChunk(chunk, sessionId);
+    }
+  }
+
+  /// Voice-mode true-streaming playback. Sets the chunk's
+  /// [AppendableAudioSource] on the just_audio player and starts
+  /// playback as soon as the platform decoder has enough bytes — bytes
+  /// keep flowing in through [appendSpeechAudioFrame] while playback
+  /// is in progress.
+  Future<void> _playInlineChunk(
+    _QueuedSpeechChunk chunk,
+    int sessionId,
+  ) async {
+    final source = chunk.inlineAudioSource!;
+
+    // If no audio bytes ever arrived AND the source is already closed
+    // (the speech.audio.error path) skip playback entirely — text was
+    // delivered via speech.chunk so the user already saw the message.
+    if (source.isClosed && source.bufferedLength == 0) {
+      _log(
+        'queue chunk skipped (no audio) session=$sessionId index=${chunk.index}',
+      );
+      return;
+    }
+
+    if (_activeQueueSessionId != sessionId) {
+      return;
+    }
+
+    final Completer<void> completion = Completer<void>();
+    _currentChunkPlaybackCompleter = completion;
+
+    // Watch for the source draining (ProcessingState.completed) or for
+    // the player surfacing an `idle` state due to error/cancellation.
+    final StreamSubscription<ja.PlayerState> sub =
+        _inlineAudioPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ja.ProcessingState.completed &&
+          !completion.isCompleted) {
+        completion.complete();
+      }
+    });
+    // Reuse the existing field (audioplayers' subscription type) by
+    // wrapping the just_audio sub in a no-op — or skip; we cancel
+    // explicitly in the finally block below.
+    _currentChunkPlaybackSub = null;
 
     try {
-      if (isInline) {
-        inlineBytes = await chunk.inlineAudioFuture!;
-      } else {
-        filePath = await chunk.synthesisFuture!;
+      await _inlineAudioPlayer.setAudioSource(source);
+      if (_activeQueueSessionId != sessionId) {
+        return;
       }
+
+      // Defer the speakingStart callback until just_audio actually has
+      // bytes loaded — that's the moment the thinking-loop should stop
+      // (rather than on speech.chunk arrival).
+      if (!_queueSpeakingFlag) {
+        _queueSpeakingFlag = true;
+        _queueOnSpeakingStart?.call();
+      }
+
+      await _inlineAudioPlayer.play();
+      await completion.future;
+    } catch (error) {
+      if (_activeQueueSessionId == sessionId && !_isCancellationError(error)) {
+        _log(
+          'inline chunk playback failed session=$sessionId index=${chunk.index}: $error',
+        );
+        _queueOnChunkError?.call(_describeTtsError(error));
+      }
+    } finally {
+      if (identical(_currentChunkPlaybackCompleter, completion)) {
+        _currentChunkPlaybackCompleter = null;
+      }
+      await sub.cancel();
+      // Source's stream will be closed by the producer (final frame /
+      // error / barge-in). Nothing else to release.
+    }
+  }
+
+  /// Legacy synthesize-then-play path (audioplayers + DeviceFileSource).
+  /// Used for non-voice-mode chunks and the speech.render guidance
+  /// fallback.
+  Future<void> _playLegacyChunk(
+    _QueuedSpeechChunk chunk,
+    int sessionId,
+  ) async {
+    String filePath;
+    try {
+      filePath = await chunk.synthesisFuture!;
     } catch (error) {
       if (_activeQueueSessionId == sessionId && !_isCancellationError(error)) {
         _log(
@@ -930,26 +1046,11 @@ class DeviceChatVoiceService implements ChatVoiceService {
       return;
     }
 
+    chunk.filePath = filePath;
+
     if (_activeQueueSessionId != sessionId) {
-      if (filePath != null) {
-        chunk.filePath = filePath;
-        unawaited(_cleanupQueueChunkFile(chunk));
-      }
+      unawaited(_cleanupQueueChunkFile(chunk));
       return;
-    }
-
-    // Voice-mode speech.audio.error / empty terminal: zero bytes ⇒ skip
-    // playback for this chunk and advance the queue. Text was already
-    // delivered via speech.chunk; the user just doesn't hear it.
-    if (isInline && (inlineBytes == null || inlineBytes.isEmpty)) {
-      _log(
-        'queue chunk skipped (no audio) session=$sessionId index=${chunk.index}',
-      );
-      return;
-    }
-
-    if (filePath != null) {
-      chunk.filePath = filePath;
     }
 
     if (!_queueSpeakingFlag) {
@@ -968,15 +1069,9 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _currentChunkPlaybackSub = sub;
 
     try {
-      if (isInline) {
-        await _speechPlayer.play(
-          BytesSource(inlineBytes!, mimeType: chunk.inlineMime ?? 'audio/mpeg'),
-        );
-      } else {
-        await _speechPlayer.play(
-          DeviceFileSource(filePath!, mimeType: 'audio/mpeg'),
-        );
-      }
+      await _speechPlayer.play(
+        DeviceFileSource(filePath, mimeType: 'audio/mpeg'),
+      );
       await completion.future;
     } catch (error) {
       if (_activeQueueSessionId == sessionId) {
@@ -993,10 +1088,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
         _currentChunkPlaybackSub = null;
       }
       await sub.cancel();
-      // Inline chunks have no temp file to clean up.
-      if (!isInline) {
-        unawaited(_cleanupQueueChunkFile(chunk));
-      }
+      unawaited(_cleanupQueueChunkFile(chunk));
     }
   }
 
@@ -1070,6 +1162,9 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _cancelActiveTtsRequest();
     try {
       await _speechPlayer.dispose();
+    } catch (_) {}
+    try {
+      await _inlineAudioPlayer.dispose();
     } catch (_) {}
     await _flutterTts.stop();
     await _deleteActiveSpeechFile();
@@ -1520,8 +1615,8 @@ class _QueuedSpeechChunk {
     required this.text,
     required this.cancelToken,
     this.synthesisFuture,
-    this.inlineAudioFuture,
-    this.inlineMime,
+    this.inlineAudioSource,
+    this.serverChunkIndex,
   });
 
   final int sessionId;
@@ -1530,32 +1625,158 @@ class _QueuedSpeechChunk {
 
   /// Legacy path — non-voice-mode speech chunks call the per-chunk
   /// `/mobile/text-to-speech/synthesize` endpoint and play from a temp
-  /// file. Set when [inlineAudioFuture] is `null`.
+  /// file. Set when [inlineAudioSource] is `null`.
   final Future<String>? synthesisFuture;
 
-  /// Voice-mode path — audio bytes are streamed inline on the AGUI SSE
-  /// stream as `speech.audio` events. The future resolves once the
-  /// terminal frame for this chunk arrives (or `speech.audio.error`,
-  /// which resolves with an empty buffer to silently advance past the
-  /// chunk). Set when [synthesisFuture] is `null`.
-  final Future<Uint8List>? inlineAudioFuture;
+  /// Voice-mode streaming path — audio bytes are pushed into this
+  /// source as `speech.audio` events arrive on the AGUI SSE stream.
+  /// The just_audio player reads from this source progressively, so
+  /// playback starts before the chunk's terminal frame. Set when
+  /// [synthesisFuture] is `null`.
+  final AppendableAudioSource? inlineAudioSource;
 
-  /// MIME type for inline audio bytes. Required when
-  /// [inlineAudioFuture] is set.
-  final String? inlineMime;
+  /// The server's chunkIndex for inline chunks (matches `speech.audio`
+  /// frame metadata). Useful for telemetry / logs; routing happens via
+  /// [DeviceChatVoiceService._inlineChunkSources].
+  final int? serverChunkIndex;
 
   final CancelToken cancelToken;
   String? filePath;
 }
 
-/// Per-chunk-index buffer that accumulates inline-audio frames as they
-/// arrive on the AGUI SSE stream. Resolves [completer] with the full
-/// byte payload when the terminal frame arrives (or with an empty
-/// buffer when synthesis fails — the playback loop then skips it).
-class _InlineAudioBuffer {
-  _InlineAudioBuffer({required this.mime});
+/// A [ja.StreamAudioSource] that lets us push encoded audio bytes into
+/// the just_audio player as they arrive on the AGUI SSE stream — true
+/// streaming playback (audible audio starts before the chunk's terminal
+/// frame), as opposed to the previous "buffer the whole chunk, then
+/// play" model.
+///
+/// Lifecycle:
+/// 1. Source created when a `speech.audio` frame for a new chunkIndex
+///    arrives (or when [enqueueInlineSpeechChunk] reserves the slot).
+/// 2. [append] is called for each subsequent frame; bytes are pushed
+///    immediately and any active [ja.AudioPlayer] reading from this
+///    source receives them on its `request()` stream.
+/// 3. [close] (or [closeWithError]) finalises the source. The player's
+///    request stream completes, the platform decoder finishes the buffer,
+///    and just_audio emits `ProcessingState.completed`.
+///
+/// Range requests are unsupported — voice-mode synthesis is a one-pass
+/// forward stream and the player can't seek into a buffer that hasn't
+/// been received yet. just_audio handles `rangeRequestsSupported=false`
+/// by reading the response stream linearly.
+@visibleForTesting
+class AppendableAudioSource extends ja.StreamAudioSource {
+  AppendableAudioSource({required String contentType})
+      : _contentType = contentType;
 
-  final String mime;
-  final BytesBuilder bytes = BytesBuilder();
-  final Completer<Uint8List> completer = Completer<Uint8List>();
+  String _contentType;
+  final List<int> _buffer = <int>[];
+  final List<StreamController<List<int>>> _activeReaders =
+      <StreamController<List<int>>>[];
+  bool _closed = false;
+  Object? _terminalError;
+
+  /// Total bytes appended so far (handy for tests / instrumentation).
+  int get bufferedLength => _buffer.length;
+
+  /// `true` after [close] or [closeWithError] has been called.
+  bool get isClosed => _closed;
+
+  /// MIME type the source advertises to the player. Set on construction
+  /// from the first inline frame; ignored on later updates so the
+  /// player isn't asked to switch decoders mid-stream.
+  String get contentType => _contentType;
+
+  /// Update the advertised content type ONLY before any reader has
+  /// connected. After [request] returns, the player has already locked
+  /// in a decoder — calling this is a no-op.
+  void updateContentTypeBeforeFirstRead(String contentType) {
+    if (_activeReaders.isNotEmpty || _closed) return;
+    _contentType = contentType;
+  }
+
+  /// Append [data] to the buffer and broadcast to any active reader.
+  /// Silently no-ops if the source has already been closed.
+  void append(List<int> data) {
+    if (_closed || data.isEmpty) return;
+    _buffer.addAll(data);
+    for (final controller in _activeReaders) {
+      if (!controller.isClosed) {
+        controller.add(data);
+      }
+    }
+  }
+
+  /// Close the source cleanly. Active readers receive the rest of the
+  /// buffered bytes (already emitted) plus EOF; the player will play out
+  /// the decoded audio and then transition to
+  /// [ja.ProcessingState.completed].
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    for (final controller in _activeReaders) {
+      if (!controller.isClosed) {
+        controller.close();
+      }
+    }
+    _activeReaders.clear();
+  }
+
+  /// Close the source with an error so any active player surfaces a
+  /// playback exception instead of "completed". Used when synthesis
+  /// fails mid-stream.
+  void closeWithError(Object error) {
+    if (_closed) return;
+    _closed = true;
+    _terminalError = error;
+    for (final controller in _activeReaders) {
+      if (!controller.isClosed) {
+        controller.addError(error);
+        controller.close();
+      }
+    }
+    _activeReaders.clear();
+  }
+
+  @override
+  Future<ja.StreamAudioResponse> request([int? start, int? end]) async {
+    final s = start ?? 0;
+    final controller = StreamController<List<int>>();
+
+    // Emit any already-buffered bytes synchronously so the player can
+    // start consuming right away — this is the path that makes the
+    // first audible byte land before the chunk's `isFinal` frame.
+    if (_buffer.length > s) {
+      controller.add(List<int>.unmodifiable(_buffer.sublist(s)));
+    }
+
+    if (_closed) {
+      // Already closed — surface any terminal error then EOF. We must
+      // NOT await `close()` here: the controller's close-future only
+      // completes once the listener has drained the stream, and the
+      // listener doesn't subscribe until after `request()` returns. So
+      // schedule close without waiting.
+      if (_terminalError != null) {
+        controller.addError(_terminalError!);
+      }
+      unawaited(controller.close());
+    } else {
+      _activeReaders.add(controller);
+      controller.onCancel = () {
+        _activeReaders.remove(controller);
+      };
+    }
+
+    return ja.StreamAudioResponse(
+      // Voice-mode is a one-pass forward stream; the player can't seek
+      // back, and `false` here keeps just_audio from issuing follow-up
+      // range requests for bytes we don't have yet.
+      rangeRequestsSupported: false,
+      sourceLength: null,
+      contentLength: null,
+      offset: s,
+      stream: controller.stream,
+      contentType: _contentType,
+    );
+  }
 }

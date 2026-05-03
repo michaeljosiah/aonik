@@ -36,6 +36,11 @@ dependencies:
   speech_to_text: ^7.1.0
   flutter_tts: ^4.2.2
   audioplayers: ^6.1.0
+  # just_audio drives true-streaming voice-mode playback via a custom
+  # StreamAudioSource. We start with mp3 / audio/mpeg as the supported
+  # streaming format. audioplayers stays for the thinking loop and the
+  # legacy synthesize-then-play fallback.
+  just_audio: ^0.10.5
   path_provider: ^2.1.5
   youtube_player_iframe: ^5.2.0
 

@@ -335,12 +335,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
       }
 
-      // Push any new sentence-level chunks into the voice service's queue
-      // so audio frames arriving inline on the AGUI SSE stream land in a
-      // live queue slot. The server has already chunked the text at
-      // sentence boundaries; voice mode also synthesises each chunk
-      // server-side and emits the bytes as `speech.audio` events that the
-      // controller forwards directly to the voice service.
+      // Reserve a queue slot for each new sentence-level chunk so that
+      // when `speech.audio` frames arrive (via the forwarder registered
+      // with the chat controller) they land in the right slot and play
+      // in chunkIndex order. The slot's content type is set by the
+      // first audio frame's `mime`, so we don't pre-commit to a codec
+      // here.
+      //
+      // We deliberately do NOT stop the thinking loop on chunk arrival
+      // — it's stopped in `onSpeakingStart` when just_audio actually
+      // has bytes ready to play, which keeps silent gaps covered.
       if (_voiceAwaitingBackendReply &&
           _voiceBackendTurnId != null &&
           _voiceBackendTurnId == _activeVoiceTurnId &&
@@ -348,26 +352,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         final List<SpeechChunk> newChunks =
             next.pendingSpeechChunks.sublist(_voiceChunksEnqueued);
         _voiceChunksEnqueued = next.pendingSpeechChunks.length;
-        bool enqueuedAny = false;
         for (final SpeechChunk chunk in newChunks) {
           final String text = chunk.speechText.trim();
           if (text.isEmpty) {
             continue;
           }
-          // Reserve a queue slot keyed by the server's chunkIndex; audio
-          // frames arrive separately via the forwarders registered with
-          // the chat controller and feed straight into this slot's
-          // buffer. The matching `audioFormat: 'mp3'` was sent on the
-          // request, so the mime is `audio/mpeg`.
           _chatVoiceService.enqueueInlineSpeechChunk(
             chunkIndex: chunk.chunkIndex,
-            mime: 'audio/mpeg',
           );
-          enqueuedAny = true;
-        }
-        if (enqueuedAny) {
-          _cancelVoiceThinkingWatchdog();
-          unawaited(_chatVoiceService.stopThinkingLoop());
         }
       }
 
@@ -994,6 +986,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           chunkIndex: frame.chunkIndex,
           data: frame.data,
           isFinal: frame.isFinal,
+          mime: frame.mime,
         );
       },
       onError: (err) {
