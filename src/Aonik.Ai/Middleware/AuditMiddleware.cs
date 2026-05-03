@@ -113,9 +113,16 @@ internal sealed class AuditMiddleware : DelegatingChatClient
             return useCase.Trim();
         }
 
-        return !string.IsNullOrWhiteSpace(options?.ModelId)
-            ? options!.ModelId!
-            : DefaultUseCase;
+        // Deliberately do NOT fall back to options.ModelId. A model id is a
+        // *what* (which provider/model handled the call); a use_case is a
+        // *why* (what business need the call serves). Conflating the two leaks
+        // model ids into the trace listing as confusing trace names — e.g. a
+        // thread-title call shows up as "gpt-5-nano" and can win dedupe over
+        // the dominant request-level row. Callers are expected to stamp
+        // options.AdditionalProperties[AiTelemetry.UseCaseAttribute] with a
+        // semantic value; if they don't, we use the generic "chat" bucket so
+        // unstamped calls are visibly grouped instead of disguised.
+        return DefaultUseCase;
     }
 
     private static void StampCallContext(ChatOptions? options, string useCase, Guid aiRunId)

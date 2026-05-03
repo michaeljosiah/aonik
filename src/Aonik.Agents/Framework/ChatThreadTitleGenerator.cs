@@ -47,12 +47,22 @@ internal sealed class ChatThreadTitleGenerator : IChatThreadTitleGenerator
                 messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
             messages.Add(new ChatMessage(ChatRole.User, firstUserMessage));
 
+            // Stamp the use_case so the AiTraceObservation row carries a
+            // semantic trace name ("title-generation") instead of leaking the
+            // model id via AuditMiddleware's legacy fallback. Without this,
+            // dedupe in the trace explorer can pick this ancillary call as
+            // the representative for the parent run and show a confusing
+            // model-id-as-trace-name (e.g. "gpt-5-nano").
+            var options = new ChatOptions
+            {
+                ModelId = profile.ModelId ?? DefaultTitleModelId,
+            };
+            options.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+            options.AdditionalProperties[AiTelemetry.UseCaseAttribute] = TitleGenerationUseCase;
+
             var response = await _chatClient.GetResponseAsync(
                 messages,
-                options: new ChatOptions
-                {
-                    ModelId = profile.ModelId ?? DefaultTitleModelId,
-                },
+                options: options,
                 cancellationToken: cancellationToken);
 
             var title = response.Text?.Trim();
