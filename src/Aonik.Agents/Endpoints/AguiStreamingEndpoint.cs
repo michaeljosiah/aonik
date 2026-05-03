@@ -162,9 +162,13 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         }
 
         using var chatActivity = AiTelemetry.ActivitySource.StartActivity("aonik.chat.agui", ActivityKind.Internal);
+        // Stamp a semantic use_case on the chat-level activity so the trace
+        // listing's representative row shows "voice" / "chat" instead of
+        // the run_id hash or — worse — the use_case of an ancillary call
+        // (e.g. "title-generation") winning the dedupe.
+        chatActivity?.SetTag(AiTelemetry.UseCaseAttribute, voiceMode ? "voice" : "chat");
         if (voiceMode)
         {
-            chatActivity?.SetTag(AiTelemetry.UseCaseAttribute, "voice");
             chatActivity?.SetTag("aonik.chat.audio_format", abstractFormat);
         }
 

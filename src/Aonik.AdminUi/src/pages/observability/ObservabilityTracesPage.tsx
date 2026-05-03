@@ -89,6 +89,38 @@ function getObservationCompleteness(item: AiTraceObservationResponse): number {
   return score;
 }
 
+// Score rows by how well they represent the WHOLE trace, not just one
+// participating call. Used to pick the dedupe winner per traceId in the
+// trace list. Without this preference, ancillary calls (e.g. the title
+// generator's AiCallCompleted log line, which is fully populated with
+// input/output/metadata) can win the dedupe over the actual chat run —
+// leaving the trace listing displaying "title-generation" for what's
+// actually a 10s voice chat. Priority order:
+//
+//   1. Aonik chat-level activity spans (name starts with "aonik.chat.")
+//      are the canonical representative for a chat trace — they carry
+//      use_case, run_id, agent name, and the full audio/cost/latency
+//      tag set. These are produced by AguiStreamingEndpoint /
+//      PlaygroundStreamingEndpoint and span the entire chat request.
+//   2. The HTTP REQUEST span is the next-best root: it spans the full
+//      request and its name is the route ("POST /ai/agui"), which is
+//      meaningful even when no chat activity exists.
+//   3. Longer durations beat shorter ones — they cover more of the trace.
+//   4. Tie-break on field-completeness so the row with the richest
+//      metadata still surfaces when multiple equally-good roots exist.
+function getRootTraceRepresentativenessScore(item: AiTraceObservationResponse): number {
+  let score = 0;
+  if (item.type === 'SPAN' && item.name?.startsWith('aonik.chat.')) {
+    score += 2_000_000;
+  } else if (item.type === 'REQUEST') {
+    score += 1_000_000;
+  }
+  const dur = getDurationMs(item);
+  if (Number.isFinite(dur)) score += Math.min(dur, 999_999);
+  score += getObservationCompleteness(item) * 0.001;
+  return score;
+}
+
 // Merge two observations sharing a spanId — typically a SPAN (from
 // dependencies, with full activity duration) and a GENERATION (from log,
 // with LLM-call duration but richer metadata). Keep the widest time
@@ -152,7 +184,11 @@ function dedupeRootTraces(items: AiTraceObservationResponse[]): AiTraceObservati
 
   for (const item of items) {
     const existing = deduped.get(item.traceId);
-    if (!existing || getObservationCompleteness(item) > getObservationCompleteness(existing)) {
+    if (
+      !existing ||
+      getRootTraceRepresentativenessScore(item) >
+        getRootTraceRepresentativenessScore(existing)
+    ) {
       deduped.set(item.traceId, item);
     }
   }

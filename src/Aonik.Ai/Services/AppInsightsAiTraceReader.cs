@@ -255,7 +255,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                      isnotempty(tostring(customDimensions["gen_ai.tool.name"])), "TOOL",
                      "SPAN"
                  ),
-                 traceName = coalesce(tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
+                 traceName = coalesce(tostring(customDimensions["aonik.use_case"]), tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
                  input = case(
                      isnotempty(tostring(customDimensions["gen_ai.tool.call.arguments"])), tostring(customDimensions["gen_ai.tool.call.arguments"]),
                      tolower(type) == "sql" and isnotempty(tostring(data)), tostring(data),
@@ -289,7 +289,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
                  parentObservationId = tostring(operation_ParentId),
                  aiRunId = tostring(customDimensions["AiRunId"]),
                  type = "REQUEST",
-                 traceName = coalesce(tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
+                 traceName = coalesce(tostring(customDimensions["aonik.use_case"]), tostring(customDimensions["aonik.chat.run_id"]), tostring(customDimensions["aonik.agent.name"]), tostring(name)),
                  input = "",
                  output = "",
                  metadata = tostring(customDimensions),
