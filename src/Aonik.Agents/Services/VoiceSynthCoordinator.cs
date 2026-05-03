@@ -39,6 +39,17 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
     private readonly Lock _synthTasksLock = new();
     private readonly CancellationTokenSource _coordinatorCts = new();
 
+    // Per-run counters for diagnosing audio-path drops. Read by the AGUI
+    // endpoint at end-of-run to tag the chat activity, so traces can show
+    // whether a missing audio chunk failed at synth start, mid-stream, or
+    // never reached the wire.
+    private int _synthTasksStarted;
+    private int _synthTasksCompleted;
+    private int _synthTasksErrored;
+    private int _synthTasksTimedOut;
+    private int _synthTasksCancelled;
+    private int _synthTasksThatYieldedAtLeastOneFrame;
+
     public VoiceSynthCoordinator(
         IStreamingTextToSpeechService streamingTts,
         AguiResponseWriter writer,
@@ -67,12 +78,26 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
         string threadId,
         CancellationToken runCancellation)
     {
+        Interlocked.Increment(ref _synthTasksStarted);
         var task = Task.Run(() => RunChunkAsync(messageId, chunkIndex, speechText, threadId, runCancellation));
         lock (_synthTasksLock)
         {
             _synthTasks.Add(task);
         }
     }
+
+    /// <summary>
+    /// Snapshot of per-run synth task counters. Surfaced on the chat
+    /// activity at end-of-run so traces can reveal whether a chunk was
+    /// cancelled, errored, timed out, or simply never produced frames.
+    /// </summary>
+    public SynthTaskMetricsSnapshot GetSynthTaskMetrics() => new(
+        Started: Interlocked.CompareExchange(ref _synthTasksStarted, 0, 0),
+        Completed: Interlocked.CompareExchange(ref _synthTasksCompleted, 0, 0),
+        Errored: Interlocked.CompareExchange(ref _synthTasksErrored, 0, 0),
+        TimedOut: Interlocked.CompareExchange(ref _synthTasksTimedOut, 0, 0),
+        Cancelled: Interlocked.CompareExchange(ref _synthTasksCancelled, 0, 0),
+        YieldedAtLeastOneFrame: Interlocked.CompareExchange(ref _synthTasksThatYieldedAtLeastOneFrame, 0, 0));
 
     public async Task WaitForAllSynthesisAsync()
     {
@@ -135,6 +160,7 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
             {
                 if (!firstFrameSeen)
                 {
+                    Interlocked.Increment(ref _synthTasksThatYieldedAtLeastOneFrame);
                     if (frame.Cached)
                     {
                         // Cache hits are recorded by the writer's pump as
@@ -159,9 +185,12 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
                     ttsAiRunId: frame.TtsAiRunId,
                     cancellationToken: ct).ConfigureAwait(false);
             }
+
+            Interlocked.Increment(ref _synthTasksCompleted);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested && !runCancellation.IsCancellationRequested)
         {
+            Interlocked.Increment(ref _synthTasksTimedOut);
             _logger.LogWarning(
                 "voice TTS chunk synthesis timed out (chunkIndex={ChunkIndex}, threadId={ThreadId})",
                 chunkIndex, threadId);
@@ -176,10 +205,12 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
+            Interlocked.Increment(ref _synthTasksCancelled);
             // Run-level cancellation — the client is gone. No error event.
         }
         catch (Exception ex)
         {
+            Interlocked.Increment(ref _synthTasksErrored);
             _logger.LogWarning(ex,
                 "voice TTS chunk synthesis failed (chunkIndex={ChunkIndex}, threadId={ThreadId})",
                 chunkIndex, threadId);
@@ -193,4 +224,18 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
             }
         }
     }
+}
+
+/// <summary>
+/// Per-run snapshot of <see cref="VoiceSynthCoordinator"/> task counters.
+/// </summary>
+internal readonly record struct SynthTaskMetricsSnapshot(
+    int Started,
+    int Completed,
+    int Errored,
+    int TimedOut,
+    int Cancelled,
+    int YieldedAtLeastOneFrame)
+{
+    public int FailedToYieldAnyFrame => Started - YieldedAtLeastOneFrame;
 }

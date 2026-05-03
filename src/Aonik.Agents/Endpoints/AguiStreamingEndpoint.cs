@@ -310,6 +310,12 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             var requiresVisualAttention = false;
             var requiresApproval = false;
             var speechBuffer = new SpeechStreamBuffer();
+            // Per-run counters so the chat activity tags can tell us whether
+            // a missing audio chunk was a buffer-pop problem (chunks_emitted
+            // < expected sentence count) or a synth/wire problem (chunks
+            // emitted but no audio frames).
+            var speechChunksEmittedDuringStream = 0;
+            var speechChunkTailEmitted = false;
 
             requestToLlmStartMs = requestStopwatch.ElapsedMilliseconds;
             chatActivity?.AddEvent(new ActivityEvent(
@@ -365,9 +371,12 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
                             while (speechBuffer.TryPopSentence(out var rawChunk))
                             {
-                                await EmitSpeechChunkAsync(
+                                if (await EmitSpeechChunkAsync(
                                     writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
-                                    rawChunk, isFinal: false, cancellationToken);
+                                    rawChunk, isFinal: false, cancellationToken))
+                                {
+                                    speechChunksEmittedDuringStream++;
+                                }
                             }
                             break;
 
@@ -448,9 +457,24 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             var tailChunk = speechBuffer.FlushRemaining();
             if (tailChunk is not null)
             {
-                await EmitSpeechChunkAsync(
+                if (await EmitSpeechChunkAsync(
                     writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
-                    tailChunk, isFinal: true, cancellationToken);
+                    tailChunk, isFinal: true, cancellationToken))
+                {
+                    speechChunkTailEmitted = true;
+                }
+            }
+
+            // Surface per-chunk emit counts on the chat activity so traces
+            // can distinguish "buffer pop dropped a chunk" from "synth never
+            // produced frames" when audio_frames disagrees with the
+            // expected sentence count.
+            if (chatActivity is not null)
+            {
+                var totalEmitted = speechChunksEmittedDuringStream + (speechChunkTailEmitted ? 1 : 0);
+                chatActivity.SetTag("aonik.chat.speech_chunks_emitted", totalEmitted);
+                chatActivity.SetTag("aonik.chat.speech_chunks_emitted_during_stream", speechChunksEmittedDuringStream);
+                chatActivity.SetTag("aonik.chat.speech_chunk_tail_emitted", speechChunkTailEmitted);
             }
 
             var guidanceText = _speechRenderer.RenderGuidance(requiresVisualAttention, requiresApproval);
@@ -479,6 +503,17 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 await voiceCoordinator.WaitForAllSynthesisAsync();
                 writer.CompleteAudioInput();
                 await writer.WaitForAudioDrainAsync();
+
+                // Surface per-task synth outcomes on the chat activity so
+                // a trace can show whether a missing chunk failed at synth
+                // start, mid-stream, or never reached the wire.
+                var synthMetrics = voiceCoordinator.GetSynthTaskMetrics();
+                chatActivity?.SetTag("aonik.chat.synth_tasks_started", synthMetrics.Started);
+                chatActivity?.SetTag("aonik.chat.synth_tasks_completed", synthMetrics.Completed);
+                chatActivity?.SetTag("aonik.chat.synth_tasks_errored", synthMetrics.Errored);
+                chatActivity?.SetTag("aonik.chat.synth_tasks_timed_out", synthMetrics.TimedOut);
+                chatActivity?.SetTag("aonik.chat.synth_tasks_cancelled", synthMetrics.Cancelled);
+                chatActivity?.SetTag("aonik.chat.synth_tasks_yielded_frames", synthMetrics.YieldedAtLeastOneFrame);
             }
 
             requestStopwatch.Stop();
@@ -672,7 +707,14 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         CancellationToken cancellationToken) =>
         writer.WriteControlAsync(eventData, cancellationToken);
 
-    private async Task EmitSpeechChunkAsync(
+    /// <summary>
+    /// Emit a speech.chunk SSE event and (in voice mode) kick off
+    /// background synthesis. Returns <c>true</c> when the chunk was
+    /// actually written; <c>false</c> when the renderer normalised the
+    /// chunk to whitespace-only (which would have produced an empty
+    /// speech.chunk and a zero-length TTS call).
+    /// </summary>
+    private async Task<bool> EmitSpeechChunkAsync(
         AguiResponseWriter writer,
         VoiceSynthCoordinator? voiceCoordinator,
         string threadId,
@@ -684,7 +726,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
     {
         var chunkText = _speechRenderer.RenderChunk(rawChunk);
         if (string.IsNullOrWhiteSpace(chunkText))
-            return;
+            return false;
 
         await WriteSseEventAsync(writer, new
         {
@@ -704,5 +746,6 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         // flushed by its background pump while the LLM continues to
         // emit later text deltas.
         voiceCoordinator?.StartChunkSynthesis(messageId, chunkIndex, chunkText, threadId, cancellationToken);
+        return true;
     }
 }
