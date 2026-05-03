@@ -6,22 +6,39 @@ using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Ai.Services;
 
 internal sealed class AiModelService : IAiModelService, IAiModelResolver
 {
+    // AiModels are reference data — once seeded they rarely change. The
+    // dev trace audit showed 16 reads per voice run (one per AiRun + a
+    // couple of preflight reads). Cache for 30 min with fail-safe; a
+    // model edit invalidates the entry from the write paths below.
+    private static readonly FusionCacheEntryOptions ModelNameCacheOptions = new(TimeSpan.FromMinutes(30))
+    {
+        IsFailSafeEnabled = true,
+        FailSafeMaxDuration = TimeSpan.FromHours(2),
+    };
+
+    private const string ModelNameCacheKeyPrefix = "ai-model-name:v1:";
+    private static string ModelNameCacheKey(Guid modelId) => $"{ModelNameCacheKeyPrefix}{modelId:N}";
+
     private readonly AiDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IFusionCache _cache;
     private readonly ILogger<AiModelService> _logger;
 
     public AiModelService(
         AiDbContext dbContext,
         ITenantProvider tenantProvider,
+        IFusionCache cache,
         ILogger<AiModelService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -193,6 +210,10 @@ internal sealed class AiModelService : IAiModelService, IAiModelResolver
 
         await _dbContext.SaveChangesAsync(ct);
 
+        // Invalidate the cached name so the next reader picks up renames /
+        // activation flips on the next request.
+        await _cache.RemoveAsync(ModelNameCacheKey(modelId), token: ct);
+
         var providerName = await _dbContext.AiProviders
             .Where(p => p.Id == model.AiProviderId)
             .Select(p => p.Name)
@@ -211,6 +232,9 @@ internal sealed class AiModelService : IAiModelService, IAiModelResolver
 
         _dbContext.AiModels.Remove(model); // soft-delete via AonikDbContextBase
         await _dbContext.SaveChangesAsync(ct);
+
+        // Invalidate the cached name; the entry is gone.
+        await _cache.RemoveAsync(ModelNameCacheKey(modelId), token: ct);
 
         _logger.LogInformation("Deleted AI model {ModelId} '{ModelName}'", modelId, model.ModelName);
     }
@@ -248,6 +272,15 @@ internal sealed class AiModelService : IAiModelService, IAiModelResolver
     }
 
     public async Task<string?> ResolveModelNameByIdAsync(Guid modelId, CancellationToken ct = default)
+    {
+        return await _cache.GetOrSetAsync<string?>(
+            ModelNameCacheKey(modelId),
+            async cacheCt => await LoadModelNameByIdAsync(modelId, cacheCt),
+            ModelNameCacheOptions,
+            ct);
+    }
+
+    private async Task<string?> LoadModelNameByIdAsync(Guid modelId, CancellationToken ct)
     {
         var modelName = await _dbContext.AiModels
             .Where(m => m.Id == modelId && m.IsActive && !m.IsDeleted)

@@ -14,7 +14,9 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -183,7 +185,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver { ModelId = "model-a" };
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText(BuildValidSummaryJson("Cash is stable", "Spending pressure is manageable."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider);
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -236,7 +238,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver { ModelId = "model-a" };
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText(BuildValidSummaryJson("Cash is stable", "Spending pressure is manageable."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider);
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -278,7 +280,7 @@ public class CustomerInsightAiSummaryServiceTests
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText(BuildValidSummaryJson("Cash is stable", "Spending pressure is manageable."));
         chatClient.EnqueueText(BuildValidSummaryJson("Spending risk increased", "Entertainment spend is rising."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider);
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -330,7 +332,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver();
         var chatClient = new QueueChatClient();
         chatClient.EnqueueException(new TimeoutException("Provider timed out."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider);
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -377,7 +379,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver();
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText("{\"summary\":\"missing required fields\"}");
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider);
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -554,5 +556,18 @@ public class CustomerInsightAiSummaryServiceTests
             ["Snapshot includes partial behavioural interpretation and should be cross-checked against live changes."]);
 
         return JsonSerializer.Serialize(document);
+    }
+
+    /// <summary>
+    /// In-memory FusionCache for AiRunWriter's kill-switch cache. Each
+    /// call returns a fresh instance so cached state from one scenario
+    /// can't bleed into another.
+    /// </summary>
+    private static IFusionCache CreateFusionCache()
+    {
+        var services = new ServiceCollection();
+        services.AddFusionCache();
+        var provider = services.BuildServiceProvider();
+        return provider.GetRequiredService<IFusionCache>();
     }
 }

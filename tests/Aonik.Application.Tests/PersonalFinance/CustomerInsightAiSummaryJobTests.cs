@@ -13,9 +13,11 @@ using Aonik.Worker.Jobs;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Quartz;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -391,7 +393,7 @@ public class CustomerInsightAiSummaryJobTests
             summaryReader,
             new FakeTaskProfileResolver(),
             new QueueChatClient(),
-            new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider),
+            new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache()),
             clock,
             NullLogger<CustomerInsightAiSummaryService>.Instance);
         var enumerator = new CustomerInsightAiSummaryJobSnapshotEnumerator(financeDbContext, summaryReader);
@@ -478,5 +480,16 @@ public class CustomerInsightAiSummaryJobTests
         });
 
         dbContext.SaveChanges();
+    }
+
+    /// <summary>
+    /// In-memory FusionCache for AiRunWriter's kill-switch cache.
+    /// </summary>
+    private static IFusionCache CreateFusionCache()
+    {
+        var services = new ServiceCollection();
+        services.AddFusionCache();
+        var provider = services.BuildServiceProvider();
+        return provider.GetRequiredService<IFusionCache>();
     }
 }

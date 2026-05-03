@@ -5,6 +5,8 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Application.Tests.Ai;
 
@@ -72,7 +74,8 @@ public class AiRunWriterKillSwitchTests
         var writer = new AiRunWriter(
             dbContext,
             tenantProvider,
-            new FixedUserProvider { UserId = CallingUserId });
+            new FixedUserProvider { UserId = CallingUserId },
+            CreateFusionCache());
 
         var act = async () => await writer.StartRunAsync(
             useCase: "test-usecase",
@@ -97,7 +100,8 @@ public class AiRunWriterKillSwitchTests
         var writer = new AiRunWriter(
             dbContext,
             tenantProvider,
-            new FixedUserProvider { UserId = CallingUserId });
+            new FixedUserProvider { UserId = CallingUserId },
+            CreateFusionCache());
 
         var runId = await writer.StartRunAsync("test-usecase", "{}");
 
@@ -126,7 +130,8 @@ public class AiRunWriterKillSwitchTests
         var writer = new AiRunWriter(
             dbContext,
             tenantProvider,
-            new FixedUserProvider { UserId = CallingUserId });
+            new FixedUserProvider { UserId = CallingUserId },
+            CreateFusionCache());
 
         var runId = await writer.StartRunAsync("test-usecase", "{}");
         runId.Should().NotBe(Guid.Empty);
@@ -156,9 +161,23 @@ public class AiRunWriterKillSwitchTests
         var writer = new AiRunWriter(
             dbContext,
             cleanProvider,
-            new FixedUserProvider { UserId = CallingUserId });
+            new FixedUserProvider { UserId = CallingUserId },
+            CreateFusionCache());
 
         var runId = await writer.StartRunAsync("test-usecase", "{}");
         runId.Should().NotBe(Guid.Empty);
+    }
+
+    /// <summary>
+    /// Each test gets its own in-memory FusionCache so cached kill-switch
+    /// state from one scenario does not bleed into another. Mirrors the
+    /// pattern used by <c>AgentConfigurationServiceTests</c>.
+    /// </summary>
+    private static IFusionCache CreateFusionCache()
+    {
+        var services = new ServiceCollection();
+        services.AddFusionCache();
+        var provider = services.BuildServiceProvider();
+        return provider.GetRequiredService<IFusionCache>();
     }
 }

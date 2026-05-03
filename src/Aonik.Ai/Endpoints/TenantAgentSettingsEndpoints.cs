@@ -1,10 +1,12 @@
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
+using Aonik.Ai.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Ai.Endpoints;
 
@@ -76,17 +78,20 @@ internal sealed class UpdateTenantAgentSettingsEndpoint : Endpoint<UpdateTenantA
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IClock _clock;
+    private readonly IFusionCache _cache;
 
     public UpdateTenantAgentSettingsEndpoint(
         AiDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IClock clock)
+        IClock clock,
+        IFusionCache cache)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _clock = clock;
+        _cache = cache;
     }
 
     public override void Configure()
@@ -138,6 +143,11 @@ internal sealed class UpdateTenantAgentSettingsEndpoint : Endpoint<UpdateTenantA
         }
 
         await _dbContext.SaveChangesAsync(ct);
+
+        // Invalidate the kill-switch cache so AiRunWriter sees the new
+        // state on the immediately following AiRun start.
+        await _cache.RemoveAsync(AiRunWriter.KillSwitchCacheKey(tenantId), token: ct);
+
         await Send.OkAsync(GetTenantAgentSettingsEndpoint.MapToResponse(row), ct);
     }
 }

@@ -7,6 +7,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Settings;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Platform.Services.Settings;
 
@@ -17,21 +18,48 @@ internal sealed class TenantTextToSpeechSettingsService : ITenantTextToSpeechSet
         PropertyNameCaseInsensitive = true
     };
 
+    // The TTS profile is read 10+ times in a single voice run (once per
+    // synth chunk plus AGUI preflight). It changes only when an admin
+    // saves new settings, so a 10-minute TTL with fail-safe is plenty.
+    // The trace audit showed 13 reads of this key per request before
+    // caching — see traces/02d2d74bb4a3 in dev for the baseline.
+    private static readonly FusionCacheEntryOptions CacheEntryOptions = new(TimeSpan.FromMinutes(10))
+    {
+        IsFailSafeEnabled = true,
+        FailSafeMaxDuration = TimeSpan.FromHours(1),
+    };
+
+    private const string CacheKeyPrefix = "tts-settings:v1:";
+
     private readonly PlatformDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IFusionCache _cache;
 
     public TenantTextToSpeechSettingsService(
         PlatformDbContext dbContext,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        IFusionCache cache)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _cache = cache;
     }
+
+    private static string CacheKey(Guid tenantId) => $"{CacheKeyPrefix}{tenantId:N}";
 
     public async Task<TextToSpeechSettings> GetCurrentAsync(CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        return await _cache.GetOrSetAsync<TextToSpeechSettings>(
+            CacheKey(tenantId),
+            async ct => await LoadFromDbAsync(tenantId, ct),
+            CacheEntryOptions,
+            cancellationToken);
+    }
+
+    private async Task<TextToSpeechSettings> LoadFromDbAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
         var payload = await _dbContext.Settings
             .AsNoTracking()
             .Where(setting => setting.Key == TextToSpeechSettingNames.TenantProfile
@@ -81,6 +109,11 @@ internal sealed class TenantTextToSpeechSettingsService : ITenantTextToSpeechSet
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Invalidate the cached profile so the next reader picks up the
+        // new settings on the immediately following request.
+        await _cache.RemoveAsync(CacheKey(tenantId), token: cancellationToken);
+
         return normalized;
     }
 

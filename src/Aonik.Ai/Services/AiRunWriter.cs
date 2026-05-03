@@ -4,23 +4,46 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Ai.Services;
 
 internal sealed class AiRunWriter : IAiRunWriter
 {
+    // Kill-switch state is checked on every StartRunAsync call — that's
+    // 12+ reads per voice run in the trace audit. Cache for 60s with
+    // fail-safe; the admin endpoint that flips the switch invalidates
+    // the entry so engagement still takes effect immediately. The cached
+    // shape keeps just the fields we need for the kill-switch check.
+    internal readonly record struct CachedKillSwitchState(
+        bool Engaged,
+        DateTime? EngagedAt,
+        Guid? EngagedByUserId);
+
+    private static readonly FusionCacheEntryOptions KillSwitchCacheOptions = new(TimeSpan.FromSeconds(60))
+    {
+        IsFailSafeEnabled = true,
+        FailSafeMaxDuration = TimeSpan.FromMinutes(10),
+    };
+
+    private const string KillSwitchCacheKeyPrefix = "ai-kill-switch:v1:";
+    internal static string KillSwitchCacheKey(Guid tenantId) => $"{KillSwitchCacheKeyPrefix}{tenantId:N}";
+
     private readonly AiDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IFusionCache _cache;
 
     public AiRunWriter(
         AiDbContext dbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IFusionCache cache)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _cache = cache;
     }
 
     public async Task<Guid> SaveRunAsync(
@@ -66,17 +89,29 @@ internal sealed class AiRunWriter : IAiRunWriter
         // singleton TenantAgentSettings row; the absence of a row is
         // treated as "not engaged". When engaged, throw a domain exception
         // before any model resolution or DB write happens — callers
-        // surface this as a friendly "agents paused" message.
-        var settings = await _dbContext.TenantAgentSettings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+        // surface this as a friendly "agents paused" message. The state
+        // is cached to spare a per-run DB hit; admin updates invalidate
+        // the entry so the switch still takes effect immediately.
+        var killSwitch = await _cache.GetOrSetAsync<CachedKillSwitchState>(
+            KillSwitchCacheKey(tenantId),
+            async cacheCt =>
+            {
+                var row = await _dbContext.TenantAgentSettings
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.TenantId == tenantId, cacheCt);
+                return row is null
+                    ? new CachedKillSwitchState(false, null, null)
+                    : new CachedKillSwitchState(row.KillSwitchEngaged, row.KillSwitchEngagedAt, row.KillSwitchEngagedByUserId);
+            },
+            KillSwitchCacheOptions,
+            cancellationToken);
 
-        if (settings is { KillSwitchEngaged: true })
+        if (killSwitch.Engaged)
         {
             throw new KillSwitchEngagedException(
                 tenantId,
-                settings.KillSwitchEngagedAt,
-                settings.KillSwitchEngagedByUserId);
+                killSwitch.EngagedAt,
+                killSwitch.EngagedByUserId);
         }
 
         var model = await EnsureDefaultModelAsync(cancellationToken);
