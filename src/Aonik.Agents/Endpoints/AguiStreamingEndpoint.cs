@@ -176,7 +176,6 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             ? new VoiceSynthCoordinator(
                 streamingTts: _streamingTts!,
                 writer: writer,
-                abstractFormat: abstractFormat!,
                 providerFormat: providerFormat!,
                 mime: audioMime!,
                 logger: _logger)

@@ -217,6 +217,8 @@ class AgUiClient {
       ],
       context: input.context,
       forwardedProps: input.forwardedProps,
+      voiceMode: input.voiceMode,
+      audioFormat: input.audioFormat,
     );
 
     _runWithToolsLoop(
@@ -386,6 +388,8 @@ class AgUiClient {
               tools: currentInput.tools,
               context: currentInput.context,
               forwardedProps: currentInput.forwardedProps,
+              voiceMode: currentInput.voiceMode,
+              audioFormat: currentInput.audioFormat,
             );
 
             developer.log(

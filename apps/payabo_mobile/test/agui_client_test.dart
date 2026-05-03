@@ -24,6 +24,8 @@ void main() {
     final input = AgUiRunInput(
       threadId: 'thread-1',
       agentId: 'personal-finance-agent',
+      voiceMode: true,
+      audioFormat: 'opus',
       messages: [
         AgUiMessage.user(id: 'user-1', content: 'Create an account for me'),
       ],
@@ -55,6 +57,10 @@ void main() {
     ).toList();
 
     expect(adapter.requestBodies, hasLength(2));
+    expect(adapter.requestBodies[0]['voiceMode'], isTrue);
+    expect(adapter.requestBodies[0]['audioFormat'], 'opus');
+    expect(adapter.requestBodies[1]['voiceMode'], isTrue);
+    expect(adapter.requestBodies[1]['audioFormat'], 'opus');
 
     final rerunBody = adapter.requestBodies[1];
     final rerunMessages = rerunBody['messages'] as List<dynamic>;

@@ -114,6 +114,27 @@ public class StreamingTextToSpeechServiceTests
     }
 
     [Fact]
+    public async Task StreamSynthesizeAsync_Should_ApplyVoiceProfileOutputFormatOverride()
+    {
+        var fixture = await StreamingTtsTestFixture.CreateAsync(audio: new byte[] { 1, 2, 3 });
+        var request = NewRequest("This is a personal message about my finances.") with
+        {
+            VoiceProfileOverride = new TextToSpeechVoiceProfile(
+                Provider: string.Empty,
+                VoiceId: string.Empty,
+                ModelId: null,
+                Locale: null,
+                OutputFormat: "opus_48000_64",
+                ProviderOptions: new Dictionary<string, string?>())
+        };
+
+        await CollectAsync(fixture.Service.StreamSynthesizeAsync(request));
+
+        fixture.Provider.LastRequest.Should().NotBeNull();
+        fixture.Provider.LastRequest!.OutputFormat.Should().Be("opus_48000_64");
+    }
+
+    [Fact]
     public async Task StreamSynthesizeAsync_Should_MarkAiRunFailed_When_ProviderThrows()
     {
         var fixture = await StreamingTtsTestFixture.CreateAsync(audio: Array.Empty<byte>(), throwOnSynthesize: new InvalidOperationException("boom"));
@@ -338,10 +359,12 @@ public class StreamingTextToSpeechServiceTests
     {
         public string Name => "FakeProvider";
         public int SynthesizeCalls { get; private set; }
+        public TextToSpeechProviderRequest? LastRequest { get; private set; }
 
         public Task<TextToSpeechProviderStreamResult> SynthesizeAsync(TextToSpeechProviderRequest request, CancellationToken cancellationToken = default)
         {
             SynthesizeCalls++;
+            LastRequest = request;
             if (throwOnSynthesize is not null) throw throwOnSynthesize;
 
             return Task.FromResult(new TextToSpeechProviderStreamResult(

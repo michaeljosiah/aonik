@@ -345,8 +345,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _voiceBackendTurnId != null &&
           _voiceBackendTurnId == _activeVoiceTurnId &&
           next.pendingSpeechChunks.length > _voiceChunksEnqueued) {
-        final List<SpeechChunk> newChunks = next.pendingSpeechChunks
-            .sublist(_voiceChunksEnqueued);
+        final List<SpeechChunk> newChunks =
+            next.pendingSpeechChunks.sublist(_voiceChunksEnqueued);
         _voiceChunksEnqueued = next.pendingSpeechChunks.length;
         bool enqueuedAny = false;
         for (final SpeechChunk chunk in newChunks) {
@@ -989,20 +989,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // service without inflating ChatState. This also flips the
     // controller's next-run flag to send `voiceMode: true`.
     ref.read(chatControllerProvider.notifier).setVoiceForwarders(
-          onAudio: (frame) {
-            _chatVoiceService.appendSpeechAudioFrame(
-              chunkIndex: frame.chunkIndex,
-              data: frame.data,
-              isFinal: frame.isFinal,
-            );
-          },
-          onError: (err) {
-            _chatVoiceService.markSpeechAudioError(
-              chunkIndex: err.chunkIndex,
-              code: err.code,
-            );
-          },
+      onAudio: (frame) {
+        _chatVoiceService.appendSpeechAudioFrame(
+          chunkIndex: frame.chunkIndex,
+          data: frame.data,
+          isFinal: frame.isFinal,
         );
+      },
+      onError: (err) {
+        _chatVoiceService.markSpeechAudioError(
+          chunkIndex: err.chunkIndex,
+          code: err.code,
+        );
+      },
+    );
     ref.read(chatControllerProvider.notifier).sendMessage(transcript);
     _voiceLog('sent transcript to backend (voiceMode=true)');
     _scrollToBottom(force: true);
@@ -1063,6 +1063,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _voiceBusy = true;
     try {
       _cancelVoiceTimers();
+      // Detach immediately. This method is often called unawaited before a
+      // typed send/new conversation, so waiting until cleanup completes can
+      // leak `voiceMode=true` into the next non-voice request.
+      ref.read(chatControllerProvider.notifier).clearVoiceForwarders();
 
       // Await cleanup so the voice service is fully stopped before
       // resetting UI state.  Previously these were unawaited, meaning
@@ -1097,10 +1101,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _voicePendingSpeechText = null;
         _voiceChunksEnqueued = 0;
       });
-      // Stop the controller from setting voiceMode=true on subsequent
-      // (typed) messages and detach the audio forwarders so any late
-      // `speech.audio` events from a still-draining run get dropped.
-      ref.read(chatControllerProvider.notifier).clearVoiceForwarders();
       _resetVoiceVisualState();
     } finally {
       _voiceBusy = false;
@@ -3009,9 +3009,8 @@ class _ChatComposerActionButton extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isEnabled
-                  ? const Color(0xFFF37920)
-                  : const Color(0xFF624221),
+              color:
+                  isEnabled ? const Color(0xFFF37920) : const Color(0xFF624221),
             ),
             child: Icon(
               icon,

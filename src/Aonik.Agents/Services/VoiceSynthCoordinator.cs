@@ -32,7 +32,6 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
 
     private readonly IStreamingTextToSpeechService _streamingTts;
     private readonly AguiResponseWriter _writer;
-    private readonly string _abstractFormat;
     private readonly string _providerFormat;
     private readonly string _mime;
     private readonly ILogger _logger;
@@ -43,14 +42,12 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
     public VoiceSynthCoordinator(
         IStreamingTextToSpeechService streamingTts,
         AguiResponseWriter writer,
-        string abstractFormat,
         string providerFormat,
         string mime,
         ILogger logger)
     {
         _streamingTts = streamingTts;
         _writer = writer;
-        _abstractFormat = abstractFormat;
         _providerFormat = providerFormat;
         _mime = mime;
         _logger = logger;
@@ -125,7 +122,14 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
                 Locale: null,
                 ThreadId: threadId,
                 MessageId: messageId,
-                UseCase: "payabo.chat.tts.stream");
+                UseCase: "payabo.chat.tts.stream",
+                VoiceProfileOverride: new TextToSpeechVoiceProfile(
+                    Provider: string.Empty,
+                    VoiceId: string.Empty,
+                    ModelId: null,
+                    Locale: null,
+                    OutputFormat: _providerFormat,
+                    ProviderOptions: new Dictionary<string, string?>()));
 
             await foreach (var frame in _streamingTts.StreamSynthesizeAsync(request, ct).ConfigureAwait(false))
             {

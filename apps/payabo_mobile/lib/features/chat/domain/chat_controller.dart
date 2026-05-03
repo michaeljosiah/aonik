@@ -298,8 +298,7 @@ class ChatState {
               this.pendingSpeechRequiresVisualAttention,
       pendingSpeechRequiresApproval:
           pendingSpeechRequiresApproval ?? this.pendingSpeechRequiresApproval,
-      pendingSpeechChunks:
-          pendingSpeechChunks ?? this.pendingSpeechChunks,
+      pendingSpeechChunks: pendingSpeechChunks ?? this.pendingSpeechChunks,
       pendingNavigation: pendingNavigation == _chatNavSentinel
           ? this.pendingNavigation
           : pendingNavigation as PendingNavigation?,
@@ -1082,6 +1081,7 @@ class ChatController extends StateNotifier<ChatState> {
   void newConversation() {
     _subscription?.cancel();
     _discardPendingText();
+    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -1098,6 +1098,7 @@ class ChatController extends StateNotifier<ChatState> {
   void loadConversation(ChatConversation conversation) {
     _subscription?.cancel();
     _discardPendingText();
+    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -1117,6 +1118,7 @@ class ChatController extends StateNotifier<ChatState> {
   Future<void> loadThread(String threadId) async {
     _subscription?.cancel();
     _discardPendingText();
+    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -1153,6 +1155,7 @@ class ChatController extends StateNotifier<ChatState> {
   void dispose() {
     _subscription?.cancel();
     _discardPendingText();
+    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
