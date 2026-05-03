@@ -175,6 +175,8 @@ class MockChatRepository implements ChatRepository {
     String? threadId,
     required String userMessage,
     List<ChatMessage> history = const [],
+    bool voiceMode = false,
+    String? audioFormat,
   }) async* {
     yield const ChatStreamStarted(threadId: 'mock-thread', runId: 'mock-run');
     await MockBehavior.shortDelay(200);

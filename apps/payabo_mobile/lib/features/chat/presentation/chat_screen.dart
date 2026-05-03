@@ -335,9 +335,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
       }
 
-      // Push any new sentence-level chunks into the voice service's queue so
-      // they can be synthesized in parallel and played sequentially. The
-      // server has already chunked the text at sentence boundaries.
+      // Push any new sentence-level chunks into the voice service's queue
+      // so audio frames arriving inline on the AGUI SSE stream land in a
+      // live queue slot. The server has already chunked the text at
+      // sentence boundaries; voice mode also synthesises each chunk
+      // server-side and emits the bytes as `speech.audio` events that the
+      // controller forwards directly to the voice service.
       if (_voiceAwaitingBackendReply &&
           _voiceBackendTurnId != null &&
           _voiceBackendTurnId == _activeVoiceTurnId &&
@@ -351,7 +354,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           if (text.isEmpty) {
             continue;
           }
-          _chatVoiceService.enqueueSpeechChunk(text);
+          // Reserve a queue slot keyed by the server's chunkIndex; audio
+          // frames arrive separately via the forwarders registered with
+          // the chat controller and feed straight into this slot's
+          // buffer. The matching `audioFormat: 'mp3'` was sent on the
+          // request, so the mime is `audio/mpeg`.
+          _chatVoiceService.enqueueInlineSpeechChunk(
+            chunkIndex: chunk.chunkIndex,
+            mime: 'audio/mpeg',
+          );
           enqueuedAny = true;
         }
         if (enqueuedAny) {
@@ -973,8 +984,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // chunks from the state listener land in a live queue.
     await _beginVoiceSpeechQueue(effectiveTurnId, localeTag);
     unawaited(_chatVoiceService.startThinkingLoop());
+    // Register inline-audio forwarders so the controller routes
+    // speech.audio / speech.audio.error events directly to the voice
+    // service without inflating ChatState. This also flips the
+    // controller's next-run flag to send `voiceMode: true`.
+    ref.read(chatControllerProvider.notifier).setVoiceForwarders(
+          onAudio: (frame) {
+            _chatVoiceService.appendSpeechAudioFrame(
+              chunkIndex: frame.chunkIndex,
+              data: frame.data,
+              isFinal: frame.isFinal,
+            );
+          },
+          onError: (err) {
+            _chatVoiceService.markSpeechAudioError(
+              chunkIndex: err.chunkIndex,
+              code: err.code,
+            );
+          },
+        );
     ref.read(chatControllerProvider.notifier).sendMessage(transcript);
-    _voiceLog('sent transcript to backend');
+    _voiceLog('sent transcript to backend (voiceMode=true)');
     _scrollToBottom(force: true);
   }
 
@@ -1067,6 +1097,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _voicePendingSpeechText = null;
         _voiceChunksEnqueued = 0;
       });
+      // Stop the controller from setting voiceMode=true on subsequent
+      // (typed) messages and detach the audio forwarders so any late
+      // `speech.audio` events from a still-draining run get dropped.
+      ref.read(chatControllerProvider.notifier).clearVoiceForwarders();
       _resetVoiceVisualState();
     } finally {
       _voiceBusy = false;

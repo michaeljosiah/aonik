@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
@@ -52,6 +53,8 @@ class LiveChatRepository implements ChatRepository {
     String? threadId,
     required String userMessage,
     List<ChatMessage> history = const [],
+    bool voiceMode = false,
+    String? audioFormat,
   }) async* {
     // Build AG-UI message array from conversation history.
     //
@@ -68,6 +71,8 @@ class LiveChatRepository implements ChatRepository {
       threadId: threadId,
       agentId: 'personal-finance-agent',
       messages: agUiMessages,
+      voiceMode: voiceMode,
+      audioFormat: audioFormat,
     );
 
     // Side-channel controller for events emitted by frontend tool handlers
@@ -692,7 +697,7 @@ class LiveChatRepository implements ChatRepository {
       case RunErrorEvent():
         return ChatStreamError(event.message, code: event.code);
 
-      case CustomEvent customEvent:
+      case final CustomEvent customEvent:
         if (customEvent.value is Map) {
           final Map<String, dynamic> map =
               Map<String, dynamic>.from(customEvent.value as Map);
@@ -715,6 +720,51 @@ class LiveChatRepository implements ChatRepository {
               speechText: map['speechText']?.toString() ?? '',
               requiresVisualAttention: map['requiresVisualAttention'] == true,
               requiresApproval: map['requiresApproval'] == true,
+            );
+          }
+
+          // Voice-mode inline audio frame. Base64-decode here so the rest
+          // of the app never sees the wire encoding. An empty data field
+          // on the terminal frame is allowed and surfaces as zero bytes.
+          if (customEvent.name == 'speech.audio') {
+            final base64Data = map['data']?.toString() ?? '';
+            List<int> decoded;
+            if (base64Data.isEmpty) {
+              decoded = const <int>[];
+            } else {
+              try {
+                decoded = base64Decode(base64Data);
+              } catch (e) {
+                developer.log(
+                  'Failed to base64-decode speech.audio frame chunkIndex=${map['chunkIndex']}: $e',
+                  name: 'LiveChatRepository',
+                );
+                decoded = const <int>[];
+              }
+            }
+            return ChatStreamSpeechAudio(
+              messageId: map['messageId']?.toString() ?? '',
+              chunkIndex: (map['chunkIndex'] as num?)?.toInt() ?? 0,
+              seq: (map['seq'] as num?)?.toInt() ?? 0,
+              mime: map['mime']?.toString() ?? 'audio/mpeg',
+              data: decoded,
+              isFinal: map['isFinal'] == true,
+              cached: map['cached'] == true,
+              provider: map['provider']?.toString(),
+              voiceId: map['voiceId']?.toString(),
+              ttsAiRunId: map['ttsAiRunId']?.toString(),
+            );
+          }
+
+          // Synthesis failed for a chunk. The text already arrived via
+          // speech.chunk; this just lets the client advance ordering past
+          // the chunk without waiting on audio that will never come.
+          if (customEvent.name == 'speech.audio.error') {
+            return ChatStreamSpeechAudioError(
+              messageId: map['messageId']?.toString() ?? '',
+              chunkIndex: (map['chunkIndex'] as num?)?.toInt() ?? 0,
+              code: map['code']?.toString() ?? 'unknown',
+              message: map['message']?.toString() ?? '',
             );
           }
         }

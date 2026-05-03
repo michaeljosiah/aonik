@@ -491,6 +491,8 @@ class AgUiRunInput {
     this.tools,
     this.context,
     this.forwardedProps,
+    this.voiceMode = false,
+    this.audioFormat,
   });
 
   final String? threadId;
@@ -507,6 +509,18 @@ class AgUiRunInput {
   final List<dynamic>? context;
   final Map<String, dynamic>? forwardedProps;
 
+  /// Voice mode opt-in. When `true`, the server inlines TTS audio bytes on
+  /// the same SSE response as `speech.audio` CUSTOM events and holds
+  /// `RUN_FINISHED` until every audio frame has been flushed. Defaults to
+  /// `false` — non-voice clients are unaffected.
+  final bool voiceMode;
+
+  /// Requested audio container format when [voiceMode] is `true`. One of
+  /// `mp3`, `opus`, `wav`. Lowercase, abstract values only — provider-
+  /// specific strings (e.g. `mp3_44100_128`) are rejected with HTTP 400.
+  /// Ignored entirely when [voiceMode] is `false`.
+  final String? audioFormat;
+
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
     if (threadId != null) json['threadId'] = threadId;
@@ -517,6 +531,13 @@ class AgUiRunInput {
     if (tools != null) json['tools'] = tools;
     if (context != null) json['context'] = context;
     if (forwardedProps != null) json['forwardedProps'] = forwardedProps;
+    if (voiceMode) {
+      json['voiceMode'] = true;
+      // Send the audioFormat alongside voiceMode. Defaults to `mp3` per the
+      // server contract; the caller can override but the server validates
+      // pre-stream and 400s on anything outside mp3 | opus | wav.
+      json['audioFormat'] = audioFormat ?? 'mp3';
+    }
     return json;
   }
 }

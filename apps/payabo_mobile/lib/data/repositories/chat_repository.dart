@@ -333,6 +333,61 @@ class ChatStreamSpeechChunk extends ChatStreamEvent {
   final bool isFinal;
 }
 
+/// One window of synthesized TTS audio for a chunk identified by
+/// [chunkIndex]. Voice-mode AGUI runs emit one or more of these per
+/// [ChatStreamSpeechChunk]. The terminal frame for a chunk has [isFinal]
+/// set to `true`; clients reassemble [data] across frames in arrival
+/// order, then play the chunk in [chunkIndex] order.
+///
+/// [data] is the raw decoded audio bytes (the wire base64 has already
+/// been decoded by the repository). [mime] is one of `audio/mpeg`,
+/// `audio/opus`, `audio/wav`.
+class ChatStreamSpeechAudio extends ChatStreamEvent {
+  const ChatStreamSpeechAudio({
+    required this.messageId,
+    required this.chunkIndex,
+    required this.seq,
+    required this.mime,
+    required this.data,
+    required this.isFinal,
+    required this.cached,
+    this.provider,
+    this.voiceId,
+    this.ttsAiRunId,
+  });
+
+  final String messageId;
+  final int chunkIndex;
+  final int seq;
+  final String mime;
+  final List<int> data;
+  final bool isFinal;
+  final bool cached;
+  final String? provider;
+  final String? voiceId;
+  final String? ttsAiRunId;
+}
+
+/// Audio synthesis failed for the chunk identified by [chunkIndex]. The
+/// chunk's text was already delivered via [ChatStreamSpeechChunk]; the
+/// terminal flag tells the client to advance playback past this chunk
+/// without waiting on audio that will never arrive.
+class ChatStreamSpeechAudioError extends ChatStreamEvent {
+  const ChatStreamSpeechAudioError({
+    required this.messageId,
+    required this.chunkIndex,
+    required this.code,
+    required this.message,
+  });
+
+  final String messageId;
+  final int chunkIndex;
+
+  /// One of `timeout`, `backpressure_dropped`, `synth_failed` in v1.
+  final String code;
+  final String message;
+}
+
 /// The types of display widgets the agent can request.
 enum DisplayWidgetType {
   fxRateChart,
@@ -394,11 +449,20 @@ abstract class ChatRepository {
   /// and streams back incremental events.
   ///
   /// [threadId] identifies the conversation thread (null to start a new one).
-  /// [messages] is the full AG-UI message history for the current thread.
+  /// [history] is the full AG-UI message history for the current thread.
+  ///
+  /// When [voiceMode] is `true`, the server inlines TTS audio bytes as
+  /// [ChatStreamSpeechAudio] / [ChatStreamSpeechAudioError] events on the
+  /// same response stream. The client is expected to play audio inline
+  /// instead of issuing per-chunk synthesize calls. [audioFormat] picks
+  /// the wire container; defaults to `mp3` and is ignored when
+  /// [voiceMode] is `false`.
   Stream<ChatStreamEvent> sendMessage({
     String? threadId,
     required String userMessage,
     List<ChatMessage> history,
+    bool voiceMode = false,
+    String? audioFormat,
   });
 
   /// Fetches a thread with its full message history from the backend.
