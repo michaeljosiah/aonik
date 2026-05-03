@@ -236,6 +236,7 @@ internal sealed class AppInsightsAiTraceReader : IAiTraceReader
         | extend parentObservationId = iff(parentObservationId == "0000000000000000" or parentObservationId == "00000000-0000-0000-0000-000000000000", "", parentObservationId)
         | extend normalizedParentId = iff(normalizedParentId == "0000000000000000" or normalizedParentId == "00000000-0000-0000-0000-000000000000", "", normalizedParentId)
         | extend isCandidateRootObservation = isempty(parentObservationId) or parentObservationId == normalizedParentId or normalizedParentId == traceId
+        {(string.IsNullOrWhiteSpace(request.TraceId) ? "// ChatClientWarmupService fires once per container start with a tiny \"Reply with ok.\" prompt — it runs through TelemetryChatClient and would otherwise pollute the trace list. Hide it from list / generic queries; trace detail queries bypass this.\n        | where tolower(traceName) != \"warmup\"" : string.Empty)}
         | extend logEndTime = timestamp,
                  logStartTime = case(isnotnull(durationMs) and durationMs > 0, timestamp - 1ms * durationMs, timestamp)
         {(request.IsRootObservation is true ? "| where isCandidateRootObservation == true" : string.Empty)}

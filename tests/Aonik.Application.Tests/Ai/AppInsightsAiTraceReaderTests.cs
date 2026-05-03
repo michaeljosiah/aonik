@@ -127,6 +127,36 @@ public class AppInsightsAiTraceReaderTests
     }
 
     [Fact]
+    public void BuildKql_ShouldExcludeWarmupTraces_FromListQueries()
+    {
+        // ChatClientWarmupService tags its calls with aonik.use_case=warmup.
+        // The list query must hide them so they don't pollute the user-
+        // facing trace list every time a container restarts.
+        var listRequest = new ListAiTraceObservationsRequest { TimeRange = "24h" };
+
+        var listKql = AppInsightsAiTraceReader.BuildKql(listRequest, 1, 100);
+
+        listKql.Should().Contain("| where tolower(traceName) != \"warmup\"");
+    }
+
+    [Fact]
+    public void BuildKql_ShouldNotExcludeWarmupTraces_WhenTraceIdSpecified()
+    {
+        // Trace-detail queries (with explicit traceId) must NOT apply the
+        // warmup filter — if a developer is intentionally inspecting a
+        // warmup trace, they should see all of its spans.
+        var detailRequest = new ListAiTraceObservationsRequest
+        {
+            TraceId = "abc123def456",
+            TimeRange = "24h",
+        };
+
+        var detailKql = AppInsightsAiTraceReader.BuildKql(detailRequest, 1, 200);
+
+        detailKql.Should().NotContain("| where tolower(traceName) != \"warmup\"");
+    }
+
+    [Fact]
     public void BuildKql_ShouldSurfaceSqlCommandText_OnDbDependencyRows()
     {
         // SQL dependency rows' AppInsights `data` column holds the SQL

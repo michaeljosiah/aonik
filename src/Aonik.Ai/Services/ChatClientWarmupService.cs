@@ -77,6 +77,14 @@ internal sealed class ChatClientWarmupService : IHostedService
                     // completion finalization. Keep the warmup bounded, but high
                     // enough that the provider can finish a tiny response.
                     MaxOutputTokens = 16,
+                    AdditionalProperties = new AdditionalPropertiesDictionary
+                    {
+                        // Mark this chat as a warmup so the trace explorer
+                        // can filter it out — otherwise it pollutes the
+                        // user-facing trace list every time a container
+                        // restarts and the IHostedService fires.
+                        [AiTelemetry.UseCaseAttribute] = "warmup",
+                    },
                 };
 
                 await chatClient.GetResponseAsync(
