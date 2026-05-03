@@ -176,7 +176,7 @@ public sealed class TextWriterCliOutputWriter : ICliOutputWriter
         }
     }
 
-    private static string RenderStreamEvent(AgentStreamEvent streamEvent)
+    internal static string RenderStreamEvent(AgentStreamEvent streamEvent)
     {
         if (string.Equals(streamEvent.Type, "TEXT_MESSAGE_CONTENT", StringComparison.OrdinalIgnoreCase))
         {
