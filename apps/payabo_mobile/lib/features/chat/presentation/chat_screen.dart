@@ -1903,6 +1903,7 @@ class _ChatStage extends ConsumerWidget {
               pendingApprovals: pendingApprovals,
               pendingOptionSelections: pendingOptionSelections,
               displayWidgets: displayWidgets,
+              onSuggestionTap: _submitPrompt,
               onApprove: onApprove,
               onReject: onReject,
               onSelect: onSelect,
@@ -2032,6 +2033,7 @@ class _ConversationStage extends StatelessWidget {
     this.pendingApprovals = const [],
     this.pendingOptionSelections = const [],
     this.displayWidgets = const [],
+    this.onSuggestionTap,
     this.onApprove,
     this.onReject,
     this.onSelect,
@@ -2046,6 +2048,7 @@ class _ConversationStage extends StatelessWidget {
   final List<PendingApproval> pendingApprovals;
   final List<PendingOptionSelection> pendingOptionSelections;
   final List<DisplayWidget> displayWidgets;
+  final void Function(String prompt)? onSuggestionTap;
   final void Function(String toolCallId)? onApprove;
   final void Function(String toolCallId, [String? reason])? onReject;
   final void Function(String toolCallId, List<String> selected)? onSelect;
@@ -2087,7 +2090,10 @@ class _ConversationStage extends StatelessWidget {
           final ChatMessage message = messages[contentIndex];
           return Padding(
             padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
-            child: _ChatMessageBlock(message: message),
+            child: _ChatMessageBlock(
+              message: message,
+              onSuggestionTap: onSuggestionTap,
+            ),
           );
         }
         contentIndex -= messages.length;
@@ -2119,6 +2125,7 @@ class _ConversationStage extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
             child: _DisplayWidgetDispatcher(
               widget: displayWidgets[contentIndex],
+              onSuggestionTap: onSuggestionTap,
             ),
           );
         }
@@ -2176,9 +2183,13 @@ class _CompactChatIntroCard extends StatelessWidget {
 }
 
 class _ChatMessageBlock extends StatelessWidget {
-  const _ChatMessageBlock({required this.message});
+  const _ChatMessageBlock({
+    required this.message,
+    this.onSuggestionTap,
+  });
 
   final ChatMessage message;
+  final void Function(String prompt)? onSuggestionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2293,6 +2304,7 @@ class _ChatMessageBlock extends StatelessWidget {
                   widgetType: info.widgetType,
                   data: info.data,
                 ),
+                onSuggestionTap: onSuggestionTap,
               ),
             ),
           ),
@@ -3360,21 +3372,6 @@ class _StreamingMessageBlock extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: PayaboSpacing.md),
-              // Show tool call chips (if any).
-              if (activeToolCalls.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
-                  child: Wrap(
-                    spacing: PayaboSpacing.xs,
-                    runSpacing: PayaboSpacing.xs,
-                    children: activeToolCalls
-                        .map((tc) => _ToolCallChip(
-                              name: tc.toolName,
-                              status: tc.status,
-                            ))
-                        .toList(),
-                  ),
-                ),
               // Streaming text — the blinking cursor is rendered below as a
               // sibling to avoid re-measuring the inline WidgetSpan on every
               // token delta.
@@ -3398,17 +3395,90 @@ class _StreamingMessageBlock extends ConsumerWidget {
 }
 
 /// Thinking indicator shown while waiting for the agent to start responding.
-class _ThinkingIndicator extends StatelessWidget {
+///
+/// Shows a contextual phrase derived from the active tool call name, or cycles
+/// through generic "working" phrases while connecting. Phrases animate in/out
+/// with a fade so the user sees natural motion without raw tool-call details.
+class _ThinkingIndicator extends ConsumerStatefulWidget {
   const _ThinkingIndicator();
+
+  @override
+  ConsumerState<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
+}
+
+class _ThinkingIndicatorState extends ConsumerState<_ThinkingIndicator> {
+  // Shown in rotation when no specific tool phrase applies.
+  static const List<String> _genericPhrases = <String>[
+    'Thinking through this...',
+    'Looking at your finances...',
+    'Working on that for you...',
+    'Putting it together...',
+  ];
+
+  int _phraseIndex = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 2200), (_) {
+      if (mounted) {
+        setState(() {
+          _phraseIndex = (_phraseIndex + 1) % _genericPhrases.length;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  /// Returns the first incomplete (still-executing) tool call, or null.
+  ActiveToolCall? _activeToolCall(List<ActiveToolCall> calls) {
+    for (final tc in calls.reversed) {
+      if (!tc.isComplete) return tc;
+    }
+    return null;
+  }
+
+  /// Maps a raw tool name to a user-friendly, sentence-style thinking hint.
+  String _toolPhrase(String toolName) {
+    final String lower = toolName.toLowerCase();
+    if (lower.contains('account')) return 'Checking your accounts...';
+    if (lower.contains('transaction')) return 'Looking up your transactions...';
+    if (lower.contains('spending')) return 'Reviewing your spending...';
+    if (lower.contains('budget')) return 'Looking at your budget...';
+    if (lower.contains('order')) return 'Checking your payment history...';
+    if (lower.contains('fx') ||
+        lower.contains('exchange') ||
+        lower.contains('rate')) return 'Fetching exchange rates...';
+    if (lower.contains('navigate')) return 'Getting that ready...';
+    if (lower.contains('goal')) return 'Reviewing your goals...';
+    if (lower.contains('bill')) return 'Checking your bills...';
+    if (lower.contains('categor')) return 'Categorising transactions...';
+    if (lower.contains('balance')) return 'Checking your balance...';
+    if (lower.contains('payment')) return 'Looking up payment details...';
+    return _genericPhrases[_phraseIndex];
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final List<ActiveToolCall> activeToolCalls = ref.watch(
+      chatControllerProvider.select((ChatState s) => s.activeToolCalls),
+    );
+
+    final ActiveToolCall? activeTc = _activeToolCall(activeToolCalls);
+    final String phrase = activeTc != null
+        ? _toolPhrase(activeTc.toolName)
+        : _genericPhrases[_phraseIndex];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Container(
             width: 10,
@@ -3439,12 +3509,34 @@ class _ThinkingIndicator extends StatelessWidget {
             ),
           ),
           const SizedBox(width: PayaboSpacing.sm),
-          Text(
-            'Thinking...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: _chatMutedTextColor(context),
-                  fontStyle: FontStyle.italic,
-                ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.25),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOut,
+                    )),
+                    child: child,
+                  ),
+                );
+              },
+              child: Text(
+                phrase,
+                key: ValueKey<String>(phrase),
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: _chatMutedTextColor(context),
+                      fontStyle: FontStyle.italic,
+                    ),
+              ),
+            ),
           ),
         ],
       ),
@@ -3840,121 +3932,86 @@ class _OptionSelectorCardState extends State<_OptionSelectorCard> {
   }
 }
 
-/// A small chip showing a tool call name with a status-appropriate icon.
-class _ToolCallChip extends StatelessWidget {
-  const _ToolCallChip({
-    required this.name,
-    required this.status,
+class _FollowUpSuggestionsCard extends StatelessWidget {
+  const _FollowUpSuggestionsCard({
+    required this.data,
+    this.onSuggestionTap,
   });
 
-  final String name;
-  final ToolCallStatus status;
+  final Map<String, dynamic> data;
+  final void Function(String prompt)? onSuggestionTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final prompt = data['prompt'] as String? ?? 'Pick a next step';
+    final suggestions = (data['suggestions'] as List<dynamic>? ?? const [])
+        .whereType<Map<Object?, Object?>>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .where((item) =>
+            (item['label']?.toString().trim().isNotEmpty ?? false) &&
+            (item['prompt']?.toString().trim().isNotEmpty ?? false))
+        .toList();
 
-    final (Color chipColor, Widget icon) = _statusVisuals(c);
+    if (suggestions.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: PayaboSpacing.sm,
-        vertical: PayaboSpacing.xxs,
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
       decoration: BoxDecoration(
-        color: chipColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: chipColor.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          icon,
-          const SizedBox(width: PayaboSpacing.xxs),
-          Text(
-            _friendlyToolName(name),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: _chatMutedTextColor(context),
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
+        color: _chatPlanSurfaceColor(context),
+        gradient: _chatPlanGradient(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _chatPremiumBorderColor(context)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1E000000),
+            blurRadius: 16,
+            offset: Offset(0, 10),
           ),
         ],
       ),
-    );
-  }
-
-  (Color, Widget) _statusVisuals(PayaboColorResolver c) {
-    switch (status) {
-      case ToolCallStatus.streaming:
-      case ToolCallStatus.executing:
-        return (
-          c.primary,
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                c.primary.withValues(alpha: 0.6),
-              ),
+      child: Padding(
+        padding: const EdgeInsets.all(PayaboSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              prompt,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: _chatBodyTextColor(context),
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
-          ),
-        );
-
-      case ToolCallStatus.pending:
-        return (
-          c.primary,
-          Icon(
-            Icons.schedule_rounded,
-            size: 14,
-            color: c.primary.withValues(alpha: 0.7),
-          ),
-        );
-
-      case ToolCallStatus.awaitingApproval:
-        return (
-          Colors.orange,
-          Icon(
-            Icons.shield_rounded,
-            size: 14,
-            color: Colors.orange.withValues(alpha: 0.8),
-          ),
-        );
-
-      case ToolCallStatus.completed:
-        return (
-          c.primary,
-          Icon(
-            Icons.check_circle_rounded,
-            size: 14,
-            color: c.primary.withValues(alpha: 0.7),
-          ),
-        );
-
-      case ToolCallStatus.error:
-        return (
-          Colors.red,
-          Icon(
-            Icons.error_rounded,
-            size: 14,
-            color: Colors.red.withValues(alpha: 0.7),
-          ),
-        );
-    }
-  }
-
-  /// Converts a camelCase or PascalCase tool name to a friendly label.
-  static String _friendlyToolName(String raw) {
-    // Insert spaces before capital letters and capitalize first letter.
-    final spaced = raw.replaceAllMapped(
-      RegExp(r'(?<=[a-z])([A-Z])'),
-      (m) => ' ${m.group(1)}',
+            const SizedBox(height: PayaboSpacing.md),
+            Wrap(
+              spacing: PayaboSpacing.sm,
+              runSpacing: PayaboSpacing.sm,
+              children: suggestions.map((item) {
+                final label = item['label']!.toString();
+                final suggestionPrompt = item['prompt']!.toString();
+                return ActionChip(
+                  label: Text(label),
+                  onPressed: onSuggestionTap == null
+                      ? null
+                      : () => onSuggestionTap!(suggestionPrompt),
+                  labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: c.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                  side: BorderSide(color: c.primary.withValues(alpha: 0.18)),
+                  backgroundColor: c.primary.withValues(alpha: 0.08),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
     );
-    if (spaced.isEmpty) return raw;
-    return spaced[0].toUpperCase() + spaced.substring(1);
   }
 }
 
@@ -3964,9 +4021,13 @@ class _ToolCallChip extends StatelessWidget {
 
 /// Routes a [DisplayWidget] to the correct card widget based on its type.
 class _DisplayWidgetDispatcher extends StatelessWidget {
-  const _DisplayWidgetDispatcher({required this.widget});
+  const _DisplayWidgetDispatcher({
+    required this.widget,
+    this.onSuggestionTap,
+  });
 
   final DisplayWidget widget;
+  final void Function(String prompt)? onSuggestionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -3979,6 +4040,11 @@ class _DisplayWidgetDispatcher extends StatelessWidget {
         return _SpendingPieChartCard(data: widget.data);
       case DisplayWidgetType.autopilotProposal:
         return _AutopilotProposalCard(data: widget.data);
+      case DisplayWidgetType.followUpSuggestions:
+        return _FollowUpSuggestionsCard(
+          data: widget.data,
+          onSuggestionTap: onSuggestionTap,
+        );
       case DisplayWidgetType.optionSelector:
         // Option selector is rendered as a blocking card via
         // pendingOptionSelections, not as a display widget.
