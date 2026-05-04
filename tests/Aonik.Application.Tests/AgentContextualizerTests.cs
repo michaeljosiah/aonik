@@ -51,6 +51,49 @@ public class AgentContextualizerTests
     }
 
     [Fact]
+    public async Task ResolveAsync_ShouldSurfaceConfiguredModelName_FromDomainResolver()
+    {
+        // Pins the regression: previously the agent's configured ModelId
+        // was read from AnkAgents and resolved to a name in
+        // AgentConfigurationService, but the name was discarded — never
+        // reaching the AGUI endpoint where it would have been stamped on
+        // ChatOptions.ModelId. Result: per-agent model overrides
+        // silently fell back to the chat client's global default.
+        var descriptor = new StubAgentDescriptor("personal-finance-agent", requiresUserBrief: false);
+        var resolver = new StubDomainAgentResolver(descriptor, configuredModelName: "gpt-4.1");
+
+        var sut = CreateSut(
+            descriptor, resolver, new StubUserBriefProjector(),
+            CreateFusionCache(), Guid.NewGuid(), Guid.NewGuid());
+
+        var resolution = await sut.ResolveAsync(descriptor.Name, CancellationToken.None);
+
+        resolution.ConfiguredModelName.Should().Be(
+            "gpt-4.1",
+            because: "callers stamp this on ChatOptions.ModelId so the per-agent model override actually reaches the LLM provider");
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ShouldExposeNullConfiguredModel_ForOrchestratorPath()
+    {
+        // Orchestrator manages its own model via MasterOrchestratorService
+        // — the AGUI endpoint must not stamp a model on orchestrator runs
+        // (would shadow the orchestrator's resolution). The contextualizer
+        // signals this by returning null ConfiguredModelName for the
+        // null-agentId path.
+        var descriptor = new StubAgentDescriptor("ignored", requiresUserBrief: false);
+        var resolver = new StubDomainAgentResolver(descriptor, configuredModelName: "should-not-leak");
+
+        var sut = CreateSut(
+            descriptor, resolver, new StubUserBriefProjector(),
+            CreateFusionCache(), Guid.NewGuid(), Guid.NewGuid());
+
+        var resolution = await sut.ResolveAsync(agentId: null, CancellationToken.None);
+
+        resolution.ConfiguredModelName.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ResolveAsync_ShouldSkipUserBrief_WhenAgentDoesNotRequireIt()
     {
         // Arrange
@@ -103,10 +146,14 @@ public class AgentContextualizerTests
     {
         private readonly AIAgent _agent;
         private readonly IDomainAgentDescriptor _descriptor;
+        private readonly string? _configuredModelName;
 
-        public StubDomainAgentResolver(IDomainAgentDescriptor descriptor)
+        public StubDomainAgentResolver(
+            IDomainAgentDescriptor descriptor,
+            string? configuredModelName = null)
         {
             _descriptor = descriptor;
+            _configuredModelName = configuredModelName;
             _agent = new ChatClientAgent(
                 new FakeChatClient(),
                 name: descriptor.Name,
@@ -114,10 +161,10 @@ public class AgentContextualizerTests
                 tools: Array.Empty<AITool>());
         }
 
-        public Task<(AIAgent Agent, IDomainAgentDescriptor Descriptor)> ResolveAsync(
+        public Task<DomainAgentResolution> ResolveAsync(
             string agentId,
             CancellationToken cancellationToken = default)
-            => Task.FromResult((_agent, _descriptor));
+            => Task.FromResult(new DomainAgentResolution(_agent, _descriptor, _configuredModelName));
     }
 
     private sealed class StubAgentDescriptor : IDomainAgentDescriptor

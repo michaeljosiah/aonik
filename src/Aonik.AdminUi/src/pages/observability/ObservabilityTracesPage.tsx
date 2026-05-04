@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar, Download, Filter, Loader2, Sparkles } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronRight, Download, Filter, Loader2, Sparkles } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -450,6 +450,13 @@ export function ObservabilityTracesPage() {
   const [error, setError] = useState<string | null>(null);
   const [openSpanId, setOpenSpanId] = useState<string | null>(null);
 
+  // Span ids that are currently expanded in the waterfall. Children of
+  // spans NOT in this set are hidden until the user clicks the chevron.
+  // We seed it with the trace's top-level spans on every trace switch
+  // (see useEffect below) so newly-loaded traces start with the root
+  // visible and everything else collapsed.
+  const [expandedSpanIds, setExpandedSpanIds] = useState<Set<string>>(() => new Set());
+
   // AI interpretation of the currently-selected trace.
   const [traceAnalysis, setTraceAnalysis] = useState<string | null>(null);
   const [traceAnalysisLoading, setTraceAnalysisLoading] = useState(false);
@@ -574,25 +581,73 @@ export function ObservabilityTracesPage() {
   const waterfallItems = useMemo(() => buildWaterfall(selectedTraceItems), [selectedTraceItems]);
   const traceTotalMs = useMemo(() => getTraceTotalMs(selectedTraceItems), [selectedTraceItems]);
 
+  // Compute which rows are currently visible based on the expanded set.
+  // A row is visible iff EVERY ancestor on its parent chain is expanded.
+  // The root (no parent) is always visible.
+  const visibleWaterfallItems = useMemo(() => {
+    if (waterfallItems.length === 0) return waterfallItems;
+    const byId = new Map(waterfallItems.map(item => [item.id, item]));
+    const visible: typeof waterfallItems = [];
+    for (const item of waterfallItems) {
+      let cursor: WaterfallItem | undefined = item;
+      let allAncestorsOpen = true;
+      while (cursor?.parentId) {
+        const parent = byId.get(cursor.parentId);
+        if (!parent) break; // dangling parent ref → treat as root child
+        if (!expandedSpanIds.has(parent.id)) {
+          allAncestorsOpen = false;
+          break;
+        }
+        cursor = parent;
+      }
+      if (allAncestorsOpen) visible.push(item);
+    }
+    return visible;
+  }, [waterfallItems, expandedSpanIds]);
+
+  const toggleSpanExpansion = useCallback((id: string) => {
+    setExpandedSpanIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   // Reset the slide-out whenever we switch traces — span ids only make
   // sense within the trace they were captured in.
   useEffect(() => {
     setOpenSpanId(null);
   }, [selectedTraceId]);
 
-  const openSpanIndex = waterfallItems.findIndex((item) => item.id === openSpanId);
-  const openSpan = openSpanIndex >= 0 ? waterfallItems[openSpanIndex] : null;
+  // Seed the expanded set whenever the trace's waterfall changes:
+  // expand only the top-most span(s) so descendants are collapsed by
+  // default. The user clicks the chevron on a parent to drill in.
+  useEffect(() => {
+    if (waterfallItems.length === 0) {
+      setExpandedSpanIds(new Set());
+      return;
+    }
+    const topLevel = waterfallItems.filter(item => item.depth === 0).map(item => item.id);
+    setExpandedSpanIds(new Set(topLevel));
+  }, [waterfallItems]);
+
+  // Open-span index is computed against the VISIBLE list so prev/next
+  // skips collapsed children — keeps keyboard navigation aligned with
+  // what the user can actually see.
+  const openSpanIndex = visibleWaterfallItems.findIndex((item) => item.id === openSpanId);
+  const openSpan = openSpanIndex >= 0 ? visibleWaterfallItems[openSpanIndex] : null;
   const traceStartMs = useMemo(() => {
     if (selectedTraceItems.length === 0) return 0;
     return Math.min(...selectedTraceItems.map((item) => new Date(item.startTime).getTime()));
   }, [selectedTraceItems]);
 
   const handlePrevSpan = () => {
-    if (openSpanIndex > 0) setOpenSpanId(waterfallItems[openSpanIndex - 1].id);
+    if (openSpanIndex > 0) setOpenSpanId(visibleWaterfallItems[openSpanIndex - 1].id);
   };
   const handleNextSpan = () => {
-    if (openSpanIndex >= 0 && openSpanIndex < waterfallItems.length - 1) {
-      setOpenSpanId(waterfallItems[openSpanIndex + 1].id);
+    if (openSpanIndex >= 0 && openSpanIndex < visibleWaterfallItems.length - 1) {
+      setOpenSpanId(visibleWaterfallItems[openSpanIndex + 1].id);
     }
   };
 
@@ -814,8 +869,10 @@ export function ObservabilityTracesPage() {
                         No correlated spans found for this trace.
                       </div>
                     ) : (
-                      waterfallItems.map((item) => {
+                      visibleWaterfallItems.map((item) => {
                         const isOpen = item.id === openSpanId;
+                        const hasChildren = item.children.length > 0;
+                        const isExpanded = expandedSpanIds.has(item.id);
                         return (
                         <button
                           key={`${item.source}-${item.id}`}
@@ -829,14 +886,55 @@ export function ObservabilityTracesPage() {
                           )}
                         >
                           <div className="min-w-0" style={{ paddingLeft: `${item.depth * 14}px` }}>
-                            <div className="truncate font-mono text-[11.5px] text-[var(--color-text-primary)]" title={item.name}>
-                              {item.name || '--'}
-                            </div>
-                            <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
-                              <span className="rounded bg-[var(--color-brand-primary)]/10 px-1.5 py-0.5 font-medium text-[var(--color-brand-primary)]">
-                                {getSpanKind(item)}
-                              </span>
-                              <span>{getSpanActor(item)}</span>
+                            <div className="flex items-start gap-1.5">
+                              {/* Disclosure chevron — only rendered for
+                                  rows with children. Click stops
+                                  propagation so toggling expand doesn't
+                                  also open the slide-out. */}
+                              {hasChildren ? (
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                                  aria-expanded={isExpanded}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSpanExpansion(item.id);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      toggleSpanExpansion(item.id);
+                                    }
+                                  }}
+                                  className="mt-px inline-flex h-3.5 w-3.5 flex-none items-center justify-center rounded text-[var(--color-text-tertiary)] transition-colors hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]"
+                                >
+                                  {isExpanded
+                                    ? <ChevronDown className="h-3 w-3" />
+                                    : <ChevronRight className="h-3 w-3" />}
+                                </span>
+                              ) : (
+                                // 14px placeholder so leaf rows align
+                                // with parent rows (chevron + space).
+                                <span aria-hidden className="mt-px inline-block h-3.5 w-3.5 flex-none" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="truncate font-mono text-[11.5px] text-[var(--color-text-primary)]" title={item.name}>
+                                  {item.name || '--'}
+                                  {hasChildren && !isExpanded ? (
+                                    <span className="ml-1.5 rounded bg-[var(--color-surface-inset)] px-1 py-px font-mono text-[9px] font-medium text-[var(--color-text-tertiary)]">
+                                      {item.children.length}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
+                                  <span className="rounded bg-[var(--color-brand-primary)]/10 px-1.5 py-0.5 font-medium text-[var(--color-brand-primary)]">
+                                    {getSpanKind(item)}
+                                  </span>
+                                  <span>{getSpanActor(item)}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
 
