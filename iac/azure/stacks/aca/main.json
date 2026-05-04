@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "5197453516580411356"
+      "templateHash": "9076663311351815749"
     }
   },
   "parameters": {
@@ -116,6 +116,20 @@
         "description": "Optional worker container environment variable overrides (name/value pairs)."
       }
     },
+    "qdrantImage": {
+      "type": "string",
+      "defaultValue": "qdrant/qdrant:latest",
+      "metadata": {
+        "description": "Qdrant vector store image reference including tag."
+      }
+    },
+    "qdrantApiKey": {
+      "type": "securestring",
+      "defaultValue": "dev-qdrant-key-changeme",
+      "metadata": {
+        "description": "Qdrant API key for authentication. Defaults to dev key."
+      }
+    },
     "containerRegistrySku": {
       "type": "string",
       "defaultValue": "Basic",
@@ -198,6 +212,40 @@
       ]
     },
     {
+      "type": "Microsoft.App/managedEnvironments/storages",
+      "apiVersion": "2024-03-01",
+      "name": "[format('{0}/{1}', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')), 'qdrant-storage')]",
+      "properties": {
+        "azureFile": {
+          "accountName": "[reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.qdrantStorageAccountName.value]",
+          "accountKey": "[reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.qdrantStorageAccountKey.value]",
+          "shareName": "qdrant-storage",
+          "accessMode": "ReadWrite"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments/storages",
+      "apiVersion": "2024-03-01",
+      "name": "[format('{0}/{1}', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')), 'qdrant-snapshots')]",
+      "properties": {
+        "azureFile": {
+          "accountName": "[reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.qdrantStorageAccountName.value]",
+          "accountKey": "[reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.qdrantStorageAccountKey.value]",
+          "shareName": "qdrant-snapshots",
+          "accessMode": "ReadWrite"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]"
+      ]
+    },
+    {
       "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
       "apiVersion": "2023-01-31",
       "name": "[format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName'))]",
@@ -215,6 +263,13 @@
       "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
       "apiVersion": "2023-01-31",
       "name": "[format('{0}-{1}-adminui-pull-id', parameters('workloadName'), parameters('environmentName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]"
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('{0}-{1}-qdrant-pull-id', parameters('workloadName'), parameters('environmentName'))]",
       "location": "[parameters('location')]",
       "tags": "[parameters('tags')]"
     },
@@ -237,7 +292,7 @@
           "ingress": {
             "external": true,
             "targetPort": 8080,
-            "transport": "auto"
+            "transport": "http"
           },
           "registries": [
             {
@@ -245,14 +300,14 @@
               "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName')))]"
             }
           ],
-          "secrets": "[concat(if(parameters('enableOptionalSecrets'), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.acsConnectionStringSecretUri.value, 'identity', 'system'), createObject('name', 'verification-hash-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.verificationHashKeySecretUri.value, 'identity', 'system')), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'value', 'placeholder'), createObject('name', 'verification-hash-key', 'value', 'placeholder'))), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'bootstrap-setup-secret', 'value', parameters('bootstrapSetupSecret')))), createArray(createObject('name', 'operations-alerts-azure-monitor-shared-secret', 'value', if(empty(parameters('alertsSharedSecret')), 'placeholder', parameters('alertsSharedSecret')))))]"
+          "secrets": "[concat(if(parameters('enableOptionalSecrets'), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.acsConnectionStringSecretUri.value, 'identity', 'system'), createObject('name', 'verification-hash-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.verificationHashKeySecretUri.value, 'identity', 'system')), createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.sqlConnectionSecretUri.value, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value), createObject('name', 'acs-connection-string', 'value', 'placeholder'), createObject('name', 'verification-hash-key', 'value', 'placeholder'))), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'bootstrap-setup-secret', 'value', parameters('bootstrapSetupSecret')))), createArray(createObject('name', 'operations-alerts-azure-monitor-shared-secret', 'value', if(empty(parameters('alertsSharedSecret')), 'placeholder', parameters('alertsSharedSecret')))), createArray(createObject('name', 'qdrant-api-key', 'value', parameters('qdrantApiKey'))), createArray(createObject('name', 'blob-storage-account-name', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStorageAccountNameSecretUri.value, 'identity', 'system'), createObject('name', 'blob-storage-account-key', 'keyVaultUrl', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStorageAccountKeySecretUri.value, 'identity', 'system')))]"
         },
         "template": {
           "containers": [
             {
               "name": "api",
               "image": "[parameters('apiImage')]",
-              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'Database__AutoMigrate', 'value', 'true'), createObject('name', 'Database__SeedData', 'value', 'true'), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Communication__Azure__ConnectionString', 'secretRef', 'acs-connection-string'), createObject('name', 'Verification__HashKey', 'secretRef', 'verification-hash-key'), createObject('name', 'Operations__Alerts__AzureMonitor__SharedSecret', 'secretRef', 'operations-alerts-azure-monitor-shared-secret')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'Bootstrap__Enabled', 'value', 'true'), createObject('name', 'Bootstrap__SetupSecret', 'secretRef', 'bootstrap-setup-secret'))), createArray(createObject('name', 'Cors__AllowedOrigins__0', 'value', format('https://{0}.{1}', variables('adminUiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain))), variables('apiAdditionalEnvVars'))]",
+              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'Database__AutoMigrate', 'value', 'true'), createObject('name', 'Database__SeedData', 'value', 'true'), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Runtime__AzureContainerApps__Enabled', 'value', 'true'), createObject('name', 'Runtime__AzureContainerApps__EnvironmentName', 'value', parameters('environmentName')), createObject('name', 'Runtime__AzureContainerApps__WorkloadName', 'value', parameters('workloadName')), createObject('name', 'Runtime__AzureContainerApps__SubscriptionId', 'value', subscription().subscriptionId), createObject('name', 'Runtime__AzureContainerApps__ResourceGroupName', 'value', resourceGroup().name), createObject('name', 'Communication__Azure__ConnectionString', 'secretRef', 'acs-connection-string'), createObject('name', 'Verification__HashKey', 'secretRef', 'verification-hash-key'), createObject('name', 'Operations__Alerts__AzureMonitor__SharedSecret', 'secretRef', 'operations-alerts-azure-monitor-shared-secret')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'Bootstrap__Enabled', 'value', 'true'), createObject('name', 'Bootstrap__SetupSecret', 'secretRef', 'bootstrap-setup-secret'))), createArray(createObject('name', 'Cors__AllowedOrigins__0', 'value', format('https://{0}.{1}', variables('adminUiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'Qdrant__Endpoint', 'value', format('http://{0}', format('{0}-qdrant', variables('namePrefix')))), createObject('name', 'Qdrant__ApiKey', 'secretRef', 'qdrant-api-key'), createObject('name', 'Qdrant__CollectionPrefix', 'value', format('aonik-{0}', parameters('environmentName')))), createArray(createObject('name', 'BlobStorage__Provider', 'value', 'Azure'), createObject('name', 'BlobStorage__Azure__AccountName', 'secretRef', 'blob-storage-account-name'), createObject('name', 'BlobStorage__Azure__AccountKey', 'secretRef', 'blob-storage-account-key'), createObject('name', 'BlobStorage__ProfilePhotos__PublicBaseUrl', 'value', format('{0}profiles', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value)), createObject('name', 'BlobStorage__ContentMedia__PublicBaseUrl', 'value', format('{0}content-media', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value))), variables('apiAdditionalEnvVars'))]",
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
@@ -260,7 +315,7 @@
             }
           ],
           "scale": {
-            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, 1)]",
+            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, if(equals(parameters('environmentName'), 'dev'), 0, 1))]",
             "maxReplicas": "[if(equals(parameters('environmentName'), 'prod'), 10, 3)]"
           }
         }
@@ -270,7 +325,8 @@
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName')))]",
         "[resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName')))]",
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
-        "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]"
+        "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]",
+        "[resourceId('Microsoft.App/containerApps', format('{0}-qdrant', variables('namePrefix')))]"
       ]
     },
     {
@@ -304,6 +360,10 @@
             {
               "name": "app-insights-connection-string",
               "value": "[reference(resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName'))), '2025-04-01').outputs.appInsightsConnectionString.value]"
+            },
+            {
+              "name": "qdrant-api-key",
+              "value": "[parameters('qdrantApiKey')]"
             }
           ]
         },
@@ -312,7 +372,7 @@
             {
               "name": "worker",
               "image": "[parameters('workerImage')]",
-              "env": "[concat(createArray(createObject('name', 'DOTNET_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string')), variables('workerAdditionalEnvVars'))]",
+              "env": "[concat(createArray(createObject('name', 'DOTNET_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Qdrant__Endpoint', 'value', format('http://{0}', format('{0}-qdrant', variables('namePrefix')))), createObject('name', 'Qdrant__ApiKey', 'secretRef', 'qdrant-api-key'), createObject('name', 'Qdrant__CollectionPrefix', 'value', format('aonik-{0}', parameters('environmentName')))), variables('workerAdditionalEnvVars'))]",
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
@@ -320,7 +380,7 @@
             }
           ],
           "scale": {
-            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, 1)]",
+            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, if(equals(parameters('environmentName'), 'dev'), 0, 1))]",
             "maxReplicas": "[if(equals(parameters('environmentName'), 'prod'), 5, 2)]"
           }
         }
@@ -330,6 +390,7 @@
         "[resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName')))]",
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
         "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]",
+        "[resourceId('Microsoft.App/containerApps', format('{0}-qdrant', variables('namePrefix')))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-worker-pull-id', parameters('workloadName'), parameters('environmentName')))]"
       ]
     },
@@ -379,7 +440,7 @@
             }
           ],
           "scale": {
-            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, 1)]",
+            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, if(equals(parameters('environmentName'), 'dev'), 0, 1))]",
             "maxReplicas": "[if(equals(parameters('environmentName'), 'prod'), 5, 2)]"
           }
         }
@@ -389,6 +450,128 @@
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-adminui-pull-id', parameters('workloadName'), parameters('environmentName')))]",
         "[resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName')))]",
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "[format('{0}-qdrant', variables('namePrefix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "identity": {
+        "type": "SystemAssigned,UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-qdrant-pull-id', parameters('workloadName'), parameters('environmentName'))))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "ingress": {
+            "targetPort": 6333,
+            "transport": "http",
+            "exposedPort": 0
+          },
+          "secrets": [
+            {
+              "name": "qdrant-api-key",
+              "value": "[parameters('qdrantApiKey')]"
+            },
+            {
+              "name": "storage-account-name",
+              "keyVaultUrl": "[reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.qdrantStorageAccountNameSecretUri.value]",
+              "identity": "system"
+            },
+            {
+              "name": "storage-account-key",
+              "keyVaultUrl": "[reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.qdrantStorageAccountKeySecretUri.value]",
+              "identity": "system"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "qdrant",
+              "image": "[parameters('qdrantImage')]",
+              "env": [
+                {
+                  "name": "QDRANT_API_KEY",
+                  "secretRef": "qdrant-api-key"
+                },
+                {
+                  "name": "QDRANT_SNAPSHOT_DIR",
+                  "value": "/qdrant/snapshots"
+                },
+                {
+                  "name": "QDRANT_READ_ONLY_API",
+                  "value": "false"
+                }
+              ],
+              "resources": {
+                "cpu": "[json('1.0')]",
+                "memory": "2Gi"
+              },
+              "volumeMounts": [
+                {
+                  "volumeName": "qdrant-storage",
+                  "mountPath": "/qdrant/storage"
+                },
+                {
+                  "volumeName": "qdrant-snapshots",
+                  "mountPath": "/qdrant/snapshots"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/livez",
+                    "port": 6333
+                  },
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "timeoutSeconds": 5,
+                  "failureThreshold": 3
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 6333
+                  },
+                  "initialDelaySeconds": 10,
+                  "periodSeconds": 5,
+                  "timeoutSeconds": 3,
+                  "failureThreshold": 2
+                }
+              ]
+            }
+          ],
+          "volumes": [
+            {
+              "name": "qdrant-storage",
+              "storageType": "AzureFile",
+              "storageName": "qdrant-storage"
+            },
+            {
+              "name": "qdrant-snapshots",
+              "storageType": "AzureFile",
+              "storageName": "qdrant-snapshots"
+            }
+          ],
+          "scale": {
+            "minReplicas": "[if(equals(parameters('environmentName'), 'dev'), 0, 1)]",
+            "maxReplicas": 2
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName')), 'Microsoft.Authorization/roleAssignments', guid(variables('containerRegistryName'), format('{0}-{1}-qdrant-pull-id', parameters('workloadName'), parameters('environmentName')), 'AcrPull'))]",
+        "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-qdrant-pull-id', parameters('workloadName'), parameters('environmentName')))]"
       ]
     },
     {
@@ -434,6 +617,35 @@
       "dependsOn": [
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-adminui-pull-id', parameters('workloadName'), parameters('environmentName')))]",
         "[resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.ContainerRegistry/registries', variables('containerRegistryName'))]",
+      "name": "[guid(variables('containerRegistryName'), format('{0}-{1}-qdrant-pull-id', parameters('workloadName'), parameters('environmentName')), 'AcrPull')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-qdrant-pull-id', parameters('workloadName'), parameters('environmentName'))), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName')))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-qdrant-pull-id', parameters('workloadName'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+      "name": "[guid(variables('keyVaultName'), format('{0}-qdrant', variables('namePrefix')), 'KeyVaultSecretsUser')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-qdrant', variables('namePrefix'))), '2024-03-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/containerApps', format('{0}-qdrant', variables('namePrefix')))]"
       ]
     },
     {
@@ -708,7 +920,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "14045479429881366397"
+              "templateHash": "2395368098044684198"
             }
           },
           "parameters": {
@@ -801,6 +1013,13 @@
               ],
               "metadata": {
                 "description": "Public network access setting for SQL Server and Key Vault. Set to Disabled when using private endpoints."
+              }
+            },
+            "qdrantApiKey": {
+              "type": "string",
+              "defaultValue": "dev-qdrant-key-changeme",
+              "metadata": {
+                "description": "Qdrant API key for authentication."
               }
             }
           },
@@ -998,9 +1217,221 @@
               "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]"
               ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[replace(format('{0}qdrant', variables('namePrefix')), '-', '')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "StorageV2",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "properties": {
+                "accessTier": "Hot",
+                "allowSharedKeyAccess": true,
+                "minimumTlsVersion": "TLS1_2"
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', replace(format('{0}qdrant', variables('namePrefix')), '-', ''), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}qdrant', variables('namePrefix')), '-', ''))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', replace(format('{0}qdrant', variables('namePrefix')), '-', ''), 'default', 'qdrant-storage')]",
+              "properties": {
+                "shareQuota": 100,
+                "accessTier": "Hot"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', replace(format('{0}qdrant', variables('namePrefix')), '-', ''), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', replace(format('{0}qdrant', variables('namePrefix')), '-', ''), 'default', 'qdrant-snapshots')]",
+              "properties": {
+                "shareQuota": 50,
+                "accessTier": "Hot"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', replace(format('{0}qdrant', variables('namePrefix')), '-', ''), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', variables('namePrefix')), 'Qdrant--ApiKey')]",
+              "properties": {
+                "value": "[parameters('qdrantApiKey')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', variables('namePrefix')), 'Qdrant--StorageAccountName')]",
+              "properties": {
+                "value": "[replace(format('{0}qdrant', variables('namePrefix')), '-', '')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}qdrant', variables('namePrefix')), '-', ''))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', variables('namePrefix')), 'Qdrant--StorageAccountKey')]",
+              "properties": {
+                "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}qdrant', variables('namePrefix')), '-', '')), '2023-01-01').keys[0].value]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}qdrant', variables('namePrefix')), '-', ''))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[replace(format('{0}blobs', variables('namePrefix')), '-', '')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "StorageV2",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "properties": {
+                "accessTier": "Hot",
+                "allowSharedKeyAccess": true,
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": true
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}blobs', variables('namePrefix')), '-', ''))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default', 'profiles')]",
+              "properties": {
+                "publicAccess": "Blob"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default', 'documents')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default', 'attachments')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default', 'content-media')]",
+              "properties": {
+                "publicAccess": "Blob"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', replace(format('{0}blobs', variables('namePrefix')), '-', ''), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', variables('namePrefix')), 'BlobStorage--Azure--AccountName')]",
+              "properties": {
+                "value": "[replace(format('{0}blobs', variables('namePrefix')), '-', '')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}blobs', variables('namePrefix')), '-', ''))]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('{0}-kv', variables('namePrefix')), 'BlobStorage--Azure--AccountKey')]",
+              "properties": {
+                "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}blobs', variables('namePrefix')), '-', '')), '2023-01-01').keys[0].value]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}blobs', variables('namePrefix')), '-', ''))]",
+                "[resourceId('Microsoft.KeyVault/vaults', format('{0}-kv', variables('namePrefix')))]"
+              ]
             }
           ],
           "outputs": {
+            "blobStorageAccountName": {
+              "type": "string",
+              "value": "[replace(format('{0}blobs', variables('namePrefix')), '-', '')]"
+            },
+            "blobStorageAccountNameSecretUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('{0}-kv', variables('namePrefix')), 'BlobStorage--Azure--AccountName'), '2023-07-01').secretUri]"
+            },
+            "blobStorageAccountKeySecretUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('{0}-kv', variables('namePrefix')), 'BlobStorage--Azure--AccountKey'), '2023-07-01').secretUri]"
+            },
+            "blobStoragePublicEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}blobs', variables('namePrefix')), '-', '')), '2023-01-01').primaryEndpoints.blob]"
+            },
+            "qdrantStorageAccountName": {
+              "type": "string",
+              "value": "[replace(format('{0}qdrant', variables('namePrefix')), '-', '')]"
+            },
+            "qdrantStorageAccountKey": {
+              "type": "string",
+              "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', replace(format('{0}qdrant', variables('namePrefix')), '-', '')), '2023-01-01').keys[0].value]"
+            },
+            "qdrantApiKeySecretUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('{0}-kv', variables('namePrefix')), 'Qdrant--ApiKey'), '2023-07-01').secretUri]"
+            },
+            "qdrantStorageAccountNameSecretUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('{0}-kv', variables('namePrefix')), 'Qdrant--StorageAccountName'), '2023-07-01').secretUri]"
+            },
+            "qdrantStorageAccountKeySecretUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults/secrets', format('{0}-kv', variables('namePrefix')), 'Qdrant--StorageAccountKey'), '2023-07-01').secretUri]"
+            },
             "sqlServerName": {
               "type": "string",
               "value": "[format('{0}-sql', variables('namePrefix'))]"

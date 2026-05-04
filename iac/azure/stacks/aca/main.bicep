@@ -328,6 +328,26 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               secretRef: 'app-insights-connection-string'
             }
             {
+              name: 'Runtime__AzureContainerApps__Enabled'
+              value: 'true'
+            }
+            {
+              name: 'Runtime__AzureContainerApps__EnvironmentName'
+              value: environmentName
+            }
+            {
+              name: 'Runtime__AzureContainerApps__WorkloadName'
+              value: workloadName
+            }
+            {
+              name: 'Runtime__AzureContainerApps__SubscriptionId'
+              value: subscription().subscriptionId
+            }
+            {
+              name: 'Runtime__AzureContainerApps__ResourceGroupName'
+              value: resourceGroup().name
+            }
+            {
               name: 'Communication__Azure__ConnectionString'
               secretRef: 'acs-connection-string'
             }
@@ -394,7 +414,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: environmentName == 'prod' ? 2 : 1
+        minReplicas: environmentName == 'prod' ? 2 : environmentName == 'dev' ? 0 : 1
         maxReplicas: environmentName == 'prod' ? 10 : 3
       }
     }
@@ -478,7 +498,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: environmentName == 'prod' ? 2 : 1
+        minReplicas: environmentName == 'prod' ? 2 : environmentName == 'dev' ? 0 : 1
         maxReplicas: environmentName == 'prod' ? 5 : 2
       }
     }
@@ -532,7 +552,7 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: environmentName == 'prod' ? 2 : 1
+        minReplicas: environmentName == 'prod' ? 2 : environmentName == 'dev' ? 0 : 1
         maxReplicas: environmentName == 'prod' ? 5 : 2
       }
     }
@@ -656,7 +676,7 @@ resource qdrantApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 1
+        minReplicas: environmentName == 'dev' ? 0 : 1
         maxReplicas: 2
       }
     }

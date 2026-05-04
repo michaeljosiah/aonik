@@ -319,7 +319,8 @@ public record TopologyNode(
     long Calls,
     double ErrorRatePct,
     double P95LatencyMs,
-    DateTime? LastSeen);
+    DateTime? LastSeen,
+    RuntimeServiceStatus? Runtime = null);
 
 public record TopologyEdge(
     string Source,
@@ -334,6 +335,31 @@ public record TopologyResponse(
     IReadOnlyList<TopologyNode> Nodes,
     IReadOnlyList<TopologyEdge> Edges,
     DateTime GeneratedAt);
+
+public record RuntimeServiceStatus(
+    string ServiceName,
+    string DisplayName,
+    string ServiceType,
+    string RuntimeState,
+    string ProvisioningState,
+    bool Exists,
+    bool IsStartable,
+    bool IsRunning,
+    int? ActiveRevisionReplicas,
+    int? MinReplicas,
+    int? MaxReplicas,
+    DateTime? LastActiveTime,
+    string? RevisionHealthState,
+    string? RevisionRunningState,
+    string? LatestRevisionName,
+    string? Message);
+
+public record RuntimeServiceActionResponse(
+    string ServiceName,
+    string Action,
+    bool Success,
+    string Message,
+    RuntimeServiceStatus? Runtime);
 
 // ── Explain ──────────────────────────────────────────────────────────
 

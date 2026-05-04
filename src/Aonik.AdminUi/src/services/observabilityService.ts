@@ -305,6 +305,7 @@ export interface TopologyNode {
   errorRatePct: number;
   p95LatencyMs: number;
   lastSeen: string | null;
+  runtime?: RuntimeServiceStatus | null;
 }
 
 export interface TopologyEdge {
@@ -321,6 +322,33 @@ export interface TopologyResponse {
   nodes: TopologyNode[];
   edges: TopologyEdge[];
   generatedAt: string;
+}
+
+export interface RuntimeServiceStatus {
+  serviceName: string;
+  displayName: string;
+  serviceType: string;
+  runtimeState: string;
+  provisioningState: string;
+  exists: boolean;
+  isStartable: boolean;
+  isRunning: boolean;
+  activeRevisionReplicas: number | null;
+  minReplicas: number | null;
+  maxReplicas: number | null;
+  lastActiveTime: string | null;
+  revisionHealthState: string | null;
+  revisionRunningState: string | null;
+  latestRevisionName: string | null;
+  message: string | null;
+}
+
+export interface RuntimeServiceActionResponse {
+  serviceName: string;
+  action: string;
+  success: boolean;
+  message: string;
+  runtime: RuntimeServiceStatus | null;
 }
 
 // ── Explain ─────────────────────────────────────────────────────────
@@ -404,6 +432,14 @@ export const observabilityService = {
   getTopology: (timeRange = '24h') =>
     api.get<TopologyResponse>(
       `/admin/observability/topology?timeRange=${timeRange}`,
+    ),
+  getRuntimeServices: () =>
+    api.get<RuntimeServiceStatus[]>(
+      '/admin/observability/runtime/services',
+    ),
+  startRuntimeService: (serviceName: string) =>
+    api.post<RuntimeServiceActionResponse>(
+      `/admin/observability/runtime/services/${encodeURIComponent(serviceName)}/start`,
     ),
   explainPanel: (panelKind: ObservabilityPanelKind, metrics: unknown) =>
     api.post<ExplainObservabilityPanelResponse>(

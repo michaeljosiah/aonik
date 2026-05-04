@@ -39,6 +39,7 @@ export {
 export { FxRatesPage } from './FxRatesPage';
 export {
   ObservabilityPage,
+  ObservabilityTopologyPage,
   ObservabilityTracesPage,
   ObservabilityLogsPage,
   ObservabilityAuditLogPage,

@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Aonik.Platform.Contracts.Api.Observability;
+using Aonik.Platform.Contracts.Services.Operations;
 using Aonik.Platform.Contracts.Services.Observability;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Entities.Settings;
@@ -16,6 +17,7 @@ public class AppInsightsQueryService : IObservabilityService
     private readonly ISettingProvider _settingProvider;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IFusionCache _cache;
+    private readonly IRuntimeOperationsService _runtimeOperationsService;
     private readonly ILogger<AppInsightsQueryService> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -28,11 +30,13 @@ public class AppInsightsQueryService : IObservabilityService
         ISettingProvider settingProvider,
         IHttpClientFactory httpClientFactory,
         IFusionCache cache,
+        IRuntimeOperationsService runtimeOperationsService,
         ILogger<AppInsightsQueryService> logger)
     {
         _settingProvider = settingProvider;
         _httpClientFactory = httpClientFactory;
         _cache = cache;
+        _runtimeOperationsService = runtimeOperationsService;
         _logger = logger;
     }
 
@@ -920,9 +924,21 @@ public class AppInsightsQueryService : IObservabilityService
     public async Task<TopologyResponse> GetTopologyAsync(
         string timeRange, CancellationToken cancellationToken = default)
     {
+        var runtimeStatuses = await _runtimeOperationsService.ListRuntimeServicesAsync(cancellationToken);
+        var runtimeByAppName = runtimeStatuses.ToDictionary(
+            status => status.ServiceName,
+            status => status,
+            StringComparer.OrdinalIgnoreCase);
+
         var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
         if (appId is null || apiKey is null)
-            return new TopologyResponse(false, [], [], DateTime.UtcNow);
+        {
+            var runtimeOnlyNodes = runtimeStatuses
+                .Select(status => CreateRuntimeTopologyNode(status, calls: 0, errorRatePct: 0, p95LatencyMs: 0, lastSeen: status.LastActiveTime))
+                .ToList();
+
+            return new TopologyResponse(false, runtimeOnlyNodes, [], DateTime.UtcNow);
+        }
 
         var range = ParseTimeRange(timeRange);
 
@@ -962,7 +978,8 @@ public class AppInsightsQueryService : IObservabilityService
                 calls,
                 Math.Round(errorRate, 2),
                 Math.Round(p95, 2),
-                lastSeen == DateTime.MinValue ? null : lastSeen);
+                lastSeen == DateTime.MinValue ? null : lastSeen,
+                TryMapRuntimeStatus(id, runtimeByAppName));
         }
 
         var edges = new List<TopologyEdge>();
@@ -992,7 +1009,8 @@ public class AppInsightsQueryService : IObservabilityService
                     calls,
                     Math.Round(errorRate, 2),
                     Math.Round(p95, 2),
-                    lastSeen == DateTime.MinValue ? null : lastSeen);
+                    lastSeen == DateTime.MinValue ? null : lastSeen,
+                    null);
             }
 
             edges.Add(new TopologyEdge(
@@ -1003,8 +1021,59 @@ public class AppInsightsQueryService : IObservabilityService
                 Math.Round(p95, 2)));
         }
 
+        foreach (var runtime in runtimeStatuses)
+        {
+            if (nodes.ContainsKey(runtime.ServiceName))
+            {
+                continue;
+            }
+
+            nodes[runtime.ServiceName] = CreateRuntimeTopologyNode(runtime, calls: 0, errorRatePct: 0, p95LatencyMs: 0, lastSeen: runtime.LastActiveTime);
+        }
+
         return new TopologyResponse(true, [.. nodes.Values], edges, DateTime.UtcNow);
     }
+
+    private static TopologyNode CreateRuntimeTopologyNode(
+        RuntimeServiceStatus runtime,
+        long calls,
+        double errorRatePct,
+        double p95LatencyMs,
+        DateTime? lastSeen)
+    {
+        return new TopologyNode(
+            runtime.ServiceName,
+            runtime.DisplayName,
+            runtime.ServiceType,
+            MapRuntimeStateToTopologyStatus(runtime.RuntimeState),
+            calls,
+            Math.Round(errorRatePct, 2),
+            Math.Round(p95LatencyMs, 2),
+            lastSeen,
+            runtime);
+    }
+
+    private static RuntimeServiceStatus? TryMapRuntimeStatus(
+        string nodeId,
+        IReadOnlyDictionary<string, RuntimeServiceStatus> runtimeByAppName)
+    {
+        return runtimeByAppName.TryGetValue(nodeId, out var runtime)
+            ? runtime
+            : null;
+    }
+
+    private static string MapRuntimeStateToTopologyStatus(string runtimeState) =>
+        runtimeState switch
+        {
+            "running" => "healthy",
+            "processing" => "degraded",
+            "degraded" => "critical",
+            "failed" => "critical",
+            "scaled-to-zero" => "unknown",
+            "stopped" => "unknown",
+            "missing" => "unknown",
+            _ => "unknown",
+        };
 
     private static string ClassifyHealth(double errorRatePct, double p95Ms) =>
         errorRatePct > 10 || p95Ms > 5000 ? "critical"

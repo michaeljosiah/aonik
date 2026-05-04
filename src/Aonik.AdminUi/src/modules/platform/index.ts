@@ -28,6 +28,7 @@ import {
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
 import {
   ObservabilityPage,
+  ObservabilityTopologyPage,
   ObservabilityTracesPage,
   ObservabilityLogsPage,
   ObservabilityAuditLogPage,
@@ -98,6 +99,7 @@ const navigation: NavigationSection[] = [
                     label: 'Observability',
                     items: [
                       { id: 'observability-overview', label: 'Overview', icon: 'BarChart3', href: '/admin/observability' },
+                      { id: 'observability-topology', label: 'Topology', icon: 'Network', href: '/admin/observability/topology' },
                       { id: 'observability-traces', label: 'Traces', icon: 'GitCompare', href: '/admin/observability/traces' },
                       { id: 'observability-logs', label: 'Logs', icon: 'ScrollText', href: '/admin/observability/logs' },
                       { id: 'observability-audit', label: 'Audit Log', icon: 'ClipboardCheck', href: '/admin/observability/audit' },
@@ -157,6 +159,7 @@ const routes = [
   { path: '/cms/content-wizard', element: ContentWizardPage },
   { path: '/cms/media', element: MediaLibraryPage },
   { path: '/admin/observability', element: ObservabilityPage },
+  { path: '/admin/observability/topology', element: ObservabilityTopologyPage },
   { path: '/admin/observability/traces', element: ObservabilityTracesPage },
   { path: '/admin/observability/logs', element: ObservabilityLogsPage },
   { path: '/admin/observability/audit', element: ObservabilityAuditLogPage },
@@ -235,6 +238,7 @@ const breadcrumbs = [
   { pathPrefix: '/admin/observability/traces', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Traces'] },
   { pathPrefix: '/admin/observability/logs', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Logs'] },
   { pathPrefix: '/admin/observability/audit', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Audit Log'] },
+  { pathPrefix: '/admin/observability/topology', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Topology'] },
   { pathPrefix: '/admin/observability', trail: [{ label: 'Admin', href: '/admin' }, 'Observability'] },
   { pathPrefix: '/admin', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },
   { pathPrefix: '/tenants', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },

@@ -16,6 +16,7 @@ using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Contracts.Services.Notifications;
+using Aonik.Platform.Contracts.Services.Operations;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Contracts.Services.ReferenceData;
@@ -56,6 +57,7 @@ using Aonik.Infrastructure.ReferenceData;
 using Aonik.Infrastructure.Multitenancy;
 using Aonik.Infrastructure.Notifications;
 using Aonik.Infrastructure.Observability;
+using Aonik.Infrastructure.Operations;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Storage;
 using Aonik.Infrastructure.BackgroundJobs;
@@ -85,6 +87,7 @@ public static class DependencyInjection
         services.Configure<PlatformAdminOptions>(configuration.GetSection("PlatformAdmin"));
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
         services.Configure<FcmOptions>(configuration.GetSection("Notifications:Fcm"));
+        services.Configure<ContainerAppsRuntimeOptions>(configuration.GetSection("Runtime:AzureContainerApps"));
         services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
         services.AddMemoryCache();
         services.AddFusionCache();
@@ -215,7 +218,13 @@ public static class DependencyInjection
             options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(15);
         });
 #pragma warning restore EXTEXP0001
+        services.AddHttpClient("AzureResourceManager", client =>
+        {
+            client.BaseAddress = new Uri(configuration["Runtime:AzureContainerApps:ManagementBaseUrl"] ?? "https://management.azure.com/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
         services.AddScoped<IObservabilityService, Observability.AppInsightsQueryService>();
+        services.AddScoped<IRuntimeOperationsService, ContainerAppsRuntimeService>();
 
         // Background jobs core services. Quartz runtime registration is owned by execution hosts.
         services.AddAonikBackgroundJobCoreServices();

@@ -53,4 +53,5 @@ public static class AuditEventNames
     public const string ScheduledJobCommandFailed = "ScheduledJobCommandFailed";
     public const string ScheduledJobRunSucceeded = "ScheduledJobRunSucceeded";
     public const string ScheduledJobRunFailed = "ScheduledJobRunFailed";
+    public const string RuntimeServiceStartRequested = "RuntimeServiceStartRequested";
 }
