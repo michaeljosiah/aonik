@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Calendar, Filter, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { AlertCircle, Calendar, Filter, Loader2, Plus, RefreshCw, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, KpiTile, ProposalCard } from '@/components/layout/aonik';
