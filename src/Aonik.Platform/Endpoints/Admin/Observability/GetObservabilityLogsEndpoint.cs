@@ -31,7 +31,7 @@ internal sealed class GetObservabilityLogsEndpoint
 
     public override async Task HandleAsync(ObservabilityQueryRequest req, CancellationToken ct)
     {
-        var result = await _observabilityService.GetStructuredLogsAsync(req.TimeRange, ct);
+        var result = await _observabilityService.GetStructuredLogsAsync(req.TimeRange, req.Severity, ct);
         await Send.OkAsync(result, ct);
     }
 }

@@ -9,6 +9,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Settings;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Aonik.Platform.Services.Settings;
 
@@ -16,22 +17,44 @@ internal sealed class TextToSpeechCredentialSettingsService : ITextToSpeechCrede
 {
     private const string SettingProtectionPurpose = "Aonik.Settings";
 
+    // TTS credentials are read once per synthesised chunk (a 10-chunk
+    // voice run = 10 calls * 2 DB lookups each before caching). The
+    // value only changes when an admin updates the credential, so a
+    // 10-minute TTL with a 1-hour fail-safe matches the lifetime we
+    // already use for the tenant TTS profile cache. L1-only — these
+    // values are decrypted plaintext and must never leak to L2.
+    private static readonly FusionCacheEntryOptions CacheEntryOptions = new(TimeSpan.FromMinutes(10))
+    {
+        IsFailSafeEnabled = true,
+        FailSafeMaxDuration = TimeSpan.FromHours(1),
+    };
+
+    private const string CacheKeyPrefix = "tts-credentials:v1:";
+
     private readonly PlatformDbContext _dbContext;
     private readonly IDataProtector _protector;
     private readonly ITenantProvider _tenantProvider;
     private readonly IConfiguration _configuration;
+    private readonly IFusionCache _cache;
 
     public TextToSpeechCredentialSettingsService(
         PlatformDbContext dbContext,
         IDataProtectionProvider dataProtectionProvider,
         ITenantProvider tenantProvider,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IFusionCache cache)
     {
         _dbContext = dbContext;
         _protector = dataProtectionProvider.CreateProtector(SettingProtectionPurpose);
         _tenantProvider = tenantProvider;
         _configuration = configuration;
+        _cache = cache;
     }
+
+    private static string ResolveCacheKey(string provider, Guid? tenantId)
+        => tenantId is { } id
+            ? $"{CacheKeyPrefix}{id:N}:{provider.ToLowerInvariant()}"
+            : $"{CacheKeyPrefix}host:{provider.ToLowerInvariant()}";
 
     public async Task<TextToSpeechCredentialSnapshot> GetHostAsync(
         string provider,
@@ -55,6 +78,13 @@ internal sealed class TextToSpeechCredentialSettingsService : ITextToSpeechCrede
         var normalizedProvider = NormalizeProvider(update.Provider);
         var key = GetProviderSettingKey(normalizedProvider);
         await SaveAsync(key, SettingScope.Global, null, update, cancellationToken);
+        // Host-level edits affect both the host fallback AND every
+        // tenant's resolution that previously fell through to it. We
+        // can't enumerate tenants cheaply, so we evict the host key and
+        // rely on the 10-minute TTL to age tenant entries out. In
+        // practice host edits are rare and no security-sensitive value
+        // lingers (TenantOverride entries supersede the host on read).
+        await InvalidateAsync(normalizedProvider, tenantId: null, cancellationToken);
         return await GetHostAsync(normalizedProvider, cancellationToken);
     }
 
@@ -81,6 +111,7 @@ internal sealed class TextToSpeechCredentialSettingsService : ITextToSpeechCrede
         var normalizedProvider = NormalizeProvider(update.Provider);
         var key = GetProviderSettingKey(normalizedProvider);
         await SaveAsync(key, SettingScope.Tenant, tenantId, update, cancellationToken);
+        await InvalidateAsync(normalizedProvider, tenantId, cancellationToken);
         return await GetTenantAsync(normalizedProvider, cancellationToken);
     }
 
@@ -89,8 +120,29 @@ internal sealed class TextToSpeechCredentialSettingsService : ITextToSpeechCrede
         CancellationToken cancellationToken = default)
     {
         var normalizedProvider = NormalizeProvider(provider);
-        var key = GetProviderSettingKey(normalizedProvider);
         var tenantId = _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId) ? resolvedTenantId : (Guid?)null;
+        var cacheKey = ResolveCacheKey(normalizedProvider, tenantId);
+
+        // Cache the FULL resolution (including source + has-credential
+        // flag) so callers don't have to re-compute the source decision
+        // on every chunk. The cached value is the same shape we'd
+        // return uncached. Invalidation is keyed on tenantId+provider in
+        // both SaveTenantAsync and SaveHostAsync below.
+        var cached = await _cache.GetOrSetAsync<TextToSpeechProviderCredentialResolution>(
+            cacheKey,
+            async ct => await ResolveFromStoreAsync(normalizedProvider, tenantId, ct),
+            CacheEntryOptions,
+            cancellationToken);
+
+        return cached!;
+    }
+
+    private async Task<TextToSpeechProviderCredentialResolution> ResolveFromStoreAsync(
+        string normalizedProvider,
+        Guid? tenantId,
+        CancellationToken cancellationToken)
+    {
+        var key = GetProviderSettingKey(normalizedProvider);
 
         if (tenantId.HasValue)
         {
@@ -265,5 +317,13 @@ internal sealed class TextToSpeechCredentialSettingsService : ITextToSpeechCrede
     private static string NormalizeProvider(string provider)
     {
         return string.IsNullOrWhiteSpace(provider) ? "ElevenLabs" : provider.Trim();
+    }
+
+    private async Task InvalidateAsync(string provider, Guid? tenantId, CancellationToken cancellationToken)
+    {
+        // Drop the matching cache key. We only cache one resolution per
+        // (tenant, provider) tuple, so a single Remove is sufficient.
+        var key = ResolveCacheKey(provider, tenantId);
+        await _cache.RemoveAsync(key, token: cancellationToken);
     }
 }

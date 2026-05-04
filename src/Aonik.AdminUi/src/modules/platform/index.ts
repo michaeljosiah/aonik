@@ -82,7 +82,11 @@ const navigation: NavigationSection[] = [
               { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
               { id: 'platform-alerts', label: 'Platform Alerts', icon: 'Bell', href: '/admin/alerts' },
               { id: 'background-jobs', label: 'Background Jobs', icon: 'Timer', href: '/settings/background-jobs' },
-              { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
+              // System Tools intentionally removed from main menu — it's
+              // already exposed as a card on the /settings landing page
+              // (SettingsLandingPage.tsx). The route, page, and panel
+              // wiring below are kept so direct links still resolve and
+              // the Settings card continues to navigate correctly.
               {
                 id: 'observability',
                 label: 'Observability',

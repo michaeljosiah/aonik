@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar, ChevronDown, ChevronRight, Download, Filter, Loader2, Sparkles } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronRight, Download, Filter, Loader2, Sparkles, Volume2, X } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -16,6 +18,7 @@ import {
   type AiTraceObservationResponse,
 } from '@/services/aiService';
 import { observabilityService } from '@/services/observabilityService';
+import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import { SpanDetailSlideOut } from './SpanDetailSlideOut';
 
 const TIME_RANGE_OPTIONS = [
@@ -450,6 +453,23 @@ export function ObservabilityTracesPage() {
   const [error, setError] = useState<string | null>(null);
   const [openSpanId, setOpenSpanId] = useState<string | null>(null);
 
+  // Server-side trace filters. The Filters popover surfaces these so we
+  // narrow the listing at the API boundary (the backend's ~100-row
+  // window can otherwise drop the trace the user wants to find).
+  const [filterTraceName, setFilterTraceName] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterAgentName, setFilterAgentName] = useState('');
+  const [filtersDraft, setFiltersDraft] = useState({
+    traceName: '',
+    type: 'all',
+    agentName: '',
+  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount =
+    (filterTraceName.trim().length > 0 ? 1 : 0)
+    + (filterType !== 'all' ? 1 : 0)
+    + (filterAgentName.trim().length > 0 ? 1 : 0);
+
   // Span ids that are currently expanded in the waterfall. Children of
   // spans NOT in this set are hidden until the user clicks the chevron.
   // We seed it with the trace's top-level spans on every trace switch
@@ -465,6 +485,16 @@ export function ObservabilityTracesPage() {
   // selects a different trace, drop the stale text.
   const [traceAnalysisFor, setTraceAnalysisFor] = useState<string | null>(null);
 
+  // Voice-mode playback of the AI analysis. We synth the whole text in
+  // a single call (analysis is short — typically <2k chars) and play it
+  // with the browser's <audio> element. The HTMLAudioElement lives in a
+  // ref so we can pause/restart cleanly on re-clicks and trace changes.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
+  const [voicePlaying, setVoicePlaying] = useState(false);
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+
   const loadTraceList = useCallback(async () => {
     const requestId = ++requestIdRef.current;
     setLoading(true);
@@ -476,6 +506,12 @@ export function ObservabilityTracesPage() {
         pageSize: 100,
         isRootObservation: true,
         timeRange,
+        // Push name/type/agent filters into the backend so the take-100
+        // window stays focused on traces that match. Empty fields are
+        // omitted so they don't restrict the query at all.
+        traceName: filterTraceName.trim() || undefined,
+        type: filterType === 'all' ? undefined : filterType,
+        agentName: filterAgentName.trim() || undefined,
       });
 
       const rootTraces = dedupeRootTraces(result.items);
@@ -496,7 +532,7 @@ export function ObservabilityTracesPage() {
     } finally {
       if (requestIdRef.current === requestId) setLoading(false);
     }
-  }, [timeRange]);
+  }, [timeRange, filterTraceName, filterType, filterAgentName]);
 
   useEffect(() => {
     void loadTraceList();
@@ -565,6 +601,86 @@ export function ObservabilityTracesPage() {
       setTraceAnalysisLoading(false);
     }
   }, [selectedTraceId, selectedTraceItems]);
+
+  // Tear down any in-flight audio + object URL. Used when switching
+  // traces, when the component unmounts, or when the user re-triggers
+  // playback so we don't leak blob: URLs or leave a paused element
+  // hooked up to stale data.
+  const stopVoicePlayback = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    if (audioObjectUrlRef.current) {
+      URL.revokeObjectURL(audioObjectUrlRef.current);
+      audioObjectUrlRef.current = null;
+    }
+    setVoicePlaying(false);
+  }, []);
+
+  const playAnalysisVoice = useCallback(async () => {
+    if (!traceAnalysis) return;
+    if (voicePlaying) {
+      // Toggle: clicking again while playing stops playback.
+      stopVoicePlayback();
+      return;
+    }
+
+    stopVoicePlayback();
+    setVoiceError(null);
+    setVoiceLoading(true);
+    try {
+      // Trace analysis is typically a few paragraphs of plain prose —
+      // well within the synth ceiling. Use a stable threadId derived
+      // from the traceId so the TTS cache can hit on repeat plays.
+      const result = await textToSpeechSettingsService.synthesize({
+        speechText: traceAnalysis,
+        threadId: selectedTraceId ? `trace-analysis-${selectedTraceId}` : null,
+        messageId: null,
+      });
+      const url = URL.createObjectURL(result.audioBlob);
+      audioObjectUrlRef.current = url;
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.addEventListener('ended', () => {
+        setVoicePlaying(false);
+        if (audioObjectUrlRef.current === url) {
+          URL.revokeObjectURL(url);
+          audioObjectUrlRef.current = null;
+        }
+      });
+      audio.addEventListener('error', () => {
+        setVoiceError('Audio playback failed.');
+        setVoicePlaying(false);
+      });
+      await audio.play();
+      setVoicePlaying(true);
+    } catch (e) {
+      const message =
+        (e as { userMessage?: string })?.userMessage
+        ?? (e instanceof Error ? e.message : null)
+        ?? 'Could not synthesise audio.';
+      setVoiceError(message);
+      stopVoicePlayback();
+    } finally {
+      setVoiceLoading(false);
+    }
+  }, [traceAnalysis, voicePlaying, stopVoicePlayback, selectedTraceId]);
+
+  // Stop playback when the user switches traces (their previous audio
+  // would be playing over a different trace's analysis otherwise) and
+  // when the component unmounts.
+  useEffect(() => {
+    return () => {
+      stopVoicePlayback();
+    };
+  }, [stopVoicePlayback]);
+
+  useEffect(() => {
+    stopVoicePlayback();
+    setVoiceError(null);
+  }, [selectedTraceId, stopVoicePlayback]);
 
   const filteredTraceItems = useMemo(() => traceItems.filter((item) => {
     if (statusFilter === 'all') return true;
@@ -668,10 +784,136 @@ export function ObservabilityTracesPage() {
             subtitle="Every agent run captured as a span tree using live AI observation data."
             actions={(
               <>
-                <Button variant="outline" size="sm" disabled>
-                  <Filter className="mr-2 h-3.5 w-3.5" />
-                  Filters
-                </Button>
+                <Popover
+                  open={filtersOpen}
+                  onOpenChange={(open) => {
+                    setFiltersOpen(open);
+                    if (open) {
+                      // Seed the draft with the currently-applied
+                      // filters every time we open the popover. That
+                      // way "Cancel" / closing without applying just
+                      // discards in-progress edits.
+                      setFiltersDraft({
+                        traceName: filterTraceName,
+                        type: filterType,
+                        agentName: filterAgentName,
+                      });
+                    }
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Filter className="mr-2 h-3.5 w-3.5" />
+                      Filters
+                      {activeFilterCount > 0 ? (
+                        <span className="ml-2 rounded-full bg-[var(--color-brand-primary)]/10 px-1.5 text-[10px] font-medium text-[var(--color-brand-primary)]">
+                          {activeFilterCount}
+                        </span>
+                      ) : null}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+                          Filter traces
+                        </span>
+                        {activeFilterCount > 0 ? (
+                          <button
+                            type="button"
+                            className="text-[10.5px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                            onClick={() => {
+                              setFilterTraceName('');
+                              setFilterType('all');
+                              setFilterAgentName('');
+                              setFiltersDraft({ traceName: '', type: 'all', agentName: '' });
+                              setFiltersOpen(false);
+                            }}
+                          >
+                            Clear all
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">
+                          Trace name
+                        </label>
+                        <Input
+                          placeholder="e.g. voice, chat, payabo.chat.tts.stream"
+                          value={filtersDraft.traceName}
+                          onChange={(event) =>
+                            setFiltersDraft((draft) => ({ ...draft, traceName: event.target.value }))
+                          }
+                          className="h-8 text-xs"
+                        />
+                        <p className="text-[10px] text-[var(--color-text-tertiary)]">
+                          Substring match against the root span name (case-insensitive).
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">
+                          Trace type
+                        </label>
+                        <Select
+                          value={filtersDraft.type}
+                          onValueChange={(value) =>
+                            setFiltersDraft((draft) => ({ ...draft, type: value }))
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All types</SelectItem>
+                            <SelectItem value="generation">generation</SelectItem>
+                            <SelectItem value="span">span</SelectItem>
+                            <SelectItem value="event">event</SelectItem>
+                            <SelectItem value="trace">trace</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-medium text-[var(--color-text-secondary)]">
+                          Agent name
+                        </label>
+                        <Input
+                          placeholder="e.g. personal-finance-agent"
+                          value={filtersDraft.agentName}
+                          onChange={(event) =>
+                            setFiltersDraft((draft) => ({ ...draft, agentName: event.target.value }))
+                          }
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setFiltersOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            setFilterTraceName(filtersDraft.traceName);
+                            setFilterType(filtersDraft.type);
+                            setFilterAgentName(filtersDraft.agentName);
+                            setFiltersOpen(false);
+                          }}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <Button variant="outline" size="sm" disabled>
                   <Calendar className="mr-2 h-3.5 w-3.5" />
                   {TIME_RANGE_OPTIONS.find((option) => option.value === timeRange)?.label ?? timeRange}
@@ -712,6 +954,16 @@ export function ObservabilityTracesPage() {
               ))}
             </SelectContent>
           </Select>
+
+          {filterTraceName.trim().length > 0 ? (
+            <ActiveFilterChip label={`name: ${filterTraceName}`} onClear={() => setFilterTraceName('')} />
+          ) : null}
+          {filterType !== 'all' ? (
+            <ActiveFilterChip label={`type: ${filterType}`} onClear={() => setFilterType('all')} />
+          ) : null}
+          {filterAgentName.trim().length > 0 ? (
+            <ActiveFilterChip label={`agent: ${filterAgentName}`} onClear={() => setFilterAgentName('')} />
+          ) : null}
 
           {loading ? (
             <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
@@ -835,9 +1087,33 @@ export function ObservabilityTracesPage() {
 
                     {traceAnalysis && traceAnalysisFor === selectedTraceId ? (
                       <div className="mt-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-[12.5px] leading-relaxed text-[var(--color-text-primary)]">
-                        <div className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
-                          <Sparkles className="h-3 w-3" />
-                          AI trace analysis
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+                            <Sparkles className="h-3 w-3" />
+                            AI trace analysis
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {voiceError ? (
+                              <span className="text-[10.5px] text-red-500">
+                                {voiceError}
+                              </span>
+                            ) : null}
+                            <Button
+                              type="button"
+                              variant={voicePlaying ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={playAnalysisVoice}
+                              disabled={voiceLoading}
+                              className="h-7 gap-1.5 text-[11px]"
+                            >
+                              {voiceLoading ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Volume2 className="h-3 w-3" />
+                              )}
+                              {voiceLoading ? 'Synthesising…' : voicePlaying ? 'Stop' : 'Play voice'}
+                            </Button>
+                          </div>
                         </div>
                         <pre className="whitespace-pre-wrap break-words font-sans text-[12.5px]">
                           {traceAnalysis}
@@ -997,5 +1273,24 @@ export function ObservabilityTracesPage() {
         />
       )}
     </div>
+  );
+}
+
+// Small chip rendered next to the status/time-range selects to surface
+// each currently-active server-side filter. Clicking the X clears just
+// that one filter (the popover's "Clear all" wipes the lot).
+function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-2.5 py-1 text-[11px] text-[var(--color-brand-primary)]">
+      <span className="font-mono">{label}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Clear filter ${label}`}
+        className="text-[var(--color-brand-primary)]/70 hover:text-[var(--color-brand-primary)]"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
   );
 }

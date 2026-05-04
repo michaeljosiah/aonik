@@ -323,7 +323,7 @@ public class AppInsightsQueryService : IObservabilityService
     }
 
     public async Task<StructuredLogsResponse> GetStructuredLogsAsync(
-        string timeRange, CancellationToken cancellationToken = default)
+        string timeRange, string? severity = null, CancellationToken cancellationToken = default)
     {
         var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
         if (appId is null || apiKey is null)
@@ -335,6 +335,25 @@ public class AppInsightsQueryService : IObservabilityService
                 []);
 
         var range = ParseTimeRange(timeRange);
+
+        // Severity filter for the entries query: pushed into KQL so the
+        // take-120 window picks rows of the requested severity instead
+        // of returning an info-heavy slice that client-side filtering
+        // then narrows to nothing. Counts and volume always span all
+        // severities so the pill counts and volume sparkline remain
+        // accurate regardless of the active filter.
+        var normalisedSeverity = NormaliseSeverityFilter(severity);
+        var entriesSeverityFilter = normalisedSeverity switch
+        {
+            "debug" => "| where toint(severityLevel) == 0",
+            "info" => "| where isnull(toint(severityLevel)) or toint(severityLevel) == 1",
+            "warn" => "| where toint(severityLevel) == 2",
+            "error" => "| where toint(severityLevel) >= 3",
+            _ => string.Empty,
+        };
+        var entriesCacheKey = string.IsNullOrEmpty(normalisedSeverity)
+            ? $"observability:logs:entries:{timeRange}"
+            : $"observability:logs:entries:{timeRange}:{normalisedSeverity}";
 
         var countsTask = CachedQueryAsync(
             $"observability:logs:counts:{timeRange}", appId, apiKey,
@@ -365,10 +384,11 @@ public class AppInsightsQueryService : IObservabilityService
             cancellationToken);
 
         var entriesTask = CachedQueryAsync(
-            $"observability:logs:entries:{timeRange}", appId, apiKey,
+            entriesCacheKey, appId, apiKey,
             $$"""
             traces
             | where timestamp > {{range.Ago}}
+            {{entriesSeverityFilter}}
             | extend severity = case(
                 toint(severityLevel) == 0, "debug",
                 isnull(toint(severityLevel)) or toint(severityLevel) == 1, "info",
@@ -1157,6 +1177,25 @@ public class AppInsightsQueryService : IObservabilityService
             "critical" => "error",
             "" => "info",
             var value => value,
+        };
+    }
+
+    /// <summary>
+    /// Coerce a raw severity query-param into one of the four canonical
+    /// log levels we filter on, or empty string for "no filter".
+    /// Anything we don't recognise (incl. "all") falls through to no
+    /// filter so callers get the unfiltered slice rather than zero rows.
+    /// </summary>
+    private static string NormaliseSeverityFilter(string? severity)
+    {
+        if (string.IsNullOrWhiteSpace(severity)) return string.Empty;
+        return severity.Trim().ToLowerInvariant() switch
+        {
+            "debug" => "debug",
+            "info" or "information" => "info",
+            "warn" or "warning" => "warn",
+            "error" or "critical" => "error",
+            _ => string.Empty,
         };
     }
 

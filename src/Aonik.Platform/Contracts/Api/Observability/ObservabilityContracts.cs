@@ -11,6 +11,15 @@ public record ObservabilityQueryRequest
 
     [FastEndpoints.QueryParam]
     public string? OperationId { get; init; }
+
+    /// <summary>
+    /// Optional severity filter for log queries. One of "debug", "info",
+    /// "warn", "error", or "all" (default). Pushed down into the KQL so
+    /// the take-N window picks recent rows of the requested severity
+    /// rather than client-side filtering an info-heavy slice.
+    /// </summary>
+    [FastEndpoints.QueryParam]
+    public string? Severity { get; init; }
 }
 
 // ── Time Series ──────────────────────────────────────────────────────

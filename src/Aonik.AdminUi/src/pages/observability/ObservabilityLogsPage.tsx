@@ -128,14 +128,17 @@ export function ObservabilityLogsPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await observabilityService.getStructuredLogs(timeRange);
+      // Push severity into the request so the backend's take-120 window
+      // picks rows of the requested severity instead of returning an
+      // info-heavy slice that we then narrow client-side to nothing.
+      const result = await observabilityService.getStructuredLogs(timeRange, severityFilter);
       setData(result);
     } catch (loadError) {
       setError(getErrorMessage(loadError, 'Failed to load structured logs.'));
     } finally {
       setLoading(false);
     }
-  }, [timeRange]);
+  }, [timeRange, severityFilter]);
 
   useEffect(() => {
     void loadLogs();
@@ -151,11 +154,10 @@ export function ObservabilityLogsPage() {
 
   const counts = data?.counts ?? { debug: 0, info: 0, warn: 0, error: 0 };
 
-  const filteredEntries = useMemo(() => {
-    const items = data?.entries ?? [];
-    if (severityFilter === 'all') return items;
-    return items.filter((entry) => entry.severity.toLowerCase() === severityFilter);
-  }, [data?.entries, severityFilter]);
+  // Backend already applies the severity filter; this is a defensive
+  // pass-through for the rare case where stale data lingers between
+  // filter changes (loadLogs replaces it on the next round-trip).
+  const filteredEntries = data?.entries ?? [];
 
   const maxVolume = useMemo(() => {
     const points = data?.volume ?? [];
@@ -205,11 +207,10 @@ export function ObservabilityLogsPage() {
             <div className="flex flex-wrap items-center gap-3">
               <AonikTemplateIcon name="terminal" size={14} color="var(--color-text-secondary)" />
               <span className="flex-1 font-mono text-[12px] text-[var(--color-text-primary)]">
-                <span className="text-[var(--color-text-tertiary)]">svc:</span>&quot;agent-runner&quot;
-                <span className="mx-2 text-[var(--color-text-tertiary)]">OR</span>
-                <span className="text-[var(--color-text-tertiary)]">svc:</span>&quot;tool-gateway&quot;
+                <span className="text-[var(--color-text-tertiary)]">range:</span>{TIME_RANGE_OPTIONS.find((option) => option.value === timeRange)?.label.toLowerCase() ?? timeRange}
                 <span className="mx-2 text-[var(--color-text-tertiary)]">|</span>
-                sev&gt;=info
+                <span className="text-[var(--color-text-tertiary)]">sev:</span>
+                {severityFilter === 'all' ? 'any' : severityFilter}
               </span>
               <div className="flex flex-wrap gap-1">
                 {SEVERITY_OPTIONS.map((option) => {

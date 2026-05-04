@@ -390,10 +390,13 @@ export const observabilityService = {
     api.get<JobMetricsResponse>(
       `/admin/observability/jobs?timeRange=${timeRange}`,
     ),
-  getStructuredLogs: (timeRange = '24h') =>
-    api.get<StructuredLogsResponse>(
-      `/admin/observability/logs?timeRange=${timeRange}`,
-    ),
+  getStructuredLogs: (timeRange = '24h', severity?: string) => {
+    const params = new URLSearchParams({ timeRange });
+    if (severity && severity !== 'all') params.set('severity', severity);
+    return api.get<StructuredLogsResponse>(
+      `/admin/observability/logs?${params.toString()}`,
+    );
+  },
   getRetrieval: (timeRange = '24h') =>
     api.get<RetrievalResponse>(
       `/admin/observability/retrieval?timeRange=${timeRange}`,
