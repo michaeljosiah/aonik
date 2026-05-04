@@ -261,6 +261,19 @@ internal class QdrantHttpClient
         {
             return false;
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Polly's AttemptTimeout (or HttpClient.Timeout) elapsed while
+            // calling /readyz — treat as "not healthy" instead of letting
+            // the cancellation bubble up to the caller as an unhandled
+            // exception. The initializer's outer 3-attempt loop will retry
+            // and the platform's incident panel won't surface this as an
+            // app-level failure (Polly's per-attempt log is enough).
+            // We deliberately rethrow when the CALLER cancelled
+            // (cancellationToken.IsCancellationRequested == true), e.g.
+            // app shutdown, so we don't pretend we observed Qdrant state.
+            return false;
+        }
     }
 }
 

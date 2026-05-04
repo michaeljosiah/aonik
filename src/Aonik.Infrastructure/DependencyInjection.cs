@@ -233,13 +233,40 @@ public static class DependencyInjection
         services.Configure<Aonik.Infrastructure.VectorStore.Qdrant.QdrantConfiguration>(
             configuration.GetSection("Qdrant"));
 
-        // HTTP client for Qdrant
+        // HTTP client for Qdrant.
+        //
+        // ServiceDefaults.ConfigureHttpClientDefaults attaches the
+        // Microsoft.Extensions.Http.Resilience StandardResilienceHandler
+        // to every HttpClient by default — for Qdrant that means each
+        // failed call retries up to 3 times with a 10 s AttemptTimeout
+        // each. When dev Qdrant is slow / restarting, a single
+        // /readyz call becomes ~30 s of blocking work and emits ~3
+        // SocketException + 3 TaskCanceledException entries at Error
+        // severity (the bulk of the platform's "incidents" panel —
+        // 75+ events per restart). Override the standard handler with
+        // a tighter, Qdrant-specific config so a slow Qdrant is loud
+        // exactly once, not three times, and recovers in seconds
+        // rather than tens of seconds.
         services.AddHttpClient<Aonik.Infrastructure.VectorStore.Qdrant.QdrantHttpClient>((sp, client) =>
         {
             var config = sp.GetRequiredService<IOptions<Aonik.Infrastructure.VectorStore.Qdrant.QdrantConfiguration>>().Value;
             client.BaseAddress = new Uri(config.Endpoint);
             client.DefaultRequestHeaders.Add("api-key", config.ApiKey);
             client.Timeout = TimeSpan.FromSeconds(config.Timeout);
+        })
+        .AddStandardResilienceHandler(options =>
+        {
+            // 3 s is generous for a healthy Qdrant /readyz (typically
+            // <100 ms) but still allows a real query to complete. The
+            // overall HttpClient.Timeout (config-driven, default 30 s)
+            // remains the absolute upper bound for the WHOLE request.
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(3);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+            // QdrantCollectionInitializer already runs its own
+            // 3-attempt loop with a 2 s delay between attempts; one
+            // additional retry inside Polly is enough belt-and-braces
+            // for transient packet loss without compounding the noise.
+            options.Retry.MaxRetryAttempts = 1;
         });
 
         // Vector store and embedding services
