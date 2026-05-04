@@ -1099,4 +1099,40 @@ class LiveChatRepository implements ChatRepository {
       // Swallow — metrics reporting must never disrupt UX.
     }
   }
+
+  @override
+  Future<void> reportVoiceEvent({
+    required String eventName,
+    int? clientElapsedMs,
+    String? threadId,
+    String? runId,
+    String? agentName,
+    int? voiceTurnId,
+    String? stage,
+    String? reason,
+    Map<String, Object?> details = const <String, Object?>{},
+  }) async {
+    try {
+      await _apiClient.post<void>(
+        '/api/chat/voice-events',
+        data: {
+          'eventName': eventName,
+          'clientElapsedMs': clientElapsedMs,
+          'threadId': threadId,
+          'runId': runId,
+          'agentName': agentName,
+          'voiceTurnId': voiceTurnId,
+          'stage': stage,
+          'reason': reason,
+          'details': details,
+        },
+      );
+    } catch (e) {
+      developer.log(
+        'Failed to report voice event $eventName: $e',
+        name: 'LiveChatRepository',
+      );
+      // Swallow — voice telemetry must never disrupt UX.
+    }
+  }
 }

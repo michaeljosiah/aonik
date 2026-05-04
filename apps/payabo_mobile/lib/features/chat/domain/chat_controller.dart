@@ -381,6 +381,30 @@ class ChatController extends StateNotifier<ChatState> {
     _nextRunVoiceMode = false;
   }
 
+  /// Fire-and-forget voice-mode diagnostic event reporting. The controller
+  /// owns the AG-UI thread/run correlation IDs, while the screen owns the
+  /// native playback state that populates [details].
+  void reportVoiceEvent({
+    required String eventName,
+    int? clientElapsedMs,
+    int? voiceTurnId,
+    String? stage,
+    String? reason,
+    Map<String, Object?> details = const <String, Object?>{},
+  }) {
+    unawaited(_repository.reportVoiceEvent(
+      eventName: eventName,
+      clientElapsedMs: clientElapsedMs,
+      threadId: state.threadId,
+      runId: _currentRunId,
+      agentName: 'personal-finance-agent',
+      voiceTurnId: voiceTurnId,
+      stage: stage,
+      reason: reason,
+      details: details,
+    ));
+  }
+
   /// Client-side timing — started when a message is sent, used to measure
   /// round-trip latency from mobile → server → LLM → mobile.
   final Stopwatch _clientStopwatch = Stopwatch();
@@ -420,6 +444,7 @@ class ChatController extends StateNotifier<ChatState> {
     _clientStopwatch.reset();
     _clientStopwatch.start();
     _clientTimeToFirstTokenMs = null;
+    _currentRunId = null;
     _requestStartedAt = DateTime.now();
     _firstTextDeltaAt = null;
     _finishedAt = null;
@@ -484,6 +509,7 @@ class ChatController extends StateNotifier<ChatState> {
     _clientStopwatch.reset();
     _clientStopwatch.start();
     _clientTimeToFirstTokenMs = null;
+    _currentRunId = null;
     _requestStartedAt = DateTime.now();
     _firstTextDeltaAt = null;
     _finishedAt = null;

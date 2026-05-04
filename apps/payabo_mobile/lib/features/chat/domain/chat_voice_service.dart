@@ -27,6 +27,13 @@ typedef ChatVoiceStatusCallback = void Function(String status);
 typedef ChatVoiceErrorCallback = void Function(String message);
 typedef ChatVoiceProgressCallback = void Function(
     String text, int startOffset, int endOffset, String word);
+typedef ChatVoiceInlineAudioMilestoneCallback = void Function({
+  required int chunkIndex,
+  required int queueIndex,
+  required int bufferedBytes,
+  required String contentType,
+  required bool isClosed,
+});
 
 final Provider<ChatVoiceService> chatVoiceServiceProvider =
     Provider<ChatVoiceService>((Ref ref) {
@@ -72,6 +79,7 @@ abstract class ChatVoiceService {
     VoidCallback? onSpeakingStart,
     VoidCallback? onSpeakingIdle,
     ChatVoiceErrorCallback? onChunkError,
+    ChatVoiceInlineAudioMilestoneCallback? onInlinePlaybackBufferReady,
     String? localeTag,
   });
 
@@ -176,6 +184,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
   VoidCallback? _queueOnSpeakingStart;
   VoidCallback? _queueOnSpeakingIdle;
   ChatVoiceErrorCallback? _queueOnChunkError;
+  ChatVoiceInlineAudioMilestoneCallback? _queueOnInlinePlaybackBufferReady;
   bool _queueSpeakingFlag = false;
   bool _queueDrainInFlight = false;
   final ListQueue<_QueuedSpeechChunk> _speechQueue =
@@ -654,6 +663,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     VoidCallback? onSpeakingStart,
     VoidCallback? onSpeakingIdle,
     ChatVoiceErrorCallback? onChunkError,
+    ChatVoiceInlineAudioMilestoneCallback? onInlinePlaybackBufferReady,
     String? localeTag,
   }) async {
     _log('beginSpeechQueue locale=${localeTag ?? 'default'}');
@@ -673,6 +683,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _queueOnSpeakingStart = onSpeakingStart;
     _queueOnSpeakingIdle = onSpeakingIdle;
     _queueOnChunkError = onChunkError;
+    _queueOnInlinePlaybackBufferReady = onInlinePlaybackBufferReady;
     _queueSpeakingFlag = false;
     _log('beginSpeechQueue session=$sessionId');
   }
@@ -840,6 +851,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _queueOnSpeakingStart = null;
     _queueOnSpeakingIdle = null;
     _queueOnChunkError = null;
+    _queueOnInlinePlaybackBufferReady = null;
     _queueSpeakingFlag = false;
 
     for (final _QueuedSpeechChunk chunk in _speechQueue) {
@@ -988,6 +1000,14 @@ class DeviceChatVoiceService implements ChatVoiceService {
     if (_activeQueueSessionId != sessionId) {
       return;
     }
+
+    _queueOnInlinePlaybackBufferReady?.call(
+      chunkIndex: chunk.serverChunkIndex ?? chunk.index,
+      queueIndex: chunk.index,
+      bufferedBytes: source.bufferedLength,
+      contentType: source.contentType,
+      isClosed: source.isClosed,
+    );
 
     // If no audio bytes ever arrived AND the source is already closed
     // (the speech.audio.error path) skip playback entirely — text was

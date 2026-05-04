@@ -675,4 +675,19 @@ class MockChatRepository implements ChatRepository {
   }) async {
     // No-op in mock mode.
   }
+
+  @override
+  Future<void> reportVoiceEvent({
+    required String eventName,
+    int? clientElapsedMs,
+    String? threadId,
+    String? runId,
+    String? agentName,
+    int? voiceTurnId,
+    String? stage,
+    String? reason,
+    Map<String, Object?> details = const <String, Object?>{},
+  }) async {
+    // No-op in mock mode.
+  }
 }

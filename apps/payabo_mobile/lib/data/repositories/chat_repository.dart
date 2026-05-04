@@ -489,4 +489,18 @@ abstract class ChatRepository {
     String? runId,
     String? agentName,
   });
+
+  /// Reports voice-mode milestone/debug events. Fire-and-forget —
+  /// implementations must swallow failures silently.
+  Future<void> reportVoiceEvent({
+    required String eventName,
+    int? clientElapsedMs,
+    String? threadId,
+    String? runId,
+    String? agentName,
+    int? voiceTurnId,
+    String? stage,
+    String? reason,
+    Map<String, Object?> details = const <String, Object?>{},
+  });
 }
