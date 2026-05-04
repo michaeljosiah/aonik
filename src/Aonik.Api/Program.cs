@@ -281,7 +281,25 @@ app.Use(async (context, next) =>
             // Re-apply CORS headers and write a 500 response so the browser
             // can read the error instead of blocking it as a CORS failure.
             ApplyActualCorsHeaders(context.Response, origin);
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+            // Service-layer permission denials are currently surfaced as
+            // InvalidOperationException with the well-known message
+            // "Permission {Key} is required." (see AdminServiceBase /
+            // FinanceServiceBase / SettingService etc.). Surfacing those as
+            // a generic 500 misleads the client into treating an authorisation
+            // failure as a transient outage and ALSO leaks the exception type
+            // back to the caller. Map them to 403 instead so the front-end
+            // (and the logs page) can render an authorisation problem
+            // distinctly from a real server error.
+            var isPermissionDenied =
+                ex is InvalidOperationException
+                && !string.IsNullOrEmpty(ex.Message)
+                && ex.Message.StartsWith("Permission ", StringComparison.Ordinal)
+                && ex.Message.EndsWith(" is required.", StringComparison.Ordinal);
+
+            context.Response.StatusCode = isPermissionDenied
+                ? StatusCodes.Status403Forbidden
+                : StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/json";
 
             // In dev / non-prod environments include the exception type
@@ -290,10 +308,13 @@ app.Use(async (context, next) =>
             // stay opaque.
             var includeDetails = app.Environment.IsDevelopment()
                 || string.Equals(app.Environment.EnvironmentName, "dev", StringComparison.OrdinalIgnoreCase);
+            var topLevelMessage = isPermissionDenied
+                ? ex.Message
+                : "An internal error occurred.";
             object errorPayload = includeDetails
                 ? new
                 {
-                    error = "An internal error occurred.",
+                    error = topLevelMessage,
                     exceptionType = ex.GetType().FullName,
                     exceptionMessage = ex.Message,
                     innerType = innermost.GetType().FullName,
@@ -301,7 +322,7 @@ app.Use(async (context, next) =>
                     exceptionChain = FlattenChain(ex),
                     path = context.Request.Path.Value,
                 }
-                : new { error = "An internal error occurred." };
+                : new { error = topLevelMessage };
 
             var errorBody = System.Text.Json.JsonSerializer.Serialize(errorPayload);
             await context.Response.WriteAsync(errorBody);

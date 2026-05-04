@@ -393,8 +393,16 @@ function AuthenticatedApp() {
               return;
             }
           }
-          const currentUser = await identityService.getCurrentUser();
-          const tenant = await tenantService.get(currentUser.tenantId);
+          // Use the tenant-scoped self-read endpoint instead of the
+          // cross-tenant admin endpoint. /admin/tenants/{id} requires the
+          // Tenants.Read permission, which the TenantAdmin role does NOT
+          // include — so a freshly-provisioned owner would silently fall
+          // through this catch block, leave tenantNeedsSetup=false, and
+          // never see the onboarding wizard. /tenant/settings resolves the
+          // current tenant from the X-Tenant-Id header and only needs the
+          // user to be authenticated against THEIR own tenant.
+          await identityService.getCurrentUser();
+          const tenant = await tenantService.getSettings();
           setTenantNeedsSetup(!tenant.isSetupComplete);
         } catch {
           setTenantNeedsSetup(false);

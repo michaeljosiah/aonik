@@ -4,6 +4,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { msalLoginRequest, msalApiTokenRequest, auth0Config, type AuthProvider } from './authConfig';
 import { isElectron } from '@/lib/electron';
+import { clearSelectedTenant } from '@/lib/tenantContext';
 
 // Unified user type
 export interface AuthUser {
@@ -66,6 +67,7 @@ const mockUser: AuthUser = {
   }, []);
 
   const logout = useCallback(async () => {
+    clearSelectedTenant();
     setIsAuthenticated(false);
   }, []);
 
@@ -121,6 +123,10 @@ function useMsalAuth(): AuthContextType {
 
   const logout = useCallback(async () => {
     try {
+      // Mirror the Auth0 logout: clear the selected tenant before redirecting
+      // so the next sign-in starts from a clean slate.
+      clearSelectedTenant();
+
       if (isElectron) {
         await instance.logoutPopup({ postLogoutRedirectUri: window.location.origin });
       } else {
@@ -255,6 +261,15 @@ function useAuth0Auth(): AuthContextType {
 
   const logout = useCallback(async () => {
     try {
+      // Clear the selected tenant BEFORE redirecting to Auth0. Otherwise
+      // the next user who logs in on this device inherits the previous
+      // operator's tenant context — they sign in successfully at Auth0,
+      // get bounced back with a token, and then every API call carries
+      // X-Tenant-Id pointing at a tenant they have no membership in,
+      // producing a confusing wall of 401s and a "session expired" loop
+      // that's actually a tenant-mismatch.
+      clearSelectedTenant();
+
       if (isElectron) {
         await auth0Logout({ openUrl: false });
       } else {

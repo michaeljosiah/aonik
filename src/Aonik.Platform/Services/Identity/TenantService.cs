@@ -207,7 +207,22 @@ internal class TenantService : AdminServiceBase, ITenantService
 
     public async Task<TenantResponse?> GetTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
-        await EnsurePermissionAsync("Tenants.Read", cancellationToken);
+        // Self-tenant reads do NOT require Tenants.Read.
+        //
+        // The TenantAdmin role does not include Tenants.Read by design — that
+        // permission gates cross-tenant admin endpoints (/admin/tenants, the
+        // host operator console). A tenant admin reading their OWN tenant
+        // (e.g. /tenant/settings, the onboarding-completeness gate) is a
+        // self-scoped query, already constrained by the X-Tenant-Id header
+        // and the EF tenant filter, so demanding Tenants.Read here would
+        // block legitimate first-login flows: a freshly-provisioned owner
+        // would hit a permission error before the setup wizard could load.
+        var currentTenantId = _tenantContext.TenantId;
+        if (currentTenantId is null || currentTenantId.Value != tenantId)
+        {
+            await EnsurePermissionAsync("Tenants.Read", cancellationToken);
+        }
+
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
