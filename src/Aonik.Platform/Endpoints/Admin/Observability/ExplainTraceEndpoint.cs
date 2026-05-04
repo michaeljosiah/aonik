@@ -1,9 +1,13 @@
 using System.Text.Json;
 using Aonik.Platform.Contracts.Api.Observability;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Observability;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Platform.Endpoints.Admin.Observability;
 
@@ -32,13 +36,28 @@ internal sealed class ExplainTraceEndpoint
 
     private readonly IChatClient _chatClient;
     private readonly IAiTaskProfileResolver _profileResolver;
+    private readonly ILogger<ExplainTraceEndpoint> _logger;
+    private readonly IAuditLogWriter _auditLogWriter;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ICorrelationContext _correlationContext;
 
     public ExplainTraceEndpoint(
         IChatClient chatClient,
-        IAiTaskProfileResolver profileResolver)
+        IAiTaskProfileResolver profileResolver,
+        ILogger<ExplainTraceEndpoint> logger,
+        IAuditLogWriter auditLogWriter,
+        ITenantProvider tenantProvider,
+        ICurrentUserProvider currentUserProvider,
+        ICorrelationContext correlationContext)
     {
         _chatClient = chatClient;
         _profileResolver = profileResolver;
+        _logger = logger;
+        _auditLogWriter = auditLogWriter;
+        _tenantProvider = tenantProvider;
+        _currentUserProvider = currentUserProvider;
+        _correlationContext = correlationContext;
     }
 
     public override void Configure()
@@ -66,6 +85,10 @@ internal sealed class ExplainTraceEndpoint
             ThrowError("TraceId is required.");
         }
 
+        var spanCount = req.Spans.ValueKind == JsonValueKind.Array
+            ? req.Spans.GetArrayLength()
+            : 0;
+
         var spans = req.Spans.ValueKind is JsonValueKind.Array
             ? TrimSpansForLlm(req.Spans)
             : "[]";
@@ -74,9 +97,7 @@ internal sealed class ExplainTraceEndpoint
 
         var userMessage = (profile.UserPromptTemplate ?? DefaultUserTemplate)
             .Replace("{{TRACE_ID}}", req.TraceId, StringComparison.Ordinal)
-            .Replace("{{SPAN_COUNT}}", req.Spans.ValueKind == JsonValueKind.Array
-                ? req.Spans.GetArrayLength().ToString()
-                : "0", StringComparison.Ordinal)
+            .Replace("{{SPAN_COUNT}}", spanCount.ToString(), StringComparison.Ordinal)
             .Replace("{{SPANS_JSON}}", spans, StringComparison.Ordinal);
 
         var messages = new List<ChatMessage>
@@ -97,6 +118,35 @@ internal sealed class ExplainTraceEndpoint
         options.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         options.AdditionalProperties[AiTelemetry.UseCaseAttribute] = UseCase;
 
+        // Resolve auditing context up front. The endpoint runs inside
+        // the admin's request scope, so tenant + user are already on
+        // the multitenancy provider; falling back to Guid.Empty is the
+        // documented host-scoped behavior elsewhere in the platform.
+        var actorId = _currentUserProvider.GetCurrentUserId();
+        var tenantId = _tenantProvider.TryGetCurrentTenantId(out var tid)
+            ? tid
+            : Guid.Empty;
+        var resolvedModel = profile.ModelId ?? DefaultModelId;
+
+        // Audit the attempt itself, regardless of whether the LLM call
+        // succeeds. Operators want to know who asked what — separate
+        // from whether the model came back with a useful answer.
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.TraceAnalysisRequested,
+            "Trace",
+            Guid.Empty,
+            tenantId,
+            actorId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new
+            {
+                req.TraceId,
+                SpanCount = spanCount,
+                Model = resolvedModel,
+                UseCase,
+            }),
+            ct);
+
         string analysis;
         try
         {
@@ -109,6 +159,9 @@ internal sealed class ExplainTraceEndpoint
             if (string.IsNullOrWhiteSpace(analysis))
             {
                 analysis = "The model returned an empty response. Try again — if it persists, the prompt may have been filtered or the model is unavailable.";
+                _logger.LogWarning(
+                    "Trace analysis returned empty response (TraceId={TraceId}, Model={Model}, SpanCount={SpanCount})",
+                    req.TraceId, resolvedModel, spanCount);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -119,6 +172,34 @@ internal sealed class ExplainTraceEndpoint
         }
         catch (Exception ex)
         {
+            // First-class application log so admins don't have to dig
+            // into the OTel chat span to discover that an "Interpret
+            // with AI" click failed. Includes the trace id being
+            // analysed (which the underlying chat span doesn't carry,
+            // since that span is for the analysis call itself, not
+            // for the trace it's analysing).
+            _logger.LogError(
+                ex,
+                "Trace analysis failed (TraceId={TraceId}, Model={Model}, SpanCount={SpanCount})",
+                req.TraceId, resolvedModel, spanCount);
+
+            await _auditLogWriter.LogAsync(
+                AuditEventNames.TraceAnalysisFailed,
+                "Trace",
+                Guid.Empty,
+                tenantId,
+                actorId,
+                _correlationContext.CorrelationId,
+                JsonSerializer.Serialize(new
+                {
+                    req.TraceId,
+                    SpanCount = spanCount,
+                    Model = resolvedModel,
+                    ErrorType = ex.GetType().FullName,
+                    ErrorMessage = ex.Message,
+                }),
+                ct);
+
             // Surface a useful description to the UI instead of a bare
             // 500. The frontend renders the analysis text — pulling the
             // exception message into the same channel keeps admins in

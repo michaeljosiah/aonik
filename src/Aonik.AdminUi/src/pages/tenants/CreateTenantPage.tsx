@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertCircle, Building, Loader2, Save, X } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Save, AlertCircle, X } from 'lucide-react';
-import { tenantService } from '@/services/tenantService';
-import { catalogService } from '@/services/catalogService';
-import { tenantCountryOptions } from '@/lib/tenantCountryOptions';
-import type { CreateTenantRequest, TenantEnvironment } from '@/types';
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+} from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -14,7 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { tenantService } from '@/services/tenantService';
+import { catalogService } from '@/services/catalogService';
+import { tenantCountryOptions } from '@/lib/tenantCountryOptions';
+import type { CreateTenantRequest, TenantEnvironment } from '@/types';
 
+/**
+ * "Create tenant" form rendered as a right-anchored slide-out panel.
+ * Visual port of the slide-out pattern in the starter template
+ * (`Templates/aonik-admin-starterkit/screens/forms.jsx` → `SlideOutPanel`):
+ * sticky header with brand-tinted icon badge, scrolling body with the
+ * fields, sticky footer with Cancel + primary action.
+ *
+ * The route stays `/tenants/new` so deep links keep working; closing
+ * the sheet (Cancel, X, or Escape) navigates back to `/tenants`.
+ */
 const environments: { value: TenantEnvironment; label: string }[] = [
   { value: 'Dev', label: 'Development' },
   { value: 'Test', label: 'Test' },
@@ -22,13 +39,14 @@ const environments: { value: TenantEnvironment; label: string }[] = [
   { value: 'Prod', label: 'Production' },
 ];
 
-const currencies = [] as { code: string; name: string }[];
+const initialCurrencies: { code: string; name: string }[] = [];
 
 export function CreateTenantPage() {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currencyOptions, setCurrencyOptions] = useState<{ code: string; name: string }[]>(currencies);
+  const [currencyOptions, setCurrencyOptions] = useState<{ code: string; name: string }[]>(initialCurrencies);
 
   const [formData, setFormData] = useState<CreateTenantRequest>({
     name: '',
@@ -39,7 +57,6 @@ export function CreateTenantPage() {
     ownerEmail: '',
     ownerDisplayName: '',
   });
-
   const [errors, setErrors] = useState<Partial<Record<keyof CreateTenantRequest, string>>>({});
 
   // Lightweight email check that mirrors the server-side validator.
@@ -69,6 +86,20 @@ export function CreateTenantPage() {
     };
   }, []);
 
+  // Mirror the sheet's open/closed state to the route. Closing the
+  // panel (X, overlay click, Escape, or Cancel) sends the user back
+  // to the tenants list — the slide-out is meant to feel layered on
+  // top of that list, even though it's reachable as its own route.
+  const handleOpenChange = (next: boolean) => {
+    if (loading) return;
+    setOpen(next);
+    if (!next) {
+      // Defer the navigation a tick so Radix can play the close
+      // animation before the route unmounts the component.
+      window.setTimeout(() => navigate('/tenants'), 150);
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof CreateTenantRequest, string>> = {};
 
@@ -78,20 +109,12 @@ export function CreateTenantPage() {
       newErrors.name = 'Tenant name must be at least 3 characters';
     }
 
-    if (!formData.environment) {
-      newErrors.environment = 'Environment is required';
-    }
-
-    if (!formData.defaultCurrency) {
-      newErrors.defaultCurrency = 'Default currency is required';
-    }
-
+    if (!formData.environment) newErrors.environment = 'Environment is required';
+    if (!formData.defaultCurrency) newErrors.defaultCurrency = 'Default currency is required';
     if (formData.supportedCountries.length === 0) {
       newErrors.supportedCountries = 'At least one country must be selected';
     }
 
-    // Owner email is the new mandatory field — without it the backend
-    // refuses to create the tenant, so we surface the error inline.
     const ownerEmail = formData.ownerEmail.trim();
     if (!ownerEmail) {
       newErrors.ownerEmail = 'Owner email is required';
@@ -105,16 +128,11 @@ export function CreateTenantPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
 
     setLoading(true);
     setError(null);
-
     try {
-      // Trim the owner fields so the backend's strict validation
-      // never sees stray whitespace, and drop an empty display name
-      // so the placeholder Party falls back to the email cleanly.
       const trimmedDisplayName = (formData.ownerDisplayName ?? '').trim();
       const payload: CreateTenantRequest = {
         ...formData,
@@ -122,7 +140,11 @@ export function CreateTenantPage() {
         ownerDisplayName: trimmedDisplayName.length > 0 ? trimmedDisplayName : undefined,
       };
       const tenant = await tenantService.create(payload);
-      navigate(`/tenants/${tenant.tenantId}`);
+      // Skip the route-restore animation here — we're heading to a
+      // different route entirely, so closing the sheet would just
+      // bounce through the tenants list.
+      setOpen(false);
+      window.setTimeout(() => navigate(`/tenants/${tenant.tenantId}`), 100);
     } catch (err: unknown) {
       console.error('Failed to create tenant:', err);
       const message = err && typeof err === 'object' && 'userMessage' in err
@@ -134,7 +156,6 @@ export function CreateTenantPage() {
     }
   };
 
-
   const toggleCountry = (code: string) => {
     setFormData(prev => ({
       ...prev,
@@ -145,246 +166,254 @@ export function CreateTenantPage() {
   };
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-6">
-        {/* Page Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/tenants')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Tenants
-          </Button>
-        </div>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetContent size="md">
+        <SheetHeader
+          icon={<Building className="h-4 w-4" />}
+          title="Create tenant"
+          subtitle="Set up a new tenant with its initial owner and regional defaults."
+        />
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Create Tenant</h1>
-          <p className="text-[var(--color-text-secondary)]">
-            Set up a new tenant with its environment and regional settings.
-          </p>
-        </div>
-
-        {/* Error Alert */}
-        {error && (
-          <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="flex-1">{error}</span>
-              <Button variant="ghost" size="sm" onClick={() => setError(null)}>
-                <X className="w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          {/* Basic Information */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Tenant Name */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Tenant Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Acme Corporation"
-                  className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
-                    errors.name ? 'border-red-300' : 'border-[var(--color-border)]'
-                  }`}
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-[var(--color-error)]">{errors.name}</p>
-                )}
-              </div>
-
-              {/* Environment */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Environment *
-                </label>
-                <Select
-                  value={formData.environment}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, environment: value as TenantEnvironment }))}
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
+          <SheetBody>
+            {/* Inline error alert — surfaces server errors at the top
+                of the body so the user sees them next to the fields,
+                not buried under the footer. */}
+            {error ? (
+              <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-none" />
+                <span className="flex-1">{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  aria-label="Dismiss"
+                  className="text-red-400 hover:text-red-600"
                 >
-                  <SelectTrigger
-                    aria-label="Environment"
-                    className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
-                      errors.environment ? 'border-red-300' : 'border-[var(--color-border)]'
-                    }`}
-                  >
-                    <SelectValue placeholder="Select environment" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {environments.map(env => (
-                      <SelectItem key={env.value} value={env.value}>{env.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.environment && (
-                  <p className="mt-1 text-sm text-[var(--color-error)]">{errors.environment}</p>
-                )}
-                <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                  Select the environment type for this tenant.
-                </p>
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            </CardContent>
-          </Card>
+            ) : null}
 
-          {/* Initial Owner */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Initial Owner</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                Every tenant starts with one Tenant Administrator. We
-                pre-create a pending user record for this email and
-                grant <code className="text-xs">TenantAdmin</code>; the
-                first sign-in matching this email links to that record.
-                Random authenticated users can no longer join a tenant
-                by selecting it from the login picker — additional
-                users must be invited from the Users page.
-              </p>
+            {/* ── Basic information ──────────────────────────────── */}
+            <Field
+              label="Tenant name"
+              required
+              error={errors.name}
+            >
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Acme Corporation"
+                className={fieldInputClass(!!errors.name)}
+              />
+            </Field>
 
-              {/* Owner Email */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Owner Email *
-                </label>
-                <input
-                  type="email"
-                  value={formData.ownerEmail}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ownerEmail: e.target.value }))}
-                  placeholder="e.g., owner@acme.com"
-                  className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
-                    errors.ownerEmail ? 'border-red-300' : 'border-[var(--color-border)]'
-                  }`}
-                />
-                {errors.ownerEmail && (
-                  <p className="mt-1 text-sm text-[var(--color-error)]">{errors.ownerEmail}</p>
-                )}
-              </div>
-
-              {/* Owner Display Name (optional) */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Owner Display Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.ownerDisplayName ?? ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ownerDisplayName: e.target.value }))}
-                  placeholder="Optional — falls back to the email"
-                  className="w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent border-[var(--color-border)]"
-                />
-                <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                  Used as the placeholder party's display name.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Regional Settings */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Regional Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Default Currency */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Default Currency *
-                </label>
-                <Select
-                  value={formData.defaultCurrency}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, defaultCurrency: value, supportedCurrencies: [value] }))}
+            <Field label="Environment" required error={errors.environment}>
+              <Select
+                value={formData.environment}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, environment: value as TenantEnvironment }))}
+              >
+                <SelectTrigger
+                  aria-label="Environment"
+                  className={fieldInputClass(!!errors.environment)}
                 >
-                  <SelectTrigger
-                    aria-label="Default currency"
-                    className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
-                      errors.defaultCurrency ? 'border-red-300' : 'border-[var(--color-border)]'
-                    }`}
-                  >
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencyOptions.map(currency => (
-                      <SelectItem key={currency.code} value={currency.code}>
-                        {currency.code} - {currency.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.defaultCurrency && (
-                  <p className="mt-1 text-sm text-[var(--color-error)]">{errors.defaultCurrency}</p>
-                )}
-              </div>
+                  <SelectValue placeholder="Select environment" />
+                </SelectTrigger>
+                <SelectContent>
+                  {environments.map(env => (
+                    <SelectItem key={env.value} value={env.value}>{env.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
 
-              {/* Supported Countries */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                  Supported Countries *
-                </label>
-                <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
+            {/* ── Initial owner ──────────────────────────────────── */}
+            <SectionDivider label="Initial owner" />
+            <p className="text-[11.5px] leading-relaxed text-[var(--color-text-secondary)]">
+              We pre-create a pending user for this email and grant
+              <code className="mx-1 rounded bg-[var(--color-surface-inset)] px-1 text-[10.5px]">TenantAdmin</code>;
+              the first sign-in matching this email links to that record.
+              Additional users must be invited from the Users page.
+            </p>
+
+            <Field label="Owner email" required error={errors.ownerEmail}>
+              <input
+                type="email"
+                value={formData.ownerEmail}
+                onChange={(e) => setFormData(prev => ({ ...prev, ownerEmail: e.target.value }))}
+                placeholder="owner@acme.com"
+                className={fieldInputClass(!!errors.ownerEmail)}
+              />
+            </Field>
+
+            <Field
+              label="Owner display name"
+              hint="Optional"
+              helper="Falls back to the email when omitted."
+            >
+              <input
+                type="text"
+                value={formData.ownerDisplayName ?? ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, ownerDisplayName: e.target.value }))}
+                placeholder="e.g., Jane Doe"
+                className={fieldInputClass(false)}
+              />
+            </Field>
+
+            {/* ── Regional settings ──────────────────────────────── */}
+            <SectionDivider label="Regional settings" />
+
+            <Field label="Default currency" required error={errors.defaultCurrency}>
+              <Select
+                value={formData.defaultCurrency}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, defaultCurrency: value, supportedCurrencies: [value] }))}
+              >
+                <SelectTrigger
+                  aria-label="Default currency"
+                  className={fieldInputClass(!!errors.defaultCurrency)}
+                >
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencyOptions.map(currency => (
+                    <SelectItem key={currency.code} value={currency.code}>
+                      {currency.code} — {currency.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field
+              label="Supported countries"
+              required
+              error={errors.supportedCountries}
+              helper="Tenant operates in these regions."
+            >
+              <div
+                className={`rounded-md border bg-[var(--color-surface-inset)] p-2 ${
                   errors.supportedCountries ? 'border-red-300' : 'border-[var(--color-border)]'
-                }`}>
-                  <div className="flex flex-wrap gap-2">
-                    {tenantCountryOptions.map(country => (
+                }`}
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  {tenantCountryOptions.map(country => {
+                    const active = formData.supportedCountries.includes(country.code);
+                    return (
                       <button
                         key={country.code}
                         type="button"
                         onClick={() => toggleCountry(country.code)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                          formData.supportedCountries.includes(country.code)
+                        className={`rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
+                          active
                             ? 'bg-[var(--color-brand-primary)] text-white'
                             : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                         }`}
                       >
-                        {country.code} - {country.name}
+                        {country.code} — {country.name}
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-                {errors.supportedCountries && (
-                  <p className="mt-1 text-sm text-[var(--color-error)]">{errors.supportedCountries}</p>
-                )}
-                <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-                  Select the countries where this tenant will operate.
-                </p>
               </div>
-            </CardContent>
-          </Card>
+            </Field>
+          </SheetBody>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/tenants')}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Create Tenant
-                </>
-              )}
-            </Button>
-          </div>
+          <SheetFooter>
+            {/* Hint on the left so the primary action stays anchored
+                to the right edge — matches the starter template's
+                "Save as draft / Back / Continue" rhythm. */}
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">
+              Owner receives a pending invitation on first sign-in.
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleOpenChange(false)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Creating…
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-1.5 h-3.5 w-3.5" />
+                    Create tenant
+                  </>
+                )}
+              </Button>
+            </div>
+          </SheetFooter>
         </form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ── Field primitives ──────────────────────────────────────────────────
+//
+// Local label/input wrapper that mirrors the starter template's field
+// rhythm (label · hint on the right · input · helper · error). Kept
+// inside this file so the slide-out reads as a single self-contained
+// surface; if a second slide-out shows up we'll lift these into a
+// shared module.
+
+function fieldInputClass(hasError: boolean): string {
+  return [
+    'h-9 w-full rounded-md border bg-[var(--color-surface-inset)] px-3 text-[13px] text-[var(--color-text-primary)]',
+    'focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent',
+    hasError ? 'border-red-300' : 'border-[var(--color-border)]',
+  ].join(' ');
+}
+
+interface FieldProps {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  helper?: string;
+  error?: string;
+  children: React.ReactNode;
+}
+
+function Field({ label, required, hint, helper, error, children }: FieldProps) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1.5">
+        <span className="text-[11.5px] font-medium tracking-[0.01em] text-[var(--color-text-secondary)]">
+          {label}
+          {required ? <span className="ml-0.5 text-[var(--color-brand-primary)]">*</span> : null}
+        </span>
+        {hint ? (
+          <span className="ml-auto text-[10.5px] text-[var(--color-text-tertiary)]">{hint}</span>
+        ) : null}
       </div>
+      {children}
+      {error ? (
+        <p className="mt-1 text-[11px] text-[var(--color-error)]">{error}</p>
+      ) : helper ? (
+        <p className="mt-1 text-[10.5px] text-[var(--color-text-tertiary)]">{helper}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-[var(--color-border-light)]" />
     </div>
   );
 }
