@@ -23,7 +23,15 @@ public class DemoSeedServiceTests
     private static readonly Guid TenantId = Guid.Parse("1d53eab0-f4fa-4ac6-8400-6fe21308e8fd");
     private static readonly Guid UserId = Guid.Parse("8fd75699-884d-434a-906e-c7c4bc66c352");
 
-    [Fact]
+    // The fixture uses `(localdb)\MSSQLLocalDB` — LocalDB is Windows-only,
+    // so these tests can't run on the Linux CI runners. They're parked
+    // until either (a) converted to InMemory (lossy on relational
+    // semantics this seed exercises) or (b) moved into a separate
+    // integration test project that the CI pipeline targets via Docker
+    // SQL Server. Run manually on Windows by removing the Skip.
+    private const string SkipReason = "Requires LocalDB (Windows-only). Convert to InMemory or move to an Integration test suite.";
+
+    [Fact(Skip = SkipReason)]
     public async Task SeedThenReverseAsync_Should_RemoveBillCollectionDemoData()
     {
         await using var fixture = await CreateFixtureAsync();
@@ -48,7 +56,7 @@ public class DemoSeedServiceTests
         fixture.AgentsDb.Workflows.Where(x => x.TenantId == TenantId).Should().BeEmpty();
     }
 
-    [Fact]
+    [Fact(Skip = SkipReason)]
     public async Task SeedThenReverseAsync_Should_RemoveCrossBorderDemoData_AndRestoreTenantSnapshot()
     {
         await using var fixture = await CreateFixtureAsync();
