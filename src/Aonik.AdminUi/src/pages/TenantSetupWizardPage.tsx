@@ -393,15 +393,17 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
           break;
       }
 
-      if (Object.keys(updateRequest).length > 1 || step === 5) {
-        // Use the tenant-scoped update endpoint. The cross-tenant admin
-        // update (PATCH /admin/tenants/{id}) requires Tenants.Write, which
-        // is not granted to the TenantAdmin role; using it here means a
-        // freshly-provisioned owner sees "Failed to save progress" on
-        // every wizard step. PATCH /tenant/settings resolves the tenant
-        // from X-Tenant-Id and is the right surface for self-service.
-        await tenantService.updateSettings(updateRequest);
-      }
+      // Always persist the updated setupStep — even on step 3, where the
+      // only OTHER call is to tenantFeatureService.update(). Without this
+      // explicit save, reloading after the features step would drop the
+      // user back at step 3 because setupStep stayed at its prior value.
+      // Use the tenant-scoped update endpoint. The cross-tenant admin
+      // update (PATCH /admin/tenants/{id}) requires Tenants.Write, which
+      // is not granted to the TenantAdmin role; using it here means a
+      // freshly-provisioned owner sees "Failed to save progress" on
+      // every wizard step. PATCH /tenant/settings resolves the tenant
+      // from X-Tenant-Id and is the right surface for self-service.
+      await tenantService.updateSettings(updateRequest);
     } catch (err) {
       setError('Failed to save progress. Please try again.');
       throw err;

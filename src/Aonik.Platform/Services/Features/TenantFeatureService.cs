@@ -41,7 +41,16 @@ internal class TenantFeatureService : AdminServiceBase, ITenantFeatureService
 
     public async Task<TenantFeatureList> GetTenantFeaturesAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
-        await EnsurePermissionAsync("Tenants.Read", cancellationToken);
+        // Self-tenant reads do NOT require Tenants.Read — same rationale as
+        // TenantService.GetTenantAsync. The onboarding wizard's feature step
+        // hits this path for the user's OWN tenant, and TenantAdmin doesn't
+        // hold the cross-tenant Tenants.Read permission.
+        var currentTenantId = _tenantContext.TenantId;
+        if (currentTenantId is null || currentTenantId.Value != tenantId)
+        {
+            await EnsurePermissionAsync("Tenants.Read", cancellationToken);
+        }
+
         await EnsureTenantExistsAsync(tenantId, cancellationToken);
 
         var features = await _dbContext.TenantFeatures
@@ -65,7 +74,17 @@ internal class TenantFeatureService : AdminServiceBase, ITenantFeatureService
         IReadOnlyList<TenantFeatureToggle> toggles,
         CancellationToken cancellationToken = default)
     {
-        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
+        // Self-tenant writes do NOT require Tenants.Write — same rationale.
+        // TenantAdmin can flip feature flags inside its own tenant via the
+        // onboarding wizard / settings UI; only cross-tenant feature edits
+        // (PUT /admin/tenants/{otherTenantId}/features) need the elevated
+        // permission.
+        var currentTenantId = _tenantContext.TenantId;
+        if (currentTenantId is null || currentTenantId.Value != tenantId)
+        {
+            await EnsurePermissionAsync("Tenants.Write", cancellationToken);
+        }
+
         await EnsureTenantExistsAsync(tenantId, cancellationToken);
 
         if (toggles.Count == 0)
