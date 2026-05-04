@@ -807,24 +807,59 @@ internal class TenantService : AdminServiceBase, ITenantService
         if (countryIds.Count == 0)
             return;
 
+        // IgnoreQueryFilters so soft-deleted rows ALSO surface — the unique
+        // index IX_AnkTenantCountries_TenantId_CountryId does not exclude
+        // soft-deleted rows, so a previously-soft-deleted row will collide
+        // with a fresh INSERT on the same (TenantId, CountryId) pair. We
+        // resurrect it instead of issuing a duplicate insert. (Repro: every
+        // wizard "Step 2" PATCH after the initial provisioning re-sent
+        // supportedCountries=['US'] and 500'd here.)
         var existing = await _dbContext.TenantCountries
+            .IgnoreQueryFilters()
             .Where(x => x.TenantId == tenantId)
             .ToListAsync(cancellationToken);
 
-        if (existing.Count > 0)
-            _dbContext.TenantCountries.RemoveRange(existing);
-
+        var desiredIds = new HashSet<Guid>(countryIds);
         var now = _clock.UtcNow;
         var userId = CurrentUserProvider.GetCurrentUserId();
-        var items = countryIds.Select(countryId => new TenantCountry
-        {
-            TenantId = tenantId,
-            CountryId = countryId,
-            CreatedAt = now,
-            CreatedBy = userId
-        });
 
-        await _dbContext.TenantCountries.AddRangeAsync(items, cancellationToken);
+        // Resurrect / keep rows whose CountryId is still desired; soft-delete
+        // anything that's no longer in the list (the soft-delete interceptor
+        // turns Remove() into IsDeleted=true, which is what we want for an
+        // audit trail of country changes).
+        foreach (var row in existing)
+        {
+            if (desiredIds.Contains(row.CountryId))
+            {
+                if (row.IsDeleted)
+                {
+                    row.IsDeleted = false;
+                    row.DeletedAt = null;
+                    row.DeletedBy = null;
+                }
+                row.UpdatedAt = now;
+                row.UpdatedBy = userId;
+                desiredIds.Remove(row.CountryId);
+            }
+            else if (!row.IsDeleted)
+            {
+                _dbContext.TenantCountries.Remove(row);
+            }
+        }
+
+        // Anything left in desiredIds is genuinely new — insert it.
+        if (desiredIds.Count > 0)
+        {
+            var items = desiredIds.Select(countryId => new TenantCountry
+            {
+                TenantId = tenantId,
+                CountryId = countryId,
+                CreatedAt = now,
+                CreatedBy = userId
+            });
+
+            await _dbContext.TenantCountries.AddRangeAsync(items, cancellationToken);
+        }
     }
 
     private async Task UpsertTenantCurrenciesAsync(Guid tenantId, string[] currencyCodes, CancellationToken cancellationToken)
@@ -838,24 +873,50 @@ internal class TenantService : AdminServiceBase, ITenantService
         if (currencyIds.Count == 0)
             return;
 
+        // Mirror UpsertTenantCountriesAsync: soft-delete + unique index would
+        // otherwise collide on the second PATCH that re-sends an existing
+        // currency. Resurrect rather than re-INSERT.
         var existing = await _dbContext.TenantCurrencies
+            .IgnoreQueryFilters()
             .Where(x => x.TenantId == tenantId)
             .ToListAsync(cancellationToken);
 
-        if (existing.Count > 0)
-            _dbContext.TenantCurrencies.RemoveRange(existing);
-
+        var desiredIds = new HashSet<Guid>(currencyIds);
         var now = _clock.UtcNow;
         var userId = CurrentUserProvider.GetCurrentUserId();
-        var items = currencyIds.Select(currencyId => new TenantCurrency
-        {
-            TenantId = tenantId,
-            CurrencyId = currencyId,
-            CreatedAt = now,
-            CreatedBy = userId
-        });
 
-        await _dbContext.TenantCurrencies.AddRangeAsync(items, cancellationToken);
+        foreach (var row in existing)
+        {
+            if (desiredIds.Contains(row.CurrencyId))
+            {
+                if (row.IsDeleted)
+                {
+                    row.IsDeleted = false;
+                    row.DeletedAt = null;
+                    row.DeletedBy = null;
+                }
+                row.UpdatedAt = now;
+                row.UpdatedBy = userId;
+                desiredIds.Remove(row.CurrencyId);
+            }
+            else if (!row.IsDeleted)
+            {
+                _dbContext.TenantCurrencies.Remove(row);
+            }
+        }
+
+        if (desiredIds.Count > 0)
+        {
+            var items = desiredIds.Select(currencyId => new TenantCurrency
+            {
+                TenantId = tenantId,
+                CurrencyId = currencyId,
+                CreatedAt = now,
+                CreatedBy = userId
+            });
+
+            await _dbContext.TenantCurrencies.AddRangeAsync(items, cancellationToken);
+        }
     }
 
     private async Task<string[]> GetTenantSupportedCountryCodesAsync(Guid tenantId, CancellationToken cancellationToken)
