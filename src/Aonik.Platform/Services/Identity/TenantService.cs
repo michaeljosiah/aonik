@@ -269,7 +269,18 @@ internal class TenantService : AdminServiceBase, ITenantService
         UpdateTenantRequest request,
         CancellationToken cancellationToken = default)
     {
-        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
+        // Self-tenant updates do NOT require Tenants.Write — same rationale
+        // as GetTenantAsync: TenantAdmin holds Settings.Write but not the
+        // cross-tenant Tenants.Write, so the onboarding wizard's per-step
+        // "Save progress" PATCH (and any future self-service tenant edit)
+        // would 403 without this carve-out. Cross-tenant admin updates
+        // (PATCH /admin/tenants/{id}) keep the full permission gate.
+        var currentTenantId = _tenantContext.TenantId;
+        if (currentTenantId is null || currentTenantId.Value != tenantId)
+        {
+            await EnsurePermissionAsync("Tenants.Write", cancellationToken);
+        }
+
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
