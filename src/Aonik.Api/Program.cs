@@ -224,6 +224,38 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
+        // Log the exception FIRST, before any CORS / response branching.
+        // The previous shape only logged when CORS conditions matched, so
+        // same-origin failures (where the browser doesn't send Origin)
+        // silently re-threw without an application-level log entry. That
+        // left admins staring at a generic 500 in the network tab with
+        // no matching row in the Logs page. The dedicated category name
+        // makes it trivially KQL-filterable:
+        //   traces | where customDimensions.CategoryName == "Aonik.UnhandledException"
+        var logger = context.RequestServices.GetService<ILoggerFactory>()
+            ?.CreateLogger("Aonik.UnhandledException");
+        logger?.LogError(
+            ex,
+            "Unhandled exception on {Method} {Path} (status=500, exceptionType={ExceptionType}, exceptionMessage={ExceptionMessage})",
+            context.Request.Method,
+            context.Request.Path,
+            ex.GetType().FullName,
+            ex.Message);
+
+        // Stamp the active OTel span with error tags too, so the trace
+        // explorer shows the failure inline on the request span — users
+        // can click the failing trace and see the exception type without
+        // pivoting to the Logs page.
+        var activity = System.Diagnostics.Activity.Current;
+        if (activity is not null)
+        {
+            activity.SetTag("error", true);
+            activity.SetTag("error.type", ex.GetType().FullName);
+            activity.SetTag("error.message", ex.Message);
+            activity.SetTag("aonik.unhandled_exception", true);
+            activity.SetStatus(System.Diagnostics.ActivityStatusCode.Error, ex.Message);
+        }
+
         if (isAllowedCorsOrigin && origin is not null && !context.Response.HasStarted)
         {
             // Re-apply CORS headers and write a 500 response so the browser
@@ -231,11 +263,25 @@ app.Use(async (context, next) =>
             ApplyActualCorsHeaders(context.Response, origin);
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/json";
-            var errorBody = System.Text.Json.JsonSerializer.Serialize(new { error = "An internal error occurred." });
-            await context.Response.WriteAsync(errorBody);
 
-            var logger = context.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("Aonik.CorsMiddleware");
-            logger?.LogError(ex, "Unhandled exception on {Method} {Path}", context.Request.Method, context.Request.Path);
+            // In dev / non-prod environments include the exception type
+            // and message in the response so the operator can diagnose
+            // without round-tripping to App Insights. Production responses
+            // stay opaque.
+            var includeDetails = app.Environment.IsDevelopment()
+                || string.Equals(app.Environment.EnvironmentName, "dev", StringComparison.OrdinalIgnoreCase);
+            object errorPayload = includeDetails
+                ? new
+                {
+                    error = "An internal error occurred.",
+                    exceptionType = ex.GetType().FullName,
+                    exceptionMessage = ex.Message,
+                    path = context.Request.Path.Value,
+                }
+                : new { error = "An internal error occurred." };
+
+            var errorBody = System.Text.Json.JsonSerializer.Serialize(errorPayload);
+            await context.Response.WriteAsync(errorBody);
             return; // Do not re-throw — response is already written with CORS headers
         }
 
