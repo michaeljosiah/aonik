@@ -28,10 +28,12 @@ import {
 } from '@/lib/agui-client';
 import type { ThreadDetail, ThreadMessageDto } from '@/hooks/useThreads';
 import {
+  type FollowUpSuggestionsState,
   type OptionSelectionState,
   type SharedToolStatus,
   type SpeechChunkPayload,
   type SpeechRenderPayload,
+  parseFollowUpSuggestions,
   tryParseJsonRecord,
   useAiChatFrontendTools,
   useAiChatVoicePlayback,
@@ -53,6 +55,7 @@ export interface ChatToolCall {
     severity: 'low' | 'medium' | 'high';
   };
   optionSelection?: OptionSelectionState;
+  followUpSuggestions?: FollowUpSuggestionsState;
 }
 
 export interface ConfirmActionArgs {
@@ -864,6 +867,13 @@ function hydrateToolCallMetadata(toolCall: ChatToolCall): ChatToolCall {
     return {
       ...toolCall,
       optionSelection: toolCall.optionSelection ?? parseOptionSelection(toolCall.args),
+    };
+  }
+
+  if (toolCall.toolCallName === 'display_follow_up_suggestions') {
+    return {
+      ...toolCall,
+      followUpSuggestions: toolCall.followUpSuggestions ?? parseFollowUpSuggestions(tryParseJsonRecord(toolCall.args) ?? {}),
     };
   }
 

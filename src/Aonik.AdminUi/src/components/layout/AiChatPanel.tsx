@@ -44,6 +44,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
     isStreaming,
     streamError,
     handleSend,
+    sendMessage,
     stopStreaming,
     resetChat,
     pendingApprovals,
@@ -202,6 +203,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
                   onApproveAction={approveAction}
                   onRejectAction={rejectAction}
                   onSelectToolCallOptions={selectToolCallOptions}
+                  onSelectFollowUpSuggestion={(prompt) => void sendMessage(prompt)}
                 />
               </div>
             )}

@@ -185,6 +185,7 @@ export function AiPlaygroundPage() {
     approveToolCall,
     rejectToolCall,
     selectToolCallOptions,
+    runFollowUpSuggestion,
   } = usePlaygroundChat();
 
   // ── Agent change handler ────────────────────────────────────────────────
@@ -1025,6 +1026,7 @@ export function AiPlaygroundPage() {
             onApproveToolCall={approveToolCall}
             onRejectToolCall={rejectToolCall}
             onSelectToolCallOptions={selectToolCallOptions}
+            onSelectFollowUpSuggestion={runFollowUpSuggestion}
             side
           />
         </div>

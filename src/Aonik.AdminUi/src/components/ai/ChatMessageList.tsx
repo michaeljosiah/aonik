@@ -23,7 +23,9 @@ import {
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import {
   AiDisplayToolCard,
+  AiFollowUpSuggestionsCard,
   AiOptionSelectionCard,
+  parseFollowUpSuggestions,
   tryParseJsonRecord,
 } from '@/components/ai/chatSupport';
 import type { ChatMessage, ChatToolCall, PendingApproval } from '@/hooks/useAguiChat';
@@ -35,6 +37,7 @@ interface ChatMessageListProps {
   onApproveAction?: (toolCallId: string) => void;
   onRejectAction?: (toolCallId: string, reason?: string) => void;
   onSelectToolCallOptions?: (toolCallId: string, selected: string[]) => void;
+  onSelectFollowUpSuggestion?: (prompt: string) => void;
 }
 
 /**
@@ -58,6 +61,7 @@ export function ChatMessageList({
   onApproveAction,
   onRejectAction,
   onSelectToolCallOptions,
+  onSelectFollowUpSuggestion,
 }: ChatMessageListProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -96,6 +100,19 @@ export function ChatMessageList({
                         const parsedArgs = tc.args ? tryParseJsonRecord(tc.args) : null;
 
                         if (tc.toolCallName.startsWith('display_') && tc.status === 'completed' && parsedArgs) {
+                          if (tc.toolCallName === 'display_follow_up_suggestions') {
+                            const suggestions = parseFollowUpSuggestions(parsedArgs);
+                            if (suggestions) {
+                              return (
+                                <AiFollowUpSuggestionsCard
+                                  key={tc.toolCallId}
+                                  suggestions={suggestions}
+                                  onSelect={onSelectFollowUpSuggestion}
+                                />
+                              );
+                            }
+                          }
+
                           return (
                             <AiDisplayToolCard
                               key={tc.toolCallId}

@@ -271,6 +271,35 @@ class MockChatRepository implements ChatRepository {
       return;
     }
 
+    // ── Follow-up suggestions ─────────────────────────────
+    if (lowerPrompt.contains('what next') ||
+        lowerPrompt.contains('next step') ||
+        lowerPrompt.contains('keep going')) {
+      yield* _mockStreamWithDisplayWidget(
+        text: 'We can keep this moving without making it a whole production.',
+        widgetType: DisplayWidgetType.followUpSuggestions,
+        data: const {
+          'prompt': 'Pick a next step',
+          'suggestions': [
+            {
+              'label': 'Check budget',
+              'prompt': 'How am I doing against my budget this month?',
+            },
+            {
+              'label': 'Top spend',
+              'prompt': 'What did I spend the most money on this month?',
+            },
+            {
+              'label': 'Upcoming bills',
+              'prompt': 'What bills are coming up next?',
+            },
+          ],
+        },
+        toolName: 'display_follow_up_suggestions',
+      );
+      return;
+    }
+
     // ── Autopilot proposal ─────────────────────────────────
     if (lowerPrompt.contains('autopilot') ||
         lowerPrompt.contains('proposal') ||

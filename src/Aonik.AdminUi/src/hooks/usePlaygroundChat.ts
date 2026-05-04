@@ -53,6 +53,10 @@ export interface PlaygroundToolCall {
     options: Array<{ label: string; description?: string }>;
     multiSelect: boolean;
   };
+  followUpSuggestions?: {
+    prompt?: string;
+    suggestions: Array<{ label: string; prompt: string; description?: string }>;
+  };
 }
 
 export interface PlaygroundSpeechRender {
@@ -504,6 +508,13 @@ export function usePlaygroundChat() {
     abortRef.current?.abort();
   }, []);
 
+  const runFollowUpSuggestion = useCallback(
+    async (prompt: string) => {
+      await sendMessage(prompt);
+    },
+    [sendMessage],
+  );
+
   const resetChat = useCallback(() => {
     abortRef.current?.abort();
     setMessages([]);
@@ -549,5 +560,6 @@ export function usePlaygroundChat() {
     approveToolCall,
     rejectToolCall,
     selectToolCallOptions,
+    runFollowUpSuggestion,
   };
 }

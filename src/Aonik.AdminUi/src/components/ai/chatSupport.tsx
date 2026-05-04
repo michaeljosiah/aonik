@@ -47,6 +47,11 @@ export interface OptionSelectionState {
   multiSelect: boolean;
 }
 
+export interface FollowUpSuggestionsState {
+  prompt?: string;
+  suggestions: Array<{ label: string; prompt: string; description?: string }>;
+}
+
 export interface NavigateToScreenArgs {
   screen: string;
   params?: Record<string, unknown>;
@@ -74,6 +79,7 @@ export interface SharedToolCallViewModel {
     severity: 'low' | 'medium' | 'high';
   };
   optionSelection?: OptionSelectionState;
+  followUpSuggestions?: FollowUpSuggestionsState;
 }
 
 function pickString(value: unknown): string | null {
@@ -537,6 +543,60 @@ export function AiDisplayToolCard({ toolName, args }: { toolName: string; args: 
     default:
       return null;
   }
+}
+
+export function parseFollowUpSuggestions(
+  args: Record<string, unknown>,
+): FollowUpSuggestionsState | null {
+  const suggestions = Array.isArray(args.suggestions)
+    ? args.suggestions
+        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+        .map((item) => ({
+          label: pickString(item.label) ?? '',
+          prompt: pickString(item.prompt) ?? '',
+          description: pickString(item.description) ?? undefined,
+        }))
+        .filter((item) => item.label.length > 0 && item.prompt.length > 0)
+    : [];
+
+  if (suggestions.length === 0) {
+    return null;
+  }
+
+  return {
+    prompt: pickString(args.prompt) ?? undefined,
+    suggestions,
+  };
+}
+
+export function AiFollowUpSuggestionsCard({
+  suggestions,
+  onSelect,
+}: {
+  suggestions: FollowUpSuggestionsState;
+  onSelect?: (prompt: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3 text-sm">
+      {suggestions.prompt && (
+        <div className="mb-3 text-xs font-semibold text-[var(--color-text-primary)]">
+          {suggestions.prompt}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {suggestions.suggestions.map((item) => (
+          <button
+            key={`${item.label}-${item.prompt}`}
+            type="button"
+            onClick={() => onSelect?.(item.prompt)}
+            className="inline-flex items-center rounded-full border border-[color-mix(in_srgb,var(--color-brand-primary)_18%,transparent)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--color-brand-primary)] transition-colors hover:bg-[color-mix(in_srgb,var(--color-brand-primary)_12%,transparent)]"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function AiOptionSelectionCard({

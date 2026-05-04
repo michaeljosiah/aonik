@@ -394,6 +394,7 @@ enum DisplayWidgetType {
   budgetBreakdown,
   spendingPieChart,
   autopilotProposal,
+  followUpSuggestions,
   optionSelector,
 }
 

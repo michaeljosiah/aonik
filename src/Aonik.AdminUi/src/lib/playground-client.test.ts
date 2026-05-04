@@ -196,6 +196,23 @@ describe('streamPlaygroundRun frontend tools', () => {
       expectedResult: 'displayed',
     },
     {
+      toolName: 'display_follow_up_suggestions',
+      args: {
+        prompt: 'Pick a next step',
+        suggestions: [
+          {
+            label: 'Check budget',
+            prompt: 'How am I doing against my budget this month?',
+          },
+          {
+            label: 'Upcoming bills',
+            prompt: 'What bills are coming up next?',
+          },
+        ],
+      },
+      expectedResult: 'displayed',
+    },
+    {
       toolName: 'display_option_selector',
       args: {
         question: 'Which account should I use?',

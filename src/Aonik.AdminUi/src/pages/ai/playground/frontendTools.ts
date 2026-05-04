@@ -9,6 +9,7 @@ export const playgroundFrontendToolNames = [
   'display_budget_breakdown',
   'display_spending_pie_chart',
   'display_autopilot_proposal',
+  'display_follow_up_suggestions',
   'display_option_selector',
 ] as const;
 
@@ -359,6 +360,47 @@ export function createPlaygroundFrontendTools(
             },
           },
           required: ['agent', 'action', 'description'],
+        },
+      },
+      handler: displayHandler,
+    });
+
+    registrations.set('display_follow_up_suggestions', {
+      tool: {
+        name: 'display_follow_up_suggestions',
+        description:
+          'Display 2 to 6 tappable follow-up suggestions in the chat. Use for optional next questions or next actions after answering the user. Do not use when the agent must block for a required choice; use display_option_selector for that.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt: {
+              type: 'string',
+              description: 'Short lead-in above the suggestion chips (e.g., "Want to keep going?")',
+            },
+            suggestions: {
+              type: 'array',
+              description: 'The suggested follow-up prompts to show',
+              items: {
+                type: 'object',
+                properties: {
+                  label: {
+                    type: 'string',
+                    description: 'Short chip label shown to the user',
+                  },
+                  prompt: {
+                    type: 'string',
+                    description: 'Exact user message to send if the chip is tapped',
+                  },
+                  description: {
+                    type: 'string',
+                    description: 'Optional extra context shown under the chip label',
+                  },
+                },
+                required: ['label', 'prompt'],
+              },
+            },
+          },
+          required: ['suggestions'],
         },
       },
       handler: displayHandler,

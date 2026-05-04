@@ -38,6 +38,7 @@ import {
 import type { PlaygroundRunMetrics } from '@/lib/playground-client';
 import type { PlaygroundOutputPart, PlaygroundToolCall } from '@/hooks/usePlaygroundChat';
 import type { PlaygroundReviewResult } from '@/types/ai';
+import { AiFollowUpSuggestionsCard, parseFollowUpSuggestions } from '@/components/ai/chatSupport';
 
 interface PlaygroundOutputPanelProps {
   output: string;
@@ -67,6 +68,7 @@ interface PlaygroundOutputPanelProps {
   onApproveToolCall?: (toolCallId: string) => void;
   onRejectToolCall?: (toolCallId: string) => void;
   onSelectToolCallOptions?: (toolCallId: string, selected: string[]) => void;
+  onSelectFollowUpSuggestion?: (prompt: string) => void;
   /** When true, renders as a full-height side panel (no drag handle, fills parent). */
   side?: boolean;
 }
@@ -96,6 +98,7 @@ export function PlaygroundOutputPanel({
   onApproveToolCall,
   onRejectToolCall,
   onSelectToolCallOptions,
+  onSelectFollowUpSuggestion,
   side = false,
 }: PlaygroundOutputPanelProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -281,6 +284,7 @@ export function PlaygroundOutputPanel({
                           onApprove={onApproveToolCall}
                           onReject={onRejectToolCall}
                           onSelectOptions={onSelectToolCallOptions}
+                          onSelectFollowUpSuggestion={onSelectFollowUpSuggestion}
                         />
                       );
                     case 'text':
@@ -376,11 +380,13 @@ function ToolCallCard({
   onApprove,
   onReject,
   onSelectOptions,
+  onSelectFollowUpSuggestion,
 }: {
   toolCall: PlaygroundToolCall;
   onApprove?: (toolCallId: string) => void;
   onReject?: (toolCallId: string) => void;
   onSelectOptions?: (toolCallId: string, selected: string[]) => void;
+  onSelectFollowUpSuggestion?: (prompt: string) => void;
 }) {
   const isActive = toolCall.status === 'streaming' || toolCall.status === 'pending';
   const isAwaiting = toolCall.status === 'awaiting-approval' || toolCall.status === 'awaiting-selection';
@@ -441,7 +447,13 @@ function ToolCallCard({
   if (isDisplayTool && toolCall.status === 'completed' && toolCall.args) {
     const parsedArgs = tryParseJson(toolCall.args);
     if (parsedArgs) {
-      return <DisplayToolVisual toolName={toolCall.toolCallName} args={parsedArgs} />;
+      return (
+        <DisplayToolVisual
+          toolName={toolCall.toolCallName}
+          args={parsedArgs}
+          onSelectFollowUpSuggestion={onSelectFollowUpSuggestion}
+        />
+      );
     }
   }
 
@@ -711,8 +723,22 @@ function OptionSelectionInteraction({
 
 // ─── Display Tool Visual Renderers ────────────────────────────────────────────
 
-function DisplayToolVisual({ toolName, args }: { toolName: string; args: Record<string, unknown> }) {
+function DisplayToolVisual({
+  toolName,
+  args,
+  onSelectFollowUpSuggestion,
+}: {
+  toolName: string;
+  args: Record<string, unknown>;
+  onSelectFollowUpSuggestion?: (prompt: string) => void;
+}) {
   switch (toolName) {
+    case 'display_follow_up_suggestions': {
+      const suggestions = parseFollowUpSuggestions(args);
+      return suggestions
+        ? <AiFollowUpSuggestionsCard suggestions={suggestions} onSelect={onSelectFollowUpSuggestion} />
+        : null;
+    }
     case 'display_budget_breakdown':
       return <BudgetBreakdownVisual args={args} />;
     case 'display_fx_rate_chart':
