@@ -435,15 +435,29 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                         }
                     }
 
+                    // Apply per-agent model override by wrapping the chat
+                    // client in a ModelPinningChatClient. The sub-agent's
+                    // RunAsync is invoked internally by the orchestrator
+                    // when this tool is called, with no chance for us to
+                    // pass run-time ChatOptions — so we have to bake the
+                    // ModelId into the chat client at construction time.
+                    // Without this, the sub-agent inherits whatever model
+                    // the orchestrator was running with (e.g. gpt-5-mini),
+                    // and the per-agent override the admin set in the UI
+                    // is silently ignored at run time.
+                    var subAgentChatClient = !string.IsNullOrWhiteSpace(config.ModelName)
+                        ? (IChatClient)new ModelPinningChatClient(_chatClient, config.ModelName!)
+                        : _chatClient;
+
                     builtAgent = descriptor.Build(
-                        _chatClient,
+                        subAgentChatClient,
                         _serviceProvider,
                         instructionsOverride,
                         allowedToolNames);
 
                     _logger.LogDebug(
-                        "Built domain agent tool: {AgentName} with config override (IsOverride={IsOverride})",
-                        descriptor.Name, config.IsOverride);
+                        "Built domain agent tool: {AgentName} with config override (IsOverride={IsOverride}, PinnedModel={PinnedModel})",
+                        descriptor.Name, config.IsOverride, config.ModelName ?? "<inherit>");
                 }
                 else
                 {

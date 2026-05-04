@@ -774,6 +774,38 @@ export function ObservabilityTracesPage() {
   const selectedAgents = Array.from(new Set(selectedTraceItems.map((item) => item.agentName ?? item.agentId).filter(Boolean)));
   const selectedAgentLabel = selectedTrace?.agentName ?? selectedTrace?.agentId ?? selectedTrace?.serviceName ?? '--';
 
+  // Per-(agent, model) call rollup. Each LLM call in the trace lands as
+  // an observation with `providedModel` set; grouping by (agentName,
+  // providedModel) gives a one-line answer to "did the configured
+  // model actually run?". Without this rollup admins had to drop into
+  // /api/ai/trace-observations to enumerate which agent invoked which
+  // model — exactly the workflow the user flagged as broken.
+  const modelCallSummary = useMemo(() => {
+    type Bucket = { agent: string; model: string; calls: number; latencyMs: number; tokens: number };
+    const map = new Map<string, Bucket>();
+    for (const item of selectedTraceItems) {
+      const model = (item.providedModel ?? '').trim();
+      if (!model) continue;
+      const agent = (item.agentName ?? item.agentId ?? '—').trim() || '—';
+      const key = `${agent}::${model}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.calls += 1;
+        existing.latencyMs += getDurationMs(item);
+        existing.tokens += item.totalTokens ?? 0;
+      } else {
+        map.set(key, {
+          agent,
+          model,
+          calls: 1,
+          latencyMs: getDurationMs(item),
+          tokens: item.totalTokens ?? 0,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.calls - a.calls);
+  }, [selectedTraceItems]);
+
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
       <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
@@ -1059,6 +1091,35 @@ export function ObservabilityTracesPage() {
                     {selectedAgents.length > 1 ? (
                       <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
                         Agents in trace: {selectedAgents.join(', ')}
+                      </div>
+                    ) : null}
+
+                    {/* Per-(agent, model) call rollup. Quickly answers
+                        "which model did each agent actually use?"
+                        without drilling into the waterfall. Each chip
+                        is one (agent, model) bucket; the count is the
+                        number of distinct LLM calls in that bucket. */}
+                    {modelCallSummary.length > 0 ? (
+                      <div className="mt-2">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+                          LLM calls
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {modelCallSummary.map((bucket) => (
+                            <span
+                              key={`${bucket.agent}::${bucket.model}`}
+                              className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-0.5 text-[10.5px] text-[var(--color-text-secondary)]"
+                              title={`${bucket.agent} → ${bucket.model} (${bucket.calls} call${bucket.calls === 1 ? '' : 's'}, ${formatDurationMs(bucket.latencyMs)} total, ${formatTokens(bucket.tokens || null)} tokens)`}
+                            >
+                              <span className="font-medium text-[var(--color-text-primary)]">{bucket.agent}</span>
+                              <span className="text-[var(--color-text-tertiary)]">→</span>
+                              <span className="font-mono">{bucket.model}</span>
+                              <span className="ml-0.5 rounded-full bg-[var(--color-brand-primary)]/10 px-1.5 font-mono text-[9.5px] font-medium text-[var(--color-brand-primary)]">
+                                {bucket.calls}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
 
