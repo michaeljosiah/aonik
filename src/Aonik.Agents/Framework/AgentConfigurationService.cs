@@ -157,9 +157,27 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         // Also get code-based descriptor as ultimate fallback
         var descriptor = _descriptors.FirstOrDefault(d => d.Name == agentName);
 
-        // Try to find existing tenant override
+        // Try to find existing tenant override. Use IgnoreQueryFilters
+        // so we also see soft-deleted rows — the unique index
+        // IX_Agents_TenantId_Name only filters on TenantId IS NOT NULL,
+        // not IsDeleted, so a previous override that was soft-deleted
+        // still occupies the (TenantId, Name) slot. If we ignore it
+        // here and then try to INSERT a new row, SQL Server raises a
+        // unique-constraint violation (DbUpdateException) on save.
+        // Resurrecting the soft-deleted row sidesteps that and
+        // preserves audit history.
         var existing = await _dbContext.Agents
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.Name == agentName && a.TenantId == tenantId, cancellationToken);
+
+        if (existing is not null && existing.IsDeleted)
+        {
+            // Resurrect: clear soft-delete flags and treat as an
+            // update. EF will issue an UPDATE rather than an INSERT.
+            existing.IsDeleted = false;
+            existing.DeletedAt = null;
+            existing.DeletedBy = null;
+        }
 
         if (existing is not null)
         {

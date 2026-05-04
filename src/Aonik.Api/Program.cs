@@ -234,13 +234,33 @@ app.Use(async (context, next) =>
         //   traces | where customDimensions.CategoryName == "Aonik.UnhandledException"
         var logger = context.RequestServices.GetService<ILoggerFactory>()
             ?.CreateLogger("Aonik.UnhandledException");
+        // Walk the exception chain so root-cause messages (e.g. SQL
+        // constraint violations buried inside DbUpdateException) make
+        // it into the structured log without forcing the operator to
+        // open the formatted exception block.
+        static string FlattenChain(Exception root)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (var current = root; current != null; current = current.InnerException)
+            {
+                if (sb.Length > 0) sb.Append(" -> ");
+                sb.Append(current.GetType().FullName).Append(": ").Append(current.Message);
+            }
+            return sb.ToString();
+        }
+        var innermost = ex;
+        while (innermost.InnerException is not null) innermost = innermost.InnerException;
+
         logger?.LogError(
             ex,
-            "Unhandled exception on {Method} {Path} (status=500, exceptionType={ExceptionType}, exceptionMessage={ExceptionMessage})",
+            "Unhandled exception on {Method} {Path} (status=500, exceptionType={ExceptionType}, exceptionMessage={ExceptionMessage}, innerType={InnerType}, innerMessage={InnerMessage}, chain={ExceptionChain})",
             context.Request.Method,
             context.Request.Path,
             ex.GetType().FullName,
-            ex.Message);
+            ex.Message,
+            innermost.GetType().FullName,
+            innermost.Message,
+            FlattenChain(ex));
 
         // Stamp the active OTel span with error tags too, so the trace
         // explorer shows the failure inline on the request span — users
@@ -276,6 +296,9 @@ app.Use(async (context, next) =>
                     error = "An internal error occurred.",
                     exceptionType = ex.GetType().FullName,
                     exceptionMessage = ex.Message,
+                    innerType = innermost.GetType().FullName,
+                    innerMessage = innermost.Message,
+                    exceptionChain = FlattenChain(ex),
                     path = context.Request.Path.Value,
                 }
                 : new { error = "An internal error occurred." };
