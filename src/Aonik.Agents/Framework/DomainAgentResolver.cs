@@ -26,7 +26,7 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
     private readonly IServiceProvider _services;
     private readonly ILogger<DomainAgentResolver> _logger;
 
-    private readonly Dictionary<string, (AIAgent Agent, IDomainAgentDescriptor Descriptor)> _cache =
+    private readonly Dictionary<string, DomainAgentResolution> _cache =
         new(StringComparer.OrdinalIgnoreCase);
 
     public DomainAgentResolver(
@@ -43,7 +43,7 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
         _logger = logger;
     }
 
-    public async Task<(AIAgent Agent, IDomainAgentDescriptor Descriptor)> ResolveAsync(
+    public async Task<DomainAgentResolution> ResolveAsync(
         string agentId,
         CancellationToken cancellationToken = default)
     {
@@ -62,6 +62,18 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
             throw new InvalidOperationException($"Agent '{agentId}' is inactive per configuration.");
 
         AIAgent agent;
+        // Surface the configured model name (resolved from
+        // AnkAgents.AiModelId by the configuration service) so the AGUI
+        // / playground caller can stamp it onto ChatOptions.ModelId at
+        // run time. Without this, the agent inherits the chat client's
+        // global default and the per-agent override silently never
+        // reaches the LLM — see the dev trace where personal-finance-
+        // agent was configured for one model but always called
+        // gpt-5-mini because of this gap.
+        var configuredModelName = !string.IsNullOrWhiteSpace(config?.ModelName)
+            ? config!.ModelName
+            : null;
+
         if (config is not null)
         {
             var instructionsOverride = !string.IsNullOrWhiteSpace(config.InstructionsText)
@@ -84,7 +96,9 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
             }
 
             agent = descriptor.Build(_chatClient, _services, instructionsOverride, allowedToolNames);
-            _logger.LogDebug("Resolved domain agent '{AgentName}' with config override", agentId);
+            _logger.LogDebug(
+                "Resolved domain agent '{AgentName}' with config override; configured model: {ModelName}",
+                agentId, configuredModelName ?? "<global default>");
         }
         else
         {
@@ -92,7 +106,7 @@ internal sealed class DomainAgentResolver : IDomainAgentResolver
             _logger.LogDebug("Resolved domain agent '{AgentName}' with code defaults", agentId);
         }
 
-        var result = (agent, descriptor);
+        var result = new DomainAgentResolution(agent, descriptor, configuredModelName);
         _cache[agentId] = result;
         return result;
     }

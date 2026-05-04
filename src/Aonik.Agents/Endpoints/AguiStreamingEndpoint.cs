@@ -10,6 +10,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
 using Microsoft.Agents.AI;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
@@ -47,6 +48,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
     private readonly ICurrentUserProvider? _currentUserProvider;
     private readonly ITenantContext? _tenantContext;
     private readonly ICurrentUserContext? _currentUserContext;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<AguiStreamingEndpoint> _logger;
 
     public AguiStreamingEndpoint(
@@ -56,6 +58,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         IToolCallClassifier classifier,
         ISpeechRenderer speechRenderer,
         IPostStreamPersistenceCoordinator coordinator,
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<AguiStreamingEndpoint> logger,
         IStreamingTextToSpeechService? streamingTts = null,
         ITenantTextToSpeechSettingsService? ttsSettings = null,
@@ -69,6 +72,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         _classifier = classifier;
         _speechRenderer = speechRenderer;
         _coordinator = coordinator;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
         _streamingTts = streamingTts;
         _ttsSettings = ttsSettings;
@@ -178,7 +182,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         await using var writer = new AguiResponseWriter(response, voiceMode, requestStopwatch);
         await using VoiceSynthCoordinator? voiceCoordinator = voiceMode
             ? new VoiceSynthCoordinator(
-                streamingTts: _streamingTts!,
+                serviceScopeFactory: _serviceScopeFactory,
                 writer: writer,
                 providerFormat: providerFormat!,
                 mime: audioMime!,
@@ -302,20 +306,43 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             clientToolCount = clientTools.Count;
             chatActivity?.SetTag("aonik.chat.client_tool_count", clientToolCount);
 
+            // Build run options that combine:
+            //   • Client-side tool declarations (so the LLM can emit
+            //     FunctionCallContent that the frontend executes).
+            //   • The agent's per-config model override (resolved from
+            //     AnkAgents.AiModelId by the configuration service and
+            //     surfaced via AgentContextResolution.ConfiguredModelName).
+            // Without the model override here the agent silently inherits
+            // the chat client's global default (e.g. gpt-5-mini), which is
+            // exactly the bug a dev trace surfaced for personal-finance-
+            // agent. Tag the configured + effective model on the chat
+            // activity so future traces show the override actually landed.
             ChatClientAgentRunOptions? runOptions = null;
+            var configuredModel = agentContext.ConfiguredModelName;
+            if (clientTools.Count > 0 || !string.IsNullOrWhiteSpace(configuredModel))
+            {
+                var chatOptions = new ChatOptions();
+                if (clientTools.Count > 0)
+                    chatOptions.Tools = clientTools;
+                if (!string.IsNullOrWhiteSpace(configuredModel))
+                    chatOptions.ModelId = configuredModel;
+                runOptions = new ChatClientAgentRunOptions { ChatOptions = chatOptions };
+            }
+
+            chatActivity?.SetTag("aonik.chat.configured_model", configuredModel ?? "<global default>");
+
             if (clientTools.Count > 0)
             {
-                runOptions = new ChatClientAgentRunOptions
-                {
-                    ChatOptions = new ChatOptions
-                    {
-                        Tools = clientTools,
-                    },
-                };
                 _logger.LogDebug(
                     "AG-UI run {RunId}: passing {ToolCount} client tool(s) to agent: {ToolNames}",
                     runId, clientTools.Count,
                     string.Join(", ", clientTools.Select(t => t.Name)));
+            }
+            if (!string.IsNullOrWhiteSpace(configuredModel))
+            {
+                _logger.LogDebug(
+                    "AG-UI run {RunId}: agent '{AgentId}' configured model: {ModelId}",
+                    runId, input.AgentId, configuredModel);
             }
 
             var messageId = Guid.NewGuid().ToString("N");

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Services;
@@ -41,7 +42,7 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
     /// </summary>
     public static readonly TimeSpan PerChunkRetryTimeout = TimeSpan.FromSeconds(7);
 
-    private readonly IStreamingTextToSpeechService _streamingTts;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly AguiResponseWriter _writer;
     private readonly string _providerFormat;
     private readonly string _mime;
@@ -62,13 +63,13 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
     private int _synthTasksThatYieldedAtLeastOneFrame;
 
     public VoiceSynthCoordinator(
-        IStreamingTextToSpeechService streamingTts,
+        IServiceScopeFactory serviceScopeFactory,
         AguiResponseWriter writer,
         string providerFormat,
         string mime,
         ILogger logger)
     {
-        _streamingTts = streamingTts;
+        _serviceScopeFactory = serviceScopeFactory;
         _writer = writer;
         _providerFormat = providerFormat;
         _mime = mime;
@@ -245,7 +246,10 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
                     OutputFormat: _providerFormat,
                     ProviderOptions: new Dictionary<string, string?>()));
 
-            await foreach (var frame in _streamingTts.StreamSynthesizeAsync(request, ct).ConfigureAwait(false))
+            await using var scope = _serviceScopeFactory.CreateAsyncScope();
+            var streamingTts = scope.ServiceProvider.GetRequiredService<IStreamingTextToSpeechService>();
+
+            await foreach (var frame in streamingTts.StreamSynthesizeAsync(request, ct).ConfigureAwait(false))
             {
                 if (!firstFrameSeen)
                 {

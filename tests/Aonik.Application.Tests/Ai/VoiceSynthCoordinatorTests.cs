@@ -4,6 +4,7 @@ using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.Ai;
@@ -16,13 +17,16 @@ public class VoiceSynthCoordinatorTests
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
         var streamingTts = new CapturingStreamingTextToSpeechService();
+        await using var services = new ServiceCollection()
+            .AddSingleton<IStreamingTextToSpeechService>(streamingTts)
+            .BuildServiceProvider();
 
         await using var writer = new AguiResponseWriter(
             context.Response,
             voiceMode: true,
             wallClock: Stopwatch.StartNew());
         await using var coordinator = new VoiceSynthCoordinator(
-            streamingTts: streamingTts,
+            serviceScopeFactory: services.GetRequiredService<IServiceScopeFactory>(),
             writer: writer,
             providerFormat: "opus_48000_64",
             mime: "audio/opus",

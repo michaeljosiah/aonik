@@ -44,9 +44,12 @@ internal sealed class AgentExecutor : Executor<string, string>
         _recorder.RecordVisit(_nodeId);
 
         AIAgent agent;
+        string? configuredModel = null;
         try
         {
-            (agent, _) = await _resolver.ResolveAsync(_agentName, cancellationToken);
+            var resolution = await _resolver.ResolveAsync(_agentName, cancellationToken);
+            agent = resolution.Agent;
+            configuredModel = resolution.ConfiguredModelName;
         }
         catch (Exception)
         {
@@ -62,7 +65,22 @@ internal sealed class AgentExecutor : Executor<string, string>
                 ? _task
                 : $"{_task}\n\nPrior step output:\n{message}";
 
-        var response = await agent.RunAsync(prompt, cancellationToken: cancellationToken);
+        // Apply the per-agent model override if configured. Without this
+        // the workflow agent inherits the chat client's global default
+        // (same gap that the AGUI endpoint had).
+        AgentRunOptions? runOptions = null;
+        if (!string.IsNullOrWhiteSpace(configuredModel))
+        {
+            runOptions = new ChatClientAgentRunOptions
+            {
+                ChatOptions = new Microsoft.Extensions.AI.ChatOptions
+                {
+                    ModelId = configuredModel,
+                },
+            };
+        }
+
+        var response = await agent.RunAsync(prompt, options: runOptions, cancellationToken: cancellationToken);
         return response.Text ?? string.Empty;
     }
 

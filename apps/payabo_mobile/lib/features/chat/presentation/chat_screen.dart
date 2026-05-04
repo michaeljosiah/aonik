@@ -196,6 +196,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   static const int _voiceSpeechChunkTargetLength = 180;
   static const int _voiceSpeechChunkHardLimit = 260;
   static const Duration _voiceThinkingWatchdog = Duration(seconds: 20);
+  static const Duration _voiceThinkingWatchdogPoll = Duration(seconds: 10);
+  static const Duration _voiceThinkingHardTimeout = Duration(seconds: 75);
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -1519,39 +1521,74 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _startVoiceThinkingWatchdog(int turnId) {
     _cancelVoiceThinkingWatchdog();
-    _voiceThinkingWatchdogTimer = Timer(_voiceThinkingWatchdog, () {
-      if (!_isBackendTurn(turnId) ||
-          _voiceStagePhase != _VoiceStagePhase.thinking) {
-        return;
-      }
+    _voiceThinkingWatchdogTimer = Timer(
+      _voiceThinkingWatchdog,
+      () => _handleVoiceThinkingWatchdog(turnId),
+    );
+  }
 
-      _voiceLog('thinking watchdog fired turn=$turnId');
+  void _handleVoiceThinkingWatchdog(int turnId) {
+    if (!_isBackendTurn(turnId) ||
+        _voiceStagePhase != _VoiceStagePhase.thinking) {
+      return;
+    }
+
+    final int elapsedMs = _voiceBackendStopwatch.elapsedMilliseconds;
+    final ChatState chatState = ref.read(chatControllerProvider);
+    final bool backendStillActive = chatState.isProcessing ||
+        chatState.pendingSpeechChunks.isNotEmpty ||
+        (chatState.pendingSpeechText?.trim().isNotEmpty ?? false);
+
+    if (backendStillActive &&
+        elapsedMs < _voiceThinkingHardTimeout.inMilliseconds) {
+      _voiceLog(
+          'thinking watchdog extended turn=$turnId elapsed=${elapsedMs}ms');
       _reportVoiceEvent(
-        'voice_thinking_watchdog_fired',
+        'voice_thinking_watchdog_extended',
         turnId: turnId,
-        reason: 'thinking_phase_exceeded_${_voiceThinkingWatchdog.inSeconds}s',
+        reason: 'backend_still_active',
         details: <String, Object?>{
-          'elapsedMs': _voiceBackendStopwatch.elapsedMilliseconds,
+          'elapsedMs': elapsedMs,
+          'nextPollMs': _voiceThinkingWatchdogPoll.inMilliseconds,
+          'hardTimeoutMs': _voiceThinkingHardTimeout.inMilliseconds,
         },
       );
-      _voiceBackendStopwatch.stop();
-      _voiceAwaitingBackendReply = false;
-      _voiceBackendTurnId = null;
-      _voiceBackendReplyCompleted = true;
-      _voiceChunksEnqueued = 0;
-      unawaited(_chatVoiceService.cancelSpeechQueue());
-      unawaited(_chatVoiceService.stopThinkingLoop());
+      _voiceThinkingWatchdogTimer = Timer(
+        _voiceThinkingWatchdogPoll,
+        () => _handleVoiceThinkingWatchdog(turnId),
+      );
+      return;
+    }
 
-      if (!mounted) {
-        return;
-      }
+    _voiceLog('thinking watchdog fired turn=$turnId elapsed=${elapsedMs}ms');
+    _reportVoiceEvent(
+      'voice_thinking_watchdog_fired',
+      turnId: turnId,
+      reason: elapsedMs >= _voiceThinkingHardTimeout.inMilliseconds
+          ? 'thinking_hard_timeout_${_voiceThinkingHardTimeout.inSeconds}s'
+          : 'backend_inactive_after_${_voiceThinkingWatchdog.inSeconds}s',
+      details: <String, Object?>{
+        'elapsedMs': elapsedMs,
+        'hardTimeoutMs': _voiceThinkingHardTimeout.inMilliseconds,
+        'backendStillActive': backendStillActive,
+      },
+    );
+    _voiceBackendStopwatch.stop();
+    _voiceAwaitingBackendReply = false;
+    _voiceBackendTurnId = null;
+    _voiceBackendReplyCompleted = true;
+    _voiceChunksEnqueued = 0;
+    unawaited(_chatVoiceService.cancelSpeechQueue());
+    unawaited(_chatVoiceService.stopThinkingLoop());
 
-      setState(() {
-        _voiceStagePhase = _VoiceStagePhase.ready;
-      });
-      _showVoiceSnackBar(
-          'Simi took too long to respond. Tap Talk to try again.');
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _voiceStagePhase = _VoiceStagePhase.ready;
     });
+    _showVoiceSnackBar('Simi took too long to respond. Tap Talk to try again.');
   }
 
   void _cancelVoiceThinkingWatchdog() {

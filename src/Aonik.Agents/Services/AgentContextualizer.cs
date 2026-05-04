@@ -66,7 +66,10 @@ public sealed class AgentContextualizer : IAgentContextualizer
         {
             var orchestratorAgent = await _orchestrator.GetAgentAsync(cancellationToken);
             activity?.SetTag("aonik.user_brief.required", false);
-            return new AgentContextResolution(orchestratorAgent, UserBriefPreamble: null, "skipped", null);
+            // Orchestrator manages its own model via MasterOrchestratorService,
+            // so we deliberately leave ConfiguredModelName null here — the
+            // AGUI endpoint must NOT stamp a model on orchestrator runs.
+            return new AgentContextResolution(orchestratorAgent, UserBriefPreamble: null, "skipped", null, ConfiguredModelName: null);
         }
 
         var requiresUserBrief = _descriptorsByName.TryGetValue(agentId, out var knownDescriptor)
@@ -78,12 +81,18 @@ public sealed class AgentContextualizer : IAgentContextualizer
             ? BuildCachedUserBriefAsync(cancellationToken)
             : Task.FromResult(new UserBriefResolution(null, "skipped", null));
 
-        var (agent, descriptor) = await agentTask;
+        var resolution = await agentTask;
+        activity?.SetTag("aonik.agent.configured_model", resolution.ConfiguredModelName ?? "<global default>");
 
-        if (!descriptor.RequiresUserBrief)
+        if (!resolution.Descriptor.RequiresUserBrief)
         {
             activity?.SetTag("aonik.user_brief.cache_status", "skipped");
-            return new AgentContextResolution(agent, UserBriefPreamble: null, "skipped", null);
+            return new AgentContextResolution(
+                resolution.Agent,
+                UserBriefPreamble: null,
+                "skipped",
+                null,
+                resolution.ConfiguredModelName);
         }
 
         var brief = await userBriefTask;
@@ -91,7 +100,12 @@ public sealed class AgentContextualizer : IAgentContextualizer
         if (brief.DurationMs.HasValue)
             activity?.SetTag("aonik.user_brief.duration_ms", brief.DurationMs.Value);
 
-        return new AgentContextResolution(agent, brief.Preamble, brief.CacheStatus, brief.DurationMs);
+        return new AgentContextResolution(
+            resolution.Agent,
+            brief.Preamble,
+            brief.CacheStatus,
+            brief.DurationMs,
+            resolution.ConfiguredModelName);
     }
 
     private async Task<UserBriefResolution> BuildCachedUserBriefAsync(CancellationToken cancellationToken)

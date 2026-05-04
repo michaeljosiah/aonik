@@ -21,11 +21,21 @@ namespace Aonik.Agents.Contracts.Services;
 /// Time spent resolving the User Brief payload. <c>null</c> when the brief was
 /// skipped entirely.
 /// </param>
+/// <param name="ConfiguredModelName">
+/// Model name resolved from the agent's database configuration row
+/// (<c>AnkAgents.AiModelId</c> joined to <c>AnkAiModels.ModelName</c>),
+/// or <c>null</c> when no override is configured. Callers stamp this on
+/// <c>ChatOptions.ModelId</c> at run time so per-agent model overrides
+/// reach the LLM provider — without this the agent silently falls back
+/// to the chat client's global default. The orchestrator path is
+/// independent and resolved separately by <c>MasterOrchestratorService</c>.
+/// </param>
 public sealed record AgentContextResolution(
     AIAgent Agent,
     ChatMessage? UserBriefPreamble,
     string UserBriefCacheStatus,
-    long? UserBriefDurationMs);
+    long? UserBriefDurationMs,
+    string? ConfiguredModelName = null);
 
 /// <summary>
 /// Resolves the <see cref="AIAgent"/> to run an AG-UI turn against and, when
