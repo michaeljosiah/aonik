@@ -108,7 +108,7 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
                 outputTokens: 0,
                 outcome: "error",
                 error: ex,
-                inputJson: SerializeInput(messageList),
+                inputJson: SerializeInput(messageList, options),
                 outputJson: null);
             throw;
         }
@@ -129,8 +129,8 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
             outputTokens: (int)(usage?.OutputTokenCount ?? 0),
             outcome: "success",
             error: null,
-            inputJson: SerializeInput(messageList),
-            outputJson: SerializeOutput(response.Text));
+            inputJson: SerializeInput(messageList, options),
+            outputJson: SerializeOutput(response));
 
         return response;
     }
@@ -230,8 +230,8 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
                 outputTokens: (int)outputTokens,
                 outcome: outcome,
                 error: failure,
-                inputJson: SerializeInput(messageList),
-                outputJson: SerializeOutput(responseText?.ToString()));
+                inputJson: SerializeInput(messageList, options),
+                outputJson: SerializeStreamingOutput(responseText?.ToString()));
         }
     }
 
@@ -438,25 +438,186 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
             totalTokens);
     }
 
-    private string? SerializeInput(IReadOnlyList<ChatMessage> messages)
+    /// <summary>
+    /// Serializer options for the verbose request/response capture.
+    /// Indented + ignoring nulls keeps the rendered JSON in the trace
+    /// explorer readable, and the per-element preserves are large enough
+    /// to cover real prompts without exploding the customDimensions
+    /// payload (Application Insights row size ceiling is ~1 MB).
+    /// </summary>
+    private static readonly JsonSerializerOptions PayloadJsonOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    /// <summary>
+    /// Captures the FULL payload sent to the LLM — every message with
+    /// every content block (text, tool calls, tool results, reasoning,
+    /// usage), plus the ChatOptions (model id, sampling params, response
+    /// format, the bound Tools list with their JSON schemas, additional
+    /// properties). Previously we only kept role + concatenated text,
+    /// which hid tool definitions, structured-output schemas, and tool
+    /// call results — the things you most need when debugging "why did
+    /// the model do X". Gated by <see cref="_enableSensitiveData"/>.
+    /// </summary>
+    private string? SerializeInput(IReadOnlyList<ChatMessage> messages, ChatOptions? options)
     {
         if (!_enableSensitiveData)
         {
             return null;
         }
 
-        return JsonSerializer.Serialize(messages.Select(message => new
+        var payload = new
         {
-            role = message.Role.ToString(),
-            text = string.Join("\n", message.Contents.OfType<TextContent>().Select(content => content.Text)),
-        }));
+            options = options is null ? null : SerializeOptions(options),
+            messages = messages.Select(SerializeMessage).ToArray(),
+        };
+
+        return JsonSerializer.Serialize(payload, PayloadJsonOptions);
     }
 
-    private string? SerializeOutput(string? text)
+    private static object SerializeMessage(ChatMessage message)
     {
-        return _enableSensitiveData && !string.IsNullOrEmpty(text)
-            ? JsonSerializer.Serialize(new { text })
-            : null;
+        return new
+        {
+            role = message.Role.ToString(),
+            authorName = message.AuthorName,
+            messageId = message.MessageId,
+            contents = message.Contents.Select(SerializeContent).ToArray(),
+        };
+    }
+
+    private static object SerializeContent(AIContent content) => content switch
+    {
+        TextContent text => new
+        {
+            kind = "text",
+            text = text.Text,
+        },
+        FunctionCallContent fnCall => new
+        {
+            kind = "tool_call",
+            callId = fnCall.CallId,
+            name = fnCall.Name,
+            arguments = fnCall.Arguments,
+        },
+        FunctionResultContent fnResult => new
+        {
+            kind = "tool_result",
+            callId = fnResult.CallId,
+            result = SafeStringify(fnResult.Result),
+        },
+        UsageContent usage => new
+        {
+            kind = "usage",
+            inputTokens = usage.Details.InputTokenCount,
+            outputTokens = usage.Details.OutputTokenCount,
+            totalTokens = usage.Details.TotalTokenCount,
+        },
+        TextReasoningContent reasoning => new
+        {
+            kind = "reasoning",
+            text = reasoning.Text,
+        },
+        _ => new
+        {
+            kind = content.GetType().Name,
+            raw = SafeStringify(content),
+        },
+    };
+
+    private static object SerializeOptions(ChatOptions options)
+    {
+        return new
+        {
+            modelId = options.ModelId,
+            temperature = options.Temperature,
+            topP = options.TopP,
+            topK = options.TopK,
+            maxOutputTokens = options.MaxOutputTokens,
+            frequencyPenalty = options.FrequencyPenalty,
+            presencePenalty = options.PresencePenalty,
+            responseFormat = options.ResponseFormat?.GetType().Name,
+            stopSequences = options.StopSequences,
+            seed = options.Seed,
+            toolMode = options.ToolMode?.GetType().Name,
+            tools = options.Tools?.Select(SerializeTool).ToArray(),
+            additionalProperties = options.AdditionalProperties?.ToDictionary(
+                kv => kv.Key,
+                kv => SafeStringify(kv.Value)),
+        };
+    }
+
+    private static object SerializeTool(AITool tool)
+    {
+        // AITool only exposes Name + Description publicly across all
+        // implementations; AIFunction adds JsonSchema. Fall through to
+        // type name when richer details aren't reachable without a cast.
+        if (tool is AIFunction fn)
+        {
+            return new
+            {
+                kind = "function",
+                name = fn.Name,
+                description = fn.Description,
+                parametersSchema = fn.JsonSchema,
+            };
+        }
+
+        return new
+        {
+            kind = tool.GetType().Name,
+            name = tool.Name,
+            description = tool.Description,
+        };
+    }
+
+    /// <summary>
+    /// Captures the full assistant response — every content block in the
+    /// final message (text, tool calls the model decided to make,
+    /// reasoning), plus usage and finish reason. Replaces the old
+    /// text-only serializer.
+    /// </summary>
+    private string? SerializeOutput(ChatResponse response)
+    {
+        if (!_enableSensitiveData) return null;
+
+        var lastMessage = response.Messages.LastOrDefault();
+        var payload = new
+        {
+            modelId = response.ModelId,
+            finishReason = response.FinishReason?.ToString(),
+            usage = response.Usage is null ? null : new
+            {
+                inputTokens = response.Usage.InputTokenCount,
+                outputTokens = response.Usage.OutputTokenCount,
+                totalTokens = response.Usage.TotalTokenCount,
+            },
+            text = response.Text,
+            contents = lastMessage?.Contents.Select(SerializeContent).ToArray(),
+        };
+
+        return JsonSerializer.Serialize(payload, PayloadJsonOptions);
+    }
+
+    /// <summary>
+    /// Streaming path: we don't have the structured response object on
+    /// hand — only the accumulated text — so we emit the same shape with
+    /// only the text populated.
+    /// </summary>
+    private string? SerializeStreamingOutput(string? text)
+    {
+        if (!_enableSensitiveData || string.IsNullOrEmpty(text)) return null;
+        return JsonSerializer.Serialize(new { text }, PayloadJsonOptions);
+    }
+
+    private static string? SafeStringify(object? value)
+    {
+        if (value is null) return null;
+        if (value is string s) return s;
+        try { return JsonSerializer.Serialize(value); }
+        catch { return value.ToString(); }
     }
 
     private Guid? SafeTenantId()

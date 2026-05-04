@@ -593,9 +593,28 @@ function fmtMs(value: number): string {
   return `${Math.round(value)}ms`;
 }
 
+/**
+ * Re-format a string for display in a CodeBlock. Tries hard to make
+ * JSON readable:
+ *   1. If the string parses as JSON, re-emit it indented at 2 spaces.
+ *   2. If the result is itself a JSON string (i.e. someone serialised
+ *      JSON twice), recursively prettify the inner value.
+ *   3. If parsing fails, return the original — no destruction of the
+ *      raw payload (e.g. SQL statements, plain text replies).
+ *
+ * Server now emits the LLM input/output already indented, but this
+ * also normalises older traces and any payload that's been
+ * re-serialised through an intermediate layer.
+ */
 function pretty(raw: string): string {
+  if (!raw) return raw;
   try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === 'string') {
+      // Doubly-encoded — try once more.
+      try { return JSON.stringify(JSON.parse(parsed), null, 2); } catch { return parsed; }
+    }
+    return JSON.stringify(parsed, null, 2);
   } catch {
     return raw;
   }
