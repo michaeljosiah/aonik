@@ -11,8 +11,6 @@ import {
   SheetHeader,
   SheetBody,
   SheetFooter,
-  SheetTitle,
-  SheetDescription,
 } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -335,15 +333,15 @@ export function CatalogCategoriesPage() {
 
       {/* Create / Edit sheet */}
       <Sheet open={sheetOpen} onOpenChange={(open) => (open ? setSheetOpen(true) : closeSheet())}>
-        <SheetContent className="w-[480px]">
-          <SheetHeader>
-            <SheetTitle>{editing ? 'Edit category' : 'New category'}</SheetTitle>
-            <SheetDescription>
-              {editing
+        <SheetContent>
+          <SheetHeader
+            title={editing ? 'Edit category' : 'New category'}
+            subtitle={
+              editing
                 ? 'Update the category details. Country cannot be changed after creation.'
-                : 'Categories group billers under a market. They are scoped to your tenant.'}
-            </SheetDescription>
-          </SheetHeader>
+                : 'Categories group billers under a market. They are scoped to your tenant.'
+            }
+          />
           <SheetBody className="space-y-4">
             {formError && (
               <div className="p-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)] text-sm">

@@ -12,8 +12,6 @@ import {
   SheetHeader,
   SheetBody,
   SheetFooter,
-  SheetTitle,
-  SheetDescription,
 } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -463,15 +461,15 @@ export function CatalogBillersPage() {
 
       {/* Create / Edit sheet */}
       <Sheet open={sheetOpen} onOpenChange={(open) => (open ? setSheetOpen(true) : closeSheet())}>
-        <SheetContent className="w-[520px]">
-          <SheetHeader>
-            <SheetTitle>{editing ? 'Edit biller' : 'New biller'}</SheetTitle>
-            <SheetDescription>
-              {editing
+        <SheetContent size="lg">
+          <SheetHeader
+            title={editing ? 'Edit biller' : 'New biller'}
+            subtitle={
+              editing
                 ? 'Update biller details. Country cannot be changed after creation.'
-                : 'A biller represents a payee customers can send funds to. Pick a country and category first.'}
-            </SheetDescription>
-          </SheetHeader>
+                : 'A biller represents a payee customers can send funds to. Pick a country and category first.'
+            }
+          />
           <SheetBody className="space-y-4">
             {formError && (
               <div className="p-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)] text-sm">
