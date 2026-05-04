@@ -198,8 +198,141 @@ function dedupeRootTraces(items: AiTraceObservationResponse[]): AiTraceObservati
   );
 }
 
+/**
+ * For each LLM call, the server emits up to FOUR rows that look
+ * identical to a human:
+ *
+ *   1. Outer `chat` GENERATION  (carries input/output/tokens/model)
+ *   2. Inner `chat` GENERATION  (agent-framework wrapper, child of #1,
+ *                                same name, NO input/output)
+ *   3. `chat <model-name>` SPAN (dependency view of #1)
+ *   4. `POST /v1/chat/completions` HTTP (the underlying provider call)
+ *
+ * Without folding, clicking 2/3/4 shows partial data and the user has
+ * to guess which sibling carries the payload. This pass:
+ *
+ *   • Identifies the canonical row per call (prefers GENERATION with
+ *     input/output, falls back to the longest-duration chat-named row).
+ *   • Backfills missing input / output / providedModel /
+ *     totalTokens / costUsd / timeToFirstTokenSeconds onto every other
+ *     row in the cluster so clicking ANY of them shows the same data.
+ *   • Drops the inner duplicate GENERATION so the waterfall has one
+ *     row per call. The HTTP and SPAN views are kept (they're useful
+ *     for raw HTTP timing / dependency analysis) but now carry the
+ *     payload data inherited from the canonical row.
+ */
+function foldChatCallDuplicates(items: AiTraceObservationResponse[]): AiTraceObservationResponse[] {
+  // Group rows that represent the SAME logical chat call. The grouping
+  // key is the parentSpanId of the LLM-typed chat row (or its own
+  // spanId if it is itself a parent of others).
+  const isChatNamed = (x: AiTraceObservationResponse) =>
+    x.name === 'chat' || x.name === 'chat.stream'
+    || x.name?.startsWith('chat ') || x.name === 'POST /v1/chat/completions';
+
+  // Map every chat-named span into a cluster keyed by either its own
+  // spanId (if it has children that are also chat-named) or by its
+  // parent's spanId if its parent is chat-named.
+  const chatRows = items.filter(isChatNamed);
+  const childrenByParent = new Map<string, AiTraceObservationResponse[]>();
+  for (const row of chatRows) {
+    const parentId = row.parentSpanId ?? row.parentObservationId;
+    if (!parentId) continue;
+    if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+    childrenByParent.get(parentId)!.push(row);
+  }
+
+  // The cluster anchor is a chat row that has at least one chat-named
+  // child. Its spanId is the cluster key.
+  const clusterKeyForRow = new Map<string, string>();
+  for (const row of chatRows) {
+    const ownId = row.spanId ?? row.observationId;
+    const parentId = row.parentSpanId ?? row.parentObservationId;
+    // If row's parent is itself a chat row (i.e. there's a chat anchor
+    // above us), join that cluster.
+    const parentIsChat = parentId && chatRows.some(p => (p.spanId ?? p.observationId) === parentId);
+    if (parentIsChat) {
+      clusterKeyForRow.set(ownId, parentId!);
+    } else {
+      clusterKeyForRow.set(ownId, ownId);
+    }
+  }
+
+  // Also fold the underlying `POST /v1/chat/completions` HTTP span when
+  // its parent is the LLM chat row.
+  const clusters = new Map<string, AiTraceObservationResponse[]>();
+  for (const row of chatRows) {
+    const ownId = row.spanId ?? row.observationId;
+    const key = clusterKeyForRow.get(ownId) ?? ownId;
+    if (!clusters.has(key)) clusters.set(key, []);
+    clusters.get(key)!.push(row);
+  }
+
+  // For each cluster, find the canonical row (highest "completeness"
+  // as measured below — we explicitly prefer rows that carry the
+  // payload), then propagate its payload-y fields onto siblings.
+  const completeness = (x: AiTraceObservationResponse) => {
+    let s = 0;
+    if (x.input) s += 8;
+    if (x.output) s += 8;
+    if (x.totalTokens) s += 2;
+    if (x.providedModel) s += 1;
+    return s;
+  };
+
+  const enriched = new Map<string, AiTraceObservationResponse>();
+  for (const item of items) {
+    enriched.set(item.observationId, item);
+  }
+
+  const droppedSpanIds = new Set<string>();
+
+  for (const cluster of clusters.values()) {
+    if (cluster.length < 2) continue;
+
+    const canonical = cluster.reduce((best, x) =>
+      completeness(x) > completeness(best) ? x : best);
+
+    for (const sibling of cluster) {
+      if (sibling.observationId === canonical.observationId) continue;
+
+      // Drop the inner GENERATION duplicate — it adds no new
+      // information (same parent, same name, no payload, sub-millisecond
+      // delta from canonical). Keeping it would just put another
+      // identical row in the waterfall that, when clicked, shows
+      // nothing.
+      const isInnerGenDuplicate =
+        sibling.type === 'GENERATION'
+        && sibling.name === canonical.name
+        && (sibling.parentSpanId ?? sibling.parentObservationId) === (canonical.spanId ?? canonical.observationId)
+        && !sibling.input && !sibling.output;
+      if (isInnerGenDuplicate) {
+        droppedSpanIds.add(sibling.observationId);
+        continue;
+      }
+
+      // Otherwise (HTTP child + SPAN view), backfill the payload-y
+      // fields from the canonical row so clicking the row shows the
+      // same data.
+      enriched.set(sibling.observationId, {
+        ...sibling,
+        input: sibling.input ?? canonical.input,
+        output: sibling.output ?? canonical.output,
+        providedModel: sibling.providedModel ?? canonical.providedModel,
+        inputTokens: sibling.inputTokens ?? canonical.inputTokens,
+        outputTokens: sibling.outputTokens ?? canonical.outputTokens,
+        totalTokens: sibling.totalTokens ?? canonical.totalTokens,
+        costUsd: sibling.costUsd ?? canonical.costUsd,
+        timeToFirstTokenSeconds: sibling.timeToFirstTokenSeconds ?? canonical.timeToFirstTokenSeconds,
+      });
+    }
+  }
+
+  return Array.from(enriched.values()).filter(x => !droppedSpanIds.has(x.observationId));
+}
+
 function buildWaterfall(items: AiTraceObservationResponse[]): WaterfallItem[] {
-  const dedupedItems = dedupeObservations(items);
+  const folded = foldChatCallDuplicates(items);
+  const dedupedItems = dedupeObservations(folded);
   if (dedupedItems.length === 0) return [];
 
   const sorted = [...dedupedItems].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
