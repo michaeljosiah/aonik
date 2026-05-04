@@ -20,3 +20,49 @@ public record CatalogBillerListRequest(string? CountryCode, Guid? CategoryId, st
 public record CatalogCategoryListRequest(string? CountryCode);
 public record CatalogCountryListRequest(bool OnlyServiceCountries, string? CapabilityType);
 public record CatalogCurrencyListRequest(bool IncludeInactive = false, string? CountryCode = null);
+
+// ── Mutation requests ──────────────────────────────────────────────────────
+// Tenant-scoped CRUD for biller categories and billers. The current tenant
+// is resolved from ITenantContext; callers do not pass a TenantId.
+
+public record CreateCatalogBillerCategoryRequest(
+    string Name,
+    string CountryCode,
+    string? Description = null,
+    string? IconUrl = null,
+    int SortOrder = 0,
+    bool IsActive = true);
+
+public record UpdateCatalogBillerCategoryRequest(
+    string? Name = null,
+    string? Description = null,
+    string? IconUrl = null,
+    int? SortOrder = null,
+    bool? IsActive = null);
+
+public record CreateCatalogBillerRequest(
+    string Name,
+    string CountryCode,
+    Guid CategoryId,
+    Guid? CorrespondentPartnerId = null,
+    string? Description = null,
+    string? LogoUrl = null,
+    string? BannerUrl = null,
+    string? SupportPhone = null,
+    string? SupportEmail = null,
+    bool IsActive = true,
+    bool IsFeatured = false,
+    int SortOrder = 0);
+
+public record UpdateCatalogBillerRequest(
+    string? Name = null,
+    Guid? CategoryId = null,
+    Guid? CorrespondentPartnerId = null,
+    string? Description = null,
+    string? LogoUrl = null,
+    string? BannerUrl = null,
+    string? SupportPhone = null,
+    string? SupportEmail = null,
+    bool? IsActive = null,
+    bool? IsFeatured = null,
+    int? SortOrder = null);

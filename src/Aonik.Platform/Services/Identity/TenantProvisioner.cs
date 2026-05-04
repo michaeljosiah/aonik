@@ -253,6 +253,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
                 "Invoice.Delete",
                 "Invoice.Issue",
                 "Catalog.Read",
+                "Catalog.Write",
                 "Customers.Read",
                 "Customers.Create",
                 "Customers.Write"
@@ -409,6 +410,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
             ("Permissions.Read", "View all available permissions"),
             ("Permissions.Write", "Create and manage permissions"),
             ("Catalog.Read", "View catalog and biller data"),
+            ("Catalog.Write", "Create, edit and delete tenant catalog categories and billers"),
             ("Customers.Read", "View customers"),
             ("Customers.Create", "Create customers"),
             ("Customers.Write", "Edit and import customers"),
@@ -494,6 +496,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
             "Invoice.Delete",
             "Invoice.Issue",
             "Catalog.Read",
+            "Catalog.Write",
             "Customers.Read",
             "Customers.Create",
             "Customers.Write"

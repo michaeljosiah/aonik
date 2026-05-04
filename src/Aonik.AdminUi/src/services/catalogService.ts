@@ -2,6 +2,7 @@ import { api } from '@/lib/api';
 import type {
   CatalogCountryResponse,
   CatalogCurrencyResponse,
+  CatalogBillerCategoryItem,
   CatalogBillerCategoryResponse,
   CatalogBillerResponse,
   CatalogBillerDetailResponse,
@@ -9,6 +10,10 @@ import type {
   CatalogBillerServiceDetailResponse,
   CatalogServiceFieldValidationRequest,
   CatalogServiceFieldValidationResponse,
+  CreateCatalogBillerCategoryRequest,
+  UpdateCatalogBillerCategoryRequest,
+  CreateCatalogBillerRequest,
+  UpdateCatalogBillerRequest,
 } from '@/types';
 
 export interface CatalogBillerListParams {
@@ -152,5 +157,43 @@ export const catalogService = {
       `/catalog/billers/${billerId}/services/${serviceId}/validate`,
       request
     );
+  },
+
+  // ── Tenant catalog mutations ────────────────────────────────────────────
+  // All routes are tenant-scoped: the API resolves the current tenant from
+  // the X-Tenant-Id header. The TenantAdmin role holds Catalog.Write.
+
+  createTenantCategory: async (
+    request: CreateCatalogBillerCategoryRequest
+  ): Promise<CatalogBillerCategoryItem> => {
+    return api.post<CatalogBillerCategoryItem>('/catalog/billers/categories', request);
+  },
+
+  updateTenantCategory: async (
+    categoryId: string,
+    request: UpdateCatalogBillerCategoryRequest
+  ): Promise<CatalogBillerCategoryItem> => {
+    return api.put<CatalogBillerCategoryItem>(`/catalog/billers/categories/${categoryId}`, request);
+  },
+
+  deleteTenantCategory: async (categoryId: string): Promise<void> => {
+    return api.delete<void>(`/catalog/billers/categories/${categoryId}`);
+  },
+
+  createTenantBiller: async (
+    request: CreateCatalogBillerRequest
+  ): Promise<CatalogBillerDetailResponse> => {
+    return api.post<CatalogBillerDetailResponse>('/catalog/billers', request);
+  },
+
+  updateTenantBiller: async (
+    billerId: string,
+    request: UpdateCatalogBillerRequest
+  ): Promise<CatalogBillerDetailResponse> => {
+    return api.put<CatalogBillerDetailResponse>(`/catalog/billers/${billerId}`, request);
+  },
+
+  deleteTenantBiller: async (billerId: string): Promise<void> => {
+    return api.delete<void>(`/catalog/billers/${billerId}`);
   },
 };

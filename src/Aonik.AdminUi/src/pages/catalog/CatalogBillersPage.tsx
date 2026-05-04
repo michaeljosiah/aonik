@@ -3,18 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetBody,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   RefreshCw,
   AlertCircle,
   Building2,
   Search,
   ArrowUpRight,
+  Plus,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
 import type {
   CatalogBillerSummaryItem,
   CatalogBillerCategoryItem,
   CatalogCountryItem,
+  CreateCatalogBillerRequest,
+  UpdateCatalogBillerRequest,
 } from '@/types';
 import { DataTablePagination } from '@/components/ui/data-table';
 import {
@@ -25,6 +50,34 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CountrySelect } from '@/components/ui/country-select';
+
+interface FormState {
+  name: string;
+  countryCode: string;
+  categoryId: string;
+  description: string;
+  logoUrl: string;
+  bannerUrl: string;
+  supportPhone: string;
+  supportEmail: string;
+  sortOrder: string;
+  isActive: boolean;
+  isFeatured: boolean;
+}
+
+const emptyForm: FormState = {
+  name: '',
+  countryCode: '',
+  categoryId: '',
+  description: '',
+  logoUrl: '',
+  bannerUrl: '',
+  supportPhone: '',
+  supportEmail: '',
+  sortOrder: '0',
+  isActive: true,
+  isFeatured: false,
+};
 
 export function CatalogBillersPage() {
   const navigate = useNavigate();
@@ -40,14 +93,24 @@ export function CatalogBillersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize, setPageSize] = useState(12);
 
+  // Sheet state — shared by Create and Edit; if `editing` is non-null, we're editing.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<CatalogBillerSummaryItem | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<CatalogBillerSummaryItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [countriesResponse, categoriesResponse, billersResponse] = await Promise.all([
-        catalogService.getCountries(false),
-        catalogService.getCategories(countryFilter || undefined),
-        catalogService.getBillers({
+        catalogService.getTenantCountries(false),
+        catalogService.getTenantCategories(countryFilter || undefined),
+        catalogService.getTenantBillers({
           countryCode: countryFilter || undefined,
           categoryId: categoryFilter || undefined,
           search: search || undefined,
@@ -95,20 +158,145 @@ export function CatalogBillersPage() {
   const activeFilters = useMemo(() => {
     return [countryFilter, categoryFilter, search].filter(Boolean).length;
   }, [countryFilter, categoryFilter, search]);
+
+  // Categories restricted to the picked country (for the form's category dropdown).
+  const formCountryCategories = useMemo(() => {
+    if (!form.countryCode) return [] as CatalogBillerCategoryItem[];
+    const cc = form.countryCode.toUpperCase();
+    return categories.filter((c) => c.countryCode === cc);
+  }, [categories, form.countryCode]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ ...emptyForm, countryCode: countryFilter || '' });
+    setFormError(null);
+    setSheetOpen(true);
+  };
+
+  const openEdit = (biller: CatalogBillerSummaryItem) => {
+    setEditing(biller);
+    setForm({
+      name: biller.name,
+      countryCode: biller.countryCode,
+      categoryId: biller.categoryId,
+      description: '',
+      logoUrl: biller.logoUrl ?? '',
+      bannerUrl: '',
+      supportPhone: '',
+      supportEmail: '',
+      sortOrder: '0',
+      isActive: biller.isActive,
+      isFeatured: biller.isFeatured,
+    });
+    setFormError(null);
+    setSheetOpen(true);
+  };
+
+  const closeSheet = () => {
+    if (submitting) return;
+    setSheetOpen(false);
+    setEditing(null);
+    setForm(emptyForm);
+    setFormError(null);
+  };
+
+  const handleSubmit = async () => {
+    setFormError(null);
+    if (!form.name.trim()) {
+      setFormError('Name is required.');
+      return;
+    }
+    if (!editing && !form.countryCode.trim()) {
+      setFormError('Country is required.');
+      return;
+    }
+    if (!editing && !form.categoryId) {
+      setFormError('Category is required.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (editing) {
+        const body: UpdateCatalogBillerRequest = {
+          name: form.name.trim() || undefined,
+          categoryId: form.categoryId || undefined,
+          description: form.description.trim() || null,
+          logoUrl: form.logoUrl.trim() || null,
+          bannerUrl: form.bannerUrl.trim() || null,
+          supportPhone: form.supportPhone.trim() || null,
+          supportEmail: form.supportEmail.trim() || null,
+          isActive: form.isActive,
+          isFeatured: form.isFeatured,
+          sortOrder: form.sortOrder ? Number(form.sortOrder) : undefined,
+        };
+        await catalogService.updateTenantBiller(editing.billerId, body);
+      } else {
+        const body: CreateCatalogBillerRequest = {
+          name: form.name.trim(),
+          countryCode: form.countryCode.trim().toUpperCase(),
+          categoryId: form.categoryId,
+          description: form.description.trim() || null,
+          logoUrl: form.logoUrl.trim() || null,
+          bannerUrl: form.bannerUrl.trim() || null,
+          supportPhone: form.supportPhone.trim() || null,
+          supportEmail: form.supportEmail.trim() || null,
+          isActive: form.isActive,
+          isFeatured: form.isFeatured,
+          sortOrder: form.sortOrder ? Number(form.sortOrder) : 0,
+        };
+        await catalogService.createTenantBiller(body);
+      }
+      await loadData();
+      setSheetOpen(false);
+      setEditing(null);
+      setForm(emptyForm);
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setFormError(message || 'Failed to save biller.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await catalogService.deleteTenantBiller(deleteTarget.billerId);
+      await loadData();
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to delete biller.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="h-full overflow-auto p-6">
-
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Catalog Billers</h1>
           <p className="text-[var(--color-text-secondary)]">
-            Review billers available for collections. Explore services and correspondent mapping details.
+            Manage the billers your tenant offers for collections. Group them under categories, mark featured ones, and toggle availability.
           </p>
         </div>
-        <Button variant="outline" onClick={loadData} disabled={loading} className="rounded-sm">
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={loadData} disabled={loading} className="rounded-sm">
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={openCreate} className="rounded-sm">
+            <Plus className="w-4 h-4 mr-2" />
+            New biller
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -166,7 +354,6 @@ export function CatalogBillersPage() {
                 </SelectContent>
               </Select>
             </div>
-
           </div>
 
           <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
@@ -181,7 +368,9 @@ export function CatalogBillersPage() {
                   <Building2 className="w-12 h-12" />
                 </div>
                 <p className="text-[var(--color-text-primary)] font-medium mb-1">No billers found</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">Try adjusting your filters.</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Click "New biller" above to add your first one.
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-[var(--color-border-light)]">
@@ -215,15 +404,28 @@ export function CatalogBillersPage() {
                             {category?.name ?? 'Uncategorized'} • {country?.name ?? biller.countryCode}
                           </p>
                           <div className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                            Correspondent: {biller.correspondentPartnerId ?? 'Not assigned'}
+                            ID: {biller.billerId.slice(0, 8)}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="font-mono">
-                          {biller.billerId.slice(0, 8)}
-                        </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(biller)}
+                          aria-label="Edit biller"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteTarget(biller)}
+                          aria-label="Delete biller"
+                        >
+                          <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
+                        </Button>
                         <Button
                           variant="outline"
                           className="rounded-sm"
@@ -258,6 +460,196 @@ export function CatalogBillersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create / Edit sheet */}
+      <Sheet open={sheetOpen} onOpenChange={(open) => (open ? setSheetOpen(true) : closeSheet())}>
+        <SheetContent className="w-[520px]">
+          <SheetHeader>
+            <SheetTitle>{editing ? 'Edit biller' : 'New biller'}</SheetTitle>
+            <SheetDescription>
+              {editing
+                ? 'Update biller details. Country cannot be changed after creation.'
+                : 'A biller represents a payee customers can send funds to. Pick a country and category first.'}
+            </SheetDescription>
+          </SheetHeader>
+          <SheetBody className="space-y-4">
+            {formError && (
+              <div className="p-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] text-[var(--color-error)] text-sm">
+                {formError}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label htmlFor="biller-name">Name *</Label>
+              <Input
+                id="biller-name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Pacific Gas & Electric"
+                disabled={submitting}
+              />
+            </div>
+
+            {!editing && (
+              <div className="space-y-1">
+                <Label htmlFor="biller-country">Country *</Label>
+                <CountrySelect
+                  value={form.countryCode}
+                  onChange={(value) => setForm({ ...form, countryCode: value, categoryId: '' })}
+                  placeholder="Pick a country"
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label htmlFor="biller-category">Category *</Label>
+              <Select
+                value={form.categoryId || undefined}
+                onValueChange={(value) => setForm({ ...form, categoryId: value })}
+                disabled={!form.countryCode && !editing}
+              >
+                <SelectTrigger className="h-9 rounded-sm w-full">
+                  <SelectValue
+                    placeholder={
+                      !editing && !form.countryCode
+                        ? 'Pick a country first'
+                        : formCountryCategories.length === 0 && !editing
+                          ? 'No categories for this country yet'
+                          : 'Pick a category'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {(editing ? categories : formCountryCategories).map((category) => (
+                    <SelectItem key={category.categoryId} value={category.categoryId}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!editing && form.countryCode && formCountryCategories.length === 0 && (
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                  No categories exist for this country yet. Create one on the Categories page first.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="biller-desc">Description</Label>
+              <Textarea
+                id="biller-desc"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={2}
+                disabled={submitting}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="biller-phone">Support phone</Label>
+                <Input
+                  id="biller-phone"
+                  value={form.supportPhone}
+                  onChange={(e) => setForm({ ...form, supportPhone: e.target.value })}
+                  placeholder="+1 555 ..."
+                  disabled={submitting}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="biller-email">Support email</Label>
+                <Input
+                  id="biller-email"
+                  type="email"
+                  value={form.supportEmail}
+                  onChange={(e) => setForm({ ...form, supportEmail: e.target.value })}
+                  placeholder="support@..."
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="biller-logo">Logo URL</Label>
+              <Input
+                id="biller-logo"
+                value={form.logoUrl}
+                onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
+                placeholder="https://..."
+                disabled={submitting}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="biller-sort">Sort order</Label>
+              <Input
+                id="biller-sort"
+                type="number"
+                value={form.sortOrder}
+                onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+                disabled={submitting}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  disabled={submitting}
+                />
+                <span>Active (visible to consumers)</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.isFeatured}
+                  onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
+                  disabled={submitting}
+                />
+                <span>Featured</span>
+              </label>
+            </div>
+          </SheetBody>
+          <SheetFooter>
+            <Button variant="outline" onClick={closeSheet} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Saving…' : editing ? 'Save changes' : 'Create biller'}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete confirmation */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete biller</DialogTitle>
+            <DialogDescription>
+              {deleteTarget
+                ? `This will delete "${deleteTarget.name}" and hide it from consumers.`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDelete} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

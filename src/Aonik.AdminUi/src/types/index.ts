@@ -581,6 +581,52 @@ export interface CatalogBillerCategoryResponse {
   categories: CatalogBillerCategoryItem[];
 }
 
+export interface CreateCatalogBillerCategoryRequest {
+  name: string;
+  countryCode: string;
+  description?: string | null;
+  iconUrl?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateCatalogBillerCategoryRequest {
+  name?: string | null;
+  description?: string | null;
+  iconUrl?: string | null;
+  sortOrder?: number | null;
+  isActive?: boolean | null;
+}
+
+export interface CreateCatalogBillerRequest {
+  name: string;
+  countryCode: string;
+  categoryId: string;
+  correspondentPartnerId?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  supportPhone?: string | null;
+  supportEmail?: string | null;
+  isActive?: boolean;
+  isFeatured?: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateCatalogBillerRequest {
+  name?: string | null;
+  categoryId?: string | null;
+  correspondentPartnerId?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  supportPhone?: string | null;
+  supportEmail?: string | null;
+  isActive?: boolean | null;
+  isFeatured?: boolean | null;
+  sortOrder?: number | null;
+}
+
 export interface CatalogPaginationMetadata {
   page: number;
   pageSize: number;

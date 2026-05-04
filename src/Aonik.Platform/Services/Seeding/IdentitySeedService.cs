@@ -89,6 +89,7 @@ internal class IdentitySeedService
 
              // Catalog permissions
             new Permission { Key = "Catalog.Read", Description = "View catalog and biller data" },
+            new Permission { Key = "Catalog.Write", Description = "Create, edit and delete tenant catalog categories and billers" },
 
             // Customers permissions
             new Permission { Key = "Customers.Read", Description = "View customers" },
