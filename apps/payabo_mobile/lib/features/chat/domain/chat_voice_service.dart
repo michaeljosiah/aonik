@@ -35,9 +35,23 @@ typedef ChatVoiceInlineAudioMilestoneCallback = void Function({
   required bool isClosed,
 });
 
+/// App-scoped singleton voice service.
+///
+/// Ownership: the provider creates the instance and is responsible for
+/// disposing it when the [ProviderScope] is torn down (i.e. app exit).
+/// Screens MUST NOT call `dispose()` on the returned service — doing so
+/// tears down the underlying SpeechToText / FlutterTts / AudioPlayer
+/// instances that this class holds as `final` fields and cannot recreate,
+/// leaving the next consumer with a dead singleton whose calls hang on
+/// stale platform channels.
 final Provider<ChatVoiceService> chatVoiceServiceProvider =
     Provider<ChatVoiceService>((Ref ref) {
-  return DeviceChatVoiceService(apiClient: ref.watch(apiClientProvider));
+  final DeviceChatVoiceService service =
+      DeviceChatVoiceService(apiClient: ref.watch(apiClientProvider));
+  ref.onDispose(() {
+    unawaited(service.dispose());
+  });
+  return service;
 });
 
 abstract class ChatVoiceService {

@@ -199,6 +199,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   static const Duration _voiceThinkingWatchdogPoll = Duration(seconds: 10);
   static const Duration _voiceThinkingHardTimeout = Duration(seconds: 75);
 
+  /// Maximum time any single voice tap async operation
+  /// (`_startVoiceStage` / `_stopVoiceStage` / `_dismissVoiceStage`) is
+  /// allowed to occupy [_voiceBusy]. If a platform call hangs forever
+  /// (e.g. a stale SpeechToText MethodChannel) without this watchdog the
+  /// finally block never runs, [_voiceBusy] stays `true`, and every
+  /// subsequent tap is silently ignored — forcing the user to restart
+  /// the app. The watchdog forcibly clears the flag and surfaces a toast
+  /// so the failure is recoverable.
+  static const Duration _voiceBusyMaxDuration = Duration(seconds: 8);
+
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final ChatVoiceService _chatVoiceService;
@@ -243,6 +253,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// user restarts the app.
   bool _voiceBusy = false;
 
+  /// Watchdog paired with [_voiceBusy]. If the async op takes longer than
+  /// [_voiceBusyMaxDuration], we force-clear the flag so the user can
+  /// recover with another tap. See [_voiceBusyMaxDuration] doc.
+  Timer? _voiceBusyWatchdog;
+
   /// The conversation starter question currently displayed on the empty chat
   /// stage. Stored here so it can be prepended as context when the user sends
   /// their first message in response to it.
@@ -267,7 +282,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _scrollController.dispose();
     _historyOverlayController.dispose();
     _voiceVisualState.dispose();
-    unawaited(_chatVoiceService.dispose());
+    // Stop any in-flight voice activity but DO NOT dispose the singleton —
+    // it's owned by the provider and shared across navigations. Disposing
+    // here would tear down the underlying SpeechToText / AudioPlayer
+    // instances, leaving the next visit to /chat with a dead service whose
+    // STT calls hang on stale platform channels.
+    unawaited(_chatVoiceService.stopListening());
+    unawaited(_chatVoiceService.stopSpeaking());
+    unawaited(_chatVoiceService.stopThinkingLoop());
+    _voiceBusyWatchdog?.cancel();
     _voiceTimer?.cancel();
     _voiceSpeakPulseResetTimer?.cancel();
     _voiceFinalizeTimer?.cancel();
@@ -780,8 +803,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
 
     _voiceLog('voice tap while phase=$_voiceStagePhase');
-    _voiceBusy = true;
-    try {
+    await _runBusyVoiceOp('handleVoiceTap', () async {
       switch (_voiceStagePhase) {
         case _VoiceStagePhase.idle:
         case _VoiceStagePhase.ready:
@@ -794,7 +816,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         case _VoiceStagePhase.thinking:
           break;
       }
+    });
+  }
+
+  /// Runs [op] while [_voiceBusy] is held, with a watchdog timer that
+  /// force-clears the flag after [_voiceBusyMaxDuration] in case [op]
+  /// hangs on a stale platform channel.
+  ///
+  /// Without the watchdog, an awaited MethodChannel call that never
+  /// completes (e.g. STT after the underlying SpeechToText was disposed)
+  /// would leave [_voiceBusy] stuck forever, silently swallowing every
+  /// subsequent voice tap and forcing the user to restart the app.
+  Future<void> _runBusyVoiceOp(
+    String label,
+    Future<void> Function() op,
+  ) async {
+    _voiceBusy = true;
+    _voiceBusyWatchdog?.cancel();
+    _voiceBusyWatchdog = Timer(_voiceBusyMaxDuration, () {
+      if (!_voiceBusy) {
+        return;
+      }
+      _voiceLog(
+        'voice busy watchdog FIRED for $label — force-clearing _voiceBusy after ${_voiceBusyMaxDuration.inSeconds}s',
+      );
+      _voiceBusy = false;
+      if (mounted) {
+        _showVoiceSnackBar(
+          'Voice took too long to respond. Tap Talk to try again.',
+        );
+      }
+    });
+    try {
+      await op();
     } finally {
+      _voiceBusyWatchdog?.cancel();
+      _voiceBusyWatchdog = null;
       _voiceBusy = false;
     }
   }
@@ -1212,6 +1269,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     _voiceLog('dismiss voice stage');
     _voiceBusy = true;
+    _voiceBusyWatchdog?.cancel();
+    _voiceBusyWatchdog = Timer(_voiceBusyMaxDuration, () {
+      if (!_voiceBusy) {
+        return;
+      }
+      _voiceLog(
+        'voice busy watchdog FIRED for dismissVoiceStage — force-clearing _voiceBusy after ${_voiceBusyMaxDuration.inSeconds}s',
+      );
+      _voiceBusy = false;
+    });
     try {
       _cancelVoiceTimers();
       // Detach immediately. This method is often called unawaited before a
@@ -1257,6 +1324,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ..stop()
         ..reset();
     } finally {
+      _voiceBusyWatchdog?.cancel();
+      _voiceBusyWatchdog = null;
       _voiceBusy = false;
     }
   }
