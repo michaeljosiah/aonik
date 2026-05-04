@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Extensions.Logging;
 
@@ -212,6 +213,22 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
 
         var firstFrameSeen = false;
 
+        // Per-chunk activity so the trace explorer shows one span per
+        // synth attempt with its own duration, retry attempt number, and
+        // any error tags. Without this, chunk-level failures were
+        // invisible at the activity layer (only the dependency span for
+        // the underlying HTTP call carried error metadata, which lacks
+        // our per-chunk context like attempt number and chunkIndex).
+        using var chunkActivity = AiTelemetry.ActivitySource.StartActivity(
+            "aonik.chat.tts.chunk",
+            ActivityKind.Internal);
+        chunkActivity?.SetTag("aonik.chat.message_id", messageId);
+        chunkActivity?.SetTag("aonik.chat.thread_id", threadId);
+        chunkActivity?.SetTag("aonik.chat.chunk_index", chunkIndex);
+        chunkActivity?.SetTag("aonik.chat.tts.attempt", attempt);
+        chunkActivity?.SetTag("aonik.chat.tts.timeout_ms", (int)timeout.TotalMilliseconds);
+        chunkActivity?.SetTag("aonik.chat.tts.text_length", speechText.Length);
+
         try
         {
             var request = new TextToSpeechSynthesisRequest(
@@ -253,18 +270,32 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
                     cancellationToken: ct).ConfigureAwait(false);
             }
 
+            chunkActivity?.SetTag("aonik.chat.tts.frames_emitted", firstFrameSeen);
             return SynthAttemptResult.Success(attempt, firstFrameSeen);
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested && !runCancellation.IsCancellationRequested)
+        catch (OperationCanceledException timeoutEx) when (ct.IsCancellationRequested && !runCancellation.IsCancellationRequested)
         {
+            AiTelemetry.MarkError(chunkActivity, timeoutEx);
+            chunkActivity?.SetTag("aonik.chat.tts.outcome", "timeout");
+            chunkActivity?.SetTag("aonik.chat.tts.frames_emitted", firstFrameSeen);
             return SynthAttemptResult.Failure(SynthAttemptOutcome.Timeout, $"TTS synthesis exceeded {timeout.TotalSeconds:0.#}s.", attempt, firstFrameSeen);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException cancelEx)
         {
+            // Run-level cancellation: don't mark the chunk activity as
+            // failed — the parent run was deliberately stopped, this
+            // chunk just stopped along with it. We still annotate the
+            // span so the trace shows why it ended early.
+            chunkActivity?.SetTag("aonik.chat.tts.outcome", "run_cancelled");
+            chunkActivity?.SetTag("aonik.chat.tts.frames_emitted", firstFrameSeen);
+            _ = cancelEx;
             return SynthAttemptResult.Failure(SynthAttemptOutcome.RunCancelled, "Run cancelled.", attempt, firstFrameSeen);
         }
         catch (Exception ex)
         {
+            AiTelemetry.MarkError(chunkActivity, ex);
+            chunkActivity?.SetTag("aonik.chat.tts.outcome", "errored");
+            chunkActivity?.SetTag("aonik.chat.tts.frames_emitted", firstFrameSeen);
             return SynthAttemptResult.Failure(SynthAttemptOutcome.Errored, ex.Message, attempt, firstFrameSeen);
         }
     }

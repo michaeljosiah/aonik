@@ -114,7 +114,10 @@ internal sealed class ExplainTraceEndpoint
     /// <summary>
     /// Reduces the span payload to the most informative rows. Drops
     /// huge metadata blobs and trims chatty SQL bodies so we stay
-    /// inside the model's context budget on big traces.
+    /// inside the model's context budget on big traces. Lifts the
+    /// <c>error.*</c> tags out of <c>metadata</c> into top-level fields
+    /// so the analyser can read exception type, message, and a short
+    /// stack-trace excerpt without parsing arbitrary JSON.
     /// </summary>
     private static string TrimSpansForLlm(JsonElement spansArray)
     {
@@ -127,6 +130,8 @@ internal sealed class ExplainTraceEndpoint
 
         foreach (var span in sorted)
         {
+            var (errorType, errorMessage, errorStackPreview) = ExtractErrorTagsFromMetadata(span);
+
             trimmed.Add(new
             {
                 name = TryGetString(span, "name"),
@@ -145,11 +150,54 @@ internal sealed class ExplainTraceEndpoint
                 traceName = TryGetString(span, "traceName"),
                 inputPreview = TruncateString(TryGetString(span, "input"), 240),
                 outputPreview = TruncateString(TryGetString(span, "output"), 240),
+                errorType,
+                errorMessage,
+                errorStackPreview,
             });
         }
 
         return JsonSerializer.Serialize(trimmed);
     }
+
+    /// <summary>
+    /// Pulls <c>error.type</c>, <c>error.message</c>, and a short
+    /// <c>error.stacktrace</c> excerpt out of the span's
+    /// <c>metadata</c> JSON. Returns nulls when the metadata is missing
+    /// or doesn't carry error tags. Stack-trace excerpt is capped so a
+    /// 4 KB stack doesn't dominate the model's context window.
+    /// </summary>
+    private static (string? Type, string? Message, string? StackPreview) ExtractErrorTagsFromMetadata(JsonElement span)
+    {
+        var metadataRaw = TryGetString(span, "metadata");
+        if (string.IsNullOrWhiteSpace(metadataRaw))
+        {
+            return (null, null, null);
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(metadataRaw);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return (null, null, null);
+            }
+
+            var type = TryReadStringProperty(root, "error.type");
+            var message = TryReadStringProperty(root, "error.message");
+            var stack = TryReadStringProperty(root, "error.stacktrace");
+            return (type, message, TruncateString(stack, 600));
+        }
+        catch (JsonException)
+        {
+            return (null, null, null);
+        }
+    }
+
+    private static string? TryReadStringProperty(JsonElement element, string property)
+        => element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     private static string? TryGetString(JsonElement element, string property)
         => element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
