@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Entities.Catalog;
@@ -34,6 +35,24 @@ public class CatalogServiceTests
 
         public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
             Task.FromResult(new List<string>());
+    }
+
+    private sealed class TestTenantContext : ITenantContext
+    {
+        public TestTenantContext(Guid? tenantId = null)
+        {
+            TenantId = tenantId;
+            ResolutionSource = "Test";
+        }
+
+        public Guid? TenantId { get; set; }
+        public string? ResolutionSource { get; set; }
+        public bool IsResolved => TenantId.HasValue;
+    }
+
+    private sealed class TestClock : IClock
+    {
+        public DateTime UtcNow { get; set; } = new DateTime(2026, 5, 4, 12, 0, 0, DateTimeKind.Utc);
     }
 
     private sealed class TestCurrentUserProvider : Aonik.SharedKernel.Abstractions.ICurrentUserProvider
@@ -112,7 +131,9 @@ public class CatalogServiceTests
         var service = new CatalogService(
             context,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new TestTenantContext(tenantId),
+            new TestClock());
 
         // Act
         var result = await service.GetCountriesAsync(new CatalogCountryListRequest(true, null), CancellationToken.None);
@@ -156,7 +177,9 @@ public class CatalogServiceTests
         var service = new CatalogService(
             context,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new TestTenantContext(tenantId),
+            new TestClock());
 
         // Act
         var result = await service.GetCurrenciesAsync(new CatalogCurrencyListRequest(false), CancellationToken.None);
@@ -207,7 +230,9 @@ public class CatalogServiceTests
         var service = new CatalogService(
             context,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new TestTenantContext(tenantId),
+            new TestClock());
 
         // Act
         var result = await service.GetBillersAsync(
@@ -268,7 +293,9 @@ public class CatalogServiceTests
         var service = new CatalogService(
             context,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new TestTenantContext(tenantId),
+            new TestClock());
 
         // Act
         var result = await service.GetBillerServiceDetailAsync(billerId, serviceId, CancellationToken.None);
