@@ -140,6 +140,14 @@ if (autoMigrateEnabled || seedDataEnabled)
             // exists but has zero RolePermission records, blocking all API calls.
             await EnsurePlatformAdminRolePermissionsAsync(platformDbContext, startupLogger);
 
+            // Top up tenant TenantAdmin roles with permissions added since the
+            // tenant was first provisioned. EnsureDefaultRolePermissionsAsync
+            // (in TenantProvisioner) only runs at provisioning time, so a
+            // tenant created BEFORE a new permission was added (e.g. Catalog.
+            // Write) ends up missing it. This pass walks every tenant once
+            // per startup and inserts any missing role-permission rows.
+            await EnsureTenantRolePermissionsUpToDateAsync(platformDbContext, startupLogger);
+
             var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
             var catalogSeedService = new CatalogSeedService(platformDbContext, catalogLogger);
             await catalogSeedService.SeedAsync();
@@ -621,6 +629,130 @@ static async Task EnsurePlatformAdminRolePermissionsAsync(PlatformDbContext dbCo
     dbContext.RolePermissions.AddRange(newMappings);
     await dbContext.SaveChangesAsync();
     logger.LogInformation("Seeded {Count} role-permission mappings for PlatformAdmin.", newMappings.Count);
+}
+
+/// <summary>
+/// Walks every tenant role and tops up the role-permission mapping for any
+/// permission that should be granted by default but is currently missing.
+/// Mirrors the role→permission dictionary in
+/// <c>TenantProvisioner.EnsureDefaultRolePermissionsAsync</c>, but runs on
+/// startup so previously-provisioned tenants pick up newly-added permissions
+/// (e.g. <c>Catalog.Write</c>) without needing a host operator to re-run
+/// provisioning manually. Idempotent — only adds missing rows.
+/// </summary>
+static async Task EnsureTenantRolePermissionsUpToDateAsync(PlatformDbContext dbContext, ILogger logger)
+{
+    // Keep this dictionary in sync with TenantProvisioner.
+    // EnsureDefaultRolePermissionsAsync. Out-of-band drift is fine for
+    // role names that don't exist in this tenant; we just skip them.
+    var rolePermissions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["TenantAdmin"] = new[]
+        {
+            "Users.Read", "Users.Invite", "Users.Manage", "Users.Deactivate",
+            "UserInfo.Read", "UserInfo.Update",
+            "Roles.Read", "Roles.Create", "Roles.Update", "Roles.Delete",
+            "Permissions.Read",
+            "Settings.Read", "Settings.Write",
+            "Ledger.Read", "Ledger.Write", "Ledger.Reconcile",
+            "Payment.Read", "Payment.Create", "Payment.Capture", "Payment.Cancel", "Payment.Refund",
+            "Invoice.Read", "Invoice.Create", "Invoice.Update", "Invoice.Delete", "Invoice.Issue",
+            "Catalog.Read", "Catalog.Write",
+            "Customers.Read", "Customers.Create", "Customers.Write"
+        },
+        ["Operations"] = new[]
+        {
+            "Ledger.Read", "Ledger.Write", "Ledger.Reconcile",
+            "Payment.Read", "Payment.Create", "Payment.Capture", "Payment.Cancel", "Payment.Refund",
+            "Invoice.Read", "Invoice.Create", "Invoice.Update", "Invoice.Delete", "Invoice.Issue",
+            "Catalog.Read",
+            "Customers.Read", "Customers.Create", "Customers.Write"
+        },
+        ["ReadOnly"] = new[]
+        {
+            "Users.Read", "UserInfo.Read", "Roles.Read",
+            "Settings.Read", "Ledger.Read", "Payment.Read", "Invoice.Read",
+            "Catalog.Read", "Customers.Read"
+        },
+        ["Compliance"] = new[]
+        {
+            "Users.Read", "Settings.Read", "Ledger.Read",
+            "Payment.Read", "Invoice.Read",
+            "Catalog.Read", "Customers.Read"
+        },
+        ["PersonalUser"] = new[]
+        {
+            "UserInfo.Read", "UserInfo.Update",
+            "Settings.Read", "Settings.Write",
+            "Catalog.Read"
+        }
+    };
+
+    var allPermissions = await dbContext.Permissions.ToListAsync();
+    if (allPermissions.Count == 0)
+    {
+        logger.LogInformation("No permissions seeded yet — skipping tenant role-permission top-up.");
+        return;
+    }
+
+    var permissionLookup = allPermissions.ToDictionary(p => p.Key, StringComparer.OrdinalIgnoreCase);
+
+    // Tenant-scoped roles only — exclude PlatformAdmin (TenantId == Guid.Empty),
+    // which has its own dedicated catch-up routine above.
+    var tenantRoles = await dbContext.Roles
+        .Where(r => r.TenantId != Guid.Empty)
+        .ToListAsync();
+
+    if (tenantRoles.Count == 0)
+    {
+        logger.LogInformation("No tenant-scoped roles found — skipping tenant role-permission top-up.");
+        return;
+    }
+
+    var totalAdded = 0;
+    foreach (var role in tenantRoles)
+    {
+        if (!rolePermissions.TryGetValue(role.Name, out var desiredKeys))
+            continue;
+
+        var desiredIds = desiredKeys
+            .Where(permissionLookup.ContainsKey)
+            .Select(k => permissionLookup[k].Id)
+            .ToList();
+
+        var existingIds = await dbContext.RolePermissions
+            .Where(rp => rp.RoleId == role.Id)
+            .Select(rp => rp.PermissionId)
+            .ToListAsync();
+
+        var existingSet = new HashSet<Guid>(existingIds);
+        var missing = desiredIds.Where(id => !existingSet.Contains(id)).ToList();
+        if (missing.Count == 0) continue;
+
+        dbContext.RolePermissions.AddRange(missing.Select(permissionId => new RolePermission
+        {
+            Id = Guid.NewGuid(),
+            RoleId = role.Id,
+            PermissionId = permissionId
+        }));
+        totalAdded += missing.Count;
+
+        logger.LogInformation(
+            "Topped up {Count} missing permission mappings on role {RoleName} (TenantId={TenantId}).",
+            missing.Count,
+            role.Name,
+            role.TenantId);
+    }
+
+    if (totalAdded > 0)
+    {
+        await dbContext.SaveChangesAsync();
+        logger.LogInformation("Tenant role-permission top-up added {Count} role-permission rows total.", totalAdded);
+    }
+    else
+    {
+        logger.LogInformation("Tenant role-permission top-up: all roles already up to date.");
+    }
 }
 
 // Make the Program class accessible for testing
