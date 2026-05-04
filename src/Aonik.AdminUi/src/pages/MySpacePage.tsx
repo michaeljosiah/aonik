@@ -14,10 +14,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Calendar, Filter, Loader2, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { AlertCircle, Calendar, Filter, Plus, RefreshCw, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, KpiTile, ProposalCard } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -193,14 +194,7 @@ export function MySpacePage() {
   const handleReviewProposal = useCallback((id: string) => setReviewProposalId(id), []);
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-[var(--color-text-secondary)]">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p className="text-sm">Loading dashboard…</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading dashboard" />;
   }
 
   if (error) {
