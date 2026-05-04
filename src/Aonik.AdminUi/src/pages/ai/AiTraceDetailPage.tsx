@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { AlertCircle, Copy, Loader2 } from 'lucide-react';
+import { AlertCircle, Copy } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { aiTraceService, type AiTraceRunDetailResponse } from '@/services/aiService';
 
 const outcomeClass = (outcome: string) => {
@@ -85,12 +86,7 @@ export function AiTraceDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="p-6 flex items-center justify-center">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin text-[var(--color-text-tertiary)]" />
-        <span className="text-[var(--color-text-secondary)]">Loading AI trace...</span>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading AI trace" />;
   }
 
   if (error || !trace) {

@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { tenantService } from '@/services/tenantService';
 import { tenantFeatureService } from '@/services/tenantFeatureService';
 import { catalogService } from '@/services/catalogService';
@@ -506,14 +507,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
   const totalFeaturesCount = featureGroups.reduce((sum, group) => sum + group.flags.length, 0);
 
   if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[var(--color-background)]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingScreen message="Setting up tenant" />;
   }
 
   return (

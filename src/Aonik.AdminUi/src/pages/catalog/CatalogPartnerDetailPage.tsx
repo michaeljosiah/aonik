@@ -33,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 
 import { partnerService } from '@/services/partnerService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { PartnerDetail, UpdatePartnerRequest } from '@/types/partners';
 
 const statusStyles: Record<string, { text: string; bg: string }> = {
@@ -231,14 +232,7 @@ export function CatalogPartnerDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="mx-auto mb-3 h-8 w-8 animate-spin text-[var(--color-brand-primary)]" />
-          <p className="text-[var(--color-text-secondary)]">Loading partner...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading partner" />;
   }
 
   if (!partner) {

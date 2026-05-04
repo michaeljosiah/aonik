@@ -41,6 +41,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Pill } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { agentConfigService, agentRunService } from '@/services/aiService';
 import type { AgentConfigurationResponse, AgentRunSummary } from '@/types/ai';
 import type { PagedResult } from '@/types';
@@ -143,11 +144,7 @@ export function AgentDetailPage() {
   }, [agent]);
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-text-secondary)]">
-        Loading agent…
-      </div>
-    );
+    return <PageLoadingScreen message="Loading agent" />;
   }
 
   if (error || !agent) {

@@ -19,6 +19,7 @@ import {
 } from '@/services/jobService';
 import type { PagedResult } from '@/types';
 import { CronScheduleDisplay } from '@/components/cron-schedule-editor';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return '--';
@@ -200,11 +201,7 @@ export function BackgroundJobDetailPage() {
     }
   };
   if (loading) {
-    return (
-      <div className="h-full overflow-auto p-6">
-        <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading job" />;
   }
 
   if (!detail) {

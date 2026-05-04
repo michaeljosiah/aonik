@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { billingService } from '@/services/billingService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { customerService } from '@/services/customerService';
 import type {
   InvoiceResponse,
@@ -290,11 +291,7 @@ export function InvoiceFormPage() {
 
   // ── Breadcrumbs ───────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="h-full overflow-auto p-6">
-        <p className="text-sm text-[var(--color-text-tertiary)]">Loading invoice...</p>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading invoice" />;
   }
 
   return (

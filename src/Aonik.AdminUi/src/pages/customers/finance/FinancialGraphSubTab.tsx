@@ -15,6 +15,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { RefreshCw, Network, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   personalFinanceService,
   type FinancialLifeGraphNode,
@@ -385,12 +386,7 @@ export function FinancialGraphSubTab({ userId }: FinancialGraphSubTabProps) {
   }, [nodes]);
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <Network className="w-8 h-8 text-[var(--color-text-tertiary)] animate-pulse mb-3" />
-        <p className="text-sm text-[var(--color-text-tertiary)]">Loading financial life graph...</p>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading financial graph" />;
   }
 
   if (error) {

@@ -22,6 +22,7 @@ import {
   type ContentBlock,
   type ContentBlockMedia,
 } from '@/services/contentBlockService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 const AREA_OPTIONS = [
   'General', 'Banner', 'Hero', 'Sidebar', 'Footer', 'MySpaceBanner',
@@ -301,11 +302,7 @@ export function ContentBlockEditPage() {
   );
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-brand-primary)]" />
-      </div>
-    );
+    return <PageLoadingScreen message="Loading content block" />;
   }
 
   return (

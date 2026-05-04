@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { alertService, type AlertDetail } from '@/services/alertService';
 
 function formatDateTime(value: string | null): string {
@@ -52,11 +53,7 @@ export function AlertDetailPage() {
     void loadAlert();
   }, [loadAlert]);
   if (loading) {
-    return (
-      <div className="h-full overflow-auto p-6">
-        <p className="text-sm text-[var(--color-text-tertiary)]">Loading alert...</p>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading alert" />;
   }
 
   if (!alert) {

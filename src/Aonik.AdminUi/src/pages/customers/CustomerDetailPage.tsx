@@ -29,6 +29,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Card as AonikCard, Pill, type PillTone } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { customerService } from '@/services/customerService';
 import type {
   CustomerActivityEntry,
@@ -312,14 +313,7 @@ export function CustomerDetailPage() {
   // ─── Loading / not-found states ───────────────────────────────────────
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="mx-auto mb-3 h-8 w-8 animate-spin text-[var(--color-brand-primary)]" />
-          <p className="text-sm text-[var(--color-text-secondary)]">Loading customer…</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading customer" />;
   }
 
   if (!customer) {

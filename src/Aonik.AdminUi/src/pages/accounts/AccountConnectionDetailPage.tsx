@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   Dialog,
   DialogContent,
@@ -371,14 +372,7 @@ export function AccountConnectionDetailPage() {
     },
   ];
   if (loading) {
-    return (
-      <div className="h-full overflow-auto p-6">
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-[var(--color-text-tertiary)]" />
-          <span className="ml-2 text-[var(--color-text-secondary)]">Loading connection details...</span>
-        </div>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading connection details" />;
   }
 
   if (error || !connection) {

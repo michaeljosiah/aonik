@@ -30,6 +30,7 @@ import {
   User,
 } from 'lucide-react';
 import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
 import type { TenantHealthResult } from '@/services/tenantService';
@@ -297,14 +298,7 @@ export function TenantDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-[var(--color-brand-primary)]" />
-          <p className="text-[var(--color-text-secondary)]">Loading tenant...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading tenant" />;
   }
 
   if (!tenant) {

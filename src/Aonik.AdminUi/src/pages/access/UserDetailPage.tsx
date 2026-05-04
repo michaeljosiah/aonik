@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { EditUserProfileDialog } from '@/components/dialogs/EditUserProfileDialog';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AccessUserDetail, UpdateUserProfileRequest, UserDiagnosticResult } from '@/types';
 
 // Detail Item Component
@@ -251,14 +252,7 @@ export function UserDetailPage() {
     return `${apiBaseUrl}${photoUrl}`;
   };
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-[var(--color-brand-primary)]" />
-          <p className="text-[var(--color-text-secondary)]">Loading user...</p>
-        </div>
-      </div>
-    );
+    return <PageLoadingScreen message="Loading user" />;
   }
 
   if (!user) {
