@@ -42,13 +42,18 @@ export function CountrySelect({
   const loadCountries = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await catalogService.getCountries();
+      // Use the tenant-scoped endpoint, not /host/catalog/countries.
+      // The host route requires Tenants.Read which only PlatformAdmin holds;
+      // tenant operators (the people actually using forms with this picker)
+      // hit 403 and the picker rendered "Error loading countries".
+      const response = await catalogService.getTenantCountries();
       const sortedCountries = response.countries.sort((a, b) => a.name.localeCompare(b.name));
       setCountries(sortedCountries);
     } catch (err) {
       console.error('Failed to load countries:', err);
       setError('Failed to load countries');
-    } finally {
+    }
+    finally {
       setLoading(false);
     }
   }, []);
