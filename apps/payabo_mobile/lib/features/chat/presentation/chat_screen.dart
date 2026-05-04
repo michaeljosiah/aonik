@@ -588,6 +588,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         voiceSpeakingPulse: _voiceSpeakingPulse,
                         voiceTranscript: _voiceTranscript,
                         onVoiceOrbTap: _handleVoiceTap,
+                        onSuggestionTap: _submitPrompt,
                         onApprove: (String toolCallId) {
                           ref
                               .read(chatControllerProvider.notifier)
@@ -1802,6 +1803,7 @@ class _ChatStage extends ConsumerWidget {
     required this.voiceSpeakingPulse,
     required this.voiceTranscript,
     required this.onVoiceOrbTap,
+    required this.onSuggestionTap,
     required this.onApprove,
     required this.onReject,
     required this.onSelect,
@@ -1816,6 +1818,7 @@ class _ChatStage extends ConsumerWidget {
   final double voiceSpeakingPulse;
   final String voiceTranscript;
   final Future<void> Function() onVoiceOrbTap;
+  final void Function(String prompt) onSuggestionTap;
   final void Function(String toolCallId) onApprove;
   final void Function(String toolCallId, [String? reason]) onReject;
   final void Function(String toolCallId, List<String> selected) onSelect;
@@ -1903,7 +1906,7 @@ class _ChatStage extends ConsumerWidget {
               pendingApprovals: pendingApprovals,
               pendingOptionSelections: pendingOptionSelections,
               displayWidgets: displayWidgets,
-              onSuggestionTap: _submitPrompt,
+              onSuggestionTap: onSuggestionTap,
               onApprove: onApprove,
               onReject: onReject,
               onSelect: onSelect,
