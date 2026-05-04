@@ -443,6 +443,25 @@ nul
 # Tokens / secrets
 token.txt
 
+# Root-level agent/browser debug artifacts
+/agui-network.txt
+/ai-policies-*.txt
+/auth-storage.json
+/authenticated-*-trace-detail.json
+/browser-storage-keys.json
+/final-traces-page*.json
+/final-traces-page*.md
+/global-settings-response.json
+/latest-voice-trace-response.json
+/live-trace-*.txt
+/observability-*.txt
+/policy-page-*.txt
+/post-enrichment-trace-*.json
+/post-enrichment-traces-page*.json
+/post-enrichment-traces-page*.md
+/trace-*.txt
+/trace-*.json
+
 # Frontend build output
 apps/Payabo/dist/
 apps/docs-site/.claude/

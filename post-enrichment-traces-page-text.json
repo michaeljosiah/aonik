@@ -1,5 +1,0 @@
-{
-  "title": "Aonik - Admin Dashboard",
-  "url": "https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/admin/observability/traces",
-  "text": "A\nAdmin\nObservability\nTraces\nAsk Aonik\n⌘/\nAdmin\nObservability\nTraces\nOBSERVABILITY · DISTRIBUTED TRACING\nTraces\nEvery agent run captured as a span tree using live AI observation data.\nFilters\nLast 24 hours\nExport\nTrace stream healthy\n1 root traces surfaced from the live observation feed for the selected window.\n1\nTail\n1\nOK\n0\nHeld\n0\nErrors\nAll statuses\nLast 24 hours\nstatus:any\n1 traces\nchat\nOK\n7c81fedc84747072911db1934f1ded21\nAppInsights\n2.49s · 15h ago\nchat\n7c81fedc84747072911db1934f1ded21\nOK\nduration 2.49s\nspans 4\ntokens 26\ntools 2\nagent --\nsource AppInsights\nSPAN\nDURATION\n0ms\n1303ms\n2605ms\n3908ms\n5210ms\nchat\nllm\naonik-dev-api\n2.49s\nSQL: aonik\ndb\ntcp:aonik-dev-sql.database.windows.net,1433 | aonik\n9ms\nPOST /v1/chat/completions\nhttp\napi.openai.com\n2.17s\nchat\nllm\naonik-dev-api\n1ms"
-}

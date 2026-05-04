@@ -1,2 +1,0 @@
-[GET] https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/admin/ai/policies?page=1&pageSize=100 => [200] 
-[GET] https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/admin/ai/agent-settings => [200] 
