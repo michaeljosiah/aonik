@@ -458,6 +458,18 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
             var assistantText = assistantTextBuilder.ToString();
 
+            // Capture the assistant's full reply on the chat-level activity so
+            // the trace explorer can show the response paired with the prompt
+            // in a "Chat" section, no matter which span the admin clicks
+            // first. Truncated to a 2 KB tag so payload stays bounded; long
+            // replies get clipped with an ellipsis indicator.
+            if (!string.IsNullOrWhiteSpace(assistantText))
+            {
+                chatActivity?.SetTag(
+                    "aonik.chat.assistant_response",
+                    TruncateForActivityTag(assistantText, AssistantResponseTagMaxChars));
+            }
+
             if (messageStarted)
             {
                 await WriteSseEventAsync(writer, new
@@ -772,6 +784,14 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
     /// </summary>
     private const int UserPromptTagMaxChars = 1024;
 
+    /// <summary>
+    /// Cap for <c>aonik.chat.assistant_response</c>. Larger than the
+    /// prompt cap because LLM replies are typically the longer side of
+    /// the exchange. Still bounded so a 50 KB Markdown table doesn't
+    /// dominate the customDimensions blob.
+    /// </summary>
+    private const int AssistantResponseTagMaxChars = 2048;
+
     private static string? ExtractLatestUserMessage(IReadOnlyList<AguiMessage>? messages)
     {
         if (messages is null || messages.Count == 0) return null;
@@ -785,12 +805,12 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             var content = message.Content;
             if (string.IsNullOrWhiteSpace(content)) continue;
 
-            var trimmed = content.Trim();
-            return trimmed.Length <= UserPromptTagMaxChars
-                ? trimmed
-                : trimmed[..UserPromptTagMaxChars] + "…";
+            return TruncateForActivityTag(content.Trim(), UserPromptTagMaxChars);
         }
 
         return null;
     }
+
+    private static string TruncateForActivityTag(string value, int maxChars)
+        => value.Length <= maxChars ? value : value[..maxChars] + "…";
 }

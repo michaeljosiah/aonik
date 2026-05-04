@@ -43,6 +43,32 @@ function getSpanKind(type: string): string {
   return lower;
 }
 
+/**
+ * Pulls a single string tag out of a span's metadata blob. Trace rows
+ * carry a JSON-encoded customDimensions object in `metadata`; helper
+ * keeps callers from re-parsing it everywhere.
+ */
+function readMetadataTag(metadata: string | null | undefined, key: string): string | null {
+  if (!metadata) return null;
+  try {
+    const parsed = JSON.parse(metadata) as Record<string, unknown>;
+    const value = parsed?.[key];
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Detect chat-level activity spans — these carry `aonik.chat.user_prompt`
+ * and `aonik.chat.assistant_response` tags that we want to render as a
+ * first-class section so admins can read the prompt + reply without
+ * digging into raw metadata.
+ */
+function isChatActivitySpan(span: AiTraceObservationResponse): boolean {
+  return span.name?.startsWith('aonik.chat.') === true;
+}
+
 function getKindColor(type: string): string {
   return KIND_COLOR[getSpanKind(type)] ?? KIND_COLOR.default;
 }
@@ -169,6 +195,12 @@ export function SpanDetailSlideOut({
 
             <AttributesSection span={span} />
 
+            {/* Chat sections render BEFORE kind-specific blocks so the
+                user prompt + assistant response are the first thing the
+                admin sees on aonik.chat.* and POST /ai/agui spans. */}
+            {isChatActivitySpan(span) && <ChatSection span={span} />}
+            {kind === 'rpc' && span.name?.includes('/ai/') && <ChatSection span={span} />}
+
             {kind === 'llm' && <LlmSection span={span} />}
             {kind === 'tool' && <ToolSection span={span} />}
             {kind === 'http' && <HttpSection span={span} />}
@@ -292,6 +324,59 @@ function AttributesSection({ span, expanded }: { span: AiTraceObservationRespons
     <div>
       {!expanded && <SectionLabel>Attributes</SectionLabel>}
       <Attrs rows={visible} />
+    </div>
+  );
+}
+
+/**
+ * Surfaces the user prompt + assistant response captured on the
+ * chat-level activity (`aonik.chat.agui` and friends) so admins don't
+ * have to hunt through the raw metadata blob to find what the user
+ * asked and what the LLM replied. Both values come from activity tags
+ * stamped server-side:
+ *   • aonik.chat.user_prompt        — most recent user message (≤ 1 KB)
+ *   • aonik.chat.assistant_response — full reply text (≤ 2 KB)
+ * Either may be missing on older traces or tool-only turns; we render
+ * a placeholder rather than hiding the section, so the admin knows
+ * where to look.
+ */
+function ChatSection({ span }: { span: AiTraceObservationResponse }) {
+  const prompt = readMetadataTag(span.metadata, 'aonik.chat.user_prompt');
+  const response = readMetadataTag(span.metadata, 'aonik.chat.assistant_response');
+  const useCase = readMetadataTag(span.metadata, 'aonik.use_case');
+  const agentName = readMetadataTag(span.metadata, 'aonik.agent.name');
+
+  // Don't render if the span carries neither — keeps RPC fallback clean.
+  if (!prompt && !response && !useCase) return null;
+
+  return (
+    <div>
+      <SectionLabel>Chat</SectionLabel>
+      <Attrs
+        rows={[
+          ['use_case', useCase ?? '—'],
+          ['agent', agentName ?? span.agentName ?? '—'],
+        ]}
+      />
+      {prompt
+        ? <CodeBlock label="User prompt" content={prompt} />
+        : <EmptyHint label="User prompt" hint="Not captured on this span." />}
+      {response
+        ? <CodeBlock label="Assistant response" content={response} />
+        : <EmptyHint label="Assistant response" hint="Not captured on this span." />}
+    </div>
+  );
+}
+
+function EmptyHint({ label, hint }: { label: string; hint: string }) {
+  return (
+    <div className="mt-2.5">
+      <div className="mb-1 font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+        {label}
+      </div>
+      <div className="rounded-md border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
+        {hint}
+      </div>
     </div>
   );
 }
