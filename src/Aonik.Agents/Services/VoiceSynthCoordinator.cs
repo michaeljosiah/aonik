@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -47,9 +49,20 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
     private readonly string _providerFormat;
     private readonly string _mime;
     private readonly ILogger _logger;
+    private readonly Guid? _capturedTenantId;
+    private readonly Guid? _capturedUserId;
     private readonly List<Task> _synthTasks = new();
     private readonly Lock _synthTasksLock = new();
     private readonly CancellationTokenSource _coordinatorCts = new();
+
+    // Process-wide gate around the AiRunWriter audit step. The TTS
+    // streaming path opened multiple AiRun rows in parallel, and the
+    // dev trace caught a real EF Core race ("second operation on this
+    // context") in EnsureDefaultModelAsync — fired even though each
+    // chunk supposedly had its own DI scope. Until the deeper cause
+    // is rooted out, serialise the audit hop. The wait is sub-50 ms
+    // per chunk; provider HTTP synthesis still runs in parallel.
+    private static readonly SemaphoreSlim AuditGate = new(1, 1);
 
     // Per-run counters for diagnosing audio-path drops. Read by the AGUI
     // endpoint at end-of-run to tag the chat activity, so traces can show
@@ -67,13 +80,48 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
         AguiResponseWriter writer,
         string providerFormat,
         string mime,
-        ILogger logger)
+        ILogger logger,
+        Guid? capturedTenantId = null,
+        Guid? capturedUserId = null)
     {
         _serviceScopeFactory = serviceScopeFactory;
         _writer = writer;
         _providerFormat = providerFormat;
         _mime = mime;
         _logger = logger;
+        _capturedTenantId = capturedTenantId;
+        _capturedUserId = capturedUserId;
+    }
+
+    /// <summary>
+    /// Re-seeds the per-chunk scope's tenant + user context from the
+    /// values captured at coordinator construction (which were read off
+    /// the AGUI request scope). Without this, fresh scopes start with
+    /// empty <see cref="ITenantContext"/>, so kill-switch cache keys
+    /// collide on <c>Guid.Empty</c> across chunks/requests and tenant
+    /// query filters on the AiDbContext don't apply.
+    /// </summary>
+    private void SeedScopeContext(IServiceProvider scopeServices)
+    {
+        if (_capturedTenantId is { } tenantId)
+        {
+            var tc = scopeServices.GetService<ITenantContext>();
+            if (tc is not null)
+            {
+                tc.TenantId = tenantId;
+                tc.ResolutionSource = "voice-synth-chunk";
+            }
+        }
+
+        if (_capturedUserId is { } userId)
+        {
+            var uc = scopeServices.GetService<ICurrentUserContext>();
+            if (uc is not null)
+            {
+                uc.UserId = userId;
+                uc.TenantId = _capturedTenantId;
+            }
+        }
     }
 
     /// <summary>
@@ -247,31 +295,92 @@ internal sealed class VoiceSynthCoordinator : IAsyncDisposable
                     ProviderOptions: new Dictionary<string, string?>()));
 
             await using var scope = _serviceScopeFactory.CreateAsyncScope();
+            // Seed the freshly-created scope with tenant + user context
+            // BEFORE resolving any service from it. Resolution chains
+            // (TextToSpeechService → AiRunWriter → kill-switch FusionCache
+            // factory) read these via ITenantContext / ITenantProvider
+            // at activation time, so an unseeded scope produces stale
+            // Guid.Empty reads, broken cache key collisions, and DbContext
+            // races that this method was specifically designed to avoid.
+            SeedScopeContext(scope.ServiceProvider);
             var streamingTts = scope.ServiceProvider.GetRequiredService<IStreamingTextToSpeechService>();
 
-            await foreach (var frame in streamingTts.StreamSynthesizeAsync(request, ct).ConfigureAwait(false))
+            // Serialise the AiRunWriter audit hop across all in-flight
+            // chunks. Even with per-chunk scopes, a real EF Core race in
+            // EnsureDefaultModelAsync was observed in the trace data
+            // (chunkIndex=0,2,3,4,6,7,8 all failed with "second operation
+            // on this context"). Until the deeper cause is rooted out we
+            // throttle the audit to a single inflight call. We hold the
+            // gate UNTIL the first MoveNextAsync completes (past
+            // StartRunAsync) so the AiRun INSERT is the serialised step,
+            // then release — subsequent frames are pure HTTP reads, no
+            // DbContext touch — so end-to-end latency is barely affected.
+            await AuditGate.WaitAsync(ct).ConfigureAwait(false);
+            var auditGateReleased = false;
+            IAsyncEnumerator<TtsAudioFrame>? enumerator = null;
+            try
             {
-                if (!firstFrameSeen)
-                {
-                    Interlocked.Increment(ref _synthTasksThatYieldedAtLeastOneFrame);
-                    if (!frame.Cached)
-                    {
-                        _writer.RecordCacheMiss();
-                    }
-                    firstFrameSeen = true;
-                }
+                enumerator = streamingTts.StreamSynthesizeAsync(request, ct).GetAsyncEnumerator(ct);
 
-                await _writer.EnqueueAudioFrameAsync(
-                    messageId: messageId,
-                    chunkIndex: chunkIndex,
-                    data: frame.Data,
-                    mime: _mime,
-                    isFinal: frame.IsFinal,
-                    cached: frame.Cached,
-                    provider: frame.Provider,
-                    voiceId: frame.VoiceId,
-                    ttsAiRunId: frame.TtsAiRunId,
-                    cancellationToken: ct).ConfigureAwait(false);
+                while (true)
+                {
+                    bool hasNext;
+                    try
+                    {
+                        hasNext = await enumerator.MoveNextAsync().ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        // Release the audit gate after the FIRST
+                        // MoveNextAsync — by then StartRunAsync has
+                        // either succeeded or thrown, and the gate's
+                        // job is done.
+                        if (!auditGateReleased)
+                        {
+                            AuditGate.Release();
+                            auditGateReleased = true;
+                        }
+                    }
+                    if (!hasNext) break;
+
+                    var frame = enumerator.Current;
+
+                    if (!firstFrameSeen)
+                    {
+                        Interlocked.Increment(ref _synthTasksThatYieldedAtLeastOneFrame);
+                        if (!frame.Cached)
+                        {
+                            _writer.RecordCacheMiss();
+                        }
+                        firstFrameSeen = true;
+                    }
+
+                    await _writer.EnqueueAudioFrameAsync(
+                        messageId: messageId,
+                        chunkIndex: chunkIndex,
+                        data: frame.Data,
+                        mime: _mime,
+                        isFinal: frame.IsFinal,
+                        cached: frame.Cached,
+                        provider: frame.Provider,
+                        voiceId: frame.VoiceId,
+                        ttsAiRunId: frame.TtsAiRunId,
+                        cancellationToken: ct).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                // Belt-and-braces: if anything between WaitAsync and the
+                // first MoveNextAsync throws (e.g. GetAsyncEnumerator),
+                // make sure the gate is released so subsequent chunks
+                // don't deadlock waiting on it.
+                if (!auditGateReleased)
+                {
+                    AuditGate.Release();
+                    auditGateReleased = true;
+                }
+                if (enumerator is not null)
+                    await enumerator.DisposeAsync().ConfigureAwait(false);
             }
 
             chunkActivity?.SetTag("aonik.chat.tts.frames_emitted", firstFrameSeen);

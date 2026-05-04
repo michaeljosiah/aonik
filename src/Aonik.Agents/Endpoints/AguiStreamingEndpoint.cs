@@ -180,13 +180,23 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         var runId = input.RunId ?? Guid.NewGuid().ToString("N");
         var requestStopwatch = Stopwatch.StartNew();
         await using var writer = new AguiResponseWriter(response, voiceMode, requestStopwatch);
+        // Capture tenant + user identity from the request scope NOW so
+        // each per-chunk scope created inside VoiceSynthCoordinator can
+        // re-seed its own ITenantContext / ICurrentUserContext. Without
+        // this, fresh scopes get empty context — the kill-switch cache
+        // key collides across all chunks (Guid.Empty), and tenant query
+        // filters on the AiDbContext don't apply correctly.
+        var coordinatorTenantId = _tenantContext?.TenantId;
+        var coordinatorUserId = _currentUserContext?.UserId;
         await using VoiceSynthCoordinator? voiceCoordinator = voiceMode
             ? new VoiceSynthCoordinator(
                 serviceScopeFactory: _serviceScopeFactory,
                 writer: writer,
                 providerFormat: providerFormat!,
                 mime: audioMime!,
-                logger: _logger)
+                logger: _logger,
+                capturedTenantId: coordinatorTenantId,
+                capturedUserId: coordinatorUserId)
             : null;
         var assistantTextBuilder = new System.Text.StringBuilder();
         long inputTokens = 0;
