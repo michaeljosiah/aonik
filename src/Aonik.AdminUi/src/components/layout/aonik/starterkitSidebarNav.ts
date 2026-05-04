@@ -153,13 +153,9 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         href: '/tenants',
         audience: 'host',
       },
-      {
-        id: 'settings-system-tools',
-        label: 'System',
-        icon: 'wrench',
-        href: '/settings/system-tools',
-        audience: 'host',
-      },
+      // System Tools intentionally removed from main sidebar — already
+      // exposed as a card on the /settings landing page. Direct link
+      // /settings/system-tools and route wiring still resolve.
     ],
   },
 ];
