@@ -12,6 +12,8 @@ using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Services.Identity;
+using Aonik.Finance.Persistence;
+using Aonik.Agents.Persistence;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -36,6 +38,8 @@ internal class DemoSeedService : IDemoSeedService
     private readonly ICorrelationContext _correlationContext;
     private readonly IPermissionService _permissionService;
     private readonly ITenantContext _tenantContext;
+    private readonly FinanceDbContext _financeDbContext;
+    private readonly AgentsDbContext _agentsDbContext;
 
     // ── Platform-only Guid constants ─────────────────────────────────
 
@@ -60,6 +64,46 @@ internal class DemoSeedService : IDemoSeedService
     private static readonly Guid KofiAmaRelationshipId = Guid.Parse("93c83fed-d56a-4ca6-8f44-4512f50eeecb");
     private static readonly Guid OliviaNalediRelationshipId = Guid.Parse("f28be4e6-e5bc-43a5-8c52-cf3906f6c16f");
     private static readonly Guid LiamKwameRelationshipId = Guid.Parse("0fd357dd-58a3-481b-a36d-5e7efde0ebca");
+    private static readonly string[] DemoWorkflowSlugs =
+    {
+        "match_and_apply",
+        "sweep_unmatched",
+        "dunning_cadence",
+        "forward_quote",
+        "kyc_recheck",
+        "monthly_close",
+        "spend_anomaly"
+    };
+    private static readonly string[] DemoNotificationTypes =
+    {
+        "agent.proposal.pending",
+        "compliance.case.opened",
+        "insights.anomaly.detected",
+        "order.complete",
+        "system.welcome"
+    };
+    private static readonly string[] DemoAgentNames =
+    {
+        "Billing",
+        "Ledger",
+        "FX",
+        "Compliance",
+        "Dunning",
+        "Close",
+        "Insights"
+    };
+    private static readonly string[] DemoPartnerNames =
+    {
+        "Gold Coast Bill Hub",
+        "Naija Utility Switch",
+        "EastPay Kenya",
+        "Mzansi Bill Connect"
+    };
+    private static readonly string[] DemoHouseholdNames =
+    {
+        "Mensah Household",
+        "Cross-Border Professionals"
+    };
 
     public DemoSeedService(
         PlatformDbContext dbContext,
@@ -70,7 +114,9 @@ internal class DemoSeedService : IDemoSeedService
         ICurrentUserProvider currentUserProvider,
         ICorrelationContext correlationContext,
         IPermissionService permissionService,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        FinanceDbContext financeDbContext,
+        AgentsDbContext agentsDbContext)
     {
         _dbContext = dbContext;
         _contributors = contributors;
@@ -81,6 +127,8 @@ internal class DemoSeedService : IDemoSeedService
         _correlationContext = correlationContext;
         _permissionService = permissionService;
         _tenantContext = tenantContext;
+        _financeDbContext = financeDbContext;
+        _agentsDbContext = agentsDbContext;
     }
 
     public async Task<DemoSeedResult> SeedAsync(Guid tenantId, string? seedType = null, CancellationToken cancellationToken = default)
@@ -156,6 +204,8 @@ internal class DemoSeedService : IDemoSeedService
 
             if (normalizedSeedType == DemoSeedTypes.CrossBorderPayments)
             {
+                var tenantSnapshot = await CaptureTenantSnapshotAsync(tenantId, cancellationToken);
+
                 // Phase 10: UK home base
                 await EnsureUkHomeBaseAsync(tenantId, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
@@ -191,6 +241,7 @@ internal class DemoSeedService : IDemoSeedService
                 await UpsertCrossBorderMarkerAsync(
                     tenantId,
                     normalizedSeedType,
+                    tenantSnapshot,
                     partyIds,
                     tenantCoverage,
                     crossBorderParties,
@@ -227,6 +278,65 @@ internal class DemoSeedService : IDemoSeedService
         }
     }
 
+    public async Task<DemoSeedResult> ReverseAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
+
+        var tenantExists = await _dbContext.Tenants.AnyAsync(t => t.Id == tenantId, cancellationToken);
+        if (!tenantExists)
+        {
+            throw new InvalidOperationException($"Tenant {tenantId} not found");
+        }
+
+        var tenantSeedLock = TenantSeedLocks.GetOrAdd(tenantId, _ => new SemaphoreSlim(1, 1));
+        await tenantSeedLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            _tenantContext.TenantId = tenantId;
+            _tenantContext.ResolutionSource = "AdminTenantAction";
+
+            var crossBorderSetting = await GetSettingAsync(tenantId, CrossBorderDemoSeedKey, cancellationToken);
+            var billCollectionSetting = await GetSettingAsync(tenantId, DemoSeedKey, cancellationToken);
+            var seedType = crossBorderSetting != null
+                ? DemoSeedTypes.CrossBorderPayments
+                : DemoSeedTypes.BillCollection;
+
+            var operations = new List<string>();
+
+            await ReverseAgentActivityAsync(tenantId, operations, cancellationToken);
+            await ReverseNotificationsAsync(tenantId, operations, cancellationToken);
+            await ReverseOrdersAsync(tenantId, operations, cancellationToken);
+            await ReverseHouseholdsAsync(tenantId, operations, cancellationToken);
+            await ReverseWorkflowRegistryAsync(tenantId, operations, cancellationToken);
+            await ReverseCatalogAndPricingAsync(tenantId, operations, cancellationToken);
+            await ReversePartnerNetworkAsync(tenantId, operations, cancellationToken);
+            await ReversePartiesAsync(tenantId, operations, cancellationToken);
+            await ReverseTenantCoverageAsync(tenantId, operations, cancellationToken);
+            await RestoreTenantProfileAsync(tenantId, crossBorderSetting, operations, cancellationToken);
+            await RemoveSeedMarkersAsync(tenantId, billCollectionSetting, crossBorderSetting, operations, cancellationToken);
+
+            var now = _clock.UtcNow;
+            var userId = _currentUserProvider.GetCurrentUserId();
+
+            await _auditLogWriter.LogAsync(
+                AuditEventNames.TenantDemoReversed,
+                "TenantDemoSeed",
+                tenantId,
+                tenantId,
+                userId,
+                _correlationContext.CorrelationId,
+                JsonSerializer.Serialize(new { tenantId, seedType, operations }),
+                cancellationToken);
+
+            return new DemoSeedResult(tenantId, seedType, now, operations);
+        }
+        finally
+        {
+            tenantSeedLock.Release();
+        }
+    }
+
     // ── Contributor helpers ──────────────────────────────────────────
 
     private async Task SeedContributorsAsync(DemoSeedPhase phase, DemoSeedContext context, List<string> operations, CancellationToken cancellationToken)
@@ -248,6 +358,10 @@ internal class DemoSeedService : IDemoSeedService
         => _contributors.FirstOrDefault(c => c.ModuleName == "Finance")?.GetResults()
             ?? new Dictionary<string, object>();
 
+    private IReadOnlyDictionary<string, object> GetContributorResults(string moduleName)
+        => _contributors.FirstOrDefault(c => c.ModuleName == moduleName)?.GetResults()
+            ?? new Dictionary<string, object>();
+
     private static Guid GetGuid(IReadOnlyDictionary<string, object> results, string key)
         => results.TryGetValue(key, out var value) ? (Guid)value : Guid.Empty;
 
@@ -256,6 +370,19 @@ internal class DemoSeedService : IDemoSeedService
 
     private static IReadOnlyDictionary<string, Guid> GetGuidDictionary(IReadOnlyDictionary<string, object> results, string key)
         => results.TryGetValue(key, out var value) ? (IReadOnlyDictionary<string, Guid>)value : new Dictionary<string, Guid>();
+
+    private static object? GetObject(IReadOnlyDictionary<string, object> results, string key)
+        => results.TryGetValue(key, out var value) ? value : null;
+
+    private async Task<Setting?> GetSettingAsync(Guid tenantId, string key, CancellationToken cancellationToken)
+    {
+        return await _dbContext.Settings
+            .FirstOrDefaultAsync(item => !item.IsDeleted
+                                         && item.Scope == SettingScope.Tenant
+                                         && item.TenantId == tenantId
+                                         && item.Key == key,
+                cancellationToken);
+    }
 
     // ── Platform-only methods (unchanged) ────────────────────────────
 
@@ -559,10 +686,13 @@ internal class DemoSeedService : IDemoSeedService
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
         var financeResults = GetFinanceResults();
+        var agentsResults = GetContributorResults("Agents");
+        var platformResults = GetContributorResults("Platform");
 
         var payload = new
         {
             TenantId = tenantId,
+            SeedType = DemoSeedTypes.BillCollection,
             UtilitiesCategoryId = GetGuid(financeResults, DemoSeedResultKeys.UtilitiesCategoryId),
             EcgBillerId = GetGuid(financeResults, DemoSeedResultKeys.EcgBillerId),
             WaterBillerId = GetGuid(financeResults, DemoSeedResultKeys.WaterBillerId),
@@ -573,7 +703,13 @@ internal class DemoSeedService : IDemoSeedService
             partyIds.RelationshipId,
             FxQuoteId = GetGuid(financeResults, DemoSeedResultKeys.FxQuoteId),
             FeePolicyId = GetGuid(financeResults, DemoSeedResultKeys.FeePolicyId),
-            LimitsPolicyId = GetGuid(financeResults, DemoSeedResultKeys.LimitsPolicyId)
+            LimitsPolicyId = GetGuid(financeResults, DemoSeedResultKeys.LimitsPolicyId),
+            OrderIds = GetGuidList(financeResults, DemoSeedResultKeys.OrderIds),
+            AgentIdsByName = GetObject(agentsResults, DemoSeedResultKeys.AgentIdsByName),
+            WorkflowIdsBySlug = GetObject(agentsResults, DemoSeedResultKeys.WorkflowIdsBySlug),
+            AgentRunIds = GetObject(agentsResults, DemoSeedResultKeys.AgentRunIds),
+            ProposalIds = GetObject(agentsResults, DemoSeedResultKeys.ProposalIds),
+            NotificationIds = GetObject(platformResults, DemoSeedResultKeys.NotificationIds)
         };
         var value = JsonSerializer.Serialize(payload);
 
@@ -1224,6 +1360,7 @@ internal class DemoSeedService : IDemoSeedService
     private async Task UpsertCrossBorderMarkerAsync(
         Guid tenantId,
         string seedType,
+        TenantSnapshot tenantSnapshot,
         (Guid PayerPartyId, Guid ReceiverPartyId, Guid RelationshipId) billCollectionParties,
         (IReadOnlyList<Guid> CountryIds, IReadOnlyList<Guid> CurrencyIds) tenantCoverage,
         (IReadOnlyList<Guid> PartyIds, IReadOnlyList<Guid> RelationshipIds) crossBorderParties,
@@ -1232,42 +1369,26 @@ internal class DemoSeedService : IDemoSeedService
     {
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
-        var financeResults = GetFinanceResults();
-
         var payload = new
         {
             TenantId = tenantId,
             SeedType = seedType,
+            TenantSnapshot = tenantSnapshot,
             BillCollection = new
             {
-                UtilitiesCategoryId = GetGuid(financeResults, DemoSeedResultKeys.UtilitiesCategoryId),
-                EcgBillerId = GetGuid(financeResults, DemoSeedResultKeys.EcgBillerId),
-                WaterBillerId = GetGuid(financeResults, DemoSeedResultKeys.WaterBillerId),
-                EcgServiceId = GetGuid(financeResults, DemoSeedResultKeys.EcgServiceId),
-                WaterServiceId = GetGuid(financeResults, DemoSeedResultKeys.WaterServiceId),
                 billCollectionParties.PayerPartyId,
                 billCollectionParties.ReceiverPartyId,
-                billCollectionParties.RelationshipId,
-                FxQuoteId = GetGuid(financeResults, DemoSeedResultKeys.FxQuoteId),
-                FeePolicyId = GetGuid(financeResults, DemoSeedResultKeys.FeePolicyId),
-                LimitsPolicyId = GetGuid(financeResults, DemoSeedResultKeys.LimitsPolicyId)
+                billCollectionParties.RelationshipId
             },
             CrossBorder = new
             {
                 CountryIds = tenantCoverage.CountryIds,
                 CurrencyIds = tenantCoverage.CurrencyIds,
-                PartnerIdsByCountry = GetGuidDictionary(financeResults, DemoSeedResultKeys.PartnerIdsByCountry),
-                ConnectorIdsByCountry = GetGuidDictionary(financeResults, DemoSeedResultKeys.ConnectorIdsByCountry),
-                CategoryIds = GetGuidList(financeResults, DemoSeedResultKeys.CrossBorderCategoryIds),
-                BillerIds = GetGuidList(financeResults, DemoSeedResultKeys.CrossBorderBillerIds),
-                ServiceIds = GetGuidList(financeResults, DemoSeedResultKeys.CrossBorderServiceIds),
                 PartyIds = crossBorderParties.PartyIds,
                 RelationshipIds = crossBorderParties.RelationshipIds,
-                HouseholdIds = GetGuidList(financeResults, DemoSeedResultKeys.HouseholdIds),
-                HouseholdMemberIds = GetGuidList(financeResults, DemoSeedResultKeys.HouseholdMemberIds),
-                FxQuoteIds = GetGuidList(financeResults, DemoSeedResultKeys.CrossBorderFxQuoteIds),
-                FeePolicyIds = GetGuidList(financeResults, DemoSeedResultKeys.CrossBorderFeePolicyIds),
-                LimitsPolicyIds = GetGuidList(financeResults, DemoSeedResultKeys.CrossBorderLimitsPolicyIds)
+                billCollectionParties.PayerPartyId,
+                billCollectionParties.ReceiverPartyId,
+                billCollectionParties.RelationshipId
             }
         };
 
@@ -1301,6 +1422,482 @@ internal class DemoSeedService : IDemoSeedService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<TenantSnapshot> CaptureTenantSnapshotAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var tenant = await _dbContext.Tenants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException($"Tenant {tenantId} not found.");
+
+        return new TenantSnapshot(
+            tenant.Country,
+            tenant.DefaultCurrency,
+            tenant.City,
+            tenant.StateProvince,
+            tenant.AddressLine1,
+            tenant.SupportedCountriesJson,
+            tenant.AllowedOriginCountriesJson,
+            tenant.AllowedDestinationCountriesJson);
+    }
+
+    private sealed record TenantSnapshot(
+        string? Country,
+        string? DefaultCurrency,
+        string? City,
+        string? StateProvince,
+        string? AddressLine1,
+        string? SupportedCountriesJson,
+        string? AllowedOriginCountriesJson,
+        string? AllowedDestinationCountriesJson);
+
+    private async Task ReverseAgentActivityAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var agentIds = await _agentsDbContext.Agents
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && DemoAgentNames.Contains(item.Name))
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        if (agentIds.Count == 0)
+        {
+            return;
+        }
+
+        var proposalCount = await _agentsDbContext.Proposals
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && agentIds.Contains(item.ProposedByAgentId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var runCount = await _agentsDbContext.AgentRuns
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && agentIds.Contains(item.AgentId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (proposalCount > 0 || runCount > 0)
+        {
+            operations.Add($"Removed {proposalCount} proposals and {runCount} agent runs");
+        }
+    }
+
+    private async Task ReverseNotificationsAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var count = await _dbContext.Notifications
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId
+                           && DemoNotificationTypes.Contains(item.Type))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (count > 0)
+        {
+            operations.Add($"Removed {count} demo notifications");
+        }
+    }
+
+    private async Task ReverseOrdersAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var orderIds = await _financeDbContext.Orders
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && item.ProvenanceJson.Contains("demo-seed"))
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        if (orderIds.Count == 0)
+        {
+            return;
+        }
+
+        await _financeDbContext.OrderPartyRoles
+            .IgnoreQueryFilters()
+            .Where(item => orderIds.Contains(item.OrderId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _financeDbContext.OrderItems
+            .IgnoreQueryFilters()
+            .Where(item => orderIds.Contains(item.OrderId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var orderCount = await _financeDbContext.Orders
+            .IgnoreQueryFilters()
+            .Where(item => orderIds.Contains(item.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        operations.Add($"Removed {orderCount} demo orders");
+    }
+
+    private async Task ReverseHouseholdsAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var householdIds = await _financeDbContext.Households
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && DemoHouseholdNames.Contains(item.Name))
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        if (householdIds.Count == 0)
+        {
+            return;
+        }
+
+        await _financeDbContext.HouseholdMembers
+            .IgnoreQueryFilters()
+            .Where(item => householdIds.Contains(item.HouseholdId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var householdCount = await _financeDbContext.Households
+            .IgnoreQueryFilters()
+            .Where(item => householdIds.Contains(item.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        operations.Add($"Removed {householdCount} demo households");
+    }
+
+    private async Task ReverseWorkflowRegistryAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var workflowIds = await _agentsDbContext.Workflows
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && DemoWorkflowSlugs.Contains(item.Slug))
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        if (workflowIds.Count > 0)
+        {
+            await _agentsDbContext.WorkflowRuns
+                .IgnoreQueryFilters()
+                .Where(item => workflowIds.Contains(item.WorkflowId))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await _agentsDbContext.WorkflowVersions
+                .IgnoreQueryFilters()
+                .Where(item => workflowIds.Contains(item.WorkflowId))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await _agentsDbContext.WorkflowComments
+                .IgnoreQueryFilters()
+                .Where(item => workflowIds.Contains(item.WorkflowId))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await _agentsDbContext.WorkflowEdges
+                .IgnoreQueryFilters()
+                .Where(item => workflowIds.Contains(item.WorkflowId))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await _agentsDbContext.WorkflowNodes
+                .IgnoreQueryFilters()
+                .Where(item => workflowIds.Contains(item.WorkflowId))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            var workflowCount = await _agentsDbContext.Workflows
+                .IgnoreQueryFilters()
+                .Where(item => workflowIds.Contains(item.Id))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            operations.Add($"Removed {workflowCount} demo workflows");
+        }
+
+        var agentCount = await _agentsDbContext.Agents
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && DemoAgentNames.Contains(item.Name))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (agentCount > 0)
+        {
+            operations.Add($"Removed {agentCount} demo agents");
+        }
+    }
+
+    private async Task ReversePartnerNetworkAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var partnerIds = await _financeDbContext.Partners
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && DemoPartnerNames.Contains(item.Name))
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        if (partnerIds.Count == 0)
+        {
+            return;
+        }
+
+        var partnerFundingAccountIds = await _financeDbContext.PartnerFundingAccounts
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        var ledgerAccountIds = await _financeDbContext.PartnerFundingAccounts
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
+            .Select(item => item.LedgerAccountId)
+            .ToListAsync(cancellationToken);
+
+        if (partnerFundingAccountIds.Count > 0)
+        {
+            var journalEntryIds = await _financeDbContext.JournalEntries
+                .IgnoreQueryFilters()
+                .Where(item => item.TenantId == tenantId && partnerFundingAccountIds.Contains(item.SourceId))
+                .Select(item => item.Id)
+                .ToListAsync(cancellationToken);
+
+            if (journalEntryIds.Count > 0)
+            {
+                await _financeDbContext.JournalEntryLines
+                    .IgnoreQueryFilters()
+                    .Where(item => journalEntryIds.Contains(item.JournalEntryId))
+                    .ExecuteDeleteAsync(cancellationToken);
+
+                await _financeDbContext.JournalEntries
+                    .IgnoreQueryFilters()
+                    .Where(item => journalEntryIds.Contains(item.Id))
+                    .ExecuteDeleteAsync(cancellationToken);
+            }
+
+            await _financeDbContext.PartnerFundingAccounts
+                .IgnoreQueryFilters()
+                .Where(item => partnerFundingAccountIds.Contains(item.Id))
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+
+        if (ledgerAccountIds.Count > 0)
+        {
+            await _financeDbContext.LedgerAccounts
+                .IgnoreQueryFilters()
+                .Where(item => ledgerAccountIds.Contains(item.Id))
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+
+        await _financeDbContext.RoutingRules
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && item.TargetPartnerId.HasValue && partnerIds.Contains(item.TargetPartnerId.Value))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _financeDbContext.Connectors
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _financeDbContext.PartnerBranches
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var partnerCount = await _financeDbContext.Partners
+            .IgnoreQueryFilters()
+            .Where(item => partnerIds.Contains(item.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        operations.Add($"Removed {partnerCount} demo partners and routing configuration");
+    }
+
+    private async Task ReverseCatalogAndPricingAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        await _financeDbContext.CatalogBillerServices
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && item.ServiceCode.StartsWith("BILLPAY."))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _financeDbContext.CatalogBillers
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var categoryCount = await _financeDbContext.CatalogBillerCategories
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && item.Name == "Utilities")
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _financeDbContext.FxQuotes
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && item.Provider == "DemoRate")
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _financeDbContext.FeePolicies
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && (item.Name == "BillPay-NG-GH-Default" || item.Name.StartsWith("CrossBorder-")))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _financeDbContext.LimitsPolicies
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && item.ScopeType == "Tenant" && item.ScopeId == tenantId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (categoryCount > 0)
+        {
+            operations.Add($"Removed {categoryCount} demo catalog categories and demo pricing");
+        }
+    }
+
+    private async Task ReversePartiesAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var partyIds = new[]
+        {
+            DemoPayerPartyId, DemoReceiverPartyId, TundePartyId, AdwoaPartyId, PeterPartyId,
+            NalediPartyId, AishaPartyId, KofiPartyId, AcmeImportsPartyId, SafariFreightPartyId,
+            OliviaPartyId, LiamPartyId
+        };
+
+        await _dbContext.PartyRelationships
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && (partyIds.Contains(item.FromPartyId) || partyIds.Contains(item.ToPartyId)))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _dbContext.PartyRoleAssignments
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && partyIds.Contains(item.PartyId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _dbContext.BusinessProfiles
+            .IgnoreQueryFilters()
+            .Where(item => partyIds.Contains(item.PartyId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _dbContext.PersonProfiles
+            .IgnoreQueryFilters()
+            .Where(item => partyIds.Contains(item.PartyId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _dbContext.PartyAddresses
+            .IgnoreQueryFilters()
+            .Where(item => partyIds.Contains(item.PartyId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _dbContext.PartyContacts
+            .IgnoreQueryFilters()
+            .Where(item => partyIds.Contains(item.PartyId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var partyCount = await _dbContext.Parties
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && partyIds.Contains(item.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (partyCount > 0)
+        {
+            operations.Add($"Removed {partyCount} demo parties and relationships");
+        }
+    }
+
+    private async Task ReverseTenantCoverageAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        using var crossBorderDocument = await TryParseSettingDocumentAsync(tenantId, CrossBorderDemoSeedKey, cancellationToken);
+        var countryIds = ReadGuidArray(crossBorderDocument, "CrossBorder", "CountryIds");
+        var currencyIds = ReadGuidArray(crossBorderDocument, "CrossBorder", "CurrencyIds");
+
+        if (countryIds.Count == 0 && currencyIds.Count == 0)
+        {
+            return;
+        }
+
+        var countryCount = await _dbContext.TenantCountries
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && countryIds.Contains(item.CountryId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var currencyCount = await _dbContext.TenantCurrencies
+            .IgnoreQueryFilters()
+            .Where(item => item.TenantId == tenantId && currencyIds.Contains(item.CurrencyId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (countryCount > 0 || currencyCount > 0)
+        {
+            operations.Add($"Removed {countryCount} tenant countries and {currencyCount} tenant currencies added for demo coverage");
+        }
+    }
+
+    private async Task RestoreTenantProfileAsync(Guid tenantId, Setting? crossBorderSetting, List<string> operations, CancellationToken cancellationToken)
+    {
+        if (crossBorderSetting == null || string.IsNullOrWhiteSpace(crossBorderSetting.Value))
+        {
+            return;
+        }
+
+        using var document = JsonDocument.Parse(crossBorderSetting.Value);
+        if (!document.RootElement.TryGetProperty("TenantSnapshot", out var snapshotElement))
+        {
+            return;
+        }
+
+        var snapshot = JsonSerializer.Deserialize<TenantSnapshot>(snapshotElement.GetRawText());
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(item => item.Id == tenantId, cancellationToken);
+        if (tenant == null)
+        {
+            throw new InvalidOperationException($"Tenant {tenantId} not found.");
+        }
+
+        tenant.Country = snapshot.Country ?? string.Empty;
+        tenant.DefaultCurrency = snapshot.DefaultCurrency ?? string.Empty;
+        tenant.City = snapshot.City;
+        tenant.StateProvince = snapshot.StateProvince;
+        tenant.AddressLine1 = snapshot.AddressLine1;
+        tenant.SupportedCountriesJson = snapshot.SupportedCountriesJson;
+        tenant.AllowedOriginCountriesJson = snapshot.AllowedOriginCountriesJson;
+        tenant.AllowedDestinationCountriesJson = snapshot.AllowedDestinationCountriesJson;
+        tenant.UpdatedAt = _clock.UtcNow;
+        tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        operations.Add("Restored tenant home-base settings from pre-demo snapshot");
+    }
+
+    private async Task<JsonDocument?> TryParseSettingDocumentAsync(Guid tenantId, string key, CancellationToken cancellationToken)
+    {
+        var setting = await GetSettingAsync(tenantId, key, cancellationToken);
+        if (setting == null || string.IsNullOrWhiteSpace(setting.Value))
+        {
+            return null;
+        }
+
+        return JsonDocument.Parse(setting.Value);
+    }
+
+    private static IReadOnlyList<Guid> ReadGuidArray(JsonDocument? document, string sectionName, string propertyName)
+    {
+        if (document == null)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        if (!document.RootElement.TryGetProperty(sectionName, out var section))
+        {
+            return Array.Empty<Guid>();
+        }
+
+        if (!section.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var ids = new List<Guid>();
+        foreach (var item in property.EnumerateArray())
+        {
+            if (item.TryGetGuid(out var id))
+            {
+                ids.Add(id);
+            }
+        }
+
+        return ids;
+    }
+
+    private async Task RemoveSeedMarkersAsync(Guid tenantId, Setting? billCollectionSetting, Setting? crossBorderSetting, List<string> operations, CancellationToken cancellationToken)
+    {
+        if (billCollectionSetting != null || crossBorderSetting != null)
+        {
+            await _dbContext.Settings
+                .IgnoreQueryFilters()
+                .Where(item => !item.IsDeleted
+                               && item.Scope == SettingScope.Tenant
+                               && item.TenantId == tenantId
+                               && (item.Key == DemoSeedKey || item.Key == CrossBorderDemoSeedKey))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            operations.Add("Removed demo seed markers");
+        }
     }
 
     private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)

@@ -27,6 +27,7 @@ public static class AuditEventNames
     public const string TenantUpdated = "TenantUpdated";
     public const string TenantFeaturesUpdated = "TenantFeaturesUpdated";
     public const string TenantDemoSeeded = "TenantDemoSeeded";
+    public const string TenantDemoReversed = "TenantDemoReversed";
     public const string PermissionsSeeded = "PermissionsSeeded";
     public const string UserProvisioned = "UserProvisioned";
     public const string UserIdentityLinked = "UserIdentityLinked";
@@ -49,6 +50,9 @@ public static class AuditEventNames
     public const string OrderCancelled = "OrderCancelled";
     public const string PartyScreened = "PartyScreened";
     public const string ComplianceCaseCreated = "ComplianceCaseCreated";
+
+    public const string TraceAnalysisRequested = "TraceAnalysisRequested";
+    public const string TraceAnalysisFailed = "TraceAnalysisFailed";
 
     public const string ScheduledJobCommandQueued = "ScheduledJobCommandQueued";
     public const string ScheduledJobCommandSucceeded = "ScheduledJobCommandSucceeded";

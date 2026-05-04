@@ -8,4 +8,8 @@ export const demoSeedService = {
       seedType ? { seedType } : undefined,
     );
   },
+
+  reverse: async (tenantId: string): Promise<DemoSeedResponse> => {
+    return api.delete<DemoSeedResponse>(`/admin/tenants/${tenantId}/demo-seed`);
+  },
 };

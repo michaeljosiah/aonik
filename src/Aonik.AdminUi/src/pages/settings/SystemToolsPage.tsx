@@ -88,6 +88,31 @@ export function SystemToolsPage() {
     }
   };
 
+  const handleReverseDemoData = async () => {
+    if (!selectedTenant?.tenantId) {
+      setDemoSeedStatus('error');
+      setDemoSeedError('Select a tenant before running a system tool.');
+      return;
+    }
+
+    setDemoSeedStatus('running');
+    setDemoSeedError(null);
+
+    try {
+      const result = await demoSeedService.reverse(selectedTenant.tenantId);
+      setDemoSeedResult(result);
+      setDemoSeedStatus('success');
+      toast.success('Demo data reversed. Seeded reference data created afterwards was preserved.');
+    } catch (err: unknown) {
+      console.error('Demo reverse failed:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setDemoSeedError(message || 'Demo data reversal failed. Please try again.');
+      setDemoSeedStatus('error');
+    }
+  };
+
   const loadCacheOverview = async () => {
     setCacheStatus('running');
     setCacheError(null);
@@ -388,22 +413,32 @@ export function SystemToolsPage() {
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-[var(--color-brand-primary)]" />
-                Demo Data Import
+                Demo Data
               </CardTitle>
               <CardDescription>
-                Import curated sandbox datasets for bill collection or cross-border payment demos.
+                Import curated sandbox datasets for bill collection or cross-border payment demos, or reverse seeded demo data later.
               </CardDescription>
             </div>
-            <Button
-              onClick={() => {
-                setDemoSeedError(null);
-                setDemoSeedDialogOpen(true);
-              }}
-              disabled={demoSeedStatus === 'running' || !selectedTenant?.tenantId}
-              className="rounded-sm"
-            >
-              {demoSeedStatus === 'running' ? 'Importing...' : 'Import Data'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleReverseDemoData}
+                disabled={demoSeedStatus === 'running' || !selectedTenant?.tenantId}
+                variant="secondary"
+                className="rounded-sm"
+              >
+                {demoSeedStatus === 'running' ? 'Working...' : 'Reverse Data'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setDemoSeedError(null);
+                  setDemoSeedDialogOpen(true);
+                }}
+                disabled={demoSeedStatus === 'running' || !selectedTenant?.tenantId}
+                className="rounded-sm"
+              >
+                {demoSeedStatus === 'running' ? 'Working...' : 'Import Data'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {demoSeedError && (
@@ -415,7 +450,7 @@ export function SystemToolsPage() {
             {demoSeedResult ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
-                  <span>Last import</span>
+                  <span>Last run</span>
                   <span>{new Date(demoSeedResult.seededAt).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
@@ -438,7 +473,7 @@ export function SystemToolsPage() {
               </div>
             ) : (
               <p className="text-sm text-[var(--color-text-tertiary)]">
-                Import demo data to quickly showcase bill pay and cross-border capabilities in the admin workspace.
+                Import demo data to quickly showcase bill pay and cross-border capabilities in the admin workspace, or reverse seeded demo data when you need to reset the workspace.
               </p>
             )}
           </CardContent>
