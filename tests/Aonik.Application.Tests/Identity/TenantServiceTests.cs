@@ -83,8 +83,35 @@ public class TenantServiceTests
 
     private sealed class TestTenantProvisioner : ITenantProvisioner
     {
-        public Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ProvisionTenantResult(false, 0, 0, 0, new List<string>()));
+        private readonly PlatformDbContext _dbContext;
+        private readonly IClock _clock;
+        private readonly Guid _userId;
+
+        public TestTenantProvisioner(PlatformDbContext dbContext, IClock clock, Guid userId)
+        {
+            _dbContext = dbContext;
+            _clock = clock;
+            _userId = userId;
+        }
+
+        public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        {
+            // Plant a TenantAdmin role for the new tenant so
+            // TenantService.CreateTenantAsync can assign it to the
+            // initial owner (the real TenantProvisioner does this
+            // alongside permission seeding; the in-memory test
+            // doesn't need permissions, just the role row).
+            _dbContext.Roles.Add(new Aonik.Platform.Entities.Identity.Role
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "TenantAdmin",
+                CreatedAt = _clock.UtcNow,
+                CreatedBy = _userId,
+            });
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return new ProvisionTenantResult(true, 0, 1, 0, new List<string>());
+        }
 
         public Task<TenantHealthResult> CheckTenantHealthAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new TenantHealthResult(true, true, true, true, new List<string>()));
@@ -137,16 +164,20 @@ public class TenantServiceTests
         });
         await dbContext.SaveChangesAsync();
 
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(userId);
         var service = new TenantService(
             dbContext,
-            new TestTenantProvisioner(),
-            new TestAuditLogWriter(),
+            new TestTenantProvisioner(dbContext, clock, userId),
+            auditLogWriter,
             clock,
-            new TestCurrentUserProvider(userId),
-            new TestCorrelationContext(),
+            currentUserProvider,
+            correlationContext,
             tenantContext,
             new AllowAllPermissionService(),
-            new CurrencyMetadataProvider());
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
 
         // Act
         var response = await service.CreateTenantAsync(
@@ -154,7 +185,8 @@ public class TenantServiceTests
                 Name: "Tenant NG",
                 Environment: "Dev",
                 DefaultCurrency: "ngn",
-                SupportedCountries: ["ng"]),
+                SupportedCountries: ["ng"],
+                OwnerEmail: "owner@tenant-ng.test"),
             CancellationToken.None);
 
         // Assert
@@ -218,23 +250,28 @@ public class TenantServiceTests
         });
         await dbContext.SaveChangesAsync();
 
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(userId);
         var service = new TenantService(
             dbContext,
-            new TestTenantProvisioner(),
-            new TestAuditLogWriter(),
+            new TestTenantProvisioner(dbContext, clock, userId),
+            auditLogWriter,
             clock,
-            new TestCurrentUserProvider(userId),
-            new TestCorrelationContext(),
+            currentUserProvider,
+            correlationContext,
             tenantContext,
             new AllowAllPermissionService(),
-            new CurrencyMetadataProvider());
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
 
         var tenant = await service.CreateTenantAsync(
             new CreateTenantRequest(
                 Name: "Tenant Update Validation",
                 Environment: "Dev",
                 DefaultCurrency: "USD",
-                SupportedCountries: ["US"]),
+                SupportedCountries: ["US"],
+                OwnerEmail: "owner@tenant-update.test"),
             CancellationToken.None);
 
         // Act
@@ -302,16 +339,20 @@ public class TenantServiceTests
         });
         await dbContext.SaveChangesAsync();
 
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(userId);
         var service = new TenantService(
             dbContext,
-            new TestTenantProvisioner(),
-            new TestAuditLogWriter(),
+            new TestTenantProvisioner(dbContext, clock, userId),
+            auditLogWriter,
             clock,
-            new TestCurrentUserProvider(userId),
-            new TestCorrelationContext(),
+            currentUserProvider,
+            correlationContext,
             tenantContext,
             new AllowAllPermissionService(),
-            new CurrencyMetadataProvider());
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
 
         var tenant = await service.CreateTenantAsync(
             new CreateTenantRequest(
@@ -319,6 +360,7 @@ public class TenantServiceTests
                 Environment: "Dev",
                 DefaultCurrency: "USD",
                 SupportedCountries: ["US", "NG"],
+                OwnerEmail: "owner@tenant-trim.test",
                 AllowedOriginCountries: ["US", "NG"],
                 AllowedDestinationCountries: ["NG"]),
             CancellationToken.None);
@@ -365,16 +407,20 @@ public class TenantServiceTests
         });
         await dbContext.SaveChangesAsync();
 
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(userId);
         var service = new TenantService(
             dbContext,
-            new TestTenantProvisioner(),
-            new TestAuditLogWriter(),
+            new TestTenantProvisioner(dbContext, clock, userId),
+            auditLogWriter,
             clock,
-            new TestCurrentUserProvider(userId),
-            new TestCorrelationContext(),
+            currentUserProvider,
+            correlationContext,
             tenantContext,
             new AllowAllPermissionService(),
-            new CurrencyMetadataProvider());
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
 
         // Act
         var act = async () =>
@@ -383,7 +429,8 @@ public class TenantServiceTests
                     Name: "Tenant Bad Country",
                     Environment: "Dev",
                     DefaultCurrency: "USD",
-                    SupportedCountries: ["ZZ"]),
+                    SupportedCountries: ["ZZ"],
+                    OwnerEmail: "owner@bad-country.test"),
                 CancellationToken.None);
 
         // Assert
@@ -420,16 +467,20 @@ public class TenantServiceTests
         });
         await dbContext.SaveChangesAsync();
 
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(userId);
         var service = new TenantService(
             dbContext,
-            new TestTenantProvisioner(),
-            new TestAuditLogWriter(),
+            new TestTenantProvisioner(dbContext, clock, userId),
+            auditLogWriter,
             clock,
-            new TestCurrentUserProvider(userId),
-            new TestCorrelationContext(),
+            currentUserProvider,
+            correlationContext,
             tenantContext,
             new AllowAllPermissionService(),
-            new CurrencyMetadataProvider());
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
 
         // Act
         var act = async () =>
@@ -438,11 +489,168 @@ public class TenantServiceTests
                     Name: "Tenant No Currency Ref",
                     Environment: "Dev",
                     DefaultCurrency: "USD",
-                    SupportedCountries: ["US"]),
+                    SupportedCountries: ["US"],
+                    OwnerEmail: "owner@no-currency.test"),
                 CancellationToken.None);
 
         // Assert
         var ex = await act.Should().ThrowAsync<ArgumentException>();
         ex.Which.Message.Should().Contain("Currency is not configured in currencies");
+    }
+
+    [Fact]
+    public async Task CreateTenantAsync_ShouldRejectMissingOwnerEmail()
+    {
+        // Acceptance criterion: creating a tenant requires an owner
+        // email — empty string must be rejected before any DB write.
+        var tenantContext = new TestTenantContext();
+        var userId = Guid.NewGuid();
+        var clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var dbContext = new PlatformDbContext(
+            options,
+            new HttpContextTenantProvider(tenantContext),
+            new TestCurrentUserProvider(userId),
+            clock);
+        SeedReferenceData(dbContext);
+        await dbContext.SaveChangesAsync();
+
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(userId);
+        var service = new TenantService(
+            dbContext,
+            new TestTenantProvisioner(dbContext, clock, userId),
+            auditLogWriter,
+            clock,
+            currentUserProvider,
+            correlationContext,
+            tenantContext,
+            new AllowAllPermissionService(),
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
+
+        var act = async () => await service.CreateTenantAsync(
+            new CreateTenantRequest(
+                Name: "Owner Required",
+                Environment: "Dev",
+                DefaultCurrency: "USD",
+                SupportedCountries: ["US"],
+                OwnerEmail: ""),
+            CancellationToken.None);
+
+        var ex = await act.Should().ThrowAsync<ArgumentException>();
+        ex.Which.Message.Should().Contain("Owner email is required");
+        // DB stays clean: no half-provisioned tenant or roles linger.
+        dbContext.Tenants.Should().BeEmpty();
+        dbContext.Users.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateTenantAsync_ShouldProvisionPendingOwnerAndAssignTenantAdmin()
+    {
+        // Pins acceptance criteria 2 + 4: tenant creation creates one
+        // pending owner user in the new tenant AND that owner has
+        // TenantAdmin (and NOT PlatformAdmin — that's reserved for
+        // host bootstrap).
+        var tenantContext = new TestTenantContext();
+        var userId = Guid.NewGuid();
+        var clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var dbContext = new PlatformDbContext(
+            options,
+            new HttpContextTenantProvider(tenantContext),
+            new TestCurrentUserProvider(userId),
+            clock);
+        SeedReferenceData(dbContext);
+        await dbContext.SaveChangesAsync();
+
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(userId);
+        var service = new TenantService(
+            dbContext,
+            new TestTenantProvisioner(dbContext, clock, userId),
+            auditLogWriter,
+            clock,
+            currentUserProvider,
+            correlationContext,
+            tenantContext,
+            new AllowAllPermissionService(),
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
+
+        var response = await service.CreateTenantAsync(
+            new CreateTenantRequest(
+                Name: "Owner Provisioned Tenant",
+                Environment: "Dev",
+                DefaultCurrency: "USD",
+                SupportedCountries: ["US"],
+                OwnerEmail: "Owner@Provisioned.Test",
+                OwnerDisplayName: "Customer Owner"),
+            CancellationToken.None);
+
+        // Pending owner row exists with the bootstrap issuer marker.
+        var ownerUser = await dbContext.Users
+            .FirstOrDefaultAsync(u => u.TenantId == response.TenantId);
+        ownerUser.Should().NotBeNull();
+        ownerUser!.Email.Should().Be("Owner@Provisioned.Test");
+        ownerUser.ExternalIssuer.Should()
+            .Be(BootstrapIdentityConstants.PendingOwnerIssuer);
+        ownerUser.ExternalSubject.Should()
+            .StartWith("owner:");
+
+        // Party + UserParty + PersonProfile chain exists with the
+        // owner's display name.
+        var party = await dbContext.Parties
+            .FirstOrDefaultAsync(p => p.TenantId == response.TenantId);
+        party.Should().NotBeNull();
+        party!.DisplayName.Should().Be("Customer Owner");
+
+        var userParty = await dbContext.UserParties
+            .FirstOrDefaultAsync(up => up.UserId == ownerUser.Id);
+        userParty.Should().NotBeNull();
+
+        // TenantAdmin assigned to the placeholder; PlatformAdmin not.
+        var assignedRoleNames = await (
+            from ur in dbContext.UserRoles
+            join r in dbContext.Roles on ur.RoleId equals r.Id
+            where ur.UserId == ownerUser.Id
+            select r.Name).ToListAsync();
+        assignedRoleNames.Should().Contain("TenantAdmin");
+        assignedRoleNames.Should().NotContain("PlatformAdmin");
+    }
+
+    private static void SeedReferenceData(PlatformDbContext dbContext)
+    {
+        dbContext.Countries.Add(new Country
+        {
+            Id = Guid.NewGuid(),
+            TenantId = null,
+            IsoAlpha2 = "US",
+            IsoAlpha3 = "USA",
+            IsoNumeric = 840,
+            Name = "United States",
+            SortOrder = 1,
+            IsActive = true
+        });
+        dbContext.Currencies.Add(new Currency
+        {
+            Id = Guid.NewGuid(),
+            TenantId = null,
+            Code = "USD",
+            Name = "US Dollar",
+            NumericCode = "840",
+            MinorUnit = 2,
+            WithdrawalDate = null,
+            SortOrder = 1,
+            IsActive = true
+        });
     }
 }

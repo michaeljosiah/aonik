@@ -80,6 +80,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapTenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapService, BootstrapService>();
+        services.AddScoped<IPendingTenantUserProvisioner, PendingTenantUserProvisioner>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IAuditLogAdminService, AuditLogAdminService>();
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();

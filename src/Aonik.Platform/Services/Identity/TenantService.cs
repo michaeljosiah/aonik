@@ -31,6 +31,7 @@ internal class TenantService : AdminServiceBase, ITenantService
     private readonly ICorrelationContext _correlationContext;
     private readonly ITenantContext _tenantContext;
     private readonly ICurrencyMetadataProvider _currencyMetadataProvider;
+    private readonly IPendingTenantUserProvisioner _pendingUserProvisioner;
 
     public TenantService(
         PlatformDbContext dbContext,
@@ -41,7 +42,8 @@ internal class TenantService : AdminServiceBase, ITenantService
         ICorrelationContext correlationContext,
         ITenantContext tenantContext,
         IPermissionService permissionService,
-        ICurrencyMetadataProvider currencyMetadataProvider)
+        ICurrencyMetadataProvider currencyMetadataProvider,
+        IPendingTenantUserProvisioner pendingUserProvisioner)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -51,12 +53,18 @@ internal class TenantService : AdminServiceBase, ITenantService
         _correlationContext = correlationContext;
         _tenantContext = tenantContext;
         _currencyMetadataProvider = currencyMetadataProvider;
+        _pendingUserProvisioner = pendingUserProvisioner;
     }
 
 
     public async Task<TenantResponse> CreateTenantAsync(CreateTenantRequest request, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Tenants.Write", cancellationToken);
+        // Validate the owner email before any DB work — a tenant
+        // without a pre-provisioned owner is the security gap that
+        // motivated this whole change. We refuse to create the tenant
+        // at all rather than leave it open to "first random login wins".
+        var normalizedOwnerEmail = ValidateOwnerEmail(request.OwnerEmail);
         var normalizedCurrency = NormalizeCurrencyCode(request.DefaultCurrency);
         var countrySettings = await ResolveTenantCountrySettingsForCreateAsync(request, cancellationToken);
         var normalizedCurrencies = await ValidateAndNormalizeCurrencyCodesAsync(
@@ -108,9 +116,27 @@ internal class TenantService : AdminServiceBase, ITenantService
             JsonSerializer.Serialize(new { tenant.Id, tenant.Name, tenant.Environment }),
             cancellationToken);
 
-        // Provision defaults
+        // Provision defaults (roles, permissions, etc.) — must run
+        // BEFORE we provision the owner because the owner needs the
+        // TenantAdmin role to exist.
         await _provisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
 
+        // Provision the initial pending owner. This creates a User +
+        // Party + UserParty + PersonProfile placeholder identified by
+        // OwnerEmail; the first IdP login that matches the email will
+        // link onto this row instead of creating a new account.
+        var pendingOwner = await _pendingUserProvisioner.ProvisionPendingOwnerAsync(
+            tenant.Id,
+            normalizedOwnerEmail,
+            request.OwnerDisplayName,
+            cancellationToken);
+
+        // Assign TenantAdmin so the owner lands with full tenant
+        // privileges on first login. We deliberately do NOT assign
+        // PlatformAdmin here — that's reserved for the host bootstrap
+        // path; ordinary admin-created tenants are scoped to their
+        // own tenant.
+        await EnsureTenantAdminRoleAsync(tenant.Id, pendingOwner.UserId, cancellationToken);
 
         // Update status to Active
         tenant.Status = TenantStatus.Active;
@@ -119,6 +145,64 @@ internal class TenantService : AdminServiceBase, ITenantService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return await MapToResponseAsync(tenant, cancellationToken);
+    }
+
+    private static string ValidateOwnerEmail(string ownerEmail)
+    {
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+            throw new ArgumentException("Owner email is required to create a tenant.", nameof(CreateTenantRequest.OwnerEmail));
+
+        var trimmed = ownerEmail.Trim();
+        // Lightweight format check — full RFC 5322 validation lives at
+        // the API layer; this guards against trivially-malformed input
+        // making it into the placeholder row.
+        if (!trimmed.Contains('@') || trimmed.IndexOf('@') == 0 || trimmed.IndexOf('@') == trimmed.Length - 1)
+            throw new ArgumentException("Owner email must be a valid email address.", nameof(CreateTenantRequest.OwnerEmail));
+
+        return trimmed;
+    }
+
+    private async Task EnsureTenantAdminRoleAsync(
+        Guid tenantId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var tenantAdminRole = await _dbContext.Roles
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Name == "TenantAdmin", cancellationToken);
+
+        if (tenantAdminRole == null)
+        {
+            // Should never happen if ProvisionTenantAsync ran, but we
+            // refuse to silently leave the owner without TenantAdmin —
+            // a tenant with no admin is exactly the failure mode this
+            // whole feature exists to prevent.
+            throw new InvalidOperationException(
+                $"TenantAdmin role was not provisioned for tenant {tenantId}; cannot assign initial owner.");
+        }
+
+        var alreadyAssigned = await _dbContext.UserRoles
+            .AnyAsync(ur => ur.UserId == userId && ur.RoleId == tenantAdminRole.Id, cancellationToken);
+        if (alreadyAssigned) return;
+
+        var userRole = new UserRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            RoleId = tenantAdminRole.Id,
+        };
+
+        _dbContext.UserRoles.Add(userRole);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.UserRoleAssigned,
+            "UserRole",
+            userRole.Id,
+            tenantId,
+            CurrentUserProvider.GetCurrentUserId() ?? userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { userId, RoleId = tenantAdminRole.Id, tenantAdminRole.Name }),
+            cancellationToken);
     }
 
     public async Task<TenantResponse?> GetTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)

@@ -11,9 +11,7 @@ using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
-using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
-using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 namespace Aonik.Platform.Services.Identity;
 
@@ -30,6 +28,7 @@ internal class BootstrapService : IBootstrapService
     private readonly ICurrentUserContext _currentUserContext;
     private readonly BootstrapOptions _options;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IPendingTenantUserProvisioner _pendingUserProvisioner;
 
     public BootstrapService(
         PlatformDbContext dbContext,
@@ -40,7 +39,8 @@ internal class BootstrapService : IBootstrapService
         ICurrentUserProvider currentUserProvider,
         ICurrentUserContext currentUserContext,
         IOptions<BootstrapOptions> options,
-        ICorrelationContext correlationContext)
+        ICorrelationContext correlationContext,
+        IPendingTenantUserProvisioner pendingUserProvisioner)
     {
         _dbContext = dbContext;
         _tenantProvisioner = tenantProvisioner;
@@ -51,6 +51,7 @@ internal class BootstrapService : IBootstrapService
         _currentUserContext = currentUserContext;
         _options = options.Value;
         _correlationContext = correlationContext;
+        _pendingUserProvisioner = pendingUserProvisioner;
     }
 
     public async Task<BootstrapTenantResult> BootstrapAsync(
@@ -159,117 +160,24 @@ internal class BootstrapService : IBootstrapService
         BootstrapOwnerContext ownerContext,
         CancellationToken cancellationToken)
     {
-        var normalizedOwnerEmail = ownerContext.Email.Trim();
-
-        var pendingBootstrapUsers = await _dbContext.Users
-            .Where(u =>
-                u.TenantId == tenant.Id &&
-                u.ExternalIssuer == BootstrapIdentityConstants.PendingOwnerIssuer &&
-                u.Email != null)
-            .ToListAsync(cancellationToken);
-
-        var user = pendingBootstrapUsers.FirstOrDefault(existingUser =>
-            string.Equals(existingUser.Email, normalizedOwnerEmail, StringComparison.OrdinalIgnoreCase));
-
-
-        if (user != null)
-        {
-            return (user.Id, false);
-        }
-
-        var newUser = new User
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenant.Id,
-            ExternalIssuer = BootstrapIdentityConstants.PendingOwnerIssuer,
-            ExternalSubject = BootstrapIdentityConstants.CreatePendingOwnerSubject(normalizedOwnerEmail),
-            Email = normalizedOwnerEmail,
-            Status = "Active"
-        };
-
-
-        _dbContext.Users.Add(newUser);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        _currentUserContext.UserId = newUser.Id;
-        _currentUserContext.TenantId ??= tenant.Id;
-
-        var now = _clock.UtcNow;
-        var currentUserId = _currentUserProvider.GetCurrentUserId() ?? newUser.Id;
-        var displayName = string.IsNullOrWhiteSpace(ownerContext.DisplayName)
-            ? normalizedOwnerEmail
-            : ownerContext.DisplayName.Trim();
-
-        var party = new PartyEntity
-        {
-            TenantId = tenant.Id,
-            PartyType = "Individual",
-            DisplayName = displayName,
-            Status = "Active",
-            CreatedAt = now,
-            CreatedBy = currentUserId
-        };
-
-        if (!string.IsNullOrWhiteSpace(newUser.Email))
-        {
-            party.Contacts.Add(new PartyContact
-            {
-                PartyId = party.Id,
-                Type = "Email",
-                Value = newUser.Email,
-                IsPrimary = true,
-                CreatedAt = now,
-                CreatedBy = currentUserId
-            });
-        }
-
-        _dbContext.Parties.Add(party);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var userParty = new UserParty
-        {
-            TenantId = tenant.Id,
-            UserId = newUser.Id,
-            PartyId = party.Id,
-            LinkType = "Individual",
-            CreatedAt = now,
-            CreatedBy = currentUserId
-        };
-
-        var personProfile = new PersonProfile
-        {
-            PartyId = party.Id,
-            IdvStatus = "Pending",
-            CreatedAt = now,
-            CreatedBy = currentUserId
-        };
-
-        _dbContext.UserParties.Add(userParty);
-        _dbContext.PersonProfiles.Add(personProfile);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var emailContactId = party.Contacts.FirstOrDefault()?.Id;
-
-        await _auditLogWriter.LogAsync(
-            AuditEventNames.UserProvisioned,
-            "User",
-            newUser.Id,
+        // Delegate to the shared provisioner so bootstrap and admin
+        // tenant-creation use exactly the same User+Party+UserParty+
+        // PersonProfile shape. We still seed the current user context
+        // afterwards so audit chains downstream of bootstrap have an
+        // actor to attribute writes to.
+        var result = await _pendingUserProvisioner.ProvisionPendingOwnerAsync(
             tenant.Id,
-            newUser.Id,
-            _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new
-            {
-                newUser.Id,
-                Email = AuditLogMasking.MaskEmail(newUser.Email),
-                PartyId = party.Id,
-                UserPartyId = userParty.Id,
-                PersonProfileId = personProfile.Id,
-                EmailContactId = emailContactId,
-                RequiresIdentityLink = true
-            }),
+            ownerContext.Email,
+            ownerContext.DisplayName,
             cancellationToken);
 
-        return (newUser.Id, true);
+        if (result.WasCreated)
+        {
+            _currentUserContext.UserId = result.UserId;
+            _currentUserContext.TenantId ??= tenant.Id;
+        }
+
+        return (result.UserId, result.WasCreated);
     }
 
     private async Task<bool> EnsurePlatformAdminRoleAsync(

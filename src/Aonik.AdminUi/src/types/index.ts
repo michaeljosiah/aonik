@@ -249,6 +249,19 @@ export interface CreateTenantRequest {
   environment: TenantEnvironment;
   defaultCurrency: string;
   supportedCountries: string[];
+  /**
+   * Email of the customer's first administrator. The backend creates a
+   * pending placeholder User + Party for this email and grants them
+   * `TenantAdmin`; the first IdP login matching this email links onto
+   * the placeholder. Required — JIT user creation for arbitrary tenant
+   * logins is no longer permitted.
+   */
+  ownerEmail: string;
+  /**
+   * Optional human-readable name for the owner; falls back to the
+   * email when omitted.
+   */
+  ownerDisplayName?: string;
   allowedOriginCountries?: string[];
   allowedDestinationCountries?: string[];
   supportedCurrencies?: string[];

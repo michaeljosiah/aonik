@@ -64,55 +64,72 @@ internal class UserIdentityService : IUserIdentityService
             return existingUser;
         }
 
+        // Tenant-scoped login: try to match a pre-provisioned
+        // placeholder (owner OR invite) by email and link the real
+        // external identity onto it. Both placeholder kinds live under
+        // the same bootstrap issuer; the subject prefix distinguishes
+        // them but the lookup ignores that — any pending placeholder
+        // matching the email will accept the link.
         if (!string.IsNullOrWhiteSpace(normalizedEmail) && aonikTenantId != Guid.Empty)
         {
-            var pendingBootstrapUsers = await _dbContext.Users
+            var pendingPlaceholders = await _dbContext.Users
                 .Where(u =>
                     u.TenantId == aonikTenantId &&
                     u.ExternalIssuer == BootstrapIdentityConstants.PendingOwnerIssuer &&
                     u.Email != null)
                 .ToListAsync(ct);
 
-            var bootstrapUser = pendingBootstrapUsers.FirstOrDefault(user =>
+            var placeholder = pendingPlaceholders.FirstOrDefault(user =>
                 string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase));
 
-            if (bootstrapUser != null)
+            if (placeholder != null)
             {
-                bootstrapUser.ExternalIssuer = externalIssuer;
-                bootstrapUser.ExternalSubject = externalSubject;
-                bootstrapUser.ExternalTenantId = externalTenantId;
-                bootstrapUser.Email = normalizedEmail;
+                var placeholderKind = placeholder.ExternalSubject.StartsWith("invite:", StringComparison.Ordinal)
+                    ? "invite"
+                    : "owner";
+
+                placeholder.ExternalIssuer = externalIssuer;
+                placeholder.ExternalSubject = externalSubject;
+                placeholder.ExternalTenantId = externalTenantId;
+                placeholder.Email = normalizedEmail;
 
                 await _dbContext.SaveChangesAsync(ct);
-                await EnsureDefaultPersonalUserRoleAsync(bootstrapUser.Id, aonikTenantId, ct);
+                await EnsureDefaultPersonalUserRoleAsync(placeholder.Id, aonikTenantId, ct);
 
                 _logger.LogInformation(
-                    "Linked bootstrap owner {UserId} to external identity (Issuer: {Issuer}, Subject: {Subject})",
-                    bootstrapUser.Id,
+                    "Linked pending {PlaceholderKind} {UserId} to external identity (Issuer: {Issuer}, Subject: {Subject})",
+                    placeholderKind,
+                    placeholder.Id,
                     externalIssuer,
                     externalSubject);
 
                 await _auditLogWriter.LogAsync(
                     AuditEventNames.UserIdentityLinked,
                     "User",
-                    bootstrapUser.Id,
+                    placeholder.Id,
                     aonikTenantId,
-                    bootstrapUser.Id,
+                    placeholder.Id,
                     _correlationContext.CorrelationId,
                     JsonSerializer.Serialize(new
                     {
-                        bootstrapUser.Id,
-                        Email = AuditLogMasking.MaskEmail(bootstrapUser.Email),
-                        bootstrapUser.ExternalIssuer,
-                        bootstrapUser.ExternalSubject,
-                        bootstrapUser.ExternalTenantId
+                        placeholder.Id,
+                        Email = AuditLogMasking.MaskEmail(placeholder.Email),
+                        placeholder.ExternalIssuer,
+                        placeholder.ExternalSubject,
+                        placeholder.ExternalTenantId,
+                        PlaceholderKind = placeholderKind,
                     }),
                     ct);
 
-                return bootstrapUser;
+                return placeholder;
             }
         }
 
+        // Host / system path (no tenant scope): retain the JIT create
+        // behavior — there's no tenant boundary to protect, and the
+        // caller is logging in to manage the platform itself, not a
+        // specific tenant. Bootstrap relies on this path for the very
+        // first owner before any tenant exists.
         if (aonikTenantId == Guid.Empty)
         {
             var platformUser = new User
@@ -152,61 +169,41 @@ internal class UserIdentityService : IUserIdentityService
             return platformUser;
         }
 
+        // Tenant-scoped login but the identity has NO existing link
+        // and NO matching pending placeholder. This is the security
+        // gap the rewrite closes: previously we'd silently create an
+        // active user in any tenant the caller selected at login,
+        // letting any authenticated identity grant themselves access
+        // by picking a tenant from the list. We now reject the login
+        // with a clear error so the operator (or the user themselves)
+        // can request an invitation through the proper channel.
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == aonikTenantId, ct);
 
+        var tenantNameLogContext = tenant?.Name ?? aonikTenantId.ToString();
 
-        if (tenant == null)
-        {
-            _logger.LogError("Attempted to create user in non-existent tenant {TenantId}", aonikTenantId);
-            throw new InvalidOperationException($"Tenant {aonikTenantId} does not exist");
-        }
-
-        if (tenant.Status != "Active")
-        {
-            _logger.LogWarning("Attempted to create user in non-active tenant {TenantId} (Status: {Status})",
-                aonikTenantId, tenant.Status);
-            throw new InvalidOperationException($"Tenant {aonikTenantId} is not active (Status: {tenant.Status})");
-        }
-
-        // Create new user (JIT provisioning)
-        var newUser = new User
-        {
-            Id = Guid.NewGuid(),
-            TenantId = aonikTenantId,
-            ExternalIssuer = externalIssuer,
-            ExternalSubject = externalSubject,
-            ExternalTenantId = externalTenantId,
-            Email = normalizedEmail, // Nullable - only if present
-            Status = "Active"
-        };
-
-        _dbContext.Users.Add(newUser);
-        await _dbContext.SaveChangesAsync(ct);
-
-        await EnsureDefaultPersonalUserRoleAsync(newUser.Id, aonikTenantId, ct);
-
-        _logger.LogInformation("Created new user {UserId} via JIT provisioning (Issuer: {Issuer}, Subject: {Subject})",
-            newUser.Id, externalIssuer, externalSubject);
+        _logger.LogWarning(
+            "Tenant access denied for identity (Issuer: {Issuer}, Subject: {Subject}) — no existing link or pending invitation in tenant {Tenant}",
+            externalIssuer, externalSubject, tenantNameLogContext);
 
         await _auditLogWriter.LogAsync(
-            AuditEventNames.UserProvisioned,
+            AuditEventNames.UserAccessDenied,
             "User",
-            newUser.Id,
+            Guid.Empty,
             aonikTenantId,
-            newUser.Id,
+            actorId: null,
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new
             {
-                newUser.Id,
-                Email = AuditLogMasking.MaskEmail(newUser.Email),
-                newUser.ExternalIssuer,
-                newUser.ExternalSubject,
-                newUser.ExternalTenantId
+                Reason = "no_link_or_invite",
+                Email = AuditLogMasking.MaskEmail(normalizedEmail),
+                ExternalIssuer = externalIssuer,
+                ExternalSubject = externalSubject,
             }),
             ct);
 
-        return newUser;
+        throw new TenantAccessDeniedException(
+            "You do not have access to this tenant. Ask a tenant administrator to invite you.");
     }
 
     private async Task EnsureDefaultPersonalUserRoleAsync(

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Users;
 
-internal class InviteUserEndpoint : Endpoint<InviteUserRequest>
+internal class InviteUserEndpoint : Endpoint<InviteUserRequest, InviteUserResponse>
 {
     private readonly IAccessManagementService _accessManagementService;
 
@@ -21,8 +21,8 @@ internal class InviteUserEndpoint : Endpoint<InviteUserRequest>
         Summary(s =>
         {
             s.Summary = "Invite a new user";
-            s.Description = "Sends an invitation to a new user to join the tenant, provisioning their account and sending a welcome notification.";
-            s.Response(200, "Invitation sent");
+            s.Description = "Provisions a pending placeholder user with the requested roles in the current tenant. The first IdP login matching the invited email links to the placeholder.";
+            s.Response(200, "Invitation created");
             s.Response(400, "Invalid request");
             s.Response(401, "Not authenticated");
         });
@@ -31,7 +31,7 @@ internal class InviteUserEndpoint : Endpoint<InviteUserRequest>
 
     public override async Task HandleAsync(InviteUserRequest req, CancellationToken ct)
     {
-        await _accessManagementService.InviteUserAsync(req, ct);
-        await Send.OkAsync(ct);
+        var result = await _accessManagementService.InviteUserAsync(req, ct);
+        await Send.OkAsync(result, ct);
     }
 }

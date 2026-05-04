@@ -69,9 +69,15 @@ public class UserIdentityServiceTests
 
 
     [Fact]
-    public async Task ResolveOrCreateUserAsync_ShouldCreateUserOnFirstLogin()
+    public async Task ResolveOrCreateUserAsync_ShouldRejectFirstLogin_WhenNoPendingPlaceholderExists()
     {
-        // Arrange
+        // This pins the security tightening: a tenant-scoped login
+        // from an identity that has neither an existing link nor a
+        // pending owner/invite placeholder must be rejected. The
+        // old behavior silently created an "Active" user in any
+        // tenant the caller selected, which let any authenticated
+        // identity grant themselves access by picking a tenant from
+        // the login picker.
         var tenantId = Guid.NewGuid();
         var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
@@ -89,7 +95,6 @@ public class UserIdentityServiceTests
             Status = TenantStatus.Active
         });
         await context.SaveChangesAsync();
-
 
         var service = new UserIdentityService(
             context,
@@ -98,7 +103,7 @@ public class UserIdentityServiceTests
             new TestCorrelationContext("corr-1"));
 
         // Act
-        var user = await service.ResolveOrCreateUserAsync(
+        var act = async () => await service.ResolveOrCreateUserAsync(
             externalIssuer: "test-issuer",
             externalSubject: "test-subject",
             externalTenantId: "external-tenant",
@@ -107,15 +112,18 @@ public class UserIdentityServiceTests
             ct: CancellationToken.None);
 
         // Assert
-        user.Should().NotBeNull();
-        user.TenantId.Should().Be(tenantId);
-        context.Users.Should().HaveCount(1);
+        var ex = await act.Should().ThrowAsync<TenantAccessDeniedException>();
+        ex.Which.Message.Should().Contain("do not have access");
+        context.Users.Should().BeEmpty();
     }
 
     [Fact]
     public async Task ResolveOrCreateUserAsync_ShouldReuseExistingUserOnRepeatLogin()
     {
-        // Arrange
+        // Arrange — seed an already-linked user (i.e. prior login
+        // happened off-test and the User row carries the real IdP
+        // issuer/subject). The repeat-login path is the most common
+        // case and must remain a fast no-write fetch.
         var tenantId = Guid.NewGuid();
         var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
@@ -132,8 +140,19 @@ public class UserIdentityServiceTests
             SupportedCountriesJson = "[]",
             Status = TenantStatus.Active
         });
-        await context.SaveChangesAsync();
 
+        var existingUser = new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = "test-issuer",
+            ExternalSubject = "test-subject",
+            ExternalTenantId = "external-tenant",
+            Email = "first@login.test",
+            Status = "Active",
+        };
+        context.Users.Add(existingUser);
+        await context.SaveChangesAsync();
 
         var service = new UserIdentityService(
             context,
@@ -141,15 +160,8 @@ public class UserIdentityServiceTests
             new TestAuditLogWriter(),
             new TestCorrelationContext("corr-2"));
 
-        var firstUser = await service.ResolveOrCreateUserAsync(
-            externalIssuer: "test-issuer",
-            externalSubject: "test-subject",
-            externalTenantId: "external-tenant",
-            email: "first@login.test",
-            aonikTenantId: tenantId,
-            ct: CancellationToken.None);
-
-        // Act
+        // Act — second login from the same identity should reuse
+        // the row and update email if it changed in the IdP.
         var secondUser = await service.ResolveOrCreateUserAsync(
             externalIssuer: "test-issuer",
             externalSubject: "test-subject",
@@ -159,15 +171,19 @@ public class UserIdentityServiceTests
             ct: CancellationToken.None);
 
         // Assert
-        secondUser.Id.Should().Be(firstUser.Id);
+        secondUser.Id.Should().Be(existingUser.Id);
         context.Users.Should().HaveCount(1);
         secondUser.Email.Should().Be("second@login.test");
     }
 
     [Fact]
-    public async Task ResolveOrCreateUserAsync_ShouldLogAuditWithMaskedEmail()
+    public async Task ResolveOrCreateUserAsync_ShouldLogAccessDeniedAudit_WithMaskedEmail()
     {
-        // Arrange
+        // The masked-email audit obligation now applies to the
+        // UserAccessDenied event (instead of UserProvisioned, which
+        // no longer fires for arbitrary tenant logins). The audit
+        // entry still has to scrub the email so dashboards can
+        // show "v***@e***.com" without leaking PII.
         var tenantId = Guid.NewGuid();
         var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
@@ -185,7 +201,6 @@ public class UserIdentityServiceTests
             Status = TenantStatus.Active
         });
         await context.SaveChangesAsync();
-
 
         var auditLogWriter = new TestAuditLogWriter();
         var correlationId = "corr-verify";
@@ -196,7 +211,7 @@ public class UserIdentityServiceTests
             new TestCorrelationContext(correlationId));
 
         // Act
-        var user = await service.ResolveOrCreateUserAsync(
+        var act = async () => await service.ResolveOrCreateUserAsync(
             externalIssuer: "test-issuer",
             externalSubject: "test-subject",
             externalTenantId: "external-tenant",
@@ -205,15 +220,88 @@ public class UserIdentityServiceTests
             ct: CancellationToken.None);
 
         // Assert
+        await act.Should().ThrowAsync<TenantAccessDeniedException>();
+
         auditLogWriter.LastEntry.Should().NotBeNull();
-        auditLogWriter.LastEntry!.Action.Should().Be(AuditEventNames.UserProvisioned);
+        auditLogWriter.LastEntry!.Action.Should().Be(AuditEventNames.UserAccessDenied);
         auditLogWriter.LastEntry.TenantId.Should().Be(tenantId);
-        auditLogWriter.LastEntry.ActorId.Should().Be(user.Id);
         auditLogWriter.LastEntry.CorrelationId.Should().Be(correlationId);
 
         using var document = JsonDocument.Parse(auditLogWriter.LastEntry.DetailsJson!);
         document.RootElement.GetProperty("Email").GetString()
             .Should().Be(AuditLogMasking.MaskEmail("first@login.test"));
+    }
+
+    [Fact]
+    public async Task ResolveOrCreateUserAsync_ShouldLinkPendingInvitedUserByEmail()
+    {
+        // Mirror of ShouldLinkPendingBootstrapOwnerByEmail but for
+        // the invite path: same issuer, different subject prefix.
+        // The JIT linker treats both kinds identically — any
+        // pending placeholder matching the email is a valid link
+        // target.
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        using var context = new PlatformDbContext(options, tenantProvider);
+        context.Tenants.Add(new Tenant
+        {
+            Id = tenantId,
+            Name = "Invite Tenant",
+            Environment = "Testing",
+            DefaultCurrency = "USD",
+            SupportedCountriesJson = "[]",
+            Status = TenantStatus.Active
+        });
+
+        var pendingInvite = new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = BootstrapIdentityConstants.PendingOwnerIssuer,
+            ExternalSubject = BootstrapIdentityConstants.CreatePendingInviteSubject("invitee@example.com"),
+            Email = "invitee@example.com",
+            Status = "Active"
+        };
+
+        var personalUserRole = new Role
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "PersonalUser"
+        };
+
+        context.Users.Add(pendingInvite);
+        context.Roles.Add(personalUserRole);
+        await context.SaveChangesAsync();
+
+        var auditLogWriter = new TestAuditLogWriter();
+        var service = new UserIdentityService(
+            context,
+            NullLogger<UserIdentityService>.Instance,
+            auditLogWriter,
+            new TestCorrelationContext("corr-link-invite"));
+
+        // Act
+        var user = await service.ResolveOrCreateUserAsync(
+            externalIssuer: "https://issuer.example.com/",
+            externalSubject: "subject-invite-456",
+            externalTenantId: "entra-tenant",
+            email: "invitee@example.com",
+            aonikTenantId: tenantId,
+            ct: CancellationToken.None);
+
+        // Assert
+        user.Id.Should().Be(pendingInvite.Id);
+        user.ExternalIssuer.Should().Be("https://issuer.example.com/");
+        context.Users.Should().HaveCount(1);
+        auditLogWriter.LastEntry!.Action.Should().Be(AuditEventNames.UserIdentityLinked);
+        using var document = JsonDocument.Parse(auditLogWriter.LastEntry.DetailsJson!);
+        document.RootElement.GetProperty("PlaceholderKind").GetString()
+            .Should().Be("invite");
     }
 
     [Fact]

@@ -15,8 +15,21 @@ public record ListRolesRequest(
 
 public record InviteUserRequest(
     string Email,
-    List<Guid>? RoleIds = null
+    List<Guid>? RoleIds = null,
+    string? DisplayName = null
 );
+
+/// <summary>
+/// Result of a successful invite. Returned to the admin so they can
+/// confirm the placeholder was created and (later) trigger a notify
+/// flow if email delivery is wired up.
+/// </summary>
+public record InviteUserResponse(
+    Guid UserId,
+    Guid TenantId,
+    string Email,
+    string? DisplayName,
+    List<Guid> AssignedRoleIds);
 
 public record UpdateUserRolesRequest(
     List<Guid> RoleIds
