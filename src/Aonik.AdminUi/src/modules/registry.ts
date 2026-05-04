@@ -144,13 +144,15 @@ export function getAggregatedBreadcrumbs(enabledModuleIds?: string[]): ModuleBre
 
 /**
  * Resolve breadcrumb trail for a given path using module-contributed breadcrumbs.
+ * Returns the typed trail (strings + {label, href} entries) so the top
+ * bar can render the parent items as navigable links.
  */
-export function resolveBreadcrumb(path: string): string[] {
+export function resolveBreadcrumb(path: string): import('./types').ModuleBreadcrumbItem[] {
   const breadcrumbs = getAggregatedBreadcrumbs();
   for (const bc of breadcrumbs) {
     if (path.startsWith(bc.pathPrefix)) {
       return bc.trail;
     }
   }
-  return path === '/' ? ['Dashboard'] : ['Dashboard'];
+  return ['Dashboard'];
 }

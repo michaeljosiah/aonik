@@ -4,8 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, Edit, Eye, User, UserMinus, Users, UsersRound } from 'lucide-react';
+import { AlertCircle, Edit, Eye, UserMinus, Users } from 'lucide-react';
 import { userService } from '@/services/userService';
 import type { AccessUserSummary, PagedResult } from '@/types';
 import {
@@ -170,7 +169,7 @@ export function AccessUsersPage() {
       onClick: () => navigate(`/access/users/${user.userId}`),
     },
     {
-      label: 'Edit User',
+      label: 'Edit ',
       icon: <Edit className="w-4 h-4" />,
       onClick: () => navigate(`/access/users/${user.userId}`),
     },
@@ -219,7 +218,7 @@ export function AccessUsersPage() {
   const columns: ColumnDef<AccessUserSummary>[] = [
     {
       id: 'user',
-      header: 'User',
+      header: '',
       accessorFn: (row) => row.displayName || row.email,
       sortable: true,
       cell: (user) => (
@@ -371,16 +370,9 @@ export function AccessUsersPage() {
     setPageSize(newPageSize);
     setPageNumber(1);
   };
-
-  const breadcrumbItems = [
-    { label: 'Users & Access', href: '/access', icon: <UsersRound className="w-3.5 h-3.5" /> },
-    { label: 'Users', icon: <User className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
       {/* Breadcrumb */}
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">

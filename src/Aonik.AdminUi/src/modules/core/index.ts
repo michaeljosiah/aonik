@@ -84,15 +84,15 @@ const panelComponents = {
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
-  { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
-  { pathPrefix: '/ai/traces/', trail: ['AI', 'AI Traces', 'Run Trace'] },
-  { pathPrefix: '/ai/traces', trail: ['AI', 'AI Traces'] },
-  { pathPrefix: '/ai/tasks', trail: ['AI', 'LLM Tasks'] },
-  { pathPrefix: '/ai/prompts', trail: ['AI', 'Prompt Templates'] },
-  { pathPrefix: '/ai/playground', trail: ['AI', 'AI Playground'] },
-  { pathPrefix: '/ai/routing', trail: ['AI', 'Route Policies'] },
-  { pathPrefix: '/ai/agents/', trail: ['AI', 'Agents', 'Agent Details'] },
-  { pathPrefix: '/ai/agents', trail: ['AI', 'Agents'] },
+  { pathPrefix: '/ai/models', trail: [{ label: 'AI', href: '/ai' }, 'Models'] },
+  { pathPrefix: '/ai/traces/', trail: [{ label: 'AI', href: '/ai' }, { label: 'AI Traces', href: '/ai/traces' }, 'Run Trace'] },
+  { pathPrefix: '/ai/traces', trail: [{ label: 'AI', href: '/ai' }, 'AI Traces'] },
+  { pathPrefix: '/ai/tasks', trail: [{ label: 'AI', href: '/ai' }, 'LLM Tasks'] },
+  { pathPrefix: '/ai/prompts', trail: [{ label: 'AI', href: '/ai' }, 'Prompt Templates'] },
+  { pathPrefix: '/ai/playground', trail: [{ label: 'AI', href: '/ai' }, 'AI Playground'] },
+  { pathPrefix: '/ai/routing', trail: [{ label: 'AI', href: '/ai' }, 'Route Policies'] },
+  { pathPrefix: '/ai/agents/', trail: [{ label: 'AI', href: '/ai' }, { label: 'Agents', href: '/ai/agents' }, 'Agent Details'] },
+  { pathPrefix: '/ai/agents', trail: [{ label: 'AI', href: '/ai' }, 'Agents'] },
   { pathPrefix: '/ai', trail: ['AI'] },
   { pathPrefix: '/workspace', trail: ['Workspace'] },
 ];

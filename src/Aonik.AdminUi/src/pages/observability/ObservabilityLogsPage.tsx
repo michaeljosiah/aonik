@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -167,14 +166,6 @@ export function ObservabilityLogsPage() {
     <div className="flex h-full flex-col overflow-auto">
       <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
         <div className="px-6 pt-5 pb-4">
-          <Breadcrumb
-            items={[
-              { label: 'Admin' },
-              { label: 'Observability', href: '/admin/observability', icon: <Activity className="h-4 w-4" /> },
-              { label: 'Logs' },
-            ]}
-            className="mb-3"
-          />
           <PageHeader
             eyebrow="Observability · Structured logs"
             title="Logs"

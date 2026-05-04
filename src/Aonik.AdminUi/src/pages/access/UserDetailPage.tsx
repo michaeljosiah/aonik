@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   RefreshCw,
   AlertCircle,
@@ -251,12 +250,6 @@ export function UserDetailPage() {
     const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://localhost:5001';
     return `${apiBaseUrl}${photoUrl}`;
   };
-
-  const breadcrumbItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Users', href: '/access/users' },
-  ];
-
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -291,7 +284,6 @@ export function UserDetailPage() {
       <div className="px-6 py-4 flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
         <div>
           <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">User Details</h1>
-          <Breadcrumb items={breadcrumbItems} className="mt-1" />
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">

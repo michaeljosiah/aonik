@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Globe2, Layers, Building2, Wrench, ArrowUpRight, Network } from 'lucide-react';
 
 const catalogTiles = [
@@ -43,7 +42,6 @@ export function CatalogLandingPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={[{ label: 'Catalog', icon: <Layers className="w-3.5 h-3.5" /> }]} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

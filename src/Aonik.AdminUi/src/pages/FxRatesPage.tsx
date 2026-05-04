@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowRightLeft, Plus, Settings, TrendingUp, Clock, AlertCircle, Trash2 } from 'lucide-react';
@@ -95,13 +94,6 @@ export function FxRatesPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Settings', href: '/settings/general' },
-          { label: 'FX Rates' },
-        ]}
-        className="mb-4"
-      />
 
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">

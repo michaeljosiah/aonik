@@ -10,7 +10,6 @@ import {
   Clock3,
   Link2,
   MapPin,
-  Network,
   Pencil,
   RefreshCw,
   Route,
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -277,19 +275,11 @@ export function CatalogPartnerDetailPage() {
   const connectorCount = partner.connectorCount ?? connectors.length;
   const branchCount = partner.branchCount ?? branches.length;
   const linkedBillerCount = partner.linkedBillerCount ?? linkedBillers.length;
-
-  const breadcrumbItems = [
-    { label: 'Catalog', href: '/catalog' },
-    { label: 'Partners', href: '/catalog/partners', icon: <Network className="h-3.5 w-3.5" /> },
-    { label: partner.name, icon: <Building2 className="h-3.5 w-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto bg-[var(--color-background)]">
       <div className="flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)] px-6 py-4">
         <div>
           <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Partner Details</h1>
-          <Breadcrumb items={breadcrumbItems} className="mt-1" />
         </div>
 
         <div className="flex items-center gap-2">

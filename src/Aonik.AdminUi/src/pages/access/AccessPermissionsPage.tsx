@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, Key, RefreshCw, Search, UsersRound } from 'lucide-react';
+import { AlertCircle, Key, RefreshCw, Search } from 'lucide-react';
 import { permissionService } from '@/services/permissionService';
 import type { PermissionDefinition } from '@/types';
 import {
@@ -87,15 +86,8 @@ export function AccessPermissionsPage() {
   const categories = useMemo(() => {
     return Array.from(new Set(normalizedPermissions.map((permission) => permission.displayCategory))).sort();
   }, [normalizedPermissions]);
-
-  const breadcrumbItems = [
-    { label: 'Users & Access', href: '/access', icon: <UsersRound className="w-3.5 h-3.5" /> },
-    { label: 'Permissions', icon: <Key className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

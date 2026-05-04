@@ -5,7 +5,6 @@ import {
   Play,
   Pause,
   RefreshCw,
-  ServerCog,
   Activity,
   CheckCircle2,
   XCircle,
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -247,15 +245,8 @@ export function BackgroundJobsPage() {
       setActionInProgress(null);
     }
   };
-
-  const breadcrumbItems = [
-    { label: 'Settings', href: '/settings', icon: <ServerCog className="w-3.5 h-3.5" /> },
-    { label: 'Background Jobs', icon: <Timer className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>

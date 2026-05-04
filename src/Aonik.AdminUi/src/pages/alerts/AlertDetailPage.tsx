@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BellRing, ExternalLink, RefreshCw, ShieldAlert } from 'lucide-react';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,13 +51,6 @@ export function AlertDetailPage() {
   useEffect(() => {
     void loadAlert();
   }, [loadAlert]);
-
-  const breadcrumbItems = [
-    { label: 'Admin', href: '/settings', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
-    { label: 'Platform Alerts', href: '/admin/alerts', icon: <BellRing className="w-3.5 h-3.5" /> },
-    { label: alert?.alertRuleName ?? 'Alert detail' },
-  ];
-
   if (loading) {
     return (
       <div className="h-full overflow-auto p-6">
@@ -77,7 +69,6 @@ export function AlertDetailPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>

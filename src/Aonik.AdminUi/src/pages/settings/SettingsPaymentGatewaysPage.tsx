@@ -2,9 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Copy, Plus, Save, TestTube2 } from 'lucide-react';
 
-import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -79,7 +77,6 @@ export function SettingsPaymentGatewaysPage() {
   return (
     <div className="flex h-full min-h-0">
       <aside className="w-80 flex-none overflow-auto border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-[18px]">
-        <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Payment Gateways', icon: <AonikTemplateIcon name="bank" size={14} /> }]} className="mb-4" />
         <h1 className="text-[17px] font-semibold text-[var(--color-text-primary)]">Payment gateways</h1>
         <p className="mt-1 mb-4 text-[12.5px] leading-5 text-[var(--color-text-secondary)]">
           Configure providers, routing, and credentials per region.

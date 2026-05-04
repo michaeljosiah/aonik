@@ -6,13 +6,10 @@ import {
   BookOpen,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
-} from 'lucide-react';
+  } from 'lucide-react';
 
 import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-
 type SettingsSection = 'Platform' | 'Finance' | 'AI & Agents';
 
 interface SettingsTile {
@@ -145,7 +142,6 @@ export function SettingsLandingPage() {
 
   return (
     <div className="h-full overflow-auto px-8 py-6">
-      <Breadcrumb items={[{ label: 'Settings', icon: <SlidersHorizontal className="h-3.5 w-3.5" /> }]} className="mb-4" />
 
       <div className="mb-7 flex flex-wrap items-start justify-between gap-3">
         <div>

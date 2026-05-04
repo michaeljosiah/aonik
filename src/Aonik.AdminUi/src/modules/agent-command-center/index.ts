@@ -148,10 +148,10 @@ export const agentCommandCenterModule: AdminModule = {
   workspaceTemplates,
   breadcrumbs: [
     { pathPrefix: '/approvals', trail: ['Approvals'] },
-    { pathPrefix: '/ai/runs', trail: ['AI', 'Run queue'] },
-    { pathPrefix: '/ai/policies', trail: ['AI', 'Policies'] },
-    { pathPrefix: '/ai/usage', trail: ['AI', 'Usage'] },
-    { pathPrefix: '/ai/workflows/', trail: ['AI', 'Workflows', 'Editor'] },
-    { pathPrefix: '/ai/workflows', trail: ['AI', 'Workflows'] },
+    { pathPrefix: '/ai/runs', trail: [{ label: 'AI', href: '/ai' }, 'Run queue'] },
+    { pathPrefix: '/ai/policies', trail: [{ label: 'AI', href: '/ai' }, 'Policies'] },
+    { pathPrefix: '/ai/usage', trail: [{ label: 'AI', href: '/ai' }, 'Usage'] },
+    { pathPrefix: '/ai/workflows/', trail: [{ label: 'AI', href: '/ai' }, { label: 'Workflows', href: '/ai/workflows' }, 'Editor'] },
+    { pathPrefix: '/ai/workflows', trail: [{ label: 'AI', href: '/ai' }, 'Workflows'] },
   ],
 };

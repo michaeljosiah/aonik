@@ -215,12 +215,12 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 const breadcrumbs = [
   { pathPrefix: '/customers', trail: ['Customers'] },
   { pathPrefix: '/accounts', trail: ['Accounts'] },
-  { pathPrefix: '/orders/bill-payments', trail: ['Orders', 'Bill Payments'] },
+  { pathPrefix: '/orders/bill-payments', trail: [{ label: 'Orders', href: '/orders' }, 'Bill Payments'] },
   { pathPrefix: '/orders', trail: ['Orders'] },
   { pathPrefix: '/ledger', trail: ['Accounting'] },
   { pathPrefix: '/catalog', trail: ['Catalog'] },
   { pathPrefix: '/compliance', trail: ['Documents'] },
-  { pathPrefix: '/billing/invoices', trail: ['Billing', 'Invoices'] },
+  { pathPrefix: '/billing/invoices', trail: [{ label: 'Billing', href: '/billing' }, 'Invoices'] },
 ];
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { AlertCircle, Cog, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { AlertCircle, RefreshCw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -212,13 +211,6 @@ export function SettingsAuthenticationPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Settings', href: '/settings', icon: <Cog className="h-3.5 w-3.5" /> },
-          { label: 'Authentication', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
-        ]}
-        className="mb-4"
-      />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

@@ -182,7 +182,14 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
                 messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
             messages.Add(new ChatMessage(ChatRole.User, transcript));
 
-            var options = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+            var options = new ChatOptions
+            {
+                ModelId = profile.ModelId,
+                AdditionalProperties = new AdditionalPropertiesDictionary
+                {
+                    [AiTelemetry.UseCaseAttribute] = SummaryUseCase,
+                },
+            };
 
             var response = await _chatClient.GetResponseAsync(
                 messages,
@@ -242,7 +249,14 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
                 messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
             messages.Add(new ChatMessage(ChatRole.User, transcript));
 
-            var options = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+            var options = new ChatOptions
+            {
+                ModelId = profile.ModelId,
+                AdditionalProperties = new AdditionalPropertiesDictionary
+                {
+                    [AiTelemetry.UseCaseAttribute] = MemoryExtractionUseCase,
+                },
+            };
 
             var response = await _chatClient.GetResponseAsync(
                 messages,

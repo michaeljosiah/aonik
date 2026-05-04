@@ -210,6 +210,19 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         chatActivity?.SetBaggage("aonik.chat.run_id", runId);
         chatActivity?.SetBaggage("aonik.agent.name", input.AgentId ?? "orchestrator");
 
+        // Surface the user's most recent message on the chat activity so
+        // voice traces show the transcribed prompt directly in the trace
+        // explorer (otherwise the only place to find it is the raw
+        // Application Insights customDimensions JSON, which the trace
+        // explorer doesn't render). Truncated to 1 KB to keep span
+        // payloads bounded; long pasted prompts get clipped with an
+        // ellipsis indicator.
+        var firstUserMessage = ExtractLatestUserMessage(input.Messages);
+        if (!string.IsNullOrEmpty(firstUserMessage))
+        {
+            chatActivity?.SetTag("aonik.chat.user_prompt", firstUserMessage);
+        }
+
         // Resolve / create the persisted thread before anything else — the
         // thread GUID is what we stamp onto OTel baggage and SSE events.
         var threadCtx = await _threadManager.EnsureThreadAsync(
@@ -747,5 +760,37 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         // emit later text deltas.
         voiceCoordinator?.StartChunkSynthesis(messageId, chunkIndex, chunkText, threadId, cancellationToken);
         return true;
+    }
+
+    /// <summary>
+    /// Returns the most recent user-role message from the supplied AGUI
+    /// payload, truncated to a span-friendly cap. Used to stamp the
+    /// transcribed prompt on the chat-level activity so voice traces
+    /// show what the user actually said. Truncation includes a trailing
+    /// ellipsis when content is clipped, so admins reading the trace
+    /// know the value isn't the full message.
+    /// </summary>
+    private const int UserPromptTagMaxChars = 1024;
+
+    private static string? ExtractLatestUserMessage(IReadOnlyList<AguiMessage>? messages)
+    {
+        if (messages is null || messages.Count == 0) return null;
+
+        for (var i = messages.Count - 1; i >= 0; i--)
+        {
+            var message = messages[i];
+            if (!string.Equals(message.Role, "user", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var content = message.Content;
+            if (string.IsNullOrWhiteSpace(content)) continue;
+
+            var trimmed = content.Trim();
+            return trimmed.Length <= UserPromptTagMaxChars
+                ? trimmed
+                : trimmed[..UserPromptTagMaxChars] + "…";
+        }
+
+        return null;
     }
 }

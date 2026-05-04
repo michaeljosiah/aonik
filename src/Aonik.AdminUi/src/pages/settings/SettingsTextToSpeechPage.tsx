@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, AudioLines, CircleHelp, Download, Info, RefreshCw, Save, Upload, Volume2, Waves } from 'lucide-react';
+import { AlertCircle, CircleHelp, Download, Info, RefreshCw, Save, Upload, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/auth';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -732,13 +731,6 @@ export function SettingsTextToSpeechPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Settings', href: '/settings', icon: <AudioLines className="h-3.5 w-3.5" /> },
-          { label: 'Text to Speech', icon: <Waves className="h-3.5 w-3.5" /> },
-        ]}
-        className="mb-4"
-      />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

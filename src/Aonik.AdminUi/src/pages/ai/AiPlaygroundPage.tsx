@@ -1,6 +1,5 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import {
-  FlaskConical,
   Loader2,
   Plus,
   Play,
@@ -39,7 +38,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import type { AgentConfigurationResponse, PlaygroundScenarioResponse } from '@/types/ai';
 import type { AiTaskResponse } from '@/services/aiService';
@@ -124,12 +122,6 @@ function playWithBrowserSpeech(
 type PlaygroundMode = 'agent' | 'task';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
-
-const breadcrumbItems = [
-  { label: 'AI', href: '/ai/agents' },
-  { label: 'AI Playground', icon: <FlaskConical className="h-3.5 w-3.5" /> },
-];
-
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export function AiPlaygroundPage() {
@@ -1060,7 +1052,6 @@ function PlaygroundHeader({
 }) {
   return (
     <div className="shrink-0 px-6 pt-5 pb-0">
-      <Breadcrumb items={breadcrumbItems} />
       <div className="mt-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">

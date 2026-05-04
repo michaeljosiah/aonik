@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   ArrowLeft,
   RefreshCw,
@@ -96,16 +95,8 @@ export function CatalogBillerDetailPage() {
       </div>
     );
   }
-
-  const breadcrumbItems = [
-    { label: 'Catalog', href: '/catalog' },
-    { label: 'Billers', href: '/catalog/billers', icon: <Building2 className="w-3.5 h-3.5" /> },
-    { label: biller.name, icon: <Building2 className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
         <div className="flex items-center gap-4">

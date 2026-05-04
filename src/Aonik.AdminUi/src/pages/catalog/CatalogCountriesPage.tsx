@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { DataTableHeader, DataTablePagination, type ViewMode } from '@/components/ui/data-table';
 import { RefreshCw, AlertCircle, Globe2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
@@ -78,7 +77,6 @@ export function CatalogCountriesPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={[{ label: 'Catalog', href: '/catalog' }, { label: 'Countries', icon: <Globe2 className="w-3.5 h-3.5" /> }]} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

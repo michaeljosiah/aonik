@@ -228,14 +228,14 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/access', trail: ['Team'] },
-  { pathPrefix: '/admin/observability/traces', trail: ['Admin', 'Observability', 'Traces'] },
-  { pathPrefix: '/admin/observability/logs', trail: ['Admin', 'Observability', 'Logs'] },
-  { pathPrefix: '/admin/observability/audit', trail: ['Admin', 'Observability', 'Audit Log'] },
-  { pathPrefix: '/admin/observability', trail: ['Admin', 'Observability', 'Overview'] },
-  { pathPrefix: '/admin', trail: ['Admin', 'Infrastructure'] },
-  { pathPrefix: '/tenants', trail: ['Admin', 'Infrastructure'] },
-  { pathPrefix: '/settings', trail: ['Admin', 'Settings'] },
-  { pathPrefix: '/cms', trail: ['Admin', 'Content'] },
+  { pathPrefix: '/admin/observability/traces', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Traces'] },
+  { pathPrefix: '/admin/observability/logs', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Logs'] },
+  { pathPrefix: '/admin/observability/audit', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Observability', href: '/admin/observability' }, 'Audit Log'] },
+  { pathPrefix: '/admin/observability', trail: [{ label: 'Admin', href: '/admin' }, 'Observability'] },
+  { pathPrefix: '/admin', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },
+  { pathPrefix: '/tenants', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },
+  { pathPrefix: '/settings', trail: [{ label: 'Admin', href: '/admin' }, 'Settings'] },
+  { pathPrefix: '/cms', trail: [{ label: 'Admin', href: '/admin' }, 'Content'] },
 ];
 
 // ---------------------------------------------------------------------------

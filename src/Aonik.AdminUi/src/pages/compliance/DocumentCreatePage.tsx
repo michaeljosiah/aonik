@@ -8,7 +8,6 @@ import {
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -147,14 +146,6 @@ export function DocumentCreatePage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Compliance', href: '/compliance' },
-          { label: 'Documents', href: '/compliance/documents' },
-          { label: 'New Document' },
-        ]}
-        className="mb-4"
-      />
 
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { 
   Plus, 
   Search, 
@@ -95,14 +94,8 @@ export function TenantsListPage() {
     setPageSize(newPageSize);
     setPageNumber(1);
   };
-
-  const breadcrumbItems = [
-    { label: 'Tenants', icon: <Building2 className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">

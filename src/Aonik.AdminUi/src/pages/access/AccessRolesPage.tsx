@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, RefreshCw, Search, Shield, UsersRound } from 'lucide-react';
+import { AlertCircle, RefreshCw, Search, Shield } from 'lucide-react';
 import { roleService } from '@/services/roleService';
 import type { AccessRoleSummary, PagedResult } from '@/types';
 import { DataTablePagination } from '@/components/ui/data-table';
@@ -66,15 +65,8 @@ export function AccessRolesPage() {
     setPageSize(newPageSize);
     setPageNumber(1);
   };
-
-  const breadcrumbItems = [
-    { label: 'Users & Access', href: '/access', icon: <UsersRound className="w-3.5 h-3.5" /> },
-    { label: 'Roles', icon: <Shield className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

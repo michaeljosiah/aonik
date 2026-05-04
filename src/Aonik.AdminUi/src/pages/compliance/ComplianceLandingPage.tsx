@@ -2,8 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { ClipboardCheck, FileText, ArrowUpRight } from 'lucide-react';
+import { FileText, ArrowUpRight } from 'lucide-react';
 
 const complianceTiles = [
   {
@@ -20,7 +19,6 @@ export function ComplianceLandingPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={[{ label: 'Compliance', icon: <ClipboardCheck className="w-3.5 h-3.5" /> }]} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

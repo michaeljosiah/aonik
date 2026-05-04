@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -420,12 +419,6 @@ export function AiModelsPage() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────
-
-  const breadcrumbItems = [
-    { label: 'AI & Agents', href: '/ai' },
-    { label: 'Models', icon: <BrainCircuit className="w-3.5 h-3.5" /> },
-  ];
-
   const totalProviders = providers.length;
   const activeProviders = providers.filter((provider) => provider.isActive).length;
   const totalModels = models.length;
@@ -531,7 +524,6 @@ export function AiModelsPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

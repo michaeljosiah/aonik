@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Timer, Play, Pause, RefreshCw, ServerCog, ArrowLeft, AlertTriangle, Clock, ScrollText, Plus, X, Save } from 'lucide-react';
+import { Play, Pause, RefreshCw, ArrowLeft, AlertTriangle, Clock, ScrollText, Plus, X, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -200,13 +199,6 @@ export function BackgroundJobDetailPage() {
       setActionInProgress(false);
     }
   };
-
-  const breadcrumbItems = [
-    { label: 'Settings', href: '/settings', icon: <ServerCog className="w-3.5 h-3.5" /> },
-    { label: 'Background Jobs', href: '/settings/background-jobs', icon: <Timer className="w-3.5 h-3.5" /> },
-    { label: detail?.displayName ?? jobName ?? '...' },
-  ];
-
   if (loading) {
     return (
       <div className="h-full overflow-auto p-6">
@@ -230,7 +222,6 @@ export function BackgroundJobDetailPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>

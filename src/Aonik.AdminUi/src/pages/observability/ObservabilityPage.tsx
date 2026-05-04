@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Activity,
   AlertTriangle,
   Bell,
   Calendar,
@@ -11,7 +10,6 @@ import {
 } from 'lucide-react';
 
 import { MetricCard, TimeSeriesChart } from '@/components/charts';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -294,13 +292,6 @@ export function ObservabilityPage() {
     <div className="flex h-full flex-col">
       <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
         <div className="px-6 pt-5 pb-4">
-          <Breadcrumb
-            items={[
-              { label: 'Admin' },
-              { label: 'Observability', icon: <Activity className="h-4 w-4" /> },
-            ]}
-            className="mb-3"
-          />
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Observability</h1>

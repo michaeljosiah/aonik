@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, BellRing, RefreshCw, ShieldAlert } from 'lucide-react';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,15 +63,8 @@ export function AlertsPage() {
 
     return () => clearInterval(interval);
   }, [loadAlerts]);
-
-  const breadcrumbItems = [
-    { label: 'Admin', href: '/settings', icon: <ShieldAlert className="w-3.5 h-3.5" /> },
-    { label: 'Platform Alerts', icon: <BellRing className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>

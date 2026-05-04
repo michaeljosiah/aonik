@@ -6,7 +6,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   Tooltip,
   TooltipContent,
@@ -105,12 +104,6 @@ function relativeTime(dateStr: string): string {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
-
-const breadcrumbItems = [
-  { label: 'AI', href: '/ai/agents' },
-  { label: 'LLM Tasks', icon: <ListChecks className="h-3.5 w-3.5" /> },
-];
-
 // ── Tooltip helper ──────────────────────────────────────────────────
 
 function FieldLabel({ htmlFor, label, tooltip }: { htmlFor: string; label: string; tooltip: string }) {
@@ -411,7 +404,6 @@ export function AiTasksPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-1" />
 
       {/* Header */}
       <div className="flex items-center justify-between">

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Activity, AlertCircle, Copy, Loader2 } from 'lucide-react';
+import { AlertCircle, Copy, Loader2 } from 'lucide-react';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,12 +79,6 @@ export function AiTraceDetailPage() {
     void load();
   }, [runId]);
 
-  const breadcrumbItems = useMemo(() => [
-    { label: 'AI', href: '/ai/agents' },
-    { label: 'AI Traces', href: '/ai/traces' },
-    { label: runId ?? 'Trace', icon: <Activity className="h-3.5 w-3.5" /> },
-  ], [runId]);
-
   const handleCopyRunId = async () => {
     if (!trace) return;
     await navigator.clipboard.writeText(trace.run.runId);
@@ -103,7 +96,6 @@ export function AiTraceDetailPage() {
   if (error || !trace) {
     return (
       <div className="p-6 space-y-4">
-        <Breadcrumb items={breadcrumbItems} />
         <Card className="p-5 border-l-4 border-l-red-500">
           <div className="flex items-center gap-3 text-red-700">
             <AlertCircle className="h-5 w-5" />
@@ -122,7 +114,6 @@ export function AiTraceDetailPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="space-y-2">
-        <Breadcrumb items={breadcrumbItems} className="mb-1" />
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Run Trace</h1>

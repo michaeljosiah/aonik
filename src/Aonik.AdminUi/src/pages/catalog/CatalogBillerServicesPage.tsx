@@ -3,15 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   RefreshCw,
   AlertCircle,
   Wrench,
   ArrowUpRight,
   Search,
-  Building2,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
 import type { CatalogBillerServiceItem } from '@/types';
 
@@ -53,16 +51,8 @@ export function CatalogBillerServicesPage() {
     const lowered = search.trim().toLowerCase();
     return services.filter((service) => service.name.toLowerCase().includes(lowered));
   }, [services, search]);
-
-  const breadcrumbItems = [
-    { label: 'Catalog', href: '/catalog' },
-    { label: 'Billers', href: '/catalog/billers', icon: <Building2 className="w-3.5 h-3.5" /> },
-    { label: 'Services', icon: <Wrench className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

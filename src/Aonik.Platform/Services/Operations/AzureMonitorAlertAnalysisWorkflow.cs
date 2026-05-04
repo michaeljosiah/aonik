@@ -102,7 +102,14 @@ internal sealed class AzureMonitorAlertAnalysisWorkflow : IAlertAnalysisWorkflow
 
             messages.Add(new ChatMessage(ChatRole.User, userPrompt));
 
-            var options = profile.ModelId is null ? null : new ChatOptions { ModelId = profile.ModelId };
+            var options = new ChatOptions
+            {
+                ModelId = profile.ModelId,
+                AdditionalProperties = new AdditionalPropertiesDictionary
+                {
+                    [AiTelemetry.UseCaseAttribute] = UseCase,
+                },
+            };
             var response = await _chatClient.GetResponseAsync(messages, options, cancellationToken);
             var parsed = TryParse(response.Text);
             var result = parsed ?? BuildFallback(alertEvent);

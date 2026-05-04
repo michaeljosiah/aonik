@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataTablePagination } from '@/components/ui/data-table';
@@ -181,17 +180,8 @@ export function DocumentsListPage() {
     setPageNumber(1);
   }, [searchQuery, statusFilter]);
 
-  const breadcrumbItems = useMemo(
-    () => [
-      { label: 'Compliance', href: '/compliance' },
-      { label: 'Documents', icon: <FileText className="w-3.5 h-3.5" /> },
-    ],
-    [],
-  );
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">

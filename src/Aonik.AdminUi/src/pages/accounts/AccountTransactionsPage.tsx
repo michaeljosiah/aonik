@@ -6,7 +6,6 @@ import { CreateTransactionDialog } from './CreateTransactionDialog';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   ArrowLeft,
   FileUp,
@@ -241,15 +240,8 @@ export function AccountTransactionsPage() {
         );
       })
     : transactions;
-
-  const breadcrumbItems = [
-    { label: 'Accounts', icon: <Landmark className="w-3.5 h-3.5" />, href: '/accounts' },
-    { label: account?.maskedIdentifier ?? 'Transactions' },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

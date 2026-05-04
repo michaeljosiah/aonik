@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   Dialog,
   DialogContent,
@@ -345,17 +344,10 @@ export function RoutePoliciesPage() {
   }, {});
 
   // ── Breadcrumb ────────────────────────────────────────────────────
-
-  const breadcrumbItems = [
-    { label: 'AI', href: '/ai/agents' },
-    { label: 'Route Policies', icon: <Route className="w-3.5 h-3.5" /> },
-  ];
-
   // ── Render ────────────────────────────────────────────────────────
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">

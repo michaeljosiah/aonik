@@ -15,14 +15,26 @@ export interface ModuleRouteConfig {
 }
 
 /**
+ * A single breadcrumb item — either a plain label or a label paired
+ * with a navigable href. Items with `href` render as clickable links
+ * in the top bar; plain strings render as static text (typically the
+ * current page).
+ */
+export type ModuleBreadcrumbItem = string | { label: string; href: string };
+
+/**
  * Breadcrumb mapping contributed by a module.
  * Maps a path prefix to the breadcrumb trail displayed in the header.
  */
 export interface ModuleBreadcrumb {
   /** Path prefix to match (matched with startsWith) */
   pathPrefix: string;
-  /** Breadcrumb trail (e.g. ["Orders", "Bill Payments"]) */
-  trail: string[];
+  /**
+   * Breadcrumb trail. Each item is either a string (plain text, no
+   * navigation) or { label, href } (renders as a Link in the top bar).
+   * Use href for parent items so users can navigate back up the tree.
+   */
+  trail: ModuleBreadcrumbItem[];
 }
 
 /**

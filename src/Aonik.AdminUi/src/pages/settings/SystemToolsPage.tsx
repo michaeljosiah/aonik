@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
-import { ShieldCheck, Wrench, RefreshCw, AlertCircle, ServerCog, Database, Sprout, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, RefreshCw, AlertCircle, Database, Sprout, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +87,6 @@ export function SystemToolsPage() {
       setDemoSeedStatus('error');
     }
   };
-
 
   const loadCacheOverview = async () => {
     setCacheStatus('running');
@@ -183,15 +181,8 @@ export function SystemToolsPage() {
     void loadCacheOverview();
     void loadAvailableSeeds();
   }, []);
-
-  const breadcrumbItems = [
-    { label: 'Settings', href: '/settings', icon: <ServerCog className="w-3.5 h-3.5" /> },
-    { label: 'System Tools', icon: <Wrench className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>

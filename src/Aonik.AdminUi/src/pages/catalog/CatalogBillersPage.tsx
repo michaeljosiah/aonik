@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   RefreshCw,
   AlertCircle,
@@ -96,15 +95,8 @@ export function CatalogBillersPage() {
   const activeFilters = useMemo(() => {
     return [countryFilter, categoryFilter, search].filter(Boolean).length;
   }, [countryFilter, categoryFilter, search]);
-
-  const breadcrumbItems = [
-    { label: 'Catalog', href: '/catalog' },
-    { label: 'Billers', icon: <Building2 className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   CircleAlert,
-  Cog,
   Eye,
   EyeOff,
   Info,
@@ -16,7 +15,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -1012,10 +1010,6 @@ export function GlobalSettingsPage() {
   return (
     <div className="flex h-full min-h-0">
       <div className="flex w-[260px] flex-none flex-col border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5">
-        <Breadcrumb
-          items={[{ label: 'Settings', href: '/settings', icon: <Cog className="h-3.5 w-3.5" /> }]}
-          className="mb-4"
-        />
 
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Platform</p>
         <h1 className="mb-1 text-[17px] font-semibold text-[var(--color-text-primary)]">Global settings</h1>

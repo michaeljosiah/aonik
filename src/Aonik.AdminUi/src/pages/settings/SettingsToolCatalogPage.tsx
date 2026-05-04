@@ -1,8 +1,6 @@
 import { BookOpen, CheckCircle2, GitBranch, LockKeyhole, Search } from 'lucide-react';
 
-import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -36,10 +34,6 @@ const toolGroups = [
 export function SettingsToolCatalogPage() {
   return (
     <div className="h-full overflow-auto px-8 py-6">
-      <Breadcrumb
-        items={[{ label: 'Settings', href: '/settings' }, { label: 'Tool Catalog', icon: <AonikTemplateIcon name="list" size={14} /> }]}
-        className="mb-4"
-      />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

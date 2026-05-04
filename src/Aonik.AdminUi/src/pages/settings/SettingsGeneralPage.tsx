@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Cog, RotateCcw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { RotateCcw, Save, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -234,13 +233,6 @@ export function SettingsGeneralPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Settings', href: '/settings', icon: <Cog className="h-3.5 w-3.5" /> },
-          { label: 'General', icon: <SlidersHorizontal className="h-3.5 w-3.5" /> },
-        ]}
-        className="mb-4"
-      />
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">General Settings</h1>

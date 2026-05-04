@@ -2,8 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { ClipboardList, Receipt, Layers, ArrowUpRight } from 'lucide-react';
+import { Receipt, Layers, ArrowUpRight } from 'lucide-react';
 
 const orderTiles = [
   {
@@ -27,7 +26,6 @@ export function OrdersLandingPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={[{ label: 'Orders', icon: <ClipboardList className="w-3.5 h-3.5" /> }]} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

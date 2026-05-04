@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { RefreshCw, AlertCircle, Layers, Search } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
 import type { CatalogBillerCategoryItem } from '@/types';
@@ -50,7 +49,6 @@ export function CatalogCategoriesPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={[{ label: 'Catalog', href: '/catalog' }, { label: 'Categories', icon: <Layers className="w-3.5 h-3.5" /> }]} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>

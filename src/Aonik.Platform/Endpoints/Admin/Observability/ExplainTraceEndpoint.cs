@@ -97,15 +97,41 @@ internal sealed class ExplainTraceEndpoint
         options.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         options.AdditionalProperties[AiTelemetry.UseCaseAttribute] = UseCase;
 
-        var response = await _chatClient.GetResponseAsync(
-            messages,
-            options: options,
-            cancellationToken: ct);
-
-        var analysis = response.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(analysis))
+        string analysis;
+        try
         {
-            analysis = "No analysis available right now.";
+            var response = await _chatClient.GetResponseAsync(
+                messages,
+                options: options,
+                cancellationToken: ct);
+
+            analysis = (response.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(analysis))
+            {
+                analysis = "The model returned an empty response. Try again — if it persists, the prompt may have been filtered or the model is unavailable.";
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Caller-cancelled; let the framework surface 499 / closed
+            // connection as usual.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Surface a useful description to the UI instead of a bare
+            // 500. The frontend renders the analysis text — pulling the
+            // exception message into the same channel keeps admins in
+            // the loop without making them open a separate logs view.
+            var detail = ex.Message;
+            if (string.IsNullOrWhiteSpace(detail))
+            {
+                detail = ex.GetType().Name;
+            }
+            analysis =
+                "AI analysis failed.\n\n" +
+                $"Error: {detail}\n\n" +
+                "This is usually a transient model availability or context-size issue. Click 'Interpret with AI' again to retry — the trace data itself is still intact in the waterfall below.";
         }
 
         await Send.OkAsync(new ExplainTraceResponse(analysis), ct);

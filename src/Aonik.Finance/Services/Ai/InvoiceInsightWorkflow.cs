@@ -62,7 +62,16 @@ Line Items Count: {invoice.LineItems.Count}
             messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
         messages.Add(new ChatMessage(ChatRole.User, userPrompt));
 
-        var options = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+        var options = new ChatOptions
+        {
+            ModelId = profile.ModelId,
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                // Stamp the use_case so worker / API traces label this
+                // run as "invoice-insight" instead of the generic "chat".
+                [AiTelemetry.UseCaseAttribute] = UseCase,
+            },
+        };
         var response = await _chatClient.GetResponseAsync(messages, options: options, cancellationToken: cancellationToken);
         var completion = response.Text ?? string.Empty;
 

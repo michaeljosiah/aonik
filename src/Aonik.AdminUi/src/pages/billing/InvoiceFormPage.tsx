@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Receipt,
-  FileText,
   Plus,
   Trash2,
   Send,
@@ -12,7 +10,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -292,17 +289,9 @@ export function InvoiceFormPage() {
   }, [customerId, customers]);
 
   // ── Breadcrumbs ───────────────────────────────────────────────────
-
-  const breadcrumbItems = [
-    { label: 'Billing', href: '/billing/invoices', icon: <Receipt className="w-3.5 h-3.5" /> },
-    { label: 'Invoices', href: '/billing/invoices', icon: <FileText className="w-3.5 h-3.5" /> },
-    { label: isCreate ? 'New Invoice' : (invoice?.invoiceNumber ? `#${invoice.invoiceNumber.slice(0, 8)}` : '...') },
-  ];
-
   if (loading) {
     return (
       <div className="h-full overflow-auto p-6">
-        <Breadcrumb items={breadcrumbItems} className="mb-4" />
         <p className="text-sm text-[var(--color-text-tertiary)]">Loading invoice...</p>
       </div>
     );
@@ -310,7 +299,6 @@ export function InvoiceFormPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">

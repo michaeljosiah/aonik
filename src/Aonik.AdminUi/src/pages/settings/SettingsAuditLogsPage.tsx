@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Cog, RefreshCw, ScrollText } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -149,13 +148,6 @@ export function SettingsAuditLogsPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Settings', href: '/settings', icon: <Cog className="h-3.5 w-3.5" /> },
-          { label: 'Audit Logs', icon: <ScrollText className="h-3.5 w-3.5" /> },
-        ]}
-        className="mb-4"
-      />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

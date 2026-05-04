@@ -116,6 +116,13 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
                     schemaName: "CustomerInsightAiSummary",
                     schemaDescription: "A structured AI summary of a customer insight snapshot.")
             };
+            // Stamp the use_case so the trace listing surfaces this run as
+            // its semantic name (e.g. "customer_insight_summary") rather
+            // than the generic "chat" default that AuditMiddleware /
+            // TelemetryChatClient apply when no use_case is supplied.
+            chatOptions.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+            chatOptions.AdditionalProperties[AiTelemetry.UseCaseAttribute] = CustomerInsightAiSummaryContract.UseCase;
+
             var response = await _chatClient.GetResponseAsync(messages, chatOptions, cancellationToken);
             var responseText = response.Text ?? string.Empty;
 

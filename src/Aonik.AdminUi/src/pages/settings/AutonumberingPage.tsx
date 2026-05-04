@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Hash, RefreshCw, AlertCircle, Plus, X, Beaker, Pencil, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -994,13 +993,6 @@ export function AutonumberingPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb
-        items={[
-          { label: 'Settings', href: '/settings', icon: <Hash className="w-3.5 h-3.5" /> },
-          { label: 'Autonumbering' },
-        ]}
-        className="mb-4"
-      />
 
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">

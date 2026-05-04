@@ -110,7 +110,14 @@ internal sealed class TransactionAiClassifier : ITransactionAiClassifier
 
         try
         {
-            var chatOptions = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+            var chatOptions = new ChatOptions
+            {
+                ModelId = profile.ModelId,
+                AdditionalProperties = new AdditionalPropertiesDictionary
+                {
+                    [AiTelemetry.UseCaseAttribute] = UseCase,
+                },
+            };
             var chatResponse = await _chatClient.GetResponseAsync(messages, options: chatOptions, cancellationToken: cancellationToken);
             var responseText = chatResponse.Text ?? string.Empty;
 

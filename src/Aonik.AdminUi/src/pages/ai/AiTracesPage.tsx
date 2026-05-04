@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Activity, AlertCircle, Braces, ChevronDown, ChevronRight, Copy, ExternalLink, Loader2, Search, X } from 'lucide-react';
 
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,12 +25,6 @@ import {
 import { DataTable, type ColumnDef } from '@/components/ui/data-table/data-table';
 import type { AiTraceObservationResponse } from '@/services/aiService';
 import { aiTraceService } from '@/services/aiService';
-
-const breadcrumbItems = [
-  { label: 'AI', href: '/ai/agents' },
-  { label: 'AI Traces', icon: <Activity className="h-3.5 w-3.5" /> },
-];
-
 const typeClass = (type: string) => {
   switch (type.toLowerCase()) {
     case 'generation':
@@ -933,7 +926,6 @@ export function AiTracesPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="space-y-2">
-        <Breadcrumb items={breadcrumbItems} className="mb-1" />
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">AI Traces</h1>

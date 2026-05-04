@@ -124,7 +124,7 @@ export function useModules() {
   const defaultWorkspacePanels = useMemo(() => getDefaultWorkspacePanels(enabledModuleIds), [enabledModuleIds]);
 
   const getBreadcrumb = useMemo(() => {
-    return (path: string): string[] => resolveBreadcrumb(path);
+    return (path: string) => resolveBreadcrumb(path);
   }, []);
 
   return {

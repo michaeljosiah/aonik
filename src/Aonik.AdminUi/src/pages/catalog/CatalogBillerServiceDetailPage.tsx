@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   ArrowLeft,
   RefreshCw,
@@ -12,9 +11,7 @@ import {
   CheckCircle,
   XCircle,
   ListTree,
-  Building2,
-  Wrench,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
 import type { CatalogBillerServiceDetailResponse } from '@/types';
 
@@ -75,17 +72,8 @@ export function CatalogBillerServiceDetailPage() {
   }
 
   const handleBack = () => navigate(`/catalog/billers/${billerId}/services`);
-
-  const breadcrumbItems = [
-    { label: 'Catalog', href: '/catalog' },
-    { label: 'Billers', href: '/catalog/billers', icon: <Building2 className="w-3.5 h-3.5" /> },
-    { label: 'Services', href: `/catalog/billers/${billerId}/services`, icon: <Wrench className="w-3.5 h-3.5" /> },
-    { label: service.name, icon: <Code2 className="w-3.5 h-3.5" /> },
-  ];
-
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>

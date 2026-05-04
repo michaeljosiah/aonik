@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Calendar, Download, Filter, Loader2, Sparkles } from 'lucide-react';
+import { Calendar, Download, Filter, Loader2, Sparkles } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -475,14 +474,6 @@ export function ObservabilityTracesPage() {
     <div className="relative flex h-full flex-col overflow-hidden">
       <div className="border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
         <div className="px-6 pt-5 pb-4">
-          <Breadcrumb
-            items={[
-              { label: 'Admin' },
-              { label: 'Observability', href: '/admin/observability', icon: <Activity className="h-4 w-4" /> },
-              { label: 'Traces' },
-            ]}
-            className="mb-3"
-          />
           <PageHeader
             eyebrow="Observability · Distributed tracing"
             title="Traces"

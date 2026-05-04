@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -16,7 +16,6 @@ import {
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -199,18 +198,6 @@ export function DocumentDetailPage() {
   /*  Render states                                                          */
   /* ---------------------------------------------------------------------- */
 
-  const breadcrumbItems = useMemo(
-    () => [
-      { label: 'Compliance', href: '/compliance' },
-      { label: 'Documents', href: '/compliance/documents' },
-      {
-        label: doc?.document.documentType ?? 'Document',
-        icon: <FileText className="w-3.5 h-3.5" />,
-      },
-    ],
-    [doc?.document.documentType],
-  );
-
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -222,13 +209,6 @@ export function DocumentDetailPage() {
   if (error || !doc) {
     return (
       <div className="h-full overflow-auto p-6">
-        <Breadcrumb
-          items={[
-            { label: 'Compliance', href: '/compliance' },
-            { label: 'Documents', href: '/compliance/documents' },
-          ]}
-          className="mb-4"
-        />
         <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
           <CardContent className="flex items-center gap-3 p-4 text-[var(--color-error)]">
             <AlertTriangle className="h-5 w-5" />
@@ -253,7 +233,6 @@ export function DocumentDetailPage() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       {/* Header */}
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">

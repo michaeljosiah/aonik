@@ -33,8 +33,16 @@ interface WorkspaceTab {
   updatedAt: string;
 }
 
+/**
+ * A breadcrumb item is either a plain label (renders as static text —
+ * typically the current page) or a { label, href } pair (renders as a
+ * Link). Mixing the two lets parent items navigate while the trailing
+ * item stays inert.
+ */
+export type TopBarBreadcrumbItem = string | { label: string; href: string };
+
 interface AonikTopBarProps {
-  breadcrumb?: string[];
+  breadcrumb?: TopBarBreadcrumbItem[];
   leftSlot?: React.ReactNode;
   isWorkspace?: boolean;
   onWorkspaceReset?: () => void;
@@ -285,21 +293,32 @@ export function AonikTopBar({
               <Home className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
               {breadcrumb.map((item, idx) => {
                 const isLast = idx === breadcrumb.length - 1;
+                const label = typeof item === 'string' ? item : item.label;
+                const href = typeof item === 'string' ? null : item.href;
+                const labelClass = cn(
+                  'text-[13px]',
+                  isLast
+                    ? 'font-semibold text-[var(--color-text-primary)]'
+                    : 'text-[var(--color-text-secondary)]',
+                );
                 return (
-                  <span key={`${item}-${idx}`} className="flex items-center gap-2.5">
+                  <span key={`${label}-${idx}`} className="flex items-center gap-2.5">
                     {idx > 0 && (
                       <ChevronRight className="h-3 w-3 text-[var(--color-text-tertiary)]" />
                     )}
-                    <span
-                      className={cn(
-                        'text-[13px]',
-                        isLast
-                          ? 'font-semibold text-[var(--color-text-primary)]'
-                          : 'text-[var(--color-text-secondary)]',
-                      )}
-                    >
-                      {item}
-                    </span>
+                    {href && !isLast ? (
+                      <Link
+                        to={href}
+                        className={cn(
+                          labelClass,
+                          'hover:text-[var(--color-text-primary)] hover:underline transition-colors',
+                        )}
+                      >
+                        {label}
+                      </Link>
+                    ) : (
+                      <span className={labelClass}>{label}</span>
+                    )}
                   </span>
                 );
               })}

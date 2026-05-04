@@ -6,7 +6,6 @@ import { CreateAccountDialog } from './CreateAccountDialog';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   AlertCircle,
   CheckCircle2,
@@ -190,18 +189,12 @@ export function AccountsListPage() {
       ),
     },
   ];
-
-  const breadcrumbItems = [
-    { label: 'Accounts', icon: <Landmark className="w-3.5 h-3.5" /> },
-  ];
-
   const totalAccounts = accounts.length;
   const linkedAccounts = accounts.filter((a) => a.verificationStatus === 'Verified').length;
   const manualAccounts = accounts.filter((a) => a.verificationStatus === 'Manual').length;
 
   return (
     <div className="h-full overflow-auto p-6">
-      <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
       <div className="flex items-center justify-between mb-6">
         <div>
