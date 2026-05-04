@@ -28,6 +28,7 @@ import {
   type ColumnDef,
   type DataTableAction,
 } from '@/components/ui/data-table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { CreateCustomerDialog } from '@/components/dialogs/CreateCustomerDialog';
 import { customerService } from '@/services/customerService';
@@ -53,6 +54,16 @@ function formatDate(value?: string | null): string {
 function formatCustomerId(partyId: string): string {
   const compact = partyId.replace(/-/g, '').slice(0, 8).toUpperCase();
   return `CUS-${compact}`;
+}
+
+function getCustomerPhotoUrl(customer: CustomerListItem): string | null {
+  const photoUrl = customer.photoUrlTiny;
+
+  if (!photoUrl) return null;
+  if (photoUrl.startsWith('http')) return photoUrl;
+
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://localhost:5001';
+  return `${apiBaseUrl}${photoUrl}`;
 }
 
 const STATUS_TONE: Record<string, PillTone> = {
@@ -202,21 +213,31 @@ export function CustomersListPage() {
       header: 'Customer',
       accessorFn: (row) => row.displayName ?? '',
       sortable: true,
-      cell: (row) => (
-        <div className="flex items-center gap-2.5">
-          <AgentAvatar name={row.displayName || row.primaryEmail || 'Customer'} size={26} />
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
-              {row.displayName || row.primaryEmail || '—'}
-            </span>
-            {row.primaryEmail && row.displayName && (
-              <span className="truncate text-[11px] text-[var(--color-text-tertiary)]">
-                {row.primaryEmail}
+      cell: (row) => {
+        const customerName = row.displayName || row.primaryEmail || 'Customer';
+        const photoUrl = getCustomerPhotoUrl(row);
+
+        return (
+          <div className="flex items-center gap-2.5">
+            <Avatar className="h-[26px] w-[26px] rounded-[7px]">
+              {photoUrl ? <AvatarImage src={photoUrl} alt={customerName} className="object-cover" /> : null}
+              <AvatarFallback className="rounded-[7px] bg-transparent p-0 text-inherit">
+                <AgentAvatar name={customerName} size={26} />
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                {row.displayName || row.primaryEmail || '—'}
               </span>
-            )}
+              {row.primaryEmail && row.displayName && (
+                <span className="truncate text-[11px] text-[var(--color-text-tertiary)]">
+                  {row.primaryEmail}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: 'type',
