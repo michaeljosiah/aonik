@@ -873,7 +873,10 @@ function hydrateToolCallMetadata(toolCall: ChatToolCall): ChatToolCall {
   if (toolCall.toolCallName === 'display_follow_up_suggestions') {
     return {
       ...toolCall,
-      followUpSuggestions: toolCall.followUpSuggestions ?? parseFollowUpSuggestions(tryParseJsonRecord(toolCall.args) ?? {}),
+      // parseFollowUpSuggestions returns null on parse failure but the
+      // ChatToolCall field is typed `FollowUpSuggestionsState | undefined`,
+      // so coerce null → undefined to keep TS strict mode happy.
+      followUpSuggestions: toolCall.followUpSuggestions ?? parseFollowUpSuggestions(tryParseJsonRecord(toolCall.args) ?? {}) ?? undefined,
     };
   }
 
