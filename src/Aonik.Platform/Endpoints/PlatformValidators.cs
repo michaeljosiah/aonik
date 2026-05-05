@@ -913,8 +913,15 @@ public sealed class CreateCustomerContactRequestValidator : Validator<CreateCust
 {
     public CreateCustomerContactRequestValidator()
     {
-        RuleFor(x => x.Type).RequiredText(32);
-        RuleFor(x => x.Value).RequiredText(512);
+        // The Admin UI's customer-create form posts placeholder rows for the
+        // Email/Phone slots even when the user leaves them blank. The service
+        // silently drops entirely-empty rows, so the validator must too —
+        // only enforce field rules when at least one of Type/Value is filled.
+        When(x => !string.IsNullOrWhiteSpace(x.Type) || !string.IsNullOrWhiteSpace(x.Value), () =>
+        {
+            RuleFor(x => x.Type).RequiredText(32);
+            RuleFor(x => x.Value).RequiredText(512);
+        });
     }
 }
 
@@ -922,16 +929,28 @@ public sealed class CreateCustomerAddressRequestValidator : Validator<CreateCust
 {
     public CreateCustomerAddressRequestValidator()
     {
-        RuleFor(x => x.Type).RequiredText(32);
-        RuleFor(x => x.Line1).RequiredText(256);
-        RuleFor(x => x.Line2).MaximumLength(256);
-        RuleFor(x => x.Line3).MaximumLength(256);
-        RuleFor(x => x.City).RequiredText(128);
-        RuleFor(x => x.State).MaximumLength(128);
-        RuleFor(x => x.Postcode).RequiredText(32);
-        RuleFor(x => x.Country)
-            .Length(2).Matches("^[A-Z]{2}$").WithMessage("Country must be a 2-letter ISO code.");
+        // Same tolerance as contacts: an empty placeholder address row is
+        // considered absent and skipped.
+        When(IsRowSupplied, () =>
+        {
+            RuleFor(x => x.Type).RequiredText(32);
+            RuleFor(x => x.Line1).RequiredText(256);
+            RuleFor(x => x.Line2).MaximumLength(256);
+            RuleFor(x => x.Line3).MaximumLength(256);
+            RuleFor(x => x.City).RequiredText(128);
+            RuleFor(x => x.State).MaximumLength(128);
+            RuleFor(x => x.Postcode).RequiredText(32);
+            RuleFor(x => x.Country)
+                .Length(2).Matches("^[A-Za-z]{2}$").WithMessage("Country must be a 2-letter ISO code.");
+        });
     }
+
+    private static bool IsRowSupplied(CreateCustomerAddressRequest x) =>
+        !string.IsNullOrWhiteSpace(x.Type)
+        || !string.IsNullOrWhiteSpace(x.Line1)
+        || !string.IsNullOrWhiteSpace(x.City)
+        || !string.IsNullOrWhiteSpace(x.Postcode)
+        || !string.IsNullOrWhiteSpace(x.Country);
 }
 
 public sealed class ListCustomersRequestValidator : Validator<ListCustomersRequest>
