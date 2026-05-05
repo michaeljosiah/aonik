@@ -68,11 +68,29 @@ public static class CommonValidationRules
             .WithMessage($"Page size must be between {min} and {max}.");
 
     /// <summary>
+    /// Nullable page-size guard. When null, the rule is skipped — combine
+    /// with <c>.When(x => x.PageSize.HasValue)</c> at the call site if you
+    /// want to require it.
+    /// </summary>
+    public static IRuleBuilderOptions<T, int?> PageSize<T>(this IRuleBuilder<T, int?> ruleBuilder, int min = 1, int max = 100)
+        => ruleBuilder
+            .Must(v => !v.HasValue || (v.Value >= min && v.Value <= max))
+            .WithMessage($"Page size must be between {min} and {max}.");
+
+    /// <summary>
     /// Page-number guard for paged-list endpoints (1-based).
     /// </summary>
     public static IRuleBuilderOptions<T, int> PageNumber<T>(this IRuleBuilder<T, int> ruleBuilder)
         => ruleBuilder
             .GreaterThanOrEqualTo(1)
+            .WithMessage("Page must be 1 or greater.");
+
+    /// <summary>
+    /// Nullable page-number guard.
+    /// </summary>
+    public static IRuleBuilderOptions<T, int?> PageNumber<T>(this IRuleBuilder<T, int?> ruleBuilder)
+        => ruleBuilder
+            .Must(v => !v.HasValue || v.Value >= 1)
             .WithMessage("Page must be 1 or greater.");
 
     /// <summary>
@@ -84,12 +102,28 @@ public static class CommonValidationRules
             .LessThanOrEqualTo(1_000_000_000m).WithMessage("Amount exceeds maximum supported value.");
 
     /// <summary>
+    /// Nullable variant — when supplied, must be positive and within the cap.
+    /// </summary>
+    public static IRuleBuilderOptions<T, decimal?> PositiveMoney<T>(this IRuleBuilder<T, decimal?> ruleBuilder)
+        => ruleBuilder
+            .Must(v => !v.HasValue || (v.Value > 0m && v.Value <= 1_000_000_000m))
+            .WithMessage("Amount must be greater than zero and within the maximum supported value.");
+
+    /// <summary>
     /// Money amount that may be zero or positive (e.g. discounts, totals).
     /// </summary>
     public static IRuleBuilderOptions<T, decimal> NonNegativeMoney<T>(this IRuleBuilder<T, decimal> ruleBuilder)
         => ruleBuilder
             .GreaterThanOrEqualTo(0).WithMessage("Amount cannot be negative.")
             .LessThanOrEqualTo(1_000_000_000m).WithMessage("Amount exceeds maximum supported value.");
+
+    /// <summary>
+    /// Nullable variant — when supplied, must be non-negative and within the cap.
+    /// </summary>
+    public static IRuleBuilderOptions<T, decimal?> NonNegativeMoney<T>(this IRuleBuilder<T, decimal?> ruleBuilder)
+        => ruleBuilder
+            .Must(v => !v.HasValue || (v.Value >= 0m && v.Value <= 1_000_000_000m))
+            .WithMessage("Amount must be non-negative and within the maximum supported value.");
 
     /// <summary>
     /// Bounded text field — non-empty plus length cap. Use for human-entered
