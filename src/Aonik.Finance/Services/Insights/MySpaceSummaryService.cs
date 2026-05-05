@@ -65,9 +65,15 @@ internal class MySpaceSummaryService : FinanceServiceBase, IMySpaceSummaryServic
         var revenueEvents = await BuildRevenueEventsAsync(
             tenantId, timelineCurrency, CashProjectionDays, cancellationToken);
 
+        // Block until both sub-tasks complete (they run in parallel because
+        // they were started above), then await each individually to fetch
+        // its result. Replaces the previous .Result reads — those threw an
+        // AggregateException on failure and risked sync-blocking the thread,
+        // whereas await unwraps the inner exception and is a fast path
+        // because the task has already completed.
         await Task.WhenAll(agentOpsTask, proposalsTask);
-        var agentOpsToday = agentOpsTask.Result;
-        var proposalSummaries = proposalsTask.Result;
+        var agentOpsToday = await agentOpsTask;
+        var proposalSummaries = await proposalsTask;
 
         var availableCurrencies = currencyCodes.Count > 0
             ? (IReadOnlyList<string>)currencyCodes

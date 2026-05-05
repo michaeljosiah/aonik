@@ -71,12 +71,17 @@ public class AppInsightsQueryService : IObservabilityService
             $"requests | where timestamp > {range.Ago} | summarize avg(duration) by bin(timestamp, {range.Bin}) | order by timestamp asc",
             cancellationToken);
 
+        // WhenAll runs the four queries in parallel and observes faults from
+        // every task even if one throws first. Once it returns, awaiting each
+        // sub-task again is a fast path that just unwraps the result — no
+        // sync blocking and no AggregateException wrapping (which the previous
+        // .Result reads suffered from).
         await Task.WhenAll(requestTimeSeriesTask, errorTimeSeriesTask, latencyPercentilesTask, latencyTimeSeriesTask);
 
-        var requestRows = requestTimeSeriesTask.Result;
-        var errorRows = errorTimeSeriesTask.Result;
-        var latencyPercentileRows = latencyPercentilesTask.Result;
-        var latencyRows = latencyTimeSeriesTask.Result;
+        var requestRows = await requestTimeSeriesTask;
+        var errorRows = await errorTimeSeriesTask;
+        var latencyPercentileRows = await latencyPercentilesTask;
+        var latencyRows = await latencyTimeSeriesTask;
 
         // Request metrics
         var requestTimeSeries = requestRows.Select(r => new TimeSeriesPoint(
@@ -281,8 +286,8 @@ public class AppInsightsQueryService : IObservabilityService
 
         await Task.WhenAll(timeSeriesTask, byAgentTask);
 
-        var timeSeriesRows = timeSeriesTask.Result;
-        var byAgentRows = byAgentTask.Result;
+        var timeSeriesRows = await timeSeriesTask;
+        var byAgentRows = await byAgentTask;
 
         var timeSeries = timeSeriesRows.Select(r => new TimeSeriesPoint(
             ParseDateTime(r, 0), ParseDouble(r, 1))).ToList();
@@ -415,9 +420,9 @@ public class AppInsightsQueryService : IObservabilityService
 
         await Task.WhenAll(countsTask, volumeTask, entriesTask);
 
-        var countsRows = countsTask.Result;
-        var volumeRows = volumeTask.Result;
-        var entryRows = entriesTask.Result;
+        var countsRows = await countsTask;
+        var volumeRows = await volumeTask;
+        var entryRows = await entriesTask;
 
         var counts = countsRows.Count > 0
             ? new StructuredLogSeverityCounts(
@@ -581,7 +586,7 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse latency distribution ──────────────────────────────────
 
-        var latencyDistRows = latencyDistTask.Result;
+        var latencyDistRows = await latencyDistTask;
         AiLatencyDistribution? latency = null;
         if (latencyDistRows.Count > 0)
         {
@@ -595,7 +600,7 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse TTFT distribution ─────────────────────────────────────
 
-        var ttftDistRows = ttftDistTask.Result;
+        var ttftDistRows = await ttftDistTask;
         AiTtftDistribution? ttft = null;
         if (ttftDistRows.Count > 0)
         {
@@ -609,7 +614,7 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse token usage ───────────────────────────────────────────
 
-        var tokenRows = tokenUsageTask.Result;
+        var tokenRows = await tokenUsageTask;
         AiTokenUsage? tokenUsage = null;
         if (tokenRows.Count > 0)
         {
@@ -623,7 +628,7 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse per-agent breakdown ───────────────────────────────────
 
-        var agentRows = byAgentTask.Result;
+        var agentRows = await byAgentTask;
         var byAgent = agentRows.Select(r => new AiAgentPerformance(
             GetString(r, 0),
             (long)ParseDouble(r, 1),
@@ -636,7 +641,7 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse per-use-case breakdown ────────────────────────────────
 
-        var useCaseRows = byUseCaseTask.Result;
+        var useCaseRows = await byUseCaseTask;
         var byUseCase = useCaseRows.Select(r => new AiUseCasePerformance(
             GetString(r, 0),
             (long)ParseDouble(r, 1),
@@ -650,7 +655,7 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse per-model breakdown ───────────────────────────────────
 
-        var modelRows = byModelTask.Result;
+        var modelRows = await byModelTask;
         var byModel = modelRows.Select(r => new AiModelPerformance(
             GetString(r, 0),
             (long)ParseDouble(r, 1),
@@ -662,7 +667,7 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse client vs server comparison ───────────────────────────
 
-        var csRows = clientServerTask.Result;
+        var csRows = await clientServerTask;
         AiClientServerComparison? clientServer = null;
         if (csRows.Count > 0)
         {
@@ -677,23 +682,23 @@ public class AppInsightsQueryService : IObservabilityService
 
         // ── Parse time series ───────────────────────────────────────────
 
-        var latencyTs = latencyTsTask.Result.Select(r => new TimeSeriesPoint(
+        var latencyTs = (await latencyTsTask).Select(r => new TimeSeriesPoint(
             ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList();
 
-        var ttftTs = ttftTsTask.Result.Select(r => new TimeSeriesPoint(
+        var ttftTs = (await ttftTsTask).Select(r => new TimeSeriesPoint(
             ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList();
 
-        var tokenTs = tokenTsTask.Result.Select(r => new TimeSeriesPoint(
+        var tokenTs = (await tokenTsTask).Select(r => new TimeSeriesPoint(
             ParseDateTime(r, 0), ParseDouble(r, 1))).ToList();
 
         // ── Parse personal finance streaming diagnostics ────────────────
 
         PersonalFinanceStreamingDiagnostics? personalFinanceStreaming = null;
 
-        var pfPhaseRows = pfPhaseTask.Result;
-        var pfCacheRows = pfCacheTask.Result;
-        var pfThreadModeRows = pfThreadModesTask.Result;
-        var pfHistorySourceRows = pfHistorySourcesTask.Result;
+        var pfPhaseRows = await pfPhaseTask;
+        var pfCacheRows = await pfCacheTask;
+        var pfThreadModeRows = await pfThreadModesTask;
+        var pfHistorySourceRows = await pfHistorySourcesTask;
 
         if (pfPhaseRows.Count > 0 || pfCacheRows.Count > 0 || pfThreadModeRows.Count > 0 || pfHistorySourceRows.Count > 0)
         {
@@ -766,23 +771,31 @@ public class AppInsightsQueryService : IObservabilityService
                 Math.Round(ParseDouble(r, 2), 2),
                 Math.Round(ParseDouble(r, 3), 2))).ToList();
 
+            // Each of the four phase time-series tasks has already completed
+            // (via the WhenAll above), so the awaits here are fast-path
+            // unwraps with no thread blocking.
+            var requestToFirstTokenRows = await pfRequestToFirstTokenTsTask;
+            var userBriefRows = await pfUserBriefTsTask;
+            var historyRows = await pfHistoryTsTask;
+            var runStartedRows = await pfRunStartedTsTask;
+
             var phaseTimeSeries = new List<AiStreamingPhaseTimeSeries>
             {
                 new(
                     "request_to_first_token",
-                    pfRequestToFirstTokenTsTask.Result.Select(r => new TimeSeriesPoint(
+                    requestToFirstTokenRows.Select(r => new TimeSeriesPoint(
                         ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
                 new(
                     "user_brief",
-                    pfUserBriefTsTask.Result.Select(r => new TimeSeriesPoint(
+                    userBriefRows.Select(r => new TimeSeriesPoint(
                         ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
                 new(
                     "history_load",
-                    pfHistoryTsTask.Result.Select(r => new TimeSeriesPoint(
+                    historyRows.Select(r => new TimeSeriesPoint(
                         ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
                 new(
                     "run_started_sse",
-                    pfRunStartedTsTask.Result.Select(r => new TimeSeriesPoint(
+                    runStartedRows.Select(r => new TimeSeriesPoint(
                         ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList()),
             };
 
@@ -857,7 +870,17 @@ public class AppInsightsQueryService : IObservabilityService
         await Task.WhenAll(latenciesTask, collectionsTask, errorsTask, totalsTask,
             searchTsTask, embeddingTsTask);
 
-        var latencies = latenciesTask.Result.Select(r =>
+        // All six tasks have completed via WhenAll above; awaiting each is
+        // a fast-path unwrap that avoids both AggregateException wrapping
+        // and any sync blocking that .Result would have caused.
+        var latencyRows = await latenciesTask;
+        var collectionRows = await collectionsTask;
+        var errorRows = await errorsTask;
+        var totalsRows = await totalsTask;
+        var searchTsRows = await searchTsTask;
+        var embeddingTsRows = await embeddingTsTask;
+
+        var latencies = latencyRows.Select(r =>
         {
             var samples = (long)ParseDouble(r, 1);
             var totalSum = ParseDouble(r, 2);
@@ -870,7 +893,7 @@ public class AppInsightsQueryService : IObservabilityService
                 Math.Round(ParseDouble(r, 5), 2));
         }).ToList();
 
-        var collections = collectionsTask.Result.Select(r => new RetrievalCollectionStats(
+        var collections = collectionRows.Select(r => new RetrievalCollectionStats(
             GetString(r, 0),
             (long)ParseDouble(r, 1),
             Math.Round(ParseDouble(r, 2), 2),
@@ -878,11 +901,11 @@ public class AppInsightsQueryService : IObservabilityService
             Math.Round(ParseDouble(r, 4), 2),
             Math.Round(ParseDouble(r, 5), 2))).ToList();
 
-        var embeddingErrors = errorsTask.Result.Count > 0
-            ? (long)ParseDouble(errorsTask.Result[0], 0) : 0;
+        var embeddingErrors = errorRows.Count > 0
+            ? (long)ParseDouble(errorRows[0], 0) : 0;
 
         long totalSearches = 0, totalUpserts = 0, totalEmbeddingCalls = 0;
-        foreach (var row in totalsTask.Result)
+        foreach (var row in totalsRows)
         {
             var name = GetString(row, 0);
             var count = (long)ParseDouble(row, 1);
@@ -891,10 +914,10 @@ public class AppInsightsQueryService : IObservabilityService
             else if (name == "embedding.api.duration_ms") totalEmbeddingCalls = count;
         }
 
-        var searchTs = searchTsTask.Result.Select(r => new TimeSeriesPoint(
+        var searchTs = searchTsRows.Select(r => new TimeSeriesPoint(
             ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList();
 
-        var embeddingTs = embeddingTsTask.Result.Select(r => new TimeSeriesPoint(
+        var embeddingTs = embeddingTsRows.Select(r => new TimeSeriesPoint(
             ParseDateTime(r, 0), Math.Round(ParseDouble(r, 1), 2))).ToList();
 
         return new RetrievalResponse(
@@ -954,8 +977,8 @@ public class AppInsightsQueryService : IObservabilityService
 
         await Task.WhenAll(servicesTask, edgesTask);
 
-        var serviceRows = servicesTask.Result;
-        var edgeRows = edgesTask.Result;
+        var serviceRows = await servicesTask;
+        var edgeRows = await edgesTask;
 
         var nodes = new Dictionary<string, TopologyNode>(StringComparer.OrdinalIgnoreCase);
 
