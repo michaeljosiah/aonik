@@ -1,0 +1,43 @@
+{
+  "_comment": "Canonical lists of demo seed names used both for upserts and for the reverse-phase (deletion) filters. Stable across releases — rename here only when the seeder itself is updated to write the new names.",
+
+  "workflowSlugs": [
+    "match_and_apply",
+    "sweep_unmatched",
+    "dunning_cadence",
+    "forward_quote",
+    "kyc_recheck",
+    "monthly_close",
+    "spend_anomaly"
+  ],
+
+  "notificationTypes": [
+    "agent.proposal.pending",
+    "compliance.case.opened",
+    "insights.anomaly.detected",
+    "order.complete",
+    "system.welcome"
+  ],
+
+  "agentNames": [
+    "Billing",
+    "Ledger",
+    "FX",
+    "Compliance",
+    "Dunning",
+    "Close",
+    "Insights"
+  ],
+
+  "partnerNames": [
+    "Gold Coast Bill Hub",
+    "Naija Utility Switch",
+    "EastPay Kenya",
+    "Mzansi Bill Connect"
+  ],
+
+  "householdNames": [
+    "Mensah Household",
+    "Cross-Border Professionals"
+  ]
+}

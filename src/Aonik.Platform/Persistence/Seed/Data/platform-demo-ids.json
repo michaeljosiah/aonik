@@ -1,0 +1,31 @@
+{
+  "_comment": "Deterministic GUIDs for the Platform demo seed (parties + relationships). Loaded once at startup by PlatformDemoSeedIds.",
+
+  "demoPair": {
+    "demoPayerPartyId":     "bfe9921e-2f3e-4c56-b8d1-4f5b2a7c3d44",
+    "demoReceiverPartyId":  "2a3e1f59-44f7-4df4-a8f1-936f9d9d13cd",
+    "demoRelationshipId":   "c90127f4-9b45-4a8e-9b90-7d0f3d4e65cc"
+  },
+
+  "personas": {
+    "tundePartyId":         "5ef5e008-8d3d-485f-8718-67ab4d4da2cf",
+    "adwoaPartyId":         "5c882622-4958-4e0e-8cad-cb20f6e720ca",
+    "peterPartyId":         "cb94f5cd-ed2d-4e95-99be-6d8bb6acdbbe",
+    "nalediPartyId":        "40ee8396-c640-4d0a-a262-2d32743cb95a",
+    "aishaPartyId":         "da32f3f2-07fa-41af-9792-6a4a0b8f5074",
+    "kofiPartyId":          "563b6348-c34f-423f-8b22-c92ca6f9f195",
+    "acmeImportsPartyId":   "f0f72256-f43b-455a-af08-8fab70115794",
+    "safariFreightPartyId": "087f4f38-a018-4b65-a47e-2e287d74f8f5",
+    "oliviaPartyId":        "fb229001-e24c-4fd3-a87d-e0458a2cf8cb",
+    "liamPartyId":          "3f48a4fc-c7ce-4f78-af09-a2796e735f85"
+  },
+
+  "personaRelationships": {
+    "tundeAdwoaRelationshipId":   "0d9cb5b0-9d5f-41a8-9f6f-e6ae45e4dd9f",
+    "tundePeterRelationshipId":   "15f65e53-3252-4a82-b6b9-f97b8b9d7199",
+    "nalediAishaRelationshipId":  "2f29a6f4-af26-4c2a-a6b1-0d64874fd6b3",
+    "kofiAmaRelationshipId":      "93c83fed-d56a-4ca6-8f44-4512f50eeecb",
+    "oliviaNalediRelationshipId": "f28be4e6-e5bc-43a5-8c52-cf3906f6c16f",
+    "liamKwameRelationshipId":    "0fd357dd-58a3-481b-a36d-5e7efde0ebca"
+  }
+}

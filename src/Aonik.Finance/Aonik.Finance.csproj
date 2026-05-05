@@ -36,4 +36,8 @@
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Services\Seeding\Data\*.json" />
+  </ItemGroup>
+
 </Project>

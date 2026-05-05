@@ -1,0 +1,48 @@
+{
+  "_comment": "Static descriptive data for catalog seeds. Loaded by FinanceDemoSeedCatalog. GUIDs live alongside in finance-demo-ids.json and are resolved by name when records are materialized.",
+
+  "globalCategories": [
+    {
+      "name": "Utilities",
+      "countryCode": "GH",
+      "description": "Electricity and water",
+      "iconUrl": "https://cdn.aonik.io/catalog/icons/utilities.png",
+      "sortOrder": 1
+    },
+    {
+      "name": "Telecom",
+      "countryCode": "GH",
+      "description": "Mobile and fixed line",
+      "iconUrl": "https://cdn.aonik.io/catalog/icons/telecom.png",
+      "sortOrder": 2
+    },
+    {
+      "name": "Internet",
+      "countryCode": "NG",
+      "description": "ISPs and broadband",
+      "iconUrl": "https://cdn.aonik.io/catalog/icons/internet.png",
+      "sortOrder": 3
+    },
+    {
+      "name": "Education",
+      "countryCode": "NG",
+      "description": "Tuition and school fees",
+      "iconUrl": "https://cdn.aonik.io/catalog/icons/education.png",
+      "sortOrder": 4
+    },
+    {
+      "name": "Government",
+      "countryCode": "KE",
+      "description": "Taxes and fees",
+      "iconUrl": "https://cdn.aonik.io/catalog/icons/government.png",
+      "sortOrder": 5
+    },
+    {
+      "name": "Cable",
+      "countryCode": "KE",
+      "description": "TV subscriptions",
+      "iconUrl": "https://cdn.aonik.io/catalog/icons/cable.png",
+      "sortOrder": 6
+    }
+  ]
+}

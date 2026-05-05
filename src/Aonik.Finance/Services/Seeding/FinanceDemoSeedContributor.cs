@@ -33,103 +33,110 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
     private readonly Dictionary<string, object> _results = new();
 
     // ── Well-known Guid constants ────────────────────────────────────
+    //
+    // All deterministic GUIDs live in finance-demo-ids.json (embedded
+    // resource) and are exposed here as static field aliases so the rest
+    // of the file reads naturally. The JSON is loaded once per process
+    // via FinanceDemoSeedIds.Instance.
 
     #region Static Guid constants
 
+    private static readonly FinanceDemoSeedIds SeedIds = FinanceDemoSeedIds.Instance;
+
     // Catalog
-    private static readonly Guid UtilitiesCategoryId = Guid.Parse("9de53a10-0f7c-4ce5-9ef4-6305656135e1");
-    private static readonly Guid EcgBillerId = Guid.Parse("aa7d7c1c-4aab-4b51-8b0a-155d42c328f8");
-    private static readonly Guid GhanaWaterBillerId = Guid.Parse("0f3b7b2a-c5c2-4d06-b8a2-6f3f28f0b2c5");
-    private static readonly Guid EcgPrepaidServiceId = Guid.Parse("3c1f6a6a-73cf-4be0-a15d-2ed45e8d3577");
-    private static readonly Guid GhanaWaterServiceId = Guid.Parse("c4a7f65d-2f7a-4b77-9a7c-5c9c9b8a7c91");
-    private static readonly Guid EcgPostpaidServiceId = Guid.Parse("9e1a2ff2-7f48-45fd-9af7-3d2d9cf5241e");
-    private static readonly Guid GhanaWaterPrepaidServiceId = Guid.Parse("8f80cb7d-fc6e-4b8f-8998-0f683ecf3f58");
+    private static readonly Guid UtilitiesCategoryId = SeedIds.Catalog.UtilitiesCategoryId;
+    private static readonly Guid EcgBillerId = SeedIds.Catalog.EcgBillerId;
+    private static readonly Guid GhanaWaterBillerId = SeedIds.Catalog.GhanaWaterBillerId;
+    private static readonly Guid EcgPrepaidServiceId = SeedIds.Catalog.EcgPrepaidServiceId;
+    private static readonly Guid GhanaWaterServiceId = SeedIds.Catalog.GhanaWaterServiceId;
+    private static readonly Guid EcgPostpaidServiceId = SeedIds.Catalog.EcgPostpaidServiceId;
+    private static readonly Guid GhanaWaterPrepaidServiceId = SeedIds.Catalog.GhanaWaterPrepaidServiceId;
 
     // Pricing
-    private static readonly Guid DemoFxQuoteId = Guid.Parse("9a8d9f56-b91b-4d1a-8f7a-2e12a54e50e2");
-    private static readonly Guid DemoFeePolicyId = Guid.Parse("7b6b3b5d-91b9-4d25-8f2c-ead45812c1a1");
-    private static readonly Guid DemoLimitsPolicyId = Guid.Parse("5a8dd1d8-1f47-41f5-9e8d-1ef1e7c7880a");
+    private static readonly Guid DemoFxQuoteId = SeedIds.Pricing.DemoFxQuoteId;
+    private static readonly Guid DemoFeePolicyId = SeedIds.Pricing.DemoFeePolicyId;
+    private static readonly Guid DemoLimitsPolicyId = SeedIds.Pricing.DemoLimitsPolicyId;
 
     // Cross-border categories
-    private static readonly Guid NigeriaUtilitiesCategoryId = Guid.Parse("6d67a8f3-9242-4d42-a7fc-a097b2f8f13a");
-    private static readonly Guid KenyaUtilitiesCategoryId = Guid.Parse("9f2287f1-6c0e-4c53-bf67-a6fcbbdd4194");
-    private static readonly Guid SouthAfricaUtilitiesCategoryId = Guid.Parse("dc9fd7e0-f74f-4181-b643-fdf678c113f6");
+    private static readonly Guid NigeriaUtilitiesCategoryId = SeedIds.CrossBorderCategories.NigeriaUtilitiesCategoryId;
+    private static readonly Guid KenyaUtilitiesCategoryId = SeedIds.CrossBorderCategories.KenyaUtilitiesCategoryId;
+    private static readonly Guid SouthAfricaUtilitiesCategoryId = SeedIds.CrossBorderCategories.SouthAfricaUtilitiesCategoryId;
 
     // Cross-border billers
-    private static readonly Guid IkejaElectricBillerId = Guid.Parse("eec98e01-8ab4-4f61-a4d4-c4409f1f596e");
-    private static readonly Guid LagosWaterBillerId = Guid.Parse("d59fb89a-efcf-4069-a4f8-7ed1cf1b9fd9");
-    private static readonly Guid KenyaPowerBillerId = Guid.Parse("f5f91117-a466-4f89-b7e4-ce1b6ace9f9a");
-    private static readonly Guid CityPowerBillerId = Guid.Parse("3d6622ff-7661-4f43-bf6a-2a3f6ae97f8c");
+    private static readonly Guid IkejaElectricBillerId = SeedIds.CrossBorderBillers.IkejaElectricBillerId;
+    private static readonly Guid LagosWaterBillerId = SeedIds.CrossBorderBillers.LagosWaterBillerId;
+    private static readonly Guid KenyaPowerBillerId = SeedIds.CrossBorderBillers.KenyaPowerBillerId;
+    private static readonly Guid CityPowerBillerId = SeedIds.CrossBorderBillers.CityPowerBillerId;
 
     // Cross-border services
-    private static readonly Guid IkejaPrepaidServiceId = Guid.Parse("60d7de6b-e579-412a-bbe6-f7fc6cad2b2d");
-    private static readonly Guid IkejaPostpaidServiceId = Guid.Parse("a7d13065-8e2a-47c9-a84f-4f9725448e2b");
-    private static readonly Guid LagosWaterServiceId = Guid.Parse("bc767227-e727-4370-b54b-a52cd57774e8");
-    private static readonly Guid LagosWaterPrepaidServiceId = Guid.Parse("f6bbca26-05b4-47c3-afca-f3f7453c189f");
-    private static readonly Guid KenyaPowerServiceId = Guid.Parse("61a14f31-37e8-4fc1-8f8a-22ca7ddd8efe");
-    private static readonly Guid KenyaPowerPostpaidServiceId = Guid.Parse("46ddbdce-446e-4898-8a4b-b8a28f6999aa");
-    private static readonly Guid CityPowerServiceId = Guid.Parse("5b997ce8-66dc-4fc2-9e1b-a7144a3294b6");
-    private static readonly Guid CityPowerPostpaidServiceId = Guid.Parse("6c99f4f0-8d6b-4e5d-a6a5-65bdcb7e6f4f");
+    private static readonly Guid IkejaPrepaidServiceId = SeedIds.CrossBorderServices.IkejaPrepaidServiceId;
+    private static readonly Guid IkejaPostpaidServiceId = SeedIds.CrossBorderServices.IkejaPostpaidServiceId;
+    private static readonly Guid LagosWaterServiceId = SeedIds.CrossBorderServices.LagosWaterServiceId;
+    private static readonly Guid LagosWaterPrepaidServiceId = SeedIds.CrossBorderServices.LagosWaterPrepaidServiceId;
+    private static readonly Guid KenyaPowerServiceId = SeedIds.CrossBorderServices.KenyaPowerServiceId;
+    private static readonly Guid KenyaPowerPostpaidServiceId = SeedIds.CrossBorderServices.KenyaPowerPostpaidServiceId;
+    private static readonly Guid CityPowerServiceId = SeedIds.CrossBorderServices.CityPowerServiceId;
+    private static readonly Guid CityPowerPostpaidServiceId = SeedIds.CrossBorderServices.CityPowerPostpaidServiceId;
 
     // Partners
-    private static readonly Guid NigeriaPartnerId = Guid.Parse("f8b8a6cb-7f85-45aa-84af-7ce4d17172af");
-    private static readonly Guid GhanaPartnerId = Guid.Parse("5f8fa8a8-f16a-4256-b7ea-32a8322c2f8d");
-    private static readonly Guid KenyaPartnerId = Guid.Parse("3da50f8d-5f9b-4c27-96f1-c7c603ec073d");
-    private static readonly Guid SouthAfricaPartnerId = Guid.Parse("fca95d87-cf29-4e57-b931-f26f76f052da");
+    private static readonly Guid NigeriaPartnerId = SeedIds.Partners.NigeriaPartnerId;
+    private static readonly Guid GhanaPartnerId = SeedIds.Partners.GhanaPartnerId;
+    private static readonly Guid KenyaPartnerId = SeedIds.Partners.KenyaPartnerId;
+    private static readonly Guid SouthAfricaPartnerId = SeedIds.Partners.SouthAfricaPartnerId;
 
     // Branches
-    private static readonly Guid NigeriaBranchId = Guid.Parse("9021f646-0525-43b8-bfb7-6fd7482c5f95");
-    private static readonly Guid GhanaBranchId = Guid.Parse("4f26abca-97a9-4806-8274-243cc87ecf9a");
-    private static readonly Guid KenyaBranchId = Guid.Parse("ce53f9dd-8d80-4f49-acaf-9fac89efb4ba");
-    private static readonly Guid SouthAfricaBranchId = Guid.Parse("ecf19036-575c-4226-ae93-50e7f6708f18");
+    private static readonly Guid NigeriaBranchId = SeedIds.Branches.NigeriaBranchId;
+    private static readonly Guid GhanaBranchId = SeedIds.Branches.GhanaBranchId;
+    private static readonly Guid KenyaBranchId = SeedIds.Branches.KenyaBranchId;
+    private static readonly Guid SouthAfricaBranchId = SeedIds.Branches.SouthAfricaBranchId;
 
     // Connectors
-    private static readonly Guid NigeriaConnectorId = Guid.Parse("6dbd8515-d115-42e3-a3b9-721e4f0ad08a");
-    private static readonly Guid GhanaConnectorId = Guid.Parse("f4aa2e03-03b7-4af7-850d-56919d2f5c86");
-    private static readonly Guid KenyaConnectorId = Guid.Parse("ab58f337-5f04-4e5e-bec8-7d713267464f");
-    private static readonly Guid SouthAfricaConnectorId = Guid.Parse("ac085fd8-6afa-49ef-a2f1-c4915334ad1d");
+    private static readonly Guid NigeriaConnectorId = SeedIds.Connectors.NigeriaConnectorId;
+    private static readonly Guid GhanaConnectorId = SeedIds.Connectors.GhanaConnectorId;
+    private static readonly Guid KenyaConnectorId = SeedIds.Connectors.KenyaConnectorId;
+    private static readonly Guid SouthAfricaConnectorId = SeedIds.Connectors.SouthAfricaConnectorId;
 
     // Routing rules
-    private static readonly Guid NigeriaRoutingRuleId = Guid.Parse("890d6a45-5558-46c7-bf6b-8df3a15ce7f9");
-    private static readonly Guid GhanaRoutingRuleId = Guid.Parse("e771f089-3167-42c5-98cd-f85e947e5ddf");
-    private static readonly Guid KenyaRoutingRuleId = Guid.Parse("0072252c-8f31-485e-a0ac-8ff8df5263d9");
-    private static readonly Guid SouthAfricaRoutingRuleId = Guid.Parse("6e93d3eb-c8f6-4c5d-abd4-c7759a5048ab");
+    private static readonly Guid NigeriaRoutingRuleId = SeedIds.RoutingRules.NigeriaRoutingRuleId;
+    private static readonly Guid GhanaRoutingRuleId = SeedIds.RoutingRules.GhanaRoutingRuleId;
+    private static readonly Guid KenyaRoutingRuleId = SeedIds.RoutingRules.KenyaRoutingRuleId;
+    private static readonly Guid SouthAfricaRoutingRuleId = SeedIds.RoutingRules.SouthAfricaRoutingRuleId;
 
     // Households
-    private static readonly Guid FamilyHouseholdId = Guid.Parse("96f58c5f-82f3-41b8-beb6-bf11fbcce5c2");
-    private static readonly Guid ProfessionalsHouseholdId = Guid.Parse("89b29ec1-a771-4926-8897-ec7408ee8917");
-    private static readonly Guid FamilyHouseholdMemberId = Guid.Parse("09f17349-c107-46b7-a3c9-c2bc42053a7e");
-    private static readonly Guid ProfessionalsHouseholdMemberId = Guid.Parse("a8fdb3f6-8f7f-40f4-b55d-07d1997aebc7");
+    private static readonly Guid FamilyHouseholdId = SeedIds.Households.FamilyHouseholdId;
+    private static readonly Guid ProfessionalsHouseholdId = SeedIds.Households.ProfessionalsHouseholdId;
+    private static readonly Guid FamilyHouseholdMemberId = SeedIds.Households.FamilyHouseholdMemberId;
+    private static readonly Guid ProfessionalsHouseholdMemberId = SeedIds.Households.ProfessionalsHouseholdMemberId;
 
     // Cross-border FX quotes
-    private static readonly Guid NgnKesFxQuoteId = Guid.Parse("32cc8c2b-76eb-4f97-b715-3bc8474f4ec7");
-    private static readonly Guid NgnZarFxQuoteId = Guid.Parse("f4366a9d-550e-4cb2-af36-4134e6f62050");
-    private static readonly Guid UsdGhsFxQuoteId = Guid.Parse("6d81b4d5-e8e0-46c0-ae17-a43eca0bfe61");
-    private static readonly Guid UsdKesFxQuoteId = Guid.Parse("a30b90e1-784c-4fb9-ab2b-3941a93bc981");
-    private static readonly Guid UsdZarFxQuoteId = Guid.Parse("a244a0b1-b6d4-4f95-827a-7001243b9d58");
-    private static readonly Guid GbpNgnFxQuoteId = Guid.Parse("1496b1ee-6af8-4744-a740-239b4f8b8136");
-    private static readonly Guid GbpGhsFxQuoteId = Guid.Parse("ca2992ea-9f4f-4347-98ea-65f8872ef8e4");
-    private static readonly Guid GbpKesFxQuoteId = Guid.Parse("4874f7ab-1368-4414-b595-249143ca25da");
-    private static readonly Guid GbpZarFxQuoteId = Guid.Parse("5cf25d4d-2834-4027-b84a-500f5f6e113f");
+    private static readonly Guid NgnKesFxQuoteId = SeedIds.CrossBorderFxQuotes.NgnKesFxQuoteId;
+    private static readonly Guid NgnZarFxQuoteId = SeedIds.CrossBorderFxQuotes.NgnZarFxQuoteId;
+    private static readonly Guid UsdGhsFxQuoteId = SeedIds.CrossBorderFxQuotes.UsdGhsFxQuoteId;
+    private static readonly Guid UsdKesFxQuoteId = SeedIds.CrossBorderFxQuotes.UsdKesFxQuoteId;
+    private static readonly Guid UsdZarFxQuoteId = SeedIds.CrossBorderFxQuotes.UsdZarFxQuoteId;
+    private static readonly Guid GbpNgnFxQuoteId = SeedIds.CrossBorderFxQuotes.GbpNgnFxQuoteId;
+    private static readonly Guid GbpGhsFxQuoteId = SeedIds.CrossBorderFxQuotes.GbpGhsFxQuoteId;
+    private static readonly Guid GbpKesFxQuoteId = SeedIds.CrossBorderFxQuotes.GbpKesFxQuoteId;
+    private static readonly Guid GbpZarFxQuoteId = SeedIds.CrossBorderFxQuotes.GbpZarFxQuoteId;
 
     // Cross-border fee policies
-    private static readonly Guid CrossBorderBand1FeePolicyId = Guid.Parse("af7ae2fe-2f1d-4e8a-b6f1-2d3ce43af183");
-    private static readonly Guid CrossBorderBand2FeePolicyId = Guid.Parse("6f87556a-8369-425d-a9ff-85082f7c3767");
-    private static readonly Guid CrossBorderBand3FeePolicyId = Guid.Parse("45eb59de-9970-476f-8ee5-cc2f196f998e");
-    private static readonly Guid CrossBorderKesFeePolicyId = Guid.Parse("8eebac13-e53c-4d2a-b00f-825026f0f3fb");
-    private static readonly Guid CrossBorderZarFeePolicyId = Guid.Parse("06f9246e-ff04-4d5c-86f7-11ba24a57cc8");
+    private static readonly Guid CrossBorderBand1FeePolicyId = SeedIds.CrossBorderFeePolicies.CrossBorderBand1FeePolicyId;
+    private static readonly Guid CrossBorderBand2FeePolicyId = SeedIds.CrossBorderFeePolicies.CrossBorderBand2FeePolicyId;
+    private static readonly Guid CrossBorderBand3FeePolicyId = SeedIds.CrossBorderFeePolicies.CrossBorderBand3FeePolicyId;
+    private static readonly Guid CrossBorderKesFeePolicyId = SeedIds.CrossBorderFeePolicies.CrossBorderKesFeePolicyId;
+    private static readonly Guid CrossBorderZarFeePolicyId = SeedIds.CrossBorderFeePolicies.CrossBorderZarFeePolicyId;
 
     // Cross-border limits policies
-    private static readonly Guid KenyaLimitsPolicyId = Guid.Parse("089177ce-b8ef-4f1a-8b95-ebcd6b6892e6");
-    private static readonly Guid SouthAfricaLimitsPolicyId = Guid.Parse("bade6de0-6272-4e5d-9b3b-7f6f42fec4c3");
+    private static readonly Guid KenyaLimitsPolicyId = SeedIds.CrossBorderLimitsPolicies.KenyaLimitsPolicyId;
+    private static readonly Guid SouthAfricaLimitsPolicyId = SeedIds.CrossBorderLimitsPolicies.SouthAfricaLimitsPolicyId;
 
     // CatalogSeedService global biller categories (TenantId = Guid.Empty)
-    private static readonly Guid GlobalUtilitiesCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid GlobalTelecomCategoryId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    private static readonly Guid GlobalInternetCategoryId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    private static readonly Guid GlobalEducationCategoryId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-    private static readonly Guid GlobalGovernmentCategoryId = Guid.Parse("55555555-5555-5555-5555-555555555555");
-    private static readonly Guid GlobalCableCategoryId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+    private static readonly Guid GlobalUtilitiesCategoryId = SeedIds.GlobalCategories.GlobalUtilitiesCategoryId;
+    private static readonly Guid GlobalTelecomCategoryId = SeedIds.GlobalCategories.GlobalTelecomCategoryId;
+    private static readonly Guid GlobalInternetCategoryId = SeedIds.GlobalCategories.GlobalInternetCategoryId;
+    private static readonly Guid GlobalEducationCategoryId = SeedIds.GlobalCategories.GlobalEducationCategoryId;
+    private static readonly Guid GlobalGovernmentCategoryId = SeedIds.GlobalCategories.GlobalGovernmentCategoryId;
+    private static readonly Guid GlobalCableCategoryId = SeedIds.GlobalCategories.GlobalCableCategoryId;
 
     #endregion
 
@@ -178,75 +185,32 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
 
     private async Task<IReadOnlyList<string>> SeedCatalogCategoriesAsync(CancellationToken cancellationToken)
     {
-        var categories = new List<CatalogBillerCategory>
+        // Map category Name → deterministic GUID. The descriptive fields
+        // (description, icon URL, country, sort) live in the embedded JSON;
+        // this lookup pairs each record with its well-known ID.
+        var idByName = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase)
         {
-            new()
-            {
-                Id = GlobalUtilitiesCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "GH",
-                Name = "Utilities",
-                Description = "Electricity and water",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/utilities.png",
-                SortOrder = 1,
-                IsActive = true
-            },
-            new()
-            {
-                Id = GlobalTelecomCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "GH",
-                Name = "Telecom",
-                Description = "Mobile and fixed line",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/telecom.png",
-                SortOrder = 2,
-                IsActive = true
-            },
-            new()
-            {
-                Id = GlobalInternetCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "NG",
-                Name = "Internet",
-                Description = "ISPs and broadband",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/internet.png",
-                SortOrder = 3,
-                IsActive = true
-            },
-            new()
-            {
-                Id = GlobalEducationCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "NG",
-                Name = "Education",
-                Description = "Tuition and school fees",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/education.png",
-                SortOrder = 4,
-                IsActive = true
-            },
-            new()
-            {
-                Id = GlobalGovernmentCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "KE",
-                Name = "Government",
-                Description = "Taxes and fees",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/government.png",
-                SortOrder = 5,
-                IsActive = true
-            },
-            new()
-            {
-                Id = GlobalCableCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "KE",
-                Name = "Cable",
-                Description = "TV subscriptions",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/cable.png",
-                SortOrder = 6,
-                IsActive = true
-            }
+            ["Utilities"]  = GlobalUtilitiesCategoryId,
+            ["Telecom"]    = GlobalTelecomCategoryId,
+            ["Internet"]   = GlobalInternetCategoryId,
+            ["Education"]  = GlobalEducationCategoryId,
+            ["Government"] = GlobalGovernmentCategoryId,
+            ["Cable"]      = GlobalCableCategoryId,
         };
+
+        var categories = FinanceDemoSeedCatalog.Instance.GlobalCategories
+            .Select(record => new CatalogBillerCategory
+            {
+                Id = idByName[record.Name],
+                TenantId = Guid.Empty,
+                CountryCode = record.CountryCode,
+                Name = record.Name,
+                Description = record.Description,
+                IconUrl = record.IconUrl,
+                SortOrder = record.SortOrder,
+                IsActive = true,
+            })
+            .ToList();
 
         var existingIds = await _financeDbContext.CatalogBillerCategories
             .Select(category => category.Id)
@@ -1648,27 +1612,27 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
     // spread across the last 14 days. Re-seeding is idempotent — orders
     // are upserted by deterministic Guid.
 
-    private static readonly Guid OrderKwameEcg          = Guid.Parse("aaaa0001-0000-0000-0000-000000000001");
-    private static readonly Guid OrderKwameWater        = Guid.Parse("aaaa0001-0000-0000-0000-000000000002");
-    private static readonly Guid OrderTundeIkeja        = Guid.Parse("aaaa0001-0000-0000-0000-000000000003");
-    private static readonly Guid OrderTundeLagosWater   = Guid.Parse("aaaa0001-0000-0000-0000-000000000004");
-    private static readonly Guid OrderAcmePayoutNg      = Guid.Parse("aaaa0001-0000-0000-0000-000000000005");
-    private static readonly Guid OrderAdwoaWaterFailed  = Guid.Parse("aaaa0001-0000-0000-0000-000000000006");
-    private static readonly Guid OrderOliviaToNaledi    = Guid.Parse("aaaa0001-0000-0000-0000-000000000007");
-    private static readonly Guid OrderLiamToKwame       = Guid.Parse("aaaa0001-0000-0000-0000-000000000008");
-    private static readonly Guid OrderKofiAmaTransfer   = Guid.Parse("aaaa0001-0000-0000-0000-000000000009");
-    private static readonly Guid OrderPeterKenyaPower   = Guid.Parse("aaaa0001-0000-0000-0000-00000000000a");
+    private static readonly Guid OrderKwameEcg          = SeedIds.OrderActivity.OrderKwameEcg;
+    private static readonly Guid OrderKwameWater        = SeedIds.OrderActivity.OrderKwameWater;
+    private static readonly Guid OrderTundeIkeja        = SeedIds.OrderActivity.OrderTundeIkeja;
+    private static readonly Guid OrderTundeLagosWater   = SeedIds.OrderActivity.OrderTundeLagosWater;
+    private static readonly Guid OrderAcmePayoutNg      = SeedIds.OrderActivity.OrderAcmePayoutNg;
+    private static readonly Guid OrderAdwoaWaterFailed  = SeedIds.OrderActivity.OrderAdwoaWaterFailed;
+    private static readonly Guid OrderOliviaToNaledi    = SeedIds.OrderActivity.OrderOliviaToNaledi;
+    private static readonly Guid OrderLiamToKwame       = SeedIds.OrderActivity.OrderLiamToKwame;
+    private static readonly Guid OrderKofiAmaTransfer   = SeedIds.OrderActivity.OrderKofiAmaTransfer;
+    private static readonly Guid OrderPeterKenyaPower   = SeedIds.OrderActivity.OrderPeterKenyaPower;
 
-    private static readonly Guid DemoPayerPartyId    = Guid.Parse("bfe9921e-2f3e-4c56-b8d1-4f5b2a7c3d44");
-    private static readonly Guid DemoReceiverPartyId = Guid.Parse("2a3e1f59-44f7-4df4-a8f1-936f9d9d13cd");
-    private static readonly Guid TundePartyIdRef     = Guid.Parse("5ef5e008-8d3d-485f-8718-67ab4d4da2cf");
-    private static readonly Guid AdwoaPartyIdRef     = Guid.Parse("5c882622-4958-4e0e-8cad-cb20f6e720ca");
-    private static readonly Guid PeterPartyIdRef     = Guid.Parse("cb94f5cd-ed2d-4e95-99be-6d8bb6acdbbe");
-    private static readonly Guid NalediPartyIdRef    = Guid.Parse("40ee8396-c640-4d0a-a262-2d32743cb95a");
-    private static readonly Guid KofiPartyIdRef      = Guid.Parse("563b6348-c34f-423f-8b22-c92ca6f9f195");
-    private static readonly Guid AcmeImportsPartyIdRef = Guid.Parse("f0f72256-f43b-455a-af08-8fab70115794");
-    private static readonly Guid OliviaPartyIdRef    = Guid.Parse("fb229001-e24c-4fd3-a87d-e0458a2cf8cb");
-    private static readonly Guid LiamPartyIdRef      = Guid.Parse("3f48a4fc-c7ce-4f78-af09-a2796e735f85");
+    private static readonly Guid DemoPayerPartyId    = SeedIds.PartyReferences.DemoPayerPartyId;
+    private static readonly Guid DemoReceiverPartyId = SeedIds.PartyReferences.DemoReceiverPartyId;
+    private static readonly Guid TundePartyIdRef     = SeedIds.PartyReferences.TundePartyId;
+    private static readonly Guid AdwoaPartyIdRef     = SeedIds.PartyReferences.AdwoaPartyId;
+    private static readonly Guid PeterPartyIdRef     = SeedIds.PartyReferences.PeterPartyId;
+    private static readonly Guid NalediPartyIdRef    = SeedIds.PartyReferences.NalediPartyId;
+    private static readonly Guid KofiPartyIdRef      = SeedIds.PartyReferences.KofiPartyId;
+    private static readonly Guid AcmeImportsPartyIdRef = SeedIds.PartyReferences.AcmeImportsPartyId;
+    private static readonly Guid OliviaPartyIdRef    = SeedIds.PartyReferences.OliviaPartyId;
+    private static readonly Guid LiamPartyIdRef      = SeedIds.PartyReferences.LiamPartyId;
 
     private async Task<IReadOnlyList<string>> SeedOrderActivityAsync(
         DemoSeedContext context,

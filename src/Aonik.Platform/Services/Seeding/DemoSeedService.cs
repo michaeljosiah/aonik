@@ -42,68 +42,44 @@ internal class DemoSeedService : IDemoSeedService
     private readonly AgentsDbContext _agentsDbContext;
 
     // ── Platform-only Guid constants ─────────────────────────────────
+    //
+    // All deterministic GUIDs live in platform-demo-ids.json (embedded
+    // resource) and are exposed here as static field aliases so the rest
+    // of the file reads naturally. The JSON is loaded once per process
+    // via PlatformDemoSeedIds.Instance.
 
-    private static readonly Guid DemoPayerPartyId = Guid.Parse("bfe9921e-2f3e-4c56-b8d1-4f5b2a7c3d44");
-    private static readonly Guid DemoReceiverPartyId = Guid.Parse("2a3e1f59-44f7-4df4-a8f1-936f9d9d13cd");
-    private static readonly Guid DemoRelationshipId = Guid.Parse("c90127f4-9b45-4a8e-9b90-7d0f3d4e65cc");
+    private static readonly PlatformDemoSeedIds SeedIds = PlatformDemoSeedIds.Instance;
 
-    private static readonly Guid TundePartyId = Guid.Parse("5ef5e008-8d3d-485f-8718-67ab4d4da2cf");
-    private static readonly Guid AdwoaPartyId = Guid.Parse("5c882622-4958-4e0e-8cad-cb20f6e720ca");
-    private static readonly Guid PeterPartyId = Guid.Parse("cb94f5cd-ed2d-4e95-99be-6d8bb6acdbbe");
-    private static readonly Guid NalediPartyId = Guid.Parse("40ee8396-c640-4d0a-a262-2d32743cb95a");
-    private static readonly Guid AishaPartyId = Guid.Parse("da32f3f2-07fa-41af-9792-6a4a0b8f5074");
-    private static readonly Guid KofiPartyId = Guid.Parse("563b6348-c34f-423f-8b22-c92ca6f9f195");
-    private static readonly Guid AcmeImportsPartyId = Guid.Parse("f0f72256-f43b-455a-af08-8fab70115794");
-    private static readonly Guid SafariFreightPartyId = Guid.Parse("087f4f38-a018-4b65-a47e-2e287d74f8f5");
-    private static readonly Guid OliviaPartyId = Guid.Parse("fb229001-e24c-4fd3-a87d-e0458a2cf8cb");
-    private static readonly Guid LiamPartyId = Guid.Parse("3f48a4fc-c7ce-4f78-af09-a2796e735f85");
+    private static readonly Guid DemoPayerPartyId = SeedIds.DemoPair.DemoPayerPartyId;
+    private static readonly Guid DemoReceiverPartyId = SeedIds.DemoPair.DemoReceiverPartyId;
+    private static readonly Guid DemoRelationshipId = SeedIds.DemoPair.DemoRelationshipId;
 
-    private static readonly Guid TundeAdwoaRelationshipId = Guid.Parse("0d9cb5b0-9d5f-41a8-9f6f-e6ae45e4dd9f");
-    private static readonly Guid TundePeterRelationshipId = Guid.Parse("15f65e53-3252-4a82-b6b9-f97b8b9d7199");
-    private static readonly Guid NalediAishaRelationshipId = Guid.Parse("2f29a6f4-af26-4c2a-a6b1-0d64874fd6b3");
-    private static readonly Guid KofiAmaRelationshipId = Guid.Parse("93c83fed-d56a-4ca6-8f44-4512f50eeecb");
-    private static readonly Guid OliviaNalediRelationshipId = Guid.Parse("f28be4e6-e5bc-43a5-8c52-cf3906f6c16f");
-    private static readonly Guid LiamKwameRelationshipId = Guid.Parse("0fd357dd-58a3-481b-a36d-5e7efde0ebca");
-    private static readonly string[] DemoWorkflowSlugs =
-    {
-        "match_and_apply",
-        "sweep_unmatched",
-        "dunning_cadence",
-        "forward_quote",
-        "kyc_recheck",
-        "monthly_close",
-        "spend_anomaly"
-    };
-    private static readonly string[] DemoNotificationTypes =
-    {
-        "agent.proposal.pending",
-        "compliance.case.opened",
-        "insights.anomaly.detected",
-        "order.complete",
-        "system.welcome"
-    };
-    private static readonly string[] DemoAgentNames =
-    {
-        "Billing",
-        "Ledger",
-        "FX",
-        "Compliance",
-        "Dunning",
-        "Close",
-        "Insights"
-    };
-    private static readonly string[] DemoPartnerNames =
-    {
-        "Gold Coast Bill Hub",
-        "Naija Utility Switch",
-        "EastPay Kenya",
-        "Mzansi Bill Connect"
-    };
-    private static readonly string[] DemoHouseholdNames =
-    {
-        "Mensah Household",
-        "Cross-Border Professionals"
-    };
+    private static readonly Guid TundePartyId = SeedIds.Personas.TundePartyId;
+    private static readonly Guid AdwoaPartyId = SeedIds.Personas.AdwoaPartyId;
+    private static readonly Guid PeterPartyId = SeedIds.Personas.PeterPartyId;
+    private static readonly Guid NalediPartyId = SeedIds.Personas.NalediPartyId;
+    private static readonly Guid AishaPartyId = SeedIds.Personas.AishaPartyId;
+    private static readonly Guid KofiPartyId = SeedIds.Personas.KofiPartyId;
+    private static readonly Guid AcmeImportsPartyId = SeedIds.Personas.AcmeImportsPartyId;
+    private static readonly Guid SafariFreightPartyId = SeedIds.Personas.SafariFreightPartyId;
+    private static readonly Guid OliviaPartyId = SeedIds.Personas.OliviaPartyId;
+    private static readonly Guid LiamPartyId = SeedIds.Personas.LiamPartyId;
+
+    private static readonly Guid TundeAdwoaRelationshipId = SeedIds.PersonaRelationships.TundeAdwoaRelationshipId;
+    private static readonly Guid TundePeterRelationshipId = SeedIds.PersonaRelationships.TundePeterRelationshipId;
+    private static readonly Guid NalediAishaRelationshipId = SeedIds.PersonaRelationships.NalediAishaRelationshipId;
+    private static readonly Guid KofiAmaRelationshipId = SeedIds.PersonaRelationships.KofiAmaRelationshipId;
+    private static readonly Guid OliviaNalediRelationshipId = SeedIds.PersonaRelationships.OliviaNalediRelationshipId;
+    private static readonly Guid LiamKwameRelationshipId = SeedIds.PersonaRelationships.LiamKwameRelationshipId;
+    // Canonical demo name lists are loaded from platform-demo-names.json
+    // (embedded resource) so the seeder file isn't littered with literal arrays.
+    private static readonly PlatformDemoSeedNames SeedNames = PlatformDemoSeedNames.Instance;
+
+    private static readonly string[] DemoWorkflowSlugs = SeedNames.WorkflowSlugs;
+    private static readonly string[] DemoNotificationTypes = SeedNames.NotificationTypes;
+    private static readonly string[] DemoAgentNames = SeedNames.AgentNames;
+    private static readonly string[] DemoPartnerNames = SeedNames.PartnerNames;
+    private static readonly string[] DemoHouseholdNames = SeedNames.HouseholdNames;
 
     public DemoSeedService(
         PlatformDbContext dbContext,
