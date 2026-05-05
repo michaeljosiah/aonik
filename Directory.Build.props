@@ -1,5 +1,14 @@
 <Project>
-  <PropertyGroup>
+  <!--
+    The C#-only properties + analyzers below are gated on the project
+    extension. Aonik.AdminUi.esproj (a JavaScript/TypeScript front-end
+    project that lives in the same .sln so dotnet build picks it up
+    alongside its consumers) does NOT understand `net10.0` or
+    Roslyn-analyzer PackageReferences, and CI fails NuGet restore on
+    them ("Invalid target framework 'net10.0'") if they're applied
+    unconditionally.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -7,14 +16,14 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="4.14.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
   </ItemGroup>
 </Project>
