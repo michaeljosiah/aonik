@@ -16,6 +16,10 @@
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <!-- Castle.DynamicProxy (used by Moq) needs to see internal interfaces
+         to generate a runtime proxy. Without this, Mock<IInternalThing>
+         throws "not accessible to the proxy generator". -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>
