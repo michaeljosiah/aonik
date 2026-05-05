@@ -1,21 +1,25 @@
 using System.ComponentModel;
+
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Agents.Tools;
+namespace Aonik.SharedKernel.Agents.Tools;
 
 /// <summary>
-/// Agent tool for semantically searching user memory mid-conversation.
-/// Read-only — no approval gate required.
-/// <para>
+/// Cross-cutting AITool that semantically searches user memory mid-conversation.
+/// Lives on SharedKernel so any domain agent — finance, platform, etc. — can
+/// surface this read-only memory recall without taking a back-pointing
+/// reference on the Agents runtime. Read-only — no approval gate required.
+/// </summary>
+/// <remarks>
 /// When the active memory backend is SQL Server (which does not yet support
 /// semantic search), the tool returns an empty result set. The agent will
 /// understand this means recall is unavailable and fall back to the User Brief.
-/// </para>
-/// </summary>
-internal sealed class UserMemoryRecallTools
+/// </remarks>
+public sealed class UserMemoryRecallTools
 {
     private readonly IUserMemoryRecallProvider _recallProvider;
     private readonly ICurrentUserProvider _currentUserProvider;

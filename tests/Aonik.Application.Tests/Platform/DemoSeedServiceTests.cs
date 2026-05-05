@@ -1,4 +1,5 @@
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Services;
 using Aonik.Agents.Services.Seeding;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using Aonik.Finance.Entities.Ledger;
@@ -151,7 +152,7 @@ public class DemoSeedServiceTests
             new AllowAllPermissionService(),
             new TestTenantContext(),
             financeDb,
-            agentsDb);
+            new AgentDemoCleanup(agentsDb));
 
         return new TestFixture(aonikDb, platformDb, financeDb, agentsDb, service);
     }

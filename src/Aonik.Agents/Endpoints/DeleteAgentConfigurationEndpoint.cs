@@ -1,4 +1,4 @@
-using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions.Agents;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 

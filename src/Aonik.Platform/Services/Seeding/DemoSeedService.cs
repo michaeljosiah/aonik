@@ -13,7 +13,7 @@ using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Services.Identity;
 using Aonik.Finance.Persistence;
-using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions.Agents;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -39,7 +39,7 @@ internal class DemoSeedService : IDemoSeedService
     private readonly IPermissionService _permissionService;
     private readonly ITenantContext _tenantContext;
     private readonly FinanceDbContext _financeDbContext;
-    private readonly AgentsDbContext _agentsDbContext;
+    private readonly IAgentDemoCleanup _agentDemoCleanup;
 
     // ── Platform-only Guid constants ─────────────────────────────────
     //
@@ -92,7 +92,7 @@ internal class DemoSeedService : IDemoSeedService
         IPermissionService permissionService,
         ITenantContext tenantContext,
         FinanceDbContext financeDbContext,
-        AgentsDbContext agentsDbContext)
+        IAgentDemoCleanup agentDemoCleanup)
     {
         _dbContext = dbContext;
         _contributors = contributors;
@@ -104,7 +104,7 @@ internal class DemoSeedService : IDemoSeedService
         _permissionService = permissionService;
         _tenantContext = tenantContext;
         _financeDbContext = financeDbContext;
-        _agentsDbContext = agentsDbContext;
+        _agentDemoCleanup = agentDemoCleanup;
     }
 
     public async Task<DemoSeedResult> SeedAsync(Guid tenantId, string? seedType = null, CancellationToken cancellationToken = default)
@@ -1430,30 +1430,12 @@ internal class DemoSeedService : IDemoSeedService
 
     private async Task ReverseAgentActivityAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
-        var agentIds = await _agentsDbContext.Agents
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && DemoAgentNames.Contains(item.Name))
-            .Select(item => item.Id)
-            .ToListAsync(cancellationToken);
+        var counts = await _agentDemoCleanup.RemoveAgentActivityAsync(
+            tenantId, DemoAgentNames, cancellationToken);
 
-        if (agentIds.Count == 0)
+        if (counts.ProposalsDeleted > 0 || counts.AgentRunsDeleted > 0)
         {
-            return;
-        }
-
-        var proposalCount = await _agentsDbContext.Proposals
-            .IgnoreQueryFilters()
-            .Where(item => item.TenantId == tenantId && agentIds.Contains(item.ProposedByAgentId))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        var runCount = await _agentsDbContext.AgentRuns
-            .IgnoreQueryFilters()
-            .Where(item => item.TenantId == tenantId && agentIds.Contains(item.AgentId))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        if (proposalCount > 0 || runCount > 0)
-        {
-            operations.Add($"Removed {proposalCount} proposals and {runCount} agent runs");
+            operations.Add($"Removed {counts.ProposalsDeleted} proposals and {counts.AgentRunsDeleted} agent runs");
         }
     }
 
@@ -1530,55 +1512,16 @@ internal class DemoSeedService : IDemoSeedService
 
     private async Task ReverseWorkflowRegistryAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
-        var workflowIds = await _agentsDbContext.Workflows
-            .IgnoreQueryFilters()
-            .Where(item => item.TenantId == tenantId && DemoWorkflowSlugs.Contains(item.Slug))
-            .Select(item => item.Id)
-            .ToListAsync(cancellationToken);
+        var counts = await _agentDemoCleanup.RemoveWorkflowsAndAgentsAsync(
+            tenantId, DemoWorkflowSlugs, DemoAgentNames, cancellationToken);
 
-        if (workflowIds.Count > 0)
+        if (counts.WorkflowsDeleted > 0)
         {
-            await _agentsDbContext.WorkflowRuns
-                .IgnoreQueryFilters()
-                .Where(item => workflowIds.Contains(item.WorkflowId))
-                .ExecuteDeleteAsync(cancellationToken);
-
-            await _agentsDbContext.WorkflowVersions
-                .IgnoreQueryFilters()
-                .Where(item => workflowIds.Contains(item.WorkflowId))
-                .ExecuteDeleteAsync(cancellationToken);
-
-            await _agentsDbContext.WorkflowComments
-                .IgnoreQueryFilters()
-                .Where(item => workflowIds.Contains(item.WorkflowId))
-                .ExecuteDeleteAsync(cancellationToken);
-
-            await _agentsDbContext.WorkflowEdges
-                .IgnoreQueryFilters()
-                .Where(item => workflowIds.Contains(item.WorkflowId))
-                .ExecuteDeleteAsync(cancellationToken);
-
-            await _agentsDbContext.WorkflowNodes
-                .IgnoreQueryFilters()
-                .Where(item => workflowIds.Contains(item.WorkflowId))
-                .ExecuteDeleteAsync(cancellationToken);
-
-            var workflowCount = await _agentsDbContext.Workflows
-                .IgnoreQueryFilters()
-                .Where(item => workflowIds.Contains(item.Id))
-                .ExecuteDeleteAsync(cancellationToken);
-
-            operations.Add($"Removed {workflowCount} demo workflows");
+            operations.Add($"Removed {counts.WorkflowsDeleted} demo workflows");
         }
-
-        var agentCount = await _agentsDbContext.Agents
-            .IgnoreQueryFilters()
-            .Where(item => item.TenantId == tenantId && DemoAgentNames.Contains(item.Name))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        if (agentCount > 0)
+        if (counts.AgentsDeleted > 0)
         {
-            operations.Add($"Removed {agentCount} demo agents");
+            operations.Add($"Removed {counts.AgentsDeleted} demo agents");
         }
     }
 

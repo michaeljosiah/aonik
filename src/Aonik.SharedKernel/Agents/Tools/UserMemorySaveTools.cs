@@ -1,24 +1,29 @@
 using System.ComponentModel;
+
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Aonik.Agents.Tools;
+namespace Aonik.SharedKernel.Agents.Tools;
 
 /// <summary>
-/// Agent tool for saving user memory entries mid-conversation.
-/// <para>
+/// Cross-cutting AITool that saves user memory entries mid-conversation.
+/// Lives on SharedKernel so any domain agent can surface this write-back
+/// memory channel without taking a back-pointing reference on the Agents
+/// runtime.
+/// </summary>
+/// <remarks>
 /// No approval gate — the agent saves directly when it identifies something
 /// worth remembering. The tool call is visible in the AG-UI chat stream,
 /// so the user always sees what was saved and can correct it.
-/// </para>
 /// <para>
 /// Typical triggers: user states a preference, shares a personal fact,
 /// corrects a previous assumption, or provides identity information.
 /// </para>
-/// </summary>
-internal sealed class UserMemorySaveTools
+/// </remarks>
+public sealed class UserMemorySaveTools
 {
     private readonly IUserMemorySaveProvider _saveProvider;
     private readonly ICurrentUserProvider _currentUserProvider;

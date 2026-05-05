@@ -7,10 +7,13 @@
     <RootNamespace>Aonik.Agents</RootNamespace>
   </PropertyGroup>
 
-  <!-- Boundary enforcement: only Api, Infrastructure, and test projects may access internals -->
+  <!--
+    Boundary enforcement: only Api, Infrastructure, and test projects may
+    access internals. Platform / Finance entries were dropped after the
+    Domain → Agents back-pointing was resolved — those modules now only
+    reach Agents through SharedKernel.Abstractions.Agents contracts.
+  -->
   <ItemGroup>
-    <InternalsVisibleTo Include="Aonik.Platform" />
-    <InternalsVisibleTo Include="Aonik.Finance" />
     <InternalsVisibleTo Include="Aonik.Api" />
     <InternalsVisibleTo Include="Aonik.Infrastructure" />
     <InternalsVisibleTo Include="Aonik.Agents.Tests" />

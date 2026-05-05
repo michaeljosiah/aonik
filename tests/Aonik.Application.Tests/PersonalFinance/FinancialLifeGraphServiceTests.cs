@@ -3,6 +3,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Services;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -751,7 +752,7 @@ public class FinancialLifeGraphServiceTests
         var invalidationPublisher = new TestCacheInvalidationPublisher();
         var service = new FinancialLifeGraphInferenceService(
             context,
-            agentsContext,
+            new AgentProposalStore(agentsContext, currentUserProvider),
             tenantProvider,
             currentUserProvider,
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
@@ -879,7 +880,7 @@ public class FinancialLifeGraphServiceTests
         var graphService = CreateGraphService(context, tenantId, userId, cacheStore);
         var inferenceService = new FinancialLifeGraphInferenceService(
             context,
-            agentsContext,
+            new AgentProposalStore(agentsContext, currentUserProvider),
             tenantProvider,
             currentUserProvider,
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));

@@ -1,7 +1,6 @@
-using Aonik.Agents.Contracts.Services;
-using Aonik.Agents.Tools;
 using Aonik.Finance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Agents.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 

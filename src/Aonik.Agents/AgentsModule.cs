@@ -62,6 +62,13 @@ public sealed class AgentsModule : IModule
         // Cross-module read aggregate consumed by Finance dashboards (e.g. MySpace).
         services.AddScoped<Aonik.SharedKernel.Abstractions.Agents.IAgentProposalQueryService, Services.Insights.AgentProposalQueryService>();
 
+        // Cross-module proposal write surface (Finance.FinancialLifeGraphInferenceService
+        // creates / approves / rejects proposals through this contract).
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Agents.IAgentProposalStore, Services.AgentProposalStore>();
+
+        // Cross-module agent-side cleanup used by Platform's demo-seed reverse flow.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Agents.IAgentDemoCleanup, Services.AgentDemoCleanup>();
+
         // Proposal approval pipeline — wires the dashboard's Apply / Dismiss / Review actions.
         services.AddScoped<IProposalApprovalService, Services.ProposalApprovalService>();
 

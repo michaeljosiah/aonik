@@ -1,6 +1,4 @@
-using Aonik.Agents.Contracts.Models;
-
-namespace Aonik.Agents.Contracts.Services;
+namespace Aonik.SharedKernel.Abstractions.Agents;
 
 /// <summary>
 /// Service for managing persisted agent configurations. Supports a two-level
@@ -9,6 +7,10 @@ namespace Aonik.Agents.Contracts.Services;
 ///
 /// Resolution order: tenant row → global row → code-based descriptor.
 /// </summary>
+/// <remarks>
+/// Lives on SharedKernel so domain modules (Finance, Platform) can read agent
+/// configuration without taking a back-pointing reference on the Agents runtime.
+/// </remarks>
 public interface IAgentConfigurationService
 {
     /// <summary>
@@ -47,7 +49,7 @@ public interface IAgentConfigurationService
 
     /// <summary>
     /// Resets the agent's instructions (prompt) to the hard-coded default
-    /// defined by its <see cref="Aonik.SharedKernel.Abstractions.Agents.IDomainAgentDescriptor"/>.
+    /// defined by its <see cref="IDomainAgentDescriptor"/>.
     /// Only the <c>InstructionsText</c> field is overwritten — tools, model,
     /// risk tier, and other customizations remain intact. Targets the tenant
     /// override if one exists for the current tenant, otherwise the global row.

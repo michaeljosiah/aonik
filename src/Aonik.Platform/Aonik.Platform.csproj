@@ -24,7 +24,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
-    <ProjectReference Include="..\Aonik.Agents\Aonik.Agents.csproj" />
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
   </ItemGroup>
 
@@ -36,6 +35,12 @@
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+    <!--
+      Direct reference because Platform's tenant-settings caches use
+      FusionCache. Previously transitive via Aonik.Agents; pulled in
+      explicitly after Platform → Agents back-pointing was removed.
+    -->
+    <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.3.0" />
   </ItemGroup>
 
   <ItemGroup>

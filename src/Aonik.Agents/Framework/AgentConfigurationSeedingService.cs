@@ -1,4 +1,4 @@
-using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

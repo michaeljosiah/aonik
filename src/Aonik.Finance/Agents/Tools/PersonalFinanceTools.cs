@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Text.Json;
-using Aonik.Agents.Contracts.Services;
 using Aonik.Finance.Agents.StructuredOutputs;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.Finance.Contracts.Models.Orders;

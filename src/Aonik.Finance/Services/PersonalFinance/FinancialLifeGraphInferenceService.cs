@@ -1,10 +1,9 @@
 using System.Text.Json;
-using Aonik.Agents.Entities;
-using Aonik.Agents.Persistence;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,21 +11,28 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialLifeGraphInferenceService
 {
+    /// <summary>
+    /// ProposalType marker stamped on every proposal this service creates.
+    /// Used both at create-time (to make filters work) and at list-time (to
+    /// scope the IAgentProposalStore.ListProposedAsync read to FLG entries).
+    /// </summary>
+    private const string FlgProposalType = "FinancialLifeGraphAnnotation";
+
     private readonly FinanceDbContext _financeDbContext;
-    private readonly AgentsDbContext _agentsDbContext;
+    private readonly IAgentProposalStore _proposalStore;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialLifeGraphInferenceService(
         FinanceDbContext financeDbContext,
-        AgentsDbContext agentsDbContext,
+        IAgentProposalStore proposalStore,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
-        _agentsDbContext = agentsDbContext;
+        _proposalStore = proposalStore;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
@@ -82,6 +88,7 @@ internal sealed class FinancialLifeGraphInferenceService
             .ToListAsync(cancellationToken);
 
         var results = new List<FinancialLifeGraphInferenceProposalResponse>();
+        var proposalRequests = new List<AgentProposalCreateRequest>();
 
         foreach (var group in groupedTransactions)
         {
@@ -141,22 +148,19 @@ internal sealed class FinancialLifeGraphInferenceService
                 InferenceType = "RecurringMerchant"
             });
 
-            var proposal = new Proposal
-            {
-                Id = proposalId,
-                TenantId = tenantId,
-                ProposalType = "FinancialLifeGraphAnnotation",
-                ProposedByAgentId = Guid.Empty,
-                AiRunId = request.AiRunId,
-                ImpactSummary = $"Proposed graph annotation for recurring merchant {group.Merchant}.",
-                RiskTier = "Low",
-                Status = ProposalStatus.Proposed,
-                PayloadJson = proposalPayloadJson
-            };
+            var proposalRequest = new AgentProposalCreateRequest(
+                Id: proposalId,
+                TenantId: tenantId,
+                ProposalType: FlgProposalType,
+                ProposedByAgentId: Guid.Empty,
+                AiRunId: request.AiRunId,
+                ImpactSummary: $"Proposed graph annotation for recurring merchant {group.Merchant}.",
+                RiskTier: "Low",
+                PayloadJson: proposalPayloadJson);
 
             _financeDbContext.FinancialLifeGraphNodes.Add(node);
             _financeDbContext.FinancialLifeGraphEdges.Add(edge);
-            _agentsDbContext.Proposals.Add(proposal);
+            proposalRequests.Add(proposalRequest);
 
             results.Add(new FinancialLifeGraphInferenceProposalResponse(
                 proposalId,
@@ -170,8 +174,11 @@ internal sealed class FinancialLifeGraphInferenceService
 
         if (results.Count > 0)
         {
+            // Save the FLG nodes/edges first; if that fails the call aborts
+            // before any agent-side rows are written. CreateManyAsync handles
+            // its own SaveChangesAsync on the AgentsDbContext side.
             await _financeDbContext.SaveChangesAsync(cancellationToken);
-            await _agentsDbContext.SaveChangesAsync(cancellationToken);
+            await _proposalStore.CreateManyAsync(proposalRequests, cancellationToken);
         }
 
         return results;
@@ -193,11 +200,9 @@ internal sealed class FinancialLifeGraphInferenceService
             .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == FinancialLifeGraphEntityStatus.Proposed && item.AiRunId.HasValue)
             .ToListAsync(cancellationToken);
 
-        var proposals = await _agentsDbContext.Proposals
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.Status == ProposalStatus.Proposed)
-            .OrderBy(item => item.CreatedAt)
-            .ToListAsync(cancellationToken);
+        // Tenant scoping happens inside the IAgentProposalStore implementation;
+        // the FLG type filter narrows the read to graph-annotation proposals.
+        var proposals = await _proposalStore.ListProposedAsync(FlgProposalType, cancellationToken);
 
         return nodes.Select(node =>
         {
@@ -221,11 +226,10 @@ internal sealed class FinancialLifeGraphInferenceService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
 
-        var proposal = await _agentsDbContext.Proposals
-            .FirstOrDefaultAsync(item => item.Id == proposalId && item.TenantId == tenantId, cancellationToken)
+        var proposal = await _proposalStore.GetByIdAsync(proposalId, cancellationToken)
             ?? throw new InvalidOperationException("Financial life graph proposal record not found.");
 
-        if (proposal.Status != ProposalStatus.Proposed)
+        if (!string.Equals(proposal.Status, "Proposed", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Only proposed graph annotations can be approved.");
         }
@@ -243,11 +247,11 @@ internal sealed class FinancialLifeGraphInferenceService
 
         node.Status = FinancialLifeGraphEntityStatus.Active;
         edge.Status = FinancialLifeGraphEntityStatus.Active;
-        proposal.Status = ProposalStatus.Approved;
-        proposal.ApprovedAt = DateTime.UtcNow;
-        proposal.ApprovedByUserId = userId;
+
+        // Save the FLG-side activations first; only on success do we promote
+        // the proposal to Approved on the agent side.
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        await _agentsDbContext.SaveChangesAsync(cancellationToken);
+        await _proposalStore.ApproveAsync(proposalId, cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
@@ -255,11 +259,10 @@ internal sealed class FinancialLifeGraphInferenceService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var proposal = await _agentsDbContext.Proposals
-            .FirstOrDefaultAsync(item => item.Id == proposalId && item.TenantId == tenantId, cancellationToken)
+        var proposal = await _proposalStore.GetByIdAsync(proposalId, cancellationToken)
             ?? throw new InvalidOperationException("Financial life graph proposal record not found.");
 
-        if (proposal.Status != ProposalStatus.Proposed)
+        if (!string.Equals(proposal.Status, "Proposed", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Only proposed graph annotations can be rejected.");
         }
@@ -278,14 +281,11 @@ internal sealed class FinancialLifeGraphInferenceService
 
         node.Status = FinancialLifeGraphEntityStatus.Rejected;
         edge.Status = FinancialLifeGraphEntityStatus.Rejected;
-        proposal.Status = ProposalStatus.Rejected;
-        if (!string.IsNullOrWhiteSpace(reason))
-        {
-            proposal.ImpactSummary = $"{proposal.ImpactSummary} Rejected: {reason.Trim()}";
-        }
 
+        // Save the FLG-side rejections first; only on success do we mark the
+        // proposal Rejected on the agent side.
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        await _agentsDbContext.SaveChangesAsync(cancellationToken);
+        await _proposalStore.RejectAsync(proposalId, reason, cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 

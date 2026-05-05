@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
-    <ProjectReference Include="..\Aonik.Agents\Aonik.Agents.csproj" />
   </ItemGroup>
 
   <ItemGroup>

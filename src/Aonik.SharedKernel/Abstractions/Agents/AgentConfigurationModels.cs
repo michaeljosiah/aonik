@@ -1,6 +1,4 @@
-using Aonik.SharedKernel.Abstractions.Agents;
-
-namespace Aonik.Agents.Contracts.Models;
+namespace Aonik.SharedKernel.Abstractions.Agents;
 
 /// <summary>
 /// Response DTO for an agent configuration. Represents a resolved or raw agent

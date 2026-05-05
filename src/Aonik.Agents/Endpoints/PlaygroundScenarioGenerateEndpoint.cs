@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

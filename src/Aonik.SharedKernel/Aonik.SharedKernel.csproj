@@ -6,7 +6,17 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    AspNetCore framework reference + FastEndpoints package so SharedKernel
+    can host cross-cutting endpoint helpers (Authorization/RequirePermission)
+    that domain modules reuse without a back-pointing dependency on Agents.
+  -->
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="FluentValidation" Version="12.1.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.1" />
