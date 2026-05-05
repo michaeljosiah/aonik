@@ -306,6 +306,24 @@ public static class DependencyInjection
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IAiProviderSettings,
             Aonik.Infrastructure.Settings.AiProviderSettings>();
 
+        // Domain readiness probes for the two external systems on the
+        // request path. Both are tagged "ready" so they show up at
+        // /health (the readiness probe) but not /alive — a SQL or
+        // Qdrant outage takes the pod out of rotation, it does not
+        // recycle the running process. ServiceDefaults' base "self"
+        // check stays the only "live" entry.
+        services.AddHealthChecks()
+            .AddCheck<Aonik.Infrastructure.Health.SqlServerHealthCheck>(
+                name: "sql-server",
+                failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
+                tags: ["ready", "db", "sql"],
+                timeout: TimeSpan.FromSeconds(5))
+            .AddCheck<Aonik.Infrastructure.Health.QdrantHealthCheck>(
+                name: "qdrant",
+                failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded,
+                tags: ["ready", "vector-store", "qdrant"],
+                timeout: TimeSpan.FromSeconds(5));
+
         return services;
     }
 
