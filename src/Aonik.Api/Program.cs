@@ -6,6 +6,7 @@ using Aonik.Api.Middleware;
 using Aonik.Application;
 using Aonik.Finance;
 using Aonik.Infrastructure;
+using Aonik.Infrastructure.VectorStore;
 using Aonik.Platform;
 using Aonik.Platform.Endpoints.Admin.Notifications;
 using FastEndpoints;
@@ -57,6 +58,12 @@ var app = builder.Build();
 
 app.Services.LogResolvedDatabaseConnection();
 await app.InitializeAonikDatabaseAsync();
+
+// Resolve runtime-mode toggles ONCE up-front so the per-request DI
+// factories that depend on them (e.g. IUserMemoryService) stay
+// allocation-free and never block a thread-pool thread on a settings
+// lookup.
+await app.InitializeUserMemoryBackendAsync();
 
 // ── HTTP request pipeline ─────────────────────────────────────────────
 

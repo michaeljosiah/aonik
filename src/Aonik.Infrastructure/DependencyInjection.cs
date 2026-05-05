@@ -281,16 +281,20 @@ public static class DependencyInjection
         // OpenTelemetry metrics for vector store
         services.AddSingleton<Aonik.Infrastructure.VectorStore.QdrantMetrics>();
 
-        // User memory backend selection — factory reads the Ai.UserMemory.Backend setting
-        // and resolves either the SQL-based or Qdrant-backed implementation.
+        // User memory backend selection. The Ai.UserMemory.Backend setting
+        // is global (not tenant- or user-scoped) and operationally only
+        // changes via a process restart, so we resolve it ONCE at startup
+        // (see InitializeUserMemoryBackendAsync) and cache the choice on a
+        // singleton. The per-request factory below is then sync-only and
+        // does not block a thread-pool thread on a DB lookup, which is
+        // what the previous .GetAwaiter().GetResult() did per scoped
+        // resolution.
+        services.AddSingleton<Aonik.Infrastructure.VectorStore.UserMemoryBackendSelection>();
         services.AddScoped<Aonik.Infrastructure.VectorStore.QdrantUserMemoryService>();
         services.AddScoped<Aonik.Ai.Contracts.Services.IUserMemoryService>(sp =>
         {
-            var settingProvider = sp.GetRequiredService<Aonik.Platform.Contracts.Services.Settings.ISettingProvider>();
-            var backend = settingProvider.GetAsync(Aonik.Platform.Settings.AiSettingNames.UserMemoryBackend)
-                .GetAwaiter().GetResult() ?? "SqlServer";
-
-            return backend.Equals("Qdrant", StringComparison.OrdinalIgnoreCase)
+            var selection = sp.GetRequiredService<Aonik.Infrastructure.VectorStore.UserMemoryBackendSelection>();
+            return selection.IsQdrant
                 ? sp.GetRequiredService<Aonik.Infrastructure.VectorStore.QdrantUserMemoryService>()
                 : sp.GetRequiredService<Aonik.Ai.Services.UserMemoryService>();
         });
