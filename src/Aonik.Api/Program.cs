@@ -66,8 +66,20 @@ builder.Services.AddCors(options =>
 // Add AONIK Authentication & Authorization
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
 
-// Add FastEndpoints
-builder.Services.AddFastEndpoints();
+// Add FastEndpoints. Explicitly enumerate the module assemblies so that
+// endpoints AND validators (Validator<TRequest>) defined in each module
+// are discovered at startup — relying on AppDomain probing alone is
+// fragile because module DLLs are not loaded until their first reference.
+builder.Services.AddFastEndpoints(o =>
+{
+    o.Assemblies =
+    [
+        typeof(Aonik.Platform.PlatformModule).Assembly,
+        typeof(Aonik.Finance.FinanceModule).Assembly,
+        typeof(Aonik.Ai.AiModule).Assembly,
+        typeof(Aonik.Agents.AgentsModule).Assembly,
+    ];
+});
 
 // Use string enums in JSON
 builder.Services.ConfigureHttpJsonOptions(options =>
