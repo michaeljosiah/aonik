@@ -15,6 +15,7 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Services.Identity;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Persistence;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -1443,7 +1444,7 @@ internal class DemoSeedService : IDemoSeedService
     private async Task ReverseNotificationsAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
         var count = await _dbContext.Notifications
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId
                            && DemoNotificationTypes.Contains(item.Type))
             .ExecuteDeleteAsync(cancellationToken);
@@ -1457,7 +1458,7 @@ internal class DemoSeedService : IDemoSeedService
     private async Task ReverseOrdersAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
         var orderIds = await _financeDbContext.Orders
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && item.ProvenanceJson.Contains("demo-seed"))
             .Select(item => item.Id)
             .ToListAsync(cancellationToken);
@@ -1468,17 +1469,17 @@ internal class DemoSeedService : IDemoSeedService
         }
 
         await _financeDbContext.OrderPartyRoles
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => orderIds.Contains(item.OrderId))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _financeDbContext.OrderItems
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => orderIds.Contains(item.OrderId))
             .ExecuteDeleteAsync(cancellationToken);
 
         var orderCount = await _financeDbContext.Orders
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => orderIds.Contains(item.Id))
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -1488,7 +1489,7 @@ internal class DemoSeedService : IDemoSeedService
     private async Task ReverseHouseholdsAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
         var householdIds = await _financeDbContext.Households
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && DemoHouseholdNames.Contains(item.Name))
             .Select(item => item.Id)
             .ToListAsync(cancellationToken);
@@ -1499,12 +1500,12 @@ internal class DemoSeedService : IDemoSeedService
         }
 
         await _financeDbContext.HouseholdMembers
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => householdIds.Contains(item.HouseholdId))
             .ExecuteDeleteAsync(cancellationToken);
 
         var householdCount = await _financeDbContext.Households
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => householdIds.Contains(item.Id))
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -1529,7 +1530,7 @@ internal class DemoSeedService : IDemoSeedService
     private async Task ReversePartnerNetworkAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
         var partnerIds = await _financeDbContext.Partners
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && DemoPartnerNames.Contains(item.Name))
             .Select(item => item.Id)
             .ToListAsync(cancellationToken);
@@ -1540,13 +1541,13 @@ internal class DemoSeedService : IDemoSeedService
         }
 
         var partnerFundingAccountIds = await _financeDbContext.PartnerFundingAccounts
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
             .Select(item => item.Id)
             .ToListAsync(cancellationToken);
 
         var ledgerAccountIds = await _financeDbContext.PartnerFundingAccounts
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
             .Select(item => item.LedgerAccountId)
             .ToListAsync(cancellationToken);
@@ -1554,7 +1555,7 @@ internal class DemoSeedService : IDemoSeedService
         if (partnerFundingAccountIds.Count > 0)
         {
             var journalEntryIds = await _financeDbContext.JournalEntries
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(item => item.TenantId == tenantId && partnerFundingAccountIds.Contains(item.SourceId))
                 .Select(item => item.Id)
                 .ToListAsync(cancellationToken);
@@ -1562,18 +1563,18 @@ internal class DemoSeedService : IDemoSeedService
             if (journalEntryIds.Count > 0)
             {
                 await _financeDbContext.JournalEntryLines
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => journalEntryIds.Contains(item.JournalEntryId))
                     .ExecuteDeleteAsync(cancellationToken);
 
                 await _financeDbContext.JournalEntries
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => journalEntryIds.Contains(item.Id))
                     .ExecuteDeleteAsync(cancellationToken);
             }
 
             await _financeDbContext.PartnerFundingAccounts
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(item => partnerFundingAccountIds.Contains(item.Id))
                 .ExecuteDeleteAsync(cancellationToken);
         }
@@ -1581,28 +1582,28 @@ internal class DemoSeedService : IDemoSeedService
         if (ledgerAccountIds.Count > 0)
         {
             await _financeDbContext.LedgerAccounts
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(item => ledgerAccountIds.Contains(item.Id))
                 .ExecuteDeleteAsync(cancellationToken);
         }
 
         await _financeDbContext.RoutingRules
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && item.TargetPartnerId.HasValue && partnerIds.Contains(item.TargetPartnerId.Value))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _financeDbContext.Connectors
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _financeDbContext.PartnerBranches
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && partnerIds.Contains(item.PartnerId))
             .ExecuteDeleteAsync(cancellationToken);
 
         var partnerCount = await _financeDbContext.Partners
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => partnerIds.Contains(item.Id))
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -1612,32 +1613,32 @@ internal class DemoSeedService : IDemoSeedService
     private async Task ReverseCatalogAndPricingAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
     {
         await _financeDbContext.CatalogBillerServices
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && item.ServiceCode.StartsWith("BILLPAY."))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _financeDbContext.CatalogBillers
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId)
             .ExecuteDeleteAsync(cancellationToken);
 
         var categoryCount = await _financeDbContext.CatalogBillerCategories
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && item.Name == "Utilities")
             .ExecuteDeleteAsync(cancellationToken);
 
         await _financeDbContext.FxQuotes
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && item.Provider == "DemoRate")
             .ExecuteDeleteAsync(cancellationToken);
 
         await _financeDbContext.FeePolicies
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && (item.Name == "BillPay-NG-GH-Default" || item.Name.StartsWith("CrossBorder-")))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _financeDbContext.LimitsPolicies
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && item.ScopeType == "Tenant" && item.ScopeId == tenantId)
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -1657,37 +1658,37 @@ internal class DemoSeedService : IDemoSeedService
         };
 
         await _dbContext.PartyRelationships
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && (partyIds.Contains(item.FromPartyId) || partyIds.Contains(item.ToPartyId)))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _dbContext.PartyRoleAssignments
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && partyIds.Contains(item.PartyId))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _dbContext.BusinessProfiles
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => partyIds.Contains(item.PartyId))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _dbContext.PersonProfiles
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => partyIds.Contains(item.PartyId))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _dbContext.PartyAddresses
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => partyIds.Contains(item.PartyId))
             .ExecuteDeleteAsync(cancellationToken);
 
         await _dbContext.PartyContacts
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => partyIds.Contains(item.PartyId))
             .ExecuteDeleteAsync(cancellationToken);
 
         var partyCount = await _dbContext.Parties
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && partyIds.Contains(item.Id))
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -1709,12 +1710,12 @@ internal class DemoSeedService : IDemoSeedService
         }
 
         var countryCount = await _dbContext.TenantCountries
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && countryIds.Contains(item.CountryId))
             .ExecuteDeleteAsync(cancellationToken);
 
         var currencyCount = await _dbContext.TenantCurrencies
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && currencyIds.Contains(item.CurrencyId))
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -1809,7 +1810,7 @@ internal class DemoSeedService : IDemoSeedService
         if (billCollectionSetting != null || crossBorderSetting != null)
         {
             await _dbContext.Settings
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(item => !item.IsDeleted
                                && item.Scope == SettingScope.Tenant
                                && item.TenantId == tenantId

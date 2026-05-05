@@ -4,6 +4,7 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -196,7 +197,7 @@ public class CustomerInsightSnapshotServiceTests
         second.Version.Should().Be(2);
 
         var snapshots = await context.CustomerInsightSnapshots
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .OrderBy(x => x.Version)
             .ToListAsync();
 

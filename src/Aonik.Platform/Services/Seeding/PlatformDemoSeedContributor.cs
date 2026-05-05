@@ -2,6 +2,7 @@ using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -63,7 +64,7 @@ internal sealed class PlatformDemoSeedContributor : IDemoSeedContributor
         // RemoveRange would be soft-deleted by the audit hook, leaving
         // ghost rows that re-seeds would leak into the bell counter.
         await _dbContext.Notifications
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(n => n.TenantId == context.TenantId && n.UserId == userId)
             .ExecuteDeleteAsync(cancellationToken);
 

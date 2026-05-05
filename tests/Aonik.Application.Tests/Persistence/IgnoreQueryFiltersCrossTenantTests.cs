@@ -9,6 +9,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 
 using FluentAssertions;
 
@@ -131,12 +132,12 @@ public class IgnoreQueryFiltersCrossTenantTests
             .ToListAsync();
 
         var proposalsToDelete = await dbContext.Proposals
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == TenantA && agentIds.Contains(item.ProposedByAgentId))
             .ToListAsync();
 
         var runsToDelete = await dbContext.AgentRuns
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == TenantA && agentIds.Contains(item.AgentId))
             .ToListAsync();
 
@@ -165,7 +166,7 @@ public class IgnoreQueryFiltersCrossTenantTests
         await dbContext.SaveChangesAsync();
 
         var workflowIds = await dbContext.Workflows
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == TenantA && new[] { "match_and_apply" }.Contains(item.Slug))
             .Select(item => item.Id)
             .ToListAsync();
@@ -176,7 +177,7 @@ public class IgnoreQueryFiltersCrossTenantTests
         workflowIds.Should().NotContain(workflowB.Id);
 
         var agentsToDelete = await dbContext.Agents
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == TenantA && new[] { "Billing" }.Contains(item.Name))
             .ToListAsync();
 
@@ -264,7 +265,7 @@ public class IgnoreQueryFiltersCrossTenantTests
         // Repeat the production query exactly so we exercise the same
         // IgnoreQueryFilters branch the service uses.
         var matched = await dbContext.CategorisationRules
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .AsNoTracking()
             .Where(rule =>
                 rule.IsActive
@@ -325,7 +326,7 @@ public class IgnoreQueryFiltersCrossTenantTests
         };
 
         var matched = await dbContext.CategorisationRules
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .AsNoTracking()
             .Where(rule =>
                 rule.IsActive
@@ -391,7 +392,7 @@ public class IgnoreQueryFiltersCrossTenantTests
         // snapshot id is in the passed list — which it isn't here, because
         // production code derives the list from a tenant-scoped query.
         var ids = await dbContext.CustomerInsightAiSummaries
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .AsNoTracking()
             .Where(x => new[] { snapshotA }.Contains(x.CustomerInsightSnapshotId)
                 && (x.Status == "Current" || x.Status == "Failed"))

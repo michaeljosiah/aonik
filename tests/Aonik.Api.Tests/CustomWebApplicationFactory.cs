@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Entities.Identity;
@@ -313,7 +314,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         var platformDb = sp.GetRequiredService<PlatformDbContext>();
 
         var alreadySeeded = await platformDb.NotificationTemplates
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .AnyAsync(t => t.TenantId == null && t.IsShared);
 
         if (alreadySeeded) return;

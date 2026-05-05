@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Worker.Jobs;
@@ -32,7 +33,7 @@ internal sealed class CustomerInsightAiSummaryJobSnapshotEnumerator : ICustomerI
         CancellationToken cancellationToken = default)
     {
         var snapshots = await _financeDbContext.CustomerInsightSnapshots
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .AsNoTracking()
             .Where(x => x.Status == CustomerInsightSnapshotContract.StatusCurrent)
             .Select(x => new CustomerInsightAiSummaryJobSnapshotTarget(x.TenantId, x.UserId, x.Id))

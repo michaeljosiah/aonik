@@ -17,6 +17,7 @@ using Aonik.Platform.Services.Identity;
 using Microsoft.Extensions.Hosting;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FastEndpoints;
 
 namespace Aonik.Platform.Endpoints.Registrations;
@@ -133,7 +134,7 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
         var windowStart = _clock.UtcNow.AddMinutes(-_options.RateLimits.WindowMinutes);
 
         var recentCount = await _dbContext.PreRegistrationChallenges
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .CountAsync(
                 c => c.TenantId == tenantId
                      && c.Phone == phone

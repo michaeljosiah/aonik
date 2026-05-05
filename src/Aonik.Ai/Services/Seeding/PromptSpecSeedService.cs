@@ -1,6 +1,7 @@
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -36,7 +37,7 @@ internal class PromptSpecSeedService
         var definitions = GetPromptDefinitions();
 
         var existing = await _dbContext.PromptSpecs
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .Where(p => p.TenantId == null)
             .ToListAsync(cancellationToken);
 

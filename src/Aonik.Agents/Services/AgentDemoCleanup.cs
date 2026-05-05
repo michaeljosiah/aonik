@@ -1,5 +1,6 @@
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Persistence;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -39,12 +40,12 @@ internal sealed class AgentDemoCleanup : IAgentDemoCleanup
             return new AgentActivityCleanupCounts(0, 0);
 
         var proposalsDeleted = await _agentsDbContext.Proposals
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && agentIds.Contains(item.ProposedByAgentId))
             .ExecuteDeleteAsync(cancellationToken);
 
         var runsDeleted = await _agentsDbContext.AgentRuns
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(item => item.TenantId == tenantId && agentIds.Contains(item.AgentId))
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -62,7 +63,7 @@ internal sealed class AgentDemoCleanup : IAgentDemoCleanup
         if (workflowSlugs.Count > 0)
         {
             var workflowIds = await _agentsDbContext.Workflows
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(item => item.TenantId == tenantId && workflowSlugs.Contains(item.Slug))
                 .Select(item => item.Id)
                 .ToListAsync(cancellationToken);
@@ -70,32 +71,32 @@ internal sealed class AgentDemoCleanup : IAgentDemoCleanup
             if (workflowIds.Count > 0)
             {
                 await _agentsDbContext.WorkflowRuns
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => workflowIds.Contains(item.WorkflowId))
                     .ExecuteDeleteAsync(cancellationToken);
 
                 await _agentsDbContext.WorkflowVersions
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => workflowIds.Contains(item.WorkflowId))
                     .ExecuteDeleteAsync(cancellationToken);
 
                 await _agentsDbContext.WorkflowComments
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => workflowIds.Contains(item.WorkflowId))
                     .ExecuteDeleteAsync(cancellationToken);
 
                 await _agentsDbContext.WorkflowEdges
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => workflowIds.Contains(item.WorkflowId))
                     .ExecuteDeleteAsync(cancellationToken);
 
                 await _agentsDbContext.WorkflowNodes
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => workflowIds.Contains(item.WorkflowId))
                     .ExecuteDeleteAsync(cancellationToken);
 
                 workflowsDeleted = await _agentsDbContext.Workflows
-                    .IgnoreQueryFilters()
+                    .IncludeSoftDeleted()
                     .Where(item => workflowIds.Contains(item.Id))
                     .ExecuteDeleteAsync(cancellationToken);
             }
@@ -105,7 +106,7 @@ internal sealed class AgentDemoCleanup : IAgentDemoCleanup
         if (agentNames.Count > 0)
         {
             agentsDeleted = await _agentsDbContext.Agents
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(item => item.TenantId == tenantId && agentNames.Contains(item.Name))
                 .ExecuteDeleteAsync(cancellationToken);
         }

@@ -6,6 +6,7 @@ using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.Agents.AI;
 using Microsoft.EntityFrameworkCore;
@@ -120,7 +121,7 @@ public class AgentConfigurationServiceTests
         await service.SeedGlobalDefaultsAsync(sp);
 
         // Assert
-        var agents = await context.Agents.IgnoreQueryFilters().ToListAsync();
+        var agents = await context.Agents.IncludeSoftDeleted().ToListAsync();
         agents.Should().HaveCount(2);
 
         var testAgent = agents.First(a => a.Name == "test-agent");
@@ -154,7 +155,7 @@ public class AgentConfigurationServiceTests
         await service.SeedGlobalDefaultsAsync(sp);
 
         // Assert — only one row
-        var agents = await context.Agents.IgnoreQueryFilters().ToListAsync();
+        var agents = await context.Agents.IncludeSoftDeleted().ToListAsync();
         agents.Should().HaveCount(1);
     }
 
@@ -358,7 +359,7 @@ public class AgentConfigurationServiceTests
         await service.DeleteOverrideAsync("test-agent");
 
         // Assert — tenant override should be soft-deleted (AonikDbContextBase converts Remove to soft-delete)
-        var softDeleted = await context.Agents.IgnoreQueryFilters()
+        var softDeleted = await context.Agents.IncludeSoftDeleted()
             .Where(a => a.Name == "test-agent" && a.TenantId == tenantId)
             .SingleAsync();
         softDeleted.IsDeleted.Should().BeTrue();
@@ -451,7 +452,7 @@ public class AgentConfigurationServiceTests
         await service.SeedGlobalDefaultsAsync(sp);
 
         // Assert
-        var agents = await context.Agents.IgnoreQueryFilters().ToListAsync();
+        var agents = await context.Agents.IncludeSoftDeleted().ToListAsync();
         agents.First(a => a.Name == "mutating-agent").RiskTier.Should().Be("medium");
         agents.First(a => a.Name == "safe-agent").RiskTier.Should().Be("low");
     }
@@ -491,7 +492,7 @@ public class AgentConfigurationServiceTests
 
         // Mutate the underlying row *without* going through the service,
         // so the cache should not be invalidated.
-        var row = await context.Agents.IgnoreQueryFilters()
+        var row = await context.Agents.IncludeSoftDeleted()
             .SingleAsync(a => a.Name == "cache-agent" && a.TenantId == null);
         row.Description = "Changed behind the service's back";
         await context.SaveChangesAsync();

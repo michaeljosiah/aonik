@@ -4,6 +4,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Operations;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -129,7 +130,7 @@ public class AlertIngestionServiceTests
         // Row is persisted with global tenant scope (TenantId == Guid.Empty)
         // and a Received status, ready for the background worker.
         var persisted = await dbContext.Set<AzureMonitorAlertEvent>()
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .FirstAsync(e => e.Id == response.AlertId);
         persisted.ExternalAlertId.Should().Be("alert-001");
         persisted.AlertRuleName.Should().Be("API: Errors elevated");
@@ -159,7 +160,7 @@ public class AlertIngestionServiceTests
         second.AlertId.Should().Be(first.AlertId);
 
         var rowCount = await dbContext.Set<AzureMonitorAlertEvent>()
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .CountAsync(e => e.ExternalAlertId == "alert-dupe");
         rowCount.Should().Be(1);
 
@@ -184,7 +185,7 @@ public class AlertIngestionServiceTests
         var response = await service.IngestAzureMonitorAlertAsync(request);
 
         var persisted = await dbContext.Set<AzureMonitorAlertEvent>()
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .FirstAsync(e => e.Id == response.AlertId);
         persisted.NormalizedType.Should().Be(expectedNormalizedType);
     }
@@ -204,7 +205,7 @@ public class AlertIngestionServiceTests
         var response = await service.IngestAzureMonitorAlertAsync(request);
 
         var persisted = await dbContext.Set<AzureMonitorAlertEvent>()
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .FirstAsync(e => e.Id == response.AlertId);
         persisted.NormalizedType.Should().Be(AzureMonitorAlertTypes.PlatformPerformanceResolved);
     }

@@ -5,6 +5,7 @@ using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Events;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -270,7 +271,7 @@ public class PersonalAccountServiceTests
         accounts.Should().BeEmpty();
 
         var transactions = await context.PersonalTransactions
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(t => t.PersonalAccountId == created.PersonalAccountId)
             .ToListAsync();
         transactions.Should().AllSatisfy(t => t.IsDeleted.Should().BeTrue());

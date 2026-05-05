@@ -9,6 +9,7 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 using FastEndpoints;
 
 namespace Aonik.Platform.Endpoints.Registrations;
@@ -54,7 +55,7 @@ internal class VerifyRegistrationPhoneOtpEndpoint : Endpoint<VerifyRegistrationP
         }
 
         var challenge = await _dbContext.PreRegistrationChallenges
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .FirstOrDefaultAsync(c => c.Id == req.ChallengeId, ct);
 
         if (challenge == null || challenge.Status != VerificationStatus.Pending)

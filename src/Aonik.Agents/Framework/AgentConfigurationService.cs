@@ -6,6 +6,7 @@ using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ZiggyCreatures.Caching.Fusion;
@@ -168,7 +169,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         // Resurrecting the soft-deleted row sidesteps that and
         // preserves audit history.
         var existing = await _dbContext.Agents
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .FirstOrDefaultAsync(a => a.Name == agentName && a.TenantId == tenantId, cancellationToken);
 
         if (existing is not null && existing.IsDeleted)

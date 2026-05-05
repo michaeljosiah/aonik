@@ -5,6 +5,7 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Aonik.Worker.Jobs;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -283,7 +284,7 @@ public class CustomerInsightSnapshotJobTests
 
         // Assert
         var snapshots = await dbContext.CustomerInsightSnapshots
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .OrderBy(x => x.Version)
             .ToListAsync();
 

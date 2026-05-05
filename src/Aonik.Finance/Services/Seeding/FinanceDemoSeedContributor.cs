@@ -13,6 +13,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Entities.Pricing;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 
 namespace Aonik.Finance.Services.Seeding;
 
@@ -1693,7 +1694,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             // ExecuteDeleteAsync so the audit hook doesn't soft-delete
             // them and leave ghost rows on the next re-seed.
             await _financeDbContext.OrderItems
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(i => i.OrderId == seed.OrderId)
                 .ExecuteDeleteAsync(cancellationToken);
 
@@ -1721,7 +1722,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             }
 
             await _financeDbContext.OrderPartyRoles
-                .IgnoreQueryFilters()
+                .IncludeSoftDeleted()
                 .Where(r => r.OrderId == seed.OrderId)
                 .ExecuteDeleteAsync(cancellationToken);
 

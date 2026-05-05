@@ -6,6 +6,7 @@ using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -29,14 +30,14 @@ internal sealed class PlatformAdminAlertAudienceResolver : IAlertAudienceResolve
     public async Task<IReadOnlyCollection<Guid>> ResolveUserIdsAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.UserRoles
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .Join(
-                _dbContext.Roles.IgnoreQueryFilters(),
+                _dbContext.Roles.AcrossTenants(),
                 userRole => userRole.RoleId,
                 role => role.Id,
                 (userRole, role) => new { userRole.UserId, RoleName = role.Name, RoleTenantId = role.TenantId })
             .Join(
-                _dbContext.Users.IgnoreQueryFilters(),
+                _dbContext.Users.AcrossTenants(),
                 item => item.UserId,
                 user => user.Id,
                 (item, user) => new { item.UserId, item.RoleName, item.RoleTenantId, user.Status })
@@ -81,7 +82,7 @@ internal sealed class AlertIngestionService : IAlertIngestionService
 
         var essentials = request.Data!.Essentials!;
         var existing = await _dbContext.Set<AzureMonitorAlertEvent>()
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .FirstOrDefaultAsync(x => x.ExternalAlertId == essentials.AlertId!, cancellationToken);
 
         if (existing is not null)

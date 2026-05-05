@@ -5,6 +5,7 @@ using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -167,7 +168,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         var verifyContext = verifyScope.ServiceProvider.GetRequiredService<FinanceDbContext>();
         var deletedNode = await verifyContext.FinancialLifeGraphNodes
             .AsNoTracking()
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .FirstOrDefaultAsync(item => item.Id == graphNodeId);
         deletedNode.Should().NotBeNull();
         deletedNode!.IsDeleted.Should().BeTrue();

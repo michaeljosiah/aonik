@@ -10,6 +10,7 @@ using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Aonik.Worker.Jobs;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -419,7 +420,7 @@ public class CustomerInsightAiSummaryJobTests
         await job.ExecuteAsync(jobDataMap, CancellationToken.None);
 
         var summaries = await aiDbContext.CustomerInsightAiSummaries
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
 

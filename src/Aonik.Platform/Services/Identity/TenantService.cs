@@ -13,6 +13,7 @@ using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 
 
 namespace Aonik.Platform.Services.Identity;
@@ -815,7 +816,7 @@ internal class TenantService : AdminServiceBase, ITenantService
         // wizard "Step 2" PATCH after the initial provisioning re-sent
         // supportedCountries=['US'] and 500'd here.)
         var existing = await _dbContext.TenantCountries
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(x => x.TenantId == tenantId)
             .ToListAsync(cancellationToken);
 
@@ -877,7 +878,7 @@ internal class TenantService : AdminServiceBase, ITenantService
         // otherwise collide on the second PATCH that re-sends an existing
         // currency. Resurrect rather than re-INSERT.
         var existing = await _dbContext.TenantCurrencies
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(x => x.TenantId == tenantId)
             .ToListAsync(cancellationToken);
 

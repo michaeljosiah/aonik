@@ -9,6 +9,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
@@ -344,7 +345,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         CancellationToken cancellationToken)
     {
         var rules = await _financeDbContext.CategorisationRules
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .AsNoTracking()
             .Where(rule =>
                 rule.IsActive

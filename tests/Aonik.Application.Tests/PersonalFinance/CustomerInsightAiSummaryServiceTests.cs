@@ -12,6 +12,7 @@ using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -303,7 +304,7 @@ public class CustomerInsightAiSummaryServiceTests
         second.NarrativeVersion.Should().Be(CustomerInsightAiSummaryContract.BuildNarrativeVersion("model-b"));
 
         var summaries = await aiDbContext.CustomerInsightAiSummaries
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
 

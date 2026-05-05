@@ -4,6 +4,7 @@ using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -236,7 +237,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         // soft-deleted rows from older versions of this contributor are
         // also wiped clean.
         await _dbContext.WorkflowNodes
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(n => n.WorkflowId == workflowId)
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -269,7 +270,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         CancellationToken cancellationToken)
     {
         await _dbContext.WorkflowEdges
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(e => e.WorkflowId == workflowId)
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -299,7 +300,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         CancellationToken cancellationToken)
     {
         await _dbContext.WorkflowComments
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(c => c.WorkflowId == workflowId)
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -329,7 +330,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         CancellationToken cancellationToken)
     {
         await _dbContext.WorkflowVersions
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(v => v.WorkflowId == workflowId)
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -359,7 +360,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         CancellationToken cancellationToken)
     {
         await _dbContext.WorkflowRuns
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(r => r.WorkflowId == workflowId)
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -430,7 +431,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         // ghost rows that re-seeds would PK-conflict with. ExecuteDelete
         // bypasses the audit hook.
         await _dbContext.AgentRuns
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(r => r.TenantId == context.TenantId)
             .ExecuteDeleteAsync(cancellationToken);
 
@@ -495,7 +496,7 @@ internal sealed class AgentsDemoSeedContributor : IDemoSeedContributor
         CancellationToken cancellationToken)
     {
         await _dbContext.Proposals
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .Where(p => p.TenantId == context.TenantId)
             .ExecuteDeleteAsync(cancellationToken);
 

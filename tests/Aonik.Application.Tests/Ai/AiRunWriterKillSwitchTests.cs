@@ -4,6 +4,7 @@ using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,7 +91,7 @@ public class AiRunWriterKillSwitchTests
 
         // The run record must NOT have been written: blocked work doesn't
         // get a ghost AiRun row.
-        (await dbContext.AiRuns.IgnoreQueryFilters().CountAsync()).Should().Be(0);
+        (await dbContext.AiRuns.AcrossTenants().CountAsync()).Should().Be(0);
     }
 
     [Fact]

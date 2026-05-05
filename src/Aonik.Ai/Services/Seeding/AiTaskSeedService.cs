@@ -1,6 +1,7 @@
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -32,7 +33,7 @@ internal class AiTaskSeedService
         var definitions = GetTaskDefinitions();
 
         var existing = await _dbContext.AiTasks
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .Where(t => t.TenantId == null)
             .ToListAsync(cancellationToken);
 

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Ai.Services;
@@ -57,7 +58,7 @@ internal sealed class CustomerInsightAiSummaryReader : ICustomerInsightAiSummary
         }
 
         var ids = await _dbContext.CustomerInsightAiSummaries
-            .IgnoreQueryFilters()
+            .IncludeSoftDeleted()
             .AsNoTracking()
             .Where(x => snapshotIds.Contains(x.CustomerInsightSnapshotId)
                 && (x.Status == CustomerInsightAiSummaryContract.StatusCurrent

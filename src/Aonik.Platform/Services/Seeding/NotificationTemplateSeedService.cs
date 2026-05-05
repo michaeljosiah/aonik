@@ -1,6 +1,7 @@
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -32,7 +33,7 @@ internal class NotificationTemplateSeedService
 
         // Bypass tenant query filter — shared templates have TenantId = null
         var existingKeys = await _dbContext.NotificationTemplates
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .Where(t => t.TenantId == null && t.IsShared)
             .Select(t => new { t.Name, t.Channel })
             .ToListAsync(cancellationToken);

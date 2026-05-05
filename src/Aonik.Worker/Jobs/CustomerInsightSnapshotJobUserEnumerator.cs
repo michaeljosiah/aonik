@@ -1,4 +1,5 @@
 using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Worker.Jobs;
@@ -26,14 +27,14 @@ internal sealed class CustomerInsightSnapshotJobUserEnumerator : ICustomerInsigh
         CancellationToken cancellationToken = default)
     {
         var users = await _financeDbContext.PersonalProfiles
-            .IgnoreQueryFilters()
+            .AcrossTenants()
             .Select(x => new { x.TenantId, x.UserId })
-            .Concat(_financeDbContext.PersonalAccounts.IgnoreQueryFilters().Select(x => new { x.TenantId, x.UserId }))
-            .Concat(_financeDbContext.PersonalTransactions.IgnoreQueryFilters().Select(x => new { x.TenantId, x.UserId }))
-            .Concat(_financeDbContext.Bills.IgnoreQueryFilters().Select(x => new { x.TenantId, x.UserId }))
-            .Concat(_financeDbContext.Subscriptions.IgnoreQueryFilters().Select(x => new { x.TenantId, x.UserId }))
-            .Concat(_financeDbContext.Goals.IgnoreQueryFilters().Select(x => new { x.TenantId, x.UserId }))
-            .Concat(_financeDbContext.Budgets.IgnoreQueryFilters().Select(x => new { x.TenantId, x.UserId }))
+            .Concat(_financeDbContext.PersonalAccounts.AcrossTenants().Select(x => new { x.TenantId, x.UserId }))
+            .Concat(_financeDbContext.PersonalTransactions.AcrossTenants().Select(x => new { x.TenantId, x.UserId }))
+            .Concat(_financeDbContext.Bills.AcrossTenants().Select(x => new { x.TenantId, x.UserId }))
+            .Concat(_financeDbContext.Subscriptions.AcrossTenants().Select(x => new { x.TenantId, x.UserId }))
+            .Concat(_financeDbContext.Goals.AcrossTenants().Select(x => new { x.TenantId, x.UserId }))
+            .Concat(_financeDbContext.Budgets.AcrossTenants().Select(x => new { x.TenantId, x.UserId }))
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 

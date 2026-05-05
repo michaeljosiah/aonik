@@ -5,6 +5,7 @@ using Aonik.Platform.Contracts.Api.Operations;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +35,7 @@ public class PlatformAlertEndpointsTests : IClassFixture<CustomWebApplicationFac
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-        var persisted = await dbContext.AzureMonitorAlertEvents.IgnoreQueryFilters().SingleAsync(x => x.ExternalAlertId == "alert-fired-1");
+        var persisted = await dbContext.AzureMonitorAlertEvents.AcrossTenants().SingleAsync(x => x.ExternalAlertId == "alert-fired-1");
         persisted.ExternalAlertId.Should().Be("alert-fired-1");
     }
 
@@ -146,7 +147,7 @@ public class PlatformAlertEndpointsTests : IClassFixture<CustomWebApplicationFac
         tenantContext.ResolutionSource = "test";
 
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-        dbContext.AzureMonitorAlertEvents.RemoveRange(dbContext.AzureMonitorAlertEvents.IgnoreQueryFilters());
+        dbContext.AzureMonitorAlertEvents.RemoveRange(dbContext.AzureMonitorAlertEvents.AcrossTenants());
         await dbContext.SaveChangesAsync();
     }
 
@@ -158,7 +159,7 @@ public class PlatformAlertEndpointsTests : IClassFixture<CustomWebApplicationFac
         tenantContext.ResolutionSource = "test";
 
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-        dbContext.AzureMonitorAlertEvents.RemoveRange(dbContext.AzureMonitorAlertEvents.IgnoreQueryFilters());
+        dbContext.AzureMonitorAlertEvents.RemoveRange(dbContext.AzureMonitorAlertEvents.AcrossTenants());
         dbContext.AzureMonitorAlertEvents.Add(alertEvent);
         await dbContext.SaveChangesAsync();
     }
