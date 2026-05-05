@@ -482,6 +482,10 @@ app.UseTenantValidation();
 // 5. FastEndpoints (with global CORS policy applied to all endpoints)
 app.UseFastEndpoints(c =>
 {
+    // Match the existing service-layer convention: validation failures
+    // surface as 422 Unprocessable Content rather than 400 Bad Request.
+    // 400 is reserved for malformed requests (e.g. invalid JSON).
+    c.Errors.StatusCode = StatusCodes.Status422UnprocessableEntity;
     c.Endpoints.Configurator = ep => ep.Options(b => b.RequireCors("AonikCors"));
 });
 

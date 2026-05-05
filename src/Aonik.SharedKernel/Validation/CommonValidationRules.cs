@@ -24,28 +24,35 @@ public static class CommonValidationRules
             .WithMessage("Must be a non-empty GUID when supplied.");
 
     /// <summary>
-    /// Requires an ISO-4217 currency code: exactly 3 uppercase A-Z letters.
+    /// Requires an ISO-4217 currency code: exactly 3 letters. Case-insensitive
+    /// because the service layer canonicalises to uppercase before persisting.
     /// </summary>
     public static IRuleBuilderOptions<T, string> CurrencyCode<T>(this IRuleBuilder<T, string> ruleBuilder)
         => ruleBuilder
             .NotEmpty().WithMessage("Currency code is required.")
             .Length(3).WithMessage("Currency code must be 3 characters (ISO-4217).")
-            .Matches("^[A-Z]{3}$").WithMessage("Currency code must be 3 uppercase letters (e.g. USD, GBP, NGN).");
+            .Matches("^[A-Za-z]{3}$").WithMessage("Currency code must be 3 letters (e.g. USD, GBP, NGN).");
 
     /// <summary>
-    /// Requires an ISO-3166-1 alpha-2 country code: exactly 2 uppercase A-Z letters.
+    /// Requires an ISO-3166-1 alpha-2 country code: exactly 2 letters. Case-insensitive
+    /// because the service layer canonicalises to uppercase before persisting.
     /// </summary>
     public static IRuleBuilderOptions<T, string> CountryCode<T>(this IRuleBuilder<T, string> ruleBuilder)
         => ruleBuilder
             .NotEmpty().WithMessage("Country code is required.")
             .Length(2).WithMessage("Country code must be 2 characters (ISO-3166-1 alpha-2).")
-            .Matches("^[A-Z]{2}$").WithMessage("Country code must be 2 uppercase letters (e.g. US, GB, NG).");
+            .Matches("^[A-Za-z]{2}$").WithMessage("Country code must be 2 letters (e.g. US, GB, NG).");
 
     /// <summary>
-    /// Loose email validation — non-empty, contains '@' and '.' after the at,
-    /// max 254 chars (RFC 5321). Use this for human-entered email fields.
+    /// Loose email validation — non-empty, RFC-style format check, max 254
+    /// chars (RFC 5321). Use this for human-entered email fields.
     /// </summary>
-    public static IRuleBuilderOptions<T, string> EmailAddress<T>(this IRuleBuilder<T, string> ruleBuilder)
+    /// <remarks>
+    /// Named <c>Email</c> rather than <c>EmailAddress</c> to avoid shadowing
+    /// FluentValidation's built-in <c>EmailAddress()</c> rule, which would
+    /// cause infinite recursion when this method delegates to it.
+    /// </remarks>
+    public static IRuleBuilderOptions<T, string> Email<T>(this IRuleBuilder<T, string> ruleBuilder)
         => ruleBuilder
             .NotEmpty().WithMessage("Email is required.")
             .MaximumLength(254).WithMessage("Email may not exceed 254 characters.")

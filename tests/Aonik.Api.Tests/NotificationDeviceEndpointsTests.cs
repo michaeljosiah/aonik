@@ -72,7 +72,7 @@ public class NotificationDeviceEndpointsTests : IClassFixture<CustomWebApplicati
     }
 
     [Fact]
-    public async Task RegisterNotificationDevice_ShouldReturnBadRequest_WhenTokenMissing()
+    public async Task RegisterNotificationDevice_ShouldReturnValidationError_WhenTokenMissing()
     {
         var auth = TestAuthOptions.Create().WithRoles("PersonalUser");
         var client = await _factory.CreateAuthenticatedClientAsync(auth);
@@ -81,7 +81,10 @@ public class NotificationDeviceEndpointsTests : IClassFixture<CustomWebApplicati
             "/profiles/customers/me/notification-devices",
             new RegisterNotificationDeviceRequestDto("fcm", "android", string.Empty));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // Empty DeviceToken is rejected by the Validator<T> attached to the
+        // request DTO, surfaced as 422 Unprocessable Content per the global
+        // FastEndpoints ErrorOptions.StatusCode convention.
+        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();

@@ -151,7 +151,7 @@ public class CustomerDataExportImportEndpointsTests : IClassFixture<CustomWebApp
     }
 
     [Fact]
-    public async Task ImportCustomerData_Should_Return400_When_BundleIsNull()
+    public async Task ImportCustomerData_Should_ReturnValidationError_When_BundleIsNull()
     {
         // Arrange
         var tenantId = Guid.NewGuid();
@@ -162,8 +162,10 @@ public class CustomerDataExportImportEndpointsTests : IClassFixture<CustomWebApp
         var importPayload = new { bundle = (object?)null, conflictMode = "fail" };
         var importResponse = await client.PostAsJsonAsync("/admin/customers/import", importPayload, JsonOptions);
 
-        // Assert
-        importResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // Assert — null Bundle is rejected by the FluentValidation
+        // Validator<ImportCustomerDataRequest>, surfaced as 422 Unprocessable
+        // Content per the global FastEndpoints ErrorOptions.StatusCode.
+        importResponse.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 
     // ─── Round-Trip ─────────────────────────────────────────

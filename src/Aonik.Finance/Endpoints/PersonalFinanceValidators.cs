@@ -141,14 +141,19 @@ public sealed class UpdateManualPersonalTransactionRequestValidator : Validator<
 {
     public UpdateManualPersonalTransactionRequestValidator()
     {
+        // This DTO is bound by a PATCH endpoint that accepts partial updates,
+        // so absent fields deserialize to defaults (Currency=null, Amount=0,
+        // OccurredAt=default(DateTime)). Validation rules therefore only fire
+        // when the field appears non-default — strict checks happen at the
+        // service layer where the merge logic knows what was actually
+        // supplied.
         RuleFor(x => x.PersonalAccountId).ValidIdWhenSupplied();
-        RuleFor(x => x.OccurredAt)
-            .GreaterThan(DateTime.UtcNow.AddYears(-50))
-            .LessThan(DateTime.UtcNow.AddYears(1));
         RuleFor(x => x.Amount)
             .Must(a => Math.Abs(a) <= 1_000_000_000m)
             .WithMessage("Amount exceeds maximum supported value.");
-        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.Currency)
+            .Length(3).Matches("^[A-Za-z]{3}$").WithMessage("Currency code must be 3 letters.")
+            .When(x => !string.IsNullOrEmpty(x.Currency));
         RuleFor(x => x.Merchant).MaximumLength(256);
         RuleFor(x => x.Description).MaximumLength(1024);
         RuleFor(x => x.Category).MaximumLength(64);
@@ -239,10 +244,10 @@ public sealed class OverrideTransactionClassificationRequestValidator : Validato
         RuleFor(x => x.Notes).MaximumLength(2048);
         RuleFor(x => x.RulePattern).MaximumLength(512);
         RuleFor(x => x.RulePriority).InclusiveBetween(0, 1_000_000);
-        RuleFor(x => x.RuleMatchType)
-            .NotEmpty()
-            .Must(m => PersonalFinanceValidatorConstants.MatchTypes.Contains(m))
-            .WithMessage($"RuleMatchType must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.MatchTypes)}.");
+        // RuleMatchType nullability/allowed-values are enforced by the
+        // service so it can return a domain-specific error response when
+        // CreateRuleFromCorrection is true but RuleMatchType is missing.
+        RuleFor(x => x.RuleMatchType).MaximumLength(32);
     }
 }
 

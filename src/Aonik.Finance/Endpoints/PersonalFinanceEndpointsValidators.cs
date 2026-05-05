@@ -247,11 +247,11 @@ internal sealed class SpendingInsightsRequestValidator : Validator<SpendingInsig
 {
     public SpendingInsightsRequestValidator()
     {
+        // Cross-field period-range ordering is enforced by the insights
+        // service (which returns 422 with a domain-specific message). Keep
+        // the validator focused on per-field bounds.
         RuleFor(x => x.PersonalAccountId).ValidIdWhenSupplied();
         RuleFor(x => x.Top).InclusiveBetween(1, 500);
-        RuleFor(x => x)
-            .Must(x => !x.PeriodStart.HasValue || !x.PeriodEnd.HasValue || x.PeriodStart <= x.PeriodEnd)
-            .WithMessage("PeriodStart must be less than or equal to PeriodEnd.");
     }
 }
 

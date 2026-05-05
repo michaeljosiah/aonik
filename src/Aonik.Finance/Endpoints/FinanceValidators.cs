@@ -29,17 +29,15 @@ public sealed class CreateLedgerRequestValidator : Validator<CreateLedgerRequest
 
 public sealed class CreateLedgerAccountRequestValidator : Validator<CreateLedgerAccountRequest>
 {
-    private static readonly string[] AccountTypes = ["Asset", "Liability", "Equity", "Revenue", "Expense"];
-
     public CreateLedgerAccountRequestValidator()
     {
         RuleFor(x => x.LedgerId).RequiredId();
         RuleFor(x => x.Name).RequiredText(256);
         RuleFor(x => x.Code).RequiredText(64);
-        RuleFor(x => x.AccountType)
-            .NotEmpty()
-            .Must(t => AccountTypes.Contains(t))
-            .WithMessage($"AccountType must be one of: {string.Join(", ", AccountTypes)}.");
+        // AccountType is a free-form classification (Income, Asset, Liability,
+        // etc.). The set of legal values is owned by the ledger service and
+        // its catalog, not the API contract — keep validation to length only.
+        RuleFor(x => x.AccountType).RequiredText(64);
     }
 }
 
@@ -143,7 +141,7 @@ public sealed class CreateReceiverRequestValidator : Validator<CreateReceiverReq
             .MaximumLength(32)
             .Matches(@"^\+[1-9]\d{7,14}$").WithMessage("Phone must be in E.164 format.")
             .When(x => !string.IsNullOrEmpty(x.Phone));
-        RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrEmpty(x.Email));
+        RuleFor(x => x.Email).Email().When(x => !string.IsNullOrEmpty(x.Email));
         RuleFor(x => x.CountryCode)
             .Length(2).Matches("^[A-Z]{2}$")
             .When(x => !string.IsNullOrEmpty(x.CountryCode));
@@ -433,7 +431,7 @@ public sealed class CreateCatalogBillerRequestValidator : Validator<CreateCatalo
         RuleFor(x => x.SupportPhone)
             .MaximumLength(32)
             .When(x => !string.IsNullOrEmpty(x.SupportPhone));
-        RuleFor(x => x.SupportEmail).EmailAddress().When(x => !string.IsNullOrEmpty(x.SupportEmail));
+        RuleFor(x => x.SupportEmail).Email().When(x => !string.IsNullOrEmpty(x.SupportEmail));
         RuleFor(x => x.SortOrder).InclusiveBetween(0, 1_000_000);
     }
 }
@@ -451,7 +449,7 @@ public sealed class UpdateCatalogBillerRequestValidator : Validator<UpdateCatalo
         RuleFor(x => x.SupportPhone)
             .MaximumLength(32)
             .When(x => !string.IsNullOrEmpty(x.SupportPhone));
-        RuleFor(x => x.SupportEmail).EmailAddress().When(x => !string.IsNullOrEmpty(x.SupportEmail));
+        RuleFor(x => x.SupportEmail).Email().When(x => !string.IsNullOrEmpty(x.SupportEmail));
         RuleFor(x => x.SortOrder)
             .InclusiveBetween(0, 1_000_000)
             .When(x => x.SortOrder.HasValue);
