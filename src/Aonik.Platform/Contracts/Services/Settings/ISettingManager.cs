@@ -1,6 +1,7 @@
 namespace Aonik.Platform.Contracts.Services.Settings;
 
 using Aonik.Platform.Entities.Settings;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 public interface ISettingManager
 {

@@ -14,6 +14,7 @@ using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Platform.Services.Identity;
 

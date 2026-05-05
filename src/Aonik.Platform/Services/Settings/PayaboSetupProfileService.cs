@@ -9,6 +9,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Settings;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Platform.Services.Settings;
 

@@ -385,7 +385,7 @@ public class CustomerInsightAiSummaryJobTests
 
         currentUserProvider.CurrentUserId = userId;
 
-        var snapshotReader = new CustomerInsightSnapshotReader(financeDbContext);
+        var snapshotReader = new CustomerInsightSnapshotForAiAdapter(new CustomerInsightSnapshotReader(financeDbContext));
         var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
         var summaryService = new CustomerInsightAiSummaryService(
             aiDbContext,

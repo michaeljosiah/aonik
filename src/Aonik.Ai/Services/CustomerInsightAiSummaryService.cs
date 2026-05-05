@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
-using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -20,7 +20,7 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
     };
 
     private readonly AiDbContext _dbContext;
-    private readonly ICustomerInsightSnapshotReader _snapshotReader;
+    private readonly ICustomerInsightSnapshotForAi _snapshotReader;
     private readonly ICustomerInsightAiSummaryReader _summaryReader;
     private readonly IAiTaskProfileResolver _profileResolver;
     private readonly IChatClient _chatClient;
@@ -30,7 +30,7 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
 
     public CustomerInsightAiSummaryService(
         AiDbContext dbContext,
-        ICustomerInsightSnapshotReader snapshotReader,
+        ICustomerInsightSnapshotForAi snapshotReader,
         ICustomerInsightAiSummaryReader summaryReader,
         IAiTaskProfileResolver profileResolver,
         IChatClient chatClient,
@@ -52,13 +52,8 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
         Guid customerInsightSnapshotId,
         CancellationToken cancellationToken = default)
     {
-        var snapshot = await _snapshotReader.GetSnapshotAsync(customerInsightSnapshotId, cancellationToken)
-            ?? throw new InvalidOperationException($"Customer insight snapshot {customerInsightSnapshotId} was not found.");
-
-        if (snapshot.Snapshot is null)
-        {
-            throw new InvalidOperationException($"Customer insight snapshot {customerInsightSnapshotId} does not contain SnapshotJson.");
-        }
+        var snapshot = await _snapshotReader.GetSnapshotForSummaryAsync(customerInsightSnapshotId, cancellationToken)
+            ?? throw new InvalidOperationException($"Customer insight snapshot {customerInsightSnapshotId} was not found, or its SnapshotJson has not been materialised.");
 
         var profile = await _profileResolver.ResolveAsync(
             CustomerInsightAiSummaryContract.UseCase,
@@ -95,9 +90,10 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
 
         try
         {
-            var snapshotJson = JsonSerializer.Serialize(snapshot.Snapshot, JsonOptions);
+            // SnapshotJson is pre-serialised by the Finance-side adapter so
+            // Ai never needs to introspect the rich CustomerInsightSnapshotDocument.
             var userPrompt = (profile.UserPromptTemplate ?? "{{SNAPSHOT_JSON}}")
-                .Replace("{{SNAPSHOT_JSON}}", snapshotJson);
+                .Replace("{{SNAPSHOT_JSON}}", snapshot.SnapshotJson);
 
             var messages = new List<ChatMessage>();
             if (!string.IsNullOrWhiteSpace(profile.SystemPrompt))
@@ -136,7 +132,7 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
 
             var entity = new CustomerInsightAiSummary
             {
-                TenantId = snapshot.Snapshot.TenantId,
+                TenantId = snapshot.TenantId,
                 UserId = snapshot.UserId,
                 CustomerInsightSnapshotId = snapshot.Id,
                 AiRunId = aiRunId,
@@ -231,7 +227,7 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
     }
 
     private async Task<CustomerInsightAiSummaryResponse> PersistFailedSummaryAsync(
-        Aonik.Finance.Contracts.Models.PersonalFinance.CustomerInsightSnapshotResponse snapshot,
+        CustomerInsightSnapshotForAi snapshot,
         CustomerInsightAiSummary? current,
         Guid aiRunId,
         string narrativeVersion,
@@ -241,7 +237,7 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
 
         var failed = new CustomerInsightAiSummary
         {
-            TenantId = snapshot.Snapshot!.TenantId,
+            TenantId = snapshot.TenantId,
             UserId = snapshot.UserId,
             CustomerInsightSnapshotId = snapshot.Id,
             AiRunId = aiRunId,

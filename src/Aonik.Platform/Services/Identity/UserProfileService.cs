@@ -17,6 +17,7 @@ using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Settings;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 namespace Aonik.Platform.Services.Identity;

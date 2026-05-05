@@ -1,5 +1,11 @@
-namespace Aonik.Platform.Settings;
+namespace Aonik.SharedKernel.Abstractions.Settings;
 
+/// <summary>
+/// Well-known setting keys consumed by the Ai module. Hosted on
+/// SharedKernel because both Ai (which reads them) and Platform (which
+/// registers their schema in <c>SettingDefinitions</c>) need to reference
+/// the same constants without a cross-module project dependency.
+/// </summary>
 public static class AiSettingNames
 {
     /// <summary>

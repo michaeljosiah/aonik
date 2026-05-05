@@ -5,6 +5,7 @@ using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Models.Authentication;
 using Aonik.Platform.Services.Settings;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Infrastructure.Authentication.Provisioning;
 

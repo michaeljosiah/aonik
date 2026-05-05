@@ -7,6 +7,7 @@ using Aonik.Platform.Contracts.Services.Observability;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Settings;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Microsoft.Extensions.Logging;
 using ZiggyCreatures.Caching.Fusion;
 

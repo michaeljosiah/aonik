@@ -20,6 +20,7 @@ using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Api.Tests;
 

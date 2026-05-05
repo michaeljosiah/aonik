@@ -1,9 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Aonik.Ai.Contracts.Models;
-using Aonik.Platform.Contracts.Services.Settings;
-using Aonik.Platform.Entities.Settings;
-using Aonik.Platform.Settings;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Microsoft.Extensions.Options;
 using ZiggyCreatures.Caching.Fusion;
 

@@ -23,6 +23,7 @@ using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Identity;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Infrastructure.Authentication;
 

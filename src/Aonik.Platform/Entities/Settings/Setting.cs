@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Platform.Entities.Settings;

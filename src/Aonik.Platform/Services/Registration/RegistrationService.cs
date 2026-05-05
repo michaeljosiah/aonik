@@ -11,6 +11,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Services.Settings;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

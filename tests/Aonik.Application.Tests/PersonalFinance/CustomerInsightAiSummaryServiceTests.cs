@@ -180,7 +180,7 @@ public class CustomerInsightAiSummaryServiceTests
         using var aiDbContext = CreateAiDbContext(tenantProvider, currentUserProvider, clock);
 
         var snapshotId = SeedCurrentSnapshot(financeDbContext, tenantId, userId, clock.UtcNow);
-        var snapshotReader = new CustomerInsightSnapshotReader(financeDbContext);
+        var snapshotReader = new CustomerInsightSnapshotForAiAdapter(new CustomerInsightSnapshotReader(financeDbContext));
         var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
         var profileResolver = new FakeTaskProfileResolver { ModelId = "model-a" };
         var chatClient = new QueueChatClient();
@@ -233,7 +233,7 @@ public class CustomerInsightAiSummaryServiceTests
         using var aiDbContext = CreateAiDbContext(tenantProvider, currentUserProvider, clock);
 
         var snapshotId = SeedCurrentSnapshot(financeDbContext, tenantId, userId, clock.UtcNow);
-        var snapshotReader = new CustomerInsightSnapshotReader(financeDbContext);
+        var snapshotReader = new CustomerInsightSnapshotForAiAdapter(new CustomerInsightSnapshotReader(financeDbContext));
         var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
         var profileResolver = new FakeTaskProfileResolver { ModelId = "model-a" };
         var chatClient = new QueueChatClient();
@@ -274,7 +274,7 @@ public class CustomerInsightAiSummaryServiceTests
         using var aiDbContext = CreateAiDbContext(tenantProvider, currentUserProvider, clock);
 
         var snapshotId = SeedCurrentSnapshot(financeDbContext, tenantId, userId, clock.UtcNow);
-        var snapshotReader = new CustomerInsightSnapshotReader(financeDbContext);
+        var snapshotReader = new CustomerInsightSnapshotForAiAdapter(new CustomerInsightSnapshotReader(financeDbContext));
         var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
         var profileResolver = new FakeTaskProfileResolver { ModelId = "model-a" };
         var chatClient = new QueueChatClient();
@@ -327,7 +327,7 @@ public class CustomerInsightAiSummaryServiceTests
         using var aiDbContext = CreateAiDbContext(tenantProvider, currentUserProvider, clock);
 
         var snapshotId = SeedCurrentSnapshot(financeDbContext, tenantId, userId, clock.UtcNow);
-        var snapshotReader = new CustomerInsightSnapshotReader(financeDbContext);
+        var snapshotReader = new CustomerInsightSnapshotForAiAdapter(new CustomerInsightSnapshotReader(financeDbContext));
         var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
         var profileResolver = new FakeTaskProfileResolver();
         var chatClient = new QueueChatClient();
@@ -374,7 +374,7 @@ public class CustomerInsightAiSummaryServiceTests
         using var aiDbContext = CreateAiDbContext(tenantProvider, currentUserProvider, clock);
 
         var snapshotId = SeedCurrentSnapshot(financeDbContext, tenantId, userId, clock.UtcNow);
-        var snapshotReader = new CustomerInsightSnapshotReader(financeDbContext);
+        var snapshotReader = new CustomerInsightSnapshotForAiAdapter(new CustomerInsightSnapshotReader(financeDbContext));
         var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
         var profileResolver = new FakeTaskProfileResolver();
         var chatClient = new QueueChatClient();

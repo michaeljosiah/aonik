@@ -125,6 +125,9 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotGenerator, Services.PersonalFinance.CustomerInsightSnapshotGenerator>();
         services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotService, Services.PersonalFinance.CustomerInsightSnapshotService>();
         services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotReader, Services.PersonalFinance.CustomerInsightSnapshotReader>();
+        // SharedKernel-shaped wrapper consumed by Aonik.Ai's CustomerInsightAiSummaryService
+        // — keeps Ai free of a back-pointing reference on Finance.
+        services.AddScoped<SharedKernel.Abstractions.PersonalFinance.ICustomerInsightSnapshotForAi, Services.PersonalFinance.CustomerInsightSnapshotForAiAdapter>();
         services.AddSingleton<Services.PersonalFinance.FinancialLifeGraphSchema>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphLoader>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphSnapshotMetrics>();

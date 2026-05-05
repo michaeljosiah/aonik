@@ -5,6 +5,7 @@ using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Models.Authentication;
 using Aonik.Platform.Contracts.Models.Identity;

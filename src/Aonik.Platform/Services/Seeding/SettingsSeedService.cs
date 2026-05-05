@@ -2,6 +2,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
 using Aonik.Platform.Entities.Settings;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
