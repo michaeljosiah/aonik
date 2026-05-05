@@ -20,6 +20,7 @@ internal sealed class ChatThreadHistoryCache : IChatThreadHistoryCache
     }
 
     public async Task<ChatThreadHistoryCacheLookup> GetOrLoadAsync(
+        Guid tenantId,
         Guid threadId,
         Func<CancellationToken, Task<IReadOnlyList<AguiMessage>>> factory,
         CancellationToken cancellationToken = default)
@@ -27,7 +28,7 @@ internal sealed class ChatThreadHistoryCache : IChatThreadHistoryCache
         var cacheMiss = false;
 
         var snapshot = await _cache.GetOrSetAsync(
-            BuildCacheKey(threadId),
+            BuildCacheKey(tenantId, threadId),
             async ct =>
             {
                 cacheMiss = true;
@@ -43,36 +44,46 @@ internal sealed class ChatThreadHistoryCache : IChatThreadHistoryCache
     }
 
     public async Task StoreAsync(
+        Guid tenantId,
         Guid threadId,
         IReadOnlyList<AguiMessage> messages,
         CancellationToken cancellationToken = default)
     {
-        await _cache.RemoveAsync(BuildCacheKey(threadId), token: cancellationToken);
+        await _cache.RemoveAsync(BuildCacheKey(tenantId, threadId), token: cancellationToken);
 
         _ = await _cache.GetOrSetAsync(
-            BuildCacheKey(threadId),
+            BuildCacheKey(tenantId, threadId),
             _ => Task.FromResult(new ChatThreadHistorySnapshot(CloneMessages(messages))),
             EntryOptions,
             cancellationToken);
     }
 
     public async Task AppendAsync(
+        Guid tenantId,
         Guid threadId,
         AguiMessage message,
         CancellationToken cancellationToken = default)
     {
         var lookup = await GetOrLoadAsync(
+            tenantId,
             threadId,
             _ => Task.FromResult<IReadOnlyList<AguiMessage>>([]),
             cancellationToken);
 
         var updated = lookup.Snapshot.Messages.ToList();
         updated.Add(CloneMessage(message));
-        await StoreAsync(threadId, updated, cancellationToken);
+        await StoreAsync(tenantId, threadId, updated, cancellationToken);
     }
 
-    private static string BuildCacheKey(Guid threadId)
-        => $"agui:thread-history:v1:{threadId:N}";
+    /// <summary>
+    /// Build the FusionCache key. Tenant-prefixed so two tenants whose
+    /// thread GUIDs ever overlap (e.g. via a future cross-tenant import
+    /// migration) cannot read or overwrite each other's history snapshot.
+    /// The <c>v1</c> segment lets us bump the cache schema without
+    /// touching every key by hand.
+    /// </summary>
+    private static string BuildCacheKey(Guid tenantId, Guid threadId)
+        => $"agui:thread-history:v1:{tenantId:N}:{threadId:N}";
 
     private static IReadOnlyList<AguiMessage> CloneMessages(IReadOnlyList<AguiMessage> messages)
         => messages.Select(CloneMessage).ToList();

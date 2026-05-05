@@ -115,9 +115,15 @@ public sealed class ChatThreadManager : IChatThreadManager
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
         }
 
+        // Capture ambient tenant id up-front. Cache keys are tenant-prefixed
+        // so a thread GUID that ever appears in two tenants' data (e.g.
+        // after a future cross-tenant import) cannot bleed across.
+        // Guid.Empty is the documented fallback for platform-level threads.
+        var capturedTenantId = _tenantContext?.TenantId ?? Guid.Empty;
+
         if (clientMessages.Count != 1)
         {
-            await _historyCache.StoreAsync(persistedThreadId.Value, clientMessages, cancellationToken);
+            await _historyCache.StoreAsync(capturedTenantId, persistedThreadId.Value, clientMessages, cancellationToken);
             activity?.SetTag("aonik.chat.history_source", "client");
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
         }
@@ -125,24 +131,24 @@ public sealed class ChatThreadManager : IChatThreadManager
         var only = clientMessages[0];
         if (!string.Equals(only.Role, "user", StringComparison.OrdinalIgnoreCase))
         {
-            await _historyCache.StoreAsync(persistedThreadId.Value, clientMessages, cancellationToken);
+            await _historyCache.StoreAsync(capturedTenantId, persistedThreadId.Value, clientMessages, cancellationToken);
             activity?.SetTag("aonik.chat.history_source", "client");
             return new ChatHistoryResolution(clientMessages, "client", stopwatch.ElapsedMilliseconds);
         }
 
-        // Capture ambient context up-front so we can re-seed it on the
-        // dedicated scope's services. The AGUI endpoint launches this task
-        // in parallel with the user-brief projector — both touch the
+        // Capture user id up-front so we can re-seed it on the dedicated
+        // scope's services. The AGUI endpoint launches this task in
+        // parallel with the user-brief projector — both touch the
         // request-scoped AgentsDbContext and trip EF Core's "second
-        // operation on this context" guard. Running the DB read in a fresh
-        // scope eliminates the race without forcing the caller to await
-        // sequentially.
-        var capturedTenantId = _tenantContext?.TenantId;
+        // operation on this context" guard. Running the DB read in a
+        // fresh scope eliminates the race without forcing the caller to
+        // await sequentially.
         var capturedUserId = _userContext?.UserId;
 
         try
         {
             var historyLookup = await _historyCache.GetOrLoadAsync(
+                capturedTenantId,
                 persistedThreadId.Value,
                 async ct =>
                 {
@@ -193,7 +199,7 @@ public sealed class ChatThreadManager : IChatThreadManager
             }
 
             reconstructed.Add(only);
-            await _historyCache.StoreAsync(persistedThreadId.Value, reconstructed, cancellationToken);
+            await _historyCache.StoreAsync(capturedTenantId, persistedThreadId.Value, reconstructed, cancellationToken);
 
             var source = historyLookup.IsCacheHit ? "cache" : "db";
             activity?.SetTag("aonik.chat.history_source", source);

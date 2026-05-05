@@ -82,7 +82,13 @@ public sealed class PostStreamPersistenceCoordinator : IPostStreamPersistenceCoo
 
                 if (historyCache is not null)
                 {
+                    // Cache key is tenant-prefixed. context.TenantId is
+                    // captured by the AGUI endpoint at request time and
+                    // re-seeded into the background scope upstream;
+                    // Guid.Empty is the documented fallback for the rare
+                    // background-only paths where no tenant was bound.
                     await historyCache.AppendAsync(
+                        context.TenantId ?? Guid.Empty,
                         threadId,
                         new AguiMessage
                         {

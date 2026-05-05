@@ -185,14 +185,17 @@ public class ChatThreadManagerTests
 
     private sealed class InMemoryHistoryCache : IChatThreadHistoryCache
     {
-        private readonly Dictionary<Guid, List<AguiMessage>> _snapshots = new();
+        // Keyed by (tenantId, threadId) so the test stub matches the
+        // production ChatThreadHistoryCache's tenant-prefixed key shape.
+        private readonly Dictionary<(Guid Tenant, Guid Thread), List<AguiMessage>> _snapshots = new();
 
         public async Task<ChatThreadHistoryCacheLookup> GetOrLoadAsync(
+            Guid tenantId,
             Guid threadId,
             Func<CancellationToken, Task<IReadOnlyList<AguiMessage>>> factory,
             CancellationToken cancellationToken = default)
         {
-            if (_snapshots.TryGetValue(threadId, out var cached))
+            if (_snapshots.TryGetValue((tenantId, threadId), out var cached))
             {
                 return new ChatThreadHistoryCacheLookup(
                     new ChatThreadHistorySnapshot(CloneMessages(cached)),
@@ -200,7 +203,7 @@ public class ChatThreadManagerTests
             }
 
             var loaded = await factory(cancellationToken);
-            _snapshots[threadId] = CloneMessages(loaded).ToList();
+            _snapshots[(tenantId, threadId)] = CloneMessages(loaded).ToList();
 
             return new ChatThreadHistoryCacheLookup(
                 new ChatThreadHistorySnapshot(CloneMessages(loaded)),
@@ -208,27 +211,30 @@ public class ChatThreadManagerTests
         }
 
         public Task StoreAsync(
+            Guid tenantId,
             Guid threadId,
             IReadOnlyList<AguiMessage> messages,
             CancellationToken cancellationToken = default)
         {
-            _snapshots[threadId] = CloneMessages(messages).ToList();
+            _snapshots[(tenantId, threadId)] = CloneMessages(messages).ToList();
             return Task.CompletedTask;
         }
 
         public async Task AppendAsync(
+            Guid tenantId,
             Guid threadId,
             AguiMessage message,
             CancellationToken cancellationToken = default)
         {
             var lookup = await GetOrLoadAsync(
+                tenantId,
                 threadId,
                 _ => Task.FromResult<IReadOnlyList<AguiMessage>>([]),
                 cancellationToken);
 
             var updated = lookup.Snapshot.Messages.ToList();
             updated.Add(CloneMessage(message));
-            _snapshots[threadId] = updated;
+            _snapshots[(tenantId, threadId)] = updated;
         }
 
         private static IReadOnlyList<AguiMessage> CloneMessages(IEnumerable<AguiMessage> messages)
