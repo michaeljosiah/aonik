@@ -121,8 +121,16 @@ public static class Extensions
         return builder;
     }
 
+    /// <summary>
+    /// Disclosure-sensitive feature gate. Strictly tied to
+    /// <see cref="HostEnvironmentEnvExtensions.IsDevelopment"/> (i.e.
+    /// ASPNETCORE_ENVIRONMENT == "Development") so that the cloud
+    /// <c>dev</c> deployment slot — which is a real environment, not a
+    /// developer's machine — does NOT enable PII-bearing SQL command
+    /// text capture or any other dev-only instrumentation.
+    /// </summary>
     private static bool IsDevLikeEnvironment(IHostEnvironment environment) =>
-        environment.IsDevelopment() || string.Equals(environment.EnvironmentName, "dev", StringComparison.OrdinalIgnoreCase);
+        environment.IsDevelopment();
 
     private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
@@ -195,7 +203,10 @@ public static class Extensions
     {
         // Adding health checks endpoints to applications in non-development environments has security implications.
         // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
-        if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "dev")
+        // Health endpoints are restricted to local development. The cloud
+        // "dev" deployment slot must NOT expose unauthenticated /health
+        // and /alive endpoints — see https://aka.ms/dotnet/aspire/healthchecks.
+        if (app.Environment.IsDevelopment())
         {
             // All health checks must pass for app to be considered ready to accept traffic after starting
             app.MapHealthChecks(HealthEndpointPath);

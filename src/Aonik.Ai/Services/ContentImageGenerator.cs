@@ -1,5 +1,7 @@
 using Aonik.SharedKernel.Abstractions.Ai;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using OpenAI;
 using OpenAI.Images;
 
 namespace Aonik.Ai.Services;
@@ -14,7 +16,10 @@ public sealed class ContentImageGenerator : IContentImageGenerator
     private readonly ImageClient? _imageClient;
     private readonly ILogger<ContentImageGenerator> _logger;
 
-    public ContentImageGenerator(IAiProviderSettings aiSettings, ILogger<ContentImageGenerator> logger)
+    public ContentImageGenerator(
+        IAiProviderSettings aiSettings,
+        IConfiguration configuration,
+        ILogger<ContentImageGenerator> logger)
     {
         _logger = logger;
 
@@ -24,7 +29,21 @@ public sealed class ContentImageGenerator : IContentImageGenerator
             return;
         }
 
-        _imageClient = new ImageClient(aiSettings.OpenAiImageModel, aiSettings.OpenAiApiKey);
+        // Image calls take longer than chat completions, so the default
+        // timeout is wider (180 s). Configurable via
+        // AI:OpenAI:ImageNetworkTimeoutSeconds. Without this the OpenAI
+        // SDK applies no timeout and a hung provider would hold the
+        // calling thread indefinitely.
+        var timeoutSeconds = configuration.GetValue<int?>("AI:OpenAI:ImageNetworkTimeoutSeconds") ?? 180;
+        var clientOptions = new OpenAIClientOptions
+        {
+            NetworkTimeout = TimeSpan.FromSeconds(timeoutSeconds),
+        };
+
+        _imageClient = new ImageClient(
+            aiSettings.OpenAiImageModel,
+            new System.ClientModel.ApiKeyCredential(aiSettings.OpenAiApiKey),
+            clientOptions);
         _logger.LogInformation("Image generation enabled with model: {Model}", aiSettings.OpenAiImageModel);
     }
 

@@ -84,9 +84,11 @@ public sealed class AiModule : IModule
 
                 "openai" => new OpenAI.Chat.ChatClient(
                     aiSettings.OpenAiModel,
-                    aiSettings.OpenAiApiKey ?? throw new InvalidOperationException(
-                        "OpenAI API key is required when using the OpenAI provider. " +
-                        "Configure it via the Settings module (Ai.OpenAI.ApiKey) or appsettings (AI:OpenAI:ApiKey)."))
+                    new System.ClientModel.ApiKeyCredential(
+                        aiSettings.OpenAiApiKey ?? throw new InvalidOperationException(
+                            "OpenAI API key is required when using the OpenAI provider. " +
+                            "Configure it via the Settings module (Ai.OpenAI.ApiKey) or appsettings (AI:OpenAI:ApiKey).")),
+                    BuildOpenAiClientOptions(configuration))
                     .AsIChatClient(),
 
                 "azureopenai" or "azure_openai" or "azure-openai" => throw new NotSupportedException(
@@ -145,8 +147,10 @@ public sealed class AiModule : IModule
             {
                 "openai" => new OpenAI.Embeddings.EmbeddingClient(
                     embeddingModel,
-                    aiSettings.OpenAiApiKey ?? throw new InvalidOperationException(
-                        "OpenAI API key is required when using the OpenAI provider."))
+                    new System.ClientModel.ApiKeyCredential(
+                        aiSettings.OpenAiApiKey ?? throw new InvalidOperationException(
+                            "OpenAI API key is required when using the OpenAI provider.")),
+                    BuildOpenAiClientOptions(configuration))
                     .AsIEmbeddingGenerator(defaultModelDimensions: dimensions),
 
                 // Stub and other providers: no-op generator registered; IEmbeddingService
@@ -245,6 +249,26 @@ public sealed class AiModule : IModule
         return services;
     }
 
+    /// <summary>
+    /// Builds the <see cref="OpenAI.OpenAIClientOptions"/> shared by the
+    /// OpenAI ChatClient and EmbeddingClient. Sets an explicit
+    /// <c>NetworkTimeout</c> so a stuck OpenAI call fails on a bounded
+    /// schedule instead of hanging forever — the OpenAI SDK does not
+    /// apply an HttpClient.Timeout by default. Configurable via
+    /// <c>AI:OpenAI:NetworkTimeoutSeconds</c> (default 120 s, generous
+    /// enough for a long completion but short enough that a hung
+    /// upstream surfaces as a real error).
+    /// </summary>
+    private static OpenAI.OpenAIClientOptions BuildOpenAiClientOptions(IConfiguration configuration)
+    {
+        var timeoutSeconds = configuration.GetValue<int?>("AI:OpenAI:NetworkTimeoutSeconds") ?? 120;
+        return new OpenAI.OpenAIClientOptions
+        {
+            NetworkTimeout = TimeSpan.FromSeconds(timeoutSeconds),
+        };
+    }
+
+
     private static void RegisterTtsProvider<TProvider>(
         IServiceCollection services,
         IConfiguration configuration,
@@ -256,6 +280,11 @@ public sealed class AiModule : IModule
             var options = configuration.GetSection("AI:TextToSpeech").Get<Aonik.Ai.Services.TextToSpeechOptions>()
                 ?? new Aonik.Ai.Services.TextToSpeechOptions();
             client.BaseAddress = new Uri(baseUrlSelector(options));
+            // Explicit timeout. HttpClient defaults to 100s when unset, which
+            // is far too lenient for an interactive voice surface — a hung
+            // provider would block the AGUI stream for nearly two minutes.
+            // Configurable via AI:TextToSpeech:TimeoutSeconds.
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
             client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         });

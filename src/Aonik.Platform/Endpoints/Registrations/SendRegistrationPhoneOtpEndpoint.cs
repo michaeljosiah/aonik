@@ -118,10 +118,12 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
             "Pre-registration phone OTP sent for challenge {ChallengeId}",
             challenge.Id);
 
-        var devCode = _hostEnvironment.IsDevelopment()
-            || _hostEnvironment.EnvironmentName == "dev"
-            ? code
-            : null;
+        // The OTP code is only echoed back when the host is genuinely a
+        // development machine (IHostEnvironment.IsDevelopment()). The
+        // cloud "dev" deployment slot is a real environment and must
+        // exercise the full SMS path — never short-circuit by leaking
+        // the code in the response body.
+        var devCode = _hostEnvironment.IsDevelopment() ? code : null;
 
         await Send.OkAsync(new SendRegistrationPhoneOtpResponse(challenge.Id, challenge.ExpiresAt, devCode), ct);
     }

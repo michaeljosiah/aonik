@@ -50,7 +50,10 @@ public static class SwaggerConfiguration
         this WebApplication app,
         IConfiguration configuration)
     {
-        if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "dev")
+        // Swagger is exposed strictly when IHostEnvironment.IsDevelopment() returns true.
+        // The cloud "dev" slot is a deployment environment, not a development host —
+        // its OpenAPI surface is intentionally NOT public.
+        if (app.Environment.IsDevelopment())
         {
             var swaggerOptions = configuration.GetSection("Swagger").Get<SwaggerOptions>()
                 ?? new SwaggerOptions();

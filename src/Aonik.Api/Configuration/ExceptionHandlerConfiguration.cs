@@ -52,8 +52,11 @@ public static class ExceptionHandlerConfiguration
         this IApplicationBuilder app,
         IHostEnvironment environment)
     {
-        var includeDetails = environment.IsDevelopment()
-            || string.Equals(environment.EnvironmentName, "dev", StringComparison.OrdinalIgnoreCase);
+        // Error-detail disclosure is gated strictly on IHostEnvironment.IsDevelopment() —
+        // i.e. ASPNETCORE_ENVIRONMENT == "Development". A literal "dev" environment string
+        // (used for cloud-slot naming) is NOT a development environment and must NEVER
+        // leak stack traces to clients.
+        var includeDetails = environment.IsDevelopment();
 
         return app.Use(async (context, next) =>
         {
