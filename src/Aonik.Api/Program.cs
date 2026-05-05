@@ -97,9 +97,16 @@ app.UseAonikDevelopmentStaticFiles(app.Environment, builder.Configuration);
 app.UseAuthentication();
 // 2. Tenant context resolution
 app.UseTenantContext();
-// 3. Authorization (checks policies/permissions)
+// 3. Log-scope enrichment — stamps TenantId / UserId / RequestId /
+//    CorrelationId onto every ILogger.BeginScope inside the request,
+//    so a single log line in the incident tool shows the full identity
+//    context. Runs AFTER UseAuthentication + UseTenantContext (those
+//    populate ICurrentUserContext + ITenantContext) and BEFORE the
+//    handlers so domain services pick the scope up.
+app.UseAonikLogScopeEnrichment();
+// 4. Authorization (checks policies/permissions)
 app.UseAuthorization();
-// 4. Tenant validation (validates tenant status only)
+// 5. Tenant validation (validates tenant status only)
 app.UseTenantValidation();
 
 // 5. FastEndpoints — global CORS policy applied to all endpoints, validator
