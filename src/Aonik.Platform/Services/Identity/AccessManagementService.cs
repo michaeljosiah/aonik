@@ -1,22 +1,23 @@
-using System.Text.Json;
-
-using Microsoft.EntityFrameworkCore;
-
-using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.SharedKernel.Abstractions.Observability;
-using Aonik.Platform.Persistence;
-using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Platform.Contracts.Models.Identity;
-using Aonik.Platform.Services;
-using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Platform.Entities.Identity;
-using Aonik.Platform.Entities.Party;
+using Aonik.Platform.Contracts.Services.Storage;
+using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Identity.AccessManagement;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Observability;
 
 namespace Aonik.Platform.Services.Identity;
 
+/// <summary>
+/// Thin orchestrator for the access-management surface (users +
+/// roles + permissions). Each method enforces the relevant
+/// permission, resolves the current tenant, then dispatches to a
+/// focused helper under the <c>AccessManagement</c> sibling folder.
+/// The DI ctor signature is kept stable so consumers and tests
+/// don't need to change.
+/// </summary>
 internal class AccessManagementService : AdminServiceBase, IAccessManagementService
 {
     private readonly PlatformDbContext _dbContext;
@@ -48,227 +49,45 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         _pendingUserProvisioner = pendingUserProvisioner;
     }
 
+    // ─── Helper construction ─────────────────────────────────────
+    // Helpers are constructed inline per call. They are tiny (just
+    // grab references to already-injected deps) and allow the
+    // orchestrator to remain stateless beyond its captured DI deps.
+
+    private AccessUserQueryHelper Users() =>
+        new(_dbContext, PermissionService);
+
+    private AccessUserInviteHelper Invites() =>
+        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext, _pendingUserProvisioner);
+
+    private AccessUserRoleHelper UserRoles() =>
+        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext);
+
+    private AccessUserProfileHelper Profiles() =>
+        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext, _profilePhotoStore);
+
+    private AccessUserLifecycleHelper Lifecycle() =>
+        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext);
+
+    private AccessRoleHelper Roles() =>
+        new(_dbContext, _clock, CurrentUserProvider);
+
+    // ─── Users ───────────────────────────────────────────────────
+
     public async Task<PagedResult<AccessUserSummary>> ListUsersAsync(
         ListUsersRequest request,
         CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Users.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var query = _dbContext.Users
-            .AsNoTracking()
-            .Where(user => user.TenantId == tenantId);
-
-        if (!string.IsNullOrWhiteSpace(request.Status))
-        {
-            var status = request.Status.Trim();
-            query = query.Where(user => user.Status == status);
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Search))
-        {
-            var search = request.Search.Trim();
-            query = query.Where(user => (user.Email ?? string.Empty).Contains(search));
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderBy(user => user.Email ?? string.Empty)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .Select(user => new
-            {
-                user.Id,
-                Email = user.Email ?? string.Empty,
-                user.Status,
-                user.LastLoginAt,
-                RoleCount = _dbContext.UserRoles.Count(ur => ur.UserId == user.Id),
-                PartyInfo = _dbContext.UserParties
-                    .Where(link => link.TenantId == tenantId && link.UserId == user.Id)
-                    .Join(_dbContext.Parties,
-                        link => link.PartyId,
-                        party => party.Id,
-                        (link, party) => new
-                        {
-                            PartyId = (Guid?)party.Id,
-                            party.DisplayName,
-                            party.PartyType,
-                            link.LinkType,
-                            link.CreatedAt,
-                            PersonProfile = _dbContext.PersonProfiles
-                                .Where(pp => pp.PartyId == party.Id)
-                                .Select(pp => new
-                                {
-                                    pp.PhotoUrl,
-                                    pp.PhotoUrlSmall,
-                                    pp.PhotoUrlTiny
-                                })
-                                .FirstOrDefault()
-                        })
-                    .OrderBy(link => link.CreatedAt)
-                    .FirstOrDefault()
-            })
-            .ToListAsync(cancellationToken);
-
-        var summaries = items.Select(item => new AccessUserSummary(
-            item.Id,
-            item.Email,
-            null,
-            item.Status,
-            item.LastLoginAt,
-            item.RoleCount,
-            item.PartyInfo?.PartyId,
-            item.PartyInfo?.DisplayName,
-            item.PartyInfo?.PartyType,
-            item.PartyInfo?.LinkType,
-            item.PartyInfo?.PersonProfile?.PhotoUrl,
-            item.PartyInfo?.PersonProfile?.PhotoUrlSmall,
-            item.PartyInfo?.PersonProfile?.PhotoUrlTiny)).ToList();
-
-        return new PagedResult<AccessUserSummary>(
-            summaries,
-            request.PageNumber,
-            request.PageSize,
-            totalCount);
+        return await Users().ListUsersAsync(tenantId, request, cancellationToken);
     }
 
     public async Task<AccessUserDetail?> GetUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Users.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var user = await _dbContext.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            return null;
-        }
-
-        var roles = await _dbContext.UserRoles
-            .Where(ur => ur.UserId == userId)
-            .Include(ur => ur.Role)
-            .OrderBy(ur => ur.Role.Name)
-            .Select(ur => new RoleSummary(ur.Role.Id, ur.Role.Name))
-            .ToListAsync(cancellationToken);
-
-        var permissions = await PermissionService.GetUserPermissionsAsync(userId, cancellationToken);
-
-        // Load party info with extended details
-        var partyLink = await _dbContext.UserParties
-            .AsNoTracking()
-            .Where(link => link.TenantId == tenantId && link.UserId == userId)
-            .OrderBy(link => link.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        PersonProfileDetail? personProfile = null;
-        BusinessProfileDetail? businessProfile = null;
-        List<PartyContactDetail> contacts = new();
-        List<PartyAddressDetail> addresses = new();
-        Guid? partyId = null;
-        string? partyDisplayName = null;
-        string? partyType = null;
-        string? linkType = null;
-
-        if (partyLink != null)
-        {
-            var party = await _dbContext.Parties
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
-
-            if (party != null)
-            {
-                partyId = party.Id;
-                partyDisplayName = party.DisplayName;
-                partyType = party.PartyType;
-                linkType = partyLink.LinkType;
-
-                // Load PersonProfile if party type is Individual or Person
-                if (party.PartyType == "Individual" || party.PartyType == "Person")
-                {
-                    var personProfileEntity = await _dbContext.PersonProfiles
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
-
-                    if (personProfileEntity != null)
-                    {
-                        personProfile = new PersonProfileDetail(
-                            personProfileEntity.Title,
-                            personProfileEntity.FirstName,
-                            personProfileEntity.LastName,
-                            personProfileEntity.CountryCode,
-                            personProfileEntity.PhotoUrl,
-                            personProfileEntity.Dob,
-                            personProfileEntity.Nationality,
-                            personProfileEntity.Occupation,
-                            personProfileEntity.IdvStatus);
-                    }
-                }
-
-                // Load BusinessProfile if party type is Business
-                if (party.PartyType == "Business")
-                {
-                    var businessProfileEntity = await _dbContext.BusinessProfiles
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
-
-                    if (businessProfileEntity != null)
-                    {
-                        businessProfile = new BusinessProfileDetail(
-                            businessProfileEntity.RegistrationNumber,
-                            businessProfileEntity.IncorporationCountry,
-                            businessProfileEntity.Industry,
-                            businessProfileEntity.KybStatus);
-                    }
-                }
-
-                // Load contacts
-                contacts = await _dbContext.PartyContacts
-                    .AsNoTracking()
-                    .Where(c => c.PartyId == party.Id)
-                    .OrderByDescending(c => c.IsPrimary)
-                    .ThenBy(c => c.Type)
-                    .Select(c => new PartyContactDetail(c.Id, c.Type, c.Value, c.IsPrimary))
-                    .ToListAsync(cancellationToken);
-
-                // Load addresses
-                addresses = await _dbContext.PartyAddresses
-                    .AsNoTracking()
-                    .Where(a => a.PartyId == party.Id)
-                    .OrderBy(a => a.Type)
-                    .Select(a => new PartyAddressDetail(
-                        a.Id,
-                        a.Type,
-                        a.Line1,
-                        a.Line2,
-                        a.Line3,
-                        a.City,
-                        a.State,
-                        a.Postcode,
-                        a.Country))
-                    .ToListAsync(cancellationToken);
-            }
-        }
-
-        return new AccessUserDetail(
-            user.Id,
-            user.Email ?? string.Empty,
-            null,
-            user.Status,
-            user.CreatedAt,
-            user.LastLoginAt,
-            roles,
-            permissions,
-            partyId,
-            partyDisplayName,
-            partyType,
-            linkType,
-            personProfile,
-            businessProfile,
-            contacts,
-            addresses);
+        return await Users().GetUserAsync(tenantId, userId, cancellationToken);
     }
 
     public async Task<InviteUserResponse> InviteUserAsync(
@@ -276,113 +95,8 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Users.Invite", cancellationToken);
-
-        if (string.IsNullOrWhiteSpace(request.Email))
-            throw new ArgumentException("Email is required.", nameof(request));
-
-        var trimmedEmail = request.Email.Trim();
-        if (!trimmedEmail.Contains('@') || trimmedEmail.IndexOf('@') == 0 || trimmedEmail.IndexOf('@') == trimmedEmail.Length - 1)
-            throw new ArgumentException("Email must be a valid email address.", nameof(request));
-
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        if (tenantId == Guid.Empty)
-            throw new InvalidOperationException("Cannot invite a user without a tenant context.");
-
-        // Validate role IDs early so we don't create a placeholder if
-        // the request references a role that doesn't belong to the
-        // tenant. This prevents privilege-escalation attempts where
-        // an admin in tenant A tries to attach a role from tenant B.
-        var requestedRoleIds = request.RoleIds?.Where(id => id != Guid.Empty).Distinct().ToList()
-            ?? new List<Guid>();
-        if (requestedRoleIds.Count > 0)
-        {
-            var validRoleIds = await _dbContext.Roles
-                .AsNoTracking()
-                .Where(r => r.TenantId == tenantId && requestedRoleIds.Contains(r.Id))
-                .Select(r => r.Id)
-                .ToListAsync(cancellationToken);
-
-            var unknown = requestedRoleIds.Except(validRoleIds).ToArray();
-            if (unknown.Length > 0)
-            {
-                throw new ArgumentException(
-                    $"One or more roles are not part of this tenant: {string.Join(", ", unknown)}",
-                    nameof(request));
-            }
-        }
-
-        // Create (or reuse) the pending placeholder. The provisioner
-        // is idempotent — re-inviting the same email returns the
-        // existing row, so we can safely (re-)apply roles below.
-        var placeholder = await _pendingUserProvisioner.ProvisionPendingInviteAsync(
-            tenantId,
-            trimmedEmail,
-            request.DisplayName,
-            cancellationToken);
-
-        // Refuse to attach invite roles to a user that has ALREADY
-        // linked an external identity. That would be a sneaky way to
-        // alter another user's role set without going through the
-        // proper Users.Manage flow. Updating roles on a real user
-        // must go through UpdateUserRolesAsync.
-        var placeholderUser = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == placeholder.UserId, cancellationToken);
-        if (placeholderUser != null
-            && !BootstrapIdentityConstants.IsPendingPlaceholderIssuer(placeholderUser.ExternalIssuer))
-        {
-            throw new InvalidOperationException(
-                $"User '{trimmedEmail}' is already linked in this tenant; use Users.Manage to update their roles.");
-        }
-
-        var assignedRoleIds = new List<Guid>();
-        foreach (var roleId in requestedRoleIds)
-        {
-            var alreadyAssigned = await _dbContext.UserRoles
-                .AnyAsync(ur => ur.UserId == placeholder.UserId && ur.RoleId == roleId, cancellationToken);
-            if (alreadyAssigned)
-            {
-                assignedRoleIds.Add(roleId);
-                continue;
-            }
-
-            _dbContext.UserRoles.Add(new UserRole
-            {
-                Id = Guid.NewGuid(),
-                UserId = placeholder.UserId,
-                RoleId = roleId,
-                CreatedAt = _clock.UtcNow,
-            });
-            assignedRoleIds.Add(roleId);
-        }
-
-        if (assignedRoleIds.Count > 0)
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-
-        var actorId = CurrentUserProvider.GetCurrentUserId();
-        await _auditLogWriter.LogAsync(
-            AuditEventNames.UserInvited,
-            "User",
-            placeholder.UserId,
-            tenantId,
-            actorId,
-            _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new
-            {
-                placeholder.UserId,
-                Email = AuditLogMasking.MaskEmail(trimmedEmail),
-                placeholder.WasCreated,
-                AssignedRoleIds = assignedRoleIds,
-            }),
-            cancellationToken);
-
-        return new InviteUserResponse(
-            placeholder.UserId,
-            tenantId,
-            trimmedEmail,
-            request.DisplayName,
-            assignedRoleIds);
+        return await Invites().InviteUserAsync(tenantId, request, cancellationToken);
     }
 
     public async Task UpdateUserRolesAsync(
@@ -392,99 +106,7 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var userExists = await _dbContext.Users
-            .AnyAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (!userExists)
-        {
-            throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
-        }
-
-        var roleIds = request.RoleIds.Distinct().ToList();
-        if (roleIds.Count > 0)
-        {
-            var rolesInTenant = await _dbContext.Roles
-                .Where(role => role.TenantId == tenantId && roleIds.Contains(role.Id))
-                .Select(role => role.Id)
-                .ToListAsync(cancellationToken);
-
-            if (rolesInTenant.Count != roleIds.Count)
-            {
-                throw new InvalidOperationException("One or more roles were not found in the tenant.");
-            }
-        }
-
-        var existingRoles = await _dbContext.UserRoles
-            .Where(ur => ur.UserId == userId)
-            .ToListAsync(cancellationToken);
-
-        var existingRoleIds = existingRoles.Select(ur => ur.RoleId).ToHashSet();
-        var rolesToRemove = existingRoles.Where(ur => !roleIds.Contains(ur.RoleId)).ToList();
-        var rolesToAdd = roleIds
-            .Where(roleId => !existingRoleIds.Contains(roleId))
-            .Select(roleId => new UserRole
-            {
-                UserId = userId,
-                RoleId = roleId,
-                CreatedAt = _clock.UtcNow,
-                CreatedBy = CurrentUserProvider.GetCurrentUserId()
-            })
-            .ToList();
-
-        var roleIdsForAudit = roleIds
-            .Concat(rolesToRemove.Select(role => role.RoleId))
-            .Distinct()
-            .ToList();
-
-        var roleLookup = roleIdsForAudit.Count == 0
-            ? new Dictionary<Guid, string>()
-            : await _dbContext.Roles
-                .Where(role => role.TenantId == tenantId && roleIdsForAudit.Contains(role.Id))
-                .Select(role => new { role.Id, role.Name })
-                .ToDictionaryAsync(role => role.Id, role => role.Name, cancellationToken);
-
-        if (rolesToRemove.Count > 0)
-        {
-            _dbContext.UserRoles.RemoveRange(rolesToRemove);
-        }
-
-        if (rolesToAdd.Count > 0)
-        {
-            _dbContext.UserRoles.AddRange(rolesToAdd);
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var currentUserId = CurrentUserProvider.GetCurrentUserId();
-
-        foreach (var role in rolesToAdd)
-        {
-            var roleName = roleLookup.TryGetValue(role.RoleId, out var name) ? name : string.Empty;
-            await _auditLogWriter.LogAsync(
-                AuditEventNames.UserRoleAssigned,
-                "UserRole",
-                role.Id,
-                tenantId,
-                currentUserId,
-                _correlationContext.CorrelationId,
-                JsonSerializer.Serialize(new { userId, roleId = role.RoleId, roleName }),
-                cancellationToken);
-        }
-
-        foreach (var role in rolesToRemove)
-        {
-            var roleName = roleLookup.TryGetValue(role.RoleId, out var name) ? name : string.Empty;
-            await _auditLogWriter.LogAsync(
-                AuditEventNames.UserRoleRemoved,
-                "UserRole",
-                role.Id,
-                tenantId,
-                currentUserId,
-                _correlationContext.CorrelationId,
-                JsonSerializer.Serialize(new { userId, roleId = role.RoleId, roleName }),
-                cancellationToken);
-        }
+        await UserRoles().UpdateUserRolesAsync(tenantId, userId, request, cancellationToken);
     }
 
     public async Task UpdateUserProfileAsync(
@@ -494,100 +116,7 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
-        }
-
-        // Get the user's party link
-        var partyLink = await _dbContext.UserParties
-            .Where(link => link.TenantId == tenantId && link.UserId == userId)
-            .OrderBy(link => link.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (partyLink == null)
-        {
-            throw new InvalidOperationException($"User {userId} does not have a party linked");
-        }
-
-        var party = await _dbContext.Parties
-            .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
-
-        if (party == null)
-        {
-            throw new InvalidOperationException($"Party {partyLink.PartyId} not found");
-        }
-
-        // Only update PersonProfile for Individual parties (person profiles)
-        if (party.PartyType == "Individual" || party.PartyType == "Person")
-        {
-            var personProfile = await _dbContext.PersonProfiles
-                .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
-
-            if (personProfile != null)
-            {
-                // Update profile fields
-                if (request.FirstName != null)
-                {
-                    personProfile.FirstName = request.FirstName;
-                }
-
-                if (request.LastName != null)
-                {
-                    personProfile.LastName = request.LastName;
-                }
-
-                if (request.Title != null)
-                {
-                    personProfile.Title = request.Title;
-                }
-
-                if (request.CountryCode != null)
-                {
-                    personProfile.CountryCode = request.CountryCode;
-                }
-
-                if (request.Nationality != null)
-                {
-                    personProfile.Nationality = request.Nationality;
-                }
-
-                if (request.Occupation != null)
-                {
-                    personProfile.Occupation = request.Occupation;
-                }
-
-                personProfile.UpdatedAt = _clock.UtcNow;
-                personProfile.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
-
-                // Update party display name if first/last name changed
-                if (request.FirstName != null || request.LastName != null)
-                {
-                    var firstName = request.FirstName ?? personProfile.FirstName ?? string.Empty;
-                    var lastName = request.LastName ?? personProfile.LastName ?? string.Empty;
-                    party.DisplayName = $"{firstName} {lastName}".Trim();
-                    party.UpdatedAt = _clock.UtcNow;
-                    party.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
-                }
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
-
-                // Audit log
-                await _auditLogWriter.LogAsync(
-                    AuditEventNames.CustomerProfileUpdated,
-                    "PersonProfile",
-                    personProfile.Id,
-                    tenantId,
-                    CurrentUserProvider.GetCurrentUserId(),
-                    _correlationContext.CorrelationId,
-                    System.Text.Json.JsonSerializer.Serialize(new { userId, partyId = party.Id, request }),
-                    cancellationToken);
-            }
-        }
+        await Profiles().UpdateUserProfileAsync(tenantId, userId, request, cancellationToken);
     }
 
     public async Task<CustomerPhotoUploadResponse?> UploadUserPhotoAsync(
@@ -599,94 +128,7 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            return null;
-        }
-
-        // Get the user's party link
-        var partyLink = await _dbContext.UserParties
-            .Where(link => link.TenantId == tenantId && link.UserId == userId)
-            .OrderBy(link => link.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (partyLink == null)
-        {
-            return null;
-        }
-
-        var party = await _dbContext.Parties
-            .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
-
-        if (party == null)
-        {
-            return null;
-        }
-
-        // Only support photo uploads for Individual parties (person profiles)
-        if (party.PartyType != "Individual" && party.PartyType != "Person")
-        {
-            throw new InvalidOperationException("Photo upload is only supported for person profiles");
-        }
-
-        var personProfile = await _dbContext.PersonProfiles
-            .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
-
-        if (personProfile == null)
-        {
-            // Create person profile if it doesn't exist
-            personProfile = new Platform.Entities.Party.PersonProfile
-            {
-                PartyId = party.Id,
-                IdvStatus = "Pending",
-                CreatedAt = _clock.UtcNow,
-                CreatedBy = CurrentUserProvider.GetCurrentUserId()
-            };
-            _dbContext.PersonProfiles.Add(personProfile);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-
-        // Upload photo to storage
-        var uploadResult = await _profilePhotoStore.UploadCustomerPhotoAsync(
-            tenantId,
-            party.Id,
-            contentType,
-            fileStream,
-            cancellationToken);
-
-        personProfile.PhotoUrl = uploadResult.OriginalUrl;
-        personProfile.PhotoUrlMedium = uploadResult.MediumThumbnailUrl;
-        personProfile.PhotoUrlSmall = uploadResult.SmallThumbnailUrl;
-        personProfile.PhotoUrlTiny = uploadResult.TinyThumbnailUrl;
-        personProfile.UpdatedAt = _clock.UtcNow;
-        personProfile.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        // Audit log
-        await _auditLogWriter.LogAsync(
-            AuditEventNames.CustomerPhotoUpdated,
-            "PersonProfile",
-            personProfile.Id,
-            tenantId,
-            CurrentUserProvider.GetCurrentUserId(),
-            _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new 
-            { 
-                userId, 
-                partyId = party.Id, 
-                photoUrl = uploadResult.OriginalUrl, 
-                mediumThumbUrl = uploadResult.MediumThumbnailUrl,
-                smallThumbUrl = uploadResult.SmallThumbnailUrl,
-                tinyThumbUrl = uploadResult.TinyThumbnailUrl
-            }),
-            cancellationToken);
-
-        return new CustomerPhotoUploadResponse(uploadResult.OriginalUrl);
+        return await Profiles().UploadUserPhotoAsync(tenantId, userId, fileStream, fileName, contentType, cancellationToken);
     }
 
     public async Task<CustomerPhotoDeleteResponse?> DeleteUserPhotoAsync(
@@ -695,120 +137,21 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            return null;
-        }
-
-        // Get the user's party link
-        var partyLink = await _dbContext.UserParties
-            .Where(link => link.TenantId == tenantId && link.UserId == userId)
-            .OrderBy(link => link.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (partyLink == null)
-        {
-            return null;
-        }
-
-        var party = await _dbContext.Parties
-            .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
-
-        if (party == null)
-        {
-            return null;
-        }
-
-        // Only support photo deletion for Individual parties (person profiles)
-        if (party.PartyType != "Individual" && party.PartyType != "Person")
-        {
-            throw new InvalidOperationException("Photo deletion is only supported for person profiles");
-        }
-
-        var personProfile = await _dbContext.PersonProfiles
-            .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
-
-        if (personProfile == null)
-        {
-            return null;
-        }
-
-        // Delete from storage if exists
-        if (!string.IsNullOrWhiteSpace(personProfile.PhotoUrl))
-        {
-            await _profilePhotoStore.DeleteCustomerPhotoAsync(personProfile.PhotoUrl, cancellationToken);
-        }
-
-        personProfile.PhotoUrl = null;
-        personProfile.UpdatedAt = _clock.UtcNow;
-        personProfile.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        // Audit log
-        await _auditLogWriter.LogAsync(
-            AuditEventNames.CustomerPhotoDeleted,
-            "PersonProfile",
-            personProfile.Id,
-            tenantId,
-            CurrentUserProvider.GetCurrentUserId(),
-            _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { userId, partyId = party.Id }),
-            cancellationToken);
-
-        return new CustomerPhotoDeleteResponse("ok");
+        return await Profiles().DeleteUserPhotoAsync(tenantId, userId, cancellationToken);
     }
 
     public async Task ActivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
-        }
-
-        if (user.Status == "Active")
-        {
-            return;
-        }
-
-        user.Status = "Active";
-        user.UpdatedAt = _clock.UtcNow;
-        user.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await Lifecycle().ActivateUserAsync(tenantId, userId, cancellationToken);
     }
 
     public async Task DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Users.Deactivate", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
-        }
-
-        if (user.Status == "Deactivated")
-        {
-            return;
-        }
-
-        user.Status = "Deactivated";
-        user.UpdatedAt = _clock.UtcNow;
-        user.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await Lifecycle().DeactivateUserAsync(tenantId, userId, cancellationToken);
     }
 
     public async Task<UserDiagnosticResult> DiagnoseUserAsync(
@@ -817,77 +160,7 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Users.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var user = await _dbContext.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
-        }
-
-        var issues = new List<UserDiagnosticIssue>();
-
-        var userParty = await _dbContext.UserParties
-            .AsNoTracking()
-            .Where(link => link.UserId == userId && link.TenantId == tenantId && link.LinkType == "Individual")
-            .OrderByDescending(link => link.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (userParty == null)
-        {
-            issues.Add(new UserDiagnosticIssue(
-                "MISSING_PARTY",
-                "No party record linked to this user. A party is required for the user to appear as a customer.",
-                true));
-
-            return new UserDiagnosticResult(userId, issues.Count > 0, issues);
-        }
-
-        var partyId = userParty.PartyId;
-
-        var hasCustomerRole = await _dbContext.PartyRoleAssignments
-            .AsNoTracking()
-            .AnyAsync(r =>
-                r.TenantId == tenantId &&
-                r.PartyId == partyId &&
-                r.Role == PartyRoles.Customer,
-                cancellationToken);
-
-        if (!hasCustomerRole)
-        {
-            issues.Add(new UserDiagnosticIssue(
-                "MISSING_CUSTOMER_ROLE",
-                "Party exists but is missing the Customer role assignment. This user will not appear in the Customers list.",
-                true));
-        }
-
-        var hasPersonProfile = await _dbContext.PersonProfiles
-            .AsNoTracking()
-            .AnyAsync(p => p.PartyId == partyId, cancellationToken);
-
-        if (!hasPersonProfile)
-        {
-            issues.Add(new UserDiagnosticIssue(
-                "MISSING_PERSON_PROFILE",
-                "No person profile found for this party. Profile details, photos, and IDV status will be unavailable.",
-                true));
-        }
-
-        var hasEmailContact = await _dbContext.PartyContacts
-            .AsNoTracking()
-            .AnyAsync(c => c.PartyId == partyId && c.Type == "Email", cancellationToken);
-
-        if (!hasEmailContact && !string.IsNullOrWhiteSpace(user.Email))
-        {
-            issues.Add(new UserDiagnosticIssue(
-                "MISSING_EMAIL_CONTACT",
-                "User has an email but the party has no email contact record. The email will not appear in customer search results.",
-                true));
-        }
-
-        return new UserDiagnosticResult(userId, issues.Count > 0, issues);
+        return await Lifecycle().DiagnoseUserAsync(tenantId, userId, cancellationToken);
     }
 
     public async Task<UserRepairResult> RepairUserAsync(
@@ -896,141 +169,10 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var now = _clock.UtcNow;
-        var currentUserId = CurrentUserProvider.GetCurrentUserId();
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
-
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
-        }
-
-        var repairs = new List<string>();
-
-        // Ensure party exists
-        var userParty = await _dbContext.UserParties
-            .Where(link => link.UserId == userId && link.TenantId == tenantId && link.LinkType == "Individual")
-            .OrderByDescending(link => link.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        Guid partyId;
-
-        if (userParty == null)
-        {
-            var displayName = !string.IsNullOrWhiteSpace(user.Email)
-                ? user.Email
-                : $"User {userId:N}";
-
-            var party = new Entities.Party.Party
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                PartyType = "Individual",
-                DisplayName = displayName,
-                Status = "Active",
-                CreatedAt = now,
-                CreatedBy = currentUserId
-            };
-
-            _dbContext.Parties.Add(party);
-
-            _dbContext.UserParties.Add(new UserParty
-            {
-                TenantId = tenantId,
-                UserId = userId,
-                PartyId = party.Id,
-                LinkType = "Individual",
-                CreatedAt = now,
-                CreatedBy = currentUserId
-            });
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            partyId = party.Id;
-            repairs.Add("Created party record and linked to user");
-        }
-        else
-        {
-            partyId = userParty.PartyId;
-        }
-
-        // Ensure Customer role
-        var hasCustomerRole = await _dbContext.PartyRoleAssignments
-            .AnyAsync(r =>
-                r.TenantId == tenantId &&
-                r.PartyId == partyId &&
-                r.Role == PartyRoles.Customer,
-                cancellationToken);
-
-        if (!hasCustomerRole)
-        {
-            _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                PartyId = partyId,
-                Role = PartyRoles.Customer,
-                ContextType = "Tenant",
-                ContextId = tenantId,
-                CreatedAt = now,
-                CreatedBy = currentUserId
-            });
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            repairs.Add("Added Customer role assignment");
-        }
-
-        // Ensure person profile
-        var hasPersonProfile = await _dbContext.PersonProfiles
-            .AnyAsync(p => p.PartyId == partyId, cancellationToken);
-
-        if (!hasPersonProfile)
-        {
-            _dbContext.PersonProfiles.Add(new Entities.Party.PersonProfile
-            {
-                PartyId = partyId,
-                IdvStatus = "Pending",
-                CreatedAt = now,
-                CreatedBy = currentUserId
-            });
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            repairs.Add("Created person profile");
-        }
-
-        // Ensure email contact
-        var hasEmailContact = await _dbContext.PartyContacts
-            .AnyAsync(c => c.PartyId == partyId && c.Type == "Email", cancellationToken);
-
-        if (!hasEmailContact && !string.IsNullOrWhiteSpace(user.Email))
-        {
-            _dbContext.PartyContacts.Add(new Entities.Party.PartyContact
-            {
-                PartyId = partyId,
-                Type = "Email",
-                Value = user.Email,
-                IsPrimary = true,
-                CreatedAt = now,
-                CreatedBy = currentUserId
-            });
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            repairs.Add("Added email contact to party");
-        }
-
-        await _auditLogWriter.LogAsync(
-            "UserRepaired",
-            "User",
-            userId,
-            tenantId,
-            currentUserId,
-            _correlationContext.CorrelationId,
-            System.Text.Json.JsonSerializer.Serialize(new { UserId = userId, Repairs = repairs }),
-            cancellationToken);
-
-        return new UserRepairResult(userId, repairs);
+        return await Lifecycle().RepairUserAsync(tenantId, userId, cancellationToken);
     }
+
+    // ─── Roles + Permissions ─────────────────────────────────────
 
     public async Task<PagedResult<AccessRoleSummary>> ListRolesAsync(
         ListRolesRequest request,
@@ -1038,53 +180,14 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Roles.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var query = _dbContext.Roles
-            .AsNoTracking()
-            .Where(role => role.TenantId == tenantId);
-
-        if (!string.IsNullOrWhiteSpace(request.Search))
-        {
-            var search = request.Search.Trim();
-            query = query.Where(role => role.Name.Contains(search));
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderBy(role => role.Name)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .Select(role => new AccessRoleSummary(
-                role.Id,
-                role.Name,
-                null,
-                _dbContext.RolePermissions.Count(rp => rp.RoleId == role.Id),
-                _dbContext.UserRoles.Count(ur => ur.RoleId == role.Id)))
-            .ToListAsync(cancellationToken);
-
-        return new PagedResult<AccessRoleSummary>(
-            items,
-            request.PageNumber,
-            request.PageSize,
-            totalCount);
+        return await Roles().ListRolesAsync(tenantId, request, cancellationToken);
     }
 
     public async Task<AccessRoleDetail?> GetRoleAsync(Guid roleId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Roles.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var role = await _dbContext.Roles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(r => r.Id == roleId && r.TenantId == tenantId, cancellationToken);
-
-        if (role == null)
-        {
-            return null;
-        }
-
-        return await BuildRoleDetailAsync(role, cancellationToken);
+        return await Roles().GetRoleAsync(tenantId, roleId, cancellationToken);
     }
 
     public async Task<AccessRoleDetail> CreateRoleAsync(
@@ -1093,43 +196,7 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Roles.Create", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        if (string.IsNullOrWhiteSpace(request.Name))
-        {
-            throw new ArgumentException("Role name is required", nameof(request.Name));
-        }
-
-        var trimmedName = request.Name.Trim();
-
-        var exists = await _dbContext.Roles
-            .AnyAsync(role => role.TenantId == tenantId && role.Name == trimmedName, cancellationToken);
-
-        if (exists)
-        {
-            throw new InvalidOperationException($"Role '{trimmedName}' already exists in tenant {tenantId}");
-        }
-
-        var userId = CurrentUserProvider.GetCurrentUserId();
-        var now = _clock.UtcNow;
-
-        var role = new Role
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Name = trimmedName,
-            CreatedAt = now,
-            CreatedBy = userId
-        };
-
-        _dbContext.Roles.Add(role);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        if (request.PermissionKeys.Count > 0)
-        {
-            await UpdateRolePermissionsAsync(role.Id, new UpdateRolePermissionsRequest(request.PermissionKeys), cancellationToken);
-        }
-
-        return await BuildRoleDetailAsync(role, cancellationToken);
+        return await Roles().CreateRoleAsync(tenantId, request, cancellationToken);
     }
 
     public async Task<AccessRoleDetail> UpdateRoleAsync(
@@ -1139,59 +206,14 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Roles.Update", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var role = await _dbContext.Roles
-            .FirstOrDefaultAsync(r => r.Id == roleId && r.TenantId == tenantId, cancellationToken);
-
-        if (role == null)
-        {
-            throw new InvalidOperationException($"Role {roleId} not found in tenant {tenantId}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Name))
-        {
-            var trimmedName = request.Name.Trim();
-            var exists = await _dbContext.Roles
-                .AnyAsync(r => r.TenantId == tenantId && r.Name == trimmedName && r.Id != roleId, cancellationToken);
-
-            if (exists)
-            {
-                throw new InvalidOperationException($"Role '{trimmedName}' already exists in tenant {tenantId}");
-            }
-
-            role.Name = trimmedName;
-        }
-
-        role.UpdatedAt = _clock.UtcNow;
-        role.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return await BuildRoleDetailAsync(role, cancellationToken);
+        return await Roles().UpdateRoleAsync(tenantId, roleId, request, cancellationToken);
     }
 
     public async Task DeleteRoleAsync(Guid roleId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Roles.Delete", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var role = await _dbContext.Roles
-            .FirstOrDefaultAsync(r => r.Id == roleId && r.TenantId == tenantId, cancellationToken);
-
-        if (role == null)
-        {
-            throw new InvalidOperationException($"Role {roleId} not found in tenant {tenantId}");
-        }
-
-        var assignedUsers = await _dbContext.UserRoles
-            .AnyAsync(ur => ur.RoleId == roleId, cancellationToken);
-
-        if (assignedUsers)
-        {
-            throw new InvalidOperationException("Cannot delete a role that is assigned to users.");
-        }
-
-        _dbContext.Roles.Remove(role);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await Roles().DeleteRoleAsync(tenantId, roleId, cancellationToken);
     }
 
     public async Task UpdateRolePermissionsAsync(
@@ -1201,164 +223,12 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     {
         await EnsurePermissionAsync("Roles.Update", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var role = await _dbContext.Roles
-            .FirstOrDefaultAsync(r => r.Id == roleId && r.TenantId == tenantId, cancellationToken);
-
-        if (role == null)
-        {
-            throw new InvalidOperationException($"Role {roleId} not found in tenant {tenantId}");
-        }
-
-        var permissionKeys = request.PermissionKeys
-            .Where(key => !string.IsNullOrWhiteSpace(key))
-            .Select(key => key.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var permissions = permissionKeys.Count == 0
-            ? new List<Permission>()
-            : await _dbContext.Permissions
-                .Where(permission => permissionKeys.Contains(permission.Key))
-                .ToListAsync(cancellationToken);
-
-        if (permissions.Count != permissionKeys.Count)
-        {
-            throw new InvalidOperationException("One or more permissions were not found.");
-        }
-
-        var existing = await _dbContext.RolePermissions
-            .Where(rp => rp.RoleId == roleId)
-            .ToListAsync(cancellationToken);
-
-        var existingIds = existing.Select(rp => rp.PermissionId).ToHashSet();
-        var targetIds = permissions.Select(permission => permission.Id).ToHashSet();
-
-        var toRemove = existing.Where(rp => !targetIds.Contains(rp.PermissionId)).ToList();
-        var toAdd = targetIds
-            .Where(permissionId => !existingIds.Contains(permissionId))
-            .Select(permissionId => new RolePermission
-            {
-                RoleId = roleId,
-                PermissionId = permissionId,
-                CreatedAt = _clock.UtcNow,
-                CreatedBy = CurrentUserProvider.GetCurrentUserId()
-            })
-            .ToList();
-
-        if (toRemove.Count > 0)
-        {
-            _dbContext.RolePermissions.RemoveRange(toRemove);
-        }
-
-        if (toAdd.Count > 0)
-        {
-            _dbContext.RolePermissions.AddRange(toAdd);
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await Roles().UpdateRolePermissionsAsync(tenantId, roleId, request, cancellationToken);
     }
 
     public async Task<List<PermissionDefinition>> ListPermissionsAsync(CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Permissions.Read", cancellationToken);
-
-        var permissions = await _dbContext.Permissions
-            .AsNoTracking()
-            .OrderBy(permission => permission.Key)
-            .Select(permission => new PermissionDefinition(
-                permission.Key,
-                permission.Description,
-                GetPermissionCategory(permission.Key)))
-            .ToListAsync(cancellationToken);
-
-        return permissions;
+        return await Roles().ListPermissionsAsync(cancellationToken);
     }
-
-    private async Task<AccessRoleDetail> BuildRoleDetailAsync(Role role, CancellationToken cancellationToken)
-    {
-        var permissions = await _dbContext.RolePermissions
-            .AsNoTracking()
-            .Where(rp => rp.RoleId == role.Id)
-            .Include(rp => rp.Permission)
-            .OrderBy(rp => rp.Permission.Key)
-            .Select(rp => new PermissionDefinition(
-                rp.Permission.Key,
-                rp.Permission.Description,
-                GetPermissionCategory(rp.Permission.Key)))
-            .ToListAsync(cancellationToken);
-
-        var users = await _dbContext.UserRoles
-            .AsNoTracking()
-            .Where(ur => ur.RoleId == role.Id)
-            .Include(ur => ur.User)
-            .OrderBy(ur => ur.User.Email)
-            .Select(ur => new
-            {
-                ur.User.Id,
-                Email = ur.User.Email ?? string.Empty,
-                ur.User.Status,
-                ur.User.LastLoginAt,
-                RoleCount = _dbContext.UserRoles.Count(userRole => userRole.UserId == ur.User.Id),
-                PartyInfo = _dbContext.UserParties
-                    .Where(link => link.UserId == ur.User.Id && link.TenantId == role.TenantId)
-                    .Join(_dbContext.Parties,
-                        link => link.PartyId,
-                        party => party.Id,
-                        (link, party) => new
-                        {
-                            PartyId = (Guid?)party.Id,
-                            party.DisplayName,
-                            party.PartyType,
-                            link.LinkType,
-                            link.CreatedAt,
-                            PersonProfile = _dbContext.PersonProfiles
-                                .Where(pp => pp.PartyId == party.Id)
-                                .Select(pp => new
-                                {
-                                    pp.PhotoUrl,
-                                    pp.PhotoUrlSmall,
-                                    pp.PhotoUrlTiny
-                                })
-                                .FirstOrDefault()
-                        })
-                    .OrderBy(link => link.CreatedAt)
-                    .FirstOrDefault()
-            })
-            .ToListAsync(cancellationToken);
-
-        var userSummaries = users.Select(user => new AccessUserSummary(
-            user.Id,
-            user.Email,
-            null,
-            user.Status,
-            user.LastLoginAt,
-            user.RoleCount,
-            user.PartyInfo?.PartyId,
-            user.PartyInfo?.DisplayName,
-            user.PartyInfo?.PartyType,
-            user.PartyInfo?.LinkType,
-            user.PartyInfo?.PersonProfile?.PhotoUrl,
-            user.PartyInfo?.PersonProfile?.PhotoUrlSmall,
-            user.PartyInfo?.PersonProfile?.PhotoUrlTiny)).ToList();
-
-        return new AccessRoleDetail(
-            role.Id,
-            role.Name,
-            null,
-            permissions,
-            userSummaries);
-    }
-
-    private static string GetPermissionCategory(string permissionKey)
-    {
-        if (string.IsNullOrWhiteSpace(permissionKey))
-        {
-            return "General";
-        }
-
-        var parts = permissionKey.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        return parts.Length > 0 ? parts[0] : "General";
-    }
-
 }
