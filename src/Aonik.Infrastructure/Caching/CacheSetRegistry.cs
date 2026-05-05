@@ -2,15 +2,15 @@ using System.Collections.Concurrent;
 
 namespace Aonik.Infrastructure.Caching;
 
-public interface ICacheSetRegistry
-{
-    void Track(string cacheSet, string cacheKey);
-    IReadOnlyCollection<string> GetKeys(string cacheSet);
-    IReadOnlyCollection<string> GetCacheSets();
-    void RemoveKey(string cacheSet, string cacheKey);
-}
-
-public class CacheSetRegistry : ICacheSetRegistry
+/// <summary>
+/// Tracks (cache-set, cache-key) memberships so the cache-management
+/// admin endpoint can invalidate every key in a set. Concrete class
+/// injected directly — the <c>ICacheSetRegistry</c> interface that
+/// previously fronted this class was a single-impl wrapper with no test
+/// double or alternate implementation. Deleted by the 2026-05-05
+/// single-impl audit.
+/// </summary>
+public class CacheSetRegistry
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _sets = new(StringComparer.OrdinalIgnoreCase);
 

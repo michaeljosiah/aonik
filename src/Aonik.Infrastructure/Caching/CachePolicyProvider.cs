@@ -3,12 +3,15 @@ using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Infrastructure.Caching;
 
-public interface ICachePolicyProvider
-{
-    FusionCacheEntryOptions Get(CachePolicy policy);
-}
-
-public class CachePolicyProvider : ICachePolicyProvider
+/// <summary>
+/// Maps the well-known <see cref="CachePolicy"/> tiers (Short / Medium /
+/// Long) onto the concrete <see cref="FusionCacheEntryOptions"/> used by
+/// FusionCache. Concrete class injected directly — the
+/// <c>ICachePolicyProvider</c> interface that previously fronted this
+/// class was a single-impl wrapper with no test double or alternate
+/// implementation. Deleted by the 2026-05-05 single-impl audit.
+/// </summary>
+public class CachePolicyProvider
 {
     private static readonly FusionCacheEntryOptions ShortOptions = new FusionCacheEntryOptions
     {

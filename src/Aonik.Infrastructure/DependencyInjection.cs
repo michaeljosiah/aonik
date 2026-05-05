@@ -93,8 +93,8 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.AddFusionCache();
 
-        services.AddSingleton<ICachePolicyProvider, CachePolicyProvider>();
-        services.AddSingleton<ICacheSetRegistry, CacheSetRegistry>();
+        services.AddSingleton<CachePolicyProvider>();
+        services.AddSingleton<CacheSetRegistry>();
         services.AddSingleton<ICacheInvalidationPublisher, CacheInvalidationPublisher>();
         services.AddSingleton<FusionCacheInvalidationHandler>();
         services.AddHostedService<CacheInvalidationSubscriptionService>();

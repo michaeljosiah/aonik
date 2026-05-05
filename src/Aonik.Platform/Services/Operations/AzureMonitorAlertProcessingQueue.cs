@@ -29,11 +29,6 @@ internal sealed class AlertProcessingQueue : IAlertProcessingQueue
         => _channel.Reader.ReadAllAsync(cancellationToken);
 }
 
-internal interface IAlertProcessingService
-{
-    Task ProcessAsync(Guid alertId, CancellationToken cancellationToken = default);
-}
-
 internal sealed class AlertProcessingBackgroundService : BackgroundService
 {
     private readonly AlertProcessingQueue _queue;
@@ -61,7 +56,7 @@ internal sealed class AlertProcessingBackgroundService : BackgroundService
                 tenantContext.TenantId = Guid.Empty;
                 tenantContext.ResolutionSource = "AzureMonitorAlertProcessing";
 
-                var processor = scope.ServiceProvider.GetRequiredService<IAlertProcessingService>();
+                var processor = scope.ServiceProvider.GetRequiredService<AlertProcessingService>();
                 await processor.ProcessAsync(alertId, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

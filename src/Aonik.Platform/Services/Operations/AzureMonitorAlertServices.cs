@@ -13,12 +13,14 @@ using Microsoft.Extensions.Options;
 
 namespace Aonik.Platform.Services.Operations;
 
-internal interface IAlertAudienceResolver
-{
-    Task<IReadOnlyCollection<Guid>> ResolveUserIdsAsync(CancellationToken cancellationToken = default);
-}
-
-internal sealed class PlatformAdminAlertAudienceResolver : IAlertAudienceResolver
+/// <summary>
+/// Resolves the set of platform-admin user IDs that should receive an
+/// alert. Concrete class injected directly — the
+/// <c>IAlertAudienceResolver</c> interface that previously fronted this
+/// class was a single-impl wrapper with no test double or alternate
+/// implementation. Deleted by the 2026-05-05 single-impl audit.
+/// </summary>
+internal sealed class PlatformAdminAlertAudienceResolver
 {
     private readonly PlatformDbContext _dbContext;
 
@@ -421,11 +423,19 @@ internal sealed class AlertAdminService : IAlertAdminService
     }
 }
 
-internal sealed class AlertProcessingService : IAlertProcessingService
+/// <summary>
+/// Background processor for an inbound Azure Monitor alert. Concrete
+/// class injected directly via <c>GetRequiredService&lt;AlertProcessingService&gt;</c>
+/// from <see cref="AlertProcessingQueue"/> — the
+/// <c>IAlertProcessingService</c> interface that previously fronted this
+/// class was a single-impl wrapper with no test double or alternate
+/// implementation. Deleted by the 2026-05-05 single-impl audit.
+/// </summary>
+internal sealed class AlertProcessingService
 {
     private readonly PlatformDbContext _dbContext;
     private readonly IAlertAnalysisWorkflow _analysisWorkflow;
-    private readonly IAlertAudienceResolver _audienceResolver;
+    private readonly PlatformAdminAlertAudienceResolver _audienceResolver;
     private readonly INotificationService _notificationService;
     private readonly IClock _clock;
     private readonly ILogger<AlertProcessingService> _logger;
@@ -433,7 +443,7 @@ internal sealed class AlertProcessingService : IAlertProcessingService
     public AlertProcessingService(
         PlatformDbContext dbContext,
         IAlertAnalysisWorkflow analysisWorkflow,
-        IAlertAudienceResolver audienceResolver,
+        PlatformAdminAlertAudienceResolver audienceResolver,
         INotificationService notificationService,
         IClock clock,
         ILogger<AlertProcessingService> logger)

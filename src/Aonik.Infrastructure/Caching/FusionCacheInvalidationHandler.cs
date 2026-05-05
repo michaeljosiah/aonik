@@ -6,12 +6,12 @@ namespace Aonik.Infrastructure.Caching;
 public class FusionCacheInvalidationHandler
 {
     private readonly IFusionCache _cache;
-    private readonly ICacheSetRegistry _cacheSetRegistry;
+    private readonly CacheSetRegistry _cacheSetRegistry;
 
     public FusionCacheInvalidationHandler(
         ICacheInvalidationPublisher publisher,
         IFusionCache cache,
-        ICacheSetRegistry cacheSetRegistry)
+        CacheSetRegistry cacheSetRegistry)
     {
         _cache = cache;
         _cacheSetRegistry = cacheSetRegistry;

@@ -15,7 +15,7 @@ internal sealed class NotificationService : INotificationService
     private readonly ITenantContext _tenantContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
-    private readonly INotificationRealtimePublisher _realtimePublisher;
+    private readonly NotificationRealtimePublisher _realtimePublisher;
     private readonly IPushNotificationSender _pushNotificationSender;
     private readonly IClock _clock;
 
@@ -24,7 +24,7 @@ internal sealed class NotificationService : INotificationService
         ITenantContext tenantContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        INotificationRealtimePublisher realtimePublisher,
+        NotificationRealtimePublisher realtimePublisher,
         IPushNotificationSender pushNotificationSender,
         IClock clock)
     {

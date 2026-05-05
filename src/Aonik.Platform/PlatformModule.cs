@@ -101,7 +101,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IUserNotificationWriter, UserNotificationWriter>();
         services.AddScoped<INotificationDeviceService, NotificationDeviceService>();
         services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
-        services.AddSingleton<INotificationRealtimePublisher, NotificationRealtimePublisher>();
+        services.AddSingleton<NotificationRealtimePublisher>();
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
         services.AddScoped<IPartyService, PartyService>();
         services.AddScoped<IComplianceService, ComplianceService>();
@@ -116,8 +116,8 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IAlertAdminService, AlertAdminService>();
         services.AddScoped<IAlertIngestionService, AlertIngestionService>();
         services.AddScoped<IAlertAnalysisWorkflow, AzureMonitorAlertAnalysisWorkflow>();
-        services.AddScoped<IAlertAudienceResolver, PlatformAdminAlertAudienceResolver>();
-        services.AddScoped<IAlertProcessingService, AlertProcessingService>();
+        services.AddScoped<PlatformAdminAlertAudienceResolver>();
+        services.AddScoped<AlertProcessingService>();
         services.AddSingleton<AlertProcessingQueue>();
         services.AddSingleton<IAlertProcessingQueue>(sp => sp.GetRequiredService<AlertProcessingQueue>());
         services.AddHostedService<AlertProcessingBackgroundService>();

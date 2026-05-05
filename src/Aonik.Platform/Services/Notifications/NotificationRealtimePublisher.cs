@@ -5,24 +5,20 @@ using Aonik.Platform.Contracts.Models.Notifications;
 
 namespace Aonik.Platform.Services.Notifications;
 
-internal interface INotificationRealtimePublisher
-{
-    IAsyncEnumerable<NotificationRealtimeEvent> SubscribeAsync(
-        Guid tenantId,
-        Guid userId,
-        CancellationToken cancellationToken = default);
-
-    ValueTask PublishAsync(
-        NotificationRealtimeEvent notificationEvent,
-        CancellationToken cancellationToken = default);
-}
-
 internal sealed record NotificationRealtimeEvent(
     string Type,
     NotificationResponse Notification,
     int UnreadCountDelta = 0);
 
-internal sealed class NotificationRealtimePublisher : INotificationRealtimePublisher
+/// <summary>
+/// Per-user real-time notification fan-out used by the admin SSE
+/// endpoint. Concrete class is injected directly — the
+/// <c>INotificationRealtimePublisher</c> interface that previously
+/// shadowed this class was a single-impl wrapper with no test double or
+/// alternate implementation. Deleted by the 2026-05-05 single-impl
+/// audit (commit deleting INotificationRealtimePublisher).
+/// </summary>
+internal sealed class NotificationRealtimePublisher
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, Channel<NotificationRealtimeEvent>>> _subscribers = new();
 

@@ -6,13 +6,13 @@ namespace Aonik.Infrastructure.Caching;
 public class FusionCacheStore : ICacheStore
 {
     private readonly IFusionCache _cache;
-    private readonly ICachePolicyProvider _cachePolicyProvider;
-    private readonly ICacheSetRegistry _cacheSetRegistry;
+    private readonly CachePolicyProvider _cachePolicyProvider;
+    private readonly CacheSetRegistry _cacheSetRegistry;
 
     public FusionCacheStore(
         IFusionCache cache,
-        ICachePolicyProvider cachePolicyProvider,
-        ICacheSetRegistry cacheSetRegistry)
+        CachePolicyProvider cachePolicyProvider,
+        CacheSetRegistry cacheSetRegistry)
     {
         _cache = cache;
         _cachePolicyProvider = cachePolicyProvider;

@@ -6,11 +6,11 @@ namespace Aonik.Infrastructure.Caching;
 
 public class CacheManagementService : ICacheManagementService
 {
-    private readonly ICacheSetRegistry _cacheSetRegistry;
+    private readonly CacheSetRegistry _cacheSetRegistry;
     private readonly ICacheInvalidationPublisher _cacheInvalidationPublisher;
 
     public CacheManagementService(
-        ICacheSetRegistry cacheSetRegistry,
+        CacheSetRegistry cacheSetRegistry,
         ICacheInvalidationPublisher cacheInvalidationPublisher)
     {
         _cacheSetRegistry = cacheSetRegistry;

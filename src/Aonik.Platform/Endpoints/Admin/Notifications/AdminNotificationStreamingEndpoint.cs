@@ -54,7 +54,7 @@ public static class AdminNotificationStreamingEndpoint
         }
 
         var notificationService = context.RequestServices.GetRequiredService<INotificationService>();
-        var realtimePublisher = context.RequestServices.GetRequiredService<Services.Notifications.INotificationRealtimePublisher>();
+        var realtimePublisher = context.RequestServices.GetRequiredService<Services.Notifications.NotificationRealtimePublisher>();
 
         context.Response.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache,no-store";
