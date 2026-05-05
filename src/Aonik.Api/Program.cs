@@ -290,20 +290,16 @@ app.Use(async (context, next) =>
             // can read the error instead of blocking it as a CORS failure.
             ApplyActualCorsHeaders(context.Response, origin);
 
-            // Service-layer permission denials are currently surfaced as
-            // InvalidOperationException with the well-known message
-            // "Permission {Key} is required." (see AdminServiceBase /
-            // FinanceServiceBase / SettingService etc.). Surfacing those as
-            // a generic 500 misleads the client into treating an authorisation
-            // failure as a transient outage and ALSO leaks the exception type
+            // Service-layer (and endpoint pre-processor) permission denials
+            // are surfaced as the typed PermissionDeniedException carrying
+            // the missing permission key. Surfacing them as a generic 500
+            // would mislead the client into treating an authorisation
+            // failure as a transient outage AND leak the exception type
             // back to the caller. Map them to 403 instead so the front-end
             // (and the logs page) can render an authorisation problem
             // distinctly from a real server error.
-            var isPermissionDenied =
-                ex is InvalidOperationException
-                && !string.IsNullOrEmpty(ex.Message)
-                && ex.Message.StartsWith("Permission ", StringComparison.Ordinal)
-                && ex.Message.EndsWith(" is required.", StringComparison.Ordinal);
+            var permissionDenied = ex as Aonik.SharedKernel.Abstractions.PermissionDeniedException;
+            var isPermissionDenied = permissionDenied is not null;
 
             context.Response.StatusCode = isPermissionDenied
                 ? StatusCodes.Status403Forbidden
@@ -319,8 +315,21 @@ app.Use(async (context, next) =>
             var topLevelMessage = isPermissionDenied
                 ? ex.Message
                 : "An internal error occurred.";
-            object errorPayload = includeDetails
-                ? new
+            object errorPayload;
+            if (isPermissionDenied)
+            {
+                // Always surface the missing permission key so the front-end
+                // can show a precise "you need <Permission>" message in both
+                // dev and prod, without leaking other exception details.
+                errorPayload = new
+                {
+                    error = topLevelMessage,
+                    permissionKey = permissionDenied!.PermissionKey,
+                };
+            }
+            else if (includeDetails)
+            {
+                errorPayload = new
                 {
                     error = topLevelMessage,
                     exceptionType = ex.GetType().FullName,
@@ -329,8 +338,12 @@ app.Use(async (context, next) =>
                     innerMessage = innermost.Message,
                     exceptionChain = FlattenChain(ex),
                     path = context.Request.Path.Value,
-                }
-                : new { error = topLevelMessage };
+                };
+            }
+            else
+            {
+                errorPayload = new { error = topLevelMessage };
+            }
 
             var errorBody = System.Text.Json.JsonSerializer.Serialize(errorPayload);
             await context.Response.WriteAsync(errorBody);

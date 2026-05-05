@@ -24,13 +24,13 @@ internal abstract class FinanceServiceBase
         var userId = CurrentUserProvider.GetCurrentUserId();
         if (!userId.HasValue)
         {
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new PermissionDeniedException(permissionKey, "Authenticated user is required.");
         }
 
         var hasPermission = await PermissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
         if (!hasPermission)
         {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+            throw new PermissionDeniedException(permissionKey);
         }
     }
 }

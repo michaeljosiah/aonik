@@ -364,7 +364,7 @@ public class SettingService : ISettingProvider, ISettingManager
         var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, "Settings.Read", cancellationToken);
         if (!hasPermission)
         {
-            throw new InvalidOperationException("Permission Settings.Read is required.");
+            throw new PermissionDeniedException("Settings.Read");
         }
     }
 
@@ -384,7 +384,7 @@ public class SettingService : ISettingProvider, ISettingManager
         var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, "Settings.Write", cancellationToken);
         if (!hasPermission)
         {
-            throw new InvalidOperationException("Permission Settings.Write is required.");
+            throw new PermissionDeniedException("Settings.Write");
         }
     }
 }

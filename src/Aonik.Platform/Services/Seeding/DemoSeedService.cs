@@ -1911,7 +1911,7 @@ internal class DemoSeedService : IDemoSeedService
         var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
         if (!hasPermission)
         {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+            throw new PermissionDeniedException(permissionKey);
         }
     }
 }

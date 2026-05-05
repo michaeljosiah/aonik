@@ -1,3 +1,4 @@
+using Aonik.Authorization;
 using Aonik.Finance.Contracts.Api.Billing;
 using Aonik.Finance.Contracts.Services.Billing;
 using FastEndpoints;
@@ -18,6 +19,9 @@ public class CreateInvoiceEndpoint : Endpoint<CreateInvoiceRequest, InvoiceRespo
     {
         Post("/billing/invoices");
         Policies("AdminUserPolicy");
+        // Declarative permission gate — cannot be silently bypassed by
+        // forgetting to call EnsurePermissionAsync inside the service.
+        this.RequiresPermission("Invoice.Create");
         Summary(s =>
         {
             s.Summary = "Create a new invoice";
@@ -25,6 +29,7 @@ public class CreateInvoiceEndpoint : Endpoint<CreateInvoiceRequest, InvoiceRespo
             s.Response(201, "Invoice created successfully");
             s.Response(400, "Invalid request data");
             s.Response(401, "Not authenticated");
+            s.Response(403, "Missing required permission");
         });
         Options(x => x.WithTags("Billing"));
     }

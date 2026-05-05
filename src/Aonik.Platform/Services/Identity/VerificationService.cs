@@ -467,7 +467,7 @@ internal class VerificationService : IVerificationService
         var hasPermission = await _permissionService.HasPermissionAsync(userId, "UserInfo.Update", cancellationToken);
         if (!hasPermission)
         {
-            throw new InvalidOperationException("Permission UserInfo.Update is required.");
+            throw new PermissionDeniedException("UserInfo.Update");
         }
     }
 }

@@ -845,7 +845,7 @@ internal class UserProfileService : IUserProfileService
         var hasPermission = await _permissionService.HasPermissionAsync(userId, permissionKey, cancellationToken);
         if (!hasPermission)
         {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+            throw new PermissionDeniedException(permissionKey);
         }
     }
 

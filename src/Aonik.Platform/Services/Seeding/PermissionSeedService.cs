@@ -104,7 +104,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
         var canWriteTenants = await PermissionService.HasPermissionAsync(userId.Value, "Tenants.Write", cancellationToken);
         if (!canWritePermissions && !canWriteTenants)
         {
-            throw new InvalidOperationException("Permission Permissions.Write or Tenants.Write is required.");
+            throw new PermissionDeniedException("Permissions.Write", "Permission Permissions.Write or Tenants.Write is required.");
         }
     }
 

@@ -35,13 +35,13 @@ internal sealed class FinanceInsightsService : IFinanceInsightsService
         var userId = _currentUserProvider.GetCurrentUserId();
         if (!userId.HasValue)
         {
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new PermissionDeniedException(permissionKey, "Authenticated user is required.");
         }
 
         var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
         if (!hasPermission)
         {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+            throw new PermissionDeniedException(permissionKey);
         }
     }
 }

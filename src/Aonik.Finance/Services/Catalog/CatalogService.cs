@@ -50,11 +50,11 @@ internal class CatalogService : ICatalogService
     {
         var userId = _currentUserProvider.GetCurrentUserId();
         if (!userId.HasValue)
-            throw new InvalidOperationException("Authenticated user is required.");
+            throw new PermissionDeniedException("Catalog.Write", "Authenticated user is required.");
 
         var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, "Catalog.Write", cancellationToken);
         if (!hasPermission)
-            throw new InvalidOperationException("Permission Catalog.Write is required.");
+            throw new PermissionDeniedException("Catalog.Write");
     }
 
     private Guid GetCurrentTenantIdOrThrow()

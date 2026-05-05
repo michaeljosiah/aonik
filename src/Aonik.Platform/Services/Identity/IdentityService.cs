@@ -80,7 +80,7 @@ internal class IdentityService : IIdentityService
 
         if (!hasPermission)
         {
-            throw new InvalidOperationException("Permission UserInfo.Read is required.");
+            throw new PermissionDeniedException("UserInfo.Read");
         }
 
         var user = await _dbContext.Users
