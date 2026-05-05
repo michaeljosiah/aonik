@@ -101,6 +101,19 @@ public sealed class AgentsModule : IModule
         // AG-UI ↔ M.E.AI message/tool converter.
         services.AddScoped<IAguiMessageConverter, Services.AguiMessageConverter>();
 
+        // Pre-flight voice-mode validator — runs all TTS / format / tenant
+        // checks before any SSE bytes go on the wire so failures surface
+        // as plain JSON 400 rather than half-streamed SSE.
+        services.AddScoped<IAguiVoiceModeValidator, Services.AguiVoiceModeValidator>();
+
+        // Run-options builder — combines client tool declarations with the
+        // agent's per-config model override into ChatClientAgentRunOptions.
+        services.AddSingleton<IAguiRunOptionsBuilder, Services.AguiRunOptionsBuilder>();
+
+        // SSE protocol pipeline — owns the AG-UI translation of the
+        // agent's framework streaming output. Keeps the endpoint thin.
+        services.AddScoped<IAguiStreamPipeline, Services.AguiStreamPipeline>();
+
         // Chat thread manager — thread load/create + fire-and-forget user-message
         // append + thin-client history reconstruction.
         services.AddScoped<IChatThreadManager, Services.ChatThreadManager>();

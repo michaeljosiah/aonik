@@ -1,67 +1,57 @@
 using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+
 using Aonik.Agents.Contracts.Agui;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+
 using FastEndpoints;
-using Microsoft.Agents.AI;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Endpoints;
 
 /// <summary>
-/// AG-UI protocol streaming endpoint. Implements the AG-UI SSE protocol as a
-/// protocol adapter: parse request → resolve thread + agent → stream agent
-/// output as SSE events → enqueue post-stream persistence.
-///
-/// All non-protocol concerns (thread persistence, agent resolution, message
-/// conversion, tool classification, speech rendering, post-stream writes)
-/// live in injected services so this file stays focused on AG-UI wire format.
+/// AG-UI protocol streaming endpoint. The endpoint is intentionally a thin
+/// orchestrator: it composes already-extracted services (thread management,
+/// agent resolution, voice-mode validation, run-options building, the
+/// SSE stream pipeline, post-stream persistence) and is responsible only
+/// for HTTP concerns — SSE response headers, RUN_STARTED / RUN_FINISHED
+/// framing, error envelopes, and capturing tenant + user identity for
+/// background persistence.
 ///
 /// Protocol: POST with JSON body → SSE response with AG-UI events.
 /// Reference: https://docs.ag-ui.com/concepts/events
 /// </summary>
 internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        WriteIndented = false,
-    };
-
     private readonly IChatThreadManager _threadManager;
     private readonly IAgentContextualizer _contextualizer;
     private readonly IAguiMessageConverter _converter;
-    private readonly IToolCallClassifier _classifier;
-    private readonly ISpeechRenderer _speechRenderer;
+    private readonly IAguiVoiceModeValidator _voiceModeValidator;
+    private readonly IAguiRunOptionsBuilder _runOptionsBuilder;
+    private readonly IAguiStreamPipeline _streamPipeline;
     private readonly IPostStreamPersistenceCoordinator _coordinator;
-    private readonly IStreamingTextToSpeechService? _streamingTts;
-    private readonly ITenantTextToSpeechSettingsService? _ttsSettings;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly ILogger<AguiStreamingEndpoint> _logger;
     private readonly ICurrentUserProvider? _currentUserProvider;
     private readonly ITenantContext? _tenantContext;
     private readonly ICurrentUserContext? _currentUserContext;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly ILogger<AguiStreamingEndpoint> _logger;
 
     public AguiStreamingEndpoint(
         IChatThreadManager threadManager,
         IAgentContextualizer contextualizer,
         IAguiMessageConverter converter,
-        IToolCallClassifier classifier,
-        ISpeechRenderer speechRenderer,
+        IAguiVoiceModeValidator voiceModeValidator,
+        IAguiRunOptionsBuilder runOptionsBuilder,
+        IAguiStreamPipeline streamPipeline,
         IPostStreamPersistenceCoordinator coordinator,
         IServiceScopeFactory serviceScopeFactory,
         ILogger<AguiStreamingEndpoint> logger,
-        IStreamingTextToSpeechService? streamingTts = null,
-        ITenantTextToSpeechSettingsService? ttsSettings = null,
         ICurrentUserProvider? currentUserProvider = null,
         ITenantContext? tenantContext = null,
         ICurrentUserContext? currentUserContext = null)
@@ -69,13 +59,12 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         _threadManager = threadManager;
         _contextualizer = contextualizer;
         _converter = converter;
-        _classifier = classifier;
-        _speechRenderer = speechRenderer;
+        _voiceModeValidator = voiceModeValidator;
+        _runOptionsBuilder = runOptionsBuilder;
+        _streamPipeline = streamPipeline;
         _coordinator = coordinator;
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
-        _streamingTts = streamingTts;
-        _ttsSettings = ttsSettings;
         _currentUserProvider = currentUserProvider;
         _tenantContext = tenantContext;
         _currentUserContext = currentUserContext;
@@ -95,75 +84,24 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
     public override async Task HandleAsync(AguiRunInput input, CancellationToken cancellationToken)
     {
-        // Voice-mode pre-flight validation MUST happen before any SSE bytes
-        // are written. Once SSE has started we can't switch to a JSON 400
-        // body — the client is already in event-stream mode.
-        var voiceMode = input.VoiceMode;
-        var requestedAbstractFormat = voiceMode
-            ? (input.AudioFormat ?? AudioFormatNegotiation.DefaultAbstractFormat)
-            : null;
-        string? providerFormat = null;
-        string? abstractFormat = null;
-        string? audioMime = null;
-
-        if (voiceMode)
+        // Voice-mode pre-flight MUST happen before any SSE bytes are written.
+        // Once SSE has started we can't switch to a JSON 400 — the client is
+        // already in event-stream mode.
+        var voiceModeResult = await _voiceModeValidator.ValidateAsync(input, cancellationToken);
+        if (!voiceModeResult.IsSuccess)
         {
-            if (_streamingTts is null || _ttsSettings is null)
+            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            HttpContext.Response.ContentType = "application/json";
+            await HttpContext.Response.WriteAsJsonAsync(new
             {
-                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                HttpContext.Response.ContentType = "application/json";
-                await HttpContext.Response.WriteAsJsonAsync(new
-                {
-                    code = "voice_mode_unavailable",
-                    message = "Voice mode is not supported in this deployment.",
-                }, cancellationToken);
-                return;
-            }
-
-            if (!AudioFormatNegotiation.IsKnownAbstractFormat(requestedAbstractFormat))
-            {
-                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                HttpContext.Response.ContentType = "application/json";
-                await HttpContext.Response.WriteAsJsonAsync(new
-                {
-                    code = "invalid_audio_format",
-                    message = $"Unsupported audioFormat '{input.AudioFormat}'. Use one of: mp3, opus, wav.",
-                }, cancellationToken);
-                return;
-            }
-
-            // Ask the tenant settings layer for the configured TTS provider so
-            // we can validate the abstract → provider format mapping before
-            // committing to SSE.
-            var settings = await _ttsSettings.GetCurrentAsync(cancellationToken);
-            if (!settings.Enabled)
-            {
-                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                HttpContext.Response.ContentType = "application/json";
-                await HttpContext.Response.WriteAsJsonAsync(new
-                {
-                    code = "voice_mode_disabled",
-                    message = "Text-to-speech is disabled for this tenant; voice mode is unavailable.",
-                }, cancellationToken);
-                return;
-            }
-
-            providerFormat = AudioFormatNegotiation.MapToProviderFormat(settings.DefaultProfile.Provider, requestedAbstractFormat!);
-            if (providerFormat is null)
-            {
-                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                HttpContext.Response.ContentType = "application/json";
-                await HttpContext.Response.WriteAsJsonAsync(new
-                {
-                    code = "unsupported_audio_format",
-                    message = $"Provider '{settings.DefaultProfile.Provider}' does not support audioFormat '{requestedAbstractFormat}' for voice-mode AGUI.",
-                }, cancellationToken);
-                return;
-            }
-
-            abstractFormat = requestedAbstractFormat;
-            audioMime = AudioFormatNegotiation.MapAbstractToMime(requestedAbstractFormat!);
+                code = voiceModeResult.Code,
+                message = voiceModeResult.Message,
+            }, cancellationToken);
+            return;
         }
+
+        var voiceMode = input.VoiceMode;
+        var voiceContext = voiceModeResult.Context;
 
         using var chatActivity = AiTelemetry.ActivitySource.StartActivity("aonik.chat.agui", ActivityKind.Internal);
         // Stamp a semantic use_case on the chat-level activity so the trace
@@ -171,43 +109,39 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         // the run_id hash or — worse — the use_case of an ancillary call
         // (e.g. "title-generation") winning the dedupe.
         chatActivity?.SetTag(AiTelemetry.UseCaseAttribute, voiceMode ? "voice" : "chat");
-        if (voiceMode)
+        if (voiceMode && voiceContext is not null)
         {
-            chatActivity?.SetTag("aonik.chat.audio_format", abstractFormat);
+            chatActivity?.SetTag("aonik.chat.audio_format", voiceContext.AbstractFormat);
         }
 
         var response = HttpContext.Response;
         var runId = input.RunId ?? Guid.NewGuid().ToString("N");
         var requestStopwatch = Stopwatch.StartNew();
         await using var writer = new AguiResponseWriter(response, voiceMode, requestStopwatch);
-        // Capture tenant + user identity from the request scope NOW so
-        // each per-chunk scope created inside VoiceSynthCoordinator can
-        // re-seed its own ITenantContext / ICurrentUserContext. Without
-        // this, fresh scopes get empty context — the kill-switch cache
-        // key collides across all chunks (Guid.Empty), and tenant query
-        // filters on the AiDbContext don't apply correctly.
+        // Capture tenant + user identity from the request scope NOW so each
+        // per-chunk scope created inside VoiceSynthCoordinator can re-seed
+        // its own ITenantContext / ICurrentUserContext. Without this, fresh
+        // scopes get empty context — the kill-switch cache key collides
+        // across all chunks (Guid.Empty), and tenant query filters on the
+        // AiDbContext don't apply correctly.
         var coordinatorTenantId = _tenantContext?.TenantId;
         var coordinatorUserId = _currentUserContext?.UserId;
-        await using VoiceSynthCoordinator? voiceCoordinator = voiceMode
+        await using VoiceSynthCoordinator? voiceCoordinator = voiceMode && voiceContext is not null
             ? new VoiceSynthCoordinator(
                 serviceScopeFactory: _serviceScopeFactory,
                 writer: writer,
-                providerFormat: providerFormat!,
-                mime: audioMime!,
+                providerFormat: voiceContext.ProviderFormat,
+                mime: voiceContext.AudioMime,
                 logger: _logger,
                 capturedTenantId: coordinatorTenantId,
                 capturedUserId: coordinatorUserId)
             : null;
-        var assistantTextBuilder = new System.Text.StringBuilder();
-        long inputTokens = 0;
-        long outputTokens = 0;
-        long? timeToFirstTokenMs = null;
+
         long? requestToRunStartedSseMs = null;
         long? requestToAgentReadyMs = null;
         long? requestToLlmStartMs = null;
-        long? requestToFirstTokenSseMs = null;
-        long? userBriefDurationMs = null;
         var userBriefCacheStatus = "skipped";
+        long? userBriefDurationMs = null;
         var historySource = "client";
         long historyDurationMs = 0;
         var historyMessageCount = input.Messages?.Count ?? 0;
@@ -216,6 +150,15 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             && string.Equals(input.Messages[0].Role, "user", StringComparison.OrdinalIgnoreCase);
         var persistenceQueued = false;
         var outcome = "success";
+
+        // Stream-pipeline-discovered values; defaults so the post-handle
+        // logging block always has a consistent picture even when an
+        // exception aborts the stream mid-flight.
+        long inputTokens = 0;
+        long outputTokens = 0;
+        long? timeToFirstTokenMs = null;
+        long? requestToFirstTokenSseMs = null;
+        var assistantText = string.Empty;
 
         chatActivity?.SetTag("aonik.chat.run_id", runId);
         chatActivity?.SetTag("aonik.agent.name", input.AgentId ?? "orchestrator");
@@ -278,7 +221,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         try
         {
             await response.StartAsync(cancellationToken);
-            await WriteSseEventAsync(writer, new
+            await writer.WriteControlAsync(new
             {
                 type = "RUN_STARTED",
                 threadId,
@@ -316,28 +259,8 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             clientToolCount = clientTools.Count;
             chatActivity?.SetTag("aonik.chat.client_tool_count", clientToolCount);
 
-            // Build run options that combine:
-            //   • Client-side tool declarations (so the LLM can emit
-            //     FunctionCallContent that the frontend executes).
-            //   • The agent's per-config model override (resolved from
-            //     AnkAgents.AiModelId by the configuration service and
-            //     surfaced via AgentContextResolution.ConfiguredModelName).
-            // Without the model override here the agent silently inherits
-            // the chat client's global default (e.g. gpt-5-mini), which is
-            // exactly the bug a dev trace surfaced for personal-finance-
-            // agent. Tag the configured + effective model on the chat
-            // activity so future traces show the override actually landed.
-            ChatClientAgentRunOptions? runOptions = null;
             var configuredModel = agentContext.ConfiguredModelName;
-            if (clientTools.Count > 0 || !string.IsNullOrWhiteSpace(configuredModel))
-            {
-                var chatOptions = new ChatOptions();
-                if (clientTools.Count > 0)
-                    chatOptions.Tools = clientTools;
-                if (!string.IsNullOrWhiteSpace(configuredModel))
-                    chatOptions.ModelId = configuredModel;
-                runOptions = new ChatClientAgentRunOptions { ChatOptions = chatOptions };
-            }
+            var runOptions = _runOptionsBuilder.Build(clientTools, configuredModel);
 
             chatActivity?.SetTag("aonik.chat.configured_model", configuredModel ?? "<global default>");
 
@@ -355,145 +278,29 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                     runId, input.AgentId, configuredModel);
             }
 
-            var messageId = Guid.NewGuid().ToString("N");
-            var messageStarted = false;
-            var requiresVisualAttention = false;
-            var requiresApproval = false;
-            var speechBuffer = new SpeechStreamBuffer();
-            // Per-run counters so the chat activity tags can tell us whether
-            // a missing audio chunk was a buffer-pop problem (chunks_emitted
-            // < expected sentence count) or a synth/wire problem (chunks
-            // emitted but no audio frames).
-            var speechChunksEmittedDuringStream = 0;
-            var speechChunkTailEmitted = false;
-
             requestToLlmStartMs = requestStopwatch.ElapsedMilliseconds;
-            chatActivity?.AddEvent(new ActivityEvent(
-                "aonik.chat.llm_start",
-                tags: new ActivityTagsCollection
-                {
-                    ["elapsed_ms"] = requestToLlmStartMs.Value,
-                    ["message_count"] = chatMessages.Count,
-                }));
 
-            await foreach (var update in agent.RunStreamingAsync(
-                chatMessages, session: null, options: runOptions, cancellationToken: cancellationToken))
-            {
-                if (cancellationToken.IsCancellationRequested) break;
+            // Hand the live agent run to the protocol pipeline. It owns
+            // every TEXT_MESSAGE / TOOL_CALL / REASONING / speech.chunk
+            // / speech.render event and the voice drain — the endpoint
+            // just consumes the aggregate stats it returns.
+            var streamResult = await _streamPipeline.StreamAsync(
+                new AguiStreamPipelineInput(
+                    Agent: agent,
+                    ChatMessages: chatMessages,
+                    RunOptions: runOptions,
+                    Writer: writer,
+                    VoiceCoordinator: voiceCoordinator,
+                    ThreadId: threadId,
+                    RequestStopwatch: requestStopwatch,
+                    ChatActivity: chatActivity),
+                cancellationToken);
 
-                var chatUpdate = update.AsChatResponseUpdate();
-                if (chatUpdate is null) continue;
-
-                foreach (var content in chatUpdate.Contents ?? [])
-                {
-                    switch (content)
-                    {
-                        case TextContent textContent when !string.IsNullOrEmpty(textContent.Text):
-                            if (!messageStarted)
-                            {
-                                timeToFirstTokenMs ??= requestStopwatch.ElapsedMilliseconds;
-                                chatActivity?.SetTag("aonik.chat.time_to_first_token_ms", timeToFirstTokenMs.Value);
-                                chatActivity?.AddEvent(new ActivityEvent(
-                                    "aonik.chat.first_token",
-                                    tags: new ActivityTagsCollection
-                                    {
-                                        ["elapsed_ms"] = timeToFirstTokenMs.Value,
-                                    }));
-                                await WriteSseEventAsync(writer, new
-                                {
-                                    type = "TEXT_MESSAGE_START",
-                                    messageId,
-                                    role = "assistant",
-                                }, cancellationToken);
-                                messageStarted = true;
-                            }
-
-                            assistantTextBuilder.Append(textContent.Text);
-                            speechBuffer.Append(textContent.Text);
-
-                            await WriteSseEventAsync(writer, new
-                            {
-                                type = "TEXT_MESSAGE_CONTENT",
-                                messageId,
-                                delta = textContent.Text,
-                            }, cancellationToken);
-                            requestToFirstTokenSseMs ??= requestStopwatch.ElapsedMilliseconds;
-
-                            while (speechBuffer.TryPopSentence(out var rawChunk))
-                            {
-                                if (await EmitSpeechChunkAsync(
-                                    writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
-                                    rawChunk, isFinal: false, cancellationToken))
-                                {
-                                    speechChunksEmittedDuringStream++;
-                                }
-                            }
-                            break;
-
-                        case FunctionCallContent functionCall:
-                            var toolCallId = _classifier.ResolveCallId(functionCall);
-                            var toolName = functionCall.Name ?? string.Empty;
-                            requiresVisualAttention |= _classifier.IsDisplay(toolName);
-                            requiresApproval |= _classifier.RequiresApproval(toolName);
-
-                            await WriteSseEventAsync(writer, new
-                            {
-                                type = "TOOL_CALL_START",
-                                toolCallId,
-                                toolCallName = functionCall.Name,
-                                parentMessageId = messageId,
-                            }, cancellationToken);
-
-                            if (functionCall.Arguments is { Count: > 0 })
-                            {
-                                var argsJson = JsonSerializer.Serialize(
-                                    functionCall.Arguments, JsonOptions);
-                                await WriteSseEventAsync(writer, new
-                                {
-                                    type = "TOOL_CALL_ARGS",
-                                    toolCallId,
-                                    delta = argsJson,
-                                }, cancellationToken);
-                            }
-
-                            await WriteSseEventAsync(writer, new
-                            {
-                                type = "TOOL_CALL_END",
-                                toolCallId,
-                            }, cancellationToken);
-                            break;
-
-                        case FunctionResultContent functionResult:
-                            await WriteSseEventAsync(writer, new
-                            {
-                                type = "TOOL_CALL_RESULT",
-                                messageId = Guid.NewGuid().ToString("N"),
-                                toolCallId = functionResult.CallId,
-                                content = functionResult.Result?.ToString(),
-                                role = "tool",
-                            }, cancellationToken);
-                            break;
-
-                        case TextReasoningContent reasoningContent
-                            when !string.IsNullOrEmpty(reasoningContent.Text):
-
-                            await WriteSseEventAsync(writer, new
-                            {
-                                type = "REASONING_MESSAGE_CONTENT",
-                                messageId,
-                                delta = reasoningContent.Text,
-                            }, cancellationToken);
-                            break;
-
-                        case UsageContent usageContent:
-                            inputTokens += usageContent.Details.InputTokenCount ?? 0;
-                            outputTokens += usageContent.Details.OutputTokenCount ?? 0;
-                            break;
-                    }
-                }
-            }
-
-            var assistantText = assistantTextBuilder.ToString();
+            assistantText = streamResult.AssistantText;
+            inputTokens = streamResult.InputTokens;
+            outputTokens = streamResult.OutputTokens;
+            timeToFirstTokenMs = streamResult.TimeToFirstTokenMs;
+            requestToFirstTokenSseMs = streamResult.RequestToFirstTokenSseMs;
 
             // Capture the assistant's full reply on the chat-level activity so
             // the trace explorer can show the response paired with the prompt
@@ -505,77 +312,6 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 chatActivity?.SetTag(
                     "aonik.chat.assistant_response",
                     TruncateForActivityTag(assistantText, AssistantResponseTagMaxChars));
-            }
-
-            if (messageStarted)
-            {
-                await WriteSseEventAsync(writer, new
-                {
-                    type = "TEXT_MESSAGE_END",
-                    messageId,
-                }, cancellationToken);
-            }
-
-            var tailChunk = speechBuffer.FlushRemaining();
-            if (tailChunk is not null)
-            {
-                if (await EmitSpeechChunkAsync(
-                    writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
-                    tailChunk, isFinal: true, cancellationToken))
-                {
-                    speechChunkTailEmitted = true;
-                }
-            }
-
-            // Surface per-chunk emit counts on the chat activity so traces
-            // can distinguish "buffer pop dropped a chunk" from "synth never
-            // produced frames" when audio_frames disagrees with the
-            // expected sentence count.
-            if (chatActivity is not null)
-            {
-                var totalEmitted = speechChunksEmittedDuringStream + (speechChunkTailEmitted ? 1 : 0);
-                chatActivity.SetTag("aonik.chat.speech_chunks_emitted", totalEmitted);
-                chatActivity.SetTag("aonik.chat.speech_chunks_emitted_during_stream", speechChunksEmittedDuringStream);
-                chatActivity.SetTag("aonik.chat.speech_chunk_tail_emitted", speechChunkTailEmitted);
-            }
-
-            var guidanceText = _speechRenderer.RenderGuidance(requiresVisualAttention, requiresApproval);
-            await WriteSseEventAsync(writer, new
-            {
-                type = "CUSTOM",
-                name = "speech.render",
-                value = new
-                {
-                    messageId,
-                    speechText = guidanceText,
-                    requiresVisualAttention,
-                    requiresApproval,
-                    isFinal = true,
-                }
-            }, cancellationToken);
-
-            // Voice-mode drain contract — RUN_FINISHED must come AFTER
-            // every audio frame has been flushed to the wire. Wait first
-            // for synth workers to finish enqueueing frames, then close
-            // the audio channel, then wait for the writer's pump to
-            // complete. Per the design refinement: "drained" means
-            // writer-flushed, not synth-completed.
-            if (voiceCoordinator is not null)
-            {
-                await voiceCoordinator.WaitForAllSynthesisAsync();
-                writer.CompleteAudioInput();
-                await writer.WaitForAudioDrainAsync();
-
-                // Surface per-task synth outcomes on the chat activity so
-                // a trace can show whether a missing chunk failed at synth
-                // start, mid-stream, or never reached the wire.
-                var synthMetrics = voiceCoordinator.GetSynthTaskMetrics();
-                chatActivity?.SetTag("aonik.chat.synth_tasks_started", synthMetrics.Started);
-                chatActivity?.SetTag("aonik.chat.synth_tasks_completed", synthMetrics.Completed);
-                chatActivity?.SetTag("aonik.chat.synth_tasks_errored", synthMetrics.Errored);
-                chatActivity?.SetTag("aonik.chat.synth_tasks_timed_out", synthMetrics.TimedOut);
-                chatActivity?.SetTag("aonik.chat.synth_tasks_cancelled", synthMetrics.Cancelled);
-                chatActivity?.SetTag("aonik.chat.synth_tasks_yielded_frames", synthMetrics.YieldedAtLeastOneFrame);
             }
 
             requestStopwatch.Stop();
@@ -627,7 +363,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 audioMetrics.VoiceMode, audioMetrics.AudioBytes, audioMetrics.AudioFrames,
                 audioMetrics.AudioFramesDropped, audioMetrics.FirstAudibleByteMs, audioMetrics.AudioDrainMs);
 
-            await WriteSseEventAsync(writer, new
+            await writer.WriteControlAsync(new
             {
                 type = "RUN_FINISHED",
                 threadId,
@@ -652,8 +388,6 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                     threadId);
             }
 
-            // Capture tenant/user from the request scope so the coordinator
-            // can re-seed them in its background scope.
             QueuePostStreamPersistence(assistantText, requestStopwatch.ElapsedMilliseconds);
             persistenceQueued = true;
         }
@@ -671,7 +405,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
             try
             {
-                await WriteSseEventAsync(writer, new
+                await writer.WriteControlAsync(new
                 {
                     type = "RUN_ERROR",
                     message = ex.Message,
@@ -686,7 +420,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
         if (!persistenceQueued && threadCtx.PersistedThreadId.HasValue && !string.IsNullOrEmpty(threadCtx.FirstUserMessage))
         {
-            QueuePostStreamPersistence(assistantTextBuilder.ToString(), requestStopwatch.ElapsedMilliseconds);
+            QueuePostStreamPersistence(assistantText, requestStopwatch.ElapsedMilliseconds);
         }
 
         if (requestStopwatch.IsRunning)
@@ -737,7 +471,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             // Response already completed / connection already closed.
         }
 
-        void QueuePostStreamPersistence(string assistantText, long latencyMs)
+        void QueuePostStreamPersistence(string capturedText, long latencyMs)
         {
             Guid? capturedTenantId = _tenantContext?.TenantId;
             Guid? capturedUserId = _currentUserContext?.UserId;
@@ -746,7 +480,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 PersistedThreadId: threadCtx.PersistedThreadId,
                 TenantId: capturedTenantId,
                 UserId: capturedUserId,
-                AssistantText: assistantText,
+                AssistantText: capturedText,
                 AgentId: input.AgentId,
                 InputTokens: inputTokens,
                 OutputTokens: outputTokens,
@@ -759,73 +493,17 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
     }
 
     /// <summary>
-    /// Writes a single SSE event as a <c>data: {json}\n\n</c> line.
-    /// Routes through <see cref="AguiResponseWriter.WriteControlAsync"/>
-    /// so audio frames in voice mode never preempt control writes.
-    /// </summary>
-    private static Task WriteSseEventAsync<T>(
-        AguiResponseWriter writer,
-        T eventData,
-        CancellationToken cancellationToken) =>
-        writer.WriteControlAsync(eventData, cancellationToken);
-
-    /// <summary>
-    /// Emit a speech.chunk SSE event and (in voice mode) kick off
-    /// background synthesis. Returns <c>true</c> when the chunk was
-    /// actually written; <c>false</c> when the renderer normalised the
-    /// chunk to whitespace-only (which would have produced an empty
-    /// speech.chunk and a zero-length TTS call).
-    /// </summary>
-    private async Task<bool> EmitSpeechChunkAsync(
-        AguiResponseWriter writer,
-        VoiceSynthCoordinator? voiceCoordinator,
-        string threadId,
-        string messageId,
-        int chunkIndex,
-        string rawChunk,
-        bool isFinal,
-        CancellationToken cancellationToken)
-    {
-        var chunkText = _speechRenderer.RenderChunk(rawChunk);
-        if (string.IsNullOrWhiteSpace(chunkText))
-            return false;
-
-        await WriteSseEventAsync(writer, new
-        {
-            type = "CUSTOM",
-            name = "speech.chunk",
-            value = new
-            {
-                messageId,
-                chunkIndex,
-                speechText = chunkText,
-                isFinal,
-            },
-        }, cancellationToken);
-
-        // Voice mode fans out per-chunk synthesis; audio frames are
-        // enqueued through the prioritised writer's audio channel and
-        // flushed by its background pump while the LLM continues to
-        // emit later text deltas.
-        voiceCoordinator?.StartChunkSynthesis(messageId, chunkIndex, chunkText, threadId, cancellationToken);
-        return true;
-    }
-
-    /// <summary>
-    /// Returns the most recent user-role message from the supplied AGUI
-    /// payload, truncated to a span-friendly cap. Used to stamp the
-    /// transcribed prompt on the chat-level activity so voice traces
-    /// show what the user actually said. Truncation includes a trailing
-    /// ellipsis when content is clipped, so admins reading the trace
-    /// know the value isn't the full message.
+    /// Cap for <c>aonik.chat.user_prompt</c>. Span tags are bounded to keep
+    /// payloads sane; long pasted prompts get clipped with an ellipsis so
+    /// admins reading the trace know the value isn't the full message.
     /// </summary>
     private const int UserPromptTagMaxChars = 1024;
 
     /// <summary>
-    /// Cap for <c>aonik.chat.assistant_response</c>. Larger than the
-    /// prompt cap because LLM replies are typically the longer side of
-    /// the exchange. Still bounded so a 50 KB Markdown table doesn't
-    /// dominate the customDimensions blob.
+    /// Cap for <c>aonik.chat.assistant_response</c>. Larger than the prompt
+    /// cap because LLM replies are typically the longer side of the
+    /// exchange. Still bounded so a 50 KB Markdown table doesn't dominate
+    /// the customDimensions blob.
     /// </summary>
     private const int AssistantResponseTagMaxChars = 2048;
 
