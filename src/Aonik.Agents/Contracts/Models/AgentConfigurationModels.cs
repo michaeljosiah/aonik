@@ -1,4 +1,4 @@
-using Aonik.Agents.Entities;
+using Aonik.SharedKernel.Abstractions.Agents;
 
 namespace Aonik.Agents.Contracts.Models;
 

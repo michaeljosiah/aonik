@@ -3,6 +3,7 @@ using Aonik.Agents.Framework;
 using Aonik.Agents.Persistence;
 using Aonik.Agents.Workflows;
 using Aonik.Agents.Workflows.Graph;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;

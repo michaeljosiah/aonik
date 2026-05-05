@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Agents.Entities;

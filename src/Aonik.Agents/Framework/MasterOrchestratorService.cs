@@ -4,6 +4,7 @@ using System.Text.Json;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;

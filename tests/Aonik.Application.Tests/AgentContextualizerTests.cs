@@ -2,6 +2,7 @@ using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.Agents.AI;

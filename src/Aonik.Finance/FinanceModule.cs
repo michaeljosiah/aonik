@@ -1,7 +1,7 @@
-using Aonik.Agents.Contracts.Services;
 using Aonik.Finance.Agents;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;

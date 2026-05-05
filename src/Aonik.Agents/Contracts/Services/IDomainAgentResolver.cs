@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 
 namespace Aonik.Agents.Contracts.Services;

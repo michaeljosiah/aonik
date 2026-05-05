@@ -1,14 +1,20 @@
-using Aonik.Agents.Entities;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-namespace Aonik.Agents.Contracts.Services;
+namespace Aonik.SharedKernel.Abstractions.Agents;
 
 /// <summary>
-/// Describes a domain agent and can build a MAF <see cref="ChatClientAgent"/>
-/// on demand. Registered as keyed singleton services where the key is the agent name.
-/// The orchestrator resolves all registered descriptors to compose agents-as-tools.
+/// Describes a domain agent and can build a <see cref="ChatClientAgent"/>
+/// on demand. Domain modules (Platform, Finance, …) implement this contract
+/// to register their agents; the Agents runtime discovers all registrations
+/// via DI (<c>IEnumerable&lt;IDomainAgentDescriptor&gt;</c>) and composes
+/// them as agents-as-tools.
 /// </summary>
+/// <remarks>
+/// Lives on SharedKernel so that domain modules contributing an agent do
+/// not take a back-pointing reference on the Agents runtime — the runtime
+/// can be swapped or unloaded without touching Platform / Finance.
+/// </remarks>
 public interface IDomainAgentDescriptor
 {
     /// <summary>Agent name used as the keyed service key (e.g. "finance-agent").</summary>

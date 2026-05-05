@@ -47,7 +47,7 @@ public interface IAgentConfigurationService
 
     /// <summary>
     /// Resets the agent's instructions (prompt) to the hard-coded default
-    /// defined by its <see cref="Aonik.SharedKernel.Abstractions.Ai.IDomainAgentDescriptor"/>.
+    /// defined by its <see cref="Aonik.SharedKernel.Abstractions.Agents.IDomainAgentDescriptor"/>.
     /// Only the <c>InstructionsText</c> field is overwritten — tools, model,
     /// risk tier, and other customizations remain intact. Targets the tenant
     /// override if one exists for the current tenant, otherwise the global row.

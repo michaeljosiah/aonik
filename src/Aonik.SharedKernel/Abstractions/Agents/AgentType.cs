@@ -1,4 +1,4 @@
-namespace Aonik.Agents.Entities;
+namespace Aonik.SharedKernel.Abstractions.Agents;
 
 /// <summary>
 /// Classifies an agent configuration row as either a top-level orchestrator
@@ -8,7 +8,7 @@ public enum AgentType
 {
     /// <summary>
     /// A domain specialist that is invoked as a tool by an orchestrator.
-    /// Corresponds to concrete <see cref="Contracts.Services.IDomainAgentDescriptor"/> registrations.
+    /// Corresponds to concrete <see cref="IDomainAgentDescriptor"/> registrations.
     /// </summary>
     SubAgent = 0,
 
