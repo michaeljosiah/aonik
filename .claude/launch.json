@@ -57,6 +57,13 @@
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "src/Aonik.AppHost"],
       "port": 15134
+    },
+    {
+      "name": "admin-starterkit",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4173"],
+      "port": 4173,
+      "cwd": "Templates/aonik-admin-starterkit"
     }
   ]
 }

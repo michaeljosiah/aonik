@@ -306,33 +306,6 @@ h3, .h3 {
   box-shadow: var(--shadow-focus);
 }
 
-/* Select — matches .input styling */
-.select {
-  height: 38px;
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-bottom: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0 28px 0 12px;
-  font: inherit;
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ba3ad' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
-}
-.select:focus {
-  outline: none;
-  border-bottom-color: var(--brand-primary);
-  box-shadow: var(--shadow-focus);
-}
-.select option { background: var(--surface); color: var(--text-primary); }
-
 .btn {
   display: inline-flex;
   align-items: center;

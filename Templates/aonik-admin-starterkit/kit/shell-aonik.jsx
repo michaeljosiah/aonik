@@ -165,9 +165,120 @@ function NavPopover({ parent, isActiveChild, anchorRect, onClose, onSelect }) {
   );
 }
 
-function AonikSidebar({ active = 'myspace', collapsed = false }) {
+// ─── Profile popover — bottom-left user menu ──────────────────────────
+// Items: Account · Notifications · Theme · Sign out. Closes on outside click,
+// Esc, or selecting an item. Anchored above the user tile.
+function ProfileMenuPopover({ anchorRect, onClose, onSelect }) {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const t = setTimeout(() => {
+      const handleClick = e => {
+        if (ref.current && !ref.current.contains(e.target)) onClose?.();
+      };
+      const handleKey = e => { if (e.key === 'Escape') onClose?.(); };
+      document.addEventListener('mousedown', handleClick);
+      document.addEventListener('keydown', handleKey);
+      ref.current.__cleanup = () => {
+        document.removeEventListener('mousedown', handleClick);
+        document.removeEventListener('keydown', handleKey);
+      };
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      if (ref.current && ref.current.__cleanup) ref.current.__cleanup();
+    };
+  }, [onClose]);
+
+  // Anchor above the user tile, aligned to its left.
+  const POPOVER_HEIGHT_ESTIMATE = 220;
+  const left = anchorRect ? anchorRect.left : 0;
+  const top  = anchorRect ? anchorRect.top - POPOVER_HEIGHT_ESTIMATE : 0;
+
+  const items = [
+    { id: 'account',       label: 'Account',       icon: 'user',       hint: 'Plan, billing, profile' },
+    { id: 'notifications', label: 'Notifications', icon: 'bell',       hint: '3 unread' },
+    { id: 'theme',         label: 'Theme',         icon: 'moon',       trailing: 'System' },
+  ];
+  const danger = { id: 'signout', label: 'Sign out', icon: 'signout' };
+
+  return (
+    <div ref={ref} style={{
+      position: 'fixed', left, top,
+      width: 248, zIndex: 1000,
+      background: 'var(--surface)', border: '1px solid var(--border-light)',
+      borderRadius: 10, padding: 6,
+      boxShadow: '0 18px 40px -10px rgb(0 0 0 / 0.22), 0 0 0 1px rgb(0 0 0 / 0.02)',
+      animation: 'popoverIn 120ms ease-out',
+    }}>
+      {/* User identity header */}
+      <div style={{
+        padding: '10px 10px 12px',
+        borderBottom: '1px solid var(--border-light)', marginBottom: 4,
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <Avatar name="Oliver Chen" size={32} color="#7b76b6" textColor="#fff"/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Oliver Chen</div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>oliver@primrose.co</div>
+        </div>
+      </div>
+
+      {items.map(it => (
+        <div key={it.id}
+          onClick={() => { onSelect?.(it.id); onClose?.(); }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+            fontSize: 12.5, color: 'var(--text-primary)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <Icon name={it.icon} size={14} color="var(--text-secondary)"/>
+          <span style={{ flex: 1 }}>{it.label}</span>
+          {it.hint && <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>{it.hint}</span>}
+          {it.trailing && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--text-tertiary)' }}>
+              {it.trailing} <Icon name="chevron" size={11}/>
+            </span>
+          )}
+        </div>
+      ))}
+
+      <div style={{ borderTop: '1px solid var(--border-light)', marginTop: 4, paddingTop: 4 }}>
+        <div
+          onClick={() => { onSelect?.(danger.id); onClose?.(); }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+            fontSize: 12.5, color: 'var(--text-primary)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <Icon name={danger.icon} size={14} color="var(--text-secondary)"/>
+          <span style={{ flex: 1 }}>{danger.label}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AonikSidebar({ active = 'myspace', collapsed = false, showUpgrade = false, onProfileSelect, profileMenuOpen = false }) {
   const [openId, setOpenId] = React.useState(null);
   const [openRect, setOpenRect] = React.useState(null);
+  const [profileOpen, setProfileOpen] = React.useState(profileMenuOpen);
+  const [profileRect, setProfileRect] = React.useState(null);
+  const profileTileRef = React.useRef(null);
+
+  // Allow demo artboards to force the popover open by passing profileMenuOpen=true.
+  // We measure the tile after layout so the popover anchors correctly.
+  React.useEffect(() => {
+    if (profileMenuOpen && profileTileRef.current) {
+      setProfileRect(profileTileRef.current.getBoundingClientRect());
+      setProfileOpen(true);
+    }
+  }, [profileMenuOpen]);
 
   const findActive = () => {
     for (const g of SIDEBAR_NAV) for (const i of g.items) {
@@ -295,18 +406,60 @@ function AonikSidebar({ active = 'myspace', collapsed = false }) {
         ))}
       </div>
 
-      {/* bottom user profile — matches source */}
-      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 10, marginTop: 4 }}>
+      {/* upgrade strip — only on free tier */}
+      {showUpgrade && !collapsed && (
+        <div style={{
+          marginTop: 8, padding: '10px 12px',
+          background: 'linear-gradient(135deg, var(--brand-primary) 0%, #077278 100%)',
+          color: '#fff', borderRadius: 10, cursor: 'pointer',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Icon name="sparkles" size={12} color="#fff"/>
+            <span style={{ fontSize: 11.5, fontWeight: 600 }}>Launch plan · free</span>
+            <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.85 }}>168 / 200</span>
+          </div>
+          <div style={{ height: 4, background: 'rgba(255,255,255,0.22)', borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
+            <div style={{ width: '84%', height: '100%', background: '#fff', borderRadius: 999 }}/>
+          </div>
+          <div style={{ fontSize: 10.5, opacity: 0.9, lineHeight: 1.4 }}>AI messages running low. Upgrade for 50× more.</div>
+          <button style={{
+            marginTop: 8, width: '100%', padding: '5px 8px',
+            background: '#fff', color: 'var(--brand-primary)',
+            border: 'none', borderRadius: 6, fontSize: 11.5, fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          }}>Upgrade plan <Icon name="arrowright" size={11}/></button>
+        </div>
+      )}
+
+      {/* bottom user profile — click opens Account / Notifications / Theme / Sign out */}
+      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 10, marginTop: 4, position: 'relative' }}>
         {collapsed ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+          <div
+            ref={profileTileRef}
+            onClick={e => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setProfileRect(rect);
+              setProfileOpen(o => !o);
+            }}
+            style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', cursor: 'pointer' }}
+          >
             <Avatar name="Oliver Chen" size={30} color="#7b76b6" textColor="#fff"/>
           </div>
         ) : (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '8px 8px', borderRadius: 8, cursor: 'pointer',
-            background: 'var(--surface)', border: '1px solid var(--border-light)',
-          }}>
+          <div
+            ref={profileTileRef}
+            onClick={e => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setProfileRect(rect);
+              setProfileOpen(o => !o);
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 8px', borderRadius: 8, cursor: 'pointer',
+              background: profileOpen ? 'var(--brand-primary-10)' : 'var(--surface)',
+              border: profileOpen ? '1px solid var(--brand-primary)' : '1px solid var(--border-light)',
+              transition: 'background 120ms ease, border-color 120ms ease',
+            }}>
             <div style={{ position: 'relative' }}>
               <Avatar name="Oliver Chen" size={32} color="#7b76b6" textColor="#fff"/>
               <span style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: 999, background: 'var(--success)', border: '2px solid var(--surface)' }}/>
@@ -315,11 +468,37 @@ function AonikSidebar({ active = 'myspace', collapsed = false }) {
               <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Oliver Chen</div>
               <div style={{ fontSize: 10, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>oliver@primrose.co</div>
             </div>
-            <Icon name="chevdown" size={12} color="var(--text-tertiary)"/>
+            <Icon name={profileOpen ? 'chevup' : 'chevdown'} size={12} color="var(--text-tertiary)"/>
           </div>
+        )}
+
+        {profileOpen && (
+          <ProfileMenuPopover
+            anchorRect={profileRect}
+            onClose={() => setProfileOpen(false)}
+            onSelect={id => onProfileSelect?.(id)}
+          />
         )}
       </div>
     </aside>
+  );
+}
+
+// Contextual upgrade pill for the top bar — shown on free tier or near limits.
+// Routes to Account → Plan in interactive contexts.
+function UpgradePill({ label = 'Upgrade to Growth', onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      height: 28, padding: '0 10px',
+      background: 'var(--brand-secondary, #eb5c37)', color: '#fff',
+      border: 'none', borderRadius: 999, cursor: 'pointer',
+      fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+    }}>
+      <Icon name="sparkles" size={11} color="#fff"/>
+      {label}
+    </button>
   );
 }
 
@@ -477,13 +656,19 @@ function ProposalCard({ agent = 'Billing', confidence = 0.94, summary, diff, rea
   );
 }
 
-function AonikShell({ active, breadcrumbs, topActions, children, sidebarCollapsed = false, rightRail, onAskAonik }) {
+function AonikShell({ active, breadcrumbs, topActions, children, sidebarCollapsed = false, rightRail, onAskAonik, showUpgrade = false, onProfileSelect, profileMenuOpen = false }) {
   return (
     <div style={{
       display: 'flex', width: '100%', height: '100%',
       background: 'var(--background)', fontFamily: 'var(--font-sans)', color: 'var(--text-primary)',
     }}>
-      <AonikSidebar active={active} collapsed={sidebarCollapsed}/>
+      <AonikSidebar
+        active={active}
+        collapsed={sidebarCollapsed}
+        showUpgrade={showUpgrade}
+        onProfileSelect={onProfileSelect}
+        profileMenuOpen={profileMenuOpen}
+      />
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <AonikTopBar breadcrumbs={breadcrumbs} actions={topActions} onAskAonik={onAskAonik}/>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -495,4 +680,4 @@ function AonikShell({ active, breadcrumbs, topActions, children, sidebarCollapse
   );
 }
 
-Object.assign(window, { AonikShell, AonikSidebar, AonikTopBar, AgentRail, ProposalCard, SIDEBAR_NAV });
+Object.assign(window, { AonikShell, AonikSidebar, AonikTopBar, AgentRail, ProposalCard, SIDEBAR_NAV, UpgradePill });

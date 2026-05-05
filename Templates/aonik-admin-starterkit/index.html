@@ -90,6 +90,12 @@
 <script type="text/babel" src="screens/remittances.jsx"></script>
 <script type="text/babel" src="screens/approvals.jsx"></script>
 <script type="text/babel" src="screens/tenant-signup.jsx"></script>
+<script type="text/babel" src="screens/account.jsx"></script>
+
+<!-- Background Workers (added) -->
+<script src="mock-data.js"></script>
+<script type="text/babel" src="workers.jsx"></script>
+<script type="text/babel" src="drawer.jsx"></script>
 
 <!-- App -->
 <script type="text/babel">
@@ -246,6 +252,7 @@ function DefaultAgentRail({ variant = 'invoices' }) {
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [openJob, setOpenJob] = React.useState(null);
 
   // Apply theme + accent at document level so tokens cascade.
   React.useEffect(() => {
@@ -264,12 +271,15 @@ function App() {
   // Artboard sizes (16:10-ish for desktop product shots)
   const W = 1480, H = 980;
 
-  const mkShell = (active, breadcrumbs, ScreenComponent, railVariant = null) => (
+  const mkShell = (active, breadcrumbs, ScreenComponent, railVariant = null, opts = {}) => (
     <ArtboardFrame>
       <AonikShell
         active={active}
         breadcrumbs={breadcrumbs}
         sidebarCollapsed={t.sidebarCollapsed}
+        topActions={opts.topActions}
+        showUpgrade={opts.showUpgrade}
+        profileMenuOpen={opts.profileMenuOpen}
         rightRail={railVariant && t.showAgentRail ? <DefaultAgentRail variant={railVariant}/> : null}
       >
         <ScreenComponent/>
@@ -289,7 +299,7 @@ function App() {
             <ArtboardFrame><ScreenLogin/></ArtboardFrame>
           </DCArtboard>
           <DCArtboard id="myspace"  label="My Space · greeting + agent proposals" width={W} height={H}>
-            {mkShell('myspace',  ['My Space'], ScreenMySpace, 'myspace')}
+            {mkShell('myspace',  ['My Space'], ScreenMySpace, 'myspace', { showUpgrade: true, topActions: <UpgradePill/> })}
           </DCArtboard>
           <DCArtboard id="agents"   label="Agent Command Center · roster + live trace" width={W} height={H}>
             {mkShell('agents',   ['Admin', 'Agents'], ScreenAgents)}
@@ -412,7 +422,7 @@ function App() {
 
         <DCSection id="settings" title="Settings" subtitle="Landing · platform tabs · payment gateways · TTS">
           <DCArtboard id="settings-landing" label="Settings · landing · grouped tile grid" width={W} height={H}>
-            {mkShell('settings', ['Settings'], ScreenSettingsLanding)}
+            {mkShell('settings', ['Settings'], ScreenSettingsLanding, null, { showUpgrade: true, topActions: <UpgradePill/> })}
           </DCArtboard>
           <DCArtboard id="settings-platform" label="Platform Settings · multi-tab · AI / Storage / Features" width={W} height={H}>
             {mkShell('settings', ['Settings', 'Platform'], ScreenSettingsPlatform)}
@@ -461,6 +471,38 @@ function App() {
           </DCArtboard>
         </DCSection>
 
+        <DCSection id="platform" title="Platform · Background workers" subtitle="Scheduled jobs, run history, drawer with success/error detail">
+          <DCArtboard id="workers" label="Background workers · table + sparklines + run drawer" width={W} height={H}>
+            <ArtboardFrame>
+              <AonikShell
+                active="settings"
+                breadcrumbs={['Settings', 'Background workers']}
+                sidebarCollapsed={t.sidebarCollapsed}
+              >
+                <WorkersScreen onOpen={setOpenJob} onAction={() => {}}/>
+              </AonikShell>
+            </ArtboardFrame>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="account" title="Account" subtitle="Workspace plan, usage, billing, profile, and security · reached from the bottom-left profile menu">
+          <DCArtboard id="account-plan" label="Account · Plan · Launch / Growth / Scale tiers · cards only" width={W} height={H}>
+            {mkShell('myspace', ['Account', 'Plan'], ScreenAccountPlan, null, { showUpgrade: true, topActions: <UpgradePill/> })}
+          </DCArtboard>
+          <DCArtboard id="account-usage" label="Account · Usage · current plan + tenant-wide quotas" width={W} height={H}>
+            {mkShell('myspace', ['Account', 'Usage'], ScreenAccountUsage, null, { showUpgrade: true, topActions: <UpgradePill/> })}
+          </DCArtboard>
+          <DCArtboard id="account-billing" label="Account · Billing · current plan + payment method + recent invoices" width={W} height={H}>
+            {mkShell('myspace', ['Account', 'Billing'], ScreenAccountBilling, null, { showUpgrade: true, topActions: <UpgradePill/> })}
+          </DCArtboard>
+          <DCArtboard id="account-profile" label="Account · Profile · identity + locale + theme" width={W} height={H}>
+            {mkShell('myspace', ['Account', 'Profile'], ScreenAccountProfile)}
+          </DCArtboard>
+          <DCArtboard id="account-security" label="Account · Security · password + 2FA + sessions" width={W} height={H}>
+            {mkShell('myspace', ['Account', 'Security'], ScreenAccountSecurity)}
+          </DCArtboard>
+        </DCSection>
+
         <DCSection id="ops" title="Operations & Admin" subtitle="Compliance, users, tenants">
           <DCArtboard id="compliance" label="Compliance · KYC/KYB documents" width={W} height={H}>
             {mkShell('compliance', ['Operations', 'Compliance'], ScreenCompliance)}
@@ -474,6 +516,8 @@ function App() {
         </DCSection>
 
       </DesignCanvas>
+
+      <RunDrawer job={openJob} onClose={() => setOpenJob(null)} onAction={() => {}} agentLayer={true}/>
 
       <TweaksPanel title="Tweaks">
         <TweakSection label="Theme"/>

@@ -75,6 +75,9 @@ const EXTRA_ICONS = {
   lightning:  '<path d="M13 3L4 14h7l-1 7 9-11h-7z"/>',
   suit:       '<path d="M4 7h16v14H4z"/><path d="M9 7V4h6v3"/>',
   badge:      '<circle cx="12" cy="8" r="6"/><path d="m15.5 13 1.5 8-5-3-5 3 1.5-8"/>',
+  moon:       '<path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/>',
+  signout:    '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+  creditcard: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/>',
 };
 
 // Merge into ICONS map at boot time

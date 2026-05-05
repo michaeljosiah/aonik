@@ -231,7 +231,7 @@ function TweaksPanel({ title = 'Tweaks', children }) {
   return (
     <>
       <style>{__TWEAKS_STYLE}</style>
-      <div ref={dragRef} className="twk-panel"
+      <div ref={dragRef} className="twk-panel" data-noncommentable=""
            style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
         <div className="twk-hd" onMouseDown={onDragStart}>
           <b>{title}</b>
