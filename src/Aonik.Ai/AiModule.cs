@@ -200,6 +200,9 @@ public sealed class AiModule : IModule
         // Insight persistence — consumed by domain modules via IInsightWriter contract
         services.AddScoped<IInsightWriter, InsightWriter>();
         services.AddScoped<IInsightReader, InsightReader>();
+        // Domain-event counters (runs.completed, runs.tokens_used) on the
+        // existing "Aonik.Ai" meter; subscribed in ServiceDefaults.
+        services.AddSingleton<Aonik.Ai.Observability.AiRunMetrics>();
         services.AddScoped<IAiRunWriter, AiRunWriter>();
         services.AddScoped<AiTraceQueryService>();
         services.AddScoped<AiTraceExplorerService>();

@@ -4,6 +4,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Observability;
 using Aonik.Finance.Services.Payments;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -71,7 +72,8 @@ public class PaymentServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
         var orderId = Guid.NewGuid();
         var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", orderId, null);
 
@@ -104,7 +106,8 @@ public class PaymentServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
         var orderId = Guid.NewGuid();
         var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", orderId, null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
@@ -131,7 +134,8 @@ public class PaymentServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         // Act
         var result = await service.GetPaymentIntentAsync(Guid.NewGuid());
@@ -151,7 +155,8 @@ public class PaymentServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
@@ -179,7 +184,8 @@ public class PaymentServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         // Act
         var act = async () => await service.CapturePaymentAsync(Guid.NewGuid());
@@ -200,7 +206,8 @@ public class PaymentServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
@@ -223,7 +230,8 @@ public class PaymentServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         // Act
         var act = async () => await service.CancelPaymentAsync(Guid.NewGuid());

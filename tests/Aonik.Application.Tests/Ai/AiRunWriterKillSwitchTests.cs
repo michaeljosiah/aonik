@@ -1,4 +1,5 @@
 using Aonik.Ai.Entities;
+using Aonik.Ai.Observability;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
 using Aonik.SharedKernel.Abstractions;
@@ -75,7 +76,8 @@ public class AiRunWriterKillSwitchTests
             dbContext,
             tenantProvider,
             new FixedUserProvider { UserId = CallingUserId },
-            CreateFusionCache());
+            CreateFusionCache(),
+            new AiRunMetrics());
 
         var act = async () => await writer.StartRunAsync(
             useCase: "test-usecase",
@@ -101,7 +103,8 @@ public class AiRunWriterKillSwitchTests
             dbContext,
             tenantProvider,
             new FixedUserProvider { UserId = CallingUserId },
-            CreateFusionCache());
+            CreateFusionCache(),
+            new AiRunMetrics());
 
         var runId = await writer.StartRunAsync("test-usecase", "{}");
 
@@ -131,7 +134,8 @@ public class AiRunWriterKillSwitchTests
             dbContext,
             tenantProvider,
             new FixedUserProvider { UserId = CallingUserId },
-            CreateFusionCache());
+            CreateFusionCache(),
+            new AiRunMetrics());
 
         var runId = await writer.StartRunAsync("test-usecase", "{}");
         runId.Should().NotBe(Guid.Empty);
@@ -162,7 +166,8 @@ public class AiRunWriterKillSwitchTests
             dbContext,
             cleanProvider,
             new FixedUserProvider { UserId = CallingUserId },
-            CreateFusionCache());
+            CreateFusionCache(),
+            new AiRunMetrics());
 
         var runId = await writer.StartRunAsync("test-usecase", "{}");
         runId.Should().NotBe(Guid.Empty);

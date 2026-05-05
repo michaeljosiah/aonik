@@ -70,6 +70,10 @@ public static class Extensions
                     // Retrieval metrics (Qdrant + embedding API) — consumed by
                     // the observability dashboard's Retrieval panel.
                     .AddMeter("Aonik.VectorStore")
+                    // Domain counters: payments / invoices / ledger entries
+                    // (per-tenant), wired from FinanceMetrics and consumed
+                    // by the Finance panel of the observability dashboard.
+                    .AddMeter("Aonik.Finance")
                     .AddMeter("*Microsoft.Agents.AI");
             })
             .WithTracing(tracing =>

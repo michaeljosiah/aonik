@@ -14,16 +14,19 @@ internal class BillingService : FinanceServiceBase, IBillingService
 {
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly Services.Observability.FinanceMetrics _metrics;
 
     public BillingService(
         FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        Services.Observability.FinanceMetrics metrics)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _metrics = metrics;
     }
 
     public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
@@ -72,6 +75,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
 
         _dbContext.Invoices.Add(invoice);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Per-tenant invoice creation counter. Tagged with currency so a
+        // multi-currency tenant doesn't collapse onto one series.
+        _metrics.RecordInvoiceCreated(tenantId, invoice.Currency);
 
         return MapToResponse(invoice);
     }

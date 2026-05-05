@@ -6,6 +6,7 @@ using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Observability;
 
 namespace Aonik.Finance.Services.Payments;
 
@@ -13,16 +14,19 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 {
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly FinanceMetrics _metrics;
 
     public PaymentService(
         FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        FinanceMetrics metrics)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _metrics = metrics;
     }
 
     public async Task<PaymentIntentResponse> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, CancellationToken cancellationToken = default)
@@ -49,6 +53,11 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 
         _dbContext.PaymentIntents.Add(paymentIntent);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Per-tenant payment metric. Status starts at "Pending" here; the
+        // capture / cancel paths emit additional events with their own
+        // status so a dashboard can chart pending → captured / cancelled.
+        _metrics.RecordPayment(tenantId, paymentIntent.Currency, paymentIntent.Status);
 
         return MapToResponse(paymentIntent);
     }
@@ -87,6 +96,8 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         paymentIntent.Status = PaymentStatus.Captured.ToString();
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
+
         return MapToResponse(paymentIntent);
     }
 
@@ -114,6 +125,8 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 
         paymentIntent.Status = PaymentStatus.Cancelled.ToString();
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
 
         return MapToResponse(paymentIntent);
     }

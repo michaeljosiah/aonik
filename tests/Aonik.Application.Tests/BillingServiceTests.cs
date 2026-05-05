@@ -4,6 +4,7 @@ using Aonik.Finance.Contracts.Services.Billing;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Billing;
+using Aonik.Finance.Services.Observability;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -65,7 +66,8 @@ public class BillingServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         var request = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
@@ -105,7 +107,8 @@ public class BillingServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         var createRequest = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
@@ -143,7 +146,8 @@ public class BillingServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         // Act
         var result = await service.GetInvoiceAsync(Guid.NewGuid(), CancellationToken.None);

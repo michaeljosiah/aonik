@@ -2,6 +2,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Contracts.Models.Ledger;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Services.Ledger;
+using Aonik.Finance.Services.Observability;
 using Aonik.Finance.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -69,7 +70,8 @@ public class LedgerServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
         var ledger = await service.CreateLedgerAsync(new CreateLedgerRequest("USD"));
         var request = new CreateLedgerAccountRequest(ledger.Id, "Cash", "1000", "Asset");
 
@@ -99,7 +101,8 @@ public class LedgerServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         var ledger = await service.CreateLedgerAsync(new CreateLedgerRequest("USD"));
         var cashAccount = await service.CreateAccountAsync(new CreateLedgerAccountRequest(ledger.Id, "Cash", "1000", "Asset"));
@@ -143,7 +146,8 @@ public class LedgerServiceTests
             context,
             tenantProvider,
             new AllowAllPermissionService(),
-            new TestCurrentUserProvider(Guid.NewGuid()));
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics());
 
         var ledger = await service.CreateLedgerAsync(new CreateLedgerRequest("USD"));
         var cashAccount = await service.CreateAccountAsync(new CreateLedgerAccountRequest(ledger.Id, "Operating Cash", "1000", "Asset"));

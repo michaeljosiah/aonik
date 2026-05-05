@@ -33,17 +33,20 @@ internal sealed class AiRunWriter : IAiRunWriter
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFusionCache _cache;
+    private readonly Aonik.Ai.Observability.AiRunMetrics _metrics;
 
     public AiRunWriter(
         AiDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IFusionCache cache)
+        IFusionCache cache,
+        Aonik.Ai.Observability.AiRunMetrics metrics)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cache = cache;
+        _metrics = metrics;
     }
 
     public async Task<Guid> SaveRunAsync(
@@ -184,6 +187,11 @@ internal sealed class AiRunWriter : IAiRunWriter
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Per-tenant counters — token count is authoritative on this path
+        // (the caller supplied it directly), so this is the highest-quality
+        // input to the AI tokens-by-tenant dashboard.
+        _metrics.RecordRunCompleted(run.TenantId, run.Outcome, run.UseCase, tokensUsed);
     }
 
     public async Task MarkRunFailedAsync(
@@ -217,6 +225,14 @@ internal sealed class AiRunWriter : IAiRunWriter
         run.OutputRef = string.IsNullOrWhiteSpace(outputRef) ? null : outputRef.Trim();
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Per-tenant agent-run counter + token-usage counter. Fires once
+        // per terminal outcome (Completed / Failed / etc.) so dashboards
+        // can chart per-tenant run volume and token consumption without
+        // scraping the AnkAiRuns table. The "MarkRunCompletedWithMetrics"
+        // path supplies an explicit token count; other paths land here
+        // with run.TokensUsed = 0, which the metrics class skips.
+        _metrics.RecordRunCompleted(run.TenantId, outcome, run.UseCase, run.TokensUsed);
     }
 
     private async Task<AiModel> EnsureDefaultModelAsync(CancellationToken cancellationToken)

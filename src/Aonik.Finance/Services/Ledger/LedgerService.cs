@@ -14,16 +14,19 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
 {
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly Services.Observability.FinanceMetrics _metrics;
 
     public LedgerService(
         FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        Services.Observability.FinanceMetrics metrics)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _metrics = metrics;
     }
 
     public async Task<LedgerResponse> CreateLedgerAsync(CreateLedgerRequest request, CancellationToken cancellationToken = default)
@@ -288,6 +291,12 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
 
         _dbContext.JournalEntries.Add(entry);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Per-tenant ledger-entry counter. Currency is taken from the
+        // first line — journal entries are constrained to a single
+        // currency so this is unambiguous.
+        var entryCurrency = normalizedLines[0].Currency;
+        _metrics.RecordLedgerEntryPosted(tenantId, entryCurrency);
 
         return new JournalEntryResponse(
             entry.Id,

@@ -1,4 +1,5 @@
 using Aonik.Ai.Entities;
+using Aonik.Ai.Observability;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
 using Aonik.SharedKernel.Abstractions;
@@ -281,7 +282,7 @@ public class AiRunWriterTests
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private AiRunWriter NewWriter(AiDbContext dbContext)
-        => new(dbContext, _tenantProvider.Object, _currentUserProvider.Object, _cache);
+        => new(dbContext, _tenantProvider.Object, _currentUserProvider.Object, _cache, new AiRunMetrics());
 
     private AiDbContext CreateDbContext()
     {

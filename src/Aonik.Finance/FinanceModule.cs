@@ -47,6 +47,11 @@ public sealed class FinanceModule : IModule
         // ── Event Bus ────────────────────────────────────────────────
         services.AddEventBus(typeof(FinanceModule).Assembly);
 
+        // ── Observability ─────────────────────────────────────────────
+        // Domain-event counters (payments / invoices / ledger entries) on the
+        // "Aonik.Finance" meter; subscribed in ServiceDefaults.
+        services.AddSingleton<Services.Observability.FinanceMetrics>();
+
         // ── Finance Services ─────────────────────────────────────────
         // Ledger
         services.AddScoped<Contracts.Services.Ledger.ILedgerService, Services.Ledger.LedgerService>();

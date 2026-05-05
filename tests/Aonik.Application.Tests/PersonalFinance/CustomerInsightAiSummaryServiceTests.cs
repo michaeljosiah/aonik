@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Aonik.Ai.Entities;
+using Aonik.Ai.Observability;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
@@ -185,7 +186,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver { ModelId = "model-a" };
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText(BuildValidSummaryJson("Cash is stable", "Spending pressure is manageable."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache(), new AiRunMetrics());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -238,7 +239,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver { ModelId = "model-a" };
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText(BuildValidSummaryJson("Cash is stable", "Spending pressure is manageable."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache(), new AiRunMetrics());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -280,7 +281,7 @@ public class CustomerInsightAiSummaryServiceTests
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText(BuildValidSummaryJson("Cash is stable", "Spending pressure is manageable."));
         chatClient.EnqueueText(BuildValidSummaryJson("Spending risk increased", "Entertainment spend is rising."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache(), new AiRunMetrics());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -332,7 +333,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver();
         var chatClient = new QueueChatClient();
         chatClient.EnqueueException(new TimeoutException("Provider timed out."));
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache(), new AiRunMetrics());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,
@@ -379,7 +380,7 @@ public class CustomerInsightAiSummaryServiceTests
         var profileResolver = new FakeTaskProfileResolver();
         var chatClient = new QueueChatClient();
         chatClient.EnqueueText("{\"summary\":\"missing required fields\"}");
-        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache());
+        var aiRunWriter = new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache(), new AiRunMetrics());
         var service = new CustomerInsightAiSummaryService(
             aiDbContext,
             snapshotReader,

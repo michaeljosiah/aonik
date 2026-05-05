@@ -1,4 +1,5 @@
 using Aonik.Ai.Entities;
+using Aonik.Ai.Observability;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
@@ -393,7 +394,7 @@ public class CustomerInsightAiSummaryJobTests
             summaryReader,
             new FakeTaskProfileResolver(),
             new QueueChatClient(),
-            new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache()),
+            new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider, CreateFusionCache(), new AiRunMetrics()),
             clock,
             NullLogger<CustomerInsightAiSummaryService>.Instance);
         var enumerator = new CustomerInsightAiSummaryJobSnapshotEnumerator(financeDbContext, summaryReader);

@@ -326,9 +326,13 @@ internal sealed class TelemetryChatClient : DelegatingChatClient
                 error.GetType().Name);
         }
 
-        // Metrics — tagged for slicing in dashboards.
+        // Metrics — tagged for slicing in dashboards. tenant.id is included
+        // so per-tenant token / latency / cost panels work without scraping
+        // the AnkAiRuns table; it's the empty Guid when no tenant scope is
+        // bound (e.g. background jobs running platform-wide).
         var tags = new TagList
         {
+            { "tenant.id", tenantId.ToString() },
             { "use_case", useCase },
             { "operation", operation },
             { "model", modelForCost ?? "unknown" },
