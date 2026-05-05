@@ -914,13 +914,15 @@ public sealed class CreateCustomerContactRequestValidator : Validator<CreateCust
     public CreateCustomerContactRequestValidator()
     {
         // The Admin UI's customer-create form posts placeholder rows for the
-        // Email/Phone slots even when the user leaves them blank. The service
-        // silently drops entirely-empty rows, so the validator must too —
-        // only enforce field rules when at least one of Type/Value is filled.
-        When(x => !string.IsNullOrWhiteSpace(x.Type) || !string.IsNullOrWhiteSpace(x.Value), () =>
+        // Email/Phone slots with `type` already filled (e.g. "Email"/"Phone")
+        // but an empty `value` when the user leaves them blank. The service
+        // silently drops those, so the validator must too — only enforce
+        // field rules when `Value` is actually supplied. (Empty Value =
+        // user didn't fill in this contact slot.)
+        When(x => !string.IsNullOrWhiteSpace(x.Value), () =>
         {
             RuleFor(x => x.Type).RequiredText(32);
-            RuleFor(x => x.Value).RequiredText(512);
+            RuleFor(x => x.Value).MaximumLength(512);
         });
     }
 }
