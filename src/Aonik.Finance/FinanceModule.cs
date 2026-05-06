@@ -84,7 +84,19 @@ public sealed class FinanceModule : IModule
         // Cross-module provisioning contributor
         services.AddScoped<SharedKernel.Abstractions.ITenantProvisioningContributor, Services.Provisioning.FinanceTenantProvisioningContributor>();
 
-        // Cross-module demo-seed contributor
+        // Cross-module demo-seed contributor + per-phase helpers
+        services.AddScoped<Services.Seeding.Phases.PartnerPrefundSeedHelper>();
+        services.AddScoped<Services.Seeding.Phases.CatalogUpsertHelper>();
+        services.AddScoped<Services.Seeding.Phases.PricingUpsertHelper>();
+        services.AddScoped<Services.Seeding.Phases.CatalogCategoriesSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.BillCollectionPartnerSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.CatalogSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.PricingSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.CrossBorderPartnerNetworkSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.CrossBorderCatalogSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.HouseholdsSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.CrossBorderPricingSeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.OrderActivitySeedPhase>();
         services.AddScoped<SharedKernel.Abstractions.IDemoSeedContributor, Services.Seeding.FinanceDemoSeedContributor>();
 
         // Pricing
