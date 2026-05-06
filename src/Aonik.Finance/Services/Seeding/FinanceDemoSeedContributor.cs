@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Seeding.Phases;
@@ -33,6 +34,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
     private readonly CrossBorderPricingSeedPhase _crossBorderPricing;
     private readonly OrderActivitySeedPhase _orderActivity;
 
+    // Primary constructor — used by DI (all phase helpers injected).
     public FinanceDemoSeedContributor(
         FinanceDbContext financeDbContext,
         ILogger<FinanceDemoSeedContributor> logger,
@@ -57,6 +59,27 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
         _households = households;
         _crossBorderPricing = crossBorderPricing;
         _orderActivity = orderActivity;
+    }
+
+    // Legacy constructor — used by tests that construct FinanceDemoSeedContributor
+    // directly without DI. Builds phase helpers inline from the provided
+    // FinanceDbContext + logger. Mirrors the legacy ctor on DemoSeedService.
+    public FinanceDemoSeedContributor(
+        FinanceDbContext financeDbContext,
+        ILogger<FinanceDemoSeedContributor> logger)
+        : this(
+            financeDbContext,
+            logger,
+            new CatalogCategoriesSeedPhase(financeDbContext, NullLogger<CatalogCategoriesSeedPhase>.Instance),
+            new BillCollectionPartnerSeedPhase(financeDbContext, new PartnerPrefundSeedHelper(financeDbContext)),
+            new CatalogSeedPhase(financeDbContext, new CatalogUpsertHelper(financeDbContext)),
+            new PricingSeedPhase(financeDbContext, new PricingUpsertHelper(financeDbContext)),
+            new CrossBorderPartnerNetworkSeedPhase(financeDbContext, new PartnerPrefundSeedHelper(financeDbContext)),
+            new CrossBorderCatalogSeedPhase(financeDbContext, new CatalogUpsertHelper(financeDbContext)),
+            new HouseholdsSeedPhase(financeDbContext),
+            new CrossBorderPricingSeedPhase(financeDbContext, new PricingUpsertHelper(financeDbContext)),
+            new OrderActivitySeedPhase(financeDbContext))
+    {
     }
 
     public string ModuleName => "Finance";
