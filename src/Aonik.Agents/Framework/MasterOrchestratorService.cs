@@ -6,6 +6,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Agents.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -119,6 +120,37 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         call if the user approves. If the user rejects, inform them that the action was
         cancelled. Read-only queries (listing, searching, viewing details) do NOT require
         approval — only mutations do.
+
+        EXCEPTION — memory tools are NOT subject to confirmAction:
+        The `user_memory_save` tool is intentionally exempt from `confirmAction`. Its
+        audit trail is the AG-UI chat stream itself: the tool call and its result are
+        always visible to the user inline, so they can see what was saved and correct
+        it in the next turn. NEVER wrap `user_memory_save` in a `confirmAction` step,
+        and NEVER delegate memory persistence to a domain sub-agent — call it
+        directly yourself.
+
+        Memory:
+        You have two cross-cutting tools that read and write the user's long-term
+        memory store (Qdrant-backed semantic memory):
+
+        - `user_memory_save`: persist a fact about the user when they state a
+          preference, share a personal fact, provide identity information, or correct
+          something you previously assumed. Examples: "I get paid on the 15th",
+          "My preferred currency is GBP", "Actually I moved to London last month",
+          "I have 4 people in my household". Use namespaced dot-keys like
+          `finance.preferred_currency`, `identity.location`, `preference.pay_day`.
+          Call this tool DIRECTLY without `confirmAction` — see the exception above.
+          After saving, confirm in one short sentence what you remembered.
+
+        - `user_memory_recall`: semantically search the user's memory before
+          answering personalised questions. Call this when the User Brief alone
+          doesn't have the context you need (e.g. "what's my preferred currency",
+          "do you remember my pay day", "what did I tell you about my household").
+          The tool returns ranked memory entries with confidence scores. If it
+          returns empty, say plainly that you don't have that information stored.
+
+        Do NOT save transient conversation details, greetings, or information
+        already captured in domain entities (accounts, transactions, bills).
         """;
 
     public MasterOrchestratorService(
@@ -390,6 +422,24 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private async Task<List<AITool>> BuildAllToolsAsync(CancellationToken cancellationToken)
     {
         var tools = new List<AITool>();
+
+        // ── Cross-cutting memory tools ─────────────────────────────────
+        // The orchestrator owns the user-facing chat thread, so it gets
+        // user_memory_save / user_memory_recall directly. This way the
+        // agent can persist preferences and recall personal facts without
+        // having to round-trip through a domain sub-agent (which previously
+        // led to a confirmAction approval loop because each layer enforced
+        // its own mutation policy).
+        var memoryTools = UserMemoryRecallTools.CreateAll(_serviceProvider)
+            .Concat(UserMemorySaveTools.CreateAll(_serviceProvider))
+            .ToList();
+        tools.AddRange(memoryTools);
+        if (memoryTools.Count > 0)
+        {
+            _logger.LogDebug(
+                "Added {ToolCount} cross-cutting memory tool(s) to orchestrator",
+                memoryTools.Count);
+        }
 
         // Build domain agents as tools, applying any configuration overrides
         foreach (var descriptor in _descriptors)
