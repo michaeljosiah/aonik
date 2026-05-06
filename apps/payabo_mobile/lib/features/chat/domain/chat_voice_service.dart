@@ -162,6 +162,16 @@ class DeviceChatVoiceService implements ChatVoiceService {
   static const int _thinkingLoopFadeSteps = 6;
   static const double _thinkingLoopTargetVolume = 0.45;
 
+  /// Watchdog ceiling for an inline voice-mode chunk to receive enough
+  /// bytes for [AppendableAudioSource.playbackBufferReady] to resolve.
+  /// Aligns with the server's per-chunk synth ceiling of 10 s
+  /// (`VoiceSynthCoordinator.PerChunkTimeout`) plus a couple of seconds
+  /// of network grace. If the deadline elapses without any audio frame
+  /// (or without the source closing), we treat the chunk as failed,
+  /// surface an error to the host, and let the queue drain so the
+  /// thinking/loading indicator dismisses instead of hanging forever.
+  static const Duration _inlineChunkBufferTimeout = Duration(seconds: 12);
+
   final Dio _apiClient;
   final SpeechToText _speechToText = SpeechToText();
   final FlutterTts _flutterTts = FlutterTts();
@@ -200,6 +210,13 @@ class DeviceChatVoiceService implements ChatVoiceService {
   ChatVoiceErrorCallback? _queueOnChunkError;
   ChatVoiceInlineAudioMilestoneCallback? _queueOnInlinePlaybackBufferReady;
   bool _queueSpeakingFlag = false;
+  // Tracks whether the drain loop has attempted to play (or skip) any
+  // chunks in the current queue session. Decoupled from [_queueSpeakingFlag]
+  // because a chunk that arrived with zero audio bytes never reaches the
+  // setAudioSource step that flips speakingFlag — we still need to know
+  // a chunk was processed so that the queue-empty branch can fire
+  // [_queueOnSpeakingIdle] and dismiss the host's loading indicator.
+  bool _queueAnyChunkAttempted = false;
   bool _queueDrainInFlight = false;
   final ListQueue<_QueuedSpeechChunk> _speechQueue =
       ListQueue<_QueuedSpeechChunk>();
@@ -699,6 +716,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _queueOnChunkError = onChunkError;
     _queueOnInlinePlaybackBufferReady = onInlinePlaybackBufferReady;
     _queueSpeakingFlag = false;
+    _queueAnyChunkAttempted = false;
     _log('beginSpeechQueue session=$sessionId');
   }
 
@@ -867,6 +885,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _queueOnChunkError = null;
     _queueOnInlinePlaybackBufferReady = null;
     _queueSpeakingFlag = false;
+    _queueAnyChunkAttempted = false;
 
     for (final _QueuedSpeechChunk chunk in _speechQueue) {
       if (!chunk.cancelToken.isCancelled) {
@@ -936,8 +955,17 @@ class DeviceChatVoiceService implements ChatVoiceService {
         }
 
         if (_speechQueue.isEmpty) {
-          if (_queueSpeakingFlag) {
+          // Fire idle when:
+          //   • the queue actually transitioned through 'speaking' (the
+          //     happy path: setAudioSource succeeded for ≥ 1 chunk), OR
+          //   • the drain attempted any chunks but every one was a no-op
+          //     (zero audio bytes, error skip, watchdog timeout) — without
+          //     this branch the host's loading indicator sticks because
+          //     onSpeakingStart never fired and onSpeakingIdle was gated
+          //     on the same flag.
+          if (_queueSpeakingFlag || _queueAnyChunkAttempted) {
             _queueSpeakingFlag = false;
+            _queueAnyChunkAttempted = false;
             _queueOnSpeakingIdle?.call();
           }
           // The idle callback may synchronously enqueue more chunks.
@@ -953,6 +981,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
           continue;
         }
 
+        _queueAnyChunkAttempted = true;
         _currentlyPlayingChunk = chunk;
         await _playQueueChunk(chunk, sessionId);
         if (identical(_currentlyPlayingChunk, chunk)) {
@@ -1007,7 +1036,41 @@ class DeviceChatVoiceService implements ChatVoiceService {
     // The future also resolves on close, so chunks that finish small
     // (or fail with `speech.audio.error`) fall through to the
     // empty-source skip below.
-    await source.playbackBufferReady;
+    //
+    // Watchdog: if no audio frame arrives within
+    // [_inlineChunkBufferTimeout] of dequeueing this chunk, treat it
+    // as failed. Without this, a server-side TTS hang or a dropped
+    // SSE connection leaves the await pending forever, which blocks
+    // the drain loop and prevents [_queueOnSpeakingIdle] from firing —
+    // exactly the loading-indicator-stuck symptom this fix addresses.
+    try {
+      await source.playbackBufferReady.timeout(_inlineChunkBufferTimeout);
+    } on TimeoutException {
+      _log(
+        'queue chunk watchdog: playbackBufferReady timed out '
+        'session=$sessionId index=${chunk.index} '
+        'serverChunkIndex=${chunk.serverChunkIndex} '
+        'bufferedBytes=${source.bufferedLength} '
+        'isClosed=${source.isClosed}',
+      );
+      // Close the source so any reader unblocks; the empty-skip branch
+      // below then reports the failure to the host via onChunkError.
+      if (!source.isClosed) {
+        source.closeWithError(
+          TimeoutException(
+            'No audio frames received within '
+            '${_inlineChunkBufferTimeout.inSeconds}s.',
+          ),
+        );
+      }
+      // Drop the entry from the per-chunkIndex map so subsequent
+      // appendSpeechAudioFrame calls (if any late frames arrive) don't
+      // try to push into a closed source.
+      final int? serverChunkIndex = chunk.serverChunkIndex;
+      if (serverChunkIndex != null) {
+        _inlineChunkSources.remove(serverChunkIndex);
+      }
+    }
 
     // Re-check session — the user may have barged in while we were
     // waiting for the first frame.
@@ -1024,12 +1087,16 @@ class DeviceChatVoiceService implements ChatVoiceService {
     );
 
     // If no audio bytes ever arrived AND the source is already closed
-    // (the speech.audio.error path) skip playback entirely — text was
-    // delivered via speech.chunk so the user already saw the message.
+    // (the speech.audio.error / watchdog-timeout path) skip playback
+    // entirely — text was delivered via speech.chunk so the user
+    // already saw the message. Surface a chunk-error to the host so
+    // the thinking/loading indicator dismisses; without this signal
+    // the host has no way to know that *this* chunk produced no audio.
     if (source.isClosed && source.bufferedLength == 0) {
       _log(
         'queue chunk skipped (no audio) session=$sessionId index=${chunk.index}',
       );
+      _queueOnChunkError?.call('No audio for this segment.');
       return;
     }
 
