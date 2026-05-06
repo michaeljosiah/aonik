@@ -26,6 +26,7 @@ using Aonik.Platform.Services.Operations;
 using Aonik.Platform.Services.Party;
 using Aonik.Platform.Services.Registration;
 using Aonik.Platform.Services.Seeding;
+using Aonik.Platform.Services.Seeding.Phases;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Services.UserBrief;
 using Aonik.SharedKernel.Modules;
@@ -131,6 +132,13 @@ public sealed class PlatformModule : IModule
         // ── Seed Services ────────────────────────────────────────────
         services.AddScoped<IDemoSeedService, DemoSeedService>();
         services.AddScoped<IPermissionSeedService, PermissionSeedService>();
+
+        // ── Demo Seed Phase Helpers ───────────────────────────────────
+        services.AddScoped<IdentityRoleSeedPhase>();
+        services.AddScoped<PartySeedPhase>();
+        services.AddScoped<CrossBorderTenantSeedPhase>();
+        services.AddScoped<SeedMarkerPhase>();
+        services.AddScoped<ReverseSeedPhase>();
 
         // ── Global Seed Contributors (on-demand via admin endpoint) ──
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.Contributors.IdentitySeedContributor>();
