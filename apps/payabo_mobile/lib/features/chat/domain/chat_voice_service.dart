@@ -172,6 +172,29 @@ class DeviceChatVoiceService implements ChatVoiceService {
   /// thinking/loading indicator dismisses instead of hanging forever.
   static const Duration _inlineChunkBufferTimeout = Duration(seconds: 12);
 
+  /// Watchdog ceiling for `just_audio.setAudioSource()` on an already-
+  /// buffered (closed) inline source. ExoPlayer/AVPlayer typically need
+  /// only a few hundred ms to load a small in-memory source, but device
+  /// logs in dev showed runs where setAudioSource never returned —
+  /// usually a malformed / sync-less MP3 prefix from a small chunk that
+  /// the platform extractor can't recover from. 8 s gives a healthy
+  /// platform plenty of margin while still surfacing a stuck call so
+  /// the thinking-loop fades out and the user gets an error instead of
+  /// staring at a spinner.
+  static const Duration _inlineSetAudioSourceTimeout = Duration(seconds: 8);
+
+  /// Watchdog ceiling for `just_audio.play()`. Once the source is
+  /// loaded, play() should resolve in tens of ms — it just transitions
+  /// the player from `ready` to `playing`. A long stall here points at
+  /// platform-specific bugs we want to surface fast.
+  static const Duration _inlinePlayStartTimeout = Duration(seconds: 3);
+
+  /// Watchdog ceiling for one inline chunk's complete playback. Chunks
+  /// are sentence-sized (≤ 30 s of audio in pathological cases), so a
+  /// 30 s ceiling guarantees the drain loop never wedges waiting on a
+  /// player that decoded silently and never reached `completed`.
+  static const Duration _inlineChunkPlaybackTimeout = Duration(seconds: 30);
+
   final Dio _apiClient;
   final SpeechToText _speechToText = SpeechToText();
   final FlutterTts _flutterTts = FlutterTts();
@@ -1118,7 +1141,24 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _currentChunkPlaybackSub = null;
 
     try {
-      await _inlineAudioPlayer.setAudioSource(source);
+      // setAudioSource: load the source into just_audio. ExoPlayer /
+      // AVPlayer parse the format prefix here and move the player to
+      // `ready`. Bound this with a watchdog because in dev we observed
+      // small (≤ 8 KB) MP3 chunks where the platform extractor failed
+      // to sync and setAudioSource never returned — leaving the
+      // thinking-loop running and the user staring at a spinner.
+      _log(
+        'inline chunk setAudioSource start session=$sessionId index=${chunk.index} '
+        'serverChunkIndex=${chunk.serverChunkIndex} bufferedBytes=${source.bufferedLength} '
+        'contentType=${source.contentType} isClosed=${source.isClosed}',
+      );
+      await _inlineAudioPlayer
+          .setAudioSource(source)
+          .timeout(_inlineSetAudioSourceTimeout);
+      _log(
+        'inline chunk setAudioSource done session=$sessionId index=${chunk.index}',
+      );
+
       if (_activeQueueSessionId != sessionId) {
         return;
       }
@@ -1131,8 +1171,34 @@ class DeviceChatVoiceService implements ChatVoiceService {
         _queueOnSpeakingStart?.call();
       }
 
-      await _inlineAudioPlayer.play();
-      await completion.future;
+      // play(): tell the player to start outputting samples to
+      // AudioTrack. Should resolve in tens of ms; bound with a small
+      // watchdog so a stuck transition surfaces fast.
+      await _inlineAudioPlayer.play().timeout(_inlinePlayStartTimeout);
+      _log(
+        'inline chunk play() resolved session=$sessionId index=${chunk.index}',
+      );
+
+      // completion.future: resolves when ExoPlayer reaches
+      // `ProcessingState.completed`. Bound with a generous ceiling so
+      // a player that decoded silently and never reached `completed`
+      // doesn't wedge the drain loop forever.
+      await completion.future.timeout(_inlineChunkPlaybackTimeout);
+      _log(
+        'inline chunk completion fired session=$sessionId index=${chunk.index}',
+      );
+    } on TimeoutException catch (error) {
+      // Distinct from the generic catch below because we want explicit
+      // telemetry on the watchdog firing — these timeouts are the
+      // observable that turns a "loading sign stuck" report into a
+      // searchable log line. Surface to the host as a chunk error so
+      // the thinking/loading indicator dismisses.
+      _log(
+        'inline chunk watchdog timeout session=$sessionId index=${chunk.index}: $error',
+      );
+      if (_activeQueueSessionId == sessionId) {
+        _queueOnChunkError?.call('Voice playback timed out.');
+      }
     } catch (error) {
       if (_activeQueueSessionId == sessionId && !_isCancellationError(error)) {
         _log(
