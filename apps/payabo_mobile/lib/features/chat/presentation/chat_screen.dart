@@ -189,7 +189,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   static const Duration _streamingAutoScrollMinInterval =
       Duration(milliseconds: 48);
   static const String _voiceLogPrefix = '[ChatVoice]';
-  static const Duration _voiceRestartRetryBackoff = Duration(milliseconds: 100);
+  // Initial backoff before the first STT restart attempt. Bumped from
+  // 100 ms to 500 ms because the Android SpeechRecognizer service needs
+  // ~hundreds of ms to fully release the microphone between sessions —
+  // a too-tight restart leaves the recogniser half-cleaned-up, which
+  // surfaces as immediate `notListening` / `error_no_match` and a
+  // visible "mic doesn't capture" symptom for the user.
+  static const Duration _voiceRestartRetryBackoff = Duration(milliseconds: 500);
+
+  /// Maximum number of STT restarts in a single voice turn. A "restart"
+  /// only happens when the user hasn't said anything yet (transcript
+  /// empty + no_match). After this many silent restarts in a row we
+  /// give up and surface a "couldn't hear you" toast so the user gets
+  /// out of the listening loop, instead of cycling forever between
+  /// `listening → notListening → restart` while burning battery and
+  /// confusing the SpeechRecognizer service further.
+  static const int _voiceMaxRestartAttempts = 3;
   static const Duration _voiceShortEndOfTurnGrace = Duration(milliseconds: 800);
   static const Duration _voiceLongEndOfTurnGrace = Duration(milliseconds: 1200);
   static const int _voiceShortUtteranceWordThreshold = 10;
@@ -221,6 +236,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Timer? _voiceFinalizeTimer;
   Timer? _voiceThinkingWatchdogTimer;
   bool _voiceRetryInFlight = false;
+  // Counts STT restart attempts since the current turn began capturing
+  // — i.e. since the user last said anything. Reset to 0 in
+  // [_startVoiceStage] and on every successful partial transcript.
+  // Capped by [_voiceMaxRestartAttempts] in [_restartVoiceListening].
+  int _voiceRestartAttempts = 0;
+  // Set by `notListening` so the immediately-following `done` callback
+  // doesn't trigger a second restart for the same STT session. Reset
+  // when a new listening session starts.
+  bool _voiceRestartScheduled = false;
   bool _voiceAwaitingBackendReply = false;
   String? _voiceLastSpokenAssistantMessageId;
   bool _voiceBackendReplyCompleted = false;
@@ -871,6 +895,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _voiceSpeakingPulse = 0.18;
       _voiceLiveTranscript = '';
       _voiceRetryInFlight = false;
+      _voiceRestartAttempts = 0;
+      _voiceRestartScheduled = false;
       _voiceAwaitingBackendReply = false;
       _voiceBackendReplyCompleted = false;
       _voicePendingSpeechText = null;
@@ -918,6 +944,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
         _voiceFinalizeTimer?.cancel();
 
+        // Any non-empty partial / final transcript means the
+        // microphone IS capturing — reset the silent-restart counter
+        // so a future trail-off doesn't immediately count against the
+        // user's retry budget.
+        if (text.trim().isNotEmpty) {
+          _voiceRestartAttempts = 0;
+        }
+
         setState(() {
           _voiceLiveTranscript = text.trim();
         });
@@ -940,6 +974,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             return;
           }
 
+          // De-dup: speech_to_text fires both `notListening` and `done`
+          // when a session ends, in quick succession. Both go through
+          // this branch with an empty transcript, but we only want ONE
+          // restart per ended STT session. The flag is reset inside
+          // [_restartVoiceListening] once the new session is actually
+          // requested.
+          if (_voiceRestartScheduled) {
+            return;
+          }
+          _voiceRestartScheduled = true;
           unawaited(_restartVoiceListening(turnId));
         }
       },
@@ -951,6 +995,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _voiceLog('stt error callback: $message');
 
         if (_isSoftVoiceInputError(message)) {
+          if (_voiceRestartScheduled) {
+            return;
+          }
+          _voiceRestartScheduled = true;
           unawaited(_restartVoiceListening(turnId));
           return;
         }
@@ -965,10 +1013,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _restartVoiceListening(int turnId) async {
-    _voiceLog('restart listening requested turn=$turnId');
+    _voiceLog(
+      'restart listening requested turn=$turnId attempt=${_voiceRestartAttempts + 1}/$_voiceMaxRestartAttempts',
+    );
     if (!_isActiveVoiceTurn(turnId) ||
         _voiceStagePhase != _VoiceStagePhase.listening ||
         _voiceRetryInFlight) {
+      return;
+    }
+
+    _voiceRestartAttempts += 1;
+    if (_voiceRestartAttempts > _voiceMaxRestartAttempts) {
+      _voiceLog(
+        'restart listening cap reached turn=$turnId attempts=$_voiceRestartAttempts — giving up',
+      );
+      _voiceRestartScheduled = false;
+      _showVoiceSnackBar(
+        "I couldn't hear you. Tap the mic and try again — make sure no other app is using your microphone.",
+      );
+      if (mounted) {
+        setState(() {
+          _voiceStagePhase = _VoiceStagePhase.ready;
+        });
+      }
       return;
     }
 
@@ -976,21 +1043,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     bool restarted = false;
 
     try {
-      restarted = await _beginVoiceListeningSession(turnId);
+      // Fixed back-off so the SpeechRecognizer service has time to
+      // release the mic between sessions. Without this, restarts pile
+      // up on a half-cleaned-up recogniser and the mic never actually
+      // captures audio.
+      await Future<void>.delayed(_voiceRestartRetryBackoff);
 
-      if (!restarted &&
-          _isActiveVoiceTurn(turnId) &&
-          _voiceStagePhase == _VoiceStagePhase.listening) {
-        _voiceLog(
-          'restart listening backoff turn=$turnId delay=${_voiceRestartRetryBackoff.inMilliseconds}ms',
-        );
-        await Future<void>.delayed(_voiceRestartRetryBackoff);
-
-        if (_isActiveVoiceTurn(turnId) &&
-            _voiceStagePhase == _VoiceStagePhase.listening) {
-          restarted = await _beginVoiceListeningSession(turnId);
-        }
+      if (!_isActiveVoiceTurn(turnId) ||
+          _voiceStagePhase != _VoiceStagePhase.listening) {
+        return;
       }
+
+      // Allow the next session-end (notListening / done / soft error)
+      // to schedule another restart.
+      _voiceRestartScheduled = false;
+
+      restarted = await _beginVoiceListeningSession(turnId);
     } catch (error) {
       _voiceLog('restart listening failed turn=$turnId error=$error');
       restarted = false;
