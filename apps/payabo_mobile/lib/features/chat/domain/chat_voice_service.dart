@@ -1,12 +1,18 @@
-// just_audio's StreamAudioSource / StreamAudioResponse are flagged
-// `@experimental` upstream but are the package's documented mechanism
-// for app-supplied progressive sources. We knowingly opt in.
-// ignore_for_file: experimental_member_use
+// Voice-mode TTS playback (Option A): the backend emits a single
+// `speech.chunk` for the full assistant message after the LLM stream
+// completes, then streams its `speech.audio` frames. The client
+// buffers all frames for that one chunk into memory, writes them to
+// a temp MP3, and plays the file with audioplayers' DeviceFileSource.
+// No streaming player, no proxy server, no watchdog fallback — every
+// failure mode that came with just_audio's StreamAudioSource path
+// (setAudioSource hangs, _proxyHandlerForSource null-checks, two-
+// player crossfade overlap) is gone.
 
 import 'dart:async';
 import 'dart:collection';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
@@ -16,7 +22,6 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:just_audio/just_audio.dart' as ja;
 import 'package:path_provider/path_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -110,14 +115,14 @@ abstract class ChatVoiceService {
   /// Reserve a queue slot for the chunk identified by [chunkIndex] (the
   /// server's chunk id from the `speech.chunk` event). Subsequent
   /// [appendSpeechAudioFrame] calls for the same [chunkIndex] push
-  /// bytes into the slot's source and the just_audio player starts
-  /// reading them as soon as the slot is dequeued — true streaming
-  /// playback, audible audio before `isFinal` lands.
+  /// bytes into an in-memory buffer; once the chunk closes (terminal
+  /// frame, error, or watchdog) the drain loop writes the buffer to a
+  /// temp MP3 and plays it through the shared `audioplayers` instance.
   ///
-  /// The slot's content type is set by the first audio frame's `mime`
-  /// (passed to [appendSpeechAudioFrame]); calling enqueue here is
-  /// optional but recommended so that chunks play strictly in
-  /// chunkIndex order, regardless of frame arrival order.
+  /// The slot's mime is set by the first audio frame's `mime` (passed
+  /// to [appendSpeechAudioFrame]); calling enqueue here is optional
+  /// but recommended so that chunks play strictly in chunkIndex order,
+  /// regardless of frame arrival order.
   void enqueueInlineSpeechChunk({required int chunkIndex});
 
   /// Append a decoded audio frame for the chunk identified by
@@ -162,38 +167,20 @@ class DeviceChatVoiceService implements ChatVoiceService {
   static const int _thinkingLoopFadeSteps = 6;
   static const double _thinkingLoopTargetVolume = 0.45;
 
-  /// Watchdog ceiling for an inline voice-mode chunk to receive enough
-  /// bytes for [AppendableAudioSource.playbackBufferReady] to resolve.
-  /// Aligns with the server's per-chunk synth ceiling of 10 s
-  /// (`VoiceSynthCoordinator.PerChunkTimeout`) plus a couple of seconds
-  /// of network grace. If the deadline elapses without any audio frame
-  /// (or without the source closing), we treat the chunk as failed,
-  /// surface an error to the host, and let the queue drain so the
-  /// thinking/loading indicator dismisses instead of hanging forever.
-  static const Duration _inlineChunkBufferTimeout = Duration(seconds: 12);
+  /// Watchdog ceiling for an inline voice-mode chunk to receive its
+  /// terminal frame (`isFinal=true`). Aligned with the server's per-
+  /// chunk synth ceiling (`VoiceSynthCoordinator.PerChunkTimeout`,
+  /// 10 s) plus network grace. If the deadline elapses without the
+  /// chunk closing, we surface a chunk-error so the host's loading
+  /// indicator dismisses cleanly.
+  static const Duration _inlineChunkCloseTimeout = Duration(seconds: 14);
 
-  /// Watchdog ceiling for `just_audio.setAudioSource()` on an already-
-  /// buffered (closed) inline source. ExoPlayer/AVPlayer typically need
-  /// only a few hundred ms to load a small in-memory source, but device
-  /// logs in dev showed runs where setAudioSource never returned —
-  /// usually a malformed / sync-less MP3 prefix from a small chunk that
-  /// the platform extractor can't recover from. 8 s gives a healthy
-  /// platform plenty of margin while still surfacing a stuck call so
-  /// the thinking-loop fades out and the user gets an error instead of
-  /// staring at a spinner.
-  static const Duration _inlineSetAudioSourceTimeout = Duration(seconds: 8);
-
-  /// Watchdog ceiling for `just_audio.play()`. Once the source is
-  /// loaded, play() should resolve in tens of ms — it just transitions
-  /// the player from `ready` to `playing`. A long stall here points at
-  /// platform-specific bugs we want to surface fast.
-  static const Duration _inlinePlayStartTimeout = Duration(seconds: 3);
-
-  /// Watchdog ceiling for one inline chunk's complete playback. Chunks
-  /// are sentence-sized (≤ 30 s of audio in pathological cases), so a
-  /// 30 s ceiling guarantees the drain loop never wedges waiting on a
-  /// player that decoded silently and never reached `completed`.
-  static const Duration _inlineChunkPlaybackTimeout = Duration(seconds: 30);
+  /// Watchdog ceiling for one inline chunk's complete playback. The
+  /// one-shot voice-mode synth produces audio for the entire assistant
+  /// message, so a longer ceiling than the old per-sentence path makes
+  /// sense. 60 s comfortably covers Simi's longest natural responses
+  /// while still bounding genuinely stuck players.
+  static const Duration _inlineChunkPlaybackTimeout = Duration(seconds: 60);
 
   final Dio _apiClient;
   final SpeechToText _speechToText = SpeechToText();
@@ -247,21 +234,15 @@ class DeviceChatVoiceService implements ChatVoiceService {
   Completer<void>? _currentChunkPlaybackCompleter;
   StreamSubscription<void>? _currentChunkPlaybackSub;
 
-  /// just_audio player dedicated to inline voice-mode chunks. Separate
-  /// from [_speechPlayer] (audioplayers) so the legacy file-based path
-  /// and the thinking loop are unaffected. just_audio's
-  /// [ja.StreamAudioSource] gives us true progressive playback.
-  final ja.AudioPlayer _inlineAudioPlayer = ja.AudioPlayer();
-
-  /// Per-chunkIndex streaming sources for voice-mode inline audio.
-  /// Created when a `speech.chunk` arrives ([enqueueInlineSpeechChunk])
-  /// or lazily when the first `speech.audio` frame for a new chunkIndex
-  /// arrives. Removed when [appendSpeechAudioFrame] receives the
-  /// terminal frame (or [markSpeechAudioError]) — but the source itself
-  /// stays alive on the queue entry until the player finishes
-  /// consuming it.
-  final Map<int, AppendableAudioSource> _inlineChunkSources =
-      <int, AppendableAudioSource>{};
+  /// Per-chunkIndex byte buffers for voice-mode inline audio. Created
+  /// when a `speech.chunk` arrives ([enqueueInlineSpeechChunk]) or
+  /// lazily when the first `speech.audio` frame for a new chunkIndex
+  /// arrives. The buffer accumulates frames until the chunk closes
+  /// (terminal frame, error, or watchdog), at which point the bytes
+  /// are written to a temp MP3 and the chunk's [_QueuedSpeechChunk]
+  /// transitions from waiting-for-bytes to ready-to-play.
+  final Map<int, _InlineChunkBuffer> _inlineChunkBuffers =
+      <int, _InlineChunkBuffer>{};
 
   DeviceChatVoiceService({required Dio apiClient}) : _apiClient = apiClient;
 
@@ -795,19 +776,15 @@ class DeviceChatVoiceService implements ChatVoiceService {
       return;
     }
 
-    if (_inlineChunkSources.containsKey(chunkIndex)) {
+    if (_inlineChunkBuffers.containsKey(chunkIndex)) {
       _log(
         'enqueueInlineSpeechChunk ignored: chunkIndex=$chunkIndex already buffered',
       );
       return;
     }
 
-    // Provisional content type — overwritten by the first frame's mime
-    // before any reader connects. Using audio/mpeg keeps just_audio's
-    // platform proxy happy if the player connects before the first
-    // frame lands (rare, but possible on slow synth).
-    final source = AppendableAudioSource(contentType: 'audio/mpeg');
-    _inlineChunkSources[chunkIndex] = source;
+    final _InlineChunkBuffer buffer = _InlineChunkBuffer();
+    _inlineChunkBuffers[chunkIndex] = buffer;
 
     final int queueIndex = _queueNextIndex++;
     _speechQueue.add(
@@ -816,7 +793,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
         index: queueIndex,
         text: '',
         cancelToken: CancelToken(),
-        inlineAudioSource: source,
+        inlineBuffer: buffer,
         serverChunkIndex: chunkIndex,
       ),
     );
@@ -833,40 +810,42 @@ class DeviceChatVoiceService implements ChatVoiceService {
     required bool isFinal,
     required String mime,
   }) {
-    var source = _inlineChunkSources[chunkIndex];
+    var buffer = _inlineChunkBuffers[chunkIndex];
 
     // Lazy slot creation: the server may emit `speech.audio` for a chunk
     // we never saw a `speech.chunk` for (compact / stripped wire shapes
     // in the future). Reserve a slot so playback ordering still matches
     // the chunkIndex sequence.
-    if (source == null) {
+    if (buffer == null) {
       enqueueInlineSpeechChunk(chunkIndex: chunkIndex);
-      source = _inlineChunkSources[chunkIndex];
-      if (source == null) {
+      buffer = _inlineChunkBuffers[chunkIndex];
+      if (buffer == null) {
         // enqueueInline ignored the call (no active queue) — drop frame.
         return;
       }
     }
 
-    if (source.isClosed) {
+    if (buffer.isClosed) {
       _log(
-        'appendSpeechAudioFrame ignored: chunkIndex=$chunkIndex source already closed',
+        'appendSpeechAudioFrame ignored: chunkIndex=$chunkIndex buffer already closed',
       );
       return;
     }
 
-    // First frame sets the content type. Later frames must match — if
-    // they don't, we keep the original to avoid breaking the player's
-    // already-locked-in decoder.
-    source.updateContentTypeBeforeFirstRead(mime);
+    // First frame sets the mime. Later frames must match — if they
+    // don't, keep the original; the platform decoder is keyed off the
+    // first frame's type and switching mid-stream isn't supported.
+    if (buffer.mime == null && mime.isNotEmpty) {
+      buffer.mime = mime;
+    }
 
     if (data.isNotEmpty) {
-      source.append(data);
+      buffer.append(data);
     }
 
     if (isFinal) {
-      _inlineChunkSources.remove(chunkIndex);
-      source.close();
+      _inlineChunkBuffers.remove(chunkIndex);
+      buffer.markClosed();
     }
   }
 
@@ -875,17 +854,16 @@ class DeviceChatVoiceService implements ChatVoiceService {
     required int chunkIndex,
     required String code,
   }) {
-    final source = _inlineChunkSources.remove(chunkIndex);
-    if (source == null || source.isClosed) {
+    final buffer = _inlineChunkBuffers.remove(chunkIndex);
+    if (buffer == null || buffer.isClosed) {
       return;
     }
     _log(
       'markSpeechAudioError chunkIndex=$chunkIndex code=$code — chunk will be skipped',
     );
-    // Close cleanly. The drain loop sees `bufferedLength == 0` for
-    // chunks that received only the error event and skips playback
-    // entirely. Text was already delivered via the matching speech.chunk.
-    source.close();
+    // Mark closed with no bytes so the drain loop skips this chunk.
+    // Text was already delivered via the matching speech.chunk event.
+    buffer.markClosed();
   }
 
   @override
@@ -918,23 +896,15 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
     _speechQueue.clear();
 
-    // Voice-mode inline streaming sources — close so any reader
-    // currently blocked in just_audio's request stream gets EOF and
-    // the drain loop unblocks. Barge-in invokes this path too.
-    for (final source in _inlineChunkSources.values) {
-      if (!source.isClosed) {
-        source.close();
+    // Voice-mode inline buffers — mark closed so the drain loop's
+    // close-watcher unblocks and the queue exits cleanly. Barge-in
+    // invokes this path too.
+    for (final buffer in _inlineChunkBuffers.values) {
+      if (!buffer.isClosed) {
+        buffer.markClosed();
       }
     }
-    _inlineChunkSources.clear();
-
-    if (stopPlayer) {
-      try {
-        await _inlineAudioPlayer.stop();
-      } catch (_) {
-        // Player may not have a current source — best effort.
-      }
-    }
+    _inlineChunkBuffers.clear();
 
     final _QueuedSpeechChunk? playing = _currentlyPlayingChunk;
     if (playing != null) {
@@ -1020,7 +990,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _QueuedSpeechChunk chunk,
     int sessionId,
   ) async {
-    final bool isInline = chunk.inlineAudioSource != null;
+    final bool isInline = chunk.inlineBuffer != null;
 
     if (isInline) {
       await _playInlineChunk(chunk, sessionId);
@@ -1029,74 +999,45 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
   }
 
-  /// Voice-mode true-streaming playback. Sets the chunk's
-  /// [AppendableAudioSource] on the just_audio player and starts
-  /// playback as soon as the platform decoder has enough bytes — bytes
-  /// keep flowing in through [appendSpeechAudioFrame] while playback
-  /// is in progress.
+  /// Voice-mode inline playback (Option A, single-player path).
+  ///
+  /// 1. Wait for the chunk's [_InlineChunkBuffer] to receive its
+  ///    terminal frame (or for a cancellation / watchdog).
+  /// 2. Write the buffered MP3 bytes to a temp file.
+  /// 3. Stop the thinking loop synchronously (so its fade-out can't
+  ///    overlap response audio — the "stagnated first play" symptom).
+  /// 4. Play the temp file through [_speechPlayer] using
+  ///    `DeviceFileSource` and await `onPlayerComplete`.
+  /// 5. Release the player on the way out so SpeechRecognizer can
+  ///    reclaim the AudioTrack for the next listening turn.
   Future<void> _playInlineChunk(
     _QueuedSpeechChunk chunk,
     int sessionId,
   ) async {
-    final source = chunk.inlineAudioSource!;
+    final _InlineChunkBuffer buffer = chunk.inlineBuffer!;
 
-    // Hold off on `setAudioSource` until the source has either
-    // accumulated a useful playback prefix or closed. Two reasons:
-    //
-    // 1. ExoPlayer / AVPlayer sniff the format on the very first read
-    //    (Mp3Extractor needs ≤ 4 KB). With only the first inline frame
-    //    buffered, ExoPlayer can connect, drain it, then sit blocked on
-    //    the loopback proxy's HTTP socket while the next frame is in
-    //    flight — and the default 8 s `DefaultHttpDataSource` read
-    //    timeout fires before the next frame lands. Pre-buffering ~16 KB
-    //    (≈ 1 s of audio at 128 kbps MP3) means the platform decoder
-    //    can keep playing from buffer while frame N+1 streams in.
-    //
-    // 2. The first append also locks in the source's content type via
-    //    [updateContentTypeBeforeFirstRead]; before then, the platform
-    //    decoder would read the provisional `audio/mpeg` placeholder.
-    //
-    // The future also resolves on close, so chunks that finish small
-    // (or fail with `speech.audio.error`) fall through to the
-    // empty-source skip below.
-    //
-    // Watchdog: if no audio frame arrives within
-    // [_inlineChunkBufferTimeout] of dequeueing this chunk, treat it
-    // as failed. Without this, a server-side TTS hang or a dropped
-    // SSE connection leaves the await pending forever, which blocks
-    // the drain loop and prevents [_queueOnSpeakingIdle] from firing —
-    // exactly the loading-indicator-stuck symptom this fix addresses.
+    // Wait until the chunk closes (terminal frame received, error
+    // emitted, or barge-in cancellation). Watchdog covers the case
+    // where the server's TTS pipeline hangs or the SSE stream drops
+    // before sending isFinal — without it the drain loop wedges and
+    // the host's loading indicator never dismisses.
     try {
-      await source.playbackBufferReady.timeout(_inlineChunkBufferTimeout);
+      await buffer.closed.timeout(_inlineChunkCloseTimeout);
     } on TimeoutException {
       _log(
-        'queue chunk watchdog: playbackBufferReady timed out '
+        'inline chunk close watchdog timed out '
         'session=$sessionId index=${chunk.index} '
         'serverChunkIndex=${chunk.serverChunkIndex} '
-        'bufferedBytes=${source.bufferedLength} '
-        'isClosed=${source.isClosed}',
+        'bufferedBytes=${buffer.length} '
+        'isClosed=${buffer.isClosed}',
       );
-      // Close the source so any reader unblocks; the empty-skip branch
-      // below then reports the failure to the host via onChunkError.
-      if (!source.isClosed) {
-        source.closeWithError(
-          TimeoutException(
-            'No audio frames received within '
-            '${_inlineChunkBufferTimeout.inSeconds}s.',
-          ),
-        );
-      }
-      // Drop the entry from the per-chunkIndex map so subsequent
-      // appendSpeechAudioFrame calls (if any late frames arrive) don't
-      // try to push into a closed source.
+      buffer.markClosed();
       final int? serverChunkIndex = chunk.serverChunkIndex;
       if (serverChunkIndex != null) {
-        _inlineChunkSources.remove(serverChunkIndex);
+        _inlineChunkBuffers.remove(serverChunkIndex);
       }
     }
 
-    // Re-check session — the user may have barged in while we were
-    // waiting for the first frame.
     if (_activeQueueSessionId != sessionId) {
       return;
     }
@@ -1104,124 +1045,96 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _queueOnInlinePlaybackBufferReady?.call(
       chunkIndex: chunk.serverChunkIndex ?? chunk.index,
       queueIndex: chunk.index,
-      bufferedBytes: source.bufferedLength,
-      contentType: source.contentType,
-      isClosed: source.isClosed,
+      bufferedBytes: buffer.length,
+      contentType: buffer.mime ?? 'audio/mpeg',
+      isClosed: buffer.isClosed,
     );
 
-    // If no audio bytes ever arrived AND the source is already closed
-    // (the speech.audio.error / watchdog-timeout path) skip playback
-    // entirely — text was delivered via speech.chunk so the user
-    // already saw the message. Surface a chunk-error to the host so
-    // the thinking/loading indicator dismisses; without this signal
-    // the host has no way to know that *this* chunk produced no audio.
-    if (source.isClosed && source.bufferedLength == 0) {
+    // Empty buffer ⇒ chunk failed (speech.audio.error or watchdog).
+    // Surface a chunk-error so the host dismisses the thinking loop.
+    if (buffer.length == 0) {
       _log(
-        'queue chunk skipped (no audio) session=$sessionId index=${chunk.index}',
+        'inline chunk skipped (no audio) session=$sessionId '
+        'index=${chunk.index}',
       );
       _queueOnChunkError?.call('No audio for this segment.');
       return;
     }
 
+    String? tempPath;
     final Completer<void> completion = Completer<void>();
     _currentChunkPlaybackCompleter = completion;
-
-    // Watch for the source draining (ProcessingState.completed) or for
-    // the player surfacing an `idle` state due to error/cancellation.
-    final StreamSubscription<ja.PlayerState> sub =
-        _inlineAudioPlayer.playerStateStream.listen((state) {
-      if (state.processingState == ja.ProcessingState.completed &&
-          !completion.isCompleted) {
+    final StreamSubscription<void> sub =
+        _speechPlayer.onPlayerComplete.listen((_) {
+      if (!completion.isCompleted) {
         completion.complete();
       }
     });
-    // Reuse the existing field (audioplayers' subscription type) by
-    // wrapping the just_audio sub in a no-op — or skip; we cancel
-    // explicitly in the finally block below.
-    _currentChunkPlaybackSub = null;
+    _currentChunkPlaybackSub = sub;
 
-    bool setAudioSourceCompleted = false;
     try {
-      // setAudioSource: load the source into just_audio. ExoPlayer /
-      // AVPlayer parse the format prefix here and move the player to
-      // `ready`. Bound this with a watchdog because in dev we observed
-      // small (≤ 16 KB) MP3 chunks where the platform extractor failed
-      // to sync and setAudioSource never returned — leaving the
-      // thinking-loop running and the user staring at a spinner.
-      _log(
-        'inline chunk setAudioSource start session=$sessionId index=${chunk.index} '
-        'serverChunkIndex=${chunk.serverChunkIndex} bufferedBytes=${source.bufferedLength} '
-        'contentType=${source.contentType} isClosed=${source.isClosed}',
+      final Uint8List bytes = buffer.snapshot();
+      final Directory directory = await getTemporaryDirectory();
+      final File tempFile = File(
+        '${directory.path}${Platform.pathSeparator}'
+        'simi_tts_inline_${sessionId}_${chunk.index}.mp3',
       );
-      await _inlineAudioPlayer
-          .setAudioSource(source)
-          .timeout(_inlineSetAudioSourceTimeout);
-      setAudioSourceCompleted = true;
+      await tempFile.writeAsBytes(bytes, flush: true);
+      tempPath = tempFile.path;
       _log(
-        'inline chunk setAudioSource done session=$sessionId index=${chunk.index}',
+        'inline chunk wrote temp file session=$sessionId '
+        'index=${chunk.index} bytes=${bytes.length} path=$tempPath',
       );
 
       if (_activeQueueSessionId != sessionId) {
         return;
       }
 
-      // Defer the speakingStart callback until just_audio actually has
-      // bytes loaded — that's the moment the thinking-loop should stop
-      // (rather than on speech.chunk arrival).
+      // Stop the thinking loop fully BEFORE starting playback. Doing
+      // this synchronously is the fix for the "stagnated first play"
+      // symptom — when the loop's fade-out runs in parallel with the
+      // response audio, two MediaPlayer instances both push samples
+      // to AudioTrack and the user hears them blended. With the loop
+      // fully torn down first there is exactly one player active
+      // when response audio starts, so no overlap is possible.
+      await stopThinkingLoop();
+
+      // Re-assert release mode — `_thinkingLoopPlayer` lives on a
+      // different audioplayers instance, but make the contract on
+      // `_speechPlayer` explicit before each chunk for safety.
+      await _speechPlayer.setReleaseMode(ReleaseMode.stop);
+
       if (!_queueSpeakingFlag) {
         _queueSpeakingFlag = true;
         _queueOnSpeakingStart?.call();
       }
 
-      // play(): tell the player to start outputting samples to
-      // AudioTrack. Should resolve in tens of ms; bound with a small
-      // watchdog so a stuck transition surfaces fast.
-      await _inlineAudioPlayer.play().timeout(_inlinePlayStartTimeout);
+      await _speechPlayer.play(
+        DeviceFileSource(tempPath, mimeType: buffer.mime ?? 'audio/mpeg'),
+      );
       _log(
-        'inline chunk play() resolved session=$sessionId index=${chunk.index}',
+        'inline chunk play() resolved session=$sessionId '
+        'index=${chunk.index}',
       );
 
-      // completion.future: resolves when ExoPlayer reaches
-      // `ProcessingState.completed`. Bound with a generous ceiling so
-      // a player that decoded silently and never reached `completed`
-      // doesn't wedge the drain loop forever.
       await completion.future.timeout(_inlineChunkPlaybackTimeout);
       _log(
-        'inline chunk completion fired session=$sessionId index=${chunk.index}',
+        'inline chunk completion fired session=$sessionId '
+        'index=${chunk.index}',
       );
     } on TimeoutException catch (error) {
       _log(
-        'inline chunk watchdog timeout session=$sessionId index=${chunk.index} '
-        'setAudioSourceCompleted=$setAudioSourceCompleted: $error',
+        'inline chunk playback timed out session=$sessionId '
+        'index=${chunk.index}: $error',
       );
-      // setAudioSource is the only watchdog where a fallback is worth
-      // attempting — play()/completion timeouts mean the player loaded
-      // the source but couldn't start (or decoded silently), and
-      // re-feeding the same bytes to a different player won't help.
-      // setAudioSource hangs typically come from just_audio's local
-      // proxy stalling on a sub-16 KB MP3 prefix; the same bytes play
-      // fine through audioplayers' [BytesSource] which decodes from
-      // the platform's NuPlayer/AVAudioPlayer with a less fragile
-      // sniff path.
-      if (!setAudioSourceCompleted &&
-          _activeQueueSessionId == sessionId &&
-          source.bufferedLength > 0) {
-        final bool fellBack = await _tryInlineAudioplayersFallback(
-          chunk,
-          sessionId,
-          source,
-        );
-        if (fellBack) {
-          return;
-        }
-      }
       if (_activeQueueSessionId == sessionId) {
         _queueOnChunkError?.call('Voice playback timed out.');
       }
     } catch (error) {
       if (_activeQueueSessionId == sessionId && !_isCancellationError(error)) {
         _log(
-          'inline chunk playback failed session=$sessionId index=${chunk.index}: $error',
+          'inline chunk playback failed session=$sessionId '
+          'index=${chunk.index}: $error',
         );
         _queueOnChunkError?.call(_describeTtsError(error));
       }
@@ -1229,160 +1142,21 @@ class DeviceChatVoiceService implements ChatVoiceService {
       if (identical(_currentChunkPlaybackCompleter, completion)) {
         _currentChunkPlaybackCompleter = null;
       }
-      await sub.cancel();
-      // Source's stream will be closed by the producer (final frame /
-      // error / barge-in). Nothing else to release.
-    }
-  }
-
-  /// Audioplayers fallback for inline voice-mode chunks when
-  /// `just_audio.setAudioSource` times out. Replays the same bytes
-  /// through the legacy [_speechPlayer] using [BytesSource] — which
-  /// goes through Android's NuPlayer / iOS's AVAudioPlayer rather than
-  /// just_audio's loopback HTTP proxy + ExoPlayer combination. The
-  /// loopback proxy is what stalls on small (<16 KB) MP3 prefixes in
-  /// dev; NuPlayer / AVAudioPlayer just decode the byte buffer in-
-  /// process and don't have the same sniff fragility.
-  ///
-  /// Returns `true` when fallback playback completed (or the session
-  /// was cancelled mid-flight — either way, the chunk is "done"); the
-  /// caller should NOT then surface `onChunkError`. Returns `false`
-  /// when the fallback itself failed; the caller should then fire
-  /// `onChunkError` so the host dismisses its loading indicator.
-  Future<bool> _tryInlineAudioplayersFallback(
-    _QueuedSpeechChunk chunk,
-    int sessionId,
-    AppendableAudioSource source,
-  ) async {
-    _log(
-      'inline chunk audioplayers fallback start session=$sessionId index=${chunk.index} '
-      'bytes=${source.bufferedLength} contentType=${source.contentType}',
-    );
-
-    // Mute just_audio FIRST so any residual ExoPlayer audio that's
-    // still draining doesn't bleed through alongside our fallback
-    // playback (the "stagnated first play" symptom — two players
-    // outputting the same chunk simultaneously). setVolume is
-    // synchronous on most platforms, unlike stop() which has to
-    // unwind native state.
-    try {
-      await _inlineAudioPlayer.setVolume(0).timeout(
-            const Duration(milliseconds: 500),
-          );
-    } catch (_) {
-      // best-effort
-    }
-
-    // Stop the stuck just_audio player so its native resources release.
-    // setAudioSource may still be in flight on the platform side; stop()
-    // is the documented way to abort and reset.
-    try {
-      await _inlineAudioPlayer.stop().timeout(const Duration(seconds: 2));
-    } on TimeoutException {
-      _log('inline chunk audioplayers fallback: just_audio.stop() also timed out — proceeding');
-    } catch (stopError) {
-      _log('inline chunk audioplayers fallback: just_audio.stop() error: $stopError');
-    }
-
-    // Restore volume so the next non-fallback chunk plays at normal
-    // level. just_audio's volume persists across setAudioSource calls.
-    try {
-      await _inlineAudioPlayer.setVolume(1).timeout(
-            const Duration(milliseconds: 500),
-          );
-    } catch (_) {}
-
-    if (_activeQueueSessionId != sessionId) {
-      // Session was cancelled while we were stopping just_audio; treat
-      // as "done" — no audio will play, but no error to surface either.
-      return true;
-    }
-
-    // Write the bytes to a temp file and play via DeviceFileSource —
-    // the same proven path [_playLegacyChunk] uses. Avoids two
-    // pitfalls observed in dev with [BytesSource]:
-    //   • Android's MediaDataSource backing for in-memory bytes can
-    //     loop the same buffer indefinitely on some devices because
-    //     readAt() wraps to position 0 instead of returning EOF.
-    //   • The native side has to copy bytes anyway, so going through a
-    //     file isn't a meaningful perf hit (chunks are ≤ 30 KB here).
-    String? tempPath;
-    final Completer<void> fallbackCompletion = Completer<void>();
-    final StreamSubscription<void> sub =
-        _speechPlayer.onPlayerComplete.listen((_) {
-      if (!fallbackCompletion.isCompleted) {
-        fallbackCompletion.complete();
+      if (identical(_currentChunkPlaybackSub, sub)) {
+        _currentChunkPlaybackSub = null;
       }
-    });
-
-    try {
-      final Uint8List bytes = source.bufferedBytesSnapshot();
-      final Directory directory = await getTemporaryDirectory();
-      final File tempFile = File(
-        '${directory.path}${Platform.pathSeparator}'
-        'simi_tts_inline_fallback_${sessionId}_${chunk.index}.mp3',
-      );
-      await tempFile.writeAsBytes(bytes, flush: true);
-      tempPath = tempFile.path;
-      _log(
-        'inline chunk audioplayers fallback wrote temp file session=$sessionId index=${chunk.index} path=$tempPath',
-      );
-
-      // Re-assert release mode in case anything earlier in the queue
-      // flipped it. ReleaseMode.stop = play once and stop, no loop.
-      await _speechPlayer.setReleaseMode(ReleaseMode.stop);
-
-      // Speaking-start fires here too, so the host's thinking loop
-      // gets torn down even on the fallback path. Without this,
-      // audioplayers might play audibly while the loading indicator
-      // is still visible — a different presentation bug.
-      if (!_queueSpeakingFlag) {
-        _queueSpeakingFlag = true;
-        _queueOnSpeakingStart?.call();
-      }
-
-      await _speechPlayer
-          .play(DeviceFileSource(tempPath, mimeType: source.contentType))
-          .timeout(_inlinePlayStartTimeout);
-      _log(
-        'inline chunk audioplayers fallback play() resolved session=$sessionId index=${chunk.index}',
-      );
-
-      await fallbackCompletion.future.timeout(_inlineChunkPlaybackTimeout);
-      _log(
-        'inline chunk audioplayers fallback completed session=$sessionId index=${chunk.index}',
-      );
-      return true;
-    } on TimeoutException catch (error) {
-      _log(
-        'inline chunk audioplayers fallback timeout session=$sessionId index=${chunk.index}: $error',
-      );
-      return false;
-    } catch (error) {
-      _log(
-        'inline chunk audioplayers fallback failed session=$sessionId index=${chunk.index}: $error',
-      );
-      return false;
-    } finally {
       await sub.cancel();
-      // Fully release the native MediaPlayer — NOT just stop().
-      // audioplayers' .stop() pauses + seeks-to-0 but leaves the
-      // underlying Android MediaPlayer + AudioTrack allocated, which
-      // holds an audio-routing slot. SpeechRecognizer's AudioRecord
-      // can't get a clean mic capture path while that slot is held,
-      // so the next listen() returns empty audio and STT silently
-      // drops to error_no_match. Verified against device logs from
-      // 2026-05-07: turn-1 fallback plays cleanly, turn-2 mic dies.
-      // .release() tears down the MediaPlayer and frees AudioTrack;
-      // audioplayers reinitializes lazily on the next play() call.
+      // Release (not stop) — audioplayers' .stop() leaves the native
+      // Android MediaPlayer + AudioTrack allocated. SpeechRecognizer's
+      // AudioRecord then can't get a clean mic capture path on the
+      // next turn (verified against 2026-05-07 device traces). Fully
+      // releasing tears the MediaPlayer down; audioplayers
+      // reinitialises lazily on the next play() call.
       try {
         await _speechPlayer.release();
       } catch (_) {
         // best-effort cleanup
       }
-      // Delete the temp file. Best effort — Android cleans /tmp on
-      // app upgrade anyway, but we don't want every voice turn to
-      // leak ~10 KB.
       if (tempPath != null) {
         try {
           final File f = File(tempPath);
@@ -1532,9 +1306,6 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _cancelActiveTtsRequest();
     try {
       await _speechPlayer.dispose();
-    } catch (_) {}
-    try {
-      await _inlineAudioPlayer.dispose();
     } catch (_) {}
     await _flutterTts.stop();
     await _deleteActiveSpeechFile();
@@ -1985,7 +1756,7 @@ class _QueuedSpeechChunk {
     required this.text,
     required this.cancelToken,
     this.synthesisFuture,
-    this.inlineAudioSource,
+    this.inlineBuffer,
     this.serverChunkIndex,
   });
 
@@ -1995,229 +1766,74 @@ class _QueuedSpeechChunk {
 
   /// Legacy path — non-voice-mode speech chunks call the per-chunk
   /// `/mobile/text-to-speech/synthesize` endpoint and play from a temp
-  /// file. Set when [inlineAudioSource] is `null`.
+  /// file. Set when [inlineBuffer] is `null`.
   final Future<String>? synthesisFuture;
 
-  /// Voice-mode streaming path — audio bytes are pushed into this
-  /// source as `speech.audio` events arrive on the AGUI SSE stream.
-  /// The just_audio player reads from this source progressively, so
-  /// playback starts before the chunk's terminal frame. Set when
-  /// [synthesisFuture] is `null`.
-  final AppendableAudioSource? inlineAudioSource;
+  /// Voice-mode inline path — audio bytes are accumulated into this
+  /// buffer as `speech.audio` events arrive on the AGUI SSE stream.
+  /// When the buffer closes (terminal frame, error, or watchdog) the
+  /// drain loop writes its bytes to a temp MP3 and plays the file
+  /// through `_speechPlayer`. Set when [synthesisFuture] is `null`.
+  final _InlineChunkBuffer? inlineBuffer;
 
   /// The server's chunkIndex for inline chunks (matches `speech.audio`
   /// frame metadata). Useful for telemetry / logs; routing happens via
-  /// [DeviceChatVoiceService._inlineChunkSources].
+  /// [DeviceChatVoiceService._inlineChunkBuffers].
   final int? serverChunkIndex;
 
   final CancelToken cancelToken;
   String? filePath;
 }
 
-/// A [ja.StreamAudioSource] that lets us push encoded audio bytes into
-/// the just_audio player as they arrive on the AGUI SSE stream — true
-/// streaming playback (audible audio starts before the chunk's terminal
-/// frame), as opposed to the previous "buffer the whole chunk, then
-/// play" model.
+/// In-memory buffer for inline voice-mode audio bytes. Replaces the
+/// old `AppendableAudioSource` (a `just_audio.StreamAudioSource`) now
+/// that voice-mode emits a single chunk per assistant message and the
+/// client plays one temp file via `audioplayers`.
 ///
 /// Lifecycle:
-/// 1. Source created when a `speech.audio` frame for a new chunkIndex
-///    arrives (or when [enqueueInlineSpeechChunk] reserves the slot).
-/// 2. [append] is called for each subsequent frame; bytes are pushed
-///    immediately and any active [ja.AudioPlayer] reading from this
-///    source receives them on its `request()` stream.
-/// 3. [close] (or [closeWithError]) finalises the source. The player's
-///    request stream completes, the platform decoder finishes the buffer,
-///    and just_audio emits `ProcessingState.completed`.
-///
-/// Range requests are unsupported — voice-mode synthesis is a one-pass
-/// forward stream and the player can't seek into a buffer that hasn't
-/// been received yet. just_audio handles `rangeRequestsSupported=false`
-/// by reading the response stream linearly.
-@visibleForTesting
-class AppendableAudioSource extends ja.StreamAudioSource {
-  AppendableAudioSource({
-    required String contentType,
-    int initialPlaybackBufferBytes = defaultInitialPlaybackBufferBytes,
-  })  : _contentType = contentType,
-        _initialPlaybackBufferBytes = initialPlaybackBufferBytes;
+/// 1. Created when a `speech.chunk` event arrives (via
+///    [DeviceChatVoiceService.enqueueInlineSpeechChunk]) or lazily when
+///    the first `speech.audio` frame for a new chunkIndex lands.
+/// 2. [append] is called for each frame's bytes.
+/// 3. [markClosed] is called when the chunk's terminal frame arrives,
+///    when `speech.audio.error` fires for the chunk, or when the
+///    watchdog gives up. The drain loop awaits [closed], snapshots
+///    [snapshot], and writes the bytes to a temp file.
+class _InlineChunkBuffer {
+  final BytesBuilder _builder = BytesBuilder(copy: false);
+  final Completer<void> _closed = Completer<void>();
+  bool _isClosed = false;
+  String? mime;
 
-  /// Bytes the source must accumulate before [playbackBufferReady]
-  /// resolves. Sized to comfortably cover ExoPlayer / AVPlayer's MP3
-  /// sniff (≤ 4 KB) plus a couple of decoded frames so the platform
-  /// player can keep playing while the next inline frame is in flight.
-  /// 16 KB ≈ 1 s of audio at 128 kbps — matches our server-side read
-  /// window, so the gate typically resolves on the first frame.
-  static const int defaultInitialPlaybackBufferBytes = 16 * 1024;
+  /// Resolves once the chunk has been marked closed (cleanly or via
+  /// error). The drain loop awaits this with a watchdog so a stuck
+  /// server-side TTS pipeline can't wedge playback indefinitely.
+  Future<void> get closed => _closed.future;
 
-  String _contentType;
-  final int _initialPlaybackBufferBytes;
-  final List<int> _buffer = <int>[];
-  final List<StreamController<List<int>>> _activeReaders =
-      <StreamController<List<int>>>[];
-  bool _closed = false;
-  Object? _terminalError;
-  final Completer<void> _contentTypeReady = Completer<void>();
-  final Completer<void> _playbackBufferReady = Completer<void>();
+  /// `true` after [markClosed] has been called.
+  bool get isClosed => _isClosed;
 
-  /// Resolves the moment the source's [contentType] is locked in:
-  /// either the first [append] has set it, or the source has been
-  /// closed (with or without an error). Callers should await this
-  /// before handing the source to a player so the platform decoder
-  /// gets the correct MIME on its first `request()`.
-  Future<void> get contentTypeReady => _contentTypeReady.future;
+  /// Total bytes appended so far.
+  int get length => _builder.length;
 
-  /// Resolves once the source has buffered at least
-  /// [_initialPlaybackBufferBytes] of audio data **or** has been
-  /// closed (cleanly or with an error). Callers should await this
-  /// before handing the source to a player so:
-  ///
-  /// * ExoPlayer / AVPlayer have enough bytes for the format sniff
-  ///   to succeed without blocking on the proxy's HTTP socket.
-  /// * The first decoded audio frame can be served from buffer, giving
-  ///   the next inline TTS frame time to arrive without the HTTP read
-  ///   timing out.
-  ///
-  /// For very small chunks that close before reaching the threshold,
-  /// the future resolves on close — callers then play whatever is
-  /// available and move on.
-  Future<void> get playbackBufferReady => _playbackBufferReady.future;
-
-  /// Total bytes appended so far (handy for tests / instrumentation).
-  int get bufferedLength => _buffer.length;
-
-  /// Snapshot of all bytes appended so far. Used by the audioplayers
-  /// fallback path in [DeviceChatVoiceService._playInlineChunk] when
-  /// `just_audio.setAudioSource` times out on a small closed MP3 chunk
-  /// — we replay the same bytes through audioplayers' [BytesSource]
-  /// instead. Returns a copy so the caller can mutate it freely.
-  Uint8List bufferedBytesSnapshot() => Uint8List.fromList(_buffer);
-
-  /// `true` after [close] or [closeWithError] has been called.
-  bool get isClosed => _closed;
-
-  /// MIME type the source advertises to the player. Set on construction
-  /// from the first inline frame; ignored on later updates so the
-  /// player isn't asked to switch decoders mid-stream.
-  String get contentType => _contentType;
-
-  /// Update the advertised content type ONLY before any reader has
-  /// connected. After [request] returns, the player has already locked
-  /// in a decoder — calling this is a no-op.
-  void updateContentTypeBeforeFirstRead(String contentType) {
-    if (_activeReaders.isNotEmpty || _closed) return;
-    _contentType = contentType;
-  }
-
-  /// Append [data] to the buffer and broadcast to any active reader.
-  /// Silently no-ops if the source has already been closed. The first
-  /// non-empty append also resolves [contentTypeReady]; once the
-  /// buffered total reaches [_initialPlaybackBufferBytes],
-  /// [playbackBufferReady] resolves too, signalling that the player
-  /// can be safely connected without risking an HTTP-read timeout on
-  /// the loopback proxy.
+  /// Append [data] to the buffer. No-ops if the buffer is already
+  /// closed (late frames after error / barge-in).
   void append(List<int> data) {
-    if (_closed || data.isEmpty) return;
-    _buffer.addAll(data);
-    if (!_contentTypeReady.isCompleted) {
-      _contentTypeReady.complete();
-    }
-    if (!_playbackBufferReady.isCompleted &&
-        _buffer.length >= _initialPlaybackBufferBytes) {
-      _playbackBufferReady.complete();
-    }
-    for (final controller in _activeReaders) {
-      if (!controller.isClosed) {
-        controller.add(data);
-      }
+    if (_isClosed || data.isEmpty) return;
+    _builder.add(data);
+  }
+
+  /// Mark the buffer closed and unblock anyone awaiting [closed].
+  /// Idempotent.
+  void markClosed() {
+    if (_isClosed) return;
+    _isClosed = true;
+    if (!_closed.isCompleted) {
+      _closed.complete();
     }
   }
 
-  /// Close the source cleanly. Active readers receive the rest of the
-  /// buffered bytes (already emitted) plus EOF; the player will play out
-  /// the decoded audio and then transition to
-  /// [ja.ProcessingState.completed]. Also resolves both readiness
-  /// futures so any caller awaiting them unblocks (typically into the
-  /// "play whatever was buffered" path).
-  void close() {
-    if (_closed) return;
-    _closed = true;
-    if (!_contentTypeReady.isCompleted) {
-      _contentTypeReady.complete();
-    }
-    if (!_playbackBufferReady.isCompleted) {
-      _playbackBufferReady.complete();
-    }
-    for (final controller in _activeReaders) {
-      if (!controller.isClosed) {
-        controller.close();
-      }
-    }
-    _activeReaders.clear();
-  }
-
-  /// Close the source with an error so any active player surfaces a
-  /// playback exception instead of "completed". Used when synthesis
-  /// fails mid-stream. Resolves both readiness futures (without
-  /// raising) so awaiters proceed and observe [isClosed].
-  void closeWithError(Object error) {
-    if (_closed) return;
-    _closed = true;
-    _terminalError = error;
-    if (!_contentTypeReady.isCompleted) {
-      _contentTypeReady.complete();
-    }
-    if (!_playbackBufferReady.isCompleted) {
-      _playbackBufferReady.complete();
-    }
-    for (final controller in _activeReaders) {
-      if (!controller.isClosed) {
-        controller.addError(error);
-        controller.close();
-      }
-    }
-    _activeReaders.clear();
-  }
-
-  @override
-  Future<ja.StreamAudioResponse> request([int? start, int? end]) async {
-    final s = start ?? 0;
-    final controller = StreamController<List<int>>();
-
-    // Emit any already-buffered bytes synchronously so the player can
-    // start consuming right away — this is the path that makes the
-    // first audible byte land before the chunk's `isFinal` frame.
-    if (_buffer.length > s) {
-      controller.add(List<int>.unmodifiable(_buffer.sublist(s)));
-    }
-
-    if (_closed) {
-      // Already closed — surface any terminal error then EOF. We must
-      // NOT await `close()` here: the controller's close-future only
-      // completes once the listener has drained the stream, and the
-      // listener doesn't subscribe until after `request()` returns. So
-      // schedule close without waiting.
-      if (_terminalError != null) {
-        controller.addError(_terminalError!);
-      }
-      unawaited(controller.close());
-    } else {
-      _activeReaders.add(controller);
-      controller.onCancel = () {
-        _activeReaders.remove(controller);
-      };
-    }
-
-    return ja.StreamAudioResponse(
-      // Voice-mode is a one-pass forward stream; the player can't seek
-      // back, and `false` here keeps just_audio from issuing follow-up
-      // range requests for bytes we don't have yet.
-      rangeRequestsSupported: false,
-      sourceLength: null,
-      contentLength: null,
-      offset: s,
-      stream: controller.stream,
-      contentType: _contentType,
-    );
-  }
+  /// Returns a copy of the buffered bytes. The drain loop calls this
+  /// after [closed] resolves, then writes the result to a temp file.
+  Uint8List snapshot() => _builder.toBytes();
 }

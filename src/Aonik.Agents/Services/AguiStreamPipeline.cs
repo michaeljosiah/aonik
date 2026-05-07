@@ -114,13 +114,22 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                         }, cancellationToken);
                         requestToFirstTokenSseMs ??= stopwatch.ElapsedMilliseconds;
 
-                        while (speechBuffer.TryPopSentence(out var rawChunk))
+                        // Voice mode: skip per-sentence chunk emission. We emit
+                        // a single full-message chunk after the LLM stream is
+                        // complete so the client plays one audio file rather
+                        // than fighting a streaming MP3 decoder. Text-only
+                        // consumers (e.g. AdminUI playground when no voice
+                        // coordinator is wired) keep the per-sentence path.
+                        if (voiceCoordinator is null)
                         {
-                            if (await EmitSpeechChunkAsync(
-                                writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
-                                rawChunk, isFinal: false, cancellationToken))
+                            while (speechBuffer.TryPopSentence(out var rawChunk))
                             {
-                                speechChunksEmittedDuringStream++;
+                                if (await EmitSpeechChunkAsync(
+                                    writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
+                                    rawChunk, isFinal: false, cancellationToken))
+                                {
+                                    speechChunksEmittedDuringStream++;
+                                }
                             }
                         }
                         break;
@@ -197,17 +206,20 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
             }, cancellationToken);
         }
 
-        // Tail chunk — flush whatever's left in the speech buffer (incomplete
-        // sentence at end-of-run). The render pass marks isFinal so the
-        // client and the synth coordinator both know this is the last chunk.
-        var tailChunk = speechBuffer.FlushRemaining();
-        if (tailChunk is not null)
+        // Tail chunk — text-only path. Voice mode emits one consolidated
+        // chunk for the full assistant message after the speech.render
+        // event below; the per-sentence buffer is unused there.
+        if (voiceCoordinator is null)
         {
-            if (await EmitSpeechChunkAsync(
-                writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
-                tailChunk, isFinal: true, cancellationToken))
+            var tailChunk = speechBuffer.FlushRemaining();
+            if (tailChunk is not null)
             {
-                speechChunkTailEmitted = true;
+                if (await EmitSpeechChunkAsync(
+                    writer, voiceCoordinator, threadId, messageId, speechBuffer.NextChunkIndex - 1,
+                    tailChunk, isFinal: true, cancellationToken))
+                {
+                    speechChunkTailEmitted = true;
+                }
             }
         }
 
@@ -237,11 +249,35 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
             }
         }, cancellationToken);
 
-        // Voice-mode drain — RUN_FINISHED MUST come after every audio frame
-        // is on the wire. Wait for synth workers to finish enqueueing,
-        // close the audio channel, then wait for the writer's pump to drain.
+        // Voice-mode one-shot synth (Option A): synthesize the entire
+        // assistant message in a single chunk after the LLM stream is
+        // complete. The simplified mobile player accumulates all frames
+        // for chunkIndex 0 and plays the result as a single MP3 file —
+        // no streaming player, no proxy server, no watchdog fallback.
+        // Per-sentence chunking added avoidable failure modes (just_audio
+        // setAudioSource hangs on small MP3 prefixes, _proxyHandlerForSource
+        // null-checks, two-player crossfade overlap). One file plays
+        // cleanly through audioplayers' DeviceFileSource path.
         if (voiceCoordinator is not null)
         {
+            var fullSpeechText = assistantTextBuilder.ToString();
+            if (!string.IsNullOrWhiteSpace(fullSpeechText))
+            {
+                if (await EmitSpeechChunkAsync(
+                    writer, voiceCoordinator, threadId, messageId,
+                    chunkIndex: 0, rawChunk: fullSpeechText,
+                    isFinal: true, cancellationToken))
+                {
+                    speechChunkTailEmitted = true;
+                    chatActivity?.SetTag("aonik.chat.speech_chunk_tail_emitted", true);
+                    chatActivity?.SetTag("aonik.chat.speech_chunks_emitted", 1);
+                }
+            }
+
+            // Voice-mode drain — RUN_FINISHED MUST come after every audio
+            // frame is on the wire. Wait for synth workers to finish
+            // enqueueing, close the audio channel, then wait for the
+            // writer's pump to drain.
             await voiceCoordinator.WaitForAllSynthesisAsync();
             writer.CompleteAudioInput();
             await writer.WaitForAudioDrainAsync();

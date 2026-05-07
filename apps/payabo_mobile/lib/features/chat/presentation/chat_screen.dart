@@ -410,8 +410,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       // here.
       //
       // We deliberately do NOT stop the thinking loop on chunk arrival
-      // — it's stopped in `onSpeakingStart` when just_audio actually
-      // has bytes ready to play, which keeps silent gaps covered.
+      // — the voice service stops it synchronously inside `_playInlineChunk`
+      // (right before the response audio starts) so the loop and the
+      // response can never overlap.
       if (_voiceAwaitingBackendReply &&
           _voiceBackendTurnId != null &&
           _voiceBackendTurnId == _activeVoiceTurnId &&
@@ -1325,15 +1326,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           });
           return;
         }
-        // If we never reached the speaking phase (chunk failed before
-        // setAudioSource succeeded — typical of the just_audio
-        // setAudioSource watchdog firing on small closed MP3 chunks),
-        // the speakingStart callback never ran, so the
-        // onSpeakingStart-driven thinking-loop teardown never happened.
-        // Without this branch the thinking loop keeps looping at 45 %
-        // volume and the stage stays in `thinking` forever — the exact
-        // "loading sign won't go away" symptom we keep hitting. Exit
-        // thinking → ready so the user can retry or dismiss cleanly.
+        // If we never reached the speaking phase (e.g. the chunk closed
+        // empty after a `speech.audio.error` or close-watchdog timeout)
+        // the voice service never fires `onSpeakingStart`, so its
+        // synchronous `stopThinkingLoop` inside `_playInlineChunk`
+        // never ran either. Without this branch the thinking loop keeps
+        // looping at 45 % volume and the stage stays in `thinking`
+        // forever — the exact "loading sign won't go away" symptom we
+        // keep hitting. Exit thinking → ready so the user can retry or
+        // dismiss cleanly.
         if (_voiceStagePhase == _VoiceStagePhase.thinking) {
           _cancelVoiceThinkingWatchdog();
           unawaited(_chatVoiceService.stopThinkingLoop());
