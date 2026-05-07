@@ -1365,10 +1365,18 @@ class DeviceChatVoiceService implements ChatVoiceService {
       return false;
     } finally {
       await sub.cancel();
-      // Stop the legacy player so it doesn't keep its session alive
-      // (and, defensively, won't auto-loop on next play).
+      // Fully release the native MediaPlayer — NOT just stop().
+      // audioplayers' .stop() pauses + seeks-to-0 but leaves the
+      // underlying Android MediaPlayer + AudioTrack allocated, which
+      // holds an audio-routing slot. SpeechRecognizer's AudioRecord
+      // can't get a clean mic capture path while that slot is held,
+      // so the next listen() returns empty audio and STT silently
+      // drops to error_no_match. Verified against device logs from
+      // 2026-05-07: turn-1 fallback plays cleanly, turn-2 mic dies.
+      // .release() tears down the MediaPlayer and frees AudioTrack;
+      // audioplayers reinitializes lazily on the next play() call.
       try {
-        await _speechPlayer.stop();
+        await _speechPlayer.release();
       } catch (_) {
         // best-effort cleanup
       }
