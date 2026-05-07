@@ -1140,11 +1140,12 @@ class DeviceChatVoiceService implements ChatVoiceService {
     // explicitly in the finally block below.
     _currentChunkPlaybackSub = null;
 
+    bool setAudioSourceCompleted = false;
     try {
       // setAudioSource: load the source into just_audio. ExoPlayer /
       // AVPlayer parse the format prefix here and move the player to
       // `ready`. Bound this with a watchdog because in dev we observed
-      // small (≤ 8 KB) MP3 chunks where the platform extractor failed
+      // small (≤ 16 KB) MP3 chunks where the platform extractor failed
       // to sync and setAudioSource never returned — leaving the
       // thinking-loop running and the user staring at a spinner.
       _log(
@@ -1155,6 +1156,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
       await _inlineAudioPlayer
           .setAudioSource(source)
           .timeout(_inlineSetAudioSourceTimeout);
+      setAudioSourceCompleted = true;
       _log(
         'inline chunk setAudioSource done session=$sessionId index=${chunk.index}',
       );
@@ -1188,14 +1190,31 @@ class DeviceChatVoiceService implements ChatVoiceService {
         'inline chunk completion fired session=$sessionId index=${chunk.index}',
       );
     } on TimeoutException catch (error) {
-      // Distinct from the generic catch below because we want explicit
-      // telemetry on the watchdog firing — these timeouts are the
-      // observable that turns a "loading sign stuck" report into a
-      // searchable log line. Surface to the host as a chunk error so
-      // the thinking/loading indicator dismisses.
       _log(
-        'inline chunk watchdog timeout session=$sessionId index=${chunk.index}: $error',
+        'inline chunk watchdog timeout session=$sessionId index=${chunk.index} '
+        'setAudioSourceCompleted=$setAudioSourceCompleted: $error',
       );
+      // setAudioSource is the only watchdog where a fallback is worth
+      // attempting — play()/completion timeouts mean the player loaded
+      // the source but couldn't start (or decoded silently), and
+      // re-feeding the same bytes to a different player won't help.
+      // setAudioSource hangs typically come from just_audio's local
+      // proxy stalling on a sub-16 KB MP3 prefix; the same bytes play
+      // fine through audioplayers' [BytesSource] which decodes from
+      // the platform's NuPlayer/AVAudioPlayer with a less fragile
+      // sniff path.
+      if (!setAudioSourceCompleted &&
+          _activeQueueSessionId == sessionId &&
+          source.bufferedLength > 0) {
+        final bool fellBack = await _tryInlineAudioplayersFallback(
+          chunk,
+          sessionId,
+          source,
+        );
+        if (fellBack) {
+          return;
+        }
+      }
       if (_activeQueueSessionId == sessionId) {
         _queueOnChunkError?.call('Voice playback timed out.');
       }
@@ -1213,6 +1232,99 @@ class DeviceChatVoiceService implements ChatVoiceService {
       await sub.cancel();
       // Source's stream will be closed by the producer (final frame /
       // error / barge-in). Nothing else to release.
+    }
+  }
+
+  /// Audioplayers fallback for inline voice-mode chunks when
+  /// `just_audio.setAudioSource` times out. Replays the same bytes
+  /// through the legacy [_speechPlayer] using [BytesSource] — which
+  /// goes through Android's NuPlayer / iOS's AVAudioPlayer rather than
+  /// just_audio's loopback HTTP proxy + ExoPlayer combination. The
+  /// loopback proxy is what stalls on small (<16 KB) MP3 prefixes in
+  /// dev; NuPlayer / AVAudioPlayer just decode the byte buffer in-
+  /// process and don't have the same sniff fragility.
+  ///
+  /// Returns `true` when fallback playback completed (or the session
+  /// was cancelled mid-flight — either way, the chunk is "done"); the
+  /// caller should NOT then surface `onChunkError`. Returns `false`
+  /// when the fallback itself failed; the caller should then fire
+  /// `onChunkError` so the host dismisses its loading indicator.
+  Future<bool> _tryInlineAudioplayersFallback(
+    _QueuedSpeechChunk chunk,
+    int sessionId,
+    AppendableAudioSource source,
+  ) async {
+    _log(
+      'inline chunk audioplayers fallback start session=$sessionId index=${chunk.index} '
+      'bytes=${source.bufferedLength} contentType=${source.contentType}',
+    );
+
+    // Stop the stuck just_audio player so its native resources release.
+    // setAudioSource may still be in flight on the platform side; stop()
+    // is the documented way to abort and reset.
+    try {
+      await _inlineAudioPlayer.stop().timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      _log('inline chunk audioplayers fallback: just_audio.stop() also timed out — proceeding');
+    } catch (stopError) {
+      _log('inline chunk audioplayers fallback: just_audio.stop() error: $stopError');
+    }
+
+    if (_activeQueueSessionId != sessionId) {
+      // Session was cancelled while we were stopping just_audio; treat
+      // as "done" — no audio will play, but no error to surface either.
+      return true;
+    }
+
+    final Uint8List bytes = source.bufferedBytesSnapshot();
+    final Completer<void> fallbackCompletion = Completer<void>();
+    final StreamSubscription<void> sub =
+        _speechPlayer.onPlayerComplete.listen((_) {
+      if (!fallbackCompletion.isCompleted) {
+        fallbackCompletion.complete();
+      }
+    });
+
+    try {
+      // Speaking-start fires here too, so the host's thinking loop
+      // gets torn down even on the fallback path. Without this,
+      // audioplayers might play audibly while the loading indicator
+      // is still visible — a different presentation bug.
+      if (!_queueSpeakingFlag) {
+        _queueSpeakingFlag = true;
+        _queueOnSpeakingStart?.call();
+      }
+
+      await _speechPlayer
+          .play(BytesSource(bytes, mimeType: source.contentType))
+          .timeout(_inlinePlayStartTimeout);
+      _log(
+        'inline chunk audioplayers fallback play() resolved session=$sessionId index=${chunk.index}',
+      );
+
+      await fallbackCompletion.future.timeout(_inlineChunkPlaybackTimeout);
+      _log(
+        'inline chunk audioplayers fallback completed session=$sessionId index=${chunk.index}',
+      );
+      return true;
+    } on TimeoutException catch (error) {
+      _log(
+        'inline chunk audioplayers fallback timeout session=$sessionId index=${chunk.index}: $error',
+      );
+      return false;
+    } catch (error) {
+      _log(
+        'inline chunk audioplayers fallback failed session=$sessionId index=${chunk.index}: $error',
+      );
+      return false;
+    } finally {
+      await sub.cancel();
+      // Stop the legacy player so it doesn't keep its session alive.
+      try {
+        await _speechPlayer.stop();
+      } catch (_) {
+        // best-effort cleanup
+      }
     }
   }
 
@@ -1905,6 +2017,13 @@ class AppendableAudioSource extends ja.StreamAudioSource {
 
   /// Total bytes appended so far (handy for tests / instrumentation).
   int get bufferedLength => _buffer.length;
+
+  /// Snapshot of all bytes appended so far. Used by the audioplayers
+  /// fallback path in [DeviceChatVoiceService._playInlineChunk] when
+  /// `just_audio.setAudioSource` times out on a small closed MP3 chunk
+  /// — we replay the same bytes through audioplayers' [BytesSource]
+  /// instead. Returns a copy so the caller can mutate it freely.
+  Uint8List bufferedBytesSnapshot() => Uint8List.fromList(_buffer);
 
   /// `true` after [close] or [closeWithError] has been called.
   bool get isClosed => _closed;
