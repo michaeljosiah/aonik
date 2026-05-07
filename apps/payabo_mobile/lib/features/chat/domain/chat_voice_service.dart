@@ -1259,6 +1259,20 @@ class DeviceChatVoiceService implements ChatVoiceService {
       'bytes=${source.bufferedLength} contentType=${source.contentType}',
     );
 
+    // Mute just_audio FIRST so any residual ExoPlayer audio that's
+    // still draining doesn't bleed through alongside our fallback
+    // playback (the "stagnated first play" symptom — two players
+    // outputting the same chunk simultaneously). setVolume is
+    // synchronous on most platforms, unlike stop() which has to
+    // unwind native state.
+    try {
+      await _inlineAudioPlayer.setVolume(0).timeout(
+            const Duration(milliseconds: 500),
+          );
+    } catch (_) {
+      // best-effort
+    }
+
     // Stop the stuck just_audio player so its native resources release.
     // setAudioSource may still be in flight on the platform side; stop()
     // is the documented way to abort and reset.
@@ -1270,13 +1284,29 @@ class DeviceChatVoiceService implements ChatVoiceService {
       _log('inline chunk audioplayers fallback: just_audio.stop() error: $stopError');
     }
 
+    // Restore volume so the next non-fallback chunk plays at normal
+    // level. just_audio's volume persists across setAudioSource calls.
+    try {
+      await _inlineAudioPlayer.setVolume(1).timeout(
+            const Duration(milliseconds: 500),
+          );
+    } catch (_) {}
+
     if (_activeQueueSessionId != sessionId) {
       // Session was cancelled while we were stopping just_audio; treat
       // as "done" — no audio will play, but no error to surface either.
       return true;
     }
 
-    final Uint8List bytes = source.bufferedBytesSnapshot();
+    // Write the bytes to a temp file and play via DeviceFileSource —
+    // the same proven path [_playLegacyChunk] uses. Avoids two
+    // pitfalls observed in dev with [BytesSource]:
+    //   • Android's MediaDataSource backing for in-memory bytes can
+    //     loop the same buffer indefinitely on some devices because
+    //     readAt() wraps to position 0 instead of returning EOF.
+    //   • The native side has to copy bytes anyway, so going through a
+    //     file isn't a meaningful perf hit (chunks are ≤ 30 KB here).
+    String? tempPath;
     final Completer<void> fallbackCompletion = Completer<void>();
     final StreamSubscription<void> sub =
         _speechPlayer.onPlayerComplete.listen((_) {
@@ -1286,6 +1316,22 @@ class DeviceChatVoiceService implements ChatVoiceService {
     });
 
     try {
+      final Uint8List bytes = source.bufferedBytesSnapshot();
+      final Directory directory = await getTemporaryDirectory();
+      final File tempFile = File(
+        '${directory.path}${Platform.pathSeparator}'
+        'simi_tts_inline_fallback_${sessionId}_${chunk.index}.mp3',
+      );
+      await tempFile.writeAsBytes(bytes, flush: true);
+      tempPath = tempFile.path;
+      _log(
+        'inline chunk audioplayers fallback wrote temp file session=$sessionId index=${chunk.index} path=$tempPath',
+      );
+
+      // Re-assert release mode in case anything earlier in the queue
+      // flipped it. ReleaseMode.stop = play once and stop, no loop.
+      await _speechPlayer.setReleaseMode(ReleaseMode.stop);
+
       // Speaking-start fires here too, so the host's thinking loop
       // gets torn down even on the fallback path. Without this,
       // audioplayers might play audibly while the loading indicator
@@ -1296,7 +1342,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
       }
 
       await _speechPlayer
-          .play(BytesSource(bytes, mimeType: source.contentType))
+          .play(DeviceFileSource(tempPath, mimeType: source.contentType))
           .timeout(_inlinePlayStartTimeout);
       _log(
         'inline chunk audioplayers fallback play() resolved session=$sessionId index=${chunk.index}',
@@ -1319,11 +1365,25 @@ class DeviceChatVoiceService implements ChatVoiceService {
       return false;
     } finally {
       await sub.cancel();
-      // Stop the legacy player so it doesn't keep its session alive.
+      // Stop the legacy player so it doesn't keep its session alive
+      // (and, defensively, won't auto-loop on next play).
       try {
         await _speechPlayer.stop();
       } catch (_) {
         // best-effort cleanup
+      }
+      // Delete the temp file. Best effort — Android cleans /tmp on
+      // app upgrade anyway, but we don't want every voice turn to
+      // leak ~10 KB.
+      if (tempPath != null) {
+        try {
+          final File f = File(tempPath);
+          if (await f.exists()) {
+            await f.delete();
+          }
+        } catch (_) {
+          // best-effort cleanup
+        }
       }
     }
   }
