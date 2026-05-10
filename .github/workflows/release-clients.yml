@@ -205,21 +205,27 @@ jobs:
       # BEFORE installing Admin UI deps so the symlinked file: dep
       # resolves to a built package. Same step the Admin UI Dockerfile
       # runs at `docker/adminui.Dockerfile`.
+      #
+      # We use `npm install` (not `npm ci`) throughout this workflow
+      # to match docker/adminui.Dockerfile. The repo's npm lockfiles
+      # routinely drift between updates; `npm install` self-heals,
+      # `npm ci` would fail the build every time the package.json
+      # touched a dep without a paired lockfile refresh.
       - name: Build Workspace SDK
         working-directory: packages/workspace-sdk
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Build Admin UI (renderer)
         working-directory: src/Aonik.AdminUi
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Install Desktop dependencies
         working-directory: src/Aonik.AdminDesktop
-        run: npm ci
+        run: npm install
 
       # `--publish=never` tells electron-builder to produce installers
       # without trying to upload them itself; we attach the files in the
