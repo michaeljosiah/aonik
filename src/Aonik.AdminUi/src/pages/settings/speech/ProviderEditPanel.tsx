@@ -66,6 +66,12 @@ export function ProviderEditPanel({
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
     initial ? extractFieldValues(initial.config) : {},
   );
+  // Phase D: API key lives directly on the provider row. The wire DTO is tri-state
+  // (null = leave alone, "" = clear, non-empty = encrypt + replace). UI tracks two
+  // pieces of state: the typed key and a flag for "user explicitly cleared the field"
+  // so we can distinguish "didn't touch it" from "wants to clear it".
+  const [apiKeyInput, setApiKeyInput] = useState<string>('');
+  const [clearStoredApiKey, setClearStoredApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Whenever (type, vendor) changes, reset the form schema. If the chosen vendor doesn't support
@@ -115,6 +121,15 @@ export function ProviderEditPanel({
     }
 
     const config = buildConfig(schema, fieldValues);
+    // Compute the API key payload. Tri-state semantics for update; create just sends
+    // whatever was typed (or null if blank, so the row starts keyless).
+    const trimmedKey = apiKeyInput.trim();
+    const apiKeyForCreate = trimmedKey.length > 0 ? trimmedKey : null;
+    let apiKeyForUpdate: string | null | undefined;
+    if (clearStoredApiKey) apiKeyForUpdate = '';
+    else if (trimmedKey.length > 0) apiKeyForUpdate = trimmedKey;
+    else apiKeyForUpdate = undefined; // leave existing key alone
+
     setSaving(true);
     try {
       let saved: SpeechProvider;
@@ -122,6 +137,7 @@ export function ProviderEditPanel({
         saved = await speechProviderLibraryService.update(initial!.id, {
           displayName: displayName.trim(),
           config,
+          ...(apiKeyForUpdate !== undefined ? { apiKey: apiKeyForUpdate } : {}),
         });
       } else {
         saved = await speechProviderLibraryService.create({
@@ -129,6 +145,7 @@ export function ProviderEditPanel({
           type,
           vendor,
           config,
+          apiKey: apiKeyForCreate,
         });
       }
       toast.success(`Provider "${saved.displayName}" saved.`);
@@ -210,6 +227,65 @@ export function ProviderEditPanel({
               maxLength={200}
             />
           </div>
+        </div>
+
+        {/* Phase D: API key directly on the provider row. The unified credential resolver
+            reads it as the tenant override; host default + configuration fallback still
+            apply if this is left blank. */}
+        <div className="space-y-2 rounded-md border border-[var(--color-border-light)] p-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="provider-api-key">
+              API key{' '}
+              <span className="font-normal text-[var(--color-text-tertiary)]">
+                (encrypted at rest)
+              </span>
+            </Label>
+            {isEditing && initial!.hasApiKey && !clearStoredApiKey && apiKeyInput.length === 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setClearStoredApiKey(true)}
+                disabled={saving}
+              >
+                Clear stored key
+              </Button>
+            )}
+            {clearStoredApiKey && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setClearStoredApiKey(false)}
+                disabled={saving}
+              >
+                Undo clear
+              </Button>
+            )}
+          </div>
+          <Input
+            id="provider-api-key"
+            type="password"
+            autoComplete="new-password"
+            value={apiKeyInput}
+            onChange={(e) => {
+              setApiKeyInput(e.target.value);
+              if (e.target.value.length > 0) setClearStoredApiKey(false);
+            }}
+            placeholder={
+              isEditing && initial!.hasApiKey
+                ? clearStoredApiKey
+                  ? '[will be cleared on save]'
+                  : '••••••••• (leave blank to keep stored key)'
+                : 'Paste your vendor API key'
+            }
+            disabled={saving}
+          />
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">
+            {isEditing
+              ? clearStoredApiKey
+                ? 'Saving with the field blank will remove the stored credential. Cancel above to keep it.'
+                : 'Leave blank to keep the existing key. Type a new one to replace it.'
+              : 'Optional. Falls back to the host default if blank — fine for shared org keys, required for tenant-specific.'}
+          </p>
         </div>
 
         {schema && (
@@ -427,26 +503,16 @@ function RemoteSelectField({
         <p className="text-xs text-[var(--color-error)]">
           {error}{' '}
           {provider && (
-            <a
-              href="/settings/text-to-speech"
-              className="underline decoration-dotted underline-offset-2"
-            >
-              Configure {provider} credentials
-            </a>
+            <span className="text-[var(--color-text-tertiary)]">
+              Set the {provider} API key on this provider above.
+            </span>
           )}
         </p>
       )}
 
       {!error && !loading && options.length === 0 && provider && (
         <p className="text-xs text-[var(--color-text-tertiary)]">
-          No voices loaded yet. Configure a {provider} API key in{' '}
-          <a
-            href="/settings/text-to-speech"
-            className="underline decoration-dotted underline-offset-2"
-          >
-            /settings/text-to-speech
-          </a>{' '}
-          and click Refresh.
+          No voices loaded yet. Save this provider with a {provider} API key, then click Refresh.
         </p>
       )}
     </div>

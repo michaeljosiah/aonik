@@ -18,6 +18,10 @@ export interface UpdateVoiceModeSettingsRequest {
 
 export interface ChatSpeechSettings {
   activeTtsProviderId: string | null;
+  /** Required when activeTtsProviderId is non-null (Phase D). */
+  activeTtsVoiceId: string | null;
+  /** Optional per-tenant model override; null falls back to provider default. */
+  activeTtsModelId: string | null;
   enabled: boolean;
   autoPlay: boolean;
   showSpeakButton: boolean;
@@ -29,6 +33,8 @@ export interface ChatSpeechSettings {
 
 export interface UpdateChatSpeechSettingsRequest {
   activeTtsProviderId: string | null;
+  activeTtsVoiceId: string | null;
+  activeTtsModelId: string | null;
   enabled: boolean;
   autoPlay: boolean;
   showSpeakButton: boolean;

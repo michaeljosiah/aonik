@@ -11,6 +11,17 @@ export interface ChainedRecipeBody {
   /** Stable provider id from the speech provider library (built-in id or tenant Guid). */
   sttProviderId: string;
   ttsProviderId: string;
+  /**
+   * Required voice id (Phase D) — voice selection moved off the provider config so
+   * different recipes can use different voices on the same vendor.
+   */
+  ttsVoiceId: string;
+  /** Optional model override; falls back to the provider's defaultModelId. */
+  ttsModelId: string | null;
+  /** Optional STT model override; falls back to the provider's defaultModel. */
+  sttModel: string | null;
+  /** Optional STT language hint (BCP-47); falls back to the provider's defaultLanguage. */
+  sttLanguage: string | null;
   /** Null = use the client's hello.agentId; non-null overrides for every connection. */
   pinnedAgentId: string | null;
   vad: 'energy' | 'silero' | 'none' | string;
@@ -21,6 +32,12 @@ export interface ChainedRecipeBody {
 
 export interface CompositeRecipeBody {
   compositeProviderId: string;
+  /** Required voice (Phase D). */
+  voice: string;
+  /** Optional model override; falls back to the provider's defaultModel. */
+  model: string | null;
+  /** Optional per-recipe instruction addendum; appended to the resolved agent's instructions. */
+  instructionsAddendum: string | null;
   pinnedAgentId: string | null;
 }
 

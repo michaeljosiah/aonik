@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
-  ExternalLink,
   HelpCircle,
   Loader2,
   Play,
   RefreshCw,
   Save,
   Speaker,
-  Upload,
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -67,6 +64,9 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
   // Stored as percent on the wire (100 = 1.0x); the slider works in floats.
   const [rate, setRate] = useState(1.0);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
+  // Phase D: voice + model picks live on chat speech, not on the provider.
+  const [voiceIdInput, setVoiceIdInput] = useState('');
+  const [modelIdInput, setModelIdInput] = useState('');
   const [previewText, setPreviewText] = useState(
     'Three invoices are awaiting your review, and April fuel spending is trending twelve percent above plan.',
   );
@@ -78,6 +78,8 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
     showSpeakButton: true,
     ratePercent: 100,
     activeTtsProviderId: null as string | null,
+    activeTtsVoiceId: null as string | null,
+    activeTtsModelId: null as string | null,
   });
 
   useEffect(() => {
@@ -97,12 +99,16 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         setShowSpeakButton(settings.showSpeakButton);
         setRate(settings.ratePercent / 100);
         setSelectedVoice(settings.activeTtsProviderId);
+        setVoiceIdInput(settings.activeTtsVoiceId ?? '');
+        setModelIdInput(settings.activeTtsModelId ?? '');
         setPersisted({
           enabled: settings.enabled,
           autoPlay: settings.autoPlay,
           showSpeakButton: settings.showSpeakButton,
           ratePercent: settings.ratePercent,
           activeTtsProviderId: settings.activeTtsProviderId,
+          activeTtsVoiceId: settings.activeTtsVoiceId,
+          activeTtsModelId: settings.activeTtsModelId,
         });
       } catch (err) {
         if (cancelled) return;
@@ -122,18 +128,30 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
   const voices = useMemo(() => buildVoiceEntries(providers), [providers]);
 
   const ratePercent = Math.round(rate * 100);
+  // Voice + model become dirty separately from provider — admins can change a voice
+  // without touching the provider selection.
+  const trimmedVoiceId = voiceIdInput.trim();
+  const trimmedModelId = modelIdInput.trim();
   const isDirty =
     enabled !== persisted.enabled ||
     autoPlay !== persisted.autoPlay ||
     showSpeakButton !== persisted.showSpeakButton ||
     ratePercent !== persisted.ratePercent ||
-    selectedVoice !== persisted.activeTtsProviderId;
+    selectedVoice !== persisted.activeTtsProviderId ||
+    trimmedVoiceId !== (persisted.activeTtsVoiceId ?? '') ||
+    trimmedModelId !== (persisted.activeTtsModelId ?? '');
 
   const handleSave = async () => {
+    if (selectedVoice && !trimmedVoiceId) {
+      toast.error('Voice id is required when a TTS provider is selected.');
+      return;
+    }
     setSaving(true);
     try {
       const saved = await chatSpeechSettingsService.update({
         activeTtsProviderId: selectedVoice,
+        activeTtsVoiceId: selectedVoice ? trimmedVoiceId : null,
+        activeTtsModelId: selectedVoice && trimmedModelId.length > 0 ? trimmedModelId : null,
         enabled,
         autoPlay,
         showSpeakButton,
@@ -144,12 +162,16 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
       setShowSpeakButton(saved.showSpeakButton);
       setRate(saved.ratePercent / 100);
       setSelectedVoice(saved.activeTtsProviderId);
+      setVoiceIdInput(saved.activeTtsVoiceId ?? '');
+      setModelIdInput(saved.activeTtsModelId ?? '');
       setPersisted({
         enabled: saved.enabled,
         autoPlay: saved.autoPlay,
         showSpeakButton: saved.showSpeakButton,
         ratePercent: saved.ratePercent,
         activeTtsProviderId: saved.activeTtsProviderId,
+        activeTtsVoiceId: saved.activeTtsVoiceId,
+        activeTtsModelId: saved.activeTtsModelId,
       });
       onSettingsChanged?.();
       toast.success('Chat speech settings saved.');
@@ -165,7 +187,7 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
   };
 
   const handlePreview = () => {
-    toast.info('Inline preview ships with Phase E. Use /settings/text-to-speech to verify the voice today.');
+    toast.info('Inline preview ships with Phase E. Use the provider Test button in the Providers tab to verify a voice for now.');
   };
 
   if (loading) {
@@ -191,17 +213,10 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         title="Chat speech"
         subtitle="Speak written chat replies aloud. Independent of Voice Mode."
         actions={
-          <>
-            <Button variant="outline" size="sm" asChild>
-              <RouterLink to="/settings/text-to-speech">
-                <ExternalLink className="h-3.5 w-3.5" /> Open legacy page
-              </RouterLink>
-            </Button>
-            <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Save changes
-            </Button>
-          </>
+          <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Save changes
+          </Button>
         }
       />
 
@@ -219,18 +234,13 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         </Button>
       </div>
 
-      {/* Phase C.2 callout — runtime overlays this provider on top of the legacy default. */}
+      {/* Phase D callout — TTS service routes synthesis through the picked provider +
+          voice. Credentials live on the provider row. */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
         <span className="font-semibold text-[var(--color-text-primary)]">Live</span>{' '}
-        — when an active TTS provider is selected, the streaming TTS service routes synthesis
-        through it instead of the legacy default. The{' '}
-        <RouterLink
-          to="/settings/text-to-speech"
-          className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"
-        >
-          legacy page
-        </RouterLink>{' '}
-        still owns credential management and the fallback profile.
+        — chat replies are spoken using the picked TTS provider + voice. Pick the provider
+        below and the voice id beneath it; configure credentials on the provider in the
+        Providers tab.
       </div>
 
       {/* Hero status */}
@@ -264,15 +274,58 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-2.5 md:grid-cols-2">
-                {voices.map((v) => (
-                  <VoiceCard
-                    key={v.providerId}
-                    voice={v}
-                    selected={v.providerId === selectedVoice}
-                    onSelect={() => setSelectedVoice(v.providerId)}
-                  />
-                ))}
+              <div className="space-y-3">
+                <div className="grid gap-2.5 md:grid-cols-2">
+                  {voices.map((v) => (
+                    <VoiceCard
+                      key={v.providerId}
+                      voice={v}
+                      selected={v.providerId === selectedVoice}
+                      onSelect={() => setSelectedVoice(v.providerId)}
+                    />
+                  ))}
+                </div>
+
+                {/* Voice + model picks (Phase D) — required when a provider is selected. */}
+                {selectedVoice && (
+                  <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+                      Voice for {voices.find((v) => v.providerId === selectedVoice)?.providerName}
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="flex flex-col gap-1 text-xs">
+                        <span className="font-semibold text-[var(--color-text-primary)]">
+                          Voice id <span className="text-[var(--color-error)]">*</span>
+                        </span>
+                        <input
+                          type="text"
+                          value={voiceIdInput}
+                          onChange={(e) => setVoiceIdInput(e.target.value)}
+                          placeholder="e.g. alloy / xZP4VGEopzZsZsxXfpyz"
+                          className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
+                        />
+                        <span className="text-[var(--color-text-tertiary)]">
+                          Vendor-specific voice identifier. ElevenLabs uses voice IDs from your account; OpenAI uses voice names like alloy / nova.
+                        </span>
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs">
+                        <span className="font-semibold text-[var(--color-text-primary)]">
+                          Model id <span className="font-normal text-[var(--color-text-tertiary)]">(optional)</span>
+                        </span>
+                        <input
+                          type="text"
+                          value={modelIdInput}
+                          onChange={(e) => setModelIdInput(e.target.value)}
+                          placeholder="leave blank to use provider default"
+                          className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
+                        />
+                        <span className="text-[var(--color-text-tertiary)]">
+                          Override the provider's default model just for chat speech.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </Section>
@@ -516,14 +569,9 @@ function CloneCard() {
         Need a custom voice?
       </div>
       <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-        Upload a 30-second clean sample to clone a voice. Cloned voices appear with a green badge in
-        the picker.
+        Clone a voice from a 30-second sample inside your TTS provider's own UI (ElevenLabs,
+        Mistral, etc.), then paste the resulting voice id above.
       </p>
-      <Button asChild variant="outline" size="sm" className="mt-3 w-full justify-center">
-        <RouterLink to="/settings/text-to-speech">
-          <Upload className="h-3.5 w-3.5" /> Upload sample
-        </RouterLink>
-      </Button>
     </div>
   );
 }
@@ -621,36 +669,33 @@ function RangeRow({
 // ─── Voice picker entry derivation ──────────────────────────────────────
 
 function buildVoiceEntries(providers: SpeechProvider[]): VoicePickerEntry[] {
+  // Phase D: voice id moved off the provider config and onto ChatSpeechSettings.
+  // Each entry now represents a TTS provider option; voice selection happens in a
+  // separate input below the picker. The "detail" line surfaces the provider's
+  // default model (or vendor) so admins can distinguish Multiple-of-the-same-vendor
+  // setups while picking.
   const tts = providers.filter((p) => p.type === 'Tts' && p.status === 'Active');
   return tts.map((p) => {
     const config = p.config;
-    let voiceLabel = p.displayName;
-    let detail = '';
-    let isCloned = false;
+    let detail: string = p.vendor;
 
     if (config.kind === 'openai-tts') {
-      voiceLabel = config.voiceId || p.displayName;
-      detail = config.modelId ?? 'tts-1';
+      detail = config.defaultModelId ?? 'tts-1';
     } else if (config.kind === 'azure-tts') {
-      voiceLabel = config.voiceId || p.displayName;
       detail = config.region;
     } else if (config.kind === 'elevenlabs-tts') {
-      // ElevenLabs voiceIds are uuids, so prefer the provider display name.
-      voiceLabel = p.displayName;
-      detail = config.modelId ?? 'eleven_multilingual_v2';
+      detail = config.defaultModelId ?? 'eleven_multilingual_v2';
     } else if (config.kind === 'mistral-tts') {
-      voiceLabel = config.voiceId || p.displayName;
-      detail = config.modelId ?? 'voxtral-tts';
-      isCloned = !p.isBuiltIn;
+      detail = config.defaultModelId ?? 'voxtral-tts';
     }
 
     return {
       providerId: p.id,
       providerName: p.displayName,
       vendor: p.vendor,
-      voiceLabel,
+      voiceLabel: p.displayName,
       detail,
-      isCloned,
+      isCloned: !p.isBuiltIn,
     };
   });
 }

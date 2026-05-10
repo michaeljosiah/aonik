@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ExternalLink,
   Layers,
   Loader2,
   Mic,
@@ -8,7 +7,6 @@ import {
   Radio,
   Save,
 } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -160,31 +158,21 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
         title="Voice mode"
         subtitle="The live spoken conversation experience. One recipe is active at a time."
         actions={
-          <>
-            <Button variant="outline" size="sm" asChild>
-              <RouterLink to="/settings/voice">
-                <ExternalLink className="h-3.5 w-3.5" /> Open legacy page
-              </RouterLink>
-            </Button>
-            <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Save changes
-            </Button>
-          </>
+          <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Save changes
+          </Button>
         }
       />
 
-      {/* Phase C.2 callout — runtime now reads the active recipe directly from this row. */}
+      {/* Phase D callout — the WSS pipeline reads the active recipe + provider rows
+          (with their encrypted API keys) from the speech library. No separate legacy
+          page in the loop. */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
         <span className="font-semibold text-[var(--color-text-primary)]">Live</span>{' '}
-        — the WebSocket voice pipeline reads the active recipe directly from this row. The{' '}
-        <RouterLink
-          to="/settings/voice"
-          className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"
-        >
-          legacy page
-        </RouterLink>{' '}
-        is kept around for credential management and will retire once parity is confirmed.
+        — the WebSocket voice pipeline reads the active recipe (and the recipe's TTS
+        provider with its encrypted API key) directly from your library. Pick a recipe
+        below; configure providers + credentials in the Providers tab.
       </div>
 
       {/* Hero status */}
@@ -396,7 +384,7 @@ function SwitchRow({ recipe, onActivate }: { recipe: VoiceRecipe; onActivate: ()
 
 // ─── Right-rail cards ────────────────────────────────────────────────────
 
-function LiveTestCard({ enabled }: { enabled: boolean }) {
+function LiveTestCard(_props: { enabled: boolean }) {
   return (
     <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
       <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">Live test</div>
@@ -404,10 +392,8 @@ function LiveTestCard({ enabled }: { enabled: boolean }) {
         Run a short conversation through the active recipe. Records an AiRun for audit and shows
         latency at each step.
       </p>
-      <Button asChild className="w-full justify-center" disabled={!enabled} size="sm">
-        <RouterLink to="/settings/voice?tab=pipeline">
-          <Mic className="h-3.5 w-3.5" /> Start voice test
-        </RouterLink>
+      <Button className="w-full justify-center" disabled size="sm" title="Inline voice test ships in a follow-up phase.">
+        <Mic className="h-3.5 w-3.5" /> Start voice test
       </Button>
 
       {/* Mic preview waveform */}

@@ -17,8 +17,6 @@ import {
   SettingsAuditLogsPage,
   SettingsAuthenticationPage,
   SettingsPaymentGatewaysPage,
-  SettingsTextToSpeechPage,
-  SettingsVoiceAndSpeechPage,
   SettingsSpeechPage,
   SettingsToolCatalogPage,
   SystemToolsPage,
@@ -117,7 +115,7 @@ const navigation: NavigationSection[] = [
               { id: 'settings-global', label: 'Settings', icon: 'SlidersHorizontal', href: '/settings/global' },
               { id: 'settings-authentication', label: 'Authentication', icon: 'Shield', href: '/settings/authentication' },
               { id: 'settings-payment-gateways', label: 'Payment Gateways', icon: 'Landmark', href: '/settings/payment-gateways' },
-              { id: 'settings-text-to-speech', label: 'Text to Speech', icon: 'AudioLines', href: '/settings/text-to-speech' },
+              { id: 'settings-speech', label: 'Speech & Voice', icon: 'AudioLines', href: '/settings/speech' },
               { id: 'settings-tool-catalog', label: 'Tool Catalog', icon: 'ListChecks', href: '/settings/tool-catalog' },
               { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
               { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
@@ -149,11 +147,10 @@ const routes = [
   { path: '/settings/authentication', element: SettingsAuthenticationPage },
   { path: '/settings/payment-gateways', element: SettingsPaymentGatewaysPage },
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
-  { path: '/settings/text-to-speech', element: SettingsTextToSpeechPage },
-  { path: '/settings/voice', element: SettingsVoiceAndSpeechPage },
-  // Spec 024 — consolidated speech library + recipes + voice mode + chat speech.
-  // The legacy /settings/voice and /settings/text-to-speech pages keep working until the
-  // recipe/active-settings phases (B/C) are in.
+  // Spec 024 — consolidated speech library + recipes + voice mode + chat speech. The
+  // legacy /settings/voice and /settings/text-to-speech routes were retired in Phase D
+  // (host-default credential management is now done via the API direct or the unified
+  // ProviderEditPanel API key field).
   { path: '/settings/speech', element: SettingsSpeechPage },
   { path: '/settings/tool-catalog', element: SettingsToolCatalogPage },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
@@ -187,9 +184,9 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'settings-authentication', title: 'Authentication', type: 'internal', category: 'page', componentKey: 'settings-authentication', route: '/settings/authentication' },
   { id: 'settings-payment-gateways', title: 'Payment Gateways', type: 'internal', category: 'page', componentKey: 'settings-payment-gateways', route: '/settings/payment-gateways' },
   { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', category: 'page', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
-  { id: 'settings-text-to-speech', title: 'Text to Speech', type: 'internal', category: 'page', componentKey: 'settings-text-to-speech', route: '/settings/text-to-speech' },
-  { id: 'settings-voice', title: 'Voice & Speech (legacy)', type: 'internal', category: 'page', componentKey: 'settings-voice', route: '/settings/voice' },
-  // Spec 024 — new consolidated page; tile prominent on the Settings landing.
+  // Spec 024 — consolidated speech page (legacy /settings/voice + /settings/text-to-speech
+  // routes retired in Phase D; the page covers providers, recipes, voice mode, chat speech,
+  // and API key management on the provider edit panel).
   { id: 'settings-speech', title: 'Speech & Voice', type: 'internal', category: 'page', componentKey: 'settings-speech', route: '/settings/speech' },
   { id: 'settings-tool-catalog', title: 'Tool Catalog', type: 'internal', category: 'page', componentKey: 'settings-tool-catalog', route: '/settings/tool-catalog' },
   { id: 'background-jobs', title: 'Background Jobs', type: 'internal', category: 'page', componentKey: 'background-jobs', route: '/settings/background-jobs' },
@@ -214,8 +211,6 @@ const panelComponents = {
   'settings-authentication': wrapPage(SettingsAuthenticationPage),
   'settings-payment-gateways': wrapPage(SettingsPaymentGatewaysPage),
   'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
-  'settings-text-to-speech': wrapPage(SettingsTextToSpeechPage),
-  'settings-voice': wrapPage(SettingsVoiceAndSpeechPage),
   'settings-speech': wrapPage(SettingsSpeechPage),
   'settings-tool-catalog': wrapPage(SettingsToolCatalogPage),
   'background-jobs': wrapPage(BackgroundJobsPage),

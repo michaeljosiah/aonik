@@ -89,10 +89,28 @@ export function RecipeStackEditor({
   const [sentenceAggregator, setSentenceAggregator] = useState<boolean>(
     initial?.chained?.sentenceAggregator ?? true,
   );
+  // Phase D: voice + model picks moved off the provider config and onto the recipe body.
+  const [chainedTtsVoiceId, setChainedTtsVoiceId] = useState<string>(
+    initial?.chained?.ttsVoiceId ?? '',
+  );
+  const [chainedTtsModelId, setChainedTtsModelId] = useState<string>(
+    initial?.chained?.ttsModelId ?? '',
+  );
+  const [chainedSttModel, setChainedSttModel] = useState<string>(
+    initial?.chained?.sttModel ?? '',
+  );
+  const [chainedSttLanguage, setChainedSttLanguage] = useState<string>(
+    initial?.chained?.sttLanguage ?? '',
+  );
 
   // Composite body state.
   const [compositeProviderId, setCompositeProviderId] = useState<string>(
     initial?.composite?.compositeProviderId ?? defaultProviderId(providers, 'Composite'),
+  );
+  const [compositeVoice, setCompositeVoice] = useState<string>(initial?.composite?.voice ?? '');
+  const [compositeModel, setCompositeModel] = useState<string>(initial?.composite?.model ?? '');
+  const [compositeInstructionsAddendum, setCompositeInstructionsAddendum] = useState<string>(
+    initial?.composite?.instructionsAddendum ?? '',
   );
 
   const [saving, setSaving] = useState(false);
@@ -111,11 +129,24 @@ export function RecipeStackEditor({
       return;
     }
 
+    if (kind === 'Chained' && !chainedTtsVoiceId.trim()) {
+      toast.error('TTS voice id is required for chained recipes.');
+      return;
+    }
+    if (kind === 'Composite' && !compositeVoice.trim()) {
+      toast.error('Voice is required for composite recipes.');
+      return;
+    }
+
     const chained: ChainedRecipeBody | null =
       kind === 'Chained'
         ? {
             sttProviderId: chainedSttId,
             ttsProviderId: chainedTtsId,
+            ttsVoiceId: chainedTtsVoiceId.trim(),
+            ttsModelId: chainedTtsModelId.trim() || null,
+            sttModel: chainedSttModel.trim() || null,
+            sttLanguage: chainedSttLanguage.trim() || null,
             pinnedAgentId: pinnedAgentMode === 'pin' && pinnedAgentId.trim() ? pinnedAgentId.trim() : null,
             vad,
             vadStopMs: vadStopMs.trim() ? Number.parseInt(vadStopMs, 10) : null,
@@ -128,6 +159,9 @@ export function RecipeStackEditor({
       kind === 'Composite'
         ? {
             compositeProviderId,
+            voice: compositeVoice.trim(),
+            model: compositeModel.trim() || null,
+            instructionsAddendum: compositeInstructionsAddendum.trim() || null,
             pinnedAgentId: pinnedAgentMode === 'pin' && pinnedAgentId.trim() ? pinnedAgentId.trim() : null,
           }
         : null;
@@ -224,6 +258,14 @@ export function RecipeStackEditor({
             setChainedSttId={setChainedSttId}
             chainedTtsId={chainedTtsId}
             setChainedTtsId={setChainedTtsId}
+            chainedTtsVoiceId={chainedTtsVoiceId}
+            setChainedTtsVoiceId={setChainedTtsVoiceId}
+            chainedTtsModelId={chainedTtsModelId}
+            setChainedTtsModelId={setChainedTtsModelId}
+            chainedSttModel={chainedSttModel}
+            setChainedSttModel={setChainedSttModel}
+            chainedSttLanguage={chainedSttLanguage}
+            setChainedSttLanguage={setChainedSttLanguage}
             pinnedAgentMode={pinnedAgentMode}
             setPinnedAgentMode={setPinnedAgentMode}
             pinnedAgentId={pinnedAgentId}
@@ -242,6 +284,12 @@ export function RecipeStackEditor({
             compositeProviders={compositeProviders}
             compositeProviderId={compositeProviderId}
             setCompositeProviderId={setCompositeProviderId}
+            compositeVoice={compositeVoice}
+            setCompositeVoice={setCompositeVoice}
+            compositeModel={compositeModel}
+            setCompositeModel={setCompositeModel}
+            compositeInstructionsAddendum={compositeInstructionsAddendum}
+            setCompositeInstructionsAddendum={setCompositeInstructionsAddendum}
             pinnedAgentMode={pinnedAgentMode}
             setPinnedAgentMode={setPinnedAgentMode}
             pinnedAgentId={pinnedAgentId}
@@ -272,6 +320,15 @@ interface ChainedStackProps {
   setChainedSttId: (v: string) => void;
   chainedTtsId: string;
   setChainedTtsId: (v: string) => void;
+  // Phase D per-recipe voice + model picks.
+  chainedTtsVoiceId: string;
+  setChainedTtsVoiceId: (v: string) => void;
+  chainedTtsModelId: string;
+  setChainedTtsModelId: (v: string) => void;
+  chainedSttModel: string;
+  setChainedSttModel: (v: string) => void;
+  chainedSttLanguage: string;
+  setChainedSttLanguage: (v: string) => void;
   pinnedAgentMode: 'use-client' | 'pin';
   setPinnedAgentMode: (v: 'use-client' | 'pin') => void;
   pinnedAgentId: string;
@@ -350,6 +407,28 @@ function ChainedStack(props: ChainedStackProps) {
               onCheckedChange={props.setTranscriptionFilter}
             />
           </div>
+          {/* Phase D: per-recipe STT model/language overrides — provider-level defaults
+              apply when blank. */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="stt-model-override">Model override</Label>
+              <Input
+                id="stt-model-override"
+                value={props.chainedSttModel}
+                onChange={(e) => props.setChainedSttModel(e.target.value)}
+                placeholder="leave blank to use provider default"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="stt-language-override">Language hint (BCP-47)</Label>
+              <Input
+                id="stt-language-override"
+                value={props.chainedSttLanguage}
+                onChange={(e) => props.setChainedSttLanguage(e.target.value)}
+                placeholder="e.g. en, en-GB"
+              />
+            </div>
+          </div>
         </div>
       </StepCard>
 
@@ -382,21 +461,47 @@ function ChainedStack(props: ChainedStackProps) {
       <StepConnector />
 
       <StepCard step={5} icon={<Speaker className="h-4 w-4" />} title="Text-to-speech">
-        <div className="space-y-1.5">
-          <Label>Provider</Label>
-          <Select value={props.chainedTtsId} onValueChange={props.setChainedTtsId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Pick a TTS provider…" />
-            </SelectTrigger>
-            <SelectContent>
-              {props.ttsProviders.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.displayName}
-                  {p.isBuiltIn && ' (built-in)'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Provider</Label>
+            <Select value={props.chainedTtsId} onValueChange={props.setChainedTtsId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pick a TTS provider…" />
+              </SelectTrigger>
+              <SelectContent>
+                {props.ttsProviders.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.displayName}
+                    {p.isBuiltIn && ' (built-in)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Phase D: voice + model picks moved off the provider config so different
+              recipes can use different voices on the same vendor. */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="tts-voice-id">
+                Voice id <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="tts-voice-id"
+                value={props.chainedTtsVoiceId}
+                onChange={(e) => props.setChainedTtsVoiceId(e.target.value)}
+                placeholder="e.g. alloy / xZP4VGEopzZsZsxXfpyz"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tts-model-id">Model override</Label>
+              <Input
+                id="tts-model-id"
+                value={props.chainedTtsModelId}
+                onChange={(e) => props.setChainedTtsModelId(e.target.value)}
+                placeholder="leave blank to use provider default"
+              />
+            </div>
+          </div>
         </div>
       </StepCard>
 
@@ -417,6 +522,13 @@ interface CompositeStackProps {
   compositeProviders: SpeechProvider[];
   compositeProviderId: string;
   setCompositeProviderId: (v: string) => void;
+  // Phase D per-recipe picks for composite recipes.
+  compositeVoice: string;
+  setCompositeVoice: (v: string) => void;
+  compositeModel: string;
+  setCompositeModel: (v: string) => void;
+  compositeInstructionsAddendum: string;
+  setCompositeInstructionsAddendum: (v: string) => void;
   pinnedAgentMode: 'use-client' | 'pin';
   setPinnedAgentMode: (v: 'use-client' | 'pin') => void;
   pinnedAgentId: string;
@@ -453,9 +565,44 @@ function CompositeStack(props: CompositeStackProps) {
             </Select>
             <p className="text-xs text-muted-foreground">
               Composite providers handle STT + agent + TTS + VAD inside the vendor's own
-              realtime API. Configure the vendor + voice + instructions on the provider entry
-              itself.
+              realtime API. Voice + model + instruction picks are per-recipe so different
+              recipes can run different voices on the same vendor.
             </p>
+          </div>
+          {/* Phase D: voice + model + instruction picks moved from the provider config to
+              the recipe body. */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="composite-voice">
+                Voice <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="composite-voice"
+                value={props.compositeVoice}
+                onChange={(e) => props.setCompositeVoice(e.target.value)}
+                placeholder="e.g. alloy / nova / shimmer"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="composite-model">Model override</Label>
+              <Input
+                id="composite-model"
+                value={props.compositeModel}
+                onChange={(e) => props.setCompositeModel(e.target.value)}
+                placeholder="leave blank to use provider default"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="composite-instructions-addendum">
+              Instruction addendum (optional)
+            </Label>
+            <Input
+              id="composite-instructions-addendum"
+              value={props.compositeInstructionsAddendum}
+              onChange={(e) => props.setCompositeInstructionsAddendum(e.target.value)}
+              placeholder="appended to the resolved agent's instructions"
+            />
           </div>
           <AgentRoutingControls
             mode={props.pinnedAgentMode}

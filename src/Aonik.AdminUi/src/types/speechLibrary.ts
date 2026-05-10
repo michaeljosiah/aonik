@@ -26,59 +26,57 @@ export type SpeechProviderConfig =
   | OpenAIRealtimeCompositeConfig
   | AzureVoiceLiveCompositeConfig;
 
+// Phase D: configs are vendor-level only. Voice + model selection moved to the
+// consumer (recipe / chat-speech) so different recipes can use different voices on
+// the same vendor. Defaults declared here are inheritance starting points.
+
 export interface OpenAIWhisperConfig {
   kind: 'openai-whisper';
-  model: string | null;
-  language: string | null;
+  defaultModel: string | null;
+  defaultLanguage: string | null;
 }
 
 export interface AzureSttConfig {
   kind: 'azure-stt';
   region: string;
-  language: string | null;
+  defaultLanguage: string | null;
 }
 
 export interface OpenAITtsConfig {
   kind: 'openai-tts';
-  voiceId: string;
-  modelId: string | null;
+  defaultModelId: string | null;
 }
 
 export interface AzureTtsConfig {
   kind: 'azure-tts';
   region: string;
-  voiceId: string;
 }
 
 export interface ElevenLabsTtsConfig {
   kind: 'elevenlabs-tts';
-  voiceId: string;
-  modelId: string | null;
-  stability: number | null;
-  similarityBoost: number | null;
-  optimizeStreamingLatency: number | null;
+  defaultModelId: string | null;
+  defaultStability: number | null;
+  defaultSimilarityBoost: number | null;
+  defaultOptimizeStreamingLatency: number | null;
 }
 
 export interface MistralTtsConfig {
   kind: 'mistral-tts';
-  voiceId: string;
-  modelId: string | null;
+  defaultModelId: string | null;
 }
 
 export interface OpenAIRealtimeCompositeConfig {
   kind: 'openai-realtime';
-  voice: string;
-  model: string | null;
-  instructionsAddendum: string | null;
+  defaultModel: string | null;
+  defaultInstructionsAddendum: string | null;
 }
 
 export interface AzureVoiceLiveCompositeConfig {
   kind: 'azure-voice-live';
   region: string;
   endpoint: string;
-  voice: string;
-  model: string | null;
-  instructionsAddendum: string | null;
+  defaultModel: string | null;
+  defaultInstructionsAddendum: string | null;
 }
 
 // ── Library entries ───────────────────────────────────────────────────────
@@ -91,6 +89,12 @@ export interface SpeechProvider {
   vendor: string;
   config: SpeechProviderConfig;
   status: SpeechProviderStatus;
+  /**
+   * True iff a tenant API key is stored on this row (Phase D). Status-only readback —
+   * the encrypted key itself is never returned. Falsey doesn't mean unauthenticated;
+   * the resolver still falls back to host default + configuration.
+   */
+  hasApiKey: boolean;
   /** True for shipped archetypes; false for tenant-owned. */
   isBuiltIn: boolean;
   /** Increments on every update; built-ins are always 1. */
@@ -128,11 +132,22 @@ export interface CreateSpeechProviderRequest {
   type: SpeechProviderType;
   vendor: string;
   config: SpeechProviderConfig;
+  /**
+   * Plaintext API key. When present it's encrypted at rest and stored on the provider
+   * row, becoming the tenant override in the unified credential resolver. Pass null
+   * to leave the row keyless (admin can fill it in later).
+   */
+  apiKey?: string | null;
 }
 
 export interface UpdateSpeechProviderRequest {
   displayName: string;
   config: SpeechProviderConfig;
+  /**
+   * Tri-state. `null` (or `undefined`) leaves the existing credential alone. Empty
+   * string clears the stored credential. Non-empty encrypts + replaces.
+   */
+  apiKey?: string | null;
 }
 
 export interface CloneSpeechProviderRequest {
