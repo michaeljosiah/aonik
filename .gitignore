@@ -37,6 +37,10 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Exceptions: explicitly tracked paths that happen to match the
+# .NET build-results globs above. These directories ARE source code.
+!.claude/skills/release/
+
 # Build results on 'Bin' directories
 **/[Bb]in/*
 # Uncomment if you have tasks that rely on *.refresh files to move binaries
