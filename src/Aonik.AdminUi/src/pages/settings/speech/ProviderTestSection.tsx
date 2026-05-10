@@ -11,6 +11,8 @@ import { usePcmRecorder } from '@/lib/audio/usePcmRecorder';
 import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
 import type { SpeechProviderType } from '@/types/speechLibrary';
 
+import { VoicePicker } from './VoicePicker';
+
 const DEFAULT_TTS_TEXT =
   'Hi, I’m the Payabo voice assistant. This is a quick test of the selected voice.';
 const STT_SAMPLE_RATE = 16000;
@@ -18,26 +20,29 @@ const STT_SAMPLE_RATE = 16000;
 interface ProviderTestSectionProps {
   providerId: string;
   type: SpeechProviderType;
+  /** Vendor shortcode — drives the VoicePicker's static / remote / free-text dispatch. */
+  vendor: string;
 }
 
 /**
  * Inline "Test" panel rendered at the bottom of the provider edit panel for STT and TTS
  * providers. Reuses the existing AudioWorklet recorder for STT and the native `<audio>`
- * element for TTS playback.
+ * element for TTS playback. Phase D: the TTS panel uses the shared VoicePicker so the
+ * voice list comes from the vendor catalog (static for OpenAI / Realtime / Voice Live;
+ * live API for ElevenLabs + Mistral; free text otherwise).
  */
-export function ProviderTestSection({ providerId, type }: ProviderTestSectionProps) {
-  if (type === 'Tts') return <TtsTestPanel providerId={providerId} />;
+export function ProviderTestSection({ providerId, type, vendor }: ProviderTestSectionProps) {
+  if (type === 'Tts') return <TtsTestPanel providerId={providerId} vendor={vendor} />;
   if (type === 'Stt') return <SttTestPanel providerId={providerId} />;
   return null;
 }
 
 // ── TTS panel ────────────────────────────────────────────────────────────────
 
-function TtsTestPanel({ providerId }: { providerId: string }) {
+function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: string }) {
   const [text, setText] = useState(DEFAULT_TTS_TEXT);
   // Phase D: voice + model are no longer on the provider config — the test endpoint
-  // requires the caller to supply them. Admin types whatever vendor-specific id they
-  // want to preview; recipes + chat speech do the same when picking voices.
+  // requires the caller to supply them. VoicePicker pulls vendor-specific voice lists.
   const [voiceId, setVoiceId] = useState('');
   const [modelId, setModelId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -83,18 +88,14 @@ function TtsTestPanel({ providerId }: { providerId: string }) {
         Test this voice
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="tts-test-voice-id">
-            Voice id <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="tts-test-voice-id"
-            value={voiceId}
-            onChange={(e) => setVoiceId(e.target.value)}
-            placeholder="e.g. alloy / xZP4VGEopzZsZsxXfpyz"
-            disabled={busy}
-          />
-        </div>
+        <VoicePicker
+          id="tts-test-voice-id"
+          vendor={vendor}
+          value={voiceId}
+          onChange={setVoiceId}
+          required
+          disabled={busy}
+        />
         <div className="space-y-2">
           <Label htmlFor="tts-test-model-id">Model override</Label>
           <Input

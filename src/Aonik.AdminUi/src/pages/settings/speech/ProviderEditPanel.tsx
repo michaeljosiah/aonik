@@ -305,7 +305,11 @@ export function ProviderEditPanel({
         )}
 
         {isEditing && initial!.type !== 'Composite' && (
-          <ProviderTestSection providerId={initial!.id} type={initial!.type} />
+          <ProviderTestSection
+            providerId={initial!.id}
+            type={initial!.type}
+            vendor={initial!.vendor}
+          />
         )}
       </SheetBody>
       <SheetFooter className="justify-end">

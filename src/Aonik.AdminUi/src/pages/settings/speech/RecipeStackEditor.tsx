@@ -36,6 +36,8 @@ import type {
   VoiceRecipeKind,
 } from '@/types/voiceRecipes';
 
+import { VoicePicker } from './VoicePicker';
+
 interface RecipeStackEditorProps {
   /** Set when editing or cloning. Null = "Add recipe" form. */
   initial: VoiceRecipe | null;
@@ -479,19 +481,18 @@ function ChainedStack(props: ChainedStackProps) {
             </Select>
           </div>
           {/* Phase D: voice + model picks moved off the provider config so different
-              recipes can use different voices on the same vendor. */}
+              recipes can use different voices on the same vendor. VoicePicker dispatches
+              static / remote / free-text by the selected TTS provider's vendor. */}
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="tts-voice-id">
-                Voice id <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="tts-voice-id"
-                value={props.chainedTtsVoiceId}
-                onChange={(e) => props.setChainedTtsVoiceId(e.target.value)}
-                placeholder="e.g. alloy / xZP4VGEopzZsZsxXfpyz"
-              />
-            </div>
+            <VoicePicker
+              id="tts-voice-id"
+              vendor={
+                props.ttsProviders.find((p) => p.id === props.chainedTtsId)?.vendor ?? ''
+              }
+              value={props.chainedTtsVoiceId}
+              onChange={props.setChainedTtsVoiceId}
+              required
+            />
             <div className="space-y-1.5">
               <Label htmlFor="tts-model-id">Model override</Label>
               <Input
@@ -570,19 +571,20 @@ function CompositeStack(props: CompositeStackProps) {
             </p>
           </div>
           {/* Phase D: voice + model + instruction picks moved from the provider config to
-              the recipe body. */}
+              the recipe body. VoicePicker dispatches by the composite vendor — openai-realtime
+              ships its eight voices statically, azure-voice-live ships three. */}
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="composite-voice">
-                Voice <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="composite-voice"
-                value={props.compositeVoice}
-                onChange={(e) => props.setCompositeVoice(e.target.value)}
-                placeholder="e.g. alloy / nova / shimmer"
-              />
-            </div>
+            <VoicePicker
+              id="composite-voice"
+              label="Voice"
+              vendor={
+                props.compositeProviders.find((p) => p.id === props.compositeProviderId)?.vendor ??
+                ''
+              }
+              value={props.compositeVoice}
+              onChange={props.setCompositeVoice}
+              required
+            />
             <div className="space-y-1.5">
               <Label htmlFor="composite-model">Model override</Label>
               <Input

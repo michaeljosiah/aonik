@@ -25,6 +25,8 @@ import { PageHeader, Pill } from './_primitives';
 
 import type { TabId } from '../SettingsSpeechPage';
 
+import { VoicePicker } from './VoicePicker';
+
 interface ChatSpeechTabProps {
   onJump?: (tab: TabId) => void;
   /** Notify the parent shell that the persisted settings changed (refreshes the rail footer). */
@@ -286,46 +288,49 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
                   ))}
                 </div>
 
-                {/* Voice + model picks (Phase D) — required when a provider is selected. */}
-                {selectedVoice && (
-                  <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
-                      Voice for {voices.find((v) => v.providerId === selectedVoice)?.providerName}
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="flex flex-col gap-1 text-xs">
-                        <span className="font-semibold text-[var(--color-text-primary)]">
-                          Voice id <span className="text-[var(--color-error)]">*</span>
-                        </span>
-                        <input
-                          type="text"
-                          value={voiceIdInput}
-                          onChange={(e) => setVoiceIdInput(e.target.value)}
-                          placeholder="e.g. alloy / xZP4VGEopzZsZsxXfpyz"
-                          className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
-                        />
-                        <span className="text-[var(--color-text-tertiary)]">
-                          Vendor-specific voice identifier. ElevenLabs uses voice IDs from your account; OpenAI uses voice names like alloy / nova.
-                        </span>
-                      </label>
-                      <label className="flex flex-col gap-1 text-xs">
-                        <span className="font-semibold text-[var(--color-text-primary)]">
-                          Model id <span className="font-normal text-[var(--color-text-tertiary)]">(optional)</span>
-                        </span>
-                        <input
-                          type="text"
-                          value={modelIdInput}
-                          onChange={(e) => setModelIdInput(e.target.value)}
-                          placeholder="leave blank to use provider default"
-                          className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
-                        />
-                        <span className="text-[var(--color-text-tertiary)]">
-                          Override the provider's default model just for chat speech.
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                )}
+                {/* Voice + model picks (Phase D) — VoicePicker dispatches static / remote /
+                    free-text by vendor so OpenAI ships its six fixed voices, ElevenLabs +
+                    Mistral fetch live from the vendor API, and unknown vendors degrade to a
+                    text input. */}
+                {selectedVoice &&
+                  (() => {
+                    const v = voices.find((v) => v.providerId === selectedVoice);
+                    if (!v) return null;
+                    return (
+                      <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
+                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+                          Voice for {v.providerName}
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <VoicePicker
+                            id="chat-speech-voice-id"
+                            vendor={v.vendor}
+                            value={voiceIdInput}
+                            onChange={setVoiceIdInput}
+                            required
+                          />
+                          <label className="flex flex-col gap-1 text-xs">
+                            <span className="font-semibold text-[var(--color-text-primary)]">
+                              Model id{' '}
+                              <span className="font-normal text-[var(--color-text-tertiary)]">
+                                (optional)
+                              </span>
+                            </span>
+                            <input
+                              type="text"
+                              value={modelIdInput}
+                              onChange={(e) => setModelIdInput(e.target.value)}
+                              placeholder="leave blank to use provider default"
+                              className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
+                            />
+                            <span className="text-[var(--color-text-tertiary)]">
+                              Override the provider's default model just for chat speech.
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })()}
               </div>
             )}
           </Section>
