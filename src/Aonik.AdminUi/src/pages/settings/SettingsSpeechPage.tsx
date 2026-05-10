@@ -74,9 +74,15 @@ const TABS: SpeechTab[] = [
   },
 ];
 
+interface ActiveStatus {
+  enabled: boolean;
+  /** Display name when the row is enabled AND a target is selected; null otherwise. */
+  name: string | null;
+}
+
 interface ActiveLabels {
-  voiceModeRecipeName: string | null;
-  chatSpeechVoiceName: string | null;
+  voiceMode: ActiveStatus;
+  chatSpeech: ActiveStatus;
 }
 
 export function SettingsSpeechPage() {
@@ -100,8 +106,8 @@ export function SettingsSpeechPage() {
   // footer can re-resolve names without us threading state down or up.
   const [refreshTick, setRefreshTick] = useState(0);
   const [activeLabels, setActiveLabels] = useState<ActiveLabels>({
-    voiceModeRecipeName: null,
-    chatSpeechVoiceName: null,
+    voiceMode: { enabled: false, name: null },
+    chatSpeech: { enabled: false, name: null },
   });
 
   useEffect(() => {
@@ -122,8 +128,8 @@ export function SettingsSpeechPage() {
           ? providers.find((p) => p.id === chatSpeech.activeTtsProviderId)
           : undefined;
         setActiveLabels({
-          voiceModeRecipeName: voiceMode.enabled ? (recipe?.displayName ?? null) : null,
-          chatSpeechVoiceName: chatSpeech.enabled ? (provider?.displayName ?? null) : null,
+          voiceMode: { enabled: voiceMode.enabled, name: recipe?.displayName ?? null },
+          chatSpeech: { enabled: chatSpeech.enabled, name: provider?.displayName ?? null },
         });
       } catch {
         // Footer is decorative — silent failure is fine; next save attempt will retry.
@@ -197,8 +203,16 @@ export function SettingsSpeechPage() {
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
             Now active
           </p>
-          <ActiveFooterRow label="Voice mode" name={activeLabels.voiceModeRecipeName} />
-          <ActiveFooterRow label="Chat speech" name={activeLabels.chatSpeechVoiceName} />
+          <ActiveFooterRow
+            label="Voice mode"
+            status={activeLabels.voiceMode}
+            emptyLabel="no recipe"
+          />
+          <ActiveFooterRow
+            label="Chat speech"
+            status={activeLabels.chatSpeech}
+            emptyLabel="no voice"
+          />
         </div>
       </aside>
 
@@ -219,23 +233,35 @@ export function SettingsSpeechPage() {
   );
 }
 
-function ActiveFooterRow({ label, name }: { label: string; name: string | null }) {
-  const isOn = name !== null;
+function ActiveFooterRow({
+  label,
+  status,
+  emptyLabel,
+}: {
+  label: string;
+  status: ActiveStatus;
+  /** Shown when the row is enabled but no target is selected. */
+  emptyLabel: string;
+}) {
+  const dotOn = status.enabled && status.name !== null;
+  let trailing: React.ReactNode;
+  if (!status.enabled) {
+    trailing = <span className="text-[var(--color-text-tertiary)]">off</span>;
+  } else if (status.name === null) {
+    trailing = <span className="italic text-[var(--color-text-tertiary)]">{emptyLabel}</span>;
+  } else {
+    trailing = <span className="font-semibold">{status.name}</span>;
+  }
   return (
     <div className="mt-1 flex items-start gap-1.5 text-xs first:mt-0">
       <span
         className={cn(
           'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
-          isOn ? 'bg-[var(--color-brand-primary)]' : 'bg-[var(--color-text-tertiary)]',
+          dotOn ? 'bg-[var(--color-brand-primary)]' : 'bg-[var(--color-text-tertiary)]',
         )}
       />
       <span className="min-w-0 text-[var(--color-text-primary)]">
-        {label} ·{' '}
-        {isOn ? (
-          <span className="font-semibold">{name}</span>
-        ) : (
-          <span className="text-[var(--color-text-tertiary)]">off</span>
-        )}
+        {label} · {trailing}
       </span>
     </div>
   );
