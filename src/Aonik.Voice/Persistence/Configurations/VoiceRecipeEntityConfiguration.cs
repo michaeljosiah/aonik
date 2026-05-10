@@ -19,9 +19,18 @@ internal sealed class VoiceRecipeEntityConfiguration : IEntityTypeConfiguration<
         // Chained body fields (nullable columns).
         builder.Property(x => x.ChainedSttProviderId).HasMaxLength(80);
         builder.Property(x => x.ChainedTtsProviderId).HasMaxLength(80);
+        builder.Property(x => x.ChainedTtsVoiceId).HasMaxLength(200);
+        builder.Property(x => x.ChainedTtsModelId).HasMaxLength(80);
+        builder.Property(x => x.ChainedSttModel).HasMaxLength(80);
+        builder.Property(x => x.ChainedSttLanguage).HasMaxLength(20);
         builder.Property(x => x.ChainedPinnedAgentId).HasMaxLength(120);
         builder.Property(x => x.ChainedVad).HasMaxLength(20);
+
+        // Composite body fields (nullable columns).
         builder.Property(x => x.CompositeProviderId).HasMaxLength(80);
+        builder.Property(x => x.CompositeVoice).HasMaxLength(80);
+        builder.Property(x => x.CompositeModel).HasMaxLength(80);
+        builder.Property(x => x.CompositeInstructionsAddendum).HasColumnType("nvarchar(max)");
         builder.Property(x => x.CompositePinnedAgentId).HasMaxLength(120);
 
         builder.Property(x => x.Status).HasConversion<string>().IsRequired().HasMaxLength(20);

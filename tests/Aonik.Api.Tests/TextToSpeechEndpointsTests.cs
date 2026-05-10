@@ -527,27 +527,37 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
             var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
             var protector = scope.ServiceProvider.GetRequiredService<ISettingValueProtector>();
 
-            var credentialKey = TextToSpeechSettingNames.GetProviderApiKeySettingName(provider);
-            var hostCredential = await db.Settings.FirstOrDefaultAsync(item =>
-                item.Key == credentialKey
-                && item.Scope == SettingScope.Global
-                && item.TenantId == null
-                && item.UserId == null);
+            // Phase D: the unified credential resolver looks at SpeechProvider rows + the Voice
+            // host store. Test fixtures used to seed only the legacy TTS host store; we now
+            // write to the Voice store too so the new resolver can find the credential. The
+            // legacy write stays for any code paths still on the old resolver.
+            var legacyCredentialKey = TextToSpeechSettingNames.GetProviderApiKeySettingName(provider);
+            var voiceCredentialKey = VoiceProviderSettingNames.GetProviderApiKeySettingName(provider);
+            var encryptedKey = protector.Protect("test-api-key");
 
-            if (hostCredential == null)
+            foreach (var key in new[] { legacyCredentialKey, voiceCredentialKey })
             {
-                db.Settings.Add(new Setting
+                var hostCredential = await db.Settings.FirstOrDefaultAsync(item =>
+                    item.Key == key
+                    && item.Scope == SettingScope.Global
+                    && item.TenantId == null
+                    && item.UserId == null);
+
+                if (hostCredential == null)
                 {
-                    Key = credentialKey,
-                    Scope = SettingScope.Global,
-                    TenantId = null,
-                    UserId = null,
-                    Value = protector.Protect("test-api-key")
-                });
-            }
-            else
-            {
-                hostCredential.Value = protector.Protect("test-api-key");
+                    db.Settings.Add(new Setting
+                    {
+                        Key = key,
+                        Scope = SettingScope.Global,
+                        TenantId = null,
+                        UserId = null,
+                        Value = encryptedKey,
+                    });
+                }
+                else
+                {
+                    hostCredential.Value = encryptedKey;
+                }
             }
 
             var modelId = provider.Equals("Mistral", StringComparison.OrdinalIgnoreCase)

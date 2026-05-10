@@ -102,11 +102,23 @@ public sealed record CreateSpeechProviderRequest(
     string DisplayName,
     SpeechProviderType Type,
     string Vendor,
-    SpeechProviderConfig Config);
+    SpeechProviderConfig Config,
+    /// <summary>
+    /// Optional plaintext API key. When present it's encrypted at rest and stored on the
+    /// provider row, becoming the tenant override in the credential resolver chain. Pass
+    /// <c>null</c> to leave the row keyless (admin can fill it in later).
+    /// </summary>
+    string? ApiKey = null);
 
 public sealed record UpdateSpeechProviderRequest(
     string DisplayName,
-    SpeechProviderConfig Config);
+    SpeechProviderConfig Config,
+    /// <summary>
+    /// Tri-state. <c>null</c> = leave the existing credential alone (default for "edit display
+    /// name only"). Empty string = clear the stored credential. Non-empty = encrypt + replace.
+    /// The wire layer maps a missing JSON property to <c>null</c>.
+    /// </summary>
+    string? ApiKey = null);
 
 /// <summary>Module-wide tunables.</summary>
 public static class SpeechLibraryConstants

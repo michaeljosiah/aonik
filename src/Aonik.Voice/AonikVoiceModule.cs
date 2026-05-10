@@ -68,10 +68,24 @@ public sealed class AonikVoiceModule : IModule
         services.AddScoped<ISpeechProviderLibraryService, SpeechProviderLibraryService>();
         services.AddScoped<IVoiceRecipeLibraryService, VoiceRecipeLibraryService>();
 
-        // Singleton-per-tenant active settings (spec 024 Phase C). UI writes today; the
-        // AonikVoicePipelineFactory + TextToSpeechService rewire happens in Phase C.2.
+        // Singleton-per-tenant active settings (spec 024 Phase C). The runtime cutover
+        // (Phase C.2) wires the WSS pipeline + TextToSpeechService to read these.
         services.AddScoped<IVoiceModeSettingsService, VoiceModeSettingsService>();
         services.AddScoped<IChatSpeechSettingsService, ChatSpeechSettingsService>();
+
+        // Unified credential resolver (spec 024 Phase D). Replaces the dual
+        // VoiceProviderCredentialSettingsService / TextToSpeechCredentialSettingsService
+        // tenant-override storage with a single source of truth — the SpeechProvider row's
+        // EncryptedApiKey. Host defaults still come from the existing platform service.
+        // Registered concrete-then-bind so all three roles share one instance per scope and
+        // we keep its public InvalidateAsync hook callable from the library service.
+        services.AddScoped<UnifiedSpeechCredentialResolver>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IVoiceProviderCredentialResolver>(
+            sp => sp.GetRequiredService<UnifiedSpeechCredentialResolver>());
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITextToSpeechCredentialResolver>(
+            sp => sp.GetRequiredService<UnifiedSpeechCredentialResolver>());
+        services.AddScoped<ISpeechCredentialCacheInvalidator>(
+            sp => sp.GetRequiredService<UnifiedSpeechCredentialResolver>());
         services.AddDbContext<VoiceDbContext>((sp, options) =>
         {
             if (configuration.GetValue<bool>("UseInMemoryDatabase"))

@@ -4,16 +4,17 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Voice.Library;
 using Aonik.Voice.Persistence;
 using FluentAssertions;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Voice.Tests.Library;
 
 /// <summary>
 /// Service-level coverage of the speech provider library: validation, version bumping,
-/// history snapshots, list/filter behaviour, status transitions, and clone behaviour.
-/// (Built-ins were removed when the library moved to a "create-your-own" flow — the catalog
-/// is intentionally empty and clone always fails.) Uses EF Core InMemory so the tenant query
-/// filter machinery on <c>AonikDbContextBase</c> can run end-to-end.
+/// history snapshots, list/filter behaviour, status transitions, one-row-per-vendor enforcement,
+/// and encrypted API-key handling. Uses EF Core InMemory so the tenant query filter machinery
+/// on <c>AonikDbContextBase</c> can run end-to-end. The data protector is the ephemeral one
+/// from <see cref="EphemeralDataProtectionProvider"/> so the encryption round-trip is real.
 /// </summary>
 public class SpeechProviderLibraryServiceTests : IDisposable
 {
@@ -40,7 +41,9 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             new BuiltInSpeechCatalog(),
             new TestTenantProvider(_tenantId),
             new TestCurrentUserProvider(_userId),
-            _clock);
+            _clock,
+            new EphemeralDataProtectionProvider(),
+            new NullSpeechCredentialCacheInvalidator());
     }
 
     public void Dispose() => _db.Dispose();
@@ -54,24 +57,48 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             DisplayName: "My OpenAI TTS",
             Type: SpeechProviderType.Tts,
             Vendor: "openai",
-            Config: new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1")));
 
         p.IsBuiltIn.Should().BeFalse();
         p.Version.Should().Be(1);
         p.Status.Should().Be(SpeechProviderStatus.Active);
         p.DisplayName.Should().Be("My OpenAI TTS");
         p.Config.Should().BeOfType<OpenAITtsConfig>();
+        p.HasApiKey.Should().BeFalse("no ApiKey was supplied");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Persists_Encrypted_Api_Key_And_Reports_HasApiKey_True()
+    {
+        var p = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: "ElevenLabs",
+            Type: SpeechProviderType.Tts,
+            Vendor: "elevenlabs",
+            Config: new ElevenLabsTtsConfig(
+                DefaultModelId: "eleven_multilingual_v2",
+                DefaultStability: null,
+                DefaultSimilarityBoost: null,
+                DefaultOptimizeStreamingLatency: null),
+            ApiKey: "sk-test-elevenlabs"));
+
+        p.HasApiKey.Should().BeTrue();
+        // Raw key never returned via DTO — defence in depth.
+        var raw = await _db.SpeechProviders.AsNoTracking()
+            .Where(x => x.Vendor == "elevenlabs")
+            .Select(x => x.EncryptedApiKey)
+            .FirstAsync();
+        raw.Should().NotBe("sk-test-elevenlabs", "the row stores the protected blob, not plaintext");
+        raw.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
     public async Task CreateAsync_Rejects_Mismatch_Between_Type_And_Config()
     {
-        // Trying to create a TTS provider with an STT-shaped config.
         var act = async () => await _sut.CreateAsync(new CreateSpeechProviderRequest(
             DisplayName: "Wrong shape",
             Type: SpeechProviderType.Tts,
             Vendor: "openai",
-            Config: new OpenAIWhisperConfig(Model: "whisper-1", Language: null)));
+            Config: new OpenAIWhisperConfig(DefaultModel: "whisper-1", DefaultLanguage: null)));
 
         await act.Should().ThrowAsync<SpeechLibraryValidationException>()
             .WithMessage("*Type=Tts*Vendor=openai*");
@@ -84,10 +111,52 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             DisplayName: "   ",
             Type: SpeechProviderType.Tts,
             Vendor: "openai",
-            Config: new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1")));
 
         await act.Should().ThrowAsync<SpeechLibraryValidationException>()
             .WithMessage("*Display name is required*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Rejects_Duplicate_Vendor_Type_Pair_For_Same_Tenant()
+    {
+        await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: "First Mistral",
+            Type: SpeechProviderType.Tts,
+            Vendor: "mistral",
+            Config: new MistralTtsConfig(DefaultModelId: "voxtral-tts")));
+
+        var act = async () => await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: "Second Mistral",
+            Type: SpeechProviderType.Tts,
+            Vendor: "mistral",
+            Config: new MistralTtsConfig(DefaultModelId: "voxtral-tts")));
+
+        await act.Should().ThrowAsync<SpeechLibraryValidationException>()
+            .Where(ex => ex.Message.Contains("already exists") && ex.Message.Contains("mistral"));
+    }
+
+    [Fact]
+    public async Task CreateAsync_Allows_Same_Vendor_With_Different_Types()
+    {
+        // OpenAI offers both Whisper STT and TTS — admins should be able to set up both.
+        await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: "OpenAI Whisper",
+            Type: SpeechProviderType.Stt,
+            Vendor: "openai",
+            Config: new OpenAIWhisperConfig(DefaultModel: "whisper-1", DefaultLanguage: null)));
+
+        var tts = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: "OpenAI TTS",
+            Type: SpeechProviderType.Tts,
+            Vendor: "openai",
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1")));
+
+        tts.Vendor.Should().Be("openai");
+        tts.Type.Should().Be(SpeechProviderType.Tts);
+
+        var all = await _sut.ListAsync();
+        all.Should().HaveCount(2);
     }
 
     // ── Update + history ───────────────────────────────────────────────────────────────
@@ -99,25 +168,65 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             DisplayName: "v1 name",
             Type: SpeechProviderType.Tts,
             Vendor: "openai",
-            Config: new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1")));
 
         _clock.Advance(TimeSpan.FromMinutes(5));
 
         var guid = Guid.Parse(created.Id);
         var updated = await _sut.UpdateAsync(guid, new UpdateSpeechProviderRequest(
             DisplayName: "v2 name",
-            Config: new OpenAITtsConfig(VoiceId: "onyx", ModelId: "tts-1-hd")));
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1-hd")));
 
         updated.Version.Should().Be(2);
         updated.DisplayName.Should().Be("v2 name");
-        ((OpenAITtsConfig)updated.Config).VoiceId.Should().Be("onyx");
+        ((OpenAITtsConfig)updated.Config).DefaultModelId.Should().Be("tts-1-hd");
 
         var history = await _sut.GetHistoryAsync(updated.Id);
-        history.Should().HaveCount(1, "the v1 snapshot was archived when v2 saved");
+        history.Should().HaveCount(1);
         history[0].Version.Should().Be(1);
         history[0].Action.Should().Be(SpeechProviderHistoryAction.Updated);
         history[0].SnapshotDisplayName.Should().Be("v1 name");
-        ((OpenAITtsConfig)history[0].SnapshotConfig).VoiceId.Should().Be("alloy");
+        ((OpenAITtsConfig)history[0].SnapshotConfig).DefaultModelId.Should().Be("tts-1");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Tri_State_ApiKey_Null_Leaves_Existing()
+    {
+        var created = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: "OpenAI",
+            Type: SpeechProviderType.Tts,
+            Vendor: "openai",
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1"),
+            ApiKey: "sk-original"));
+        var guid = Guid.Parse(created.Id);
+
+        await _sut.UpdateAsync(guid, new UpdateSpeechProviderRequest(
+            DisplayName: "renamed",
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1"),
+            ApiKey: null));   // null == leave alone
+
+        var refreshed = await _sut.GetAsync(created.Id);
+        refreshed!.HasApiKey.Should().BeTrue("null ApiKey should not clear the existing credential");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Tri_State_ApiKey_Empty_String_Clears_Stored()
+    {
+        var created = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: "OpenAI",
+            Type: SpeechProviderType.Tts,
+            Vendor: "openai",
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1"),
+            ApiKey: "sk-original"));
+        var guid = Guid.Parse(created.Id);
+
+        await _sut.UpdateAsync(guid, new UpdateSpeechProviderRequest(
+            DisplayName: created.DisplayName,
+            Config: created.Config,
+            ApiKey: ""));      // explicit clear
+
+        var refreshed = await _sut.GetAsync(created.Id);
+        refreshed!.HasApiKey.Should().BeFalse();
     }
 
     [Fact]
@@ -127,7 +236,7 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             DisplayName: "name v1",
             Type: SpeechProviderType.Tts,
             Vendor: "openai",
-            Config: new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
+            Config: new OpenAITtsConfig(DefaultModelId: "tts-1")));
 
         var guid = Guid.Parse(created.Id);
         for (var i = 2; i <= SpeechLibraryConstants.HistoryRetentionPerEntity + 5; i++)
@@ -135,15 +244,12 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             _clock.Advance(TimeSpan.FromMinutes(1));
             await _sut.UpdateAsync(guid, new UpdateSpeechProviderRequest(
                 DisplayName: $"name v{i}",
-                Config: new OpenAITtsConfig(VoiceId: "alloy", ModelId: $"tts-1-rev{i}")));
+                Config: new OpenAITtsConfig(DefaultModelId: $"tts-1-rev{i}")));
         }
 
         var history = await _sut.GetHistoryAsync(created.Id);
         history.Should().HaveCount(SpeechLibraryConstants.HistoryRetentionPerEntity);
-        // After 29 updates the live row is at Version 30; the most recent archived snapshot is
-        // of Version 29 (the version that existed *before* the 30th update applied).
-        history[0].Version.Should().Be(SpeechLibraryConstants.HistoryRetentionPerEntity + 4,
-            "ring buffer is newest-first; the most recent archived snapshot is index 0");
+        history[0].Version.Should().Be(SpeechLibraryConstants.HistoryRetentionPerEntity + 4);
     }
 
     // ── List ───────────────────────────────────────────────────────────────────────────
@@ -162,12 +268,12 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             "tenant-stt",
             SpeechProviderType.Stt,
             "openai-whisper",
-            new OpenAIWhisperConfig(Model: "whisper-1", Language: "en")));
+            new OpenAIWhisperConfig(DefaultModel: "whisper-1", DefaultLanguage: "en")));
         await _sut.CreateAsync(new CreateSpeechProviderRequest(
             "tenant-tts",
             SpeechProviderType.Tts,
             "openai",
-            new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
 
         var sttOnly = await _sut.ListAsync(type: SpeechProviderType.Stt);
 
@@ -183,7 +289,7 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             "to-disable",
             SpeechProviderType.Tts,
             "openai",
-            new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
 
         await _sut.SetStatusAsync(Guid.Parse(created.Id), SpeechProviderStatus.Disabled);
 
@@ -199,8 +305,6 @@ public class SpeechProviderLibraryServiceTests : IDisposable
     [Fact]
     public async Task CloneBuiltInAsync_Always_Throws_Now_That_Catalog_Is_Empty()
     {
-        // The clone path used to materialise a built-in archetype into a tenant row. Built-ins
-        // were removed in the redesign — every clone attempt should fail with a 422.
         var act = async () => await _sut.CloneBuiltInAsync("built-in:openai-tts-alloy", "anything");
         await act.Should().ThrowAsync<SpeechLibraryValidationException>();
     }
@@ -214,7 +318,7 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             "doomed",
             SpeechProviderType.Tts,
             "openai",
-            new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
 
         await _sut.SetStatusAsync(Guid.Parse(created.Id), SpeechProviderStatus.SoftDeleted);
 

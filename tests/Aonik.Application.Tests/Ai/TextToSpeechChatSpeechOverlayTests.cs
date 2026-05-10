@@ -105,16 +105,21 @@ public class TextToSpeechChatSpeechOverlayTests
 
     private static SpeechProvider BuildElevenLabsProvider(
         string id,
-        string voiceId,
-        string? modelId,
+        string voiceId,                   // kept on the test signature for readability — it
+        string? modelId,                  // flows to the ChatSpeechSettings, not the provider
         SpeechProviderStatus status = SpeechProviderStatus.Active) =>
         new(
             Id: id,
             DisplayName: "Test ElevenLabs",
             Type: SpeechProviderType.Tts,
             Vendor: "elevenlabs",
-            Config: new ElevenLabsTtsConfig(voiceId, modelId, Stability: null, SimilarityBoost: null, OptimizeStreamingLatency: null),
+            Config: new ElevenLabsTtsConfig(
+                DefaultModelId: modelId,
+                DefaultStability: null,
+                DefaultSimilarityBoost: null,
+                DefaultOptimizeStreamingLatency: null),
             Status: status,
+            HasApiKey: false,
             IsBuiltIn: false,
             Version: 1,
             CreatedAt: DateTimeOffset.UtcNow,
@@ -169,6 +174,8 @@ public class TextToSpeechChatSpeechOverlayTests
 
             var chat = new ChatSpeechSettings(
                 ActiveTtsProviderId: chatSpeechProviderId,
+                ActiveTtsVoiceId: chatSpeechProviderResolved is null ? null : "voice-overlay",
+                ActiveTtsModelId: null,
                 Enabled: chatSpeechEnabled,
                 AutoPlay: false,
                 ShowSpeakButton: true,

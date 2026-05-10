@@ -3,9 +3,11 @@ using System.Text.Json.Serialization;
 namespace Aonik.SharedKernel.Abstractions.Ai.Speech;
 
 /// <summary>
-/// One configured speech provider in a tenant's library. Many can coexist for the same vendor —
-/// e.g. "OpenAI TTS — alloy" and "OpenAI TTS HD — onyx" are two separate <see cref="SpeechProvider"/>
-/// rows of vendor <c>openai</c> with different <see cref="Config"/>.
+/// One configured speech provider in a tenant's library. The model is now <b>one row per
+/// (tenant, vendor)</b> — the provider IS the tenant's vendor configuration, including the
+/// encrypted API key. Voice + model selection moved off the provider config and onto the
+/// consumers (<see cref="VoiceRecipe"/> for live conversations, <see cref="ChatSpeechSettings"/>
+/// for chat-reply playback) so different recipes can use different voices for the same vendor.
 ///
 /// <para>
 /// See <c>docs/specifications/024.unified-speech-config-and-composer.md</c> §"Provider library".
@@ -18,12 +20,23 @@ public sealed record SpeechProvider(
     SpeechProviderType Type,
     /// <summary>
     /// Vendor shortcode — <c>openai</c>, <c>azure</c>, <c>elevenlabs</c>, <c>mistral</c>,
-    /// <c>openai-realtime</c>, <c>azure-voice-live</c>. The set is fixed; new vendors require
-    /// adding a derived <see cref="SpeechProviderConfig"/> + a server-side enum entry.
+    /// <c>openai-realtime</c>, <c>azure-voice-live</c>. Each tenant may own at most one row
+    /// per vendor; create-with-duplicate-vendor is rejected with a clear error.
     /// </summary>
     string Vendor,
+    /// <summary>
+    /// Vendor-level configuration (region, default model, etc). Voice + model SELECTION lives
+    /// on the recipe / chat-speech consumer, not here — this carries vendor-wide defaults that
+    /// the consumer can leave blank to inherit.
+    /// </summary>
     SpeechProviderConfig Config,
     SpeechProviderStatus Status,
+    /// <summary>
+    /// True iff a tenant API key is stored on this row. Status-only readback — the encrypted
+    /// key itself is never serialized over the wire. Falsey doesn't mean unauthenticated; the
+    /// resolver still falls back to host default + configuration fallback if this is false.
+    /// </summary>
+    bool HasApiKey,
     /// <summary>True for archetypes that ship in code via <c>BuiltInSpeechCatalog</c>; false for tenant-owned.</summary>
     bool IsBuiltIn,
     /// <summary>Increments on every Update. Built-ins are always Version 1.</summary>
@@ -54,6 +67,13 @@ public enum SpeechProviderStatus
 /// JSON property, which equals the <see cref="SpeechProvider.Vendor"/> shortcode for type-narrow
 /// vendors (e.g. <c>openai-tts</c>) so the UI can render a per-vendor form without a separate
 /// catalog lookup.
+///
+/// <para>
+/// As of the post-Phase-C.2 refactor, <b>voice and model selection are no longer carried here</b>.
+/// They moved to <see cref="ChainedRecipeBody"/> / <see cref="CompositeRecipeBody"/> and
+/// <see cref="ChatSpeechSettings"/>. What remains is genuinely vendor-level: region pinning,
+/// default-model suggestions, and per-vendor tunables like ElevenLabs stability defaults.
+/// </para>
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(OpenAIWhisperConfig), "openai-whisper")]
@@ -69,51 +89,48 @@ public abstract record SpeechProviderConfig;
 // ── STT configs ─────────────────────────────────────────────────────────────────────────────
 
 /// <summary>OpenAI Whisper STT — used by <c>Voxa.Speech.OpenAI.OpenAIWhisperEngine</c>.</summary>
-public sealed record OpenAIWhisperConfig(string? Model, string? Language) : SpeechProviderConfig;
+public sealed record OpenAIWhisperConfig(string? DefaultModel, string? DefaultLanguage) : SpeechProviderConfig;
 
 /// <summary>Azure Speech STT — used by <c>Voxa.Speech.Azure.AzureSpeechToTextEngine</c>.</summary>
-public sealed record AzureSttConfig(string Region, string? Language) : SpeechProviderConfig;
+public sealed record AzureSttConfig(string Region, string? DefaultLanguage) : SpeechProviderConfig;
 
 // ── TTS configs ─────────────────────────────────────────────────────────────────────────────
 
 /// <summary>OpenAI TTS — used by <c>Voxa.Speech.OpenAI.OpenAITextToSpeechEngine</c>.</summary>
-public sealed record OpenAITtsConfig(string VoiceId, string? ModelId) : SpeechProviderConfig;
+public sealed record OpenAITtsConfig(string? DefaultModelId) : SpeechProviderConfig;
 
-/// <summary>Azure Speech TTS — used by <c>Voxa.Speech.Azure.AzureTextToSpeechEngine</c>.</summary>
-public sealed record AzureTtsConfig(string Region, string VoiceId) : SpeechProviderConfig;
+/// <summary>Azure Speech TTS — region is the only vendor-level setting; voice picks live on the recipe.</summary>
+public sealed record AzureTtsConfig(string Region) : SpeechProviderConfig;
 
 /// <summary>ElevenLabs TTS — used by <c>Voxa.Speech.ElevenLabs.ElevenLabsTextToSpeechEngine</c>.</summary>
 public sealed record ElevenLabsTtsConfig(
-    string VoiceId,
-    string? ModelId,
-    double? Stability,
-    double? SimilarityBoost,
-    int? OptimizeStreamingLatency) : SpeechProviderConfig;
+    string? DefaultModelId,
+    double? DefaultStability,
+    double? DefaultSimilarityBoost,
+    int? DefaultOptimizeStreamingLatency) : SpeechProviderConfig;
 
 /// <summary>Mistral Voxtral TTS — used by <c>Voxa.Speech.Mistral.MistralTextToSpeechEngine</c>.</summary>
-public sealed record MistralTtsConfig(string VoiceId, string? ModelId) : SpeechProviderConfig;
+public sealed record MistralTtsConfig(string? DefaultModelId) : SpeechProviderConfig;
 
 // ── Composite configs ───────────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// OpenAI Realtime end-to-end composite — used by <c>Voxa.Services.OpenAIRealtime.OpenAIRealtimeProcessor</c>.
-/// Realtime providers carry their own voice catalog distinct from chained TTS.
+/// OpenAI Realtime end-to-end composite. Voice + model + per-recipe instructions live on
+/// <see cref="CompositeRecipeBody"/>; this carries vendor-level defaults only.
 /// </summary>
 public sealed record OpenAIRealtimeCompositeConfig(
-    string Voice,
-    string? Model,
-    string? InstructionsAddendum) : SpeechProviderConfig;
+    string? DefaultModel,
+    string? DefaultInstructionsAddendum) : SpeechProviderConfig;
 
 /// <summary>
-/// Azure Voice Live end-to-end composite — used by <c>Voxa.Services.AzureVoiceLive.AzureVoiceLiveProcessor</c>.
-/// Endpoint is required because Voice Live is region-pinned.
+/// Azure Voice Live end-to-end composite. Endpoint + region are vendor-level (Voice Live is
+/// region-pinned); voice + model selection lives on <see cref="CompositeRecipeBody"/>.
 /// </summary>
 public sealed record AzureVoiceLiveCompositeConfig(
     string Region,
     string Endpoint,
-    string Voice,
-    string? Model,
-    string? InstructionsAddendum) : SpeechProviderConfig;
+    string? DefaultModel,
+    string? DefaultInstructionsAddendum) : SpeechProviderConfig;
 
 /// <summary>One snapshot of a <see cref="SpeechProvider"/> at a prior version. Read-only.</summary>
 public sealed record SpeechProviderHistoryEntry(

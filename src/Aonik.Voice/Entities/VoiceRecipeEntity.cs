@@ -28,6 +28,14 @@ public sealed class VoiceRecipeEntity : AuditableEntity, ITenantScoped
     /// <summary>Stable provider id (built-in like "built-in:openai-whisper-default" OR Guid as string).</summary>
     public string? ChainedSttProviderId { get; set; }
     public string? ChainedTtsProviderId { get; set; }
+    /// <summary>Required voice id when Kind=Chained — moved off the provider config.</summary>
+    public string? ChainedTtsVoiceId { get; set; }
+    /// <summary>Optional per-recipe TTS model override; falls back to provider's <c>DefaultModelId</c>.</summary>
+    public string? ChainedTtsModelId { get; set; }
+    /// <summary>Optional per-recipe STT model override; falls back to provider's <c>DefaultModel</c>.</summary>
+    public string? ChainedSttModel { get; set; }
+    /// <summary>Optional per-recipe STT language hint; falls back to provider's <c>DefaultLanguage</c>.</summary>
+    public string? ChainedSttLanguage { get; set; }
     public string? ChainedPinnedAgentId { get; set; }
     public string? ChainedVad { get; set; }
     public int? ChainedVadStopMs { get; set; }
@@ -37,6 +45,12 @@ public sealed class VoiceRecipeEntity : AuditableEntity, ITenantScoped
     // ── Composite body (null when Kind=Chained) ─────────────────────────────────────────
 
     public string? CompositeProviderId { get; set; }
+    /// <summary>Required voice when Kind=Composite — moved off the provider config.</summary>
+    public string? CompositeVoice { get; set; }
+    /// <summary>Optional model override; falls back to provider's <c>DefaultModel</c>.</summary>
+    public string? CompositeModel { get; set; }
+    /// <summary>Optional per-recipe instruction addendum.</summary>
+    public string? CompositeInstructionsAddendum { get; set; }
     public string? CompositePinnedAgentId { get; set; }
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────────────

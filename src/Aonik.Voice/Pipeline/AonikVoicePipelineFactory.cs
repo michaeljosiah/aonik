@@ -50,8 +50,10 @@ public sealed record VoicePipelineBuildRequest(
     IServiceProvider RequestServices);
 
 /// <summary>
-/// Fully-resolved chained recipe — STT + TTS provider configs already pulled from the
-/// speech library. The factory pattern-matches on the config types to wire concrete engines.
+/// Fully-resolved chained recipe — STT + TTS provider configs and the per-recipe voice + model
+/// picks already pulled from the speech library. The factory pattern-matches on the config
+/// types to wire concrete engines and uses the recipe-level picks (not the provider's defaults)
+/// for voice + model selection.
 /// </summary>
 /// <param name="RecipeId">Recipe id (built-in or tenant Guid). Surfaced for logging only.</param>
 /// <param name="RecipeDisplayName">Human-readable recipe name. Surfaced for error messages.</param>
@@ -59,6 +61,10 @@ public sealed record VoicePipelineBuildRequest(
 /// <param name="TtsProviderDisplayName">Human-readable TTS provider name. For error messages.</param>
 /// <param name="SttConfig">Polymorphic STT config; runtime requires <see cref="OpenAIWhisperConfig"/>.</param>
 /// <param name="TtsConfig">Polymorphic TTS config; runtime requires <see cref="OpenAITtsConfig"/>.</param>
+/// <param name="TtsVoiceId">Per-recipe voice id (no longer on the provider config).</param>
+/// <param name="TtsModelId">Per-recipe model override; null falls back to the provider's default.</param>
+/// <param name="SttModel">Per-recipe STT model override; null falls back to the provider's default.</param>
+/// <param name="SttLanguage">Per-recipe STT language hint; null falls back to the provider's default.</param>
 /// <param name="UseSentenceAggregator">If false, the SentenceAggregator is omitted from the pipeline.</param>
 public sealed record ChainedRecipeRuntimeSpec(
     string RecipeId,
@@ -67,6 +73,10 @@ public sealed record ChainedRecipeRuntimeSpec(
     string TtsProviderDisplayName,
     SpeechProviderConfig SttConfig,
     SpeechProviderConfig TtsConfig,
+    string TtsVoiceId,
+    string? TtsModelId,
+    string? SttModel,
+    string? SttLanguage,
     bool UseSentenceAggregator);
 
 internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
@@ -116,12 +126,14 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         }
         var openAiKey = credential.ApiKey!;
 
+        // Voice and model selection now lives on the recipe (post-spec-024 refactor) — fall
+        // back to the provider's vendor-level defaults when the recipe didn't override.
         var openAiOptions = new OpenAISpeechOptions
         {
             ApiKey = openAiKey,
-            SttModel = whisperConfig.Model ?? "whisper-1",
-            TtsModel = openaiTtsConfig.ModelId ?? "tts-1",
-            TtsVoice = openaiTtsConfig.VoiceId,
+            SttModel = recipe.SttModel ?? whisperConfig.DefaultModel ?? "whisper-1",
+            TtsModel = recipe.TtsModelId ?? openaiTtsConfig.DefaultModelId ?? "tts-1",
+            TtsVoice = recipe.TtsVoiceId,
         };
 
         var source = new WebSocketAudioSource(request.WebSocket);

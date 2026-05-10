@@ -31,6 +31,14 @@ public sealed class SpeechProviderEntity : AuditableEntity, ITenantScoped
     /// <summary>Polymorphic <see cref="SpeechProviderConfig"/> serialized as JSON. nvarchar(max).</summary>
     public string ConfigJson { get; set; } = "{}";
 
+    /// <summary>
+    /// Encrypted (ASP.NET Data Protection) API key for the vendor, stored on the provider row
+    /// itself so the credential resolver can read it without a join. Null when the tenant
+    /// hasn't supplied a key — the resolver falls back to host default + configuration in that
+    /// case. Never exposed via the public DTO; only a <c>HasApiKey</c> boolean leaves the API.
+    /// </summary>
+    public string? EncryptedApiKey { get; set; }
+
     public SpeechProviderStatus Status { get; set; }
 
     /// <summary>

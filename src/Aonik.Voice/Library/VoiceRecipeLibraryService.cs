@@ -247,6 +247,16 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
             }
             await ValidateProviderRefAsync(chained.SttProviderId, SpeechProviderType.Stt, nameof(chained.SttProviderId), ct);
             await ValidateProviderRefAsync(chained.TtsProviderId, SpeechProviderType.Tts, nameof(chained.TtsProviderId), ct);
+
+            // Voice id moved off the provider config (post-spec-024 refactor); recipes now own
+            // it. Required because there's no sensible vendor-level default once you have
+            // per-recipe voices.
+            if (string.IsNullOrWhiteSpace(chained.TtsVoiceId))
+            {
+                throw new SpeechLibraryValidationException(
+                    "Chained recipes must specify a TTS voice id.",
+                    fieldName: nameof(chained.TtsVoiceId));
+            }
         }
         else if (kind == VoiceRecipeKind.Composite)
         {
@@ -259,6 +269,13 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
                 throw new SpeechLibraryValidationException("Composite recipes must NOT include a chained body.", fieldName: nameof(chained));
             }
             await ValidateProviderRefAsync(composite.CompositeProviderId, SpeechProviderType.Composite, nameof(composite.CompositeProviderId), ct);
+
+            if (string.IsNullOrWhiteSpace(composite.Voice))
+            {
+                throw new SpeechLibraryValidationException(
+                    "Composite recipes must specify a voice.",
+                    fieldName: nameof(composite.Voice));
+            }
         }
     }
 
@@ -296,20 +313,34 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
         {
             entity.ChainedSttProviderId = chained.SttProviderId;
             entity.ChainedTtsProviderId = chained.TtsProviderId;
+            entity.ChainedTtsVoiceId = chained.TtsVoiceId;
+            entity.ChainedTtsModelId = chained.TtsModelId;
+            entity.ChainedSttModel = chained.SttModel;
+            entity.ChainedSttLanguage = chained.SttLanguage;
             entity.ChainedPinnedAgentId = chained.PinnedAgentId;
             entity.ChainedVad = chained.Vad;
             entity.ChainedVadStopMs = chained.VadStopMs;
             entity.ChainedTranscriptionFilter = chained.TranscriptionFilter;
             entity.ChainedSentenceAggregator = chained.SentenceAggregator;
             entity.CompositeProviderId = null;
+            entity.CompositeVoice = null;
+            entity.CompositeModel = null;
+            entity.CompositeInstructionsAddendum = null;
             entity.CompositePinnedAgentId = null;
         }
         else if (composite is not null)
         {
             entity.CompositeProviderId = composite.CompositeProviderId;
+            entity.CompositeVoice = composite.Voice;
+            entity.CompositeModel = composite.Model;
+            entity.CompositeInstructionsAddendum = composite.InstructionsAddendum;
             entity.CompositePinnedAgentId = composite.PinnedAgentId;
             entity.ChainedSttProviderId = null;
             entity.ChainedTtsProviderId = null;
+            entity.ChainedTtsVoiceId = null;
+            entity.ChainedTtsModelId = null;
+            entity.ChainedSttModel = null;
+            entity.ChainedSttLanguage = null;
             entity.ChainedPinnedAgentId = null;
             entity.ChainedVad = null;
             entity.ChainedVadStopMs = null;
@@ -332,6 +363,10 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
                 ? new ChainedRecipeBody(
                     SttProviderId: row.ChainedSttProviderId ?? string.Empty,
                     TtsProviderId: row.ChainedTtsProviderId ?? string.Empty,
+                    TtsVoiceId: row.ChainedTtsVoiceId ?? string.Empty,
+                    TtsModelId: row.ChainedTtsModelId,
+                    SttModel: row.ChainedSttModel,
+                    SttLanguage: row.ChainedSttLanguage,
                     PinnedAgentId: row.ChainedPinnedAgentId,
                     Vad: row.ChainedVad ?? "energy",
                     VadStopMs: row.ChainedVadStopMs,
@@ -341,6 +376,9 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
             SnapshotComposite: row.Kind == VoiceRecipeKind.Composite
                 ? new CompositeRecipeBody(
                     CompositeProviderId: row.CompositeProviderId ?? string.Empty,
+                    Voice: row.CompositeVoice ?? string.Empty,
+                    Model: row.CompositeModel,
+                    InstructionsAddendum: row.CompositeInstructionsAddendum,
                     PinnedAgentId: row.CompositePinnedAgentId)
                 : null,
             At: _clock.UtcNow,
@@ -379,6 +417,10 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
                 ? new ChainedRecipeBody(
                     SttProviderId: row.ChainedSttProviderId ?? string.Empty,
                     TtsProviderId: row.ChainedTtsProviderId ?? string.Empty,
+                    TtsVoiceId: row.ChainedTtsVoiceId ?? string.Empty,
+                    TtsModelId: row.ChainedTtsModelId,
+                    SttModel: row.ChainedSttModel,
+                    SttLanguage: row.ChainedSttLanguage,
                     PinnedAgentId: row.ChainedPinnedAgentId,
                     Vad: row.ChainedVad ?? "energy",
                     VadStopMs: row.ChainedVadStopMs,
@@ -388,6 +430,9 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
             Composite: row.Kind == VoiceRecipeKind.Composite
                 ? new CompositeRecipeBody(
                     CompositeProviderId: row.CompositeProviderId ?? string.Empty,
+                    Voice: row.CompositeVoice ?? string.Empty,
+                    Model: row.CompositeModel,
+                    InstructionsAddendum: row.CompositeInstructionsAddendum,
                     PinnedAgentId: row.CompositePinnedAgentId)
                 : null,
             IsBuiltIn: false,

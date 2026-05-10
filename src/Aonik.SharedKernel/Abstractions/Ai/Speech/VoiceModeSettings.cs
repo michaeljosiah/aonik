@@ -28,14 +28,23 @@ public sealed record UpdateVoiceModeSettingsRequest(
     bool Enabled);
 
 /// <summary>
-/// Per-tenant Chat Speech configuration. Picks which TTS provider from the speech library is
-/// used to read written chat replies aloud, plus the playback ergonomics (auto-play, speaker
-/// button visibility, rate). Independent of <see cref="VoiceModeSettings"/> — the two flows
-/// share providers but configure separately.
+/// Per-tenant Chat Speech configuration. Picks which TTS provider + voice from the speech
+/// library is used to read written chat replies aloud, plus the playback ergonomics (auto-play,
+/// speaker button visibility, rate). Independent of <see cref="VoiceModeSettings"/> — the two
+/// flows share providers but configure separately.
+///
+/// <para>
+/// Voice + model selection is on this row (not the provider) so the same vendor can drive a
+/// different chat voice than what's used in any voice-mode recipe.
+/// </para>
 /// </summary>
 public sealed record ChatSpeechSettings(
-    /// <summary>Currently selected TTS provider id from the library. Null = no voice picked.</summary>
+    /// <summary>Currently selected TTS provider id from the library. Null = no provider picked.</summary>
     string? ActiveTtsProviderId,
+    /// <summary>Required when <see cref="ActiveTtsProviderId"/> is non-null; null otherwise.</summary>
+    string? ActiveTtsVoiceId,
+    /// <summary>Optional per-tenant model override; null falls back to provider default.</summary>
+    string? ActiveTtsModelId,
     bool Enabled,
     /// <summary>Speak each reply automatically as it arrives.</summary>
     bool AutoPlay,
@@ -48,6 +57,8 @@ public sealed record ChatSpeechSettings(
 
 public sealed record UpdateChatSpeechSettingsRequest(
     string? ActiveTtsProviderId,
+    string? ActiveTtsVoiceId,
+    string? ActiveTtsModelId,
     bool Enabled,
     bool AutoPlay,
     bool ShowSpeakButton,

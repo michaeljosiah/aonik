@@ -119,6 +119,13 @@ internal sealed class UpdateSpeechProviderRouteRequest
     public Guid Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public SpeechProviderConfig Config { get; set; } = default!;
+
+    /// <summary>
+    /// Tri-state. <c>null</c> = leave the existing credential alone (default for "edit display
+    /// name only" or when the user didn't touch the API key field). Empty string = clear the
+    /// stored credential. Non-empty = encrypt + replace.
+    /// </summary>
+    public string? ApiKey { get; set; }
 }
 
 internal sealed class UpdateSpeechProviderEndpoint : Endpoint<UpdateSpeechProviderRouteRequest, SpeechProvider>
@@ -133,7 +140,7 @@ internal sealed class UpdateSpeechProviderEndpoint : Endpoint<UpdateSpeechProvid
         Summary(s =>
         {
             s.Summary = "Update speech provider";
-            s.Description = "Update display name and/or config of a tenant-owned provider. Bumps Version and archives the previous snapshot.";
+            s.Description = "Update display name, config, and/or encrypted API key of a tenant-owned provider. Bumps Version and archives the previous snapshot. Pass apiKey=null to leave credentials alone, empty string to clear.";
             s.Response(200, "Updated");
             s.Response(409, "Built-in archetypes are immutable — clone first");
             s.Response(422, "Validation error");
@@ -143,7 +150,10 @@ internal sealed class UpdateSpeechProviderEndpoint : Endpoint<UpdateSpeechProvid
 
     public override async Task HandleAsync(UpdateSpeechProviderRouteRequest req, CancellationToken ct)
     {
-        var inner = new UpdateSpeechProviderRequest(DisplayName: req.DisplayName, Config: req.Config);
+        var inner = new UpdateSpeechProviderRequest(
+            DisplayName: req.DisplayName,
+            Config: req.Config,
+            ApiKey: req.ApiKey);
         var result = await _service.UpdateAsync(req.Id, inner, ct);
         await Send.OkAsync(result, ct);
     }

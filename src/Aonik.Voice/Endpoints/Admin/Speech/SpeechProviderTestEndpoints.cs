@@ -21,6 +21,15 @@ internal sealed class TestSpeechProviderTtsRequest
 {
     public string Id { get; set; } = string.Empty;     // provider id (built-in or tenant Guid)
     public string Text { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Required voice id to test with. Voice selection moved off the provider config in
+    /// Phase D — the admin UI's test affordance asks for a voice up-front, then sends it here.
+    /// </summary>
+    public string VoiceId { get; set; } = string.Empty;
+
+    /// <summary>Optional per-call model override; falls back to the provider's default.</summary>
+    public string? ModelId { get; set; }
 }
 
 internal sealed class TestSpeechProviderTtsEndpoint : Endpoint<TestSpeechProviderTtsRequest>
@@ -65,6 +74,12 @@ internal sealed class TestSpeechProviderTtsEndpoint : Endpoint<TestSpeechProvide
             await Send.ErrorsAsync(400, ct);
             return;
         }
+        if (string.IsNullOrWhiteSpace(req.VoiceId))
+        {
+            AddError("VoiceId is required (voice selection moved off the provider config in Phase D).");
+            await Send.ErrorsAsync(400, ct);
+            return;
+        }
 
         var provider = await _library.GetAsync(req.Id, ct);
         if (provider is null)
@@ -87,7 +102,7 @@ internal sealed class TestSpeechProviderTtsEndpoint : Endpoint<TestSpeechProvide
             return;
         }
 
-        var engineRequest = ToEngineRequest(provider, credential.ApiKey!);
+        var engineRequest = ToEngineRequest(provider, credential.ApiKey!, req.VoiceId, req.ModelId);
         ITextToSpeechEngine? engine = null;
         try
         {
@@ -148,33 +163,39 @@ internal sealed class TestSpeechProviderTtsEndpoint : Endpoint<TestSpeechProvide
         }
     }
 
-    private static TtsPreviewEngineRequest ToEngineRequest(SpeechProvider provider, string apiKey)
+    private static TtsPreviewEngineRequest ToEngineRequest(
+        SpeechProvider provider,
+        string apiKey,
+        string voiceId,
+        string? modelIdOverride)
     {
+        // Voice + model picks come from the request now; the provider config carries vendor
+        // defaults that we fall back to when the override is null.
         return provider.Config switch
         {
             OpenAITtsConfig openai => new TtsPreviewEngineRequest(
                 Provider: "openai",
                 ApiKey: apiKey,
-                VoiceId: openai.VoiceId,
-                ModelId: openai.ModelId,
+                VoiceId: voiceId,
+                ModelId: modelIdOverride ?? openai.DefaultModelId,
                 Region: null),
             AzureTtsConfig azure => new TtsPreviewEngineRequest(
                 Provider: "azure",
                 ApiKey: apiKey,
-                VoiceId: azure.VoiceId,
+                VoiceId: voiceId,
                 ModelId: null,
                 Region: azure.Region),
             ElevenLabsTtsConfig eleven => new TtsPreviewEngineRequest(
                 Provider: "elevenlabs",
                 ApiKey: apiKey,
-                VoiceId: eleven.VoiceId,
-                ModelId: eleven.ModelId,
+                VoiceId: voiceId,
+                ModelId: modelIdOverride ?? eleven.DefaultModelId,
                 Region: null),
             MistralTtsConfig mistral => new TtsPreviewEngineRequest(
                 Provider: "mistral",
                 ApiKey: apiKey,
-                VoiceId: mistral.VoiceId,
-                ModelId: mistral.ModelId,
+                VoiceId: voiceId,
+                ModelId: modelIdOverride ?? mistral.DefaultModelId,
                 Region: null),
             _ => throw new NotSupportedException($"Provider '{provider.Vendor}' has no TTS engine mapping."),
         };
@@ -382,15 +403,15 @@ internal sealed class TestSpeechProviderSttEndpoint : Endpoint<EmptyRequest, Tes
             OpenAIWhisperConfig openai => new SttPreviewEngineRequest(
                 Provider: "openai-whisper",
                 ApiKey: apiKey,
-                Model: openai.Model,
-                Language: openai.Language,
+                Model: openai.DefaultModel,
+                Language: openai.DefaultLanguage,
                 Region: null,
                 InputSampleRate: sampleRate),
             AzureSttConfig azure => new SttPreviewEngineRequest(
                 Provider: "azure",
                 ApiKey: apiKey,
                 Model: null,
-                Language: azure.Language,
+                Language: azure.DefaultLanguage,
                 Region: azure.Region,
                 InputSampleRate: sampleRate),
             _ => throw new NotSupportedException($"Provider '{provider.Vendor}' has no STT engine mapping."),

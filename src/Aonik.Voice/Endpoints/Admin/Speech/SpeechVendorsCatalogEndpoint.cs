@@ -10,6 +10,12 @@ namespace Aonik.Voice.Endpoints.Admin.Speech;
 /// require a UI rebuild — the front-end re-fetches this catalog and re-renders.
 ///
 /// <para>
+/// Post-Phase-D: fields are vendor-level only (region, default model, vendor-wide tunables).
+/// Voice + model selection moved to the recipe + chat-speech forms — this catalog drives the
+/// "set up the vendor" form, not the "use the vendor" form.
+/// </para>
+///
+/// <para>
 /// Not strict JSON Schema. Closer in spirit to <a href="https://jsonforms.io">JSONForms</a>:
 /// each field declares its widget hint, and the renderer maps it to a typed input. Keeps the
 /// schema small and the renderer simple.
@@ -24,7 +30,7 @@ internal sealed class SpeechVendorsCatalogEndpoint : EndpointWithoutRequest<Spee
         Summary(s =>
         {
             s.Summary = "Speech vendors form catalog";
-            s.Description = "Returns the per-vendor form schema + voice/region catalogs the admin UI uses to render the provider edit panel.";
+            s.Description = "Returns the per-vendor form schema the admin UI uses to render the provider edit panel. Post-Phase-D: fields are vendor-level only — voice/model selection moved to recipe + chat-speech forms.";
             s.Response(200, "Catalog");
         });
         Options(x => x.WithTags("Speech library"));
@@ -60,10 +66,7 @@ public sealed record SpeechVendorFormField(
     string Name,
     /// <summary>UI label.</summary>
     string Label,
-    /// <summary>Renderer hint: <c>text</c>, <c>password</c>, <c>select</c>, <c>remote-select</c>,
-    /// <c>number</c>, <c>textarea</c>. <c>remote-select</c> tells the front-end to fetch the
-    /// option list from the live provider API (using the existing host/tenant credential chain)
-    /// instead of relying on a static set in <see cref="Options"/>.</summary>
+    /// <summary>Renderer hint: <c>text</c>, <c>password</c>, <c>select</c>, <c>number</c>, <c>textarea</c>.</summary>
     string Widget,
     bool Required,
     /// <summary>Helper text shown beneath the input.</summary>
@@ -72,15 +75,11 @@ public sealed record SpeechVendorFormField(
     string? Placeholder = null,
     /// <summary>Default value if the user leaves the field blank.</summary>
     string? Default = null,
-    /// <summary>For <c>select</c> widgets: the dropdown options. Ignored by <c>remote-select</c>.</summary>
+    /// <summary>For <c>select</c> widgets: the dropdown options.</summary>
     IReadOnlyList<SpeechVendorFormOption>? Options = null,
     /// <summary>For <c>number</c> widgets: validation bounds.</summary>
     double? Min = null,
-    double? Max = null,
-    /// <summary>For <c>remote-select</c> widgets: identifier the front-end uses to pick the
-    /// loader function (e.g. <c>elevenlabs-voices</c>, <c>mistral-voices</c>). Today the
-    /// loader hits the existing <c>/tts-settings/voices</c> endpoint scoped by vendor.</summary>
-    string? RemoteOptionsKey = null);
+    double? Max = null);
 
 public sealed record SpeechVendorFormOption(string Value, string Label, string? Description = null);
 
@@ -109,15 +108,15 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "openai-whisper",
                 Fields: new[]
                 {
-                    Field("model", "Model", "select", required: false, defaultValue: "whisper-1",
+                    Field("defaultModel", "Default model", "select", required: false, defaultValue: "whisper-1",
                         options: new[]
                         {
                             new SpeechVendorFormOption("whisper-1", "whisper-1", "Standard Whisper model"),
                         },
-                        description: "OpenAI Whisper model id."),
-                    Field("language", "Language hint (BCP-47)", "text", required: false,
+                        description: "Recipes can override per-call. Leave blank to use whisper-1."),
+                    Field("defaultLanguage", "Default language hint (BCP-47)", "text", required: false,
                         placeholder: "en (auto-detect if blank)",
-                        description: "Optional. Bias Whisper toward a specific language."),
+                        description: "Bias Whisper toward a specific language. Recipes can override."),
                 }),
 
             new SpeechVendorFormSchema(
@@ -125,23 +124,14 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "openai-tts",
                 Fields: new[]
                 {
-                    Field("voiceId", "Voice", "select", required: true, defaultValue: "alloy",
-                        options: new[]
-                        {
-                            new SpeechVendorFormOption("alloy", "Alloy", "Balanced, neutral"),
-                            new SpeechVendorFormOption("echo", "Echo", "Warm, slightly lower"),
-                            new SpeechVendorFormOption("fable", "Fable", "Expressive, narrative"),
-                            new SpeechVendorFormOption("onyx", "Onyx", "Deep, authoritative"),
-                            new SpeechVendorFormOption("nova", "Nova", "Bright, energetic"),
-                            new SpeechVendorFormOption("shimmer", "Shimmer", "Soft, friendly"),
-                        }),
-                    Field("modelId", "Model", "select", required: false, defaultValue: "tts-1",
+                    Field("defaultModelId", "Default model", "select", required: false, defaultValue: "tts-1",
                         options: new[]
                         {
                             new SpeechVendorFormOption("tts-1", "tts-1", "Standard quality, lower latency"),
                             new SpeechVendorFormOption("tts-1-hd", "tts-1-hd", "Higher fidelity"),
                             new SpeechVendorFormOption("gpt-4o-mini-tts", "gpt-4o-mini-tts", "GPT-4o-based"),
-                        }),
+                        },
+                        description: "Recipes can override per-call."),
                 }),
         });
 
@@ -158,7 +148,7 @@ internal static class SpeechVendorCatalog
                 {
                     Field("region", "Region", "text", required: true, defaultValue: "eastus",
                         placeholder: "e.g. eastus, westeurope, uksouth"),
-                    Field("language", "Recognition language (BCP-47)", "text", required: false,
+                    Field("defaultLanguage", "Default recognition language (BCP-47)", "text", required: false,
                         defaultValue: "en-US"),
                 }),
 
@@ -167,16 +157,8 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "azure-tts",
                 Fields: new[]
                 {
-                    Field("region", "Region", "text", required: true, defaultValue: "eastus"),
-                    Field("voiceId", "Voice", "select", required: true, defaultValue: "en-US-JennyNeural",
-                        options: new[]
-                        {
-                            new SpeechVendorFormOption("en-US-JennyNeural", "Jenny (en-US)", "Warm, conversational"),
-                            new SpeechVendorFormOption("en-US-AriaNeural", "Aria (en-US)", "Friendly, cheerful"),
-                            new SpeechVendorFormOption("en-US-GuyNeural", "Guy (en-US)", "Deeper male"),
-                            new SpeechVendorFormOption("en-GB-SoniaNeural", "Sonia (en-GB)", "British English female"),
-                            new SpeechVendorFormOption("en-AU-NatashaNeural", "Natasha (en-AU)", "Australian English female"),
-                        }),
+                    Field("region", "Region", "text", required: true, defaultValue: "eastus",
+                        description: "Azure Speech is region-pinned. Voice picks happen on the recipe."),
                 }),
         });
 
@@ -191,22 +173,18 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "elevenlabs-tts",
                 Fields: new[]
                 {
-                    Field("voiceId", "Voice", "remote-select", required: true,
-                        remoteOptionsKey: "elevenlabs-voices",
-                        description: "Loaded live from your ElevenLabs account (host or tenant credential). Includes preset and cloned voices.",
-                        placeholder: "Select an ElevenLabs voice"),
-                    Field("modelId", "Model", "select", required: false, defaultValue: "eleven_multilingual_v2",
+                    Field("defaultModelId", "Default model", "select", required: false, defaultValue: "eleven_multilingual_v2",
                         options: new[]
                         {
                             new SpeechVendorFormOption("eleven_multilingual_v2", "Multilingual v2", "Stable, multi-language"),
                             new SpeechVendorFormOption("eleven_turbo_v2_5", "Turbo v2.5", "Lower latency"),
                             new SpeechVendorFormOption("eleven_flash_v2_5", "Flash v2.5", "Lowest latency"),
                         }),
-                    Field("stability", "Stability", "number", required: false, min: 0, max: 1,
-                        description: "0.0–1.0. Higher = more consistent."),
-                    Field("similarityBoost", "Similarity boost", "number", required: false, min: 0, max: 1,
+                    Field("defaultStability", "Default stability", "number", required: false, min: 0, max: 1,
+                        description: "0.0–1.0. Higher = more consistent. Vendor-wide default."),
+                    Field("defaultSimilarityBoost", "Default similarity boost", "number", required: false, min: 0, max: 1,
                         description: "0.0–1.0. Higher = closer to original voice."),
-                    Field("optimizeStreamingLatency", "Latency optimization", "number", required: false, min: 0, max: 4,
+                    Field("defaultOptimizeStreamingLatency", "Default latency optimization", "number", required: false, min: 0, max: 4,
                         description: "0–4. Higher = lower latency, more artefacts."),
                 }),
         });
@@ -222,11 +200,7 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "mistral-tts",
                 Fields: new[]
                 {
-                    Field("voiceId", "Voice", "remote-select", required: true,
-                        remoteOptionsKey: "mistral-voices",
-                        description: "Loaded live from the Mistral voice catalog (host or tenant credential). Includes preset and cloned voices.",
-                        placeholder: "Select a Mistral voice"),
-                    Field("modelId", "Model", "text", required: false, defaultValue: "voxtral-tts"),
+                    Field("defaultModelId", "Default model", "text", required: false, defaultValue: "voxtral-tts"),
                 }),
         });
 
@@ -241,27 +215,14 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "openai-realtime",
                 Fields: new[]
                 {
-                    Field("voice", "Voice", "select", required: true, defaultValue: "alloy",
-                        options: new[]
-                        {
-                            new SpeechVendorFormOption("alloy", "Alloy"),
-                            new SpeechVendorFormOption("ash", "Ash"),
-                            new SpeechVendorFormOption("ballad", "Ballad"),
-                            new SpeechVendorFormOption("coral", "Coral"),
-                            new SpeechVendorFormOption("echo", "Echo"),
-                            new SpeechVendorFormOption("sage", "Sage"),
-                            new SpeechVendorFormOption("shimmer", "Shimmer"),
-                            new SpeechVendorFormOption("verse", "Verse"),
-                        },
-                        description: "Realtime voices are distinct from chained TTS voices."),
-                    Field("model", "Model", "select", required: false, defaultValue: "gpt-realtime-mini",
+                    Field("defaultModel", "Default model", "select", required: false, defaultValue: "gpt-realtime-mini",
                         options: new[]
                         {
                             new SpeechVendorFormOption("gpt-realtime-mini", "gpt-realtime-mini", "Cost-optimised"),
                             new SpeechVendorFormOption("gpt-realtime", "gpt-realtime", "Highest fidelity"),
                         }),
-                    Field("instructionsAddendum", "Instructions addendum", "textarea", required: false,
-                        description: "Appended to the resolved agent's instructions."),
+                    Field("defaultInstructionsAddendum", "Default instruction addendum", "textarea", required: false,
+                        description: "Vendor-wide append to the resolved agent's instructions. Recipes can override."),
                 }),
         });
 
@@ -280,21 +241,14 @@ internal static class SpeechVendorCatalog
                         description: "Voice Live availability is regional."),
                     Field("endpoint", "Endpoint URL", "text", required: true,
                         placeholder: "wss://uksouth.tts.speech.microsoft.com/cognitiveservices/voicelive"),
-                    Field("voice", "Voice", "select", required: true, defaultValue: "alloy",
-                        options: new[]
-                        {
-                            new SpeechVendorFormOption("alloy", "Alloy"),
-                            new SpeechVendorFormOption("nova", "Nova"),
-                            new SpeechVendorFormOption("shimmer", "Shimmer"),
-                        }),
-                    Field("model", "Model", "select", required: false, defaultValue: "gpt-realtime-mini",
+                    Field("defaultModel", "Default model", "select", required: false, defaultValue: "gpt-realtime-mini",
                         options: new[]
                         {
                             new SpeechVendorFormOption("gpt-realtime-mini", "gpt-realtime-mini"),
                             new SpeechVendorFormOption("gpt-realtime", "gpt-realtime"),
                             new SpeechVendorFormOption("phi4-mm-realtime", "phi4-mm-realtime"),
                         }),
-                    Field("instructionsAddendum", "Instructions addendum", "textarea", required: false),
+                    Field("defaultInstructionsAddendum", "Default instruction addendum", "textarea", required: false),
                 }),
         });
 
@@ -308,8 +262,7 @@ internal static class SpeechVendorCatalog
         string? description = null,
         IReadOnlyList<SpeechVendorFormOption>? options = null,
         double? min = null,
-        double? max = null,
-        string? remoteOptionsKey = null)
+        double? max = null)
         => new(
             Name: name,
             Label: label,
@@ -320,6 +273,5 @@ internal static class SpeechVendorCatalog
             Default: defaultValue,
             Options: options,
             Min: min,
-            Max: max,
-            RemoteOptionsKey: remoteOptionsKey);
+            Max: max);
 }

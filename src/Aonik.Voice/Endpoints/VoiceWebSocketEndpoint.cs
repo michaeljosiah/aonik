@@ -282,6 +282,10 @@ internal static class VoiceWebSocketEndpoint
             TtsProviderDisplayName: tts.DisplayName,
             SttConfig: stt.Config,
             TtsConfig: tts.Config,
+            TtsVoiceId: recipe.Chained.TtsVoiceId,
+            TtsModelId: recipe.Chained.TtsModelId,
+            SttModel: recipe.Chained.SttModel,
+            SttLanguage: recipe.Chained.SttLanguage,
             UseSentenceAggregator: recipe.Chained.SentenceAggregator);
     }
 

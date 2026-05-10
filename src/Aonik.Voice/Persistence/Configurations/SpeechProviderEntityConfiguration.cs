@@ -38,6 +38,9 @@ internal sealed class SpeechProviderEntityConfiguration : IEntityTypeConfigurati
             .IsRequired()
             .HasColumnType("nvarchar(max)");
 
+        builder.Property(x => x.EncryptedApiKey)
+            .HasColumnType("nvarchar(max)");
+
         builder.Property(x => x.Status)
             .HasConversion<string>()
             .IsRequired()
@@ -58,5 +61,17 @@ internal sealed class SpeechProviderEntityConfiguration : IEntityTypeConfigurati
         // provider id still exists + is active for this tenant.
         builder.HasIndex(x => new { x.TenantId, x.Status })
             .HasDatabaseName("IX_AnkSpeechProviders_Tenant_Status");
+
+        // Enforce one-row-per-(tenant, vendor, type). Why three columns: vendors like OpenAI
+        // span multiple types (Stt via Whisper + Tts) and admins legitimately want both.
+        // What we still want to prevent is two "OpenAI TTS" rows competing for the same
+        // credential lookup. The unified credential resolver dedupes across types within a
+        // vendor (any active row's EncryptedApiKey wins), so OpenAI STT + OpenAI TTS share
+        // one key without the user having to enter it twice. Filtered index on non-deleted
+        // rows so soft-deletes don't block reusing a vendor+type combination.
+        builder.HasIndex(x => new { x.TenantId, x.Vendor, x.Type })
+            .HasDatabaseName("IX_AnkSpeechProviders_Tenant_Vendor_Type_Unique")
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }

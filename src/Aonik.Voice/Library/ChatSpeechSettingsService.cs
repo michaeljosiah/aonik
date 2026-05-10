@@ -52,6 +52,7 @@ internal sealed class ChatSpeechSettingsService : IChatSpeechSettingsService
     {
         ValidateRate(request.RatePercent);
         await ValidateProviderReferenceAsync(request.ActiveTtsProviderId, cancellationToken);
+        ValidateVoiceConsistency(request.ActiveTtsProviderId, request.ActiveTtsVoiceId);
 
         var existing = await LoadAsync(cancellationToken);
         if (existing is null)
@@ -60,6 +61,8 @@ internal sealed class ChatSpeechSettingsService : IChatSpeechSettingsService
             {
                 TenantId = _tenant.GetCurrentTenantId(),
                 ActiveTtsProviderId = request.ActiveTtsProviderId,
+                ActiveTtsVoiceId = request.ActiveTtsVoiceId,
+                ActiveTtsModelId = request.ActiveTtsModelId,
                 Enabled = request.Enabled,
                 AutoPlay = request.AutoPlay,
                 ShowSpeakButton = request.ShowSpeakButton,
@@ -70,6 +73,8 @@ internal sealed class ChatSpeechSettingsService : IChatSpeechSettingsService
         else
         {
             existing.ActiveTtsProviderId = request.ActiveTtsProviderId;
+            existing.ActiveTtsVoiceId = request.ActiveTtsVoiceId;
+            existing.ActiveTtsModelId = request.ActiveTtsModelId;
             existing.Enabled = request.Enabled;
             existing.AutoPlay = request.AutoPlay;
             existing.ShowSpeakButton = request.ShowSpeakButton;
@@ -78,6 +83,19 @@ internal sealed class ChatSpeechSettingsService : IChatSpeechSettingsService
 
         await _db.SaveChangesAsync(cancellationToken);
         return ToDto(existing);
+    }
+
+    private static void ValidateVoiceConsistency(string? providerId, string? voiceId)
+    {
+        // Pairing rule: if a provider is selected, a voice must be too. Voice without
+        // provider doesn't make sense; the form should keep them in lockstep but we enforce
+        // server-side as defence in depth.
+        if (!string.IsNullOrEmpty(providerId) && string.IsNullOrWhiteSpace(voiceId))
+        {
+            throw new SpeechLibraryValidationException(
+                "ActiveTtsVoiceId is required when ActiveTtsProviderId is set.",
+                fieldName: nameof(UpdateChatSpeechSettingsRequest.ActiveTtsVoiceId));
+        }
     }
 
     private async Task<ChatSpeechSettingsEntity?> LoadAsync(CancellationToken ct)
@@ -122,6 +140,8 @@ internal sealed class ChatSpeechSettingsService : IChatSpeechSettingsService
 
     private ChatSpeechSettings Defaults() => new(
         ActiveTtsProviderId: null,
+        ActiveTtsVoiceId: null,
+        ActiveTtsModelId: null,
         Enabled: true,
         AutoPlay: false,
         ShowSpeakButton: true,
@@ -131,6 +151,8 @@ internal sealed class ChatSpeechSettingsService : IChatSpeechSettingsService
 
     private static ChatSpeechSettings ToDto(ChatSpeechSettingsEntity e) => new(
         ActiveTtsProviderId: e.ActiveTtsProviderId,
+        ActiveTtsVoiceId: e.ActiveTtsVoiceId,
+        ActiveTtsModelId: e.ActiveTtsModelId,
         Enabled: e.Enabled,
         AutoPlay: e.AutoPlay,
         ShowSpeakButton: e.ShowSpeakButton,

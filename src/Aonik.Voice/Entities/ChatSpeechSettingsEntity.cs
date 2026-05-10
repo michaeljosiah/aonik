@@ -24,6 +24,16 @@ public sealed class ChatSpeechSettingsEntity : AuditableEntity, ITenantScoped
     /// </summary>
     public string? ActiveTtsProviderId { get; set; }
 
+    /// <summary>
+    /// Required when <see cref="ActiveTtsProviderId"/> is non-null; null otherwise. Voice id
+    /// is stored on this row (rather than the provider) so the same TTS vendor can be used
+    /// for chat replies with one voice and for a voice-mode recipe with another voice.
+    /// </summary>
+    public string? ActiveTtsVoiceId { get; set; }
+
+    /// <summary>Optional per-tenant model override; null falls back to provider default.</summary>
+    public string? ActiveTtsModelId { get; set; }
+
     public bool Enabled { get; set; } = true;
 
     /// <summary>Speak each reply automatically as it arrives. Default off (operator opt-in).</summary>

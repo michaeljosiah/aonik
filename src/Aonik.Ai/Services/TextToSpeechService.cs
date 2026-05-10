@@ -567,7 +567,22 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
             return working;
         }
 
-        var overlaidProfile = TryBuildProfileFromSpeechProvider(working.DefaultProfile, sp);
+        // Voice id moved off the provider config (Phase D refactor) — read it from the
+        // singleton chat-speech row. If it's missing the validator should have caught the
+        // pairing rule already; we still defend with a fall-back.
+        if (string.IsNullOrWhiteSpace(chat.ActiveTtsVoiceId))
+        {
+            _logger.LogWarning(
+                "ChatSpeech ActiveTtsProviderId {Id} is set but ActiveTtsVoiceId is empty; falling back to legacy DefaultProfile.",
+                chat.ActiveTtsProviderId);
+            return working;
+        }
+
+        var overlaidProfile = TryBuildProfileFromSpeechProvider(
+            working.DefaultProfile,
+            sp,
+            chat.ActiveTtsVoiceId!,
+            chat.ActiveTtsModelId);
         if (overlaidProfile is null)
         {
             // We don't have an engine wired for this config kind yet (e.g. OpenAI TTS in
@@ -585,32 +600,47 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
     }
 
     /// <summary>
-    /// Maps a <see cref="SpeechProvider.Config"/> into the legacy
-    /// <see cref="TextToSpeechVoiceProfile"/> shape. Returns null when the config kind has no
-    /// chat-path engine wired (callers fall back to the legacy profile).
+    /// Maps a <see cref="SpeechProvider.Config"/> + the per-tenant voice/model picks from
+    /// <see cref="ChatSpeechSettings"/> into the legacy <see cref="TextToSpeechVoiceProfile"/>
+    /// shape. Returns null when the config kind has no chat-path engine wired (callers fall
+    /// back to the legacy profile).
     /// </summary>
     private static TextToSpeechVoiceProfile? TryBuildProfileFromSpeechProvider(
         TextToSpeechVoiceProfile fallback,
-        SpeechProvider sp)
+        SpeechProvider sp,
+        string voiceId,
+        string? modelId)
     {
         return sp.Config switch
         {
             ElevenLabsTtsConfig el => new TextToSpeechVoiceProfile(
                 Provider: "ElevenLabs",
-                VoiceId: el.VoiceId,
-                ModelId: string.IsNullOrWhiteSpace(el.ModelId) ? fallback.ModelId : el.ModelId,
+                VoiceId: voiceId,
+                ModelId: ResolveModelId(modelId, el.DefaultModelId, fallback.ModelId),
                 Locale: fallback.Locale,
                 OutputFormat: fallback.OutputFormat,
                 ProviderOptions: BuildElevenLabsOptions(el)),
             MistralTtsConfig m => new TextToSpeechVoiceProfile(
                 Provider: "Mistral",
-                VoiceId: m.VoiceId,
-                ModelId: string.IsNullOrWhiteSpace(m.ModelId) ? fallback.ModelId : m.ModelId,
+                VoiceId: voiceId,
+                ModelId: ResolveModelId(modelId, m.DefaultModelId, fallback.ModelId),
                 Locale: fallback.Locale,
                 OutputFormat: fallback.OutputFormat,
                 ProviderOptions: new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)),
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// Three-step model id resolution: per-tenant override → provider's default → legacy
+    /// fallback profile. Used so admins can set a vendor-wide default model on the provider
+    /// row and only override per chat-speech setting when needed.
+    /// </summary>
+    private static string ResolveModelId(string? perTenantOverride, string? providerDefault, string fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(perTenantOverride)) return perTenantOverride!;
+        if (!string.IsNullOrWhiteSpace(providerDefault)) return providerDefault!;
+        return fallback;
     }
 
     /// <summary>
@@ -622,9 +652,9 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
     {
         var opts = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var inv = System.Globalization.CultureInfo.InvariantCulture;
-        if (el.Stability.HasValue) opts["stability"] = el.Stability.Value.ToString(inv);
-        if (el.SimilarityBoost.HasValue) opts["similarityBoost"] = el.SimilarityBoost.Value.ToString(inv);
-        if (el.OptimizeStreamingLatency.HasValue) opts["optimizeStreamingLatency"] = el.OptimizeStreamingLatency.Value.ToString(inv);
+        if (el.DefaultStability.HasValue) opts["stability"] = el.DefaultStability.Value.ToString(inv);
+        if (el.DefaultSimilarityBoost.HasValue) opts["similarityBoost"] = el.DefaultSimilarityBoost.Value.ToString(inv);
+        if (el.DefaultOptimizeStreamingLatency.HasValue) opts["optimizeStreamingLatency"] = el.DefaultOptimizeStreamingLatency.Value.ToString(inv);
         return opts;
     }
 

@@ -4,6 +4,7 @@ using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Voice.Entities;
 using Aonik.Voice.Persistence;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Voice.Library;
@@ -11,8 +12,14 @@ namespace Aonik.Voice.Library;
 /// <summary>
 /// Per-tenant CRUD over the speech provider library. Built-in archetypes (from
 /// <see cref="IBuiltInSpeechCatalog"/>) are merged into list responses; tenant-owned rows live
-/// in <c>AnkSpeechProviders</c>. Validation, version bumping, and history snapshot writing all
-/// happen here so the endpoint layer is a thin pass-through.
+/// in <c>AnkSpeechProviders</c>. Validation, version bumping, history snapshot writing, AND
+/// API-key encryption all happen here so the endpoint layer is a thin pass-through.
+///
+/// <para>
+/// One-row-per-vendor enforcement is also done here — the unique index in EF backs it at the
+/// DB level, but the service catches duplicates first and returns a clear error rather than
+/// surfacing a SqlException.
+/// </para>
 ///
 /// <para>
 /// See <c>docs/specifications/024.unified-speech-config-and-composer.md</c> §"Service Surface".
@@ -20,6 +27,8 @@ namespace Aonik.Voice.Library;
 /// </summary>
 internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryService
 {
+    private const string ApiKeyProtectionPurpose = "Aonik.Voice.SpeechProvider.ApiKey";
+
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
     private readonly VoiceDbContext _db;
@@ -27,19 +36,25 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
     private readonly ITenantProvider _tenant;
     private readonly ICurrentUserProvider _user;
     private readonly IClock _clock;
+    private readonly IDataProtector _protector;
+    private readonly ISpeechCredentialCacheInvalidator _credentialCache;
 
     public SpeechProviderLibraryService(
         VoiceDbContext db,
         IBuiltInSpeechCatalog builtIns,
         ITenantProvider tenant,
         ICurrentUserProvider user,
-        IClock clock)
+        IClock clock,
+        IDataProtectionProvider dataProtectionProvider,
+        ISpeechCredentialCacheInvalidator credentialCache)
     {
         _db = db;
         _builtIns = builtIns;
         _tenant = tenant;
         _user = user;
         _clock = clock;
+        _protector = dataProtectionProvider.CreateProtector(ApiKeyProtectionPurpose);
+        _credentialCache = credentialCache;
     }
 
     // ── List ────────────────────────────────────────────────────────────────────────────
@@ -66,8 +81,9 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        // Merge built-ins. Built-ins are always Active; if the caller is filtering by
-        // !includeDisabled (the default for runtime resolution paths), they're still surfaced.
+        // Merge built-ins. The catalog is empty today (post-spec-024 we ditched archetypes in
+        // favour of the create-your-own flow) but the merge stays in case we re-introduce
+        // archetypes later.
         var builtIns = _builtIns.AllProviders.AsEnumerable();
         if (type is { } t2)
         {
@@ -114,14 +130,40 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
         ValidateConfigShape(request.Type, request.Vendor, request.Config);
         ValidateDisplayName(request.DisplayName);
 
+        var tenantId = _tenant.GetCurrentTenantId();
+        var normalisedVendor = NormaliseVendor(request.Vendor);
+
+        // Enforce one-row-per-(tenant, vendor, type). The DB-level unique index backs this;
+        // we pre-check so the failure is a clean 422 with a friendly message instead of a SQL
+        // unique-violation surfacing through the endpoint. Different types of the same vendor
+        // (e.g. OpenAI STT + OpenAI TTS) are allowed and share a credential via the unified
+        // resolver.
+        var alreadyExists = await _db.SpeechProviders
+            .AsNoTracking()
+            .AnyAsync(
+                p => p.TenantId == tenantId
+                    && p.Vendor == normalisedVendor
+                    && p.Type == request.Type
+                    && !p.IsDeleted,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (alreadyExists)
+        {
+            throw new SpeechLibraryValidationException(
+                $"A {request.Type} provider for vendor '{normalisedVendor}' already exists in this tenant's library. "
+                + "Edit that provider instead — only one provider per vendor + type is supported.",
+                fieldName: nameof(request.Vendor));
+        }
+
         var entity = new SpeechProviderEntity
         {
             Id = Guid.NewGuid(),
-            TenantId = _tenant.GetCurrentTenantId(),
+            TenantId = tenantId,
             DisplayName = request.DisplayName.Trim(),
             Type = request.Type,
-            Vendor = NormaliseVendor(request.Vendor),
+            Vendor = normalisedVendor,
             ConfigJson = SerializeConfig(request.Config),
+            EncryptedApiKey = ProtectIfPresent(request.ApiKey),
             Status = SpeechProviderStatus.Active,
             Version = 1,
             PreviousVersionsJson = "[]",
@@ -129,6 +171,10 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
 
         _db.SpeechProviders.Add(entity);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        // Cache nuke so the next credential resolve sees the new key without waiting for TTL.
+        await _credentialCache.InvalidateAsync(entity.Vendor, entity.TenantId, cancellationToken)
+            .ConfigureAwait(false);
 
         return ToDomain(entity);
     }
@@ -148,9 +194,25 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
 
         row.DisplayName = request.DisplayName.Trim();
         row.ConfigJson = SerializeConfig(request.Config);
+
+        // Tri-state ApiKey: null = leave alone, "" = clear, non-empty = encrypt + replace.
+        var apiKeyChanged = request.ApiKey is not null;
+        if (apiKeyChanged)
+        {
+            row.EncryptedApiKey = string.IsNullOrWhiteSpace(request.ApiKey)
+                ? null
+                : _protector.Protect(request.ApiKey!.Trim());
+        }
+
         row.Version += 1;
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (apiKeyChanged)
+        {
+            await _credentialCache.InvalidateAsync(row.Vendor, row.TenantId, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         return ToDomain(row);
     }
@@ -162,6 +224,9 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
         string? newDisplayName,
         CancellationToken cancellationToken = default)
     {
+        // Built-in catalog is empty post-spec-024 but the interface contract stays. The clone
+        // path is essentially dead but preserved so callers don't break; once the frontend
+        // drops its clone affordances entirely we can yank this method.
         var built = _builtIns.FindProvider(builtInId)
             ?? throw new SpeechLibraryValidationException(
                 $"Built-in provider '{builtInId}' does not exist.",
@@ -193,16 +258,10 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
             return ToDomain(row);
         }
 
-        // Phase B will plug in a real recipe-usage check via IVoiceRecipeLibraryService.
-        // Phase A ships the gate as a no-op so the endpoint shape is final and won't change
-        // behaviour when recipes land. Trace event + TODO marker so the audit trail is honest.
-        if (status is SpeechProviderStatus.Disabled or SpeechProviderStatus.SoftDeleted)
-        {
-            // TODO Phase B: throw SpeechLibraryUsageBlockedException if any active recipe
-            // references this provider. Recipe library doesn't exist yet so the check is
-            // deferred; until then, soft-deleting a referenced provider is allowed and the
-            // recipe will fail to resolve at connection time.
-        }
+        // TODO: Phase D follow-up — gate disable/soft-delete on active recipe usage so admins
+        // can't accidentally disable a provider their voice mode recipe depends on. For now
+        // the runtime fails with a clear "provider not active" error at connection time, which
+        // is recoverable.
 
         AppendHistorySnapshot(row, SpeechProviderHistoryAction.StatusChanged);
         row.Status = status;
@@ -227,7 +286,6 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
     {
         if (id.StartsWith(SpeechLibraryConstants.BuiltInIdPrefix, StringComparison.Ordinal))
         {
-            // Built-ins are immutable — no history.
             return Array.Empty<SpeechProviderHistoryEntry>();
         }
 
@@ -257,11 +315,6 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
         string id,
         CancellationToken cancellationToken = default)
     {
-        // Find every recipe (built-in or tenant-owned) that references this provider id.
-        // Reverse-lookup is fast — see VoiceRecipeEntityConfiguration for the per-column
-        // (TenantId, ChainedSttProviderId | ChainedTtsProviderId | CompositeProviderId) indexes.
-        // Active-recipe pointer (Phase C) gets layered on once that table exists; for now
-        // IsActiveVoiceRecipe is always false.
         var rows = await _db.VoiceRecipes
             .AsNoTracking()
             .Where(r => r.Status != VoiceRecipeStatus.SoftDeleted
@@ -275,7 +328,6 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        // Built-ins also count as references — cheap to scan in-memory.
         var builtInRefs = _builtIns.AllRecipes
             .Where(r =>
                 (r.Chained?.SttProviderId == id) ||
@@ -321,7 +373,6 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
 
         existing.Insert(0, snapshot);
 
-        // Cap to retention window — older snapshots roll off.
         if (existing.Count > SpeechLibraryConstants.HistoryRetentionPerEntity)
         {
             existing = existing.Take(SpeechLibraryConstants.HistoryRetentionPerEntity).ToList();
@@ -346,6 +397,9 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
     private static SpeechProviderConfig DeserializeConfig(string json)
         => JsonSerializer.Deserialize<SpeechProviderConfig>(json, JsonOpts)
             ?? throw new InvalidDataException("Speech provider config JSON deserialised to null.");
+
+    private string? ProtectIfPresent(string? plaintext)
+        => string.IsNullOrWhiteSpace(plaintext) ? null : _protector.Protect(plaintext.Trim());
 
     private static void ValidateConfigShape(SpeechProviderType type, string vendor, SpeechProviderConfig config)
     {
@@ -406,6 +460,7 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
             Vendor: row.Vendor,
             Config: DeserializeConfig(row.ConfigJson),
             Status: row.Status,
+            HasApiKey: !string.IsNullOrWhiteSpace(row.EncryptedApiKey),
             IsBuiltIn: false,
             Version: row.Version,
             CreatedAt: new DateTimeOffset(row.CreatedAt, TimeSpan.Zero),

@@ -24,6 +24,12 @@ internal sealed class ChatSpeechSettingsEntityConfiguration : IEntityTypeConfigu
         builder.Property(x => x.ActiveTtsProviderId)
             .HasMaxLength(100);
 
+        builder.Property(x => x.ActiveTtsVoiceId)
+            .HasMaxLength(200);
+
+        builder.Property(x => x.ActiveTtsModelId)
+            .HasMaxLength(80);
+
         builder.Property(x => x.Enabled)
             .IsRequired();
 

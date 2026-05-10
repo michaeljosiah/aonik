@@ -41,15 +41,32 @@ public enum VoiceRecipeStatus
 }
 
 /// <summary>
-/// Chained pipeline body: STT provider id + TTS provider id from the library + pipeline tweaks.
-/// The provider ids are resolved at runtime by <c>AonikVoicePipelineFactory</c> — if either
-/// referenced provider was disabled or deleted since the recipe was authored, the connection
-/// fails with a clear error.
+/// Chained pipeline body: STT provider id + TTS provider id + per-recipe voice/model picks +
+/// pipeline tweaks. The provider ids are resolved at runtime by <c>AonikVoicePipelineFactory</c>
+/// — if either referenced provider was disabled or deleted since the recipe was authored, the
+/// connection fails with a clear error.
+///
+/// <para>
+/// Voice + model selection lives here (not on the provider config) so different recipes can
+/// run different voices through the same vendor — e.g. one Mistral voice for the formal agent
+/// and a different one for the casual agent, both pointing at the same Mistral provider row.
+/// </para>
 /// </summary>
 public sealed record ChainedRecipeBody(
     /// <summary>Stable provider id (built-in or tenant Guid).</summary>
     string SttProviderId,
     string TtsProviderId,
+    /// <summary>
+    /// Required voice id for the TTS provider (e.g. ElevenLabs voice id, Mistral voice slug,
+    /// OpenAI voice name). Validated against the resolved provider when the recipe is saved.
+    /// </summary>
+    string TtsVoiceId,
+    /// <summary>Optional model id override; falls back to the provider's <c>DefaultModelId</c>.</summary>
+    string? TtsModelId,
+    /// <summary>Optional STT model override; falls back to the provider's <c>DefaultModel</c>.</summary>
+    string? SttModel,
+    /// <summary>Optional STT language hint (BCP-47); falls back to provider's <c>DefaultLanguage</c>.</summary>
+    string? SttLanguage,
     /// <summary>
     /// Optional agent-id pin. When set, this recipe ignores the per-connection
     /// <c>hello.agentId</c> and routes every conversation to the pinned agent. Useful for
@@ -65,9 +82,20 @@ public sealed record ChainedRecipeBody(
     /// <summary>Buffer LLM tokens into sentence-sized TTS chunks. Default true.</summary>
     bool SentenceAggregator);
 
-/// <summary>Composite pipeline body: one provider id (must resolve to a Composite provider).</summary>
+/// <summary>
+/// Composite pipeline body: one provider id (must resolve to a Composite provider) plus the
+/// per-recipe voice / model / instructions picks. Same separation rationale as
+/// <see cref="ChainedRecipeBody"/> — the provider config carries vendor-level defaults, this
+/// carries the call-time picks.
+/// </summary>
 public sealed record CompositeRecipeBody(
     string CompositeProviderId,
+    /// <summary>Required voice for the composite engine (e.g. <c>alloy</c>, <c>nova</c>).</summary>
+    string Voice,
+    /// <summary>Optional model override; falls back to the provider's <c>DefaultModel</c>.</summary>
+    string? Model,
+    /// <summary>Optional per-recipe instruction addendum; appended to the resolved agent's instructions.</summary>
+    string? InstructionsAddendum,
     /// <summary>Optional agent-id pin (same semantics as <see cref="ChainedRecipeBody.PinnedAgentId"/>).</summary>
     string? PinnedAgentId);
 
