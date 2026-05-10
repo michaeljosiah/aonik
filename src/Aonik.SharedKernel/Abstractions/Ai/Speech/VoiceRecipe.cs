@@ -1,0 +1,128 @@
+namespace Aonik.SharedKernel.Abstractions.Ai.Speech;
+
+/// <summary>
+/// A named, savable composition of speech providers + pipeline tweaks. Chained recipes
+/// reference one STT and one TTS provider from the library; composite recipes reference one
+/// composite provider.
+///
+/// <para>
+/// See <c>docs/specifications/024.unified-speech-config-and-composer.md</c> §"Recipe library".
+/// </para>
+/// </summary>
+public sealed record VoiceRecipe(
+    /// <summary>Built-in archetypes use <c>built-in:&lt;name&gt;</c>; tenant rows use Guid.</summary>
+    string Id,
+    string DisplayName,
+    string? Description,
+    VoiceRecipeKind Kind,
+    /// <summary>Body for chained recipes. Null when <see cref="Kind"/> is Composite.</summary>
+    ChainedRecipeBody? Chained,
+    /// <summary>Body for composite recipes. Null when <see cref="Kind"/> is Chained.</summary>
+    CompositeRecipeBody? Composite,
+    bool IsBuiltIn,
+    VoiceRecipeStatus Status,
+    int Version,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    Guid? CreatedByUserId,
+    Guid? LastUpdatedByUserId);
+
+public enum VoiceRecipeKind
+{
+    Chained,
+    Composite,
+}
+
+public enum VoiceRecipeStatus
+{
+    Active,
+    Disabled,
+    SoftDeleted,
+}
+
+/// <summary>
+/// Chained pipeline body: STT provider id + TTS provider id from the library + pipeline tweaks.
+/// The provider ids are resolved at runtime by <c>AonikVoicePipelineFactory</c> — if either
+/// referenced provider was disabled or deleted since the recipe was authored, the connection
+/// fails with a clear error.
+/// </summary>
+public sealed record ChainedRecipeBody(
+    /// <summary>Stable provider id (built-in or tenant Guid).</summary>
+    string SttProviderId,
+    string TtsProviderId,
+    /// <summary>
+    /// Optional agent-id pin. When set, this recipe ignores the per-connection
+    /// <c>hello.agentId</c> and routes every conversation to the pinned agent. Useful for
+    /// kiosk-style deployments. Null = use the client's requested agent (default).
+    /// </summary>
+    string? PinnedAgentId,
+    /// <summary>"energy" (default) | "silero" | "none".</summary>
+    string Vad,
+    /// <summary>Silence duration before the gate closes. Null = vendor default (800 ms).</summary>
+    int? VadStopMs,
+    /// <summary>Drop Whisper hallucinations on near-silent audio. Default true.</summary>
+    bool TranscriptionFilter,
+    /// <summary>Buffer LLM tokens into sentence-sized TTS chunks. Default true.</summary>
+    bool SentenceAggregator);
+
+/// <summary>Composite pipeline body: one provider id (must resolve to a Composite provider).</summary>
+public sealed record CompositeRecipeBody(
+    string CompositeProviderId,
+    /// <summary>Optional agent-id pin (same semantics as <see cref="ChainedRecipeBody.PinnedAgentId"/>).</summary>
+    string? PinnedAgentId);
+
+public sealed record VoiceRecipeHistoryEntry(
+    int Version,
+    VoiceRecipeHistoryAction Action,
+    string SnapshotDisplayName,
+    string? SnapshotDescription,
+    VoiceRecipeStatus SnapshotStatus,
+    ChainedRecipeBody? SnapshotChained,
+    CompositeRecipeBody? SnapshotComposite,
+    DateTimeOffset At,
+    Guid? ByUserId);
+
+public enum VoiceRecipeHistoryAction
+{
+    Created,
+    Updated,
+    StatusChanged,
+    SoftDeleted,
+}
+
+/// <summary>
+/// Service surface for the per-tenant voice recipe library. Built-ins are merged from
+/// <see cref="IBuiltInSpeechCatalog.AllRecipes"/>; tenant rows live in <c>AnkVoiceRecipes</c>.
+/// </summary>
+public interface IVoiceRecipeLibraryService
+{
+    Task<IReadOnlyList<VoiceRecipe>> ListAsync(
+        VoiceRecipeKind? kind = null,
+        bool includeDisabled = false,
+        CancellationToken cancellationToken = default);
+
+    Task<VoiceRecipe?> GetAsync(string id, CancellationToken cancellationToken = default);
+
+    Task<VoiceRecipe> CreateAsync(CreateVoiceRecipeRequest request, CancellationToken cancellationToken = default);
+
+    Task<VoiceRecipe> UpdateAsync(Guid id, UpdateVoiceRecipeRequest request, CancellationToken cancellationToken = default);
+
+    Task<VoiceRecipe> CloneBuiltInAsync(string builtInId, string? newDisplayName, CancellationToken cancellationToken = default);
+
+    Task<VoiceRecipe> SetStatusAsync(Guid id, VoiceRecipeStatus status, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<VoiceRecipeHistoryEntry>> GetHistoryAsync(string id, CancellationToken cancellationToken = default);
+}
+
+public sealed record CreateVoiceRecipeRequest(
+    string DisplayName,
+    string? Description,
+    VoiceRecipeKind Kind,
+    ChainedRecipeBody? Chained,
+    CompositeRecipeBody? Composite);
+
+public sealed record UpdateVoiceRecipeRequest(
+    string DisplayName,
+    string? Description,
+    ChainedRecipeBody? Chained,
+    CompositeRecipeBody? Composite);

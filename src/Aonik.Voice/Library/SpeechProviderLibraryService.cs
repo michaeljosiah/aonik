@@ -253,14 +253,38 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
 
     // ── Usage ───────────────────────────────────────────────────────────────────────────
 
-    public Task<SpeechProviderUsage> GetUsageAsync(
+    public async Task<SpeechProviderUsage> GetUsageAsync(
         string id,
         CancellationToken cancellationToken = default)
     {
-        // Phase B: query the recipe library for any chained recipe with SttProviderId == id or
-        // TtsProviderId == id, or any composite recipe with CompositeProviderId == id, plus
-        // the active-recipe pointer. Returns an empty list in Phase A.
-        return Task.FromResult(new SpeechProviderUsage(Array.Empty<SpeechProviderUsageRecipeRef>()));
+        // Find every recipe (built-in or tenant-owned) that references this provider id.
+        // Reverse-lookup is fast — see VoiceRecipeEntityConfiguration for the per-column
+        // (TenantId, ChainedSttProviderId | ChainedTtsProviderId | CompositeProviderId) indexes.
+        // Active-recipe pointer (Phase C) gets layered on once that table exists; for now
+        // IsActiveVoiceRecipe is always false.
+        var rows = await _db.VoiceRecipes
+            .AsNoTracking()
+            .Where(r => r.Status != VoiceRecipeStatus.SoftDeleted
+                && (r.ChainedSttProviderId == id
+                    || r.ChainedTtsProviderId == id
+                    || r.CompositeProviderId == id))
+            .Select(r => new SpeechProviderUsageRecipeRef(
+                r.Id.ToString("N"),
+                r.DisplayName,
+                false))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        // Built-ins also count as references — cheap to scan in-memory.
+        var builtInRefs = _builtIns.AllRecipes
+            .Where(r =>
+                (r.Chained?.SttProviderId == id) ||
+                (r.Chained?.TtsProviderId == id) ||
+                (r.Composite?.CompositeProviderId == id))
+            .Select(r => new SpeechProviderUsageRecipeRef(r.Id, r.DisplayName, false))
+            .ToList();
+
+        return new SpeechProviderUsage(rows.Concat(builtInRefs).ToList());
     }
 
     // ── Internals ───────────────────────────────────────────────────────────────────────

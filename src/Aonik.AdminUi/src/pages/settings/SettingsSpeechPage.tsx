@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { ProvidersTab } from './speech/ProvidersTab';
+import { RecipesTab } from './speech/RecipesTab';
 
 /**
  * Consolidated Speech & Voice settings page (spec 024). v1.1 ships the
@@ -56,10 +57,7 @@ export function SettingsSpeechPage() {
         </TabsContent>
 
         <TabsContent value="recipes">
-          <ComingSoonCard
-            title="Recipes"
-            description="Compose speech providers into named, savable voice recipes. Lands in Phase B of spec 024 (next iteration)."
-          />
+          <RecipesTab />
         </TabsContent>
 
         <TabsContent value="voice-mode">

@@ -151,8 +151,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<WorkflowComment> WorkflowComments { get; set; } = null!;
     public virtual DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
 
-    // Voice — speech provider library (spec 024)
+    // Voice — speech provider library + recipe library (spec 024)
     public virtual DbSet<SpeechProviderEntity> SpeechProviders { get; set; } = null!;
+    public virtual DbSet<VoiceRecipeEntity> VoiceRecipes { get; set; } = null!;
 
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,

@@ -86,13 +86,16 @@ public interface ISpeechProviderLibraryService
 }
 
 /// <summary>
-/// Built-in archetype catalog. Returns the immutable, in-code list of provider templates that
-/// every tenant can clone. Stable ids prefixed <c>built-in:</c>.
+/// Built-in archetype catalog. Returns the immutable, in-code list of provider + recipe
+/// templates that every tenant can clone. Stable ids prefixed <c>built-in:</c>.
 /// </summary>
 public interface IBuiltInSpeechCatalog
 {
     IReadOnlyList<SpeechProvider> AllProviders { get; }
     SpeechProvider? FindProvider(string builtInId);
+
+    IReadOnlyList<VoiceRecipe> AllRecipes { get; }
+    VoiceRecipe? FindRecipe(string builtInId);
 }
 
 public sealed record CreateSpeechProviderRequest(

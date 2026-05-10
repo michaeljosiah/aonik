@@ -105,6 +105,112 @@ internal sealed class BuiltInSpeechCatalog : IBuiltInSpeechCatalog
     public SpeechProvider? FindProvider(string builtInId)
         => Providers.FirstOrDefault(p => string.Equals(p.Id, builtInId, StringComparison.Ordinal));
 
+    public IReadOnlyList<VoiceRecipe> AllRecipes => Recipes;
+
+    public VoiceRecipe? FindRecipe(string builtInId)
+        => Recipes.FirstOrDefault(r => string.Equals(r.Id, builtInId, StringComparison.Ordinal));
+
+    /// <summary>
+    /// In-code recipe archetypes. Each recipe references provider built-ins via stable ids so
+    /// pointers survive across deploys. Tenant-owned recipe rows can also reference these
+    /// built-in provider ids — the resolver in <c>VoiceRecipeLibraryService</c> follows them
+    /// transparently.
+    /// </summary>
+    public static readonly IReadOnlyList<VoiceRecipe> Recipes = new[]
+    {
+        // ── Chained ────────────────────────────────────────────────────────────────────
+        ChainedRecipe(
+            id: "built-in:cost-chained-openai",
+            displayName: "Cost chained — OpenAI",
+            description: "Whisper STT → gpt-4o-mini → OpenAI TTS (alloy). Lowest cost, ~2 s p95 first audio.",
+            stt: "built-in:openai-whisper-default",
+            tts: "built-in:openai-tts-alloy"),
+
+        ChainedRecipe(
+            id: "built-in:premium-chained-openai",
+            displayName: "Premium chained — OpenAI",
+            description: "Whisper STT → gpt-4o-mini → OpenAI TTS HD (onyx). Higher fidelity.",
+            stt: "built-in:openai-whisper-default",
+            tts: "built-in:openai-tts-onyx-hd"),
+
+        ChainedRecipe(
+            id: "built-in:premium-chained-elevenlabs",
+            displayName: "Premium voice chained — ElevenLabs",
+            description: "Whisper STT → gpt-4o-mini → ElevenLabs (Rachel). Premium voice, multilingual.",
+            stt: "built-in:openai-whisper-default",
+            tts: "built-in:elevenlabs-rachel"),
+
+        ChainedRecipe(
+            id: "built-in:azure-only-chained",
+            displayName: "Azure-only chained",
+            description: "Azure Speech STT → gpt-4o-mini → Azure Speech TTS. Stays inside the Azure tenancy.",
+            stt: "built-in:azure-stt-en-us-eastus",
+            tts: "built-in:azure-tts-jenny-eastus"),
+
+        // ── Composite ─────────────────────────────────────────────────────────────────
+        CompositeRecipe(
+            id: "built-in:openai-realtime",
+            displayName: "OpenAI Realtime",
+            description: "OpenAI's realtime API end-to-end (single socket, server-side VAD, sub-second turn-taking).",
+            compositeProviderId: "built-in:openai-realtime"),
+
+        CompositeRecipe(
+            id: "built-in:azure-voice-live",
+            displayName: "Azure Voice Live",
+            description: "Azure Voice Live composite (region-pinned, single socket).",
+            compositeProviderId: "built-in:azure-voice-live-uksouth"),
+    };
+
+    private static VoiceRecipe ChainedRecipe(
+        string id,
+        string displayName,
+        string description,
+        string stt,
+        string tts)
+        => new(
+            Id: id,
+            DisplayName: displayName,
+            Description: description,
+            Kind: VoiceRecipeKind.Chained,
+            Chained: new ChainedRecipeBody(
+                SttProviderId: stt,
+                TtsProviderId: tts,
+                PinnedAgentId: null,
+                Vad: "energy",
+                VadStopMs: 800,
+                TranscriptionFilter: true,
+                SentenceAggregator: true),
+            Composite: null,
+            IsBuiltIn: true,
+            Status: VoiceRecipeStatus.Active,
+            Version: 1,
+            CreatedAt: BuiltInEpoch,
+            UpdatedAt: BuiltInEpoch,
+            CreatedByUserId: null,
+            LastUpdatedByUserId: null);
+
+    private static VoiceRecipe CompositeRecipe(
+        string id,
+        string displayName,
+        string description,
+        string compositeProviderId)
+        => new(
+            Id: id,
+            DisplayName: displayName,
+            Description: description,
+            Kind: VoiceRecipeKind.Composite,
+            Chained: null,
+            Composite: new CompositeRecipeBody(
+                CompositeProviderId: compositeProviderId,
+                PinnedAgentId: null),
+            IsBuiltIn: true,
+            Status: VoiceRecipeStatus.Active,
+            Version: 1,
+            CreatedAt: BuiltInEpoch,
+            UpdatedAt: BuiltInEpoch,
+            CreatedByUserId: null,
+            LastUpdatedByUserId: null);
+
     private static SpeechProvider Make(
         string id,
         string displayName,

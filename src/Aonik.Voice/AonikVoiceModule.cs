@@ -66,6 +66,7 @@ public sealed class AonikVoiceModule : IModule
         // shares the physical database with AonikDbContext via dbo schema + Ank table prefix.
         services.AddSingleton<IBuiltInSpeechCatalog, BuiltInSpeechCatalog>();
         services.AddScoped<ISpeechProviderLibraryService, SpeechProviderLibraryService>();
+        services.AddScoped<IVoiceRecipeLibraryService, VoiceRecipeLibraryService>();
         services.AddDbContext<VoiceDbContext>((sp, options) =>
         {
             if (configuration.GetValue<bool>("UseInMemoryDatabase"))
