@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
   id-token: write
+  # Voxa.* nupkgs come from the michaeljosiah/voxa GitHub Packages NuGet feed; restore needs
+  # packages:read at both the dotnet-restore step (host) and the docker build (passed via secret).
+  packages: read
 
 jobs:
   build:
@@ -33,6 +36,10 @@ jobs:
           echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
       - name: Restore dependencies
+        env:
+          # NuGet.config interpolates %GITHUB_TOKEN% from the env at restore time; this auths the
+          # github source for Voxa.* packages. Workflow-level packages:read above grants the scope.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dotnet restore Aonik.sln
 
       - name: Validate canonical migration stream
@@ -143,6 +150,13 @@ jobs:
           RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
           ACR_LOGIN_SERVER: ${{ steps.metadata.outputs.acr_login_server }}
           ACR_NAME: ${{ steps.metadata.outputs.acr_name }}
+          # Exposed to the api Dockerfile via BuildKit `--secret id=github_token,env=GITHUB_TOKEN`
+          # so `dotnet restore` can authenticate to the Voxa GitHub Packages NuGet feed. Never
+          # written to an image layer.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # BuildKit is required for `--mount=type=secret`. Set explicitly in case the runner
+          # default ever changes.
+          DOCKER_BUILDKIT: '1'
         run: |
           set -euo pipefail
 
@@ -170,7 +184,10 @@ jobs:
           }
 
           : > image-release.env
-          build_and_push aonik-api docker/api.Dockerfile
+          # The API image is the only one that needs the github_token secret (it's the only one
+          # that pulls Voxa.* packages — Aonik.Worker doesn't depend on Aonik.Voice).
+          build_and_push aonik-api docker/api.Dockerfile \
+            --secret id=github_token,env=GITHUB_TOKEN
           build_and_push aonik-worker docker/worker.Dockerfile
           build_and_push aonik-adminui docker/adminui.Dockerfile \
             --build-arg "VITE_AUTH_PROVIDER=${auth_provider}" \

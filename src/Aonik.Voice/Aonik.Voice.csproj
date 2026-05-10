@@ -32,25 +32,6 @@
     -->
     <ProjectReference Include="..\Aonik.Ai\Aonik.Ai.csproj" />
 
-    <!--
-      Voxa references — sibling clone at C:\Users\mjosi\source\repos\Voxa\.
-      Phase B: Voxa.AspNetCore (fluent MapVoxaVoice + VoicePipelineBuilder) and
-      Voxa.Services.MicrosoftAgents (MicrosoftAgentVoice.CreateProcessor) are now in.
-      The local AonikAgentProcessor / AonikVoiceWebSocketSink are being replaced by
-      closure-configured calls into MicrosoftAgentVoice + WebSocketAudioSink with a
-      custom serializer hook. Composite providers (AzureVoiceLive / OpenAIRealtime)
-      remain deferred to v1.1.
-    -->
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Core\Voxa.Core.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.AspNetCore\Voxa.AspNetCore.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Transports.WebSocket\Voxa.Transports.WebSocket.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.Abstractions\Voxa.Speech.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Services.MicrosoftAgents\Voxa.Services.MicrosoftAgents.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.OpenAI\Voxa.Speech.OpenAI.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.Azure\Voxa.Speech.Azure.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.ElevenLabs\Voxa.Speech.ElevenLabs.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.Mistral\Voxa.Speech.Mistral.csproj" />
-    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Audio.SileroVad\Voxa.Audio.SileroVad.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -59,10 +40,32 @@
 
   <ItemGroup>
     <!--
-      MAF aligned with Voxa at 1.5.0. The agent loop is delegated to
-      Voxa.Services.MicrosoftAgents.MicrosoftAgentVoice.CreateProcessor; AONIK
-      injects history / preamble / run-options / frontend-tool semantics through the
-      closure-configured MicrosoftAgentVoiceOptions delegates.
+      Voxa packages — published from michaeljosiah/voxa to GitHub Packages on every push to main
+      (see Voxa repo .github/workflows/publish-packages.yml). The NuGet.config at the AONIK repo
+      root pins Voxa.* to the github source via packageSourceMapping; restore needs GITHUB_TOKEN
+      with packages:read scope.
+
+      The voice agent loop is delegated to Voxa.Services.MicrosoftAgents.MicrosoftAgentVoice
+      .CreateProcessor; AONIK injects history / preamble / run-options / frontend-tool /
+      backend-tool-status semantics through closure-configured MicrosoftAgentVoiceOptions
+      delegates (see Processors/AonikVoiceAgent.cs).
+
+      Bump these versions when picking up new Voxa work; the publish workflow uses
+      0.1.0-alpha.{run_number} so each main push gets a fresh version.
+    -->
+    <PackageReference Include="Voxa.Core" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.AspNetCore" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Transports.WebSocket" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Speech.Abstractions" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Services.MicrosoftAgents" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Speech.OpenAI" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Speech.Azure" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Speech.ElevenLabs" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Speech.Mistral" Version="0.1.0-alpha.1" />
+    <PackageReference Include="Voxa.Audio.SileroVad" Version="0.1.0-alpha.1" />
+
+    <!--
+      MAF aligned with Voxa at 1.5.0.
     -->
     <PackageReference Include="Microsoft.Agents.AI" Version="1.5.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />

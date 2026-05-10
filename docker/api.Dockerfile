@@ -5,6 +5,7 @@ FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS restore
 WORKDIR /src
 
 COPY Aonik.sln ./
+COPY NuGet.config ./
 COPY src/Aonik.Api/Aonik.Api.csproj src/Aonik.Api/
 COPY src/Aonik.Application/Aonik.Application.csproj src/Aonik.Application/
 COPY src/Aonik.Infrastructure/Aonik.Infrastructure.csproj src/Aonik.Infrastructure/
@@ -14,17 +15,27 @@ COPY src/Aonik.Finance/Aonik.Finance.csproj src/Aonik.Finance/
 COPY src/Aonik.Ai/Aonik.Ai.csproj src/Aonik.Ai/
 COPY src/Aonik.Agents/Aonik.Agents.csproj src/Aonik.Agents/
 COPY src/Aonik.ServiceDefaults/Aonik.ServiceDefaults.csproj src/Aonik.ServiceDefaults/
+COPY src/Aonik.Voice/Aonik.Voice.csproj src/Aonik.Voice/
 COPY src/Aonik.Worker/Aonik.Worker.csproj src/Aonik.Worker/
 COPY src/Aonik.Migrator/Aonik.Migrator.csproj src/Aonik.Migrator/
 COPY src/Aonik.Platform.Mcp/Aonik.Platform.Mcp.csproj src/Aonik.Platform.Mcp/
 COPY src/Aonik.Finance.Mcp/Aonik.Finance.Mcp.csproj src/Aonik.Finance.Mcp/
 COPY src/Aonik.AppHost/Aonik.AppHost.csproj src/Aonik.AppHost/
 
-RUN dotnet restore src/Aonik.Api/Aonik.Api.csproj
+# Voxa.* packages live in the michaeljosiah/voxa GitHub Packages NuGet feed; restore needs a
+# GITHUB_TOKEN with packages:read scope. The token is mounted via BuildKit --secret so it never
+# lands in an image layer. CI passes the workflow's GITHUB_TOKEN; local builds need GITHUB_TOKEN
+# exported in the host env (and the build invoked with `--secret id=github_token,env=GITHUB_TOKEN`).
+RUN --mount=type=secret,id=github_token,env=GITHUB_TOKEN \
+    dotnet restore src/Aonik.Api/Aonik.Api.csproj
 
 FROM restore AS publish
 COPY src ./src
-RUN dotnet publish src/Aonik.Api/Aonik.Api.csproj \
+# `dotnet publish` does an implicit restore by default; mount the secret so the metadata fetch
+# from the GitHub Packages feed for Voxa.* succeeds. (Cached from the restore stage above so this
+# is normally a no-op, but the metadata round-trip still requires auth.)
+RUN --mount=type=secret,id=github_token,env=GITHUB_TOKEN \
+    dotnet publish src/Aonik.Api/Aonik.Api.csproj \
     -c Release \
     -o /app/publish \
     /p:UseAppHost=false
