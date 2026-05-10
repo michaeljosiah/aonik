@@ -257,12 +257,16 @@ public static class DependencyInjection
         })
         .AddStandardResilienceHandler(options =>
         {
-            // 3 s is generous for a healthy Qdrant /readyz (typically
-            // <100 ms) but still allows a real query to complete. The
-            // overall HttpClient.Timeout (config-driven, default 30 s)
-            // remains the absolute upper bound for the WHOLE request.
-            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(3);
-            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+            // 15 s per attempt comfortably covers an ACA Consumption-plan
+            // Qdrant cold start (image pull + Azure Files mount + Qdrant
+            // boot to /readyz typically lands around 10–15 s). Previously
+            // 3 s, which fired before Qdrant came up in dev (Qdrant has
+            // minReplicas=0 there) and produced ~110 OnTimeout Error logs
+            // per day across api + worker as health probes hit a sleeping
+            // instance. The HttpClient.Timeout (config-driven, default
+            // 30 s) remains the absolute upper bound for the WHOLE request.
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(15);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
             // QdrantCollectionInitializer already runs its own
             // 3-attempt loop with a 2 s delay between attempts; one
             // additional retry inside Polly is enough belt-and-braces
