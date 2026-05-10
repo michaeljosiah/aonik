@@ -200,7 +200,7 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "mistral-tts",
                 Fields: new[]
                 {
-                    Field("defaultModelId", "Default model", "text", required: false, defaultValue: "voxtral-tts"),
+                    Field("defaultModelId", "Default model", "text", required: false, defaultValue: "voxtral-mini-tts-2603"),
                 }),
         });
 

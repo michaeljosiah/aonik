@@ -86,7 +86,10 @@ internal sealed class PreviewEngineFactory : IPreviewEngineFactory
             {
                 ApiKey = request.ApiKey,
                 Voice = string.IsNullOrWhiteSpace(request.VoiceId) ? "alloy" : request.VoiceId,
-                Model = string.IsNullOrWhiteSpace(request.ModelId) ? "voxtral-tts" : request.ModelId,
+                // Mistral's actual TTS model id — the production MistralTextToSpeechProvider
+                // hardcodes the same value. Earlier "voxtral-tts" placeholder was wrong and
+                // caused 400s from Mistral's /v1/audio/speech endpoint.
+                Model = string.IsNullOrWhiteSpace(request.ModelId) ? "voxtral-mini-tts-2603" : request.ModelId,
             }),
 
             _ => throw new NotSupportedException(

@@ -72,11 +72,12 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
       audio.onended = () => URL.revokeObjectURL(url);
       await audio.play();
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        (err as { message?: string })?.message ??
-        'TTS test failed.';
-      toast.error(message);
+      // The TTS endpoint returns a Blob on success, so axios's default error path leaves
+      // `error.response.data` as a Blob (the JSON error envelope) — `data.error` is
+      // therefore undefined and we'd otherwise show a generic "Request failed with
+      // status code 400". Read the blob, try to parse the FastEndpoints envelope, and
+      // surface the real reason.
+      toast.error(await extractErrorMessage(err, 'TTS test failed.'));
     } finally {
       setBusy(false);
     }
@@ -161,11 +162,7 @@ function SttTestPanel({ providerId }: { providerId: string }) {
       setLanguage(result.language);
       toast.success('Transcription complete.');
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        (err as { message?: string })?.message ??
-        'STT test failed.';
-      toast.error(message);
+      toast.error(await extractErrorMessage(err, 'STT test failed.'));
     } finally {
       setTranscribing(false);
     }
@@ -220,3 +217,60 @@ function SttTestPanel({ providerId }: { providerId: string }) {
   );
 }
 
+// ── Error extraction ──────────────────────────────────────────────────────────
+
+interface FastEndpointsErrorEnvelope {
+  message?: string;
+  errors?: { generalErrors?: string[] } & Record<string, string[] | undefined>;
+}
+
+/**
+ * Pull a useful message out of an axios error. Handles three cases:
+ *   1. The TTS endpoint uses `responseType: 'blob'`, so even error responses arrive as a
+ *      Blob. Read the blob, parse it as JSON, then look for FastEndpoints' standard
+ *      `{ message, errors: { generalErrors } }` envelope.
+ *   2. JSON error envelope (the STT endpoint and most others) — pluck the same fields
+ *      from `error.response.data` directly.
+ *   3. Network failure / non-axios error — fall back to `error.message` then to the
+ *      provided default.
+ */
+async function extractErrorMessage(err: unknown, fallback: string): Promise<string> {
+  if (err && typeof err === 'object') {
+    const response = (err as { response?: { data?: unknown } }).response;
+    const data = response?.data;
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        const parsed = JSON.parse(text) as FastEndpointsErrorEnvelope;
+        const fromEnvelope = pickFromEnvelope(parsed);
+        if (fromEnvelope) return fromEnvelope;
+      } catch {
+        // not JSON; fall through to the generic axios message
+      }
+    } else if (data && typeof data === 'object') {
+      const fromEnvelope = pickFromEnvelope(data as FastEndpointsErrorEnvelope);
+      if (fromEnvelope) return fromEnvelope;
+    }
+    const message = (err as { message?: string }).message;
+    if (message) return message;
+  }
+  return fallback;
+}
+
+function pickFromEnvelope(envelope: FastEndpointsErrorEnvelope): string | null {
+  // FastEndpoints' AddError(...) collects under `errors.generalErrors`; prefer those over
+  // the generic "One or more errors occurred!" message that always rides along.
+  const general = envelope.errors?.generalErrors;
+  if (general && general.length > 0) return general.join('; ');
+  // Fall through to other field-level errors if any.
+  if (envelope.errors) {
+    for (const [key, value] of Object.entries(envelope.errors)) {
+      if (key === 'generalErrors') continue;
+      if (Array.isArray(value) && value.length > 0) return `${key}: ${value.join('; ')}`;
+    }
+  }
+  if (envelope.message && envelope.message !== 'One or more errors occurred!') {
+    return envelope.message;
+  }
+  return null;
+}
