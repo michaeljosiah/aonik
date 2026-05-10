@@ -31,11 +31,13 @@ import { VoiceModeTab } from './speech/VoiceModeTab';
  *   │ ── now active ─│└───────────────────────┘
  *   └────────────────┘
  *
- * Phase A + B wired the Providers + Recipes library; Phase C.1 ships the
+ * Phase A + B wired the Providers + Recipes library; Phase C.1 shipped the
  * `VoiceModeSettings` + `ChatSpeechSettings` singletons that drive the "Now active"
- * rail footer and the Voice mode / Chat speech tabs. The runtime cutover (Phase C.2)
- * still references the legacy `/settings/voice` + `/settings/text-to-speech` pages
- * for the actual conversation + TTS pipelines.
+ * rail footer and the Voice mode / Chat speech tabs. Phase C.2 (now live) wires the
+ * runtime: the WebSocket voice pipeline reads the active recipe from `VoiceModeSettings`,
+ * and `TextToSpeechService` overlays `ChatSpeechSettings.ActiveTtsProviderId` on top of
+ * the legacy default. The legacy `/settings/voice` + `/settings/text-to-speech` pages
+ * remain for credential management and as a fallback profile.
  */
 
 type TabId = 'providers' | 'recipes' | 'voice-mode' | 'chat-speech';

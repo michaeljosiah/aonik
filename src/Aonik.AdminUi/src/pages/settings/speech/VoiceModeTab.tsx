@@ -40,9 +40,10 @@ interface VoiceModeTabProps {
  * picking an active recipe + the on/off switch persist immediately on Save.
  *
  * <para>
- * The runtime cutover (Phase C.2) wires the WSS pipeline factory to read this row instead of
- * the legacy <c>/settings/voice</c> chain. Until then the legacy page still drives Voice Mode
- * at runtime — the "Open legacy page" button in the header is a deliberate pointer.
+ * Phase C.2 (now live) rewires the WSS pipeline factory to read this row directly: the
+ * endpoint resolves the active recipe + its STT/TTS provider rows from the speech library and
+ * hands the factory a fully-typed runtime spec. The legacy <c>/settings/voice</c> page sticks
+ * around for credential management — the "Open legacy page" button is a deliberate pointer.
  * </para>
  */
 export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
@@ -173,18 +174,17 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
         }
       />
 
-      {/* Phase C.1 callout — settings persist now, but the WSS pipeline rewire ships in C.2 */}
+      {/* Phase C.2 callout — runtime now reads the active recipe directly from this row. */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">Settings save here</span>{' '}
-        — the runtime cutover (Phase C.2) wires the live voice pipeline to read this row. Until
-        then,{' '}
+        <span className="font-semibold text-[var(--color-text-primary)]">Live</span>{' '}
+        — the WebSocket voice pipeline reads the active recipe directly from this row. The{' '}
         <RouterLink
           to="/settings/voice"
           className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"
         >
-          /settings/voice
+          legacy page
         </RouterLink>{' '}
-        still drives the actual conversation experience.
+        is kept around for credential management and will retire once parity is confirmed.
       </div>
 
       {/* Hero status */}

@@ -49,9 +49,9 @@ interface VoicePickerEntry {
  *
  * <para>
  * Voice picker entries are built from the real TTS providers in the library so admins see live
- * entries. The runtime cutover (Phase C.2) wires <c>TextToSpeechService</c> to read the
- * persisted active provider; until then the legacy <c>/settings/text-to-speech</c> page still
- * drives helper-text + AGUI streaming TTS.
+ * entries. Phase C.2 (now live) overlays the persisted active provider on top of the legacy
+ * <c>TextToSpeechSettings.DefaultProfile</c> at synthesis time — the legacy
+ * <c>/settings/text-to-speech</c> page still owns credential management and the fallback profile.
  * </para>
  */
 export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps) {
@@ -219,18 +219,18 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         </Button>
       </div>
 
-      {/* Phase C.1 callout — settings persist now, but the TTS service rewire ships in C.2 */}
+      {/* Phase C.2 callout — runtime overlays this provider on top of the legacy default. */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">Settings save here</span>{' '}
-        — the runtime cutover (Phase C.2) wires helper-text + AGUI streaming TTS to read this row.
-        Until then,
+        <span className="font-semibold text-[var(--color-text-primary)]">Live</span>{' '}
+        — when an active TTS provider is selected, the streaming TTS service routes synthesis
+        through it instead of the legacy default. The{' '}
         <RouterLink
           to="/settings/text-to-speech"
-          className="ml-1 underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"
+          className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"
         >
-          /settings/text-to-speech
-        </RouterLink>
-        .
+          legacy page
+        </RouterLink>{' '}
+        still owns credential management and the fallback profile.
       </div>
 
       {/* Hero status */}
