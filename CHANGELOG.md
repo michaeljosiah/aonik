@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.1-rc.1] - 2026-05-10
+
 ### Added
 - **Observability (Service Topology Runtime Controls)**: Restored the Admin UI service-topology view as a dedicated Observability route, enriched topology nodes with live Azure Container Apps runtime state, and added a dev-focused operator action to wake startable services such as the background worker from scaled-to-zero directly from the topology surface.
 - **AONIK CLI (Initial Foundation)**: Added a new `Aonik.Cli` console application and `Aonik.Cli.Tests` project with a simple command-driven operator experience for AONIK authentication and agent access. The initial release includes file-backed session persistence, `auth login/status/whoami/logout`, `agent list/run/stream/threads/thread`, approvals and explicit ops commands, a lightweight interactive `shell` powered by Spectre.Console, JSON/text/NDJSON output modes for agent and harness use, focused tests covering session storage, command handlers, and command-tree wiring, plus user-facing documentation in `docs/guides/aonik-cli.md` and `src/Aonik.Cli/README.md`.
