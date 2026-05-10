@@ -176,9 +176,50 @@ internal static class VoiceWebSocketEndpoint
                 return;
             }
 
+            // Connection-level AiRun (spec 024 Phase E**). One row per voice connection so
+            // the AI dashboard can chart who's using voice mode, with which recipe, for how
+            // long, and how it ended. Per-LLM-turn AiRuns continue to flow through
+            // TelemetryChatClient (use case "voice", set on ChatOptions above) — those track
+            // tokens / cost. This row tracks the *session*.
+            //
+            // StartRunAsync also runs the tenant kill-switch check, so engaging the kill
+            // switch immediately blocks new voice connections without us needing a separate
+            // gate here.
+            var aiRunWriter = services.GetRequiredService<IAiRunWriter>();
+            var voiceSessionInputRefs = JsonSerializer.Serialize(new
+            {
+                recipeId = recipeSpec.RecipeId,
+                recipeName = recipeSpec.RecipeDisplayName,
+                sttProvider = recipeSpec.SttProviderDisplayName,
+                ttsProvider = recipeSpec.TtsProviderDisplayName,
+                agentId = hello.AgentId,
+                chatThreadId = hello.ChatThreadId,
+            }, JsonOpts);
+
+            Guid? voiceRunId = null;
+            try
+            {
+                voiceRunId = await aiRunWriter.StartRunAsync(
+                    useCase: "voice-session",
+                    inputRefsJson: voiceSessionInputRefs,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Kill-switch or any other gate failure — surface to client and bail.
+                // Catching the broad Exception keeps the endpoint independent of the
+                // Aonik.Ai.Services.KillSwitchEngagedException type while still surfacing
+                // the message verbatim for admin debugging.
+                logger.LogWarning(ex, "Voice WebSocket: AiRun start refused (kill-switch or gate)");
+                await SendErrorAsync(socket, "voice-start-blocked", ex.Message, cancellationToken);
+                await CloseAsync(socket, WebSocketCloseStatus.PolicyViolation, "Voice run start blocked", cancellationToken);
+                return;
+            }
+
             await using var runner = new PipelineRunner(pipeline, cancellationToken);
             await runner.StartAsync(ct: cancellationToken);
 
+            var sessionStartedAtUtc = DateTime.UtcNow;
             try
             {
                 // PipelineRunner.WaitAsync completes when the sink observes EndFrame
@@ -187,10 +228,54 @@ internal static class VoiceWebSocketEndpoint
                 // so we just await — Task.WaitAsync wraps the cancellation timeout
                 // for safety.
                 await runner.WaitAsync().WaitAsync(cancellationToken);
+
+                // Graceful end — record duration as latencyMs so dashboards can chart
+                // session-length distributions. Tokens / cost stay 0 here; per-turn
+                // telemetry already counts those separately.
+                var durationMs = ClampToInt32Ms(DateTime.UtcNow - sessionStartedAtUtc);
+                await aiRunWriter.MarkRunCompletedWithMetricsAsync(
+                    voiceRunId.Value,
+                    tokensUsed: 0,
+                    latencyMs: durationMs,
+                    costEstimate: 0m,
+                    outputRef: null,
+                    CancellationToken.None);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                // Client disconnected — normal.
+                // Client disconnected — count as a clean completion (the user simply
+                // hung up). We still record duration so dashboards can spot suspicious
+                // mid-session disconnects via the latency distribution.
+                var durationMs = ClampToInt32Ms(DateTime.UtcNow - sessionStartedAtUtc);
+                try
+                {
+                    await aiRunWriter.MarkRunCompletedWithMetricsAsync(
+                        voiceRunId.Value,
+                        tokensUsed: 0,
+                        latencyMs: durationMs,
+                        costEstimate: 0m,
+                        outputRef: "client-disconnect",
+                        CancellationToken.None);
+                }
+                catch (Exception markEx)
+                {
+                    logger.LogWarning(markEx, "Voice WebSocket: failed to record session-end AiRun on cancel");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Pipeline error mid-session. Record as Failed so dashboards see it
+                // separately from clean closes; the outer catch (Exception) will still
+                // log + close the socket.
+                try
+                {
+                    await aiRunWriter.MarkRunFailedAsync(voiceRunId.Value, ex.Message, CancellationToken.None);
+                }
+                catch (Exception markEx)
+                {
+                    logger.LogWarning(markEx, "Voice WebSocket: failed to record session-failed AiRun");
+                }
+                throw;
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -327,5 +412,19 @@ internal static class VoiceWebSocketEndpoint
         {
             await socket.CloseAsync(status, description, ct).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Clamp a session duration to a non-negative <c>int</c> millisecond value for the
+    /// <see cref="IAiRunWriter.MarkRunCompletedWithMetricsAsync"/> latency field. Voice
+    /// sessions can run hours, but <see cref="int"/> still tops out at ~24.8 days, so we
+    /// clamp rather than throw — a wrapped value would be far more confusing.
+    /// </summary>
+    private static int ClampToInt32Ms(TimeSpan elapsed)
+    {
+        var totalMs = elapsed.TotalMilliseconds;
+        if (totalMs <= 0) return 0;
+        if (totalMs >= int.MaxValue) return int.MaxValue;
+        return (int)totalMs;
     }
 }
