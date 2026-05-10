@@ -11,6 +11,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Voxa.Pipelines;
 using Voxa.Speech;
+using Voxa.Speech.Azure;
+using Voxa.Speech.ElevenLabs;
+using Voxa.Speech.Mistral;
 using Voxa.Speech.OpenAI;
 using Voxa.Transports.WebSocket;
 
@@ -82,10 +85,16 @@ public sealed record ChainedRecipeRuntimeSpec(
 internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
 {
     private readonly ILoggerFactory _loggerFactory;
+    // Voxa's ElevenLabs + Mistral factories take an HttpClient since they hit a REST endpoint
+    // per synthesis frame. IHttpClientFactory is always available in the AspNetCore host —
+    // we use it so DNS rotation, pooling, and SocketsHttpHandler timers behave correctly
+    // across long-running voice connections.
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public AonikVoicePipelineFactory(ILoggerFactory loggerFactory)
+    public AonikVoicePipelineFactory(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
     {
         _loggerFactory = loggerFactory;
+        _httpClientFactory = httpClientFactory;
     }
 
     public Voxa.Pipelines.Pipeline BuildChained(VoicePipelineBuildRequest request, ChainedRecipeRuntimeSpec recipe)
@@ -93,48 +102,17 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(recipe);
 
-        // v1 ships only OpenAI Whisper + OpenAI TTS end-to-end. Other configs (Azure,
-        // ElevenLabs, Mistral) need engine wiring; for now each unsupported config raises
-        // a clear error that surfaces as a `voice-config-invalid` envelope on the WS.
-        if (recipe.SttConfig is not OpenAIWhisperConfig whisperConfig)
-        {
-            throw new VoiceConfigurationException(
-                $"STT provider '{recipe.SttProviderDisplayName}' uses {recipe.SttConfig.GetType().Name}; "
-                + "only OpenAIWhisperConfig is wired in v1. Pick a provider that uses OpenAI Whisper or wait for the relevant phase wiring.");
-        }
-        if (recipe.TtsConfig is not OpenAITtsConfig openaiTtsConfig)
-        {
-            throw new VoiceConfigurationException(
-                $"TTS provider '{recipe.TtsProviderDisplayName}' uses {recipe.TtsConfig.GetType().Name}; "
-                + "only OpenAITtsConfig is wired in v1. Pick a provider that uses OpenAI TTS or wait for the relevant phase wiring.");
-        }
-
-        // Resolve via the platform credential resolver (tenant override → host default
-        // → configuration fallback) instead of reading IConfiguration directly. This
-        // keeps secrets out of the pipeline factory's constructor surface and lets
-        // tenants configure their own keys through the admin UI.
+        // Phase G: each leg dispatches by config type so admins can mix and match the four
+        // vendors we ship adapters for (OpenAI, Azure, ElevenLabs, Mistral). STT supports
+        // OpenAI Whisper + Azure today; TTS supports all four. Composite recipes
+        // (Voice Live / OpenAI Realtime) still throw — they need bidirectional Voxa
+        // processors that aren't in 0.4.0-alpha yet, so the endpoint dispatches them away
+        // from here.
         var credentialResolver = request.RequestServices
             .GetRequiredService<Aonik.SharedKernel.Abstractions.Ai.IVoiceProviderCredentialResolver>();
-        var credential = credentialResolver
-            .ResolveAsync("OpenAI", CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
-        if (!credential.HasCredential || string.IsNullOrWhiteSpace(credential.ApiKey))
-        {
-            throw new VoiceConfigurationException(
-                "OpenAI voice credential not configured for this tenant. Configure it in admin Voice & Speech settings.");
-        }
-        var openAiKey = credential.ApiKey!;
 
-        // Voice and model selection now lives on the recipe (post-spec-024 refactor) — fall
-        // back to the provider's vendor-level defaults when the recipe didn't override.
-        var openAiOptions = new OpenAISpeechOptions
-        {
-            ApiKey = openAiKey,
-            SttModel = recipe.SttModel ?? whisperConfig.DefaultModel ?? "whisper-1",
-            TtsModel = recipe.TtsModelId ?? openaiTtsConfig.DefaultModelId ?? "tts-1",
-            TtsVoice = recipe.TtsVoiceId,
-        };
+        var stt = BuildSttProcessor(recipe, credentialResolver);
+        var tts = BuildTtsProcessor(recipe, credentialResolver);
 
         var source = new WebSocketAudioSource(request.WebSocket);
         // Voxa's WebSocketAudioSink + custom-serializer hook covers the AONIK threadReady
@@ -143,9 +121,6 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         var sink = new WebSocketAudioSink(
             request.WebSocket,
             customSerializer: ThreadReadyFrameSerializer.Serialize);
-
-        var stt = OpenAISpeech.StreamingTranscription(openAiOptions);
-        var tts = OpenAISpeech.Synthesis(openAiOptions);
 
         var normalizer = new SpeechTextNormalizerProcessor(
             request.RequestServices.GetRequiredService<ISpeechTextNormalizer>());
@@ -189,6 +164,145 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             .Sink(sink);
     }
 
+    // ── STT processor dispatch ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns a Voxa <see cref="SpeechToTextProcessor"/> wrapping the right vendor engine for
+    /// the recipe's STT config. Voxa's per-vendor static factories (e.g.
+    /// <c>OpenAISpeech.StreamingTranscription</c>) hand back the processor pre-wrapped, so
+    /// pipeline composition stays a single <c>.Then(stt)</c> regardless of vendor.
+    /// </summary>
+    private static SpeechToTextProcessor BuildSttProcessor(
+        ChainedRecipeRuntimeSpec recipe,
+        IVoiceProviderCredentialResolver credentialResolver)
+    {
+        return recipe.SttConfig switch
+        {
+            OpenAIWhisperConfig whisper => OpenAISpeech.StreamingTranscription(new OpenAISpeechOptions
+            {
+                ApiKey = ResolveApiKey(credentialResolver, "OpenAI", recipe.SttProviderDisplayName),
+                SttModel = recipe.SttModel ?? whisper.DefaultModel ?? "whisper-1",
+                SttLanguage = recipe.SttLanguage ?? whisper.DefaultLanguage,
+            }),
+
+            AzureSttConfig azure => AzureSpeech.StreamingTranscription(new AzureSpeechOptions
+            {
+                SubscriptionKey = ResolveApiKey(credentialResolver, "Azure", recipe.SttProviderDisplayName),
+                Region = RequireRegion(azure.Region, recipe.SttProviderDisplayName, "Azure STT"),
+                RecognitionLanguage =
+                    recipe.SttLanguage
+                    ?? azure.DefaultLanguage
+                    ?? "en-US",
+            }),
+
+            _ => throw new VoiceConfigurationException(
+                $"STT provider '{recipe.SttProviderDisplayName}' uses {recipe.SttConfig.GetType().Name}; "
+                + "supported chained STT configs are OpenAIWhisperConfig and AzureSttConfig."),
+        };
+    }
+
+    // ── TTS processor dispatch ───────────────────────────────────────────────────────────
+
+    private TextToSpeechProcessor BuildTtsProcessor(
+        ChainedRecipeRuntimeSpec recipe,
+        IVoiceProviderCredentialResolver credentialResolver)
+    {
+        if (string.IsNullOrWhiteSpace(recipe.TtsVoiceId))
+        {
+            // Belt-and-braces: the recipe service rejects empty TtsVoiceId on save, but a
+            // legacy row could still slip through. Fail fast here instead of letting the
+            // engine 4xx mid-stream.
+            throw new VoiceConfigurationException(
+                $"TTS recipe '{recipe.RecipeDisplayName}' is missing a voice id. "
+                + "Open the recipe editor and pick a voice for the TTS provider.");
+        }
+
+        return recipe.TtsConfig switch
+        {
+            OpenAITtsConfig openai => OpenAISpeech.Synthesis(new OpenAISpeechOptions
+            {
+                ApiKey = ResolveApiKey(credentialResolver, "OpenAI", recipe.TtsProviderDisplayName),
+                TtsModel = recipe.TtsModelId ?? openai.DefaultModelId ?? "tts-1",
+                TtsVoice = recipe.TtsVoiceId,
+            }),
+
+            AzureTtsConfig azure => AzureSpeech.Synthesis(new AzureSpeechOptions
+            {
+                SubscriptionKey = ResolveApiKey(credentialResolver, "Azure", recipe.TtsProviderDisplayName),
+                Region = RequireRegion(azure.Region, recipe.TtsProviderDisplayName, "Azure TTS"),
+                Voice = recipe.TtsVoiceId,
+            }),
+
+            ElevenLabsTtsConfig eleven => ElevenLabs.Synthesis(
+                new ElevenLabsOptions
+                {
+                    ApiKey = ResolveApiKey(credentialResolver, "ElevenLabs", recipe.TtsProviderDisplayName),
+                    VoiceId = recipe.TtsVoiceId,
+                    ModelId = recipe.TtsModelId ?? eleven.DefaultModelId ?? "eleven_multilingual_v2",
+                },
+                _httpClientFactory.CreateClient("Voxa.Speech.ElevenLabs")),
+
+            MistralTtsConfig mistral => Mistral.Synthesis(
+                new MistralSpeechOptions
+                {
+                    ApiKey = ResolveApiKey(credentialResolver, "Mistral", recipe.TtsProviderDisplayName),
+                    Voice = recipe.TtsVoiceId,
+                    // Same on-the-fly rewrite as PreviewEngineFactory: stale "voxtral-tts"
+                    // rows map to the production model id so admins don't have to bulk-edit.
+                    Model = ResolveMistralModel(recipe.TtsModelId ?? mistral.DefaultModelId),
+                },
+                _httpClientFactory.CreateClient("Voxa.Speech.Mistral")),
+
+            _ => throw new VoiceConfigurationException(
+                $"TTS provider '{recipe.TtsProviderDisplayName}' uses {recipe.TtsConfig.GetType().Name}; "
+                + "supported chained TTS configs are OpenAITtsConfig, AzureTtsConfig, ElevenLabsTtsConfig, MistralTtsConfig."),
+        };
+    }
+
+    // ── Shared helpers ───────────────────────────────────────────────────────────────────
+
+    private static string ResolveApiKey(
+        IVoiceProviderCredentialResolver resolver,
+        string vendorKey,
+        string providerDisplayName)
+    {
+        var credential = resolver
+            .ResolveAsync(vendorKey, CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
+        if (!credential.HasCredential || string.IsNullOrWhiteSpace(credential.ApiKey))
+        {
+            throw new VoiceConfigurationException(
+                $"{vendorKey} credential is not configured for provider '{providerDisplayName}'. "
+                + "Set the API key on the provider in the admin UI's Speech Providers tab.");
+        }
+        return credential.ApiKey!;
+    }
+
+    private static string RequireRegion(string? region, string providerDisplayName, string vendorLabel)
+    {
+        if (string.IsNullOrWhiteSpace(region))
+        {
+            throw new VoiceConfigurationException(
+                $"{vendorLabel} provider '{providerDisplayName}' is missing a Region. "
+                + "Edit the provider config and set a region (e.g. 'eastus', 'westeurope').");
+        }
+        return region;
+    }
+
+    /// <summary>
+    /// Mirrors <c>PreviewEngineFactory.ResolveMistralModel</c>: the legacy placeholder
+    /// "voxtral-tts" is not a real Mistral model id (Mistral's <c>/v1/audio/speech</c>
+    /// returns 400). Rewrite on the fly so existing provider rows keep working without a
+    /// manual edit.
+    /// </summary>
+    private static string ResolveMistralModel(string? modelId)
+    {
+        if (string.IsNullOrWhiteSpace(modelId)) return "voxtral-mini-tts-2603";
+        return modelId.Trim().Equals("voxtral-tts", StringComparison.OrdinalIgnoreCase)
+            ? "voxtral-mini-tts-2603"
+            : modelId;
+    }
 }
 
 /// <summary>Thrown when the tenant config can't produce a runnable v1 pipeline.</summary>

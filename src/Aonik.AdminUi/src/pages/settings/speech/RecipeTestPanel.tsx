@@ -171,6 +171,12 @@ function ChainedTtsCard({
 
   const cleanupAudio = () => {
     if (audioRef.current) {
+      // Detach listeners BEFORE clearing src — assigning `src = ''` makes the
+      // browser fire an `error` event (it now has no source), which would
+      // otherwise trip our onerror handler and toast a spurious "playback
+      // failed" message even after a successful end-of-track cleanup.
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;

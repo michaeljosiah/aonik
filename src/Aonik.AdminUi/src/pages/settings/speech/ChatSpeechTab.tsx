@@ -207,6 +207,11 @@ export function ChatSpeechTab({
 
   const cleanupPreviewAudio = () => {
     if (previewAudioRef.current) {
+      // Detach listeners BEFORE clearing src — assigning `src = ''` makes the
+      // browser fire an `error` event, which would otherwise trip our onerror
+      // handler and toast a spurious "playback failed" after a clean end.
+      previewAudioRef.current.onended = null;
+      previewAudioRef.current.onerror = null;
       previewAudioRef.current.pause();
       previewAudioRef.current.src = "";
       previewAudioRef.current = null;
