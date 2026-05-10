@@ -1,6 +1,7 @@
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.Voice.Entities;
 using Aonik.Voice.Library;
 using Aonik.Voice.Persistence;
 using FluentAssertions;
@@ -269,6 +270,73 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
     {
         var act = async () => await _sut.CloneBuiltInAsync("built-in:cost-chained-openai", "anything");
         await act.Should().ThrowAsync<SpeechLibraryValidationException>();
+    }
+
+    // ── Phase F: disable guards ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SetStatusAsync_Blocks_Disable_When_Recipe_Is_Active_In_VoiceMode()
+    {
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedTtsProvider("OpenAI TTS");
+
+        var recipe = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
+            "active-one", null,
+            VoiceRecipeKind.Chained,
+            new ChainedRecipeBody(
+                SttProviderId: stt,
+                TtsProviderId: tts,
+                TtsVoiceId: "alloy",
+                TtsModelId: null,
+                SttModel: null,
+                SttLanguage: null,
+                PinnedAgentId: null,
+                Vad: "energy",
+                VadStopMs: 800,
+                TranscriptionFilter: true,
+                SentenceAggregator: true),
+            null));
+
+        _db.VoiceModeSettings.Add(new VoiceModeSettingsEntity
+        {
+            TenantId = _tenantId,
+            ActiveRecipeId = recipe.Id,
+            Enabled = true,
+        });
+        await _db.SaveChangesAsync();
+
+        var act = async () => await _sut.SetStatusAsync(Guid.Parse(recipe.Id), VoiceRecipeStatus.Disabled);
+
+        await act.Should().ThrowAsync<SpeechLibraryValidationException>()
+            .WithMessage("*active Voice Mode recipe*");
+    }
+
+    [Fact]
+    public async Task SetStatusAsync_Allows_Disable_When_Recipe_Is_Not_Active_In_VoiceMode()
+    {
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedTtsProvider("OpenAI TTS");
+
+        var recipe = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
+            "unused", null,
+            VoiceRecipeKind.Chained,
+            new ChainedRecipeBody(
+                SttProviderId: stt,
+                TtsProviderId: tts,
+                TtsVoiceId: "alloy",
+                TtsModelId: null,
+                SttModel: null,
+                SttLanguage: null,
+                PinnedAgentId: null,
+                Vad: "energy",
+                VadStopMs: 800,
+                TranscriptionFilter: true,
+                SentenceAggregator: true),
+            null));
+
+        var disabled = await _sut.SetStatusAsync(Guid.Parse(recipe.Id), VoiceRecipeStatus.Disabled);
+
+        disabled.Status.Should().Be(VoiceRecipeStatus.Disabled);
     }
 
     [Fact]

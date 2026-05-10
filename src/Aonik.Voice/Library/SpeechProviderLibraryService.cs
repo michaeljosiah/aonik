@@ -258,10 +258,15 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
             return ToDomain(row);
         }
 
-        // TODO: Phase D follow-up — gate disable/soft-delete on active recipe usage so admins
-        // can't accidentally disable a provider their voice mode recipe depends on. For now
-        // the runtime fails with a clear "provider not active" error at connection time, which
-        // is recoverable.
+        // Phase F guard: refuse to disable / soft-delete a provider that any Active recipe or
+        // the tenant's Chat Speech settings still references. Re-activating the provider later
+        // is a single click; silently breaking a live voice flow is not. The surfaced
+        // SpeechLibraryUsageBlockedException maps to 409 in the global handler and carries the
+        // referencing recipes so the UI can render "edit these first" links inline.
+        if (row.Status == SpeechProviderStatus.Active && status != SpeechProviderStatus.Active)
+        {
+            await EnsureNotInUseAsync(id, row.TenantId, cancellationToken).ConfigureAwait(false);
+        }
 
         AppendHistorySnapshot(row, SpeechProviderHistoryAction.StatusChanged);
         row.Status = status;
@@ -315,6 +320,17 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
         string id,
         CancellationToken cancellationToken = default)
     {
+        // Resolve the active Voice Mode recipe so we can stamp IsActiveVoiceRecipe on each ref;
+        // the UI uses that flag to prefix "Active in Voice Mode" on the blocking row when 409
+        // surfaces, so admins know exactly which usage they need to clear first.
+        var tenantId = _tenant.GetCurrentTenantId();
+        var activeRecipeId = await _db.VoiceModeSettings
+            .AsNoTracking()
+            .Where(v => v.TenantId == tenantId)
+            .Select(v => v.ActiveRecipeId)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
         var rows = await _db.VoiceRecipes
             .AsNoTracking()
             .Where(r => r.Status != VoiceRecipeStatus.SoftDeleted
@@ -336,7 +352,82 @@ internal sealed class SpeechProviderLibraryService : ISpeechProviderLibraryServi
             .Select(r => new SpeechProviderUsageRecipeRef(r.Id, r.DisplayName, false))
             .ToList();
 
-        return new SpeechProviderUsage(rows.Concat(builtInRefs).ToList());
+        // Re-stamp IsActiveVoiceRecipe post-materialisation; record `with` is cheap.
+        var stamped = rows.Concat(builtInRefs)
+            .Select(r => r with { IsActiveVoiceRecipe = r.RecipeId == activeRecipeId })
+            .ToList();
+
+        return new SpeechProviderUsage(stamped);
+    }
+
+    /// <summary>
+    /// Disable / soft-delete guard. Throws <see cref="SpeechLibraryUsageBlockedException"/> when
+    /// the provider is still referenced by an Active recipe or the tenant's Chat Speech row, so
+    /// the admin gets a 409 with a clear remediation message rather than a silent runtime
+    /// failure on the next voice connection.
+    ///
+    /// <para>
+    /// We deliberately count Active recipes only (not Disabled ones): the badge in the UI also
+    /// counts Active references, so the guard matches what the admin sees. A Disabled recipe
+    /// pointing at a now-Disabled provider will simply error at re-enable time, which is
+    /// recoverable.
+    /// </para>
+    /// </summary>
+    private async Task EnsureNotInUseAsync(Guid providerId, Guid tenantId, CancellationToken ct)
+    {
+        var idStr = providerId.ToString("N");
+
+        // Active recipe references — these are the things actually in flight.
+        var recipeRefs = await _db.VoiceRecipes
+            .AsNoTracking()
+            .Where(r => r.Status == VoiceRecipeStatus.Active
+                && (r.ChainedSttProviderId == idStr
+                    || r.ChainedTtsProviderId == idStr
+                    || r.CompositeProviderId == idStr))
+            .Select(r => new { r.Id, r.DisplayName })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        // Chat Speech is a separate consumer — even with no recipe pointing at the provider, an
+        // admin might have wired it up just for read-aloud chat replies.
+        var chatSpeechReferences = await _db.ChatSpeechSettings
+            .AsNoTracking()
+            .AnyAsync(cs => cs.TenantId == tenantId && cs.ActiveTtsProviderId == idStr, ct)
+            .ConfigureAwait(false);
+
+        if (recipeRefs.Count == 0 && !chatSpeechReferences)
+        {
+            return;
+        }
+
+        var activeRecipeId = await _db.VoiceModeSettings
+            .AsNoTracking()
+            .Where(v => v.TenantId == tenantId)
+            .Select(v => v.ActiveRecipeId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var usagePayload = new SpeechProviderUsage(recipeRefs
+            .Select(r => new SpeechProviderUsageRecipeRef(
+                r.Id.ToString("N"),
+                r.DisplayName,
+                IsActiveVoiceRecipe: r.Id.ToString("N") == activeRecipeId))
+            .ToList());
+
+        var sources = new List<string>();
+        if (recipeRefs.Count > 0)
+        {
+            sources.Add($"{recipeRefs.Count} {(recipeRefs.Count == 1 ? "recipe" : "recipes")}");
+        }
+        if (chatSpeechReferences)
+        {
+            sources.Add("Chat Speech");
+        }
+
+        throw new SpeechLibraryUsageBlockedException(
+            $"Cannot disable: this provider is in use by {string.Join(" and ", sources)}. "
+                + "Update those references first, then try again.",
+            usagePayload);
     }
 
     // ── Internals ───────────────────────────────────────────────────────────────────────

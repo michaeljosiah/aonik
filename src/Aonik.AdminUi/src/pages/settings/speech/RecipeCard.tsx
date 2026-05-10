@@ -1,11 +1,11 @@
-import { Edit3, TestTube2, Trash2 } from 'lucide-react';
+import { Edit3, TestTube2, Trash2 } from "lucide-react";
 
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import type { SpeechProvider } from '@/types/speechLibrary';
-import type { VoiceRecipe } from '@/types/voiceRecipes';
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { SpeechProvider } from "@/types/speechLibrary";
+import type { VoiceRecipe } from "@/types/voiceRecipes";
 
-import { Pill, RecipeFlow, buildRecipeSteps } from './_primitives';
+import { Pill, RecipeFlow, buildRecipeSteps } from "./_primitives";
 
 interface RecipeCardProps {
   recipe: VoiceRecipe;
@@ -14,6 +14,7 @@ interface RecipeCardProps {
   /** Whether this recipe is the currently active voice-mode recipe. */
   activeInVoiceMode?: boolean;
   onEdit: () => void;
+  onTest: () => void;
   onActivate?: () => void;
   onDisable: () => void;
 }
@@ -29,19 +30,21 @@ export function RecipeCard({
   providerLookup,
   activeInVoiceMode = false,
   onEdit,
+  onTest,
   onActivate,
   onDisable,
 }: RecipeCardProps) {
   const steps = buildRecipeSteps(recipe, providerLookup);
-  const flowKind: 'chained' | 'composite' = recipe.kind === 'Composite' ? 'composite' : 'chained';
+  const flowKind: "chained" | "composite" =
+    recipe.kind === "Composite" ? "composite" : "chained";
 
   return (
     <div
       className={cn(
-        'rounded-xl bg-[var(--color-surface)] p-5 transition-colors',
+        "rounded-xl bg-[var(--color-surface)] p-5 transition-colors",
         activeInVoiceMode
-          ? 'border-2 border-[var(--color-brand-primary)]'
-          : 'border border-[var(--color-border-light)]',
+          ? "border-2 border-[var(--color-brand-primary)]"
+          : "border border-[var(--color-border-light)]",
       )}
     >
       {/* Header row */}
@@ -56,10 +59,12 @@ export function RecipeCard({
                 Active in Voice Mode
               </Pill>
             )}
-            <Pill tone={recipe.kind === 'Composite' ? 'pending' : 'tint'}>
-              {recipe.kind === 'Composite' ? 'Realtime' : 'Chained'}
+            <Pill tone={recipe.kind === "Composite" ? "pending" : "tint"}>
+              {recipe.kind === "Composite" ? "Realtime" : "Chained"}
             </Pill>
-            {recipe.status === 'Disabled' && <Pill tone="default">Disabled</Pill>}
+            {recipe.status === "Disabled" && (
+              <Pill tone="default">Disabled</Pill>
+            )}
           </div>
           {recipe.description && (
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--color-text-secondary)]">
@@ -69,7 +74,7 @@ export function RecipeCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="ghost" size="sm" disabled>
+          <Button variant="ghost" size="sm" onClick={onTest}>
             <TestTube2 className="h-3.5 w-3.5" /> Test
           </Button>
           <Button variant="ghost" size="sm" onClick={onEdit}>
@@ -80,7 +85,7 @@ export function RecipeCard({
               Activate
             </Button>
           )}
-          {recipe.status === 'Active' && (
+          {recipe.status === "Active" && (
             <Button variant="ghost" size="sm" onClick={onDisable}>
               <Trash2 className="h-3.5 w-3.5" /> Disable
             </Button>

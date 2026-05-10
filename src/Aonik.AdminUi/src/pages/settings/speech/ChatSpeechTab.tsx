@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   HelpCircle,
@@ -7,26 +7,28 @@ import {
   RefreshCw,
   Save,
   Speaker,
+  Square,
   Volume2,
   VolumeX,
-} from 'lucide-react';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { toast } from "sonner";
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
-import { chatSpeechSettingsService } from '@/services/speechActiveSettingsService';
-import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
-import type { SpeechProvider } from '@/types/speechLibrary';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { chatSpeechSettingsService } from "@/services/speechActiveSettingsService";
+import { speechProviderLibraryService } from "@/services/speechProviderLibraryService";
+import type { SpeechProvider } from "@/types/speechLibrary";
 
-import { PageHeader, Pill } from './_primitives';
+import { extractAudioApiError } from "./_audioApiError";
+import { PageHeader, Pill } from "./_primitives";
 
-import type { TabId } from '../SettingsSpeechPage';
+import type { TabId } from "../SettingsSpeechPage";
 
-import { ModelPicker } from './ModelPicker';
-import { VoicePicker } from './VoicePicker';
+import { ModelPicker } from "./ModelPicker";
+import { VoicePicker } from "./VoicePicker";
 
 interface ChatSpeechTabProps {
   onJump?: (tab: TabId) => void;
@@ -54,7 +56,10 @@ interface VoicePickerEntry {
  * <c>/settings/text-to-speech</c> page still owns credential management and the fallback profile.
  * </para>
  */
-export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps) {
+export function ChatSpeechTab({
+  onJump,
+  onSettingsChanged,
+}: ChatSpeechTabProps) {
   const [providers, setProviders] = useState<SpeechProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,11 +73,20 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
   const [rate, setRate] = useState(1.0);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
   // Phase D: voice + model picks live on chat speech, not on the provider.
-  const [voiceIdInput, setVoiceIdInput] = useState('');
-  const [modelIdInput, setModelIdInput] = useState('');
+  const [voiceIdInput, setVoiceIdInput] = useState("");
+  const [modelIdInput, setModelIdInput] = useState("");
   const [previewText, setPreviewText] = useState(
-    'Three invoices are awaiting your review, and April fuel spending is trending twelve percent above plan.',
+    "Three invoices are awaiting your review, and April fuel spending is trending twelve percent above plan.",
   );
+
+  // Phase E: live preview state. The audio element + URL refs match the pattern in
+  // ProviderTestSection — a Stop button maps to cleanupAudio, ended/error events also fire it.
+  // Note we synthesize against the *currently selected* provider + voice + model from the form,
+  // not the persisted row. That way admins can audition a voice change before clicking Save.
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewAudioUrlRef = useRef<string | null>(null);
 
   // Snapshot of the persisted state — used to compute the dirty flag for the Save button.
   const [persisted, setPersisted] = useState({
@@ -102,8 +116,8 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         setShowSpeakButton(settings.showSpeakButton);
         setRate(settings.ratePercent / 100);
         setSelectedVoice(settings.activeTtsProviderId);
-        setVoiceIdInput(settings.activeTtsVoiceId ?? '');
-        setModelIdInput(settings.activeTtsModelId ?? '');
+        setVoiceIdInput(settings.activeTtsVoiceId ?? "");
+        setModelIdInput(settings.activeTtsModelId ?? "");
         setPersisted({
           enabled: settings.enabled,
           autoPlay: settings.autoPlay,
@@ -117,7 +131,7 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         if (cancelled) return;
         // eslint-disable-next-line no-console
         console.error(err);
-        setError('Failed to load chat speech settings.');
+        setError("Failed to load chat speech settings.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -141,12 +155,12 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
     showSpeakButton !== persisted.showSpeakButton ||
     ratePercent !== persisted.ratePercent ||
     selectedVoice !== persisted.activeTtsProviderId ||
-    trimmedVoiceId !== (persisted.activeTtsVoiceId ?? '') ||
-    trimmedModelId !== (persisted.activeTtsModelId ?? '');
+    trimmedVoiceId !== (persisted.activeTtsVoiceId ?? "") ||
+    trimmedModelId !== (persisted.activeTtsModelId ?? "");
 
   const handleSave = async () => {
     if (selectedVoice && !trimmedVoiceId) {
-      toast.error('Voice id is required when a TTS provider is selected.');
+      toast.error("Voice id is required when a TTS provider is selected.");
       return;
     }
     setSaving(true);
@@ -154,7 +168,8 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
       const saved = await chatSpeechSettingsService.update({
         activeTtsProviderId: selectedVoice,
         activeTtsVoiceId: selectedVoice ? trimmedVoiceId : null,
-        activeTtsModelId: selectedVoice && trimmedModelId.length > 0 ? trimmedModelId : null,
+        activeTtsModelId:
+          selectedVoice && trimmedModelId.length > 0 ? trimmedModelId : null,
         enabled,
         autoPlay,
         showSpeakButton,
@@ -165,8 +180,8 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
       setShowSpeakButton(saved.showSpeakButton);
       setRate(saved.ratePercent / 100);
       setSelectedVoice(saved.activeTtsProviderId);
-      setVoiceIdInput(saved.activeTtsVoiceId ?? '');
-      setModelIdInput(saved.activeTtsModelId ?? '');
+      setVoiceIdInput(saved.activeTtsVoiceId ?? "");
+      setModelIdInput(saved.activeTtsModelId ?? "");
       setPersisted({
         enabled: saved.enabled,
         autoPlay: saved.autoPlay,
@@ -177,21 +192,78 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         activeTtsModelId: saved.activeTtsModelId,
       });
       onSettingsChanged?.();
-      toast.success('Chat speech settings saved.');
+      toast.success("Chat speech settings saved.");
     } catch (err) {
       const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ??
         (err as { message?: string })?.message ??
-        'Failed to save chat speech settings.';
+        "Failed to save chat speech settings.";
       toast.error(message);
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePreview = () => {
-    toast.info('Inline preview ships with Phase E. Use the provider Test button in the Providers tab to verify a voice for now.');
+  const cleanupPreviewAudio = () => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.src = "";
+      previewAudioRef.current = null;
+    }
+    if (previewAudioUrlRef.current) {
+      URL.revokeObjectURL(previewAudioUrlRef.current);
+      previewAudioUrlRef.current = null;
+    }
+    setPreviewPlaying(false);
   };
+
+  const handlePreview = async () => {
+    if (!selectedVoice) {
+      toast.error("Pick a TTS provider first.");
+      return;
+    }
+    if (!trimmedVoiceId) {
+      toast.error("Voice id is required to preview.");
+      return;
+    }
+    if (!previewText.trim()) {
+      toast.error("Enter preview text first.");
+      return;
+    }
+    cleanupPreviewAudio();
+    setPreviewBusy(true);
+    try {
+      const result = await speechProviderLibraryService.testTts(
+        selectedVoice,
+        previewText.trim(),
+        trimmedVoiceId,
+        trimmedModelId.length > 0 ? trimmedModelId : null,
+      );
+      const url = URL.createObjectURL(result.audioBlob);
+      previewAudioUrlRef.current = url;
+      const audio = new Audio(url);
+      previewAudioRef.current = audio;
+      audio.onended = () => cleanupPreviewAudio();
+      audio.onerror = () => {
+        cleanupPreviewAudio();
+        toast.error(
+          "Audio playback failed. The provider may have returned an unsupported format.",
+        );
+      };
+      // Apply the configured playback rate so admins audition the same speed users will hear.
+      audio.playbackRate = rate;
+      setPreviewPlaying(true);
+      await audio.play();
+    } catch (err) {
+      cleanupPreviewAudio();
+      toast.error(await extractAudioApiError(err, "Preview failed."));
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
+  const handleStopPreview = () => cleanupPreviewAudio();
 
   if (loading) {
     return (
@@ -204,7 +276,9 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6 text-[var(--color-error)]">{error}</CardContent>
+        <CardContent className="p-6 text-[var(--color-error)]">
+          {error}
+        </CardContent>
       </Card>
     );
   }
@@ -216,8 +290,16 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
         title="Chat speech"
         subtitle="Speak written chat replies aloud. Independent of Voice Mode."
         actions={
-          <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          <Button
+            size="sm"
+            onClick={() => void handleSave()}
+            disabled={saving || !isDirty}
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
             Save changes
           </Button>
         }
@@ -227,12 +309,21 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
       <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-4 py-3">
         <HelpCircle className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
         <div className="flex-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-          <span className="font-semibold text-[var(--color-text-primary)]">Chat Speech</span> reads
-          chat replies aloud.{' '}
-          <span className="font-semibold text-[var(--color-text-primary)]">Voice Mode</span> is live
-          spoken conversation. They share providers but configure independently.
+          <span className="font-semibold text-[var(--color-text-primary)]">
+            Chat Speech
+          </span>{" "}
+          reads chat replies aloud.{" "}
+          <span className="font-semibold text-[var(--color-text-primary)]">
+            Voice Mode
+          </span>{" "}
+          is live spoken conversation. They share providers but configure
+          independently.
         </div>
-        <Button variant="ghost" size="sm" onClick={() => onJump?.('voice-mode')}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onJump?.("voice-mode")}
+        >
           Open Voice Mode
         </Button>
       </div>
@@ -240,10 +331,12 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
       {/* Phase D callout — TTS service routes synthesis through the picked provider +
           voice. Credentials live on the provider row. */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">Live</span>{' '}
-        — chat replies are spoken using the picked TTS provider + voice. Pick the provider
-        below and the voice id beneath it; configure credentials on the provider in the
-        Providers tab.
+        <span className="font-semibold text-[var(--color-text-primary)]">
+          Live
+        </span>{" "}
+        — chat replies are spoken using the picked TTS provider + voice. Pick
+        the provider below and the voice id beneath it; configure credentials on
+        the provider in the Providers tab.
       </div>
 
       {/* Hero status */}
@@ -265,14 +358,14 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
             {voices.length === 0 ? (
               <Card>
                 <CardContent className="p-6 text-sm text-[var(--color-text-secondary)]">
-                  No TTS providers configured yet. Add one in the{' '}
+                  No TTS providers configured yet. Add one in the{" "}
                   <button
                     type="button"
                     className="underline decoration-dotted underline-offset-2"
-                    onClick={() => onJump?.('providers')}
+                    onClick={() => onJump?.("providers")}
                   >
                     Providers
-                  </button>{' '}
+                  </button>{" "}
                   tab to see voice options here.
                 </CardContent>
               </Card>
@@ -295,7 +388,9 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
                     text input. */}
                 {selectedVoice &&
                   (() => {
-                    const v = voices.find((v) => v.providerId === selectedVoice);
+                    const v = voices.find(
+                      (v) => v.providerId === selectedVoice,
+                    );
                     if (!v) return null;
                     return (
                       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3.5">
@@ -359,8 +454,11 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
           <PreviewCard
             value={previewText}
             onChange={setPreviewText}
-            onPlay={handlePreview}
-            disabled={!enabled || !selectedVoice}
+            onPlay={() => void handlePreview()}
+            onStop={handleStopPreview}
+            busy={previewBusy}
+            playing={previewPlaying}
+            disabled={!selectedVoice}
           />
           <UsageCard />
           <CloneCard />
@@ -372,14 +470,22 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
 
 // ─── Hero status ────────────────────────────────────────────────────────
 
-function HeroStatus({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+function HeroStatus({
+  enabled,
+  onToggle,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+}) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
       <div className="flex items-center gap-3.5">
         <div
           className={cn(
-            'grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[var(--color-border-light)]',
-            enabled ? 'bg-[var(--color-brand-primary-10)]' : 'bg-[var(--color-surface-inset)]',
+            "grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[var(--color-border-light)]",
+            enabled
+              ? "bg-[var(--color-brand-primary-10)]"
+              : "bg-[var(--color-surface-inset)]",
           )}
         >
           {enabled ? (
@@ -390,16 +496,20 @@ function HeroStatus({ enabled, onToggle }: { enabled: boolean; onToggle: () => v
         </div>
         <div>
           <div className="text-sm font-semibold text-[var(--color-text-primary)]">
-            Chat Speech is {enabled ? 'on' : 'off'}
+            Chat Speech is {enabled ? "on" : "off"}
           </div>
           <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
             {enabled
-              ? 'Operators can play chat replies aloud from any chat surface.'
-              : 'Spoken playback is disabled. Operators see text replies only.'}
+              ? "Operators can play chat replies aloud from any chat surface."
+              : "Spoken playback is disabled. Operators see text replies only."}
           </div>
         </div>
       </div>
-      <Switch checked={enabled} onCheckedChange={onToggle} aria-label="Toggle chat speech" />
+      <Switch
+        checked={enabled}
+        onCheckedChange={onToggle}
+        aria-label="Toggle chat speech"
+      />
     </div>
   );
 }
@@ -420,16 +530,18 @@ function VoiceCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex items-center gap-3 rounded-[10px] p-3 text-left transition-colors',
+        "flex items-center gap-3 rounded-[10px] p-3 text-left transition-colors",
         selected
-          ? 'border-2 border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)]'
-          : 'border border-[var(--color-border-light)] bg-[var(--color-surface)] hover:border-[var(--color-brand-primary)]/40',
+          ? "border-2 border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-10)]"
+          : "border border-[var(--color-border-light)] bg-[var(--color-surface)] hover:border-[var(--color-brand-primary)]/40",
       )}
     >
       <span
         className={cn(
-          'grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[var(--color-border-light)]',
-          selected ? 'bg-[var(--color-brand-primary-10)]' : 'bg-[var(--color-surface-inset)]',
+          "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[var(--color-border-light)]",
+          selected
+            ? "bg-[var(--color-brand-primary-10)]"
+            : "bg-[var(--color-surface-inset)]",
         )}
       >
         {selected ? (
@@ -464,33 +576,60 @@ function PreviewCard({
   value,
   onChange,
   onPlay,
+  onStop,
+  busy,
+  playing,
   disabled,
 }: {
   value: string;
   onChange: (next: string) => void;
   onPlay: () => void;
+  onStop: () => void;
+  busy: boolean;
+  playing: boolean;
   disabled: boolean;
 }) {
   return (
     <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">Preview voice</div>
+      <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">
+        Preview voice
+      </div>
       <p className="mt-1 mb-3 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-        Synthesises a sample using the selected voice. Records an AiRun for audit.
+        Synthesises a sample using the picked TTS provider + voice. Routes
+        through the same production path the chat surface uses, so what you hear
+        is what users hear.
       </p>
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={4}
+        disabled={busy}
         className="mb-3 text-[13px] leading-relaxed"
       />
-      <Button
-        size="sm"
-        className="w-full justify-center"
-        disabled={disabled}
-        onClick={onPlay}
-      >
-        <Volume2 className="h-3.5 w-3.5" /> Synthesize &amp; play
-      </Button>
+      {playing ? (
+        <Button
+          size="sm"
+          variant="destructive"
+          className="w-full justify-center"
+          onClick={onStop}
+        >
+          <Square className="h-3.5 w-3.5" /> Stop
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          className="w-full justify-center"
+          disabled={disabled || busy}
+          onClick={onPlay}
+        >
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Volume2 className="h-3.5 w-3.5" />
+          )}
+          {busy ? "Synthesising…" : "Synthesize & play"}
+        </Button>
+      )}
 
       {/* Static waveform placeholder */}
       <div className="mt-3 rounded-[10px] bg-[var(--color-surface-inset)] p-3.5">
@@ -498,7 +637,9 @@ function PreviewCard({
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" disabled>
             <Volume2 className="h-3.5 w-3.5" />
           </Button>
-          <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">0:00 / 0:09</span>
+          <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">
+            {playing ? "Playing…" : "0:00 / 0:09"}
+          </span>
         </div>
         <svg viewBox="0 0 200 32" className="h-8 w-full" aria-hidden="true">
           {Array.from({ length: 60 }).map((_, i) => {
@@ -518,19 +659,19 @@ function PreviewCard({
           })}
         </svg>
       </div>
-      <div className="mt-2 flex justify-between font-mono text-[11px] text-[var(--color-text-tertiary)]">
-        <span>AiRunId · pending</span>
-        <span>312ms · 14kb</span>
-      </div>
     </div>
   );
 }
 
 function UsageCard() {
   const rows = [
-    { label: 'Characters spoken', value: '— / 500,000', pct: null as number | null },
-    { label: 'Cost', value: '— / $40 limit', pct: null },
-    { label: 'Replies played', value: '—', pct: null },
+    {
+      label: "Characters spoken",
+      value: "— / 500,000",
+      pct: null as number | null,
+    },
+    { label: "Cost", value: "— / $40 limit", pct: null },
+    { label: "Replies played", value: "—", pct: null },
   ];
   return (
     <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
@@ -541,7 +682,9 @@ function UsageCard() {
         {rows.map((row) => (
           <div key={row.label}>
             <div className="mb-1 flex justify-between text-xs">
-              <span className="text-[var(--color-text-secondary)]">{row.label}</span>
+              <span className="text-[var(--color-text-secondary)]">
+                {row.label}
+              </span>
               <span className="font-mono text-[11.5px] text-[var(--color-text-primary)]">
                 {row.value}
               </span>
@@ -563,8 +706,8 @@ function CloneCard() {
         Need a custom voice?
       </div>
       <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-        Clone a voice from a 30-second sample inside your TTS provider's own UI (ElevenLabs,
-        Mistral, etc.), then paste the resulting voice id above.
+        Clone a voice from a 30-second sample inside your TTS provider's own UI
+        (ElevenLabs, Mistral, etc.), then paste the resulting voice id above.
       </p>
     </div>
   );
@@ -587,9 +730,13 @@ function Section({
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h3>
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+            {title}
+          </h3>
           {description && (
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{description}</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {description}
+            </p>
           )}
         </div>
         {action}
@@ -615,9 +762,15 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3">
       <div className="min-w-0">
-        <div className="text-[13px] font-medium text-[var(--color-text-primary)]">{label}</div>
-        <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">{help}</div>
-        <div className="mt-1 font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{code}</div>
+        <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+          {label}
+        </div>
+        <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+          {help}
+        </div>
+        <div className="mt-1 font-mono text-[10.5px] text-[var(--color-text-tertiary)]">
+          {code}
+        </div>
       </div>
       <Switch checked={value} onCheckedChange={onChange} aria-label={label} />
     </div>
@@ -641,11 +794,19 @@ function RangeRow({
     <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-medium text-[var(--color-text-primary)]">{label}</div>
-          <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">{help}</div>
-          <div className="mt-1 font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{code}</div>
+          <div className="text-[13px] font-medium text-[var(--color-text-primary)]">
+            {label}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+            {help}
+          </div>
+          <div className="mt-1 font-mono text-[10.5px] text-[var(--color-text-tertiary)]">
+            {code}
+          </div>
         </div>
-        <span className="font-mono text-[12.5px] text-[var(--color-text-primary)]">{value.toFixed(1)}x</span>
+        <span className="font-mono text-[12.5px] text-[var(--color-text-primary)]">
+          {value.toFixed(1)}x
+        </span>
       </div>
       <input
         type="range"
@@ -668,19 +829,21 @@ function buildVoiceEntries(providers: SpeechProvider[]): VoicePickerEntry[] {
   // separate input below the picker. The "detail" line surfaces the provider's
   // default model (or vendor) so admins can distinguish Multiple-of-the-same-vendor
   // setups while picking.
-  const tts = providers.filter((p) => p.type === 'Tts' && p.status === 'Active');
+  const tts = providers.filter(
+    (p) => p.type === "Tts" && p.status === "Active",
+  );
   return tts.map((p) => {
     const config = p.config;
     let detail: string = p.vendor;
 
-    if (config.kind === 'openai-tts') {
-      detail = config.defaultModelId ?? 'tts-1';
-    } else if (config.kind === 'azure-tts') {
+    if (config.kind === "openai-tts") {
+      detail = config.defaultModelId ?? "tts-1";
+    } else if (config.kind === "azure-tts") {
       detail = config.region;
-    } else if (config.kind === 'elevenlabs-tts') {
-      detail = config.defaultModelId ?? 'eleven_multilingual_v2';
-    } else if (config.kind === 'mistral-tts') {
-      detail = config.defaultModelId ?? 'voxtral-tts';
+    } else if (config.kind === "elevenlabs-tts") {
+      detail = config.defaultModelId ?? "eleven_multilingual_v2";
+    } else if (config.kind === "mistral-tts") {
+      detail = config.defaultModelId ?? "voxtral-tts";
     }
 
     return {

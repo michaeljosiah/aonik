@@ -1,20 +1,21 @@
-import { useRef, useState } from 'react';
-import { Loader2, Mic, MicOff, Square, Volume2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useRef, useState } from "react";
+import { Loader2, Mic, MicOff, Square, Volume2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { usePcmRecorder } from '@/lib/audio/usePcmRecorder';
-import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
-import type { SpeechProviderType } from '@/types/speechLibrary';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { usePcmRecorder } from "@/lib/audio/usePcmRecorder";
+import { speechProviderLibraryService } from "@/services/speechProviderLibraryService";
+import type { SpeechProviderType } from "@/types/speechLibrary";
 
-import { ModelPicker } from './ModelPicker';
-import { VoicePicker } from './VoicePicker';
+import { extractAudioApiError } from "./_audioApiError";
+import { ModelPicker } from "./ModelPicker";
+import { VoicePicker } from "./VoicePicker";
 
 const DEFAULT_TTS_TEXT =
-  'Hi, I’m the Payabo voice assistant. This is a quick test of the selected voice.';
+  "Hi, I’m the Payabo voice assistant. This is a quick test of the selected voice.";
 const STT_SAMPLE_RATE = 16000;
 
 interface ProviderTestSectionProps {
@@ -31,21 +32,32 @@ interface ProviderTestSectionProps {
  * voice list comes from the vendor catalog (static for OpenAI / Realtime / Voice Live;
  * live API for ElevenLabs + Mistral; free text otherwise).
  */
-export function ProviderTestSection({ providerId, type, vendor }: ProviderTestSectionProps) {
-  if (type === 'Tts') return <TtsTestPanel providerId={providerId} vendor={vendor} />;
-  if (type === 'Stt') return <SttTestPanel providerId={providerId} />;
+export function ProviderTestSection({
+  providerId,
+  type,
+  vendor,
+}: ProviderTestSectionProps) {
+  if (type === "Tts")
+    return <TtsTestPanel providerId={providerId} vendor={vendor} />;
+  if (type === "Stt") return <SttTestPanel providerId={providerId} />;
   return null;
 }
 
 // ── TTS panel ────────────────────────────────────────────────────────────────
 
-function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: string }) {
+function TtsTestPanel({
+  providerId,
+  vendor,
+}: {
+  providerId: string;
+  vendor: string;
+}) {
   const [text, setText] = useState(DEFAULT_TTS_TEXT);
   // Phase D: voice + model are no longer on the provider config — the test endpoint
   // requires the caller to supply them. VoicePicker / ModelPicker pull vendor-specific
   // catalogs (static for OpenAI / Realtime; live API for ElevenLabs + Mistral voices).
-  const [voiceId, setVoiceId] = useState('');
-  const [modelId, setModelId] = useState('');
+  const [voiceId, setVoiceId] = useState("");
+  const [modelId, setModelId] = useState("");
   const [busy, setBusy] = useState(false);
   // Track playback so the button toggles between Synthesize and Stop. `audioRef` already
   // held the live audio element for the "pause previous before starting next" hack;
@@ -57,7 +69,7 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
   const cleanupAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.src = '';
+      audioRef.current.src = "";
       audioRef.current = null;
     }
     if (audioUrlRef.current) {
@@ -73,11 +85,11 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
 
   const handlePlay = async () => {
     if (!text.trim()) {
-      toast.error('Enter preview text first.');
+      toast.error("Enter preview text first.");
       return;
     }
     if (!voiceId.trim()) {
-      toast.error('Voice id is required to test TTS.');
+      toast.error("Voice id is required to test TTS.");
       return;
     }
     cleanupAudio();
@@ -96,7 +108,9 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
       audio.onended = () => cleanupAudio();
       audio.onerror = () => {
         cleanupAudio();
-        toast.error('Audio playback failed. The provider may have returned an unsupported format.');
+        toast.error(
+          "Audio playback failed. The provider may have returned an unsupported format.",
+        );
       };
       setPlaying(true);
       await audio.play();
@@ -107,7 +121,7 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
       // status code 400". Read the blob, try to parse the FastEndpoints envelope, and
       // surface the real reason.
       cleanupAudio();
-      toast.error(await extractErrorMessage(err, 'TTS test failed.'));
+      toast.error(await extractAudioApiError(err, "TTS test failed."));
     } finally {
       setBusy(false);
     }
@@ -154,9 +168,18 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
             Stop
           </Button>
         ) : (
-          <Button variant="secondary" onClick={() => void handlePlay()} disabled={busy} size="sm">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
-            {busy ? 'Synthesising…' : 'Synthesize and play'}
+          <Button
+            variant="secondary"
+            onClick={() => void handlePlay()}
+            disabled={busy}
+            size="sm"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Volume2 className="h-4 w-4" />
+            )}
+            {busy ? "Synthesising…" : "Synthesize and play"}
           </Button>
         )}
         {playing && (
@@ -183,7 +206,7 @@ function SttTestPanel({ providerId }: { providerId: string }) {
     try {
       await recorder.start();
     } catch {
-      toast.error(recorder.error ?? 'Could not start microphone.');
+      toast.error(recorder.error ?? "Could not start microphone.");
     }
   };
 
@@ -192,10 +215,12 @@ function SttTestPanel({ providerId }: { providerId: string }) {
     try {
       const pcm = await recorder.stopAndCollect();
       if (!pcm || pcm.length === 0) {
-        toast.error('No audio captured. Try again with the mic active.');
+        toast.error("No audio captured. Try again with the mic active.");
         return;
       }
-      const audio = new Blob([pcm.buffer as ArrayBuffer], { type: 'audio/pcm' });
+      const audio = new Blob([pcm.buffer as ArrayBuffer], {
+        type: "audio/pcm",
+      });
       const result = await speechProviderLibraryService.testStt(
         providerId,
         audio,
@@ -203,9 +228,9 @@ function SttTestPanel({ providerId }: { providerId: string }) {
       );
       setTranscript(result.text);
       setLanguage(result.language);
-      toast.success('Transcription complete.');
+      toast.success("Transcription complete.");
     } catch (err) {
-      toast.error(await extractErrorMessage(err, 'STT test failed.'));
+      toast.error(await extractAudioApiError(err, "STT test failed."));
     } finally {
       setTranscribing(false);
     }
@@ -219,7 +244,11 @@ function SttTestPanel({ providerId }: { providerId: string }) {
 
       <div className="flex flex-wrap items-center gap-2">
         {!recorder.isRecording ? (
-          <Button onClick={() => void handleStart()} disabled={transcribing} size="sm">
+          <Button
+            onClick={() => void handleStart()}
+            disabled={transcribing}
+            size="sm"
+          >
             <Mic className="h-4 w-4" />
             Start recording
           </Button>
@@ -245,7 +274,9 @@ function SttTestPanel({ providerId }: { providerId: string }) {
         )}
       </div>
 
-      {recorder.error && <p className="text-xs text-destructive">{recorder.error}</p>}
+      {recorder.error && (
+        <p className="text-xs text-destructive">{recorder.error}</p>
+      )}
 
       {transcript !== null && (
         <div className="space-y-1 rounded-md border bg-background p-3">
@@ -258,62 +289,4 @@ function SttTestPanel({ providerId }: { providerId: string }) {
       )}
     </div>
   );
-}
-
-// ── Error extraction ──────────────────────────────────────────────────────────
-
-interface FastEndpointsErrorEnvelope {
-  message?: string;
-  errors?: { generalErrors?: string[] } & Record<string, string[] | undefined>;
-}
-
-/**
- * Pull a useful message out of an axios error. Handles three cases:
- *   1. The TTS endpoint uses `responseType: 'blob'`, so even error responses arrive as a
- *      Blob. Read the blob, parse it as JSON, then look for FastEndpoints' standard
- *      `{ message, errors: { generalErrors } }` envelope.
- *   2. JSON error envelope (the STT endpoint and most others) — pluck the same fields
- *      from `error.response.data` directly.
- *   3. Network failure / non-axios error — fall back to `error.message` then to the
- *      provided default.
- */
-async function extractErrorMessage(err: unknown, fallback: string): Promise<string> {
-  if (err && typeof err === 'object') {
-    const response = (err as { response?: { data?: unknown } }).response;
-    const data = response?.data;
-    if (data instanceof Blob) {
-      try {
-        const text = await data.text();
-        const parsed = JSON.parse(text) as FastEndpointsErrorEnvelope;
-        const fromEnvelope = pickFromEnvelope(parsed);
-        if (fromEnvelope) return fromEnvelope;
-      } catch {
-        // not JSON; fall through to the generic axios message
-      }
-    } else if (data && typeof data === 'object') {
-      const fromEnvelope = pickFromEnvelope(data as FastEndpointsErrorEnvelope);
-      if (fromEnvelope) return fromEnvelope;
-    }
-    const message = (err as { message?: string }).message;
-    if (message) return message;
-  }
-  return fallback;
-}
-
-function pickFromEnvelope(envelope: FastEndpointsErrorEnvelope): string | null {
-  // FastEndpoints' AddError(...) collects under `errors.generalErrors`; prefer those over
-  // the generic "One or more errors occurred!" message that always rides along.
-  const general = envelope.errors?.generalErrors;
-  if (general && general.length > 0) return general.join('; ');
-  // Fall through to other field-level errors if any.
-  if (envelope.errors) {
-    for (const [key, value] of Object.entries(envelope.errors)) {
-      if (key === 'generalErrors') continue;
-      if (Array.isArray(value) && value.length > 0) return `${key}: ${value.join('; ')}`;
-    }
-  }
-  if (envelope.message && envelope.message !== 'One or more errors occurred!') {
-    return envelope.message;
-  }
-  return null;
 }

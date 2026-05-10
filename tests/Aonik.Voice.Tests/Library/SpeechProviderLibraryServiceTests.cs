@@ -1,6 +1,7 @@
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.Voice.Entities;
 using Aonik.Voice.Library;
 using Aonik.Voice.Persistence;
 using FluentAssertions;
@@ -324,6 +325,142 @@ public class SpeechProviderLibraryServiceTests : IDisposable
 
         (await _sut.GetAsync(created.Id)).Should().BeNull();
         (await _sut.ListAsync()).Should().NotContain(p => p.Id == created.Id);
+    }
+
+    // ── Phase F: disable guards ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SetStatusAsync_Allows_Disable_When_Provider_Has_No_References()
+    {
+        var unused = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            "unused",
+            SpeechProviderType.Tts,
+            "openai",
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
+
+        var disabled = await _sut.SetStatusAsync(Guid.Parse(unused.Id), SpeechProviderStatus.Disabled);
+
+        disabled.Status.Should().Be(SpeechProviderStatus.Disabled);
+    }
+
+    [Fact]
+    public async Task SetStatusAsync_Blocks_Disable_When_Active_Recipe_References_Provider()
+    {
+        var provider = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            "ref-by-recipe",
+            SpeechProviderType.Tts,
+            "openai",
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
+
+        // Insert an Active recipe directly — this test only cares that the guard catches the
+        // referencing recipe, not the recipe-side validation pipeline (covered separately).
+        SeedActiveChainedRecipe("uses-it", ttsProviderId: provider.Id);
+
+        var act = async () => await _sut.SetStatusAsync(Guid.Parse(provider.Id), SpeechProviderStatus.Disabled);
+
+        await act.Should().ThrowAsync<SpeechLibraryUsageBlockedException>()
+            .Where(ex => ex.Message.Contains("in use") && ex.Message.Contains("recipe"));
+    }
+
+    [Fact]
+    public async Task SetStatusAsync_Allows_Disable_When_Only_Disabled_Recipes_Reference_Provider()
+    {
+        // The badge in the UI counts Active recipe references only — the guard must match that
+        // semantic so the UX stays consistent. Disabled recipes don't block the disable.
+        var provider = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            "only-disabled-references",
+            SpeechProviderType.Tts,
+            "openai",
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
+
+        SeedActiveChainedRecipe(
+            "disabled-recipe",
+            ttsProviderId: provider.Id,
+            status: VoiceRecipeStatus.Disabled);
+
+        var disabled = await _sut.SetStatusAsync(Guid.Parse(provider.Id), SpeechProviderStatus.Disabled);
+
+        disabled.Status.Should().Be(SpeechProviderStatus.Disabled);
+    }
+
+    [Fact]
+    public async Task SetStatusAsync_Blocks_Disable_When_ChatSpeech_References_Provider()
+    {
+        var provider = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            "ref-by-chat-speech",
+            SpeechProviderType.Tts,
+            "openai",
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
+
+        _db.ChatSpeechSettings.Add(new ChatSpeechSettingsEntity
+        {
+            TenantId = _tenantId,
+            ActiveTtsProviderId = provider.Id,
+            ActiveTtsVoiceId = "alloy",
+        });
+        await _db.SaveChangesAsync();
+
+        var act = async () => await _sut.SetStatusAsync(Guid.Parse(provider.Id), SpeechProviderStatus.Disabled);
+
+        await act.Should().ThrowAsync<SpeechLibraryUsageBlockedException>()
+            .Where(ex => ex.Message.Contains("Chat Speech"));
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_Stamps_IsActiveVoiceRecipe_When_Recipe_Is_Pinned_In_VoiceMode()
+    {
+        var provider = await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            "tts",
+            SpeechProviderType.Tts,
+            "openai",
+            new OpenAITtsConfig(DefaultModelId: "tts-1")));
+
+        var activeRecipe = SeedActiveChainedRecipe("the-active-one", ttsProviderId: provider.Id);
+        var unrelatedRecipe = SeedActiveChainedRecipe("not-active", ttsProviderId: provider.Id);
+
+        _db.VoiceModeSettings.Add(new VoiceModeSettingsEntity
+        {
+            TenantId = _tenantId,
+            ActiveRecipeId = activeRecipe.Id.ToString("N"),
+            Enabled = true,
+        });
+        await _db.SaveChangesAsync();
+
+        var usage = await _sut.GetUsageAsync(provider.Id);
+
+        usage.RecipesUsingThisProvider.Should().HaveCount(2);
+        usage.RecipesUsingThisProvider
+            .Single(r => r.RecipeId == activeRecipe.Id.ToString("N"))
+            .IsActiveVoiceRecipe.Should().BeTrue();
+        usage.RecipesUsingThisProvider
+            .Single(r => r.RecipeId == unrelatedRecipe.Id.ToString("N"))
+            .IsActiveVoiceRecipe.Should().BeFalse();
+    }
+
+    private VoiceRecipeEntity SeedActiveChainedRecipe(
+        string displayName,
+        string ttsProviderId,
+        VoiceRecipeStatus status = VoiceRecipeStatus.Active)
+    {
+        var recipe = new VoiceRecipeEntity
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            DisplayName = displayName,
+            Kind = VoiceRecipeKind.Chained,
+            Status = status,
+            Version = 1,
+            PreviousVersionsJson = "[]",
+            ChainedSttProviderId = "fake-stt",
+            ChainedTtsProviderId = ttsProviderId,
+            ChainedTtsVoiceId = "alloy",
+            ChainedVad = "energy",
+            ChainedTranscriptionFilter = true,
+            ChainedSentenceAggregator = true,
+        };
+        _db.VoiceRecipes.Add(recipe);
+        _db.SaveChanges();
+        return recipe;
     }
 
     // ── Get ────────────────────────────────────────────────────────────────────────────

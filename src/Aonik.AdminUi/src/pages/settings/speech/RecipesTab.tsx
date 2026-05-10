@@ -1,28 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Layers, Loader2, Plug, Plus, Radio } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Layers, Loader2, Plug, Plus, Radio } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { toast } from "sonner";
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
-import { voiceModeSettingsService } from '@/services/speechActiveSettingsService';
-import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
-import { voiceRecipeLibraryService } from '@/services/voiceRecipeLibraryService';
-import type { SpeechProvider } from '@/types/speechLibrary';
-import type { VoiceRecipe, VoiceRecipeKind } from '@/types/voiceRecipes';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import { voiceModeSettingsService } from "@/services/speechActiveSettingsService";
+import { speechProviderLibraryService } from "@/services/speechProviderLibraryService";
+import { voiceRecipeLibraryService } from "@/services/voiceRecipeLibraryService";
+import type { SpeechProvider } from "@/types/speechLibrary";
+import type { VoiceRecipe, VoiceRecipeKind } from "@/types/voiceRecipes";
 
-import { PageHeader } from './_primitives';
-import { RecipeCard } from './RecipeCard';
-import { RecipeStackEditor } from './RecipeStackEditor';
+import { PageHeader } from "./_primitives";
+import { RecipeCard } from "./RecipeCard";
+import { RecipeStackEditor } from "./RecipeStackEditor";
+import { RecipeTestPanel } from "./RecipeTestPanel";
 
-type Filter = 'All' | VoiceRecipeKind;
+type Filter = "All" | VoiceRecipeKind;
 const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'All', label: 'All recipes' },
-  { id: 'Chained', label: 'Chained' },
-  { id: 'Composite', label: 'Realtime' },
+  { id: "All", label: "All recipes" },
+  { id: "Chained", label: "Chained" },
+  { id: "Composite", label: "Realtime" },
 ];
 
 interface RecipesTabProps {
@@ -38,17 +39,25 @@ interface RecipesTabProps {
  * highlight + the per-card Activate button now read/write the real <c>VoiceModeSettings</c>
  * row (spec 024 Phase C.1).
  */
-export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps = {}) {
+export function RecipesTab({
+  settingsTick,
+  onSettingsChanged,
+}: RecipesTabProps = {}) {
   const [recipes, setRecipes] = useState<VoiceRecipe[]>([]);
   const [providers, setProviders] = useState<SpeechProvider[]>([]);
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('All');
+  const [filter, setFilter] = useState<Filter>("All");
   const [includeDisabled, setIncludeDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<VoiceRecipe | null>(null);
-  const [creating, setCreating] = useState<{ defaultKind: VoiceRecipeKind } | null>(null);
+  const [creating, setCreating] = useState<{
+    defaultKind: VoiceRecipeKind;
+  } | null>(null);
+  // Phase E: per-recipe Test sheet. Mutually exclusive with edit / create — rendering both
+  // simultaneously would stack two sheets which the Sheet primitive doesn't support.
+  const [testing, setTesting] = useState<VoiceRecipe | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,7 +74,7 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err);
-      setError('Failed to load recipe library.');
+      setError("Failed to load recipe library.");
     } finally {
       setLoading(false);
     }
@@ -82,7 +91,7 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
   }, [providers]);
 
   const visible = useMemo(() => {
-    if (filter === 'All') return recipes;
+    if (filter === "All") return recipes;
     return recipes.filter((r) => r.kind === filter);
   }, [filter, recipes]);
 
@@ -98,23 +107,25 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
       toast.success(`${recipe.displayName} is now active in Voice Mode.`);
     } catch (err) {
       const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ??
         (err as { message?: string })?.message ??
-        'Failed to activate recipe.';
+        "Failed to activate recipe.";
       toast.error(message);
     }
   };
 
   const handleDisable = async (recipe: VoiceRecipe) => {
     try {
-      await voiceRecipeLibraryService.setStatus(recipe.id, 'Disabled');
+      await voiceRecipeLibraryService.setStatus(recipe.id, "Disabled");
       toast.success(`${recipe.displayName} disabled.`);
       void load();
     } catch (err) {
       const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ??
         (err as { message?: string })?.message ??
-        'Failed to disable recipe.';
+        "Failed to disable recipe.";
       toast.error(message);
     }
   };
@@ -137,7 +148,9 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6 text-[var(--color-error)]">{error}</CardContent>
+        <CardContent className="p-6 text-[var(--color-error)]">
+          {error}
+        </CardContent>
       </Card>
     );
   }
@@ -148,6 +161,9 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
     setEditing(null);
     setCreating(null);
   };
+  // Test sheet uses its own state slot so a Test sheet doesn't collide with an editor sheet.
+  const testSheetOpen = testing !== null;
+  const closeTestSheet = () => setTesting(null);
 
   const tenantHasNoProviders = providers.length === 0;
   const tenantHasNoRecipes = recipes.length === 0;
@@ -162,7 +178,12 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
           <Button
             size="sm"
             disabled={tenantHasNoProviders}
-            onClick={() => setCreating({ defaultKind: filter !== 'All' ? (filter as VoiceRecipeKind) : 'Chained' })}
+            onClick={() =>
+              setCreating({
+                defaultKind:
+                  filter !== "All" ? (filter as VoiceRecipeKind) : "Chained",
+              })
+            }
           >
             <Plus className="h-3.5 w-3.5" /> New recipe
           </Button>
@@ -181,7 +202,9 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
             <div className="flex flex-wrap gap-1.5">
               {FILTERS.map((f) => {
                 const count =
-                  f.id === 'All' ? recipes.length : recipes.filter((r) => r.kind === f.id).length;
+                  f.id === "All"
+                    ? recipes.length
+                    : recipes.filter((r) => r.kind === f.id).length;
                 const active = filter === f.id;
                 return (
                   <button
@@ -189,17 +212,19 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
                     type="button"
                     onClick={() => setFilter(f.id)}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors',
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors",
                       active
-                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white'
-                        : 'border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-primary)]',
+                        ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white"
+                        : "border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-primary)]",
                     )}
                   >
                     {f.label}
                     <span
                       className={cn(
-                        'font-mono text-[11px]',
-                        active ? 'text-white/85' : 'text-[var(--color-text-tertiary)]',
+                        "font-mono text-[11px]",
+                        active
+                          ? "text-white/85"
+                          : "text-[var(--color-text-tertiary)]",
                       )}
                     >
                       {count}
@@ -227,7 +252,12 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
           {/* Recipe list */}
           {visible.length === 0 ? (
             <FilterEmptyState
-              onAdd={() => setCreating({ defaultKind: filter !== 'All' ? (filter as VoiceRecipeKind) : 'Chained' })}
+              onAdd={() =>
+                setCreating({
+                  defaultKind:
+                    filter !== "All" ? (filter as VoiceRecipeKind) : "Chained",
+                })
+              }
             />
           ) : (
             <div className="space-y-3">
@@ -238,6 +268,7 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
                   providerLookup={providerLookup}
                   activeInVoiceMode={r.id === activeRecipeId}
                   onEdit={() => setEditing(r)}
+                  onTest={() => setTesting(r)}
                   onActivate={() => void handleActivate(r)}
                   onDisable={() => void handleDisable(r)}
                 />
@@ -253,10 +284,28 @@ export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps 
           {sheetOpen && (
             <RecipeStackEditor
               initial={editing}
-              defaultKind={editing?.kind ?? creating?.defaultKind ?? 'Chained'}
+              defaultKind={editing?.kind ?? creating?.defaultKind ?? "Chained"}
               providers={providers}
               onSaved={handleSaved}
               onCancel={closeSheet}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Per-recipe Test sheet (Phase E). Renders TTS + STT cards pre-bound to the recipe's
+          provider + voice + model picks so admins can sanity-check credentials without
+          repeating the inline picker affordances. */}
+      <Sheet
+        open={testSheetOpen}
+        onOpenChange={(open) => !open && closeTestSheet()}
+      >
+        <SheetContent size="md" className="sm:max-w-none">
+          {testing && (
+            <RecipeTestPanel
+              recipe={testing}
+              providers={providers}
+              onClose={closeTestSheet}
             />
           )}
         </SheetContent>
@@ -287,11 +336,14 @@ function FirstRecipeHero({
           Add a provider before composing recipes
         </h2>
         <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
-          Recipes are pipelines that wire providers together. Add at least one Speech-to-Text and
-          one Text-to-Speech provider, then come back to compose them.
+          Recipes are pipelines that wire providers together. Add at least one
+          Speech-to-Text and one Text-to-Speech provider, then come back to
+          compose them.
         </p>
         <Button asChild className="mt-6" size="sm">
-          <RouterLink to="/settings/speech?tab=providers">Open Providers</RouterLink>
+          <RouterLink to="/settings/speech?tab=providers">
+            Open Providers
+          </RouterLink>
         </Button>
       </div>
     );
@@ -306,8 +358,9 @@ function FirstRecipeHero({
         Compose your first voice recipe
       </h2>
       <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
-        A recipe wires your providers into a pipeline that powers Voice Mode. Pick a chained
-        STT → Agent → TTS flow, or a single-vendor realtime composite.
+        A recipe wires your providers into a pipeline that powers Voice Mode.
+        Pick a chained STT → Agent → TTS flow, or a single-vendor realtime
+        composite.
       </p>
 
       <div className="mx-auto mt-6 grid max-w-[36rem] grid-cols-1 gap-3 sm:grid-cols-2">
@@ -315,13 +368,13 @@ function FirstRecipeHero({
           icon={<Layers className="h-5 w-5" />}
           title="Chained recipe"
           description="STT → Agent → TTS. Mix and match vendors."
-          onClick={() => onCreate('Chained')}
+          onClick={() => onCreate("Chained")}
         />
         <RecipeKindChoice
           icon={<Radio className="h-5 w-5" />}
           title="Realtime composite"
           description="Single-vendor end-to-end (Voice Live, Realtime API)."
-          onClick={() => onCreate('Composite')}
+          onClick={() => onCreate("Composite")}
         />
       </div>
     </div>
@@ -348,8 +401,12 @@ function RecipeKindChoice({
       <span className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--color-surface)] text-[var(--color-brand-primary)] transition-colors group-hover:bg-[var(--color-brand-primary)] group-hover:text-white">
         {icon}
       </span>
-      <span className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</span>
-      <span className="text-[11.5px] text-[var(--color-text-tertiary)]">{description}</span>
+      <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+        {title}
+      </span>
+      <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+        {description}
+      </span>
     </button>
   );
 }

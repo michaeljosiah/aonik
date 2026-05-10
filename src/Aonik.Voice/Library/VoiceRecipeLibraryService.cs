@@ -172,8 +172,14 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
         var row = await LoadTenantOwnedAsync(id, cancellationToken).ConfigureAwait(false);
         if (row.Status == status) return ToDomain(row);
 
-        // Phase C will plug the active-recipe check in here so we can refuse to soft-delete the
-        // currently-active recipe. Phase B ships the gate as a no-op.
+        // Phase F guard: refuse to disable / soft-delete the currently-active Voice Mode recipe.
+        // The admin must pick a different one (or turn Voice Mode off) before disabling, so the
+        // WSS pipeline never tries to bind to a recipe row that's no longer Active.
+        if (row.Status == VoiceRecipeStatus.Active && status != VoiceRecipeStatus.Active)
+        {
+            await EnsureNotActiveInVoiceModeAsync(row.Id, row.TenantId, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         AppendHistorySnapshot(row, VoiceRecipeHistoryAction.StatusChanged);
         row.Status = status;
@@ -227,6 +233,31 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
                 fieldName: nameof(id));
         }
         return row;
+    }
+
+    /// <summary>
+    /// Disable / soft-delete guard. Throws when the recipe is currently the active Voice Mode
+    /// recipe; the admin must switch first. We surface this as 422 (validation) rather than 409
+    /// because there's only one possible blocker (no list of dependents to enumerate) — the
+    /// remediation message tells the whole story.
+    /// </summary>
+    private async Task EnsureNotActiveInVoiceModeAsync(Guid recipeId, Guid tenantId, CancellationToken ct)
+    {
+        var idStr = recipeId.ToString("N");
+        var activeRecipeId = await _db.VoiceModeSettings
+            .AsNoTracking()
+            .Where(v => v.TenantId == tenantId)
+            .Select(v => v.ActiveRecipeId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (string.Equals(activeRecipeId, idStr, StringComparison.Ordinal))
+        {
+            throw new SpeechLibraryValidationException(
+                "Cannot disable: this recipe is currently the active Voice Mode recipe. "
+                    + "Switch Voice Mode to a different recipe (or turn it off) before disabling.",
+                fieldName: nameof(recipeId));
+        }
     }
 
     private async Task ValidateBodyAsync(
