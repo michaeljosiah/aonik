@@ -195,8 +195,21 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: |
+            packages/workspace-sdk/package-lock.json
             src/Aonik.AdminUi/package-lock.json
             src/Aonik.AdminDesktop/package-lock.json
+
+      # The Admin UI depends on the local @aonik/workspace-sdk
+      # (file:../../packages/workspace-sdk). The SDK ships TS sources +
+      # tsup config; `dist/` is gitignored. We must build the SDK
+      # BEFORE installing Admin UI deps so the symlinked file: dep
+      # resolves to a built package. Same step the Admin UI Dockerfile
+      # runs at `docker/adminui.Dockerfile`.
+      - name: Build Workspace SDK
+        working-directory: packages/workspace-sdk
+        run: |
+          npm ci
+          npm run build
 
       - name: Build Admin UI (renderer)
         working-directory: src/Aonik.AdminUi
@@ -248,10 +261,16 @@ jobs:
   # softprops/action-gh-release is idempotent — if release.yml has already
   # created the release for this tag, we attach to it; if not, we create
   # it. Auto-generated notes pull commits/PRs since the previous tag.
+  #
+  # Runs as long as ANY upstream succeeded — a Desktop failure should not
+  # prevent already-built CLI binaries from reaching the release, and a
+  # CLI failure should not block already-built Desktop installers. The
+  # cancelled() guard preserves cancellation semantics.
   # ─────────────────────────────────────────────────────────────────────────
   attach-to-release:
     name: Attach to GitHub Release
     needs: [prepare, build-cli, build-desktop]
+    if: ${{ !cancelled() && (needs.build-cli.result == 'success' || needs.build-desktop.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - name: Download every artifact
