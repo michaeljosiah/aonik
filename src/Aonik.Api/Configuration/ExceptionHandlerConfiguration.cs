@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ai.Speech;
 
 namespace Aonik.Api.Configuration;
 
@@ -117,31 +118,55 @@ public static class ExceptionHandlerConfiguration
         Exception ex,
         bool includeDetails)
     {
-        var permissionDenied = ex as PermissionDeniedException;
-        var isPermissionDenied = permissionDenied is not null;
+        // Order: most-specific first. Each branch returns its own status + payload shape so the
+        // front-end can switch on `error` field rather than parsing message strings.
+        switch (ex)
+        {
+            case PermissionDeniedException permissionDenied:
+                await WriteJsonAsync(context, StatusCodes.Status403Forbidden, new
+                {
+                    error = ex.Message,
+                    permissionKey = permissionDenied.PermissionKey,
+                });
+                return;
 
-        context.Response.StatusCode = isPermissionDenied
-            ? StatusCodes.Status403Forbidden
-            : StatusCodes.Status500InternalServerError;
+            case SpeechLibraryUsageBlockedException usageBlocked:
+                // 409 Conflict — UI surfaces the blocking recipes inline so the user can fix the
+                // dependency directly. See spec 024 §"Service Surface" Validation rules.
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict, new
+                {
+                    error = ex.Message,
+                    code = "speech_library.usage_blocked",
+                    usage = usageBlocked.Usage,
+                });
+                return;
+
+            case SpeechLibraryImmutableBuiltInException immutable:
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict, new
+                {
+                    error = ex.Message,
+                    code = "speech_library.immutable_built_in",
+                    builtInId = immutable.BuiltInId,
+                });
+                return;
+
+            case SpeechLibraryValidationException validation:
+                await WriteJsonAsync(context, StatusCodes.Status422UnprocessableEntity, new
+                {
+                    error = ex.Message,
+                    code = "speech_library.validation",
+                    fieldName = validation.FieldName,
+                });
+                return;
+        }
+
+        // Default: unexpected — 500 with detail in dev, opaque in prod.
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
 
-        var topLevelMessage = isPermissionDenied
-            ? ex.Message
-            : "An internal error occurred.";
-
+        const string topLevelMessage = "An internal error occurred.";
         object payload;
-        if (isPermissionDenied)
-        {
-            // Always surface the missing permission key so the front-end can
-            // show a precise "you need <Permission>" message in both dev and
-            // prod, without leaking other exception details.
-            payload = new
-            {
-                error = topLevelMessage,
-                permissionKey = permissionDenied!.PermissionKey,
-            };
-        }
-        else if (includeDetails)
+        if (includeDetails)
         {
             var innermost = GetInnermost(ex);
             payload = new
@@ -160,6 +185,13 @@ public static class ExceptionHandlerConfiguration
             payload = new { error = topLevelMessage };
         }
 
+        await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
+    }
+
+    private static async Task WriteJsonAsync(HttpContext context, int statusCode, object payload)
+    {
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
     }
 

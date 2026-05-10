@@ -19,6 +19,7 @@ import {
   SettingsPaymentGatewaysPage,
   SettingsTextToSpeechPage,
   SettingsVoiceAndSpeechPage,
+  SettingsSpeechPage,
   SettingsToolCatalogPage,
   SystemToolsPage,
   NotificationTemplatesPage,
@@ -150,6 +151,10 @@ const routes = [
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   { path: '/settings/text-to-speech', element: SettingsTextToSpeechPage },
   { path: '/settings/voice', element: SettingsVoiceAndSpeechPage },
+  // Spec 024 — consolidated speech library + recipes + voice mode + chat speech.
+  // The legacy /settings/voice and /settings/text-to-speech pages keep working until the
+  // recipe/active-settings phases (B/C) are in.
+  { path: '/settings/speech', element: SettingsSpeechPage },
   { path: '/settings/tool-catalog', element: SettingsToolCatalogPage },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
   { path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
@@ -183,7 +188,9 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'settings-payment-gateways', title: 'Payment Gateways', type: 'internal', category: 'page', componentKey: 'settings-payment-gateways', route: '/settings/payment-gateways' },
   { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', category: 'page', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
   { id: 'settings-text-to-speech', title: 'Text to Speech', type: 'internal', category: 'page', componentKey: 'settings-text-to-speech', route: '/settings/text-to-speech' },
-  { id: 'settings-voice', title: 'Voice & Speech', type: 'internal', category: 'page', componentKey: 'settings-voice', route: '/settings/voice' },
+  { id: 'settings-voice', title: 'Voice & Speech (legacy)', type: 'internal', category: 'page', componentKey: 'settings-voice', route: '/settings/voice' },
+  // Spec 024 — new consolidated page; tile prominent on the Settings landing.
+  { id: 'settings-speech', title: 'Speech & Voice', type: 'internal', category: 'page', componentKey: 'settings-speech', route: '/settings/speech' },
   { id: 'settings-tool-catalog', title: 'Tool Catalog', type: 'internal', category: 'page', componentKey: 'settings-tool-catalog', route: '/settings/tool-catalog' },
   { id: 'background-jobs', title: 'Background Jobs', type: 'internal', category: 'page', componentKey: 'background-jobs', route: '/settings/background-jobs' },
   { id: 'settings-system-tools', title: 'System Tools', type: 'internal', category: 'page', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
@@ -209,6 +216,7 @@ const panelComponents = {
   'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
   'settings-text-to-speech': wrapPage(SettingsTextToSpeechPage),
   'settings-voice': wrapPage(SettingsVoiceAndSpeechPage),
+  'settings-speech': wrapPage(SettingsSpeechPage),
   'settings-tool-catalog': wrapPage(SettingsToolCatalogPage),
   'background-jobs': wrapPage(BackgroundJobsPage),
   'settings-system-tools': wrapPage(SystemToolsPage),

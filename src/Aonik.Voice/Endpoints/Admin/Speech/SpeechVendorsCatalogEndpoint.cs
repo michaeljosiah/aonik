@@ -1,0 +1,319 @@
+using Aonik.SharedKernel.Abstractions.Ai.Speech;
+using FastEndpoints;
+using Microsoft.AspNetCore.Http;
+
+namespace Aonik.Voice.Endpoints.Admin.Speech;
+
+/// <summary>
+/// Per-vendor form schema served to the admin UI's provider edit panel. Encodes which fields
+/// to render, their types, defaults, and option lists so adding a new vendor (in code) doesn't
+/// require a UI rebuild — the front-end re-fetches this catalog and re-renders.
+///
+/// <para>
+/// Not strict JSON Schema. Closer in spirit to <a href="https://jsonforms.io">JSONForms</a>:
+/// each field declares its widget hint, and the renderer maps it to a typed input. Keeps the
+/// schema small and the renderer simple.
+/// </para>
+/// </summary>
+internal sealed class SpeechVendorsCatalogEndpoint : EndpointWithoutRequest<SpeechVendorsCatalogResponse>
+{
+    public override void Configure()
+    {
+        Get("/speech-vendors");
+        Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Speech vendors form catalog";
+            s.Description = "Returns the per-vendor form schema + voice/region catalogs the admin UI uses to render the provider edit panel.";
+            s.Response(200, "Catalog");
+        });
+        Options(x => x.WithTags("Speech library"));
+    }
+
+    public override Task HandleAsync(CancellationToken ct)
+        => Send.OkAsync(SpeechVendorCatalog.BuildResponse(), ct);
+}
+
+// ── Wire DTOs ───────────────────────────────────────────────────────────────────────────
+
+public sealed record SpeechVendorsCatalogResponse(
+    IReadOnlyList<SpeechVendorDescriptor> Vendors);
+
+public sealed record SpeechVendorDescriptor(
+    /// <summary>Vendor shortcode used in <c>SpeechProvider.Vendor</c> and <c>SpeechProviderConfig</c>'s discriminator.</summary>
+    string Vendor,
+    /// <summary>Human-readable vendor name (e.g. "OpenAI", "Azure Speech").</summary>
+    string DisplayName,
+    /// <summary>Which provider type(s) this vendor supports.</summary>
+    IReadOnlyList<SpeechProviderType> SupportedTypes,
+    /// <summary>Per-(vendor, type) form schema. Keyed by <see cref="SpeechProviderType"/>.</summary>
+    IReadOnlyList<SpeechVendorFormSchema> Forms);
+
+public sealed record SpeechVendorFormSchema(
+    SpeechProviderType Type,
+    /// <summary>Discriminator value used when serializing the resulting <see cref="SpeechProviderConfig"/>.</summary>
+    string ConfigKind,
+    IReadOnlyList<SpeechVendorFormField> Fields);
+
+public sealed record SpeechVendorFormField(
+    /// <summary>JSON property name on the config record.</summary>
+    string Name,
+    /// <summary>UI label.</summary>
+    string Label,
+    /// <summary>Renderer hint: <c>text</c>, <c>password</c>, <c>select</c>, <c>number</c>, <c>textarea</c>.</summary>
+    string Widget,
+    bool Required,
+    /// <summary>Helper text shown beneath the input.</summary>
+    string? Description = null,
+    /// <summary>Placeholder text for free-form inputs.</summary>
+    string? Placeholder = null,
+    /// <summary>Default value if the user leaves the field blank.</summary>
+    string? Default = null,
+    /// <summary>For <c>select</c> widgets: the dropdown options.</summary>
+    IReadOnlyList<SpeechVendorFormOption>? Options = null,
+    /// <summary>For <c>number</c> widgets: validation bounds.</summary>
+    double? Min = null,
+    double? Max = null);
+
+public sealed record SpeechVendorFormOption(string Value, string Label, string? Description = null);
+
+// ── Catalog data ────────────────────────────────────────────────────────────────────────
+
+internal static class SpeechVendorCatalog
+{
+    public static SpeechVendorsCatalogResponse BuildResponse() => new(new[]
+    {
+        OpenAIVendor(),
+        AzureVendor(),
+        ElevenLabsVendor(),
+        MistralVendor(),
+        OpenAIRealtimeVendor(),
+        AzureVoiceLiveVendor(),
+    });
+
+    private static SpeechVendorDescriptor OpenAIVendor() => new(
+        Vendor: "openai",
+        DisplayName: "OpenAI",
+        SupportedTypes: new[] { SpeechProviderType.Stt, SpeechProviderType.Tts },
+        Forms: new[]
+        {
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Stt,
+                ConfigKind: "openai-whisper",
+                Fields: new[]
+                {
+                    Field("model", "Model", "select", required: false, defaultValue: "whisper-1",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("whisper-1", "whisper-1", "Standard Whisper model"),
+                        },
+                        description: "OpenAI Whisper model id."),
+                    Field("language", "Language hint (BCP-47)", "text", required: false,
+                        placeholder: "en (auto-detect if blank)",
+                        description: "Optional. Bias Whisper toward a specific language."),
+                }),
+
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Tts,
+                ConfigKind: "openai-tts",
+                Fields: new[]
+                {
+                    Field("voiceId", "Voice", "select", required: true, defaultValue: "alloy",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("alloy", "Alloy", "Balanced, neutral"),
+                            new SpeechVendorFormOption("echo", "Echo", "Warm, slightly lower"),
+                            new SpeechVendorFormOption("fable", "Fable", "Expressive, narrative"),
+                            new SpeechVendorFormOption("onyx", "Onyx", "Deep, authoritative"),
+                            new SpeechVendorFormOption("nova", "Nova", "Bright, energetic"),
+                            new SpeechVendorFormOption("shimmer", "Shimmer", "Soft, friendly"),
+                        }),
+                    Field("modelId", "Model", "select", required: false, defaultValue: "tts-1",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("tts-1", "tts-1", "Standard quality, lower latency"),
+                            new SpeechVendorFormOption("tts-1-hd", "tts-1-hd", "Higher fidelity"),
+                            new SpeechVendorFormOption("gpt-4o-mini-tts", "gpt-4o-mini-tts", "GPT-4o-based"),
+                        }),
+                }),
+        });
+
+    private static SpeechVendorDescriptor AzureVendor() => new(
+        Vendor: "azure",
+        DisplayName: "Azure Speech",
+        SupportedTypes: new[] { SpeechProviderType.Stt, SpeechProviderType.Tts },
+        Forms: new[]
+        {
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Stt,
+                ConfigKind: "azure-stt",
+                Fields: new[]
+                {
+                    Field("region", "Region", "text", required: true, defaultValue: "eastus",
+                        placeholder: "e.g. eastus, westeurope, uksouth"),
+                    Field("language", "Recognition language (BCP-47)", "text", required: false,
+                        defaultValue: "en-US"),
+                }),
+
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Tts,
+                ConfigKind: "azure-tts",
+                Fields: new[]
+                {
+                    Field("region", "Region", "text", required: true, defaultValue: "eastus"),
+                    Field("voiceId", "Voice", "select", required: true, defaultValue: "en-US-JennyNeural",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("en-US-JennyNeural", "Jenny (en-US)", "Warm, conversational"),
+                            new SpeechVendorFormOption("en-US-AriaNeural", "Aria (en-US)", "Friendly, cheerful"),
+                            new SpeechVendorFormOption("en-US-GuyNeural", "Guy (en-US)", "Deeper male"),
+                            new SpeechVendorFormOption("en-GB-SoniaNeural", "Sonia (en-GB)", "British English female"),
+                            new SpeechVendorFormOption("en-AU-NatashaNeural", "Natasha (en-AU)", "Australian English female"),
+                        }),
+                }),
+        });
+
+    private static SpeechVendorDescriptor ElevenLabsVendor() => new(
+        Vendor: "elevenlabs",
+        DisplayName: "ElevenLabs",
+        SupportedTypes: new[] { SpeechProviderType.Tts },
+        Forms: new[]
+        {
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Tts,
+                ConfigKind: "elevenlabs-tts",
+                Fields: new[]
+                {
+                    Field("voiceId", "Voice id", "text", required: true,
+                        placeholder: "21m00Tcm4TlvDq8ikWAM",
+                        description: "ElevenLabs voice id (preset library or cloned voice)."),
+                    Field("modelId", "Model", "select", required: false, defaultValue: "eleven_multilingual_v2",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("eleven_multilingual_v2", "Multilingual v2", "Stable, multi-language"),
+                            new SpeechVendorFormOption("eleven_turbo_v2_5", "Turbo v2.5", "Lower latency"),
+                            new SpeechVendorFormOption("eleven_flash_v2_5", "Flash v2.5", "Lowest latency"),
+                        }),
+                    Field("stability", "Stability", "number", required: false, min: 0, max: 1,
+                        description: "0.0–1.0. Higher = more consistent."),
+                    Field("similarityBoost", "Similarity boost", "number", required: false, min: 0, max: 1,
+                        description: "0.0–1.0. Higher = closer to original voice."),
+                    Field("optimizeStreamingLatency", "Latency optimization", "number", required: false, min: 0, max: 4,
+                        description: "0–4. Higher = lower latency, more artefacts."),
+                }),
+        });
+
+    private static SpeechVendorDescriptor MistralVendor() => new(
+        Vendor: "mistral",
+        DisplayName: "Mistral (Voxtral)",
+        SupportedTypes: new[] { SpeechProviderType.Tts },
+        Forms: new[]
+        {
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Tts,
+                ConfigKind: "mistral-tts",
+                Fields: new[]
+                {
+                    Field("voiceId", "Voice", "select", required: true, defaultValue: "alloy",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("alloy", "Alloy", "Balanced neutral"),
+                            new SpeechVendorFormOption("echo", "Echo", "Warm, slightly lower"),
+                            new SpeechVendorFormOption("nova", "Nova", "Bright, energetic"),
+                            new SpeechVendorFormOption("shimmer", "Shimmer", "Soft, friendly"),
+                        }),
+                    Field("modelId", "Model", "text", required: false, defaultValue: "voxtral-tts"),
+                }),
+        });
+
+    private static SpeechVendorDescriptor OpenAIRealtimeVendor() => new(
+        Vendor: "openai-realtime",
+        DisplayName: "OpenAI Realtime",
+        SupportedTypes: new[] { SpeechProviderType.Composite },
+        Forms: new[]
+        {
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Composite,
+                ConfigKind: "openai-realtime",
+                Fields: new[]
+                {
+                    Field("voice", "Voice", "select", required: true, defaultValue: "alloy",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("alloy", "Alloy"),
+                            new SpeechVendorFormOption("ash", "Ash"),
+                            new SpeechVendorFormOption("ballad", "Ballad"),
+                            new SpeechVendorFormOption("coral", "Coral"),
+                            new SpeechVendorFormOption("echo", "Echo"),
+                            new SpeechVendorFormOption("sage", "Sage"),
+                            new SpeechVendorFormOption("shimmer", "Shimmer"),
+                            new SpeechVendorFormOption("verse", "Verse"),
+                        },
+                        description: "Realtime voices are distinct from chained TTS voices."),
+                    Field("model", "Model", "select", required: false, defaultValue: "gpt-realtime-mini",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("gpt-realtime-mini", "gpt-realtime-mini", "Cost-optimised"),
+                            new SpeechVendorFormOption("gpt-realtime", "gpt-realtime", "Highest fidelity"),
+                        }),
+                    Field("instructionsAddendum", "Instructions addendum", "textarea", required: false,
+                        description: "Appended to the resolved agent's instructions."),
+                }),
+        });
+
+    private static SpeechVendorDescriptor AzureVoiceLiveVendor() => new(
+        Vendor: "azure-voice-live",
+        DisplayName: "Azure Voice Live",
+        SupportedTypes: new[] { SpeechProviderType.Composite },
+        Forms: new[]
+        {
+            new SpeechVendorFormSchema(
+                Type: SpeechProviderType.Composite,
+                ConfigKind: "azure-voice-live",
+                Fields: new[]
+                {
+                    Field("region", "Region", "text", required: true, defaultValue: "uksouth",
+                        description: "Voice Live availability is regional."),
+                    Field("endpoint", "Endpoint URL", "text", required: true,
+                        placeholder: "wss://uksouth.tts.speech.microsoft.com/cognitiveservices/voicelive"),
+                    Field("voice", "Voice", "select", required: true, defaultValue: "alloy",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("alloy", "Alloy"),
+                            new SpeechVendorFormOption("nova", "Nova"),
+                            new SpeechVendorFormOption("shimmer", "Shimmer"),
+                        }),
+                    Field("model", "Model", "select", required: false, defaultValue: "gpt-realtime-mini",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("gpt-realtime-mini", "gpt-realtime-mini"),
+                            new SpeechVendorFormOption("gpt-realtime", "gpt-realtime"),
+                            new SpeechVendorFormOption("phi4-mm-realtime", "phi4-mm-realtime"),
+                        }),
+                    Field("instructionsAddendum", "Instructions addendum", "textarea", required: false),
+                }),
+        });
+
+    private static SpeechVendorFormField Field(
+        string name,
+        string label,
+        string widget,
+        bool required,
+        string? defaultValue = null,
+        string? placeholder = null,
+        string? description = null,
+        IReadOnlyList<SpeechVendorFormOption>? options = null,
+        double? min = null,
+        double? max = null)
+        => new(
+            Name: name,
+            Label: label,
+            Widget: widget,
+            Required: required,
+            Description: description,
+            Placeholder: placeholder,
+            Default: defaultValue,
+            Options: options,
+            Min: min,
+            Max: max);
+}
