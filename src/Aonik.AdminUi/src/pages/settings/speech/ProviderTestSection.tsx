@@ -35,6 +35,11 @@ export function ProviderTestSection({ providerId, type }: ProviderTestSectionPro
 
 function TtsTestPanel({ providerId }: { providerId: string }) {
   const [text, setText] = useState(DEFAULT_TTS_TEXT);
+  // Phase D: voice + model are no longer on the provider config — the test endpoint
+  // requires the caller to supply them. Admin types whatever vendor-specific id they
+  // want to preview; recipes + chat speech do the same when picking voices.
+  const [voiceId, setVoiceId] = useState('');
+  const [modelId, setModelId] = useState('');
   const [busy, setBusy] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -43,9 +48,18 @@ function TtsTestPanel({ providerId }: { providerId: string }) {
       toast.error('Enter preview text first.');
       return;
     }
+    if (!voiceId.trim()) {
+      toast.error('Voice id is required to test TTS.');
+      return;
+    }
     setBusy(true);
     try {
-      const result = await speechProviderLibraryService.testTts(providerId, text.trim());
+      const result = await speechProviderLibraryService.testTts(
+        providerId,
+        text.trim(),
+        voiceId.trim(),
+        modelId.trim() || null,
+      );
       const url = URL.createObjectURL(result.audioBlob);
       if (audioRef.current) audioRef.current.pause();
       const audio = new Audio(url);
@@ -67,6 +81,30 @@ function TtsTestPanel({ providerId }: { providerId: string }) {
     <div className="space-y-3 rounded-md border bg-muted/20 p-4">
       <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         Test this voice
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="tts-test-voice-id">
+            Voice id <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="tts-test-voice-id"
+            value={voiceId}
+            onChange={(e) => setVoiceId(e.target.value)}
+            placeholder="e.g. alloy / xZP4VGEopzZsZsxXfpyz"
+            disabled={busy}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="tts-test-model-id">Model override</Label>
+          <Input
+            id="tts-test-model-id"
+            value={modelId}
+            onChange={(e) => setModelId(e.target.value)}
+            placeholder="leave blank to use provider default"
+            disabled={busy}
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="tts-test-text">Preview text</Label>
@@ -181,6 +219,3 @@ function SttTestPanel({ providerId }: { providerId: string }) {
   );
 }
 
-// Suppress an unused import warning until the helper goes away in v1.2.
-const _unused: typeof Input = Input;
-void _unused;

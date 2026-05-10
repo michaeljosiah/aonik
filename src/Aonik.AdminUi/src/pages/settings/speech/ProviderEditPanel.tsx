@@ -164,7 +164,7 @@ export function ProviderEditPanel({
   const headerTitle = isEditing ? 'Edit provider' : 'Add provider';
   const headerSubtitle = isEditing
     ? 'Update the configuration. Saving bumps the version and snapshots the previous one in history.'
-    : 'Configure a vendor instance. Many providers can coexist per vendor.';
+    : 'Configure a vendor instance. One provider per (vendor, type) — Stt and Tts of the same vendor can coexist as separate rows and share a credential.';
 
   return (
     <>

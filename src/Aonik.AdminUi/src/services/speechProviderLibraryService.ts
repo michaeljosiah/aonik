@@ -78,10 +78,15 @@ export const speechProviderLibraryService = {
    * (raw PCM in a 44-byte RIFF/WAVE header) so the browser's native `<audio>` plays
    * it without resampling.
    */
-  testTts: async (id: string, text: string): Promise<{ audioBlob: Blob; sampleRate: number | null }> => {
+  testTts: async (
+    id: string,
+    text: string,
+    voiceId: string,
+    modelId?: string | null,
+  ): Promise<{ audioBlob: Blob; sampleRate: number | null }> => {
     const response = await apiClient.post(
       `/tenant/speech-providers/${encodeURIComponent(id)}/test-tts`,
-      { text },
+      { text, voiceId, modelId: modelId ?? null },
       { responseType: 'blob' },
     );
     const sampleRateHeader = response.headers['x-voice-sample-rate'] as string | undefined;
