@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Aonik.Ai.Providers;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Ai.Services;
@@ -19,6 +20,8 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
     private readonly IEnumerable<ITextToSpeechProvider> _providers;
     private readonly ITextToSpeechCredentialResolver _credentialResolver;
     private readonly ITenantTextToSpeechSettingsService _settingsService;
+    private readonly IChatSpeechSettingsService? _chatSpeechSettings;
+    private readonly ISpeechProviderLibraryService? _speechProviderLibrary;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IAiRunWriter _aiRunWriter;
@@ -35,11 +38,20 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
         IAiRunWriter aiRunWriter,
         ITextToSpeechRateLimiter rateLimiter,
         ITtsCache ttsCache,
-        ILogger<TextToSpeechService> logger)
+        ILogger<TextToSpeechService> logger,
+        // Spec 024 Phase C.2: optional dependencies so the service can overlay the new
+        // singleton-per-tenant ChatSpeechSettings on top of the legacy DefaultProfile.
+        // Marked optional so existing test fixtures (which inject the service directly
+        // without the speech library wired) keep compiling — the production DI container
+        // provides both. When either is null the service silently falls back to legacy.
+        IChatSpeechSettingsService? chatSpeechSettings = null,
+        ISpeechProviderLibraryService? speechProviderLibrary = null)
     {
         _providers = providers;
         _credentialResolver = credentialResolver;
         _settingsService = settingsService;
+        _chatSpeechSettings = chatSpeechSettings;
+        _speechProviderLibrary = speechProviderLibrary;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _aiRunWriter = aiRunWriter;
@@ -55,6 +67,9 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetRequiredUserId();
         var settings = await _settingsService.GetCurrentAsync(cancellationToken);
+        // Spec 024 Phase C.2: overlay the active Chat Speech setting BEFORE the per-request
+        // override so chained precedence is request > tenant chat-speech > legacy default.
+        settings = await ApplyChatSpeechOverlayAsync(settings, cancellationToken);
         var effectiveSettings = ApplyVoiceOverride(settings, request.VoiceProfileOverride, request.Locale);
 
         if (!effectiveSettings.Enabled)
@@ -201,6 +216,8 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetRequiredUserId();
         var settings = await _settingsService.GetCurrentAsync(cancellationToken);
+        // Spec 024 Phase C.2: overlay Chat Speech tenant setting before the per-request override.
+        settings = await ApplyChatSpeechOverlayAsync(settings, cancellationToken);
         var effectiveSettings = ApplyVoiceOverride(settings, request.VoiceProfileOverride, request.Locale);
 
         if (!effectiveSettings.Enabled)
@@ -478,6 +495,137 @@ internal sealed class TextToSpeechService : ITextToSpeechService, IStreamingText
         _logger.LogInformation(
             "Deleted TTS voice {VoiceId} via provider {Provider}",
             voiceId, providerName);
+    }
+
+    /// <summary>
+    /// Spec 024 Phase C.2 overlay. Reads the current tenant's
+    /// <see cref="ChatSpeechSettings"/> singleton and, if a non-null
+    /// <see cref="ChatSpeechSettings.ActiveTtsProviderId"/> resolves to an active TTS
+    /// provider in the speech library, replaces <see cref="TextToSpeechSettings.DefaultProfile"/>
+    /// with one derived from that provider. Also forces <c>Enabled = false</c> when the user
+    /// has explicitly disabled chat speech in the new UI (logical AND with the legacy gate).
+    ///
+    /// <para>
+    /// When the new dependencies aren't wired (test fixtures, lazy bootstrapping), this
+    /// method is a no-op — the legacy <see cref="TextToSpeechSettings"/> flows through
+    /// unchanged.
+    /// </para>
+    /// </summary>
+    private async Task<TextToSpeechSettings> ApplyChatSpeechOverlayAsync(
+        TextToSpeechSettings legacy,
+        CancellationToken cancellationToken)
+    {
+        if (_chatSpeechSettings is null || _speechProviderLibrary is null)
+        {
+            return legacy;
+        }
+
+        ChatSpeechSettings chat;
+        try
+        {
+            chat = await _chatSpeechSettings.GetAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // The new path must NEVER take down chat synthesis. If the singleton lookup
+            // throws (DB hiccup, misconfiguration), log + fall back to legacy.
+            _logger.LogWarning(ex, "Failed to load ChatSpeechSettings; falling back to legacy DefaultProfile.");
+            return legacy;
+        }
+
+        // Logical AND on Enabled — disabling chat speech in EITHER place kills the feature.
+        var working = chat.Enabled ? legacy : legacy with { Enabled = false };
+
+        if (string.IsNullOrEmpty(chat.ActiveTtsProviderId))
+        {
+            return working;
+        }
+
+        SpeechProvider? sp;
+        try
+        {
+            sp = await _speechProviderLibrary.GetAsync(chat.ActiveTtsProviderId!, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to resolve ChatSpeech ActiveTtsProviderId {Id}; falling back to legacy DefaultProfile.",
+                chat.ActiveTtsProviderId);
+            return working;
+        }
+
+        if (sp is null || sp.Type != SpeechProviderType.Tts || sp.Status != SpeechProviderStatus.Active)
+        {
+            // The selected provider was disabled / deleted / typed-wrong since chat speech
+            // was configured. Log loudly so the admin notices in observability and fall
+            // back to legacy so the chat keeps speaking.
+            _logger.LogWarning(
+                "ChatSpeech ActiveTtsProviderId {Id} no longer resolves to an active TTS provider (resolved={Resolved}); falling back to legacy DefaultProfile.",
+                chat.ActiveTtsProviderId,
+                sp is null ? "null" : $"{sp.DisplayName} type={sp.Type} status={sp.Status}");
+            return working;
+        }
+
+        var overlaidProfile = TryBuildProfileFromSpeechProvider(working.DefaultProfile, sp);
+        if (overlaidProfile is null)
+        {
+            // We don't have an engine wired for this config kind yet (e.g. OpenAI TTS in
+            // the chat path which only ships ElevenLabs + Mistral providers). Log + leave
+            // legacy in place — the existing `Provider not registered` failure mode will
+            // surface naturally if/when synthesis is attempted with an unsupported config.
+            _logger.LogWarning(
+                "ChatSpeech ActiveTtsProvider {Id} uses config kind {Kind} which has no overlay mapping; falling back to legacy DefaultProfile.",
+                sp.Id,
+                sp.Config.GetType().Name);
+            return working;
+        }
+
+        return working with { DefaultProfile = overlaidProfile };
+    }
+
+    /// <summary>
+    /// Maps a <see cref="SpeechProvider.Config"/> into the legacy
+    /// <see cref="TextToSpeechVoiceProfile"/> shape. Returns null when the config kind has no
+    /// chat-path engine wired (callers fall back to the legacy profile).
+    /// </summary>
+    private static TextToSpeechVoiceProfile? TryBuildProfileFromSpeechProvider(
+        TextToSpeechVoiceProfile fallback,
+        SpeechProvider sp)
+    {
+        return sp.Config switch
+        {
+            ElevenLabsTtsConfig el => new TextToSpeechVoiceProfile(
+                Provider: "ElevenLabs",
+                VoiceId: el.VoiceId,
+                ModelId: string.IsNullOrWhiteSpace(el.ModelId) ? fallback.ModelId : el.ModelId,
+                Locale: fallback.Locale,
+                OutputFormat: fallback.OutputFormat,
+                ProviderOptions: BuildElevenLabsOptions(el)),
+            MistralTtsConfig m => new TextToSpeechVoiceProfile(
+                Provider: "Mistral",
+                VoiceId: m.VoiceId,
+                ModelId: string.IsNullOrWhiteSpace(m.ModelId) ? fallback.ModelId : m.ModelId,
+                Locale: fallback.Locale,
+                OutputFormat: fallback.OutputFormat,
+                ProviderOptions: new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Translates the typed <see cref="ElevenLabsTtsConfig"/> tunables into the
+    /// string-keyed dictionary the existing
+    /// <c>ElevenLabsTextToSpeechProvider</c> already understands.
+    /// </summary>
+    private static Dictionary<string, string?> BuildElevenLabsOptions(ElevenLabsTtsConfig el)
+    {
+        var opts = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        if (el.Stability.HasValue) opts["stability"] = el.Stability.Value.ToString(inv);
+        if (el.SimilarityBoost.HasValue) opts["similarityBoost"] = el.SimilarityBoost.Value.ToString(inv);
+        if (el.OptimizeStreamingLatency.HasValue) opts["optimizeStreamingLatency"] = el.OptimizeStreamingLatency.Value.ToString(inv);
+        return opts;
     }
 
     private static TextToSpeechSettings ApplyVoiceOverride(

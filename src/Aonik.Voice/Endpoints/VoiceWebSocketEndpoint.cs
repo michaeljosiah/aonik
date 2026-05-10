@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Voice.Pipeline;
@@ -80,13 +81,35 @@ internal static class VoiceWebSocketEndpoint
                 return;
             }
 
-            // Resolve tenant voice provider configuration.
-            var voiceSettings = services.GetRequiredService<ITenantVoiceProviderSettingsService>();
-            var config = await voiceSettings.GetCurrentAsync(cancellationToken);
-            if (!config.Enabled)
+            // Resolve the tenant's active Voice Mode recipe (spec 024 Phase C.2).
+            // The legacy ITenantVoiceProviderSettingsService is no longer the runtime source
+            // of truth — this endpoint now reads VoiceModeSettings (which recipe is active)
+            // and resolves the recipe + its provider refs from the speech library.
+            var voiceMode = services.GetRequiredService<IVoiceModeSettingsService>();
+            var voiceModeSettings = await voiceMode.GetAsync(cancellationToken);
+            if (!voiceModeSettings.Enabled)
             {
-                await SendErrorAsync(socket, "voice-not-configured", "Voice mode is not configured for this tenant.", cancellationToken);
-                await CloseAsync(socket, WebSocketCloseStatus.PolicyViolation, "Voice not configured", cancellationToken);
+                await SendErrorAsync(socket, "voice-not-configured", "Voice mode is disabled for this tenant.", cancellationToken);
+                await CloseAsync(socket, WebSocketCloseStatus.PolicyViolation, "Voice mode disabled", cancellationToken);
+                return;
+            }
+            if (string.IsNullOrEmpty(voiceModeSettings.ActiveRecipeId))
+            {
+                await SendErrorAsync(socket, "voice-no-recipe", "No voice recipe is selected. Pick a recipe in Settings → Speech & Voice → Voice mode.", cancellationToken);
+                await CloseAsync(socket, WebSocketCloseStatus.PolicyViolation, "No active recipe", cancellationToken);
+                return;
+            }
+
+            ChainedRecipeRuntimeSpec recipeSpec;
+            try
+            {
+                recipeSpec = await ResolveRecipeAsync(services, voiceModeSettings.ActiveRecipeId!, cancellationToken);
+            }
+            catch (VoiceConfigurationException ex)
+            {
+                logger.LogWarning(ex, "Voice WebSocket: recipe resolution failed");
+                await SendErrorAsync(socket, "voice-config-invalid", ex.Message, cancellationToken);
+                await CloseAsync(socket, WebSocketCloseStatus.PolicyViolation, "Voice recipe error", cancellationToken);
                 return;
             }
 
@@ -131,18 +154,19 @@ internal static class VoiceWebSocketEndpoint
             Voxa.Pipelines.Pipeline pipeline;
             try
             {
-                pipeline = factory.BuildChained(new VoicePipelineBuildRequest(
-                    WebSocket: socket,
-                    VoiceAgent: voiceAgentResult.Agent,
-                    UserBriefPreamble: agentContext.UserBriefPreamble,
-                    RunOptions: runOptions,
-                    FrontendToolNames: catalog.AllowedNames,
-                    InitialChatThreadId: hello.ChatThreadId,
-                    AgentId: hello.AgentId,
-                    TenantId: tenantId,
-                    UserId: userId,
-                    TenantConfig: config,
-                    RequestServices: services));
+                pipeline = factory.BuildChained(
+                    new VoicePipelineBuildRequest(
+                        WebSocket: socket,
+                        VoiceAgent: voiceAgentResult.Agent,
+                        UserBriefPreamble: agentContext.UserBriefPreamble,
+                        RunOptions: runOptions,
+                        FrontendToolNames: catalog.AllowedNames,
+                        InitialChatThreadId: hello.ChatThreadId,
+                        AgentId: hello.AgentId,
+                        TenantId: tenantId,
+                        UserId: userId,
+                        RequestServices: services),
+                    recipeSpec);
             }
             catch (VoiceConfigurationException ex)
             {
@@ -189,6 +213,76 @@ internal static class VoiceWebSocketEndpoint
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Pulls the named recipe from the speech library, validates it's a chained recipe in
+    /// active status, then resolves the STT + TTS provider refs into a fully-typed runtime
+    /// spec the factory can consume without further library lookups. Each failure mode
+    /// throws <see cref="VoiceConfigurationException"/> with a message safe to surface to
+    /// the client.
+    /// </summary>
+    private static async Task<ChainedRecipeRuntimeSpec> ResolveRecipeAsync(
+        IServiceProvider services,
+        string recipeId,
+        CancellationToken ct)
+    {
+        var recipes = services.GetRequiredService<IVoiceRecipeLibraryService>();
+        var providers = services.GetRequiredService<ISpeechProviderLibraryService>();
+
+        var recipe = await recipes.GetAsync(recipeId, ct);
+        if (recipe is null)
+        {
+            throw new VoiceConfigurationException(
+                $"Voice recipe '{recipeId}' was not found in this tenant's library. Pick a recipe in Settings → Speech & Voice → Voice mode.");
+        }
+        if (recipe.Status != VoiceRecipeStatus.Active)
+        {
+            throw new VoiceConfigurationException(
+                $"Voice recipe '{recipe.DisplayName}' is not active. Re-enable it or pick a different recipe.");
+        }
+        if (recipe.Kind != VoiceRecipeKind.Chained || recipe.Chained is null)
+        {
+            throw new VoiceConfigurationException(
+                $"Voice recipe '{recipe.DisplayName}' is a {recipe.Kind} recipe; only Chained recipes are wired in v1.");
+        }
+
+        var stt = await providers.GetAsync(recipe.Chained.SttProviderId, ct)
+            ?? throw new VoiceConfigurationException(
+                $"STT provider '{recipe.Chained.SttProviderId}' referenced by recipe '{recipe.DisplayName}' was not found.");
+        if (stt.Type != SpeechProviderType.Stt)
+        {
+            throw new VoiceConfigurationException(
+                $"Provider '{stt.DisplayName}' referenced as STT by recipe '{recipe.DisplayName}' is type {stt.Type}, expected Stt.");
+        }
+        if (stt.Status != SpeechProviderStatus.Active)
+        {
+            throw new VoiceConfigurationException(
+                $"STT provider '{stt.DisplayName}' is not active. Re-enable it or pick a different provider.");
+        }
+
+        var tts = await providers.GetAsync(recipe.Chained.TtsProviderId, ct)
+            ?? throw new VoiceConfigurationException(
+                $"TTS provider '{recipe.Chained.TtsProviderId}' referenced by recipe '{recipe.DisplayName}' was not found.");
+        if (tts.Type != SpeechProviderType.Tts)
+        {
+            throw new VoiceConfigurationException(
+                $"Provider '{tts.DisplayName}' referenced as TTS by recipe '{recipe.DisplayName}' is type {tts.Type}, expected Tts.");
+        }
+        if (tts.Status != SpeechProviderStatus.Active)
+        {
+            throw new VoiceConfigurationException(
+                $"TTS provider '{tts.DisplayName}' is not active. Re-enable it or pick a different provider.");
+        }
+
+        return new ChainedRecipeRuntimeSpec(
+            RecipeId: recipe.Id,
+            RecipeDisplayName: recipe.DisplayName,
+            SttProviderDisplayName: stt.DisplayName,
+            TtsProviderDisplayName: tts.DisplayName,
+            SttConfig: stt.Config,
+            TtsConfig: tts.Config,
+            UseSentenceAggregator: recipe.Chained.SentenceAggregator);
     }
 
     private static Guid? TryGetTenantId(IServiceProvider services)

@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.Voice.Frames;
 using Aonik.Voice.Processors;
 using Aonik.Voice.Tools;
@@ -16,14 +17,21 @@ using Voxa.Transports.WebSocket;
 namespace Aonik.Voice.Pipeline;
 
 /// <summary>
-/// Strategy dispatcher that composes the per-connection Voxa pipeline based on
-/// <see cref="VoiceProviderConfiguration"/>. v1 implements the chained-OpenAI
-/// recipe; other recipes throw with an explicit "not yet wired" message so the
-/// admin UI surfaces it.
+/// Strategy dispatcher that composes the per-connection Voxa pipeline. v1 implements the
+/// chained-OpenAI recipe; other recipe shapes throw with an explicit "not yet wired" message
+/// so the admin UI surfaces it.
+///
+/// <para>
+/// As of spec 024 Phase C.2 the runtime resolves recipes from
+/// <see cref="IVoiceModeSettingsService"/> + the speech library, not the legacy
+/// <c>ITenantVoiceProviderSettingsService</c>. The endpoint does the resolution and hands
+/// us a fully-resolved <see cref="ChainedRecipeRuntimeSpec"/> — this factory never reads
+/// from settings stores directly.
+/// </para>
 /// </summary>
 public interface IAonikVoicePipelineFactory
 {
-    Voxa.Pipelines.Pipeline BuildChained(VoicePipelineBuildRequest request);
+    Voxa.Pipelines.Pipeline BuildChained(VoicePipelineBuildRequest request, ChainedRecipeRuntimeSpec recipe);
 }
 
 /// <summary>
@@ -39,8 +47,27 @@ public sealed record VoicePipelineBuildRequest(
     string? AgentId,
     Guid? TenantId,
     Guid? UserId,
-    VoiceProviderConfiguration TenantConfig,
     IServiceProvider RequestServices);
+
+/// <summary>
+/// Fully-resolved chained recipe — STT + TTS provider configs already pulled from the
+/// speech library. The factory pattern-matches on the config types to wire concrete engines.
+/// </summary>
+/// <param name="RecipeId">Recipe id (built-in or tenant Guid). Surfaced for logging only.</param>
+/// <param name="RecipeDisplayName">Human-readable recipe name. Surfaced for error messages.</param>
+/// <param name="SttProviderDisplayName">Human-readable STT provider name. For error messages.</param>
+/// <param name="TtsProviderDisplayName">Human-readable TTS provider name. For error messages.</param>
+/// <param name="SttConfig">Polymorphic STT config; runtime requires <see cref="OpenAIWhisperConfig"/>.</param>
+/// <param name="TtsConfig">Polymorphic TTS config; runtime requires <see cref="OpenAITtsConfig"/>.</param>
+/// <param name="UseSentenceAggregator">If false, the SentenceAggregator is omitted from the pipeline.</param>
+public sealed record ChainedRecipeRuntimeSpec(
+    string RecipeId,
+    string RecipeDisplayName,
+    string SttProviderDisplayName,
+    string TtsProviderDisplayName,
+    SpeechProviderConfig SttConfig,
+    SpeechProviderConfig TtsConfig,
+    bool UseSentenceAggregator);
 
 internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
 {
@@ -51,37 +78,25 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         _loggerFactory = loggerFactory;
     }
 
-    public Voxa.Pipelines.Pipeline BuildChained(VoicePipelineBuildRequest request)
+    public Voxa.Pipelines.Pipeline BuildChained(VoicePipelineBuildRequest request, ChainedRecipeRuntimeSpec recipe)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(recipe);
 
-        if (request.TenantConfig.Kind != VoiceProviderKind.Chained)
+        // v1 ships only OpenAI Whisper + OpenAI TTS end-to-end. Other configs (Azure,
+        // ElevenLabs, Mistral) need engine wiring; for now each unsupported config raises
+        // a clear error that surfaces as a `voice-config-invalid` envelope on the WS.
+        if (recipe.SttConfig is not OpenAIWhisperConfig whisperConfig)
         {
             throw new VoiceConfigurationException(
-                $"Voice provider kind '{request.TenantConfig.Kind}' is reserved for v1.1; v1 only supports 'chained'. "
-                + "See docs/specifications/022.aonik-voice-realtime.md Phase 7.");
+                $"STT provider '{recipe.SttProviderDisplayName}' uses {recipe.SttConfig.GetType().Name}; "
+                + "only OpenAIWhisperConfig is wired in v1. Pick a provider that uses OpenAI Whisper or wait for the relevant phase wiring.");
         }
-
-        var chained = request.TenantConfig.Chained
-            ?? throw new VoiceConfigurationException(
-                "Tenant voice configuration declares 'chained' kind but ChainedVoiceConfiguration is null.");
-
-        var sttVendor = chained.Stt.Vendor?.ToLowerInvariant();
-        var ttsVendor = chained.Tts.Vendor?.ToLowerInvariant();
-
-        // v1 ships only the OpenAI recipe end-to-end. The other vendors in the
-        // matrix (Azure, ElevenLabs, Mistral) need their own engine wiring; for
-        // now they raise a clear error that surfaces as a `voice-not-configured`
-        // envelope on the WS.
-        if (sttVendor != "openai-whisper" && sttVendor != "openai")
+        if (recipe.TtsConfig is not OpenAITtsConfig openaiTtsConfig)
         {
             throw new VoiceConfigurationException(
-                $"STT vendor '{chained.Stt.Vendor}' not yet wired in v1. Use 'openai-whisper' or wait for the relevant phase wiring.");
-        }
-        if (ttsVendor != "openai")
-        {
-            throw new VoiceConfigurationException(
-                $"TTS vendor '{chained.Tts.Vendor}' not yet wired in v1. Use 'openai' or wait for the relevant phase wiring.");
+                $"TTS provider '{recipe.TtsProviderDisplayName}' uses {recipe.TtsConfig.GetType().Name}; "
+                + "only OpenAITtsConfig is wired in v1. Pick a provider that uses OpenAI TTS or wait for the relevant phase wiring.");
         }
 
         // Resolve via the platform credential resolver (tenant override → host default
@@ -104,9 +119,9 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         var openAiOptions = new OpenAISpeechOptions
         {
             ApiKey = openAiKey,
-            SttModel = chained.Stt.Model ?? "whisper-1",
-            TtsModel = chained.Tts.ModelId ?? "tts-1",
-            TtsVoice = chained.Tts.VoiceId ?? "alloy",
+            SttModel = whisperConfig.Model ?? "whisper-1",
+            TtsModel = openaiTtsConfig.ModelId ?? "tts-1",
+            TtsVoice = openaiTtsConfig.VoiceId,
         };
 
         var source = new WebSocketAudioSource(request.WebSocket);
@@ -119,8 +134,6 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
 
         var stt = OpenAISpeech.StreamingTranscription(openAiOptions);
         var tts = OpenAISpeech.Synthesis(openAiOptions);
-
-        var sentenceAggregator = new SentenceAggregator();
 
         var normalizer = new SpeechTextNormalizerProcessor(
             request.RequestServices.GetRequiredService<ISpeechTextNormalizer>());
@@ -142,15 +155,23 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             logger: _loggerFactory.CreateLogger("Aonik.Voice.AonikVoiceAgent"));
 
         // Pipeline order matches the spec:
-        //   WebSocketAudioSource → STT → AonikVoiceAgent → SentenceAggregator
+        //   WebSocketAudioSource → STT → AonikVoiceAgent → [SentenceAggregator?]
         //   → SpeechTextNormalizerProcessor → TextToSpeechProcessor → WebSocketAudioSink
         // VAD is not enabled in v1 chained-OpenAI (Whisper handles segmentation
-        // server-side); the spec calls VAD optional.
-        return Voxa.Pipelines.Pipeline.Build()
+        // server-side); the spec calls VAD optional. The sentence aggregator is gated by
+        // the recipe's UseSentenceAggregator knob — disabling it lets tokens flow through
+        // unbuffered (useful for snappier echoback agents).
+        var builder = Voxa.Pipelines.Pipeline.Build()
             .Source(source)
             .Then(stt)
-            .Then(agent)
-            .Then(sentenceAggregator)
+            .Then(agent);
+
+        if (recipe.UseSentenceAggregator)
+        {
+            builder = builder.Then(new SentenceAggregator());
+        }
+
+        return builder
             .Then(normalizer)
             .Then(tts)
             .Sink(sink);
