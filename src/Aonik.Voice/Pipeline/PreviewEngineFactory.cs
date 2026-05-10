@@ -87,9 +87,10 @@ internal sealed class PreviewEngineFactory : IPreviewEngineFactory
                 ApiKey = request.ApiKey,
                 Voice = string.IsNullOrWhiteSpace(request.VoiceId) ? "alloy" : request.VoiceId,
                 // Mistral's actual TTS model id — the production MistralTextToSpeechProvider
-                // hardcodes the same value. Earlier "voxtral-tts" placeholder was wrong and
-                // caused 400s from Mistral's /v1/audio/speech endpoint.
-                Model = string.IsNullOrWhiteSpace(request.ModelId) ? "voxtral-mini-tts-2603" : request.ModelId,
+                // hardcodes the same value. The old "voxtral-tts" placeholder was wrong and
+                // caused 400s from Mistral's /v1/audio/speech endpoint, so we also rewrite
+                // it on the fly here to spare admins editing every existing provider row.
+                Model = ResolveMistralModel(request.ModelId),
             }),
 
             _ => throw new NotSupportedException(
@@ -142,6 +143,21 @@ internal sealed class PreviewEngineFactory : IPreviewEngineFactory
 
     private static string NormalizeProvider(string provider)
         => (provider ?? string.Empty).Trim().ToLowerInvariant();
+
+    /// <summary>
+    /// Bridge for the rename of Mistral's TTS model id from the early placeholder
+    /// "voxtral-tts" (which was never a real Mistral model and 400s on /v1/audio/speech)
+    /// to the production id "voxtral-mini-tts-2603". Existing SpeechProvider rows still
+    /// carry the old value in their config; rewrite on the fly so admins don't have to
+    /// edit every row by hand.
+    /// </summary>
+    private static string ResolveMistralModel(string? modelId)
+    {
+        if (string.IsNullOrWhiteSpace(modelId)) return "voxtral-mini-tts-2603";
+        return modelId.Trim().Equals("voxtral-tts", StringComparison.OrdinalIgnoreCase)
+            ? "voxtral-mini-tts-2603"
+            : modelId;
+    }
 
     private static string RequireRegion(string? region, string provider)
         => string.IsNullOrWhiteSpace(region)

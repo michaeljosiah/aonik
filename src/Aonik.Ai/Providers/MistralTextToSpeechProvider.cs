@@ -59,7 +59,14 @@ internal sealed class MistralTextToSpeechProvider : ITextToSpeechProvider
         }
 
         var outputFormat = NormalizeOutputFormat(request.OutputFormat);
-        var modelId = string.IsNullOrWhiteSpace(request.ModelId) ? DefaultModel : request.ModelId;
+        // Bridge the rename from the early placeholder "voxtral-tts" (which 400s on
+        // Mistral's /v1/audio/speech) to the production id. Existing SpeechProvider rows
+        // may still carry the placeholder in their config; rewrite on the fly so chat
+        // speech doesn't fail before admins notice.
+        var rawModelId = string.IsNullOrWhiteSpace(request.ModelId) ? DefaultModel : request.ModelId;
+        var modelId = rawModelId.Trim().Equals("voxtral-tts", StringComparison.OrdinalIgnoreCase)
+            ? DefaultModel
+            : rawModelId;
 
         var expectedContentType = OutputFormatContentTypes.GetValueOrDefault(outputFormat, "audio/mpeg");
 
