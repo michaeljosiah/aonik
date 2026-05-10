@@ -36,6 +36,9 @@ dependencies:
   speech_to_text: ^7.1.0
   flutter_tts: ^4.2.2
   audioplayers: ^6.1.0
+  # Phase H (spec 024): low-level WebSocket client for the VoxaVoiceClient that talks to
+  # the AONIK /ai/voice WSS endpoint. Standard cross-platform Flutter package.
+  web_socket_channel: ^3.0.1
   path_provider: ^2.1.5
   youtube_player_iframe: ^5.2.0
 
