@@ -286,12 +286,12 @@ function FirstProviderHero({ onAdd }: { onAdd: (type: SpeechProviderType) => voi
       <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
         Add your first provider
       </h2>
-      <p className="mx-auto mt-1 max-w-md text-sm text-[var(--color-text-secondary)]">
+      <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
         Providers are vendor instances (an OpenAI Whisper config, an ElevenLabs voice, an Azure
         Voice Live region…). Compose them into recipes that drive Voice mode and Chat speech.
       </p>
 
-      <div className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mx-auto mt-6 grid max-w-[42rem] grid-cols-1 gap-3 sm:grid-cols-3">
         <HeroChoice
           icon={<Mic className="h-5 w-5" />}
           title="Speech-to-Text"

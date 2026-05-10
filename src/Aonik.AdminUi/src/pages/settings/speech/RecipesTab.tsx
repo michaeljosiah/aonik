@@ -263,7 +263,7 @@ function FirstRecipeHero({
         <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
           Add a provider before composing recipes
         </h2>
-        <p className="mx-auto mt-1 max-w-md text-sm text-[var(--color-text-secondary)]">
+        <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
           Recipes are pipelines that wire providers together. Add at least one Speech-to-Text and
           one Text-to-Speech provider, then come back to compose them.
         </p>
@@ -282,12 +282,12 @@ function FirstRecipeHero({
       <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
         Compose your first voice recipe
       </h2>
-      <p className="mx-auto mt-1 max-w-md text-sm text-[var(--color-text-secondary)]">
+      <p className="mx-auto mt-1 max-w-[28rem] text-sm text-[var(--color-text-secondary)]">
         A recipe wires your providers into a pipeline that powers Voice Mode. Pick a chained
         STT → Agent → TTS flow, or a single-vendor realtime composite.
       </p>
 
-      <div className="mx-auto mt-6 grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mx-auto mt-6 grid max-w-[36rem] grid-cols-1 gap-3 sm:grid-cols-2">
         <RecipeKindChoice
           icon={<Layers className="h-5 w-5" />}
           title="Chained recipe"
