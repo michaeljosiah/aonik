@@ -38,13 +38,6 @@ export const voiceRecipeLibraryService = {
     return api.put<VoiceRecipe>(`/tenant/voice-recipes/${encodeURIComponent(id)}`, request);
   },
 
-  cloneBuiltIn: async (id: string, newDisplayName?: string | null): Promise<VoiceRecipe> => {
-    return api.post<VoiceRecipe>(
-      `/tenant/voice-recipes/${encodeURIComponent(id)}/clone`,
-      { newDisplayName: newDisplayName ?? null },
-    );
-  },
-
   setStatus: async (id: string, status: VoiceRecipeStatus): Promise<VoiceRecipe> => {
     return api.put<VoiceRecipe>(
       `/tenant/voice-recipes/${encodeURIComponent(id)}/status`,

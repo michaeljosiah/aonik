@@ -148,6 +148,8 @@ export function ProvidersTab() {
     setCreating(null);
   };
 
+  const tenantHasNoProviders = providers.length === 0;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -169,79 +171,87 @@ export function ProvidersTab() {
         }
       />
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile label="Active providers" value={stats.active} total={stats.total} icon={CheckCircle2} />
-        <StatTile label="Speech-to-Text" value={stats.stt} total={stats.sttTotal} icon={Mic} />
-        <StatTile label="Text-to-Speech" value={stats.tts} total={stats.ttsTotal} icon={Speaker} />
-        <StatTile label="Realtime Voice" value={stats.composite} total={stats.compositeTotal} icon={Plug} />
-      </div>
-
-      {/* Filter pills + show-disabled toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((f) => {
-            const count =
-              f.id === 'All'
-                ? providers.length
-                : providers.filter((p) => p.type === f.id).length;
-            const active = filter === f.id;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilter(f.id)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors',
-                  active
-                    ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white'
-                    : 'border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-primary)]',
-                )}
-              >
-                {f.label}
-                <span
-                  className={cn(
-                    'font-mono text-[11px]',
-                    active ? 'text-white/85' : 'text-[var(--color-text-tertiary)]',
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Switch
-            id="include-disabled"
-            checked={includeDisabled}
-            onCheckedChange={setIncludeDisabled}
-          />
-          <label htmlFor="include-disabled" className="text-xs text-[var(--color-text-secondary)]">
-            Show disabled
-          </label>
-        </div>
-      </div>
-
-      {/* 2-column rich grid */}
-      {visible.length === 0 ? (
-        <EmptyState
-          onAdd={() => setCreating({ defaultType: filter !== 'All' ? (filter as SpeechProviderType) : 'Tts' })}
+      {tenantHasNoProviders ? (
+        <FirstProviderHero
+          onAdd={(t) => setCreating({ defaultType: t })}
         />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {visible.map((p) => (
-            <ProviderCard
-              key={p.id}
-              provider={p}
-              usageCount={usageMap.get(p.id) ?? 0}
-              onEdit={() => setEditing(p)}
-              onTest={() => setEditing(p)}
-              onDisable={() => void handleDisable(p)}
+        <>
+          {/* KPI strip */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatTile label="Active providers" value={stats.active} total={stats.total} icon={CheckCircle2} />
+            <StatTile label="Speech-to-Text" value={stats.stt} total={stats.sttTotal} icon={Mic} />
+            <StatTile label="Text-to-Speech" value={stats.tts} total={stats.ttsTotal} icon={Speaker} />
+            <StatTile label="Realtime Voice" value={stats.composite} total={stats.compositeTotal} icon={Plug} />
+          </div>
+
+          {/* Filter pills + show-disabled toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map((f) => {
+                const count =
+                  f.id === 'All'
+                    ? providers.length
+                    : providers.filter((p) => p.type === f.id).length;
+                const active = filter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFilter(f.id)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors',
+                      active
+                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white'
+                        : 'border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-primary)]',
+                    )}
+                  >
+                    {f.label}
+                    <span
+                      className={cn(
+                        'font-mono text-[11px]',
+                        active ? 'text-white/85' : 'text-[var(--color-text-tertiary)]',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                id="include-disabled"
+                checked={includeDisabled}
+                onCheckedChange={setIncludeDisabled}
+              />
+              <label htmlFor="include-disabled" className="text-xs text-[var(--color-text-secondary)]">
+                Show disabled
+              </label>
+            </div>
+          </div>
+
+          {/* 2-column rich grid */}
+          {visible.length === 0 ? (
+            <FilterEmptyState
+              onAdd={() => setCreating({ defaultType: filter !== 'All' ? (filter as SpeechProviderType) : 'Tts' })}
             />
-          ))}
-        </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {visible.map((p) => (
+                <ProviderCard
+                  key={p.id}
+                  provider={p}
+                  usageCount={usageMap.get(p.id) ?? 0}
+                  onEdit={() => setEditing(p)}
+                  onTest={() => setEditing(p)}
+                  onDisable={() => void handleDisable(p)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Slide-out edit panel */}
@@ -262,7 +272,77 @@ export function ProvidersTab() {
   );
 }
 
-function EmptyState({ onAdd }: { onAdd: () => void }) {
+/**
+ * Hero shown the very first time a tenant opens the Providers tab — no providers exist yet,
+ * so the page leads with a single, opinionated CTA: pick a type, click Add. Each tile seeds
+ * the Add panel with the chosen type so the user lands in the right form on the first try.
+ */
+function FirstProviderHero({ onAdd }: { onAdd: (type: SpeechProviderType) => void }) {
+  return (
+    <div className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-12 text-center">
+      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-[var(--color-brand-primary-10)]">
+        <Plug className="h-6 w-6 text-[var(--color-brand-primary)]" />
+      </div>
+      <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+        Add your first provider
+      </h2>
+      <p className="mx-auto mt-1 max-w-md text-sm text-[var(--color-text-secondary)]">
+        Providers are vendor instances (an OpenAI Whisper config, an ElevenLabs voice, an Azure
+        Voice Live region…). Compose them into recipes that drive Voice mode and Chat speech.
+      </p>
+
+      <div className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
+        <HeroChoice
+          icon={<Mic className="h-5 w-5" />}
+          title="Speech-to-Text"
+          description="Whisper, Azure, etc."
+          onClick={() => onAdd('Stt')}
+        />
+        <HeroChoice
+          icon={<Speaker className="h-5 w-5" />}
+          title="Text-to-Speech"
+          description="OpenAI, ElevenLabs, Mistral, Azure"
+          onClick={() => onAdd('Tts')}
+        />
+        <HeroChoice
+          icon={<Plug className="h-5 w-5" />}
+          title="Realtime Voice"
+          description="OpenAI Realtime, Azure Voice Live"
+          onClick={() => onAdd('Composite')}
+        />
+      </div>
+    </div>
+  );
+}
+
+function HeroChoice({
+  icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col items-center gap-2 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5 text-center transition-colors hover:border-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary-10)]"
+    >
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-[var(--color-surface)] text-[var(--color-brand-primary)] transition-colors group-hover:bg-[var(--color-brand-primary)] group-hover:text-white">
+        {icon}
+      </span>
+      <span className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</span>
+      <span className="text-[11.5px] text-[var(--color-text-tertiary)]">{description}</span>
+    </button>
+  );
+}
+
+/** Shown when a filter (e.g. "Realtime Voice") matches zero rows but other types exist. */
+function FilterEmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-3 p-12 text-center">

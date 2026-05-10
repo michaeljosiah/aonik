@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plug, Save } from 'lucide-react';
+import { Loader2, Plug, RefreshCw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
 import { SheetBody, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
+import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import type {
   SpeechProvider,
   SpeechProviderConfig,
@@ -23,11 +24,12 @@ import type {
   SpeechVendorFormField,
   SpeechVendorFormSchema,
 } from '@/types/speechLibrary';
+import type { TextToSpeechVoiceOptionResponse } from '@/types';
 
 import { ProviderTestSection } from './ProviderTestSection';
 
 interface ProviderEditPanelProps {
-  /** When set, editing an existing tenant-owned provider OR cloning a built-in. */
+  /** When set, editing an existing tenant-owned provider. Null = "Add provider". */
   initial: SpeechProvider | null;
   /** When `initial` is null, this is a fresh "Add provider" form — needs a starting type. */
   defaultType: SpeechProviderType;
@@ -41,8 +43,13 @@ interface ProviderEditPanelProps {
  * `/speech-vendors` catalog so adding a new vendor on the backend automatically
  * surfaces the right fields without a UI rebuild.
  *
- * Built-in archetypes route through the Clone endpoint; tenant-owned rows go
- * through Create / Update directly.
+ * The earlier "clone a built-in archetype" path was retired with the catalog. Every
+ * provider in the library is now a tenant-owned row that goes through Create / Update.
+ *
+ * Fields whose <c>widget === 'remote-select'</c> get a <see cref="RemoteSelectField"/>
+ * which calls the live provider API (via the existing host/tenant credential chain on
+ * <c>/tenant/settings/text-to-speech/voices</c>) so admins pick from real voices instead
+ * of a hardcoded shortlist.
  */
 export function ProviderEditPanel({
   initial,
@@ -51,14 +58,11 @@ export function ProviderEditPanel({
   onSaved,
   onCancel,
 }: ProviderEditPanelProps) {
-  const isEditingTenantRow = initial !== null && !initial.isBuiltIn;
-  const isCloningBuiltIn = initial !== null && initial.isBuiltIn;
+  const isEditing = initial !== null;
 
   const [type, setType] = useState<SpeechProviderType>(initial?.type ?? defaultType);
   const [vendor, setVendor] = useState<string>(initial?.vendor ?? defaultVendorFor(type, vendors));
-  const [displayName, setDisplayName] = useState<string>(
-    initial ? (isCloningBuiltIn ? `${initial.displayName} (copy)` : initial.displayName) : '',
-  );
+  const [displayName, setDisplayName] = useState<string>(initial?.displayName ?? '');
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
     initial ? extractFieldValues(initial.config) : {},
   );
@@ -114,18 +118,8 @@ export function ProviderEditPanel({
     setSaving(true);
     try {
       let saved: SpeechProvider;
-      if (isEditingTenantRow) {
+      if (isEditing) {
         saved = await speechProviderLibraryService.update(initial!.id, {
-          displayName: displayName.trim(),
-          config,
-        });
-      } else if (isCloningBuiltIn) {
-        // Clone first to materialise the tenant row, then immediately apply the form values
-        // (the user may have changed them from the built-in defaults).
-        const cloned = await speechProviderLibraryService.cloneBuiltIn(initial!.id, {
-          newDisplayName: displayName.trim(),
-        });
-        saved = await speechProviderLibraryService.update(cloned.id, {
           displayName: displayName.trim(),
           config,
         });
@@ -150,13 +144,9 @@ export function ProviderEditPanel({
     }
   };
 
-  const headerTitle = isEditingTenantRow
-    ? 'Edit provider'
-    : isCloningBuiltIn
-      ? `Clone "${initial!.displayName}"`
-      : 'Add provider';
-  const headerSubtitle = isCloningBuiltIn
-    ? 'Built-in archetypes are immutable — this creates an editable tenant copy.'
+  const headerTitle = isEditing ? 'Edit provider' : 'Add provider';
+  const headerSubtitle = isEditing
+    ? 'Update the configuration. Saving bumps the version and snapshots the previous one in history.'
     : 'Configure a vendor instance. Many providers can coexist per vendor.';
 
   return (
@@ -174,7 +164,7 @@ export function ProviderEditPanel({
                 setVendor(defaultVendorFor(next, vendors));
                 setFieldValues({});
               }}
-              disabled={isEditingTenantRow || isCloningBuiltIn}
+              disabled={isEditing}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -195,7 +185,7 @@ export function ProviderEditPanel({
                 setVendor(v);
                 setFieldValues({});
               }}
-              disabled={isEditingTenantRow || isCloningBuiltIn}
+              disabled={isEditing}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -238,7 +228,7 @@ export function ProviderEditPanel({
           </div>
         )}
 
-        {isEditingTenantRow && initial!.type !== 'Composite' && (
+        {isEditing && initial!.type !== 'Composite' && (
           <ProviderTestSection providerId={initial!.id} type={initial!.type} />
         )}
       </SheetBody>
@@ -248,12 +238,14 @@ export function ProviderEditPanel({
         </Button>
         <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {isEditingTenantRow ? 'Save changes' : isCloningBuiltIn ? 'Clone & save' : 'Create'}
+          {isEditing ? 'Save changes' : 'Create'}
         </Button>
       </SheetFooter>
     </>
   );
 }
+
+// ── Field renderers ────────────────────────────────────────────────────────
 
 function FieldRenderer({
   field,
@@ -265,6 +257,11 @@ function FieldRenderer({
   onChange: (v: string) => void;
 }) {
   const id = `provider-field-${field.name}`;
+
+  if (field.widget === 'remote-select') {
+    return <RemoteSelectField field={field} value={value} onChange={onChange} id={id} />;
+  }
+
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>
@@ -307,7 +304,150 @@ function FieldRenderer({
       )}
 
       {field.description && (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
+        <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Live-fetched dropdown: calls the provider's voice-list API on mount and on Refresh.
+ * If the call fails (no credentials, network error, vendor not supported), falls back
+ * to a free-form text input so the admin can still paste a voiceId manually.
+ */
+function RemoteSelectField({
+  field,
+  value,
+  onChange,
+  id,
+}: {
+  field: SpeechVendorFormField;
+  value: string;
+  onChange: (v: string) => void;
+  id: string;
+}) {
+  const provider = remoteOptionsKeyToProvider(field.remoteOptionsKey);
+  const [options, setOptions] = useState<TextToSpeechVoiceOptionResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    if (!provider) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await textToSpeechSettingsService.listVoices(provider);
+      setOptions(list);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { message?: string })?.message ??
+        `Failed to load ${provider} voices.`;
+      setError(message);
+      setOptions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load on mount + whenever the loader key changes.
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider]);
+
+  // If the saved voiceId isn't in the loaded list, surface it explicitly so the user knows
+  // the current row may be referencing an unavailable voice.
+  const savedNotInList =
+    value.length > 0 && !loading && !options.some((opt) => opt.voiceId === value);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={id}>
+          {field.label}
+          {field.required && <span className="text-destructive"> *</span>}
+        </Label>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-[11px]"
+          onClick={() => void load()}
+          disabled={loading || !provider}
+        >
+          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      {provider == null ? (
+        // No mapping for this loader key — fall back to a text input so the admin isn't blocked.
+        <Input
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder ?? ''}
+        />
+      ) : (
+        <Select value={value || undefined} onValueChange={onChange}>
+          <SelectTrigger id={id}>
+            <SelectValue
+              placeholder={
+                loading
+                  ? `Loading ${provider} voices…`
+                  : options.length === 0
+                    ? 'No voices available'
+                    : (field.placeholder ?? 'Select…')
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {savedNotInList && value && (
+              <SelectItem value={value} disabled>
+                {value} (not in loaded list)
+              </SelectItem>
+            )}
+            {options.map((opt) => (
+              <SelectItem key={opt.voiceId} value={opt.voiceId}>
+                {opt.name}
+                {opt.labels?.gender ? ` · ${opt.labels.gender}` : ''}
+                {opt.labels?.accent ? ` · ${opt.labels.accent}` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {field.description && (
+        <p className="text-xs text-[var(--color-text-tertiary)]">{field.description}</p>
+      )}
+
+      {error && (
+        <p className="text-xs text-[var(--color-error)]">
+          {error}{' '}
+          {provider && (
+            <a
+              href="/settings/text-to-speech"
+              className="underline decoration-dotted underline-offset-2"
+            >
+              Configure {provider} credentials
+            </a>
+          )}
+        </p>
+      )}
+
+      {!error && !loading && options.length === 0 && provider && (
+        <p className="text-xs text-[var(--color-text-tertiary)]">
+          No voices loaded yet. Configure a {provider} API key in{' '}
+          <a
+            href="/settings/text-to-speech"
+            className="underline decoration-dotted underline-offset-2"
+          >
+            /settings/text-to-speech
+          </a>{' '}
+          and click Refresh.
+        </p>
       )}
     </div>
   );
@@ -317,6 +457,22 @@ function FieldRenderer({
 
 function defaultVendorFor(type: SpeechProviderType, vendors: SpeechVendorDescriptor[]): string {
   return vendors.find((v) => v.supportedTypes.includes(type))?.vendor ?? '';
+}
+
+/**
+ * Map a backend `remoteOptionsKey` to the vendor name expected by
+ * `textToSpeechSettingsService.listVoices`. Returning null causes the field to render as
+ * a free-form text input (defensive: lets future keys ship before the front-end knows them).
+ */
+function remoteOptionsKeyToProvider(key?: string | null): string | null {
+  switch (key) {
+    case 'elevenlabs-voices':
+      return 'ElevenLabs';
+    case 'mistral-voices':
+      return 'Mistral';
+    default:
+      return null;
+  }
 }
 
 /** Construct a `SpeechProviderConfig` payload from the schema + form values. */

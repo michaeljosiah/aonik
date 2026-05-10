@@ -1,4 +1,4 @@
-import { Edit3, Lock, Mic, Plug, Settings2, Speaker, TestTube2 } from 'lucide-react';
+import { Edit3, Lock, Mic, Plug, Speaker, TestTube2, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -59,11 +59,6 @@ export function ProviderCard({
           {/* Chip row */}
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <Pill tone={TYPE_TONE[provider.type]}>{TYPE_LABEL[provider.type]}</Pill>
-            {provider.isBuiltIn ? (
-              <Pill tone="default">Built-in</Pill>
-            ) : (
-              <Pill tone="warning">Custom</Pill>
-            )}
             {usageCount > 0 && (
               <Pill tone="tint">
                 Used by {usageCount} {usageCount === 1 ? 'recipe' : 'recipes'}
@@ -85,19 +80,11 @@ export function ProviderCard({
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={onEdit}>
-              {provider.isBuiltIn ? (
-                <>
-                  <Settings2 className="h-3.5 w-3.5" /> Clone
-                </>
-              ) : (
-                <>
-                  <Edit3 className="h-3.5 w-3.5" /> Configure
-                </>
-              )}
+              <Edit3 className="h-3.5 w-3.5" /> Configure
             </Button>
-            {!provider.isBuiltIn && active && (
+            {active && (
               <Button variant="ghost" size="sm" onClick={onDisable}>
-                Disable
+                <Trash2 className="h-3.5 w-3.5" /> Disable
               </Button>
             )}
             {usageCount > 0 && (

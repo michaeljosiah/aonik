@@ -59,13 +59,10 @@ export function RecipeStackEditor({
   onSaved,
   onCancel,
 }: RecipeStackEditorProps) {
-  const isEditingTenantRow = initial !== null && !initial.isBuiltIn;
-  const isCloningBuiltIn = initial !== null && initial.isBuiltIn;
+  const isEditing = initial !== null;
 
   const [kind, setKind] = useState<VoiceRecipeKind>(initial?.kind ?? defaultKind);
-  const [displayName, setDisplayName] = useState<string>(
-    initial ? (isCloningBuiltIn ? `${initial.displayName} (copy)` : initial.displayName) : '',
-  );
+  const [displayName, setDisplayName] = useState<string>(initial?.displayName ?? '');
   const [description, setDescription] = useState<string>(initial?.description ?? '');
 
   // Chained body state — populated whether or not Kind is currently Chained, so flipping kind
@@ -138,16 +135,8 @@ export function RecipeStackEditor({
     setSaving(true);
     try {
       let saved: VoiceRecipe;
-      if (isEditingTenantRow) {
+      if (isEditing) {
         saved = await voiceRecipeLibraryService.update(initial!.id, {
-          displayName: displayName.trim(),
-          description: description.trim() || null,
-          chained,
-          composite,
-        });
-      } else if (isCloningBuiltIn) {
-        const cloned = await voiceRecipeLibraryService.cloneBuiltIn(initial!.id, displayName.trim());
-        saved = await voiceRecipeLibraryService.update(cloned.id, {
           displayName: displayName.trim(),
           description: description.trim() || null,
           chained,
@@ -175,14 +164,8 @@ export function RecipeStackEditor({
     }
   };
 
-  const headerTitle = isEditingTenantRow
-    ? 'Edit recipe'
-    : isCloningBuiltIn
-      ? `Clone "${initial!.displayName}"`
-      : 'Add recipe';
-  const headerSubtitle = isCloningBuiltIn
-    ? 'Built-in recipes are immutable — cloning creates an editable tenant copy.'
-    : 'Compose a voice pipeline. Pick providers from your library and tune per-step options.';
+  const headerTitle = isEditing ? 'Edit recipe' : 'Add recipe';
+  const headerSubtitle = 'Compose a voice pipeline. Pick providers from your library and tune per-step options.';
 
   return (
     <>
@@ -209,7 +192,7 @@ export function RecipeStackEditor({
             <Select
               value={kind}
               onValueChange={(v) => setKind(v as VoiceRecipeKind)}
-              disabled={isEditingTenantRow}
+              disabled={isEditing}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -273,7 +256,7 @@ export function RecipeStackEditor({
         </Button>
         <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {isEditingTenantRow ? 'Save changes' : isCloningBuiltIn ? 'Clone & save' : 'Create'}
+          {isEditing ? 'Save changes' : 'Create'}
         </Button>
       </SheetFooter>
     </>

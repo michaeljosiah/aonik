@@ -60,7 +60,10 @@ public sealed record SpeechVendorFormField(
     string Name,
     /// <summary>UI label.</summary>
     string Label,
-    /// <summary>Renderer hint: <c>text</c>, <c>password</c>, <c>select</c>, <c>number</c>, <c>textarea</c>.</summary>
+    /// <summary>Renderer hint: <c>text</c>, <c>password</c>, <c>select</c>, <c>remote-select</c>,
+    /// <c>number</c>, <c>textarea</c>. <c>remote-select</c> tells the front-end to fetch the
+    /// option list from the live provider API (using the existing host/tenant credential chain)
+    /// instead of relying on a static set in <see cref="Options"/>.</summary>
     string Widget,
     bool Required,
     /// <summary>Helper text shown beneath the input.</summary>
@@ -69,11 +72,15 @@ public sealed record SpeechVendorFormField(
     string? Placeholder = null,
     /// <summary>Default value if the user leaves the field blank.</summary>
     string? Default = null,
-    /// <summary>For <c>select</c> widgets: the dropdown options.</summary>
+    /// <summary>For <c>select</c> widgets: the dropdown options. Ignored by <c>remote-select</c>.</summary>
     IReadOnlyList<SpeechVendorFormOption>? Options = null,
     /// <summary>For <c>number</c> widgets: validation bounds.</summary>
     double? Min = null,
-    double? Max = null);
+    double? Max = null,
+    /// <summary>For <c>remote-select</c> widgets: identifier the front-end uses to pick the
+    /// loader function (e.g. <c>elevenlabs-voices</c>, <c>mistral-voices</c>). Today the
+    /// loader hits the existing <c>/tts-settings/voices</c> endpoint scoped by vendor.</summary>
+    string? RemoteOptionsKey = null);
 
 public sealed record SpeechVendorFormOption(string Value, string Label, string? Description = null);
 
@@ -184,9 +191,10 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "elevenlabs-tts",
                 Fields: new[]
                 {
-                    Field("voiceId", "Voice id", "text", required: true,
-                        placeholder: "21m00Tcm4TlvDq8ikWAM",
-                        description: "ElevenLabs voice id (preset library or cloned voice)."),
+                    Field("voiceId", "Voice", "remote-select", required: true,
+                        remoteOptionsKey: "elevenlabs-voices",
+                        description: "Loaded live from your ElevenLabs account (host or tenant credential). Includes preset and cloned voices.",
+                        placeholder: "Select an ElevenLabs voice"),
                     Field("modelId", "Model", "select", required: false, defaultValue: "eleven_multilingual_v2",
                         options: new[]
                         {
@@ -214,14 +222,10 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "mistral-tts",
                 Fields: new[]
                 {
-                    Field("voiceId", "Voice", "select", required: true, defaultValue: "alloy",
-                        options: new[]
-                        {
-                            new SpeechVendorFormOption("alloy", "Alloy", "Balanced neutral"),
-                            new SpeechVendorFormOption("echo", "Echo", "Warm, slightly lower"),
-                            new SpeechVendorFormOption("nova", "Nova", "Bright, energetic"),
-                            new SpeechVendorFormOption("shimmer", "Shimmer", "Soft, friendly"),
-                        }),
+                    Field("voiceId", "Voice", "remote-select", required: true,
+                        remoteOptionsKey: "mistral-voices",
+                        description: "Loaded live from the Mistral voice catalog (host or tenant credential). Includes preset and cloned voices.",
+                        placeholder: "Select a Mistral voice"),
                     Field("modelId", "Model", "text", required: false, defaultValue: "voxtral-tts"),
                 }),
         });
@@ -304,7 +308,8 @@ internal static class SpeechVendorCatalog
         string? description = null,
         IReadOnlyList<SpeechVendorFormOption>? options = null,
         double? min = null,
-        double? max = null)
+        double? max = null,
+        string? remoteOptionsKey = null)
         => new(
             Name: name,
             Label: label,
@@ -315,5 +320,6 @@ internal static class SpeechVendorCatalog
             Default: defaultValue,
             Options: options,
             Min: min,
-            Max: max);
+            Max: max,
+            RemoteOptionsKey: remoteOptionsKey);
 }

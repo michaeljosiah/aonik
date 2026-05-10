@@ -1,7 +1,6 @@
 import { api } from '@/lib/api';
 import apiClient from '@/lib/api';
 import type {
-  CloneSpeechProviderRequest,
   CreateSpeechProviderRequest,
   SetSpeechProviderStatusRequest,
   SpeechProvider,
@@ -48,17 +47,6 @@ export const speechProviderLibraryService = {
   update: async (id: string, request: UpdateSpeechProviderRequest): Promise<SpeechProvider> => {
     return api.put<SpeechProvider>(
       `/tenant/speech-providers/${encodeURIComponent(id)}`,
-      request,
-    );
-  },
-
-  /** Clone a built-in archetype into a tenant-owned editable copy. `id` is the built-in id. */
-  cloneBuiltIn: async (
-    id: string,
-    request: CloneSpeechProviderRequest,
-  ): Promise<SpeechProvider> => {
-    return api.post<SpeechProvider>(
-      `/tenant/speech-providers/${encodeURIComponent(id)}/clone`,
       request,
     );
   },

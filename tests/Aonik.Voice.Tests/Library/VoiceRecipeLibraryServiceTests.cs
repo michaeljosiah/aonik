@@ -10,7 +10,9 @@ namespace Aonik.Voice.Tests.Library;
 
 /// <summary>
 /// Service-level coverage of the recipe library: validation against the provider library
-/// (referenced ids must resolve to the right type), version bumping, history, built-in merge.
+/// (referenced ids must resolve to the right type), version bumping, history, status
+/// transitions. Every test seeds tenant-owned providers first because the built-in catalog
+/// was emptied when the library moved to a "create-your-own" flow.
 /// </summary>
 public class VoiceRecipeLibraryServiceTests : IDisposable
 {
@@ -39,23 +41,25 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
     public void Dispose() => _db.Dispose();
 
     [Fact]
-    public async Task ListAsync_Returns_Built_Ins_Even_When_Tenant_Has_No_Rows()
+    public async Task ListAsync_Returns_Empty_When_Tenant_Has_No_Recipes()
     {
         var all = await _sut.ListAsync();
-        all.Should().NotBeEmpty();
-        all.Should().OnlyContain(r => r.IsBuiltIn);
+        all.Should().BeEmpty("the built-in catalog ships empty — recipes are tenant-authored");
     }
 
     [Fact]
-    public async Task CreateAsync_Persists_A_Chained_Recipe_That_References_Built_In_Providers()
+    public async Task CreateAsync_Persists_A_Chained_Recipe_That_References_Tenant_Providers()
     {
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedTtsProvider("Alloy");
+
         var r = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
             DisplayName: "My recipe",
             Description: "Test",
             Kind: VoiceRecipeKind.Chained,
             Chained: new ChainedRecipeBody(
-                SttProviderId: "built-in:openai-whisper-default",
-                TtsProviderId: "built-in:openai-tts-alloy",
+                SttProviderId: stt,
+                TtsProviderId: tts,
                 PinnedAgentId: null,
                 Vad: "energy",
                 VadStopMs: 800,
@@ -65,22 +69,24 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
 
         r.IsBuiltIn.Should().BeFalse();
         r.Kind.Should().Be(VoiceRecipeKind.Chained);
-        r.Chained!.SttProviderId.Should().Be("built-in:openai-whisper-default");
-        r.Chained.TtsProviderId.Should().Be("built-in:openai-tts-alloy");
+        r.Chained!.SttProviderId.Should().Be(stt);
+        r.Chained.TtsProviderId.Should().Be(tts);
         r.Composite.Should().BeNull();
     }
 
     [Fact]
     public async Task CreateAsync_Rejects_Chained_Recipe_That_References_A_Tts_Provider_For_Stt_Slot()
     {
+        var tts = await SeedTtsProvider("Alloy");
+
         var act = async () => await _sut.CreateAsync(new CreateVoiceRecipeRequest(
             DisplayName: "Wrong slot",
             Description: null,
             Kind: VoiceRecipeKind.Chained,
             Chained: new ChainedRecipeBody(
-                // alloy is a TTS provider; using it as the STT id should be rejected.
-                SttProviderId: "built-in:openai-tts-alloy",
-                TtsProviderId: "built-in:openai-tts-alloy",
+                // Using a TTS provider as the STT id should be rejected.
+                SttProviderId: tts,
+                TtsProviderId: tts,
                 PinnedAgentId: null,
                 Vad: "energy",
                 VadStopMs: null,
@@ -95,19 +101,23 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
     [Fact]
     public async Task CreateAsync_Rejects_Chained_Recipe_With_Composite_Body()
     {
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedTtsProvider("Alloy");
+        var composite = await SeedCompositeProvider("Realtime");
+
         var act = async () => await _sut.CreateAsync(new CreateVoiceRecipeRequest(
             DisplayName: "Bad shape",
             Description: null,
             Kind: VoiceRecipeKind.Chained,
             Chained: new ChainedRecipeBody(
-                SttProviderId: "built-in:openai-whisper-default",
-                TtsProviderId: "built-in:openai-tts-alloy",
+                SttProviderId: stt,
+                TtsProviderId: tts,
                 PinnedAgentId: null,
                 Vad: "energy",
                 VadStopMs: null,
                 TranscriptionFilter: true,
                 SentenceAggregator: true),
-            Composite: new CompositeRecipeBody("built-in:openai-realtime", null)));
+            Composite: new CompositeRecipeBody(composite, null)));
 
         await act.Should().ThrowAsync<SpeechLibraryValidationException>()
             .WithMessage("*Chained recipes must NOT include a composite body*");
@@ -116,31 +126,34 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
     [Fact]
     public async Task CreateAsync_Persists_A_Composite_Recipe()
     {
+        var composite = await SeedCompositeProvider("Realtime");
+
         var r = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
             DisplayName: "Realtime",
             Description: "OpenAI Realtime",
             Kind: VoiceRecipeKind.Composite,
             Chained: null,
             Composite: new CompositeRecipeBody(
-                CompositeProviderId: "built-in:openai-realtime",
+                CompositeProviderId: composite,
                 PinnedAgentId: null)));
 
         r.Kind.Should().Be(VoiceRecipeKind.Composite);
-        r.Composite!.CompositeProviderId.Should().Be("built-in:openai-realtime");
+        r.Composite!.CompositeProviderId.Should().Be(composite);
         r.Chained.Should().BeNull();
     }
 
     [Fact]
     public async Task UpdateAsync_Bumps_Version_And_Records_History()
     {
+        var stt = await SeedSttProvider("Whisper");
+        var ttsAlloy = await SeedTtsProvider("Alloy");
+        var ttsOnyx = await SeedTtsProvider("Onyx");
+
         var created = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
             DisplayName: "v1",
             Description: null,
             Kind: VoiceRecipeKind.Chained,
-            Chained: new ChainedRecipeBody(
-                "built-in:openai-whisper-default",
-                "built-in:openai-tts-alloy",
-                null, "energy", 800, true, true),
+            Chained: new ChainedRecipeBody(stt, ttsAlloy, null, "energy", 800, true, true),
             Composite: null));
 
         _clock.Advance(TimeSpan.FromMinutes(1));
@@ -148,48 +161,67 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
         var updated = await _sut.UpdateAsync(Guid.Parse(created.Id), new UpdateVoiceRecipeRequest(
             DisplayName: "v2",
             Description: "now with description",
-            Chained: new ChainedRecipeBody(
-                "built-in:openai-whisper-default",
-                "built-in:openai-tts-onyx-hd", // changed
-                null, "silero", 1200, true, true),
+            Chained: new ChainedRecipeBody(stt, ttsOnyx, null, "silero", 1200, true, true),
             Composite: null));
 
         updated.Version.Should().Be(2);
-        updated.Chained!.TtsProviderId.Should().Be("built-in:openai-tts-onyx-hd");
+        updated.Chained!.TtsProviderId.Should().Be(ttsOnyx);
         updated.Chained.Vad.Should().Be("silero");
 
         var history = await _sut.GetHistoryAsync(updated.Id);
         history.Should().HaveCount(1);
-        history[0].SnapshotChained!.TtsProviderId.Should().Be("built-in:openai-tts-alloy");
+        history[0].SnapshotChained!.TtsProviderId.Should().Be(ttsAlloy);
     }
 
     [Fact]
-    public async Task CloneBuiltInAsync_Creates_Tenant_Row_From_Built_In_Recipe()
+    public async Task CloneBuiltInAsync_Always_Throws_Now_That_Catalog_Is_Empty()
     {
-        var clone = await _sut.CloneBuiltInAsync("built-in:cost-chained-openai", "My cost recipe");
-
-        clone.IsBuiltIn.Should().BeFalse();
-        clone.DisplayName.Should().Be("My cost recipe");
-        clone.Kind.Should().Be(VoiceRecipeKind.Chained);
-        clone.Chained!.SttProviderId.Should().Be("built-in:openai-whisper-default");
+        var act = async () => await _sut.CloneBuiltInAsync("built-in:cost-chained-openai", "anything");
+        await act.Should().ThrowAsync<SpeechLibraryValidationException>();
     }
 
     [Fact]
-    public async Task ProviderUsage_Now_Surfaces_Recipe_References()
+    public async Task ProviderUsage_Surfaces_Tenant_Recipe_References()
     {
-        // Author a recipe referencing the OpenAI Whisper built-in.
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedTtsProvider("Alloy");
+
         var recipe = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
             "uses-whisper", null,
             VoiceRecipeKind.Chained,
-            new ChainedRecipeBody("built-in:openai-whisper-default", "built-in:openai-tts-alloy", null, "energy", 800, true, true),
+            new ChainedRecipeBody(stt, tts, null, "energy", 800, true, true),
             null));
 
-        var usage = await _providers.GetUsageAsync("built-in:openai-whisper-default");
+        var usage = await _providers.GetUsageAsync(stt);
 
-        // Should include both the tenant's recipe AND the four built-in recipes that use Whisper.
         usage.RecipesUsingThisProvider.Should().Contain(r => r.RecipeId == recipe.Id);
-        usage.RecipesUsingThisProvider.Should().Contain(r => r.RecipeId == "built-in:cost-chained-openai");
     }
+
+    // ── Seeders ────────────────────────────────────────────────────────────
+
+    private async Task<string> SeedSttProvider(string name) =>
+        (await _providers.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: name,
+            Type: SpeechProviderType.Stt,
+            Vendor: "openai",
+            Config: new OpenAIWhisperConfig(Model: "whisper-1", Language: null)))).Id;
+
+    private async Task<string> SeedTtsProvider(string name) =>
+        (await _providers.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: name,
+            Type: SpeechProviderType.Tts,
+            Vendor: "openai",
+            Config: new OpenAITtsConfig(VoiceId: name.ToLowerInvariant(), ModelId: "tts-1")))).Id;
+
+    private async Task<string> SeedCompositeProvider(string name) =>
+        (await _providers.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: name,
+            Type: SpeechProviderType.Composite,
+            Vendor: "openai-realtime",
+            Config: new OpenAIRealtimeCompositeConfig(
+                Voice: "alloy",
+                Model: "gpt-realtime-mini",
+                InstructionsAddendum: null)))).Id;
 
     // ── Test plumbing ──────────────────────────────────────────────────────
 

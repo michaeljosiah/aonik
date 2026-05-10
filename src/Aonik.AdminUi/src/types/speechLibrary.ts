@@ -163,7 +163,13 @@ export interface SpeechVendorFormSchema {
   fields: SpeechVendorFormField[];
 }
 
-export type SpeechVendorWidget = 'text' | 'password' | 'select' | 'number' | 'textarea';
+export type SpeechVendorWidget =
+  | 'text'
+  | 'password'
+  | 'select'
+  | 'remote-select'
+  | 'number'
+  | 'textarea';
 
 export interface SpeechVendorFormField {
   name: string;
@@ -176,6 +182,8 @@ export interface SpeechVendorFormField {
   options?: SpeechVendorFormOption[] | null;
   min?: number | null;
   max?: number | null;
+  /** For `remote-select`: identifier the front-end uses to pick the loader function. */
+  remoteOptionsKey?: string | null;
 }
 
 export interface SpeechVendorFormOption {

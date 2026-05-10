@@ -10,8 +10,10 @@ namespace Aonik.Voice.Tests.Library;
 
 /// <summary>
 /// Service-level coverage of the speech provider library: validation, version bumping,
-/// history snapshots, built-in merge into list responses, clone behavior. Uses EF Core
-/// InMemory so the tenant query filter machinery on <c>AonikDbContextBase</c> can run end-to-end.
+/// history snapshots, list/filter behaviour, status transitions, and clone behaviour.
+/// (Built-ins were removed when the library moved to a "create-your-own" flow — the catalog
+/// is intentionally empty and clone always fails.) Uses EF Core InMemory so the tenant query
+/// filter machinery on <c>AonikDbContextBase</c> can run end-to-end.
 /// </summary>
 public class SpeechProviderLibraryServiceTests : IDisposable
 {
@@ -144,14 +146,13 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             "ring buffer is newest-first; the most recent archived snapshot is index 0");
     }
 
-    // ── List + built-in merge ──────────────────────────────────────────────────────────
+    // ── List ───────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task ListAsync_Returns_Built_Ins_Even_When_Tenant_Has_No_Rows()
+    public async Task ListAsync_Returns_Empty_When_Tenant_Has_No_Rows()
     {
         var all = await _sut.ListAsync();
-        all.Should().NotBeEmpty();
-        all.Should().OnlyContain(p => p.IsBuiltIn);
+        all.Should().BeEmpty("the built-in catalog ships empty — tenants build their own library");
     }
 
     [Fact]
@@ -162,12 +163,17 @@ public class SpeechProviderLibraryServiceTests : IDisposable
             SpeechProviderType.Stt,
             "openai-whisper",
             new OpenAIWhisperConfig(Model: "whisper-1", Language: "en")));
+        await _sut.CreateAsync(new CreateSpeechProviderRequest(
+            "tenant-tts",
+            SpeechProviderType.Tts,
+            "openai",
+            new OpenAITtsConfig(VoiceId: "alloy", ModelId: "tts-1")));
 
         var sttOnly = await _sut.ListAsync(type: SpeechProviderType.Stt);
 
         sttOnly.Should().OnlyContain(p => p.Type == SpeechProviderType.Stt);
-        sttOnly.Should().Contain(p => p.IsBuiltIn);     // built-in STTs included
-        sttOnly.Should().Contain(p => !p.IsBuiltIn);    // tenant row included
+        sttOnly.Should().Contain(p => p.DisplayName == "tenant-stt");
+        sttOnly.Should().NotContain(p => p.DisplayName == "tenant-tts");
     }
 
     [Fact]
@@ -191,30 +197,11 @@ public class SpeechProviderLibraryServiceTests : IDisposable
     // ── Clone ──────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task CloneBuiltInAsync_Creates_Tenant_Row_With_Same_Config()
+    public async Task CloneBuiltInAsync_Always_Throws_Now_That_Catalog_Is_Empty()
     {
-        var clone = await _sut.CloneBuiltInAsync(
-            "built-in:openai-tts-alloy",
-            newDisplayName: "My alloy");
-
-        clone.IsBuiltIn.Should().BeFalse();
-        clone.DisplayName.Should().Be("My alloy");
-        clone.Type.Should().Be(SpeechProviderType.Tts);
-        clone.Vendor.Should().Be("openai");
-        ((OpenAITtsConfig)clone.Config).VoiceId.Should().Be("alloy");
-    }
-
-    [Fact]
-    public async Task CloneBuiltInAsync_Defaults_DisplayName_When_Not_Supplied()
-    {
-        var clone = await _sut.CloneBuiltInAsync("built-in:openai-tts-alloy", null);
-        clone.DisplayName.Should().EndWith("(copy)");
-    }
-
-    [Fact]
-    public async Task CloneBuiltInAsync_Throws_For_Unknown_Built_In()
-    {
-        var act = async () => await _sut.CloneBuiltInAsync("built-in:does-not-exist", null);
+        // The clone path used to materialise a built-in archetype into a tenant row. Built-ins
+        // were removed in the redesign — every clone attempt should fail with a 422.
+        var act = async () => await _sut.CloneBuiltInAsync("built-in:openai-tts-alloy", "anything");
         await act.Should().ThrowAsync<SpeechLibraryValidationException>();
     }
 
@@ -238,11 +225,10 @@ public class SpeechProviderLibraryServiceTests : IDisposable
     // ── Get ────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetAsync_Returns_Built_In_For_Reserved_Id()
+    public async Task GetAsync_Returns_Null_For_Built_In_Reserved_Id_Now_That_Catalog_Is_Empty()
     {
         var p = await _sut.GetAsync("built-in:openai-tts-alloy");
-        p.Should().NotBeNull();
-        p!.IsBuiltIn.Should().BeTrue();
+        p.Should().BeNull();
     }
 
     [Fact]

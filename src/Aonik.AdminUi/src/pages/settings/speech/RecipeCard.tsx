@@ -1,4 +1,4 @@
-import { Copy, Edit3, TestTube2 } from 'lucide-react';
+import { Edit3, TestTube2, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -56,11 +56,6 @@ export function RecipeCard({
                 Active in Voice Mode
               </Pill>
             )}
-            {recipe.isBuiltIn ? (
-              <Pill tone="default">Built-in</Pill>
-            ) : (
-              <Pill tone="warning">Custom</Pill>
-            )}
             <Pill tone={recipe.kind === 'Composite' ? 'pending' : 'tint'}>
               {recipe.kind === 'Composite' ? 'Realtime' : 'Chained'}
             </Pill>
@@ -77,23 +72,17 @@ export function RecipeCard({
           <Button variant="ghost" size="sm" disabled>
             <TestTube2 className="h-3.5 w-3.5" /> Test
           </Button>
-          {recipe.isBuiltIn ? (
-            <Button variant="ghost" size="sm" onClick={onEdit}>
-              <Copy className="h-3.5 w-3.5" /> Clone
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={onEdit}>
-              <Edit3 className="h-3.5 w-3.5" /> Edit
-            </Button>
-          )}
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            <Edit3 className="h-3.5 w-3.5" /> Edit
+          </Button>
           {!activeInVoiceMode && onActivate && (
             <Button size="sm" onClick={onActivate}>
               Activate
             </Button>
           )}
-          {!recipe.isBuiltIn && recipe.status === 'Active' && (
+          {recipe.status === 'Active' && (
             <Button variant="ghost" size="sm" onClick={onDisable}>
-              Disable
+              <Trash2 className="h-3.5 w-3.5" /> Disable
             </Button>
           )}
         </div>
