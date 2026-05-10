@@ -1,16 +1,16 @@
 import { useRef, useState } from 'react';
-import { Loader2, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Loader2, Mic, MicOff, Square, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { usePcmRecorder } from '@/lib/audio/usePcmRecorder';
 import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
 import type { SpeechProviderType } from '@/types/speechLibrary';
 
+import { ModelPicker } from './ModelPicker';
 import { VoicePicker } from './VoicePicker';
 
 const DEFAULT_TTS_TEXT =
@@ -42,11 +42,34 @@ export function ProviderTestSection({ providerId, type, vendor }: ProviderTestSe
 function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: string }) {
   const [text, setText] = useState(DEFAULT_TTS_TEXT);
   // Phase D: voice + model are no longer on the provider config — the test endpoint
-  // requires the caller to supply them. VoicePicker pulls vendor-specific voice lists.
+  // requires the caller to supply them. VoicePicker / ModelPicker pull vendor-specific
+  // catalogs (static for OpenAI / Realtime; live API for ElevenLabs + Mistral voices).
   const [voiceId, setVoiceId] = useState('');
   const [modelId, setModelId] = useState('');
   const [busy, setBusy] = useState(false);
+  // Track playback so the button toggles between Synthesize and Stop. `audioRef` already
+  // held the live audio element for the "pause previous before starting next" hack;
+  // adding a Stop button just exposes that capability to the user explicitly.
+  const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+
+  const cleanupAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    setPlaying(false);
+  };
+
+  const handleStop = () => {
+    cleanupAudio();
+  };
 
   const handlePlay = async () => {
     if (!text.trim()) {
@@ -57,6 +80,7 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
       toast.error('Voice id is required to test TTS.');
       return;
     }
+    cleanupAudio();
     setBusy(true);
     try {
       const result = await speechProviderLibraryService.testTts(
@@ -66,10 +90,15 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
         modelId.trim() || null,
       );
       const url = URL.createObjectURL(result.audioBlob);
-      if (audioRef.current) audioRef.current.pause();
+      audioUrlRef.current = url;
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => URL.revokeObjectURL(url);
+      audio.onended = () => cleanupAudio();
+      audio.onerror = () => {
+        cleanupAudio();
+        toast.error('Audio playback failed. The provider may have returned an unsupported format.');
+      };
+      setPlaying(true);
       await audio.play();
     } catch (err) {
       // The TTS endpoint returns a Blob on success, so axios's default error path leaves
@@ -77,6 +106,7 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
       // therefore undefined and we'd otherwise show a generic "Request failed with
       // status code 400". Read the blob, try to parse the FastEndpoints envelope, and
       // surface the real reason.
+      cleanupAudio();
       toast.error(await extractErrorMessage(err, 'TTS test failed.'));
     } finally {
       setBusy(false);
@@ -97,16 +127,13 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
           required
           disabled={busy}
         />
-        <div className="space-y-2">
-          <Label htmlFor="tts-test-model-id">Model override</Label>
-          <Input
-            id="tts-test-model-id"
-            value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
-            placeholder="leave blank to use provider default"
-            disabled={busy}
-          />
-        </div>
+        <ModelPicker
+          id="tts-test-model-id"
+          vendor={vendor}
+          value={modelId}
+          onChange={setModelId}
+          disabled={busy}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="tts-test-text">Preview text</Label>
@@ -118,10 +145,26 @@ function TtsTestPanel({ providerId, vendor }: { providerId: string; vendor: stri
           disabled={busy}
         />
       </div>
-      <Button variant="secondary" onClick={() => void handlePlay()} disabled={busy} size="sm">
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
-        Synthesize and play
-      </Button>
+      <div className="flex items-center gap-2">
+        {playing ? (
+          // Stop is destructive-ish — colour it like the recorder's Stop button so admins
+          // immediately understand it cancels the in-flight playback.
+          <Button variant="destructive" onClick={handleStop} size="sm">
+            <Square className="h-4 w-4" />
+            Stop
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={() => void handlePlay()} disabled={busy} size="sm">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Volume2 className="h-4 w-4" />}
+            {busy ? 'Synthesising…' : 'Synthesize and play'}
+          </Button>
+        )}
+        {playing && (
+          <Badge variant="outline" className="animate-pulse">
+            Playing
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }

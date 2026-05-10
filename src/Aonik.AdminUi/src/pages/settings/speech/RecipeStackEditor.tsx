@@ -36,6 +36,7 @@ import type {
   VoiceRecipeKind,
 } from '@/types/voiceRecipes';
 
+import { ModelPicker } from './ModelPicker';
 import { VoicePicker } from './VoicePicker';
 
 interface RecipeStackEditorProps {
@@ -481,8 +482,8 @@ function ChainedStack(props: ChainedStackProps) {
             </Select>
           </div>
           {/* Phase D: voice + model picks moved off the provider config so different
-              recipes can use different voices on the same vendor. VoicePicker dispatches
-              static / remote / free-text by the selected TTS provider's vendor. */}
+              recipes can use different voices on the same vendor. VoicePicker + ModelPicker
+              both dispatch static / remote / free-text by the selected TTS provider's vendor. */}
           <div className="grid gap-3 md:grid-cols-2">
             <VoicePicker
               id="tts-voice-id"
@@ -493,15 +494,14 @@ function ChainedStack(props: ChainedStackProps) {
               onChange={props.setChainedTtsVoiceId}
               required
             />
-            <div className="space-y-1.5">
-              <Label htmlFor="tts-model-id">Model override</Label>
-              <Input
-                id="tts-model-id"
-                value={props.chainedTtsModelId}
-                onChange={(e) => props.setChainedTtsModelId(e.target.value)}
-                placeholder="leave blank to use provider default"
-              />
-            </div>
+            <ModelPicker
+              id="tts-model-id"
+              vendor={
+                props.ttsProviders.find((p) => p.id === props.chainedTtsId)?.vendor ?? ''
+              }
+              value={props.chainedTtsModelId}
+              onChange={props.setChainedTtsModelId}
+            />
           </div>
         </div>
       </StepCard>
@@ -571,8 +571,8 @@ function CompositeStack(props: CompositeStackProps) {
             </p>
           </div>
           {/* Phase D: voice + model + instruction picks moved from the provider config to
-              the recipe body. VoicePicker dispatches by the composite vendor — openai-realtime
-              ships its eight voices statically, azure-voice-live ships three. */}
+              the recipe body. Both pickers dispatch by the composite vendor —
+              openai-realtime ships its eight voices statically, azure-voice-live three. */}
           <div className="grid gap-3 md:grid-cols-2">
             <VoicePicker
               id="composite-voice"
@@ -585,15 +585,15 @@ function CompositeStack(props: CompositeStackProps) {
               onChange={props.setCompositeVoice}
               required
             />
-            <div className="space-y-1.5">
-              <Label htmlFor="composite-model">Model override</Label>
-              <Input
-                id="composite-model"
-                value={props.compositeModel}
-                onChange={(e) => props.setCompositeModel(e.target.value)}
-                placeholder="leave blank to use provider default"
-              />
-            </div>
+            <ModelPicker
+              id="composite-model"
+              vendor={
+                props.compositeProviders.find((p) => p.id === props.compositeProviderId)?.vendor ??
+                ''
+              }
+              value={props.compositeModel}
+              onChange={props.setCompositeModel}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="composite-instructions-addendum">

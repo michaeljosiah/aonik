@@ -25,6 +25,7 @@ import { PageHeader, Pill } from './_primitives';
 
 import type { TabId } from '../SettingsSpeechPage';
 
+import { ModelPicker } from './ModelPicker';
 import { VoicePicker } from './VoicePicker';
 
 interface ChatSpeechTabProps {
@@ -309,24 +310,12 @@ export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps)
                             onChange={setVoiceIdInput}
                             required
                           />
-                          <label className="flex flex-col gap-1 text-xs">
-                            <span className="font-semibold text-[var(--color-text-primary)]">
-                              Model id{' '}
-                              <span className="font-normal text-[var(--color-text-tertiary)]">
-                                (optional)
-                              </span>
-                            </span>
-                            <input
-                              type="text"
-                              value={modelIdInput}
-                              onChange={(e) => setModelIdInput(e.target.value)}
-                              placeholder="leave blank to use provider default"
-                              className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2.5 py-1.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand-primary)] focus:outline-none"
-                            />
-                            <span className="text-[var(--color-text-tertiary)]">
-                              Override the provider's default model just for chat speech.
-                            </span>
-                          </label>
+                          <ModelPicker
+                            id="chat-speech-model-id"
+                            vendor={v.vendor}
+                            value={modelIdInput}
+                            onChange={setModelIdInput}
+                          />
                         </div>
                       </div>
                     );

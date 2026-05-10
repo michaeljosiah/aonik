@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Aonik.Ai.Providers;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.Voice.Pipeline;
@@ -37,17 +38,20 @@ internal sealed class TestSpeechProviderTtsEndpoint : Endpoint<TestSpeechProvide
     private readonly ISpeechProviderLibraryService _library;
     private readonly IVoiceProviderCredentialResolver _credentials;
     private readonly IPreviewEngineFactory _engineFactory;
+    private readonly IEnumerable<ITextToSpeechProvider> _productionProviders;
     private readonly ILogger<TestSpeechProviderTtsEndpoint> _logger;
 
     public TestSpeechProviderTtsEndpoint(
         ISpeechProviderLibraryService library,
         IVoiceProviderCredentialResolver credentials,
         IPreviewEngineFactory engineFactory,
+        IEnumerable<ITextToSpeechProvider> productionProviders,
         ILogger<TestSpeechProviderTtsEndpoint> logger)
     {
         _library = library;
         _credentials = credentials;
         _engineFactory = engineFactory;
+        _productionProviders = productionProviders;
         _logger = logger;
     }
 
@@ -102,8 +106,123 @@ internal sealed class TestSpeechProviderTtsEndpoint : Endpoint<TestSpeechProvide
             return;
         }
 
-        var engineRequest = ToEngineRequest(provider, credential.ApiKey!, req.VoiceId, req.ModelId);
-        ITextToSpeechEngine? engine = null;
+        // Prefer the production ITextToSpeechProvider when one exists for this vendor
+        // (Mistral, ElevenLabs). Those implementations are battle-tested through the chat
+        // speech path and return native audio formats (MP3) the browser plays directly,
+        // avoiding the WAV-wrap-of-non-PCM-bytes failure mode that caused distorted output
+        // for vendors whose Voxa engine couldn't reliably negotiate raw PCM.
+        var productionProvider = ResolveProductionProvider(provider.Vendor);
+        try
+        {
+            if (productionProvider is not null)
+            {
+                await StreamProductionTtsAsync(productionProvider, provider, req, credential.ApiKey!, ct);
+            }
+            else
+            {
+                await StreamPreviewEngineTtsAsync(provider, req, credential.ApiKey!, ct);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // client cancelled — both helpers swallow this cleanly via OCE
+        }
+    }
+
+    /// <summary>
+     /// Production-provider lookup: returns the matching <see cref="ITextToSpeechProvider"/>
+     /// (e.g. <c>MistralTextToSpeechProvider</c>) for vendors that have one wired in
+     /// <c>Aonik.Ai/Providers</c>. Returns null for OpenAI / Azure since those are only
+     /// served by the Voxa preview engines today.
+     /// </summary>
+    private ITextToSpeechProvider? ResolveProductionProvider(string vendor)
+    {
+        var key = ResolverKeyFor(vendor);
+        return _productionProviders.FirstOrDefault(p =>
+            string.Equals(p.Name, key, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Synthesize via a production provider that returns its native audio format. For
+    /// Mistral + ElevenLabs that's MP3; we return it with <c>Content-Type: audio/mpeg</c>
+    /// and let the browser play it natively. No WAV wrapping, no PCM assumptions.
+    /// </summary>
+    private async Task StreamProductionTtsAsync(
+        ITextToSpeechProvider productionProvider,
+        SpeechProvider provider,
+        TestSpeechProviderTtsRequest req,
+        string apiKey,
+        CancellationToken ct)
+    {
+        var providerRequest = new TextToSpeechProviderRequest(
+            AiRunId: Guid.Empty,                    // No AiRun for the inline test panel.
+            TenantId: Guid.Empty,
+            UserId: Guid.Empty,
+            Text: req.Text,
+            ApiKey: apiKey,
+            Locale: null,
+            VoiceId: req.VoiceId,
+            ModelId: string.IsNullOrWhiteSpace(req.ModelId) ? null : req.ModelId,
+            OutputFormat: "mp3",
+            ProviderOptions: new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase),
+            PreviousText: null,
+            NextText: null);
+
+        TextToSpeechProviderStreamResult result;
+        try
+        {
+            result = await productionProvider.SynthesizeAsync(providerRequest, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "TTS test (production provider) for {ProviderId} failed", provider.Id);
+            AddError($"TTS test failed: {ex.Message}");
+            await Send.ErrorsAsync(400, ct);
+            return;
+        }
+
+        try
+        {
+            await using var audioStream = result.AudioStream;
+            using var resource = result.ResourceToDispose;
+            using var buffer = new MemoryStream();
+            await audioStream.CopyToAsync(buffer, ct);
+
+            if (buffer.Length == 0)
+            {
+                AddError("Provider returned no audio.");
+                await Send.ErrorsAsync(400, ct);
+                return;
+            }
+
+            HttpContext.Response.StatusCode = StatusCodes.Status200OK;
+            HttpContext.Response.ContentType = result.ContentType;
+            HttpContext.Response.ContentLength = buffer.Length;
+            HttpContext.Response.Headers.Append("X-Voice-Provider", provider.Vendor);
+            await HttpContext.Response.Body.WriteAsync(buffer.ToArray(), ct);
+            await HttpContext.Response.Body.FlushAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "TTS test (production provider) read failed for {ProviderId}", provider.Id);
+            AddError($"TTS test failed: {ex.Message}");
+            await Send.ErrorsAsync(400, ct);
+        }
+    }
+
+    /// <summary>
+    /// Synthesize via the Voxa <see cref="ITextToSpeechEngine"/> (raw PCM → wrap as WAV).
+    /// Used for vendors without a production <see cref="ITextToSpeechProvider"/> — OpenAI
+    /// and Azure today.
+    /// </summary>
+    private async Task StreamPreviewEngineTtsAsync(
+        SpeechProvider provider,
+        TestSpeechProviderTtsRequest req,
+        string apiKey,
+        CancellationToken ct)
+    {
+        var engineRequest = ToEngineRequest(provider, apiKey, req.VoiceId, req.ModelId);
+        ITextToSpeechEngine? engine;
         try
         {
             engine = _engineFactory.CreateTtsEngine(engineRequest);
@@ -147,13 +266,9 @@ internal sealed class TestSpeechProviderTtsEndpoint : Endpoint<TestSpeechProvide
             await HttpContext.Response.Body.WriteAsync(wav, ct);
             await HttpContext.Response.Body.FlushAsync(ct);
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // client cancelled
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "TTS test for provider {ProviderId} failed", provider.Id);
+            _logger.LogWarning(ex, "TTS test (Voxa engine) failed for {ProviderId}", provider.Id);
             AddError($"TTS test failed: {ex.Message}");
             await Send.ErrorsAsync(400, ct);
         }
