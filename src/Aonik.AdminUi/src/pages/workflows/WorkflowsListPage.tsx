@@ -14,6 +14,7 @@ import { Plus, RefreshCw, Search, Upload, Workflow } from 'lucide-react';
 // empty-state CTA was removed because no create-workflow flow exists yet.
 import { Button } from '@/components/ui/button';
 import { KpiTile, PageHeader } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { cn } from '@/lib/utils';
 import { useWorkflows, useWorkflowRuns } from '@/hooks/useWorkflows';
 import { adaptRun, adaptSummary } from './workflowAdapters';
@@ -48,6 +49,14 @@ export function WorkflowsListPage() {
   const [selectedSlug, setSelectedSlug] = useState<string>('');
   const [filter, setFilter] = useState<Filter>('All');
   const [sort, setSort] = useState<Sort>('Most run');
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  // Clear initial load once the workflows hook finishes its first fetch.
+  useEffect(() => {
+    if (!loading) {
+      setInitialLoad(false);
+    }
+  }, [loading]);
 
   // Default-select the first workflow once data arrives.
   useEffect(() => {
@@ -94,6 +103,10 @@ export function WorkflowsListPage() {
   const totalTriggers = workflows.reduce((acc, w) => acc + w.triggers, 0);
 
   // ── States: error / loading / empty / loaded ──────────────────────────
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading workflows" />;
+  }
 
   if (error) {
     return (

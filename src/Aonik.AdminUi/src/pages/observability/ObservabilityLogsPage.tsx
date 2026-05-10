@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 
 import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -122,6 +123,7 @@ export function ObservabilityLogsPage() {
   const [live, setLive] = useState(true);
   const [data, setData] = useState<StructuredLogsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadLogs = useCallback(async () => {
@@ -137,6 +139,7 @@ export function ObservabilityLogsPage() {
       setError(getErrorMessage(loadError, 'Failed to load structured logs.'));
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [timeRange, severityFilter]);
 
@@ -163,6 +166,10 @@ export function ObservabilityLogsPage() {
     const points = data?.volume ?? [];
     return Math.max(1, ...points.map((point) => point.events));
   }, [data?.volume]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading logs" />;
+  }
 
   return (
     <div className="flex h-full flex-col overflow-auto">

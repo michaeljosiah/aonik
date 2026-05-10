@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { alertService, type AlertSummary } from '@/services/alertService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 function formatRelativeTime(value: string | null): string {
   if (!value) return '--';
@@ -43,6 +44,7 @@ export function AlertsPage() {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<AlertSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   const loadAlerts = useCallback(async () => {
     try {
@@ -52,6 +54,7 @@ export function AlertsPage() {
       console.error('Failed to load platform alerts:', error);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -63,6 +66,11 @@ export function AlertsPage() {
 
     return () => clearInterval(interval);
   }, [loadAlerts]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading alerts" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
 

@@ -4,6 +4,7 @@ import { Loader2, Settings } from 'lucide-react';
 import { AgentAvatar } from '@/components/layout/aonik/AgentAvatar';
 import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -122,6 +123,7 @@ export function ObservabilityAuditLogPage() {
   const [search, setSearch] = useState('');
   const [entries, setEntries] = useState<PagedResult<AuditLogListItem> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionFilter, setActionFilter] = useState('all');
   const [resourceFilter, setResourceFilter] = useState('all');
@@ -145,6 +147,7 @@ export function ObservabilityAuditLogPage() {
       setError(message);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [actionFilter, page, resourceFilter, search]);
 
@@ -188,6 +191,10 @@ export function ObservabilityAuditLogPage() {
       highRisk,
     };
   }, [items, totalEvents]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading audit log" />;
+  }
 
   return (
     <div className="flex h-full flex-col overflow-auto">

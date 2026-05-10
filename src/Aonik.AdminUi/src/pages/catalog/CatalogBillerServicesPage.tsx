@@ -11,6 +11,7 @@ import {
   Search,
   } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { CatalogBillerServiceItem } from '@/types';
 
 export function CatalogBillerServicesPage() {
@@ -18,6 +19,7 @@ export function CatalogBillerServicesPage() {
   const { billerId } = useParams<{ billerId: string }>();
   const [services, setServices] = useState<CatalogBillerServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
@@ -36,6 +38,7 @@ export function CatalogBillerServicesPage() {
       setError(message || 'Failed to load biller services.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [billerId]);
 
@@ -51,6 +54,11 @@ export function CatalogBillerServicesPage() {
     const lowered = search.trim().toLowerCase();
     return services.filter((service) => service.name.toLowerCase().includes(lowered));
   }, [services, search]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading services" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
 

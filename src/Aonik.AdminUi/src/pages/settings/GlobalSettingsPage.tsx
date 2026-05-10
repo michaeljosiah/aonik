@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { globalSettingsService } from '@/services/globalSettingsService';
 import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import { getSelectedTenant } from '@/lib/tenantContext';
@@ -406,6 +407,7 @@ export function GlobalSettingsPage() {
   const [globalValues, setGlobalValues] = useState<Record<string, string | null>>({});
   const [globalOriginal, setGlobalOriginal] = useState<Record<string, string | null>>({});
   const [globalLoading, setGlobalLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [globalSaving, setGlobalSaving] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set());
@@ -529,6 +531,7 @@ export function GlobalSettingsPage() {
       setGlobalError((err as { userMessage?: string })?.userMessage ?? 'Failed to load settings.');
     } finally {
       setGlobalLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -1006,6 +1009,10 @@ export function GlobalSettingsPage() {
   const unsavedSummary = globalDirtyKeys.length > 0
     ? `${globalDirtyKeys.length} field${globalDirtyKeys.length === 1 ? '' : 's'} have pending edits across platform settings.`
     : 'No pending edits in platform settings.';
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading settings" />;
+  }
 
   return (
     <div className="flex h-full min-h-0">

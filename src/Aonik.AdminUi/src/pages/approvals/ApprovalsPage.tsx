@@ -29,6 +29,7 @@ import {
   Pill,
   type PillTone,
 } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import { agentProposalsService } from '@/services/agentProposalsService';
 import type {
@@ -101,6 +102,7 @@ export function ApprovalsPage() {
   const [items, setItems] = useState<ProposalListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [activeDomain, setActiveDomain] = useState<string>('all');
@@ -132,6 +134,7 @@ export function ApprovalsPage() {
       setError(message || 'Failed to load proposals.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -243,6 +246,10 @@ export function ApprovalsPage() {
   }, [detail, items, actioning]);
 
   // ─── Render ───────────────────────────────────────────────────────────
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading approvals" />;
+  }
 
   return (
     <div

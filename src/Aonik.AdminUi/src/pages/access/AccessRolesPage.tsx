@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, RefreshCw, Search, Shield } from 'lucide-react';
 import { roleService } from '@/services/roleService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AccessRoleSummary, PagedResult } from '@/types';
 import { DataTablePagination } from '@/components/ui/data-table';
 
 export function AccessRolesPage() {
   const [roles, setRoles] = useState<AccessRoleSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
@@ -50,6 +52,7 @@ export function AccessRolesPage() {
         return;
       }
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [pageNumber, pageSize, searchQuery]);
 
@@ -65,6 +68,11 @@ export function AccessRolesPage() {
     setPageSize(newPageSize);
     setPageNumber(1);
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading roles" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
 

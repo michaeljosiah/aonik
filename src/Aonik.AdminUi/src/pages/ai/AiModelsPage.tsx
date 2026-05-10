@@ -50,6 +50,7 @@ import {
   type DataTableAction,
   type FilterOption,
 } from '@/components/ui/data-table';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return '';
@@ -76,6 +77,7 @@ export function AiModelsPage() {
   const [providers, setProviders] = useState<AiProviderResponse[]>([]);
   const [models, setModels] = useState<AiModelResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [providerFilter, setProviderFilter] = useState('');
@@ -170,11 +172,13 @@ export function AiModelsPage() {
       setProviders(providerList);
       setModels(modelList);
       setLoading(false);
+      setInitialLoad(false);
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) return;
       console.error('Failed to load AI models:', err);
       setError(getErrorMessage(err, 'Failed to load AI models. Please try again.'));
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [providerFilter]);
 
@@ -419,6 +423,10 @@ export function AiModelsPage() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading AI models" />;
+  }
+
   const totalProviders = providers.length;
   const activeProviders = providers.filter((provider) => provider.isActive).length;
   const totalModels = models.length;

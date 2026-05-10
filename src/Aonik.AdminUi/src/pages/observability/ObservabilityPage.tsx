@@ -12,6 +12,7 @@ import {
 import { MetricCard, TimeSeriesChart } from '@/components/charts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   PanelInfoPopover,
   type PanelCallout,
@@ -156,6 +157,7 @@ export function ObservabilityPage() {
   const [timeRange, setTimeRange] = useState(() => normalizeTimeRange(searchParams.get('timeRange')));
   const [overview, setOverview] = useState<ObservabilityOverviewResponse | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [depsData, setDepsData] = useState<DependencyMetricsResponse | null>(null);
   const [depsLoading, setDepsLoading] = useState(false);
@@ -192,6 +194,7 @@ export function ObservabilityPage() {
     } finally {
       setOverviewLoading(false);
       setDepsLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -287,6 +290,10 @@ export function ObservabilityPage() {
     ? `${healthyServices} healthy services · ${criticalServices} critical · ${degradedServices} degraded`
     : 'Overview is live, but service health data has not been loaded yet.';
   const dateLabel = formatObservabilityDateLabel();
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading observability" />;
+  }
 
   return (
     <div className="flex h-full flex-col">

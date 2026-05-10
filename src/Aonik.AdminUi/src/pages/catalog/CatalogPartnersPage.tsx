@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CreatePartnerDialog } from '@/components/dialogs/CreatePartnerDialog';
 import { DataTablePagination } from '@/components/ui/data-table';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { partnerService } from '@/services/partnerService';
 import type { PagedResult } from '@/types';
 import type { CreatePartnerRequest, PartnerListItem } from '@/types/partners';
@@ -81,6 +82,7 @@ export function CatalogPartnersPage() {
 
   const [partners, setPartners] = useState<PartnerListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -112,7 +114,10 @@ export function CatalogPartnersPage() {
           : '';
       setError(message || 'Failed to load partners.');
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [pageNumber, pageSize, statusFilter, searchQuery]);
 
@@ -160,6 +165,10 @@ export function CatalogPartnersPage() {
     }
     return fragments.join(' · ');
   })();
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading partners" />;
+  }
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">

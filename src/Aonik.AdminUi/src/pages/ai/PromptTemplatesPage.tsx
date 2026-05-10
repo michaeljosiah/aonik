@@ -16,6 +16,7 @@ import {
 import { FileText, Plus, Search, Pencil, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { promptSpecService } from '@/services/aiService';
 import type { PromptSpecResponse, CreatePromptSpecRequest, UpdatePromptSpecRequest } from '@/types/ai';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 const getErrorMessage = (err: unknown, fallback: string) => {
   if (err && typeof err === 'object' && 'userMessage' in err) {
@@ -28,6 +29,7 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 export function PromptTemplatesPage() {
   const [prompts, setPrompts] = useState<PromptSpecResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const requestIdRef = useRef(0);
@@ -59,7 +61,10 @@ export function PromptTemplatesPage() {
       if (requestIdRef.current !== requestId) return;
       setError(getErrorMessage(err, 'Failed to load prompt templates'));
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [searchQuery]);
 
@@ -138,6 +143,10 @@ export function PromptTemplatesPage() {
       setError(getErrorMessage(err, 'Failed to delete prompt template'));
     }
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading prompt templates" />;
+  }
 
   return (
     <div className="p-6 space-y-6">

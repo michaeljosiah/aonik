@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 
 import { accountService } from '@/services/accountService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AccountResponse } from '@/types';
 import {
   DataTable,
@@ -42,6 +43,7 @@ export function AccountsListPage() {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +67,7 @@ export function AccountsListPage() {
       setError(message || 'Failed to load accounts. Please try again.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -192,6 +195,10 @@ export function AccountsListPage() {
   const totalAccounts = accounts.length;
   const linkedAccounts = accounts.filter((a) => a.verificationStatus === 'Verified').length;
   const manualAccounts = accounts.filter((a) => a.verificationStatus === 'Manual').length;
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading accounts" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

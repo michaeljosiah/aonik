@@ -46,6 +46,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ledgerService } from '@/services/ledgerService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type {
   AddJournalEntryRequest,
   JournalEntryResponse,
@@ -124,6 +125,7 @@ export function LedgerJournalEntriesPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -190,6 +192,7 @@ export function LedgerJournalEntriesPage() {
       setError(message || 'Failed to load journal entries.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -335,6 +338,10 @@ export function LedgerJournalEntriesPage() {
     const l = ledgers.find((x) => x.id === id);
     return l ? `${l.baseCurrency} · ${id.slice(0, 8)}` : id.slice(0, 8);
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading journal entries" />;
+  }
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">

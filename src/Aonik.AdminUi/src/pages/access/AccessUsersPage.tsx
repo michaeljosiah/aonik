@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AlertCircle, Edit, Eye, UserMinus, Users } from 'lucide-react';
 import { userService } from '@/services/userService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AccessUserSummary, PagedResult } from '@/types';
 import {
   DataTable,
@@ -59,6 +60,7 @@ export function AccessUsersPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<AccessUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -89,6 +91,7 @@ export function AccessUsersPage() {
       setUsers(result.items);
       setTotalCount(result.totalCount);
       setLoading(false);
+      setInitialLoad(false);
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) {
         return;
@@ -100,6 +103,7 @@ export function AccessUsersPage() {
           : '';
       setError(message || 'Failed to load users. Please try again.');
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [pageNumber, pageSize, searchQuery, statusFilter]);
 
@@ -370,6 +374,11 @@ export function AccessUsersPage() {
     setPageSize(newPageSize);
     setPageNumber(1);
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading users" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
       {/* Breadcrumb */}

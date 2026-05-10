@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { autonumberingService } from '@/services/autonumberingService';
 import type {
   AutonumberProfile,
@@ -899,6 +900,7 @@ function CreateProfileDialog({
 export function AutonumberingPage() {
   const [profiles, setProfiles] = useState<AutonumberProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -919,6 +921,7 @@ export function AutonumberingPage() {
       setError(message || 'Failed to load autonumbering configurations. Please try again.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -990,6 +993,10 @@ export function AutonumberingPage() {
       : profile.lastIssuedValue.toString();
     return `${prefix}${padded}${suffix}`;
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading autonumbering" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

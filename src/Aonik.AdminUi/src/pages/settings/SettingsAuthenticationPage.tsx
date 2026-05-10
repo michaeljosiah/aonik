@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { authProviderSettingsService } from '@/services/authProviderSettingsService';
 import { cn } from '@/lib/utils';
 import type {
@@ -137,6 +138,7 @@ function SettingsSection({
 export function SettingsAuthenticationPage() {
   const [formState, setFormState] = useState<AuthProviderFormState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,6 +153,7 @@ export function SettingsAuthenticationPage() {
       setError(resolveUserMessage(err, 'Failed to load authentication settings.'));
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   };
 
@@ -208,6 +211,10 @@ export function SettingsAuthenticationPage() {
       setSaving(false);
     }
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading authentication settings" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

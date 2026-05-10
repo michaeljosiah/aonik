@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, ChevronDown, ChevronRight, Download, Filter, Loader2, Sparkles, Volume2, X } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -449,6 +450,7 @@ export function ObservabilityTracesPage() {
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [selectedTraceItems, setSelectedTraceItems] = useState<AiTraceObservationResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [traceLoading, setTraceLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openSpanId, setOpenSpanId] = useState<string | null>(null);
@@ -530,7 +532,10 @@ export function ObservabilityTracesPage() {
       setTraceItems([]);
       setSelectedTraceId(null);
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [timeRange, filterTraceName, filterType, filterAgentName]);
 
@@ -805,6 +810,10 @@ export function ObservabilityTracesPage() {
     }
     return Array.from(map.values()).sort((a, b) => b.calls - a.calls);
   }, [selectedTraceItems]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading traces" />;
+  }
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">

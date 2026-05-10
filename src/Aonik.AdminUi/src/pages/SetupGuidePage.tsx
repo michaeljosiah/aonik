@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, ExternalLink, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { SetupGuideDefinition, SetupGuideManifest } from '@/services/setupGuideService';
 import { getSetupGuideManifest, getSetupGuideMarkdown } from '@/services/setupGuideService';
 
@@ -27,6 +28,7 @@ export function SetupGuidePage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [state, setState] = useState<GuideState>(initialState);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -47,6 +49,8 @@ export function SetupGuidePage() {
       } catch (err) {
         if (!active) return;
         setState({ guide: null, manifest: null, markdown: '', loading: false, error: 'Unable to load guide content.' });
+      } finally {
+        if (active) setInitialLoad(false);
       }
     };
 
@@ -161,6 +165,10 @@ export function SetupGuidePage() {
       ? guideCover
       : `/content/setup-guides/${state.guide?.slug ?? ''}/${guideCover}`
     : undefined;
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading guide" />;
+  }
 
   return (
     <div className="flex-1 overflow-auto bg-[var(--color-surface-inset)]">

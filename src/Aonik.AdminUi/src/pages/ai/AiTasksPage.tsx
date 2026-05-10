@@ -44,6 +44,7 @@ import {
 import { aiTaskService, aiRunService, aiModelService, routePolicyService } from '@/services/aiService';
 import type { AiModelResponse } from '@/types/ai';
 import { SelectGroup } from '@/components/ui/select';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type {
   AiTaskResponse,
   AiTaskDetailResponse,
@@ -129,6 +130,7 @@ function FieldLabel({ htmlFor, label, tooltip }: { htmlFor: string; label: strin
 export function AiTasksPage() {
   const [tasks, setTasks] = useState<AiTaskResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -197,7 +199,10 @@ export function AiTasksPage() {
       if (requestIdRef.current !== requestId) return;
       setError(getErrorMessage(err, 'Failed to load LLM tasks'));
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [categoryFilter]);
 
@@ -401,6 +406,10 @@ export function AiTasksPage() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading LLM tasks" />;
+  }
 
   return (
     <div className="p-6 space-y-6">

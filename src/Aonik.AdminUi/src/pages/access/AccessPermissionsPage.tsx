@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Key, RefreshCw, Search } from 'lucide-react';
 import { permissionService } from '@/services/permissionService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { PermissionDefinition } from '@/types';
 import {
   Select,
@@ -36,6 +37,7 @@ const categoryBadgeStyles: Record<string, string> = {
 export function AccessPermissionsPage() {
   const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -54,6 +56,7 @@ export function AccessPermissionsPage() {
       setError(message || 'Failed to load permissions. Please try again.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -86,6 +89,11 @@ export function AccessPermissionsPage() {
   const categories = useMemo(() => {
     return Array.from(new Set(normalizedPermissions.map((permission) => permission.displayCategory))).sort();
   }, [normalizedPermissions]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading permissions" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
 

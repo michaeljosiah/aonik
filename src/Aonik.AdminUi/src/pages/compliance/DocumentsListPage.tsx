@@ -16,6 +16,7 @@ import {
   Search,
 } from 'lucide-react';
 import { documentService } from '@/services/documentService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { DocumentListItem, PagedResult } from '@/types';
 
 /* -------------------------------------------------------------------------- */
@@ -141,6 +142,7 @@ export function DocumentsListPage() {
   const navigate = useNavigate();
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -169,6 +171,7 @@ export function DocumentsListPage() {
       setError(message || 'Failed to load documents. Please try again.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [pageNumber, pageSize, searchQuery, statusFilter]);
 
@@ -179,6 +182,10 @@ export function DocumentsListPage() {
   useEffect(() => {
     setPageNumber(1);
   }, [searchQuery, statusFilter]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading documents" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

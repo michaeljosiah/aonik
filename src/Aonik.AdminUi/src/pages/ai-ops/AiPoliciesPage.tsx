@@ -22,6 +22,7 @@ import {
   Pill,
   type PillTone,
 } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import { aiPolicyService, tenantAgentSettingsService } from '@/services/aiService';
 import type {
@@ -75,6 +76,7 @@ function summariseJson(raw: string, kind: string): string {
 export function AiPoliciesPage() {
   const [policies, setPolicies] = useState<AiPolicySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [agentSettings, setAgentSettings] =
@@ -95,6 +97,7 @@ export function AiPoliciesPage() {
       setError(message || 'Failed to load AI policies.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -183,6 +186,10 @@ export function AiPoliciesPage() {
       mostRecentUpdate,
     };
   }, [policies]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading AI policies" />;
+  }
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">

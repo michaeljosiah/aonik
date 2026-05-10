@@ -46,6 +46,7 @@ import type {
   UpdateRoutePolicyRequest,
   AiModelResponse,
 } from '@/types/ai';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ export function RoutePoliciesPage() {
   const [policies, setPolicies] = useState<RoutePolicyResponse[]>([]);
   const [models, setModels] = useState<AiModelResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [scopeFilter, setScopeFilter] = useState('');
@@ -124,7 +126,10 @@ export function RoutePoliciesPage() {
       if (requestIdRef.current !== requestId) return;
       setError(getErrorMessage(err, 'Failed to load route policies'));
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, []);
 
@@ -345,6 +350,10 @@ export function RoutePoliciesPage() {
 
   // ── Breadcrumb ────────────────────────────────────────────────────
   // ── Render ────────────────────────────────────────────────────────
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading route policies" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

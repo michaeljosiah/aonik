@@ -5,11 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowRightLeft, Plus, Settings, TrendingUp, Clock, AlertCircle, Trash2 } from 'lucide-react';
 import { FxQuoteDialog } from '@/components/FxQuoteDialog';
 import { fxRateService } from '@/services/fxRateService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { FxQuoteListResponse, FxQuoteDetailResponse } from '@/types';
 
 export function FxRatesPage() {
   const [quotes, setQuotes] = useState<FxQuoteListResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [includeExpired, setIncludeExpired] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -29,6 +31,7 @@ export function FxRatesPage() {
       setError(err instanceof Error ? err.message : 'Failed to load FX quotes');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   };
 
@@ -91,6 +94,10 @@ export function FxRatesPage() {
   const handleDialogSuccess = () => {
     loadQuotes();
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading exchange rates" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

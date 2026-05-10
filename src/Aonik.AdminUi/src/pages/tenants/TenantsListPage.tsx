@@ -14,6 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { tenantService } from '@/services/tenantService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { Tenant, TenantStatus, PagedResult } from '@/types';
 import { DataTablePagination } from '@/components/ui/data-table';
 import {
@@ -42,6 +43,7 @@ export function TenantsListPage() {
   const navigate = useNavigate();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -71,6 +73,7 @@ export function TenantsListPage() {
       setError(message || 'Failed to load tenants. Please try again.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [pageNumber, pageSize, statusFilter, environmentFilter, searchQuery]);
 
@@ -94,6 +97,11 @@ export function TenantsListPage() {
     setPageSize(newPageSize);
     setPageNumber(1);
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading tenants" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
 

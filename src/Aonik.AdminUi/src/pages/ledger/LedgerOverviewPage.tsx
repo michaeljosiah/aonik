@@ -8,11 +8,13 @@ import { Label } from '@/components/ui/label';
 import { documentService } from '@/services/documentService';
 import { identityService } from '@/services/identityService';
 import { ledgerService } from '@/services/ledgerService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { CreateLedgerRequest, DocumentListItem, LedgerSummary, PagedResult } from '@/types';
 
 export function LedgerOverviewPage() {
   const [ledgers, setLedgers] = useState<LedgerSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [baseCurrency, setBaseCurrency] = useState('USD');
   const [isSaving, setIsSaving] = useState(false);
@@ -39,6 +41,7 @@ export function LedgerOverviewPage() {
       setError(message || 'Failed to load ledgers.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [selectedLedgerId]);
 
@@ -168,6 +171,10 @@ export function LedgerOverviewPage() {
       setIsUploading(false);
     }
   }, [documentFile, loadDocuments, ownerPartyId, selectedLedgerId]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading ledger" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

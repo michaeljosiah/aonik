@@ -31,6 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable, type ColumnDef, DataTableRowActions } from '@/components/ui/data-table';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   Dialog,
   DialogContent,
@@ -117,6 +118,7 @@ export function NotificationTemplatesPage() {
   // ── Template data ──────────────────────────────────────────────────────
   const [templates, setTemplates] = useState<NotificationTemplateSummary[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<NotificationTemplateResponse | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -157,6 +159,7 @@ export function NotificationTemplatesPage() {
       toast.error('Failed to load notification templates');
     } finally {
       setLoadingTemplates(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -490,6 +493,10 @@ export function NotificationTemplatesPage() {
   // ═══════════════════════════════════════════════════════════════════════
   // Render
   // ═══════════════════════════════════════════════════════════════════════
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading notification templates" />;
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}

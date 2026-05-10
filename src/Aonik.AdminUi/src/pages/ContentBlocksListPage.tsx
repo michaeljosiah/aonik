@@ -6,11 +6,13 @@ import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DataTableRowActions } from '@/components/ui/data-table';
 import { Plus, Layers, Image, CheckCircle, XCircle, Sparkles } from 'lucide-react';
 import { getContentBlocks, deleteContentBlock, type ContentBlock } from '@/services/contentBlockService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 export function ContentBlocksListPage() {
   const navigate = useNavigate();
   const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export function ContentBlocksListPage() {
       console.error('Failed to load content blocks:', error);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }
 
@@ -128,6 +131,10 @@ export function ContentBlocksListPage() {
       ]}
     />
   );
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading content blocks" />;
+  }
 
   return (
     <div className="flex-1 overflow-auto">

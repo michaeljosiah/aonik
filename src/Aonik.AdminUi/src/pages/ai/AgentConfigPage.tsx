@@ -30,6 +30,7 @@ import {
   PageHeader,
   Pill,
 } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { agentConfigService, agentRunService } from '@/services/aiService';
 import type { AgentConfigurationResponse } from '@/types/ai';
 import { cn } from '@/lib/utils';
@@ -66,6 +67,7 @@ export function AgentConfigPage() {
 
   const [configs, setConfigs] = useState<AgentConfigurationResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [layout, setLayout] = useState<Layout>('card');
@@ -92,7 +94,10 @@ export function AgentConfigPage() {
           : '';
       setError(message || 'Failed to load agents.');
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, []);
 
@@ -175,6 +180,10 @@ export function AgentConfigPage() {
     uniqueAgents.length > 0
       ? `${uniqueAgents.length} configured agent${uniqueAgents.length === 1 ? '' : 's'} · ${counts.Running} running now · ${counts.System} system / ${counts.Domain} domain`
       : 'Configure domain agents, assign models, and manage overrides.';
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading agents" />;
+  }
 
   return (
     <div className="relative h-full overflow-hidden">

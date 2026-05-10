@@ -26,6 +26,7 @@ import {
   Pill,
   type PillTone,
 } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   DataTable,
   DataTableRowActions,
@@ -112,6 +113,7 @@ export function InvoicesListPage() {
 
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -130,7 +132,10 @@ export function InvoicesListPage() {
       const message = err instanceof Error ? err.message : 'Failed to load invoices';
       setError(message);
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [statusFilter]);
 
@@ -245,6 +250,10 @@ export function InvoicesListPage() {
     }
     return actions;
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading invoices" />;
+  }
 
   // ─── Columns ──────────────────────────────────────────────────────────
 

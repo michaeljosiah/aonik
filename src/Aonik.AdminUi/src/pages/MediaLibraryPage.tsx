@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Image, Search, ExternalLink } from 'lucide-react';
 import { getContentBlocks, type ContentBlock, type ContentBlockMedia } from '@/services/contentBlockService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 interface MediaItem extends ContentBlockMedia {
   contentBlockId: string;
@@ -15,6 +16,7 @@ export function MediaLibraryPage() {
   const [allMedia, setAllMedia] = useState<MediaItem[]>([]);
   const [filteredMedia, setFilteredMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -58,7 +60,12 @@ export function MediaLibraryPage() {
       console.error('Failed to load media:', error);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
+  }
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading media library" />;
   }
 
   return (

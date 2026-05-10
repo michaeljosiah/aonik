@@ -48,6 +48,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CountrySelect } from '@/components/ui/country-select';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 interface FormState {
   name: string;
@@ -83,6 +84,7 @@ export function CatalogBillersPage() {
   const [categories, setCategories] = useState<CatalogBillerCategoryItem[]>([]);
   const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -129,6 +131,7 @@ export function CatalogBillersPage() {
       setError(message || 'Failed to load catalog billers.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [countryFilter, categoryFilter, search, page, pageSize]);
 
@@ -275,6 +278,10 @@ export function CatalogBillersPage() {
       setDeleting(false);
     }
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading billers" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

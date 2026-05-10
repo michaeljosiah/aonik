@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 
 import { accountService } from '@/services/accountService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type {
   AccountResponse,
   AccountTransactionResponse,
@@ -44,6 +45,7 @@ export function AccountTransactionsPage() {
   const [transactions, setTransactions] = useState<AccountTransactionResponse[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,6 +84,7 @@ export function AccountTransactionsPage() {
       toast.error('Failed to load transactions.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [accountId, pageNumber, pageSize]);
 
@@ -240,6 +243,11 @@ export function AccountTransactionsPage() {
         );
       })
     : transactions;
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading transactions" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
 

@@ -22,6 +22,7 @@ import {
   Card as AonikCard,
   PageHeader,
 } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import { aiRunService } from '@/services/aiService';
 import type { AiRunSummaryResponse } from '@/services/aiService';
@@ -67,6 +68,7 @@ function paletteFor(name: string): string {
 export function AiUsagePage() {
   const [runs, setRuns] = useState<AiRunSummaryResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadRuns = useCallback(async () => {
@@ -97,6 +99,7 @@ export function AiUsagePage() {
       setError(message || 'Failed to load AI usage data.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -177,6 +180,10 @@ export function AiUsagePage() {
     () => dailySeries.reduce((max, d) => Math.max(max, d.tokens), 0) || 1,
     [dailySeries],
   );
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading AI usage" />;
+  }
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">

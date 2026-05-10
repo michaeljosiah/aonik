@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { DataTableHeader, DataTablePagination, type ViewMode } from '@/components/ui/data-table';
 import { RefreshCw, AlertCircle, Globe2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { CatalogCountryItem } from '@/types';
 
 // FlatIcon circular country flags mapping
@@ -22,6 +23,7 @@ const getFlagUrl = (countryCode: string) => {
 export function CatalogCountriesPage() {
   const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [onlyServiceCountries, setOnlyServiceCountries] = useState(false);
   const [search, setSearch] = useState('');
@@ -43,6 +45,7 @@ export function CatalogCountriesPage() {
       setError(message || 'Failed to load catalog countries.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [onlyServiceCountries]);
 
@@ -74,6 +77,10 @@ export function CatalogCountriesPage() {
     setPageSize(newPageSize);
     setPageNumber(1);
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading countries" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

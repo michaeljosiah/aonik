@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { jobService, type ScheduledJobSummary, type SchedulerHealthResponse } from '@/services/jobService';
 import { describeCron } from '@/lib/cronDescriber';
 
@@ -125,6 +126,7 @@ export function BackgroundJobsPage() {
   const [jobs, setJobs] = useState<ScheduledJobSummary[]>([]);
   const [health, setHealth] = useState<SchedulerHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
@@ -136,6 +138,7 @@ export function BackgroundJobsPage() {
       console.error('Failed to load scheduled jobs:', err);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -245,6 +248,11 @@ export function BackgroundJobsPage() {
       setActionInProgress(null);
     }
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading background jobs" />;
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
 

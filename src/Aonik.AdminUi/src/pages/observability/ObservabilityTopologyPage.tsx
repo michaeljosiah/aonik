@@ -15,6 +15,7 @@ import { Activity, Database, Globe, Loader2, Play, RefreshCw, Server } from 'luc
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/layout/aonik/PageHeader';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -256,6 +257,7 @@ export function ObservabilityTopologyPage() {
   const [timeRange, setTimeRange] = useState('24h');
   const [topology, setTopology] = useState<TopologyResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
@@ -286,6 +288,7 @@ export function ObservabilityTopologyPage() {
       } finally {
         if (active) {
           setLoading(false);
+          setInitialLoad(false);
         }
       }
     };
@@ -359,6 +362,10 @@ export function ObservabilityTopologyPage() {
       setActionInFlight(null);
     }
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading topology" />;
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

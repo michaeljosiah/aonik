@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { auditLogService, type AuditLogListItem } from '@/services/auditLogService';
 import type { PagedResult } from '@/types';
 
@@ -81,6 +82,7 @@ export function SettingsAuditLogsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [entries, setEntries] = useState<PagedResult<AuditLogListItem> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState(searchParams.get('search') ?? '');
 
@@ -107,6 +109,7 @@ export function SettingsAuditLogsPage() {
       setEntries(null);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [action, correlationId, pageNumber, resourceType, searchParams]);
 
@@ -145,6 +148,10 @@ export function SettingsAuditLogsPage() {
 
     return 'Audit Logs';
   }, [action, correlationId, resourceType]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading audit logs" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

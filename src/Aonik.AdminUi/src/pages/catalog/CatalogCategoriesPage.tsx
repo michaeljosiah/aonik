@@ -36,6 +36,7 @@ import type {
   UpdateCatalogBillerCategoryRequest,
 } from '@/types';
 import { CountrySelect } from '@/components/ui/country-select';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Catalog Categories — tenant-scoped CRUD.
@@ -66,6 +67,7 @@ const emptyForm: FormState = {
 export function CatalogCategoriesPage() {
   const [categories, setCategories] = useState<CatalogBillerCategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -95,6 +97,7 @@ export function CatalogCategoriesPage() {
       setError(message || 'Failed to load catalog categories.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, [countryFilter]);
 
@@ -206,6 +209,10 @@ export function CatalogCategoriesPage() {
       setDeleting(false);
     }
   };
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading categories" />;
+  }
 
   return (
     <div className="h-full overflow-auto p-6">

@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { CreateCustomerDialog } from '@/components/dialogs/CreateCustomerDialog';
 import { customerService } from '@/services/customerService';
 import type { CustomerDataImportResponse } from '@/services/customerService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { CreateCustomerRequest, CustomerListItem, PagedResult } from '@/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -94,6 +95,7 @@ export function CustomersListPage() {
 
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   // Active tab maps to either a partyType filter ("Business"/"Person") or a
@@ -137,7 +139,10 @@ export function CustomersListPage() {
           : '';
       setError(message || 'Failed to load customers. Please try again.');
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [pageNumber, pageSize, partyTypeFilter, statusFilter, searchQuery]);
 
@@ -297,6 +302,10 @@ export function CustomersListPage() {
   ];
 
   // ─── Header counts ────────────────────────────────────────────────────
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading customers" />;
+  }
 
   const subtitle = totalCount > 0
     ? `${totalCount.toLocaleString()} total${

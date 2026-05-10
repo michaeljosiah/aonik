@@ -23,6 +23,7 @@ import {
   Pill,
   type PillTone,
 } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   DataTable,
   DataTablePagination,
@@ -108,6 +109,7 @@ export function OrdersListPage() {
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<string>('all');
@@ -151,7 +153,10 @@ export function OrdersListPage() {
           : '';
       setError(message || 'Failed to load orders. Please try again.');
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, pageSize, searchQuery, activeTab]);
@@ -203,6 +208,10 @@ export function OrdersListPage() {
   useEffect(() => {
     setPageNumber(1);
   }, [searchQuery, activeTab]);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading orders" />;
+  }
 
   // ─── Columns ──────────────────────────────────────────────────────────
 

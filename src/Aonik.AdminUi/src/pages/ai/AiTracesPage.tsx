@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table/data-table';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AiTraceObservationResponse } from '@/services/aiService';
 import { aiTraceService } from '@/services/aiService';
 const typeClass = (type: string) => {
@@ -705,6 +706,7 @@ export function AiTracesPage() {
 
   const [items, setItems] = useState<AiTraceObservationResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(50);
@@ -752,7 +754,10 @@ export function AiTracesPage() {
       setTotalCount(0);
       setProvider('Unknown');
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [level, name, page, pageSize, rootFilter, timeRange, traceName, type]);
 
@@ -922,6 +927,10 @@ export function AiTracesPage() {
   ], [openObservation]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading AI traces" />;
+  }
 
   return (
     <div className="p-6 space-y-6">

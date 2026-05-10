@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { SetupGuideDefinition, SetupGuideManifest } from '@/services/setupGuideService';
 import { getSetupGuideManifest } from '@/services/setupGuideService';
 
@@ -20,6 +21,7 @@ const initialState: LandingState = {
 export function SetupGuidesLandingPage() {
   const navigate = useNavigate();
   const [state, setState] = useState<LandingState>(initialState);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +35,8 @@ export function SetupGuidesLandingPage() {
       } catch {
         if (!active) return;
         setState({ manifest: null, loading: false, error: 'Unable to load guides.' });
+      } finally {
+        if (active) setInitialLoad(false);
       }
     };
 
@@ -50,6 +54,10 @@ export function SetupGuidesLandingPage() {
 
   const featuredGuide = sortedGuides[0];
   const listGuides = sortedGuides.slice(1, 5);
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading guides" />;
+  }
 
   const resolveCover = (guide?: SetupGuideDefinition) => {
     if (!guide?.cover) return undefined;

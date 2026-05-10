@@ -41,6 +41,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ledgerService } from '@/services/ledgerService';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type {
   CreateLedgerAccountRequest,
   LedgerAccountSummary,
@@ -127,6 +128,7 @@ export function LedgerAccountsPage() {
   const [ledgers, setLedgers] = useState<LedgerSummary[]>([]);
   const [accounts, setAccounts] = useState<LedgerAccountSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ledgerFilter, setLedgerFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
@@ -175,6 +177,7 @@ export function LedgerAccountsPage() {
       setError(message || 'Failed to load ledger accounts.');
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -250,6 +253,10 @@ export function LedgerAccountsPage() {
     : `${accounts.length.toLocaleString()} account${
         accounts.length === 1 ? '' : 's'
       } · ${ledgers.length} ledger${ledgers.length === 1 ? '' : 's'}`;
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading chart of accounts" />;
+  }
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">

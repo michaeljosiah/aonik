@@ -27,6 +27,7 @@ import {
   Pill,
   type PillTone,
 } from '@/components/layout/aonik';
+import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { Button } from '@/components/ui/button';
 import { aiRunService } from '@/services/aiService';
 import type { AiRunSummaryResponse } from '@/services/aiService';
@@ -82,6 +83,7 @@ export function AiRunQueuePage() {
   const [runs, setRuns] = useState<AiRunSummaryResponse[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,7 +113,10 @@ export function AiRunQueuePage() {
           : '';
       setError(message || 'Failed to load AI runs.');
     } finally {
-      if (requestIdRef.current === requestId) setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   }, [outcomeFilter, page, pageSize]);
 
@@ -164,6 +169,10 @@ export function AiRunQueuePage() {
     : 'Every agent run across the tenant';
 
   const avgLatency = stats.latencyCount > 0 ? stats.latencySum / stats.latencyCount : 0;
+
+  if (initialLoad) {
+    return <PageLoadingScreen message="Loading run queue" />;
+  }
 
   return (
     <div className="flex flex-col gap-5 p-6 md:px-8">
