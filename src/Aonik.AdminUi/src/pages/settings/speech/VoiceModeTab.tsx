@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
+import { voiceModeSettingsService } from '@/services/speechActiveSettingsService';
 import { voiceRecipeLibraryService } from '@/services/voiceRecipeLibraryService';
 import type { SpeechProvider } from '@/types/speechLibrary';
 import type { VoiceRecipe } from '@/types/voiceRecipes';
@@ -30,29 +31,34 @@ import type { TabId } from '../SettingsSpeechPage';
 
 interface VoiceModeTabProps {
   onJump?: (tab: TabId) => void;
+  /** Notify the parent shell that the persisted settings changed (refreshes the rail footer). */
+  onSettingsChanged?: () => void;
 }
 
 /**
- * Voice Mode tab. The Phase C backend (`VoiceModeSettings`) isn't shipped yet, so this
- * tab is a visual preview: it reads from the recipe library and lets admins pick a
- * recipe locally, but "Save" doesn't persist (the legacy `/settings/voice` page is the
- * authoritative configuration source until Phase C lands).
+ * Voice Mode tab. Reads/writes the per-tenant <c>VoiceModeSettings</c> row (spec 024 Phase C):
+ * picking an active recipe + the on/off switch persist immediately on Save.
  *
- * Layout mirrors the starter kit:
- *   ┌──── hero gradient (mic + status + on/off toggle) ────┐
- *   ┌─── active recipe + switch-to + providers-in-use ───┐ ┌─── live test ───┐
- *   │                                                    │ │ usage stats     │
- *   │                                                    │ │ helper card     │
+ * <para>
+ * The runtime cutover (Phase C.2) wires the WSS pipeline factory to read this row instead of
+ * the legacy <c>/settings/voice</c> chain. Until then the legacy page still drives Voice Mode
+ * at runtime — the "Open legacy page" button in the header is a deliberate pointer.
+ * </para>
  */
-export function VoiceModeTab({ onJump }: VoiceModeTabProps) {
+export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
   const [recipes, setRecipes] = useState<VoiceRecipe[]>([]);
   const [providers, setProviders] = useState<SpeechProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Local-only mock state (Phase C will replace with real VoiceModeSettings).
+  // Local edit state — initialised from VoiceModeSettings on first load. Edits stay local until
+  // Save; refresh / cancel restores the persisted values.
   const [enabled, setEnabled] = useState(true);
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
+  // Snapshot of the persisted state — used to detect dirty changes for the Save button.
+  const [persistedEnabled, setPersistedEnabled] = useState(true);
+  const [persistedActiveRecipeId, setPersistedActiveRecipeId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,22 +66,23 @@ export function VoiceModeTab({ onJump }: VoiceModeTabProps) {
       setLoading(true);
       setError(null);
       try {
-        const [recipeList, providerList] = await Promise.all([
+        const [recipeList, providerList, settings] = await Promise.all([
           voiceRecipeLibraryService.list({ includeDisabled: false }),
           speechProviderLibraryService.list({ includeDisabled: true }),
+          voiceModeSettingsService.get(),
         ]);
         if (cancelled) return;
         setRecipes(recipeList);
         setProviders(providerList);
-        // Default the active recipe to the first built-in chained one — Phase C will
-        // load the real selection from the active settings row.
-        const initial = recipeList.find((r) => r.isBuiltIn && r.kind === 'Chained');
-        setActiveRecipeId(initial?.id ?? recipeList[0]?.id ?? null);
+        setEnabled(settings.enabled);
+        setActiveRecipeId(settings.activeRecipeId);
+        setPersistedEnabled(settings.enabled);
+        setPersistedActiveRecipeId(settings.activeRecipeId);
       } catch (err) {
         if (cancelled) return;
         // eslint-disable-next-line no-console
         console.error(err);
-        setError('Failed to load voice mode preview.');
+        setError('Failed to load voice mode settings.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -102,10 +109,31 @@ export function VoiceModeTab({ onJump }: VoiceModeTabProps) {
     [recipes, activeRecipeId],
   );
 
-  const handleSave = () => {
-    toast.info(
-      'Voice mode persistence ships with Phase C. Use /settings/voice for live changes today.',
-    );
+  const isDirty =
+    enabled !== persistedEnabled || activeRecipeId !== persistedActiveRecipeId;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const saved = await voiceModeSettingsService.update({
+        activeRecipeId,
+        enabled,
+      });
+      setEnabled(saved.enabled);
+      setActiveRecipeId(saved.activeRecipeId);
+      setPersistedEnabled(saved.enabled);
+      setPersistedActiveRecipeId(saved.activeRecipeId);
+      onSettingsChanged?.();
+      toast.success('Voice mode settings saved.');
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { message?: string })?.message ??
+        'Failed to save voice mode settings.';
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -137,24 +165,26 @@ export function VoiceModeTab({ onJump }: VoiceModeTabProps) {
                 <ExternalLink className="h-3.5 w-3.5" /> Open legacy page
               </RouterLink>
             </Button>
-            <Button size="sm" onClick={handleSave}>
-              <Save className="h-3.5 w-3.5" /> Save changes
+            <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save changes
             </Button>
           </>
         }
       />
 
-      {/* Preview-only callout */}
+      {/* Phase C.1 callout — settings persist now, but the WSS pipeline rewire ships in C.2 */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">Preview · Phase C</span>{' '}
-        — the new active settings store ships next phase. For now, configure the real voice mode at
+        <span className="font-semibold text-[var(--color-text-primary)]">Settings save here</span>{' '}
+        — the runtime cutover (Phase C.2) wires the live voice pipeline to read this row. Until
+        then,{' '}
         <RouterLink
           to="/settings/voice"
-          className="ml-1 underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"
+          className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"
         >
           /settings/voice
-        </RouterLink>
-        . Recipe changes here are local-only.
+        </RouterLink>{' '}
+        still drives the actual conversation experience.
       </div>
 
       {/* Hero status */}

@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { chatSpeechSettingsService } from '@/services/speechActiveSettingsService';
 import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
 import type { SpeechProvider } from '@/types/speechLibrary';
 
@@ -29,6 +30,8 @@ import type { TabId } from '../SettingsSpeechPage';
 
 interface ChatSpeechTabProps {
   onJump?: (tab: TabId) => void;
+  /** Notify the parent shell that the persisted settings changed (refreshes the rail footer). */
+  onSettingsChanged?: () => void;
 }
 
 interface VoicePickerEntry {
@@ -41,25 +44,41 @@ interface VoicePickerEntry {
 }
 
 /**
- * Chat Speech tab. Voice picker is built from the real TTS providers in the library so
- * admins see live entries (OpenAI / alloy, ElevenLabs / Aria, …). Persistence ships in
- * Phase C; in the meantime, the legacy `/settings/text-to-speech` page is the source of
- * truth and is linked at the top of the tab.
+ * Chat Speech tab. Reads/writes the per-tenant <c>ChatSpeechSettings</c> row (spec 024 Phase C):
+ * the voice picker, on/off, auto-play, show-speak-button and playback rate persist on Save.
+ *
+ * <para>
+ * Voice picker entries are built from the real TTS providers in the library so admins see live
+ * entries. The runtime cutover (Phase C.2) wires <c>TextToSpeechService</c> to read the
+ * persisted active provider; until then the legacy <c>/settings/text-to-speech</c> page still
+ * drives helper-text + AGUI streaming TTS.
+ * </para>
  */
-export function ChatSpeechTab({ onJump }: ChatSpeechTabProps) {
+export function ChatSpeechTab({ onJump, onSettingsChanged }: ChatSpeechTabProps) {
   const [providers, setProviders] = useState<SpeechProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Local-only mock state (Phase C wires real persistence).
+  // Local edit state — initialised from ChatSpeechSettings on first load.
   const [enabled, setEnabled] = useState(true);
   const [autoPlay, setAutoPlay] = useState(false);
   const [showSpeakButton, setShowSpeakButton] = useState(true);
+  // Stored as percent on the wire (100 = 1.0x); the slider works in floats.
   const [rate, setRate] = useState(1.0);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState(
     'Three invoices are awaiting your review, and April fuel spending is trending twelve percent above plan.',
   );
+
+  // Snapshot of the persisted state — used to compute the dirty flag for the Save button.
+  const [persisted, setPersisted] = useState({
+    enabled: true,
+    autoPlay: false,
+    showSpeakButton: true,
+    ratePercent: 100,
+    activeTtsProviderId: null as string | null,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -67,14 +86,29 @@ export function ChatSpeechTab({ onJump }: ChatSpeechTabProps) {
       setLoading(true);
       setError(null);
       try {
-        const list = await speechProviderLibraryService.list({ includeDisabled: false });
+        const [list, settings] = await Promise.all([
+          speechProviderLibraryService.list({ includeDisabled: false }),
+          chatSpeechSettingsService.get(),
+        ]);
         if (cancelled) return;
         setProviders(list);
+        setEnabled(settings.enabled);
+        setAutoPlay(settings.autoPlay);
+        setShowSpeakButton(settings.showSpeakButton);
+        setRate(settings.ratePercent / 100);
+        setSelectedVoice(settings.activeTtsProviderId);
+        setPersisted({
+          enabled: settings.enabled,
+          autoPlay: settings.autoPlay,
+          showSpeakButton: settings.showSpeakButton,
+          ratePercent: settings.ratePercent,
+          activeTtsProviderId: settings.activeTtsProviderId,
+        });
       } catch (err) {
         if (cancelled) return;
         // eslint-disable-next-line no-console
         console.error(err);
-        setError('Failed to load TTS providers.');
+        setError('Failed to load chat speech settings.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -87,19 +121,51 @@ export function ChatSpeechTab({ onJump }: ChatSpeechTabProps) {
 
   const voices = useMemo(() => buildVoiceEntries(providers), [providers]);
 
-  // Default the selected voice to the first one once loaded.
-  useEffect(() => {
-    if (!selectedVoice && voices.length > 0) setSelectedVoice(voices[0].providerId);
-  }, [voices, selectedVoice]);
+  const ratePercent = Math.round(rate * 100);
+  const isDirty =
+    enabled !== persisted.enabled ||
+    autoPlay !== persisted.autoPlay ||
+    showSpeakButton !== persisted.showSpeakButton ||
+    ratePercent !== persisted.ratePercent ||
+    selectedVoice !== persisted.activeTtsProviderId;
 
-  const handleSave = () => {
-    toast.info(
-      'Chat speech persistence ships with Phase C. Use /settings/text-to-speech for live changes today.',
-    );
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const saved = await chatSpeechSettingsService.update({
+        activeTtsProviderId: selectedVoice,
+        enabled,
+        autoPlay,
+        showSpeakButton,
+        ratePercent,
+      });
+      setEnabled(saved.enabled);
+      setAutoPlay(saved.autoPlay);
+      setShowSpeakButton(saved.showSpeakButton);
+      setRate(saved.ratePercent / 100);
+      setSelectedVoice(saved.activeTtsProviderId);
+      setPersisted({
+        enabled: saved.enabled,
+        autoPlay: saved.autoPlay,
+        showSpeakButton: saved.showSpeakButton,
+        ratePercent: saved.ratePercent,
+        activeTtsProviderId: saved.activeTtsProviderId,
+      });
+      onSettingsChanged?.();
+      toast.success('Chat speech settings saved.');
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { message?: string })?.message ??
+        'Failed to save chat speech settings.';
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePreview = () => {
-    toast.info('Preview synthesis lands with Phase C. Use the legacy TTS page for live previews.');
+    toast.info('Inline preview ships with Phase E. Use /settings/text-to-speech to verify the voice today.');
   };
 
   if (loading) {
@@ -131,8 +197,9 @@ export function ChatSpeechTab({ onJump }: ChatSpeechTabProps) {
                 <ExternalLink className="h-3.5 w-3.5" /> Open legacy page
               </RouterLink>
             </Button>
-            <Button size="sm" onClick={handleSave}>
-              <Save className="h-3.5 w-3.5" /> Save changes
+            <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save changes
             </Button>
           </>
         }
@@ -152,10 +219,11 @@ export function ChatSpeechTab({ onJump }: ChatSpeechTabProps) {
         </Button>
       </div>
 
-      {/* Preview-only callout */}
+      {/* Phase C.1 callout — settings persist now, but the TTS service rewire ships in C.2 */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">Preview · Phase C</span>{' '}
-        — voice picker / playback toggles below don't persist yet. Configure live changes at
+        <span className="font-semibold text-[var(--color-text-primary)]">Settings save here</span>{' '}
+        — the runtime cutover (Phase C.2) wires helper-text + AGUI streaming TTS to read this row.
+        Until then,
         <RouterLink
           to="/settings/text-to-speech"
           className="ml-1 underline decoration-dotted underline-offset-2 hover:text-[var(--color-brand-primary)]"

@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { voiceModeSettingsService } from '@/services/speechActiveSettingsService';
 import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
 import { voiceRecipeLibraryService } from '@/services/voiceRecipeLibraryService';
 import type { SpeechProvider } from '@/types/speechLibrary';
@@ -24,15 +25,23 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'Composite', label: 'Realtime' },
 ];
 
+interface RecipesTabProps {
+  /** Bumped by the parent shell when settings change elsewhere — triggers a reload. */
+  settingsTick?: number;
+  /** Notify the parent shell that the persisted settings changed. */
+  onSettingsChanged?: () => void;
+}
+
 /**
- * Recipes tab. Banner explains clone-before-edit, filter pills slice by kind, then a
- * vertical list of full-width recipe cards rendering the visual flow. Active-in-voice-
- * mode highlight is mocked from the first built-in chained recipe until Phase C wires
- * the real active-recipe setting.
+ * Recipes tab. Banner explains the create-your-own model, filter pills slice by kind, then a
+ * vertical list of full-width recipe cards rendering the visual flow. The active-in-voice-mode
+ * highlight + the per-card Activate button now read/write the real <c>VoiceModeSettings</c>
+ * row (spec 024 Phase C.1).
  */
-export function RecipesTab() {
+export function RecipesTab({ settingsTick, onSettingsChanged }: RecipesTabProps = {}) {
   const [recipes, setRecipes] = useState<VoiceRecipe[]>([]);
   const [providers, setProviders] = useState<SpeechProvider[]>([]);
+  const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('All');
   const [includeDisabled, setIncludeDisabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,12 +54,14 @@ export function RecipesTab() {
     setLoading(true);
     setError(null);
     try {
-      const [recipeList, providerList] = await Promise.all([
+      const [recipeList, providerList, voiceMode] = await Promise.all([
         voiceRecipeLibraryService.list({ includeDisabled }),
         speechProviderLibraryService.list({ includeDisabled: true }),
+        voiceModeSettingsService.get(),
       ]);
       setRecipes(recipeList);
       setProviders(providerList);
+      setActiveRecipeId(voiceMode.activeRecipeId);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err);
@@ -62,7 +73,7 @@ export function RecipesTab() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, settingsTick]);
 
   const providerLookup = useMemo(() => {
     const m = new Map<string, SpeechProvider>();
@@ -75,13 +86,24 @@ export function RecipesTab() {
     return recipes.filter((r) => r.kind === filter);
   }, [filter, recipes]);
 
-  // Mock "active in voice mode" — Phase C will replace this with the real
-  // VoiceModeSettings.recipeId. For now, pick the first built-in chained recipe so admins
-  // can see the highlight design.
-  const activeRecipeId = useMemo(() => {
-    const builtinChained = recipes.find((r) => r.isBuiltIn && r.kind === 'Chained');
-    return builtinChained?.id ?? null;
-  }, [recipes]);
+  const handleActivate = async (recipe: VoiceRecipe) => {
+    try {
+      const saved = await voiceModeSettingsService.update({
+        activeRecipeId: recipe.id,
+        // Activating from the recipe list implies "I want this on" — flip enabled true.
+        enabled: true,
+      });
+      setActiveRecipeId(saved.activeRecipeId);
+      onSettingsChanged?.();
+      toast.success(`${recipe.displayName} is now active in Voice Mode.`);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { message?: string })?.message ??
+        'Failed to activate recipe.';
+      toast.error(message);
+    }
+  };
 
   const handleDisable = async (recipe: VoiceRecipe) => {
     try {
@@ -216,6 +238,7 @@ export function RecipesTab() {
                   providerLookup={providerLookup}
                   activeInVoiceMode={r.id === activeRecipeId}
                   onEdit={() => setEditing(r)}
+                  onActivate={() => void handleActivate(r)}
                   onDisable={() => void handleDisable(r)}
                 />
               ))}

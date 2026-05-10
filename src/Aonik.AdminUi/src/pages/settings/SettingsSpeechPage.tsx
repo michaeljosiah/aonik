@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Layers,
   Mic,
@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { chatSpeechSettingsService, voiceModeSettingsService } from '@/services/speechActiveSettingsService';
+import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
+import { voiceRecipeLibraryService } from '@/services/voiceRecipeLibraryService';
 
 import { ChatSpeechTab } from './speech/ChatSpeechTab';
 import { ProvidersTab } from './speech/ProvidersTab';
@@ -28,10 +31,11 @@ import { VoiceModeTab } from './speech/VoiceModeTab';
  *   │ ── now active ─│└───────────────────────┘
  *   └────────────────┘
  *
- * Providers + Recipes are wired to the new library backend (Phase A + B).
- * Voice mode + Chat speech are visual previews — Phase C ships the persistence
- * layer that backs them; the legacy `/settings/voice` and
- * `/settings/text-to-speech` pages remain functional in the meantime.
+ * Phase A + B wired the Providers + Recipes library; Phase C.1 ships the
+ * `VoiceModeSettings` + `ChatSpeechSettings` singletons that drive the "Now active"
+ * rail footer and the Voice mode / Chat speech tabs. The runtime cutover (Phase C.2)
+ * still references the legacy `/settings/voice` + `/settings/text-to-speech` pages
+ * for the actual conversation + TTS pipelines.
  */
 
 type TabId = 'providers' | 'recipes' | 'voice-mode' | 'chat-speech';
@@ -70,6 +74,11 @@ const TABS: SpeechTab[] = [
   },
 ];
 
+interface ActiveLabels {
+  voiceModeRecipeName: string | null;
+  chatSpeechVoiceName: string | null;
+}
+
 export function SettingsSpeechPage() {
   // Persist active tab to URL query so deep links work (e.g.
   // `/settings/speech?tab=voice-mode` from a "Configure" link in another panel).
@@ -86,6 +95,49 @@ export function SettingsSpeechPage() {
     url.searchParams.set('tab', activeTab);
     window.history.replaceState(null, '', url.toString());
   }, [activeTab]);
+
+  // "Now active" footer state. Tabs call onSettingsChanged when they save so the
+  // footer can re-resolve names without us threading state down or up.
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [activeLabels, setActiveLabels] = useState<ActiveLabels>({
+    voiceModeRecipeName: null,
+    chatSpeechVoiceName: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [voiceMode, chatSpeech, recipes, providers] = await Promise.all([
+          voiceModeSettingsService.get(),
+          chatSpeechSettingsService.get(),
+          voiceRecipeLibraryService.list({ includeDisabled: true }),
+          speechProviderLibraryService.list({ includeDisabled: true }),
+        ]);
+        if (cancelled) return;
+        const recipe = voiceMode.activeRecipeId
+          ? recipes.find((r) => r.id === voiceMode.activeRecipeId)
+          : undefined;
+        const provider = chatSpeech.activeTtsProviderId
+          ? providers.find((p) => p.id === chatSpeech.activeTtsProviderId)
+          : undefined;
+        setActiveLabels({
+          voiceModeRecipeName: voiceMode.enabled ? (recipe?.displayName ?? null) : null,
+          chatSpeechVoiceName: chatSpeech.enabled ? (provider?.displayName ?? null) : null,
+        });
+      } catch {
+        // Footer is decorative — silent failure is fine; next save attempt will retry.
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
+
+  const handleSettingsChanged = useCallback(() => {
+    setRefreshTick((t) => t + 1);
+  }, []);
 
   return (
     <div className="flex h-full min-h-0">
@@ -140,29 +192,51 @@ export function SettingsSpeechPage() {
           })}
         </nav>
 
-        {/* "Now active" footer — placeholder until Phase C wires real settings */}
+        {/* "Now active" footer — pulled live from VoiceModeSettings + ChatSpeechSettings. */}
         <div className="mt-auto border-t border-[var(--color-border-light)] pt-4">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
             Now active
           </p>
-          <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-primary)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />
-            Voice mode · <span className="font-semibold">Premium chained</span>
-          </div>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-primary)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />
-            Chat speech · <span className="font-semibold">Aria</span>
-          </div>
+          <ActiveFooterRow label="Voice mode" name={activeLabels.voiceModeRecipeName} />
+          <ActiveFooterRow label="Chat speech" name={activeLabels.chatSpeechVoiceName} />
         </div>
       </aside>
 
       {/* Right column */}
       <div className="min-w-0 flex-1 overflow-auto p-8">
         {activeTab === 'providers' && <ProvidersTab />}
-        {activeTab === 'recipes' && <RecipesTab />}
-        {activeTab === 'voice-mode' && <VoiceModeTab onJump={(id) => setActiveTab(id)} />}
-        {activeTab === 'chat-speech' && <ChatSpeechTab onJump={(id) => setActiveTab(id)} />}
+        {activeTab === 'recipes' && (
+          <RecipesTab settingsTick={refreshTick} onSettingsChanged={handleSettingsChanged} />
+        )}
+        {activeTab === 'voice-mode' && (
+          <VoiceModeTab onJump={(id) => setActiveTab(id)} onSettingsChanged={handleSettingsChanged} />
+        )}
+        {activeTab === 'chat-speech' && (
+          <ChatSpeechTab onJump={(id) => setActiveTab(id)} onSettingsChanged={handleSettingsChanged} />
+        )}
       </div>
+    </div>
+  );
+}
+
+function ActiveFooterRow({ label, name }: { label: string; name: string | null }) {
+  const isOn = name !== null;
+  return (
+    <div className="mt-1 flex items-start gap-1.5 text-xs first:mt-0">
+      <span
+        className={cn(
+          'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
+          isOn ? 'bg-[var(--color-brand-primary)]' : 'bg-[var(--color-text-tertiary)]',
+        )}
+      />
+      <span className="min-w-0 text-[var(--color-text-primary)]">
+        {label} ·{' '}
+        {isOn ? (
+          <span className="font-semibold">{name}</span>
+        ) : (
+          <span className="text-[var(--color-text-tertiary)]">off</span>
+        )}
+      </span>
     </div>
   );
 }

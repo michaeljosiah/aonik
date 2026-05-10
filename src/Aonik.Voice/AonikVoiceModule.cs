@@ -67,6 +67,11 @@ public sealed class AonikVoiceModule : IModule
         services.AddSingleton<IBuiltInSpeechCatalog, BuiltInSpeechCatalog>();
         services.AddScoped<ISpeechProviderLibraryService, SpeechProviderLibraryService>();
         services.AddScoped<IVoiceRecipeLibraryService, VoiceRecipeLibraryService>();
+
+        // Singleton-per-tenant active settings (spec 024 Phase C). UI writes today; the
+        // AonikVoicePipelineFactory + TextToSpeechService rewire happens in Phase C.2.
+        services.AddScoped<IVoiceModeSettingsService, VoiceModeSettingsService>();
+        services.AddScoped<IChatSpeechSettingsService, ChatSpeechSettingsService>();
         services.AddDbContext<VoiceDbContext>((sp, options) =>
         {
             if (configuration.GetValue<bool>("UseInMemoryDatabase"))

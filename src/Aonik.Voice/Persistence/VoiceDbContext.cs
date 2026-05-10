@@ -19,6 +19,8 @@ internal class VoiceDbContext : AonikDbContextBase
 {
     public DbSet<SpeechProviderEntity> SpeechProviders { get; set; } = null!;
     public DbSet<VoiceRecipeEntity> VoiceRecipes { get; set; } = null!;
+    public DbSet<VoiceModeSettingsEntity> VoiceModeSettings { get; set; } = null!;
+    public DbSet<ChatSpeechSettingsEntity> ChatSpeechSettings { get; set; } = null!;
 
     public VoiceDbContext(
         DbContextOptions<VoiceDbContext> options,
