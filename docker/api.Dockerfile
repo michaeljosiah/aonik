@@ -1,4 +1,6 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.10
+# 1.10+ is required for `--mount=type=secret,...,env=NAME` (exposing the secret as an env var
+# instead of a file mount). See https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mounttypesecret
 ARG DOTNET_VERSION=10.0
 
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS restore
