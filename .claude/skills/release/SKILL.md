@@ -212,6 +212,59 @@ Desktop build, or a code-sign step failed without erroring the job).
 
 ---
 
+## Recovering from a broken release workflow
+
+If a release workflow fails on its first run for a given tag (e.g.
+`release-clients.yml` crashes on a missing build step, lockfile drift,
+icon path, etc.), you have a powerful recovery option:
+
+**You can patch the workflow file on `master` and re-trigger via
+`gh workflow run` — without re-tagging.**
+
+This works because GitHub Actions resolves a workflow_dispatch run in
+two layers:
+
+| Layer | Source of truth |
+|---|---|
+| The workflow **definition** (the YAML that defines steps) | `master` HEAD (the default branch tip) when you run `gh workflow run …` without `--ref` |
+| The **working tree** the workflow steps see | Whatever ref the workflow's `actions/checkout@v4` step passes via `with: ref:` — which for `release-clients.yml` is `${{ needs.prepare.outputs.tag }}` |
+
+So if your bug is **in the workflow YAML itself** (a missing step, a
+wrong command, a broken matrix), you can:
+
+1. Commit + push the workflow fix to `master`.
+2. Re-trigger with `gh workflow run <workflow> -f tag=<the-existing-tag>`.
+3. The new run executes the *fixed* workflow against the *original*
+   tagged source code.
+4. The attached artifacts replace the previous ones on the same
+   GitHub Release.
+
+This pattern saved `v0.0.1-rc.1` after three workflow patches
+(workspace-sdk build step, `npm install` instead of `npm ci`, relaxed
+`attach-to-release` gate) — without ever touching the original tag.
+
+**When this pattern does NOT apply:**
+
+- The bug is in the **source code** the workflow checks out (not in the
+  workflow file). The tag points at the broken source, so patching
+  `master` doesn't help — the next run still checks out the broken
+  source via the explicit `ref: <tag>` in the checkout step.
+- In that case, follow the skill rule: ship a new tag
+  (`v0.X.Y-rc.<N+1>` or `v0.X.Y` patch bump). Do not move the existing
+  tag.
+
+**Always check first:** is the fix in the workflow file or in the
+source? If you can't tell, look at what file the broken step references.
+A failing `dotnet build` is source. A failing `actions/checkout@v4` or
+a missing step is workflow. A missing dependency that needs `npm
+install` to be added is workflow. A missing entity class that prevents
+compilation is source.
+
+If unsure, re-tag — it's never wrong to re-tag; it IS wrong to move a
+tag that's been distributed.
+
+---
+
 ## Important reminders
 
 - **Never reuse a tag that's been published.** If `v0.2.0` is broken,
