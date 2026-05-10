@@ -367,12 +367,16 @@ public static class DependencyInjection
                     ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations", "ReadOnly"],
                     Array.Empty<string>())));
 
-            // Mobile voice policy — Payabo end users only. Tighter than AdminUserPolicy:
-            // does NOT include admin roles. Used by WSS /ai/voice. See spec
-            // docs/specifications/022.aonik-voice-realtime.md Phase 1.
+            // Mobile voice policy — Payabo end users + admin smoke testers. Originally
+            // PersonalUser-only (spec 022 Phase 1); spec 024 Phase E* added an in-admin "Live
+            // voice test" card on the Voice Mode tab that needs admin tokens to connect. The
+            // alternative (a separate admin-only WSS endpoint) would duplicate the entire
+            // pipeline factory + agent resolution; sharing the endpoint and widening the
+            // policy is the lean cut. PlatformAdmin / TenantAdmin already see every voice
+            // setting in the admin UI, so granting them connection rights here is consistent.
             options.AddPolicy("MobileVoicePolicy", policy =>
                 policy.Requirements.Add(new RoleOrPermissionRequirement(
-                    ["PersonalUser"],
+                    ["PersonalUser", "PlatformAdmin", "TenantAdmin"],
                     Array.Empty<string>())));
 
             // Back-compat aliases (prefer *Policy names)

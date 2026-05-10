@@ -1,31 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Layers,
-  Loader2,
-  Mic,
-  MicOff,
-  Radio,
-  Save,
-} from 'lucide-react';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useState } from "react";
+import { Layers, Loader2, Mic, MicOff, Radio, Save } from "lucide-react";
+import { toast } from "sonner";
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
-import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
-import { voiceModeSettingsService } from '@/services/speechActiveSettingsService';
-import { voiceRecipeLibraryService } from '@/services/voiceRecipeLibraryService';
-import type { SpeechProvider } from '@/types/speechLibrary';
-import type { VoiceRecipe } from '@/types/voiceRecipes';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { speechProviderLibraryService } from "@/services/speechProviderLibraryService";
+import { voiceModeSettingsService } from "@/services/speechActiveSettingsService";
+import { voiceRecipeLibraryService } from "@/services/voiceRecipeLibraryService";
+import type { SpeechProvider } from "@/types/speechLibrary";
+import type { VoiceRecipe } from "@/types/voiceRecipes";
 
-import {
-  PageHeader,
-  Pill,
-  RecipeFlow,
-  buildRecipeSteps,
-} from './_primitives';
+import { LiveVoiceTestCard } from "./LiveVoiceTestCard";
+import { PageHeader, Pill, RecipeFlow, buildRecipeSteps } from "./_primitives";
 
-import type { TabId } from '../SettingsSpeechPage';
+import type { TabId } from "../SettingsSpeechPage";
 
 interface VoiceModeTabProps {
   onJump?: (tab: TabId) => void;
@@ -57,7 +46,9 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   // Snapshot of the persisted state — used to detect dirty changes for the Save button.
   const [persistedEnabled, setPersistedEnabled] = useState(true);
-  const [persistedActiveRecipeId, setPersistedActiveRecipeId] = useState<string | null>(null);
+  const [persistedActiveRecipeId, setPersistedActiveRecipeId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +72,7 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
         if (cancelled) return;
         // eslint-disable-next-line no-console
         console.error(err);
-        setError('Failed to load voice mode settings.');
+        setError("Failed to load voice mode settings.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -123,12 +114,13 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
       setPersistedEnabled(saved.enabled);
       setPersistedActiveRecipeId(saved.activeRecipeId);
       onSettingsChanged?.();
-      toast.success('Voice mode settings saved.');
+      toast.success("Voice mode settings saved.");
     } catch (err) {
       const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ??
         (err as { message?: string })?.message ??
-        'Failed to save voice mode settings.';
+        "Failed to save voice mode settings.";
       toast.error(message);
     } finally {
       setSaving(false);
@@ -146,7 +138,9 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
   if (error) {
     return (
       <Card>
-        <CardContent className="p-6 text-[var(--color-error)]">{error}</CardContent>
+        <CardContent className="p-6 text-[var(--color-error)]">
+          {error}
+        </CardContent>
       </Card>
     );
   }
@@ -158,8 +152,16 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
         title="Voice mode"
         subtitle="The live spoken conversation experience. One recipe is active at a time."
         actions={
-          <Button size="sm" onClick={() => void handleSave()} disabled={saving || !isDirty}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          <Button
+            size="sm"
+            onClick={() => void handleSave()}
+            disabled={saving || !isDirty}
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
             Save changes
           </Button>
         }
@@ -169,10 +171,13 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
           (with their encrypted API keys) from the speech library. No separate legacy
           page in the loop. */}
       <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-        <span className="font-semibold text-[var(--color-text-primary)]">Live</span>{' '}
-        — the WebSocket voice pipeline reads the active recipe (and the recipe's TTS
-        provider with its encrypted API key) directly from your library. Pick a recipe
-        below; configure providers + credentials in the Providers tab.
+        <span className="font-semibold text-[var(--color-text-primary)]">
+          Live
+        </span>{" "}
+        — the WebSocket voice pipeline reads the active recipe (and the recipe's
+        TTS provider with its encrypted API key) directly from your library.
+        Pick a recipe below; configure providers + credentials in the Providers
+        tab.
       </div>
 
       {/* Hero status */}
@@ -190,7 +195,11 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
             title="Active recipe"
             description="Voice Mode plays through this recipe. Switch by selecting another from the list below."
             action={
-              <Button variant="ghost" size="sm" onClick={() => onJump?.('recipes')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onJump?.("recipes")}
+              >
                 <Layers className="h-3.5 w-3.5" /> Manage recipes
               </Button>
             }
@@ -214,7 +223,7 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
                 </div>
                 <RecipeFlow
                   steps={buildRecipeSteps(active, providerLookup)}
-                  kind={active.kind === 'Composite' ? 'composite' : 'chained'}
+                  kind={active.kind === "Composite" ? "composite" : "chained"}
                 />
               </div>
             ) : (
@@ -249,7 +258,7 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
             >
               <div className="grid gap-2.5 md:grid-cols-2">
                 {buildRecipeSteps(active, providerLookup)
-                  .filter((s) => s.label !== 'Listen' && s.label !== 'Agent')
+                  .filter((s) => s.label !== "Listen" && s.label !== "Agent")
                   .map((s, i) => (
                     <div
                       key={`${s.label}-${i}`}
@@ -275,7 +284,11 @@ export function VoiceModeTab({ onJump, onSettingsChanged }: VoiceModeTabProps) {
 
         {/* Right rail */}
         <div className="space-y-3 xl:sticky xl:top-6 xl:self-start">
-          <LiveTestCard enabled={enabled} />
+          <LiveVoiceTestCard
+            voiceModeEnabled={enabled}
+            activeRecipeName={active?.displayName ?? null}
+            hasActiveRecipe={active !== null}
+          />
           <UsageCard />
           <HelperCard onJump={onJump} />
         </div>
@@ -298,37 +311,50 @@ function HeroStatus({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center justify-between gap-6 rounded-2xl p-6',
+        "flex flex-wrap items-center justify-between gap-6 rounded-2xl p-6",
         enabled
-          ? 'bg-[linear-gradient(135deg,var(--color-brand-primary),#044045)] text-white'
-          : 'border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-[var(--color-text-primary)]',
+          ? "bg-[linear-gradient(135deg,var(--color-brand-primary),#044045)] text-white"
+          : "border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] text-[var(--color-text-primary)]",
       )}
     >
       <div className="flex items-center gap-4">
         <div
           className={cn(
-            'grid h-14 w-14 shrink-0 place-items-center rounded-2xl border',
+            "grid h-14 w-14 shrink-0 place-items-center rounded-2xl border",
             enabled
-              ? 'border-white/25 bg-white/20'
-              : 'border-[var(--color-border-light)] bg-[var(--color-surface)]',
+              ? "border-white/25 bg-white/20"
+              : "border-[var(--color-border-light)] bg-[var(--color-surface)]",
           )}
         >
-          {enabled ? <Mic className="h-6 w-6" /> : <MicOff className="h-6 w-6 text-[var(--color-text-tertiary)]" />}
+          {enabled ? (
+            <Mic className="h-6 w-6" />
+          ) : (
+            <MicOff className="h-6 w-6 text-[var(--color-text-tertiary)]" />
+          )}
         </div>
         <div>
-          <div className={cn(
-            'text-[10.5px] font-semibold uppercase tracking-[0.08em]',
-            enabled ? 'opacity-85' : 'text-[var(--color-text-tertiary)]',
-          )}>
-            {enabled ? 'Voice Mode is on' : 'Voice Mode is off'}
+          <div
+            className={cn(
+              "text-[10.5px] font-semibold uppercase tracking-[0.08em]",
+              enabled ? "opacity-85" : "text-[var(--color-text-tertiary)]",
+            )}
+          >
+            {enabled ? "Voice Mode is on" : "Voice Mode is off"}
           </div>
           <div className="mt-0.5 text-xl font-semibold">
-            {enabled ? (activeName ?? 'No recipe selected') : 'No recipe running'}
-          </div>
-          <div className={cn('mt-1 text-xs', enabled ? 'opacity-80' : 'text-[var(--color-text-secondary)]')}>
             {enabled
-              ? 'Operators can talk to agents in real time using the active recipe below.'
-              : 'Spoken conversations are disabled across the workspace.'}
+              ? (activeName ?? "No recipe selected")
+              : "No recipe running"}
+          </div>
+          <div
+            className={cn(
+              "mt-1 text-xs",
+              enabled ? "opacity-80" : "text-[var(--color-text-secondary)]",
+            )}
+          >
+            {enabled
+              ? "Operators can talk to agents in real time using the active recipe below."
+              : "Spoken conversations are disabled across the workspace."}
           </div>
         </div>
       </div>
@@ -338,15 +364,15 @@ function HeroStatus({
         type="button"
         onClick={onToggle}
         className={cn(
-          'relative h-8 w-14 shrink-0 rounded-full transition-colors',
-          enabled ? 'bg-white/30' : 'bg-[var(--color-border)]',
+          "relative h-8 w-14 shrink-0 rounded-full transition-colors",
+          enabled ? "bg-white/30" : "bg-[var(--color-border)]",
         )}
         aria-pressed={enabled}
       >
         <span
           className={cn(
-            'absolute top-[3px] h-[26px] w-[26px] rounded-full bg-white shadow-sm transition-all',
-            enabled ? 'left-[27px]' : 'left-[3px]',
+            "absolute top-[3px] h-[26px] w-[26px] rounded-full bg-white shadow-sm transition-all",
+            enabled ? "left-[27px]" : "left-[3px]",
           )}
         />
       </button>
@@ -356,9 +382,15 @@ function HeroStatus({
 
 // ─── Switch-to row ───────────────────────────────────────────────────────
 
-function SwitchRow({ recipe, onActivate }: { recipe: VoiceRecipe; onActivate: () => void }) {
-  const Icon = recipe.kind === 'Composite' ? Radio : Layers;
-  const stepCount = recipe.kind === 'Composite' ? 1 : 4;
+function SwitchRow({
+  recipe,
+  onActivate,
+}: {
+  recipe: VoiceRecipe;
+  onActivate: () => void;
+}) {
+  const Icon = recipe.kind === "Composite" ? Radio : Layers;
+  const stepCount = recipe.kind === "Composite" ? 1 : 4;
   return (
     <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[var(--color-border-light)] bg-[var(--color-surface)] p-3">
       <div className="flex min-w-0 items-center gap-2.5">
@@ -370,8 +402,10 @@ function SwitchRow({ recipe, onActivate }: { recipe: VoiceRecipe; onActivate: ()
             {recipe.displayName}
           </div>
           <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
-            {recipe.kind === 'Composite' ? 'Realtime' : `Chained · ${stepCount} steps`} ·{' '}
-            {recipe.isBuiltIn ? 'Built-in' : 'Custom'}
+            {recipe.kind === "Composite"
+              ? "Realtime"
+              : `Chained · ${stepCount} steps`}{" "}
+            · {recipe.isBuiltIn ? "Built-in" : "Custom"}
           </div>
         </div>
       </div>
@@ -383,57 +417,15 @@ function SwitchRow({ recipe, onActivate }: { recipe: VoiceRecipe; onActivate: ()
 }
 
 // ─── Right-rail cards ────────────────────────────────────────────────────
-
-function LiveTestCard(_props: { enabled: boolean }) {
-  return (
-    <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-      <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">Live test</div>
-      <p className="mt-1 mb-3 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-        Run a short conversation through the active recipe. Records an AiRun for audit and shows
-        latency at each step.
-      </p>
-      <Button className="w-full justify-center" disabled size="sm" title="Inline voice test ships in a follow-up phase.">
-        <Mic className="h-3.5 w-3.5" /> Start voice test
-      </Button>
-
-      {/* Mic preview waveform */}
-      <div className="mt-3 flex items-center gap-3 rounded-[10px] border border-dashed border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3.5">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-brand-primary-10)]">
-          <Mic className="h-4 w-4 text-[var(--color-brand-primary)]" />
-        </div>
-        <svg viewBox="0 0 200 32" className="h-8 w-full" aria-hidden="true">
-          {Array.from({ length: 60 }).map((_, i) => {
-            const h = 4 + Math.abs(Math.sin(i * 0.7) * 14);
-            return (
-              <rect
-                key={i}
-                x={i * 3.3}
-                y={(32 - h) / 2}
-                width="2"
-                height={h}
-                rx="1"
-                fill="var(--color-brand-primary)"
-                opacity={0.6}
-              />
-            );
-          })}
-        </svg>
-      </div>
-
-      <div className="mt-2 flex justify-between font-mono text-[11px] text-[var(--color-text-tertiary)]">
-        <span>Latency budget · 800ms</span>
-        <span>Indicative · P50</span>
-      </div>
-    </div>
-  );
-}
+// LiveTestCard is gone — superseded by the live LiveVoiceTestCard imported above
+// (spec 024 Phase E*). The disabled placeholder + waveform SVG were removed.
 
 function UsageCard() {
   const rows = [
-    { label: 'Conversations', value: '—', pct: null as number | null },
-    { label: 'Avg duration', value: '—', pct: null },
-    { label: 'STT minutes', value: '— / 2,000', pct: null },
-    { label: 'TTS characters', value: '— / 500k', pct: null },
+    { label: "Conversations", value: "—", pct: null as number | null },
+    { label: "Avg duration", value: "—", pct: null },
+    { label: "STT minutes", value: "— / 2,000", pct: null },
+    { label: "TTS characters", value: "— / 500k", pct: null },
   ];
   return (
     <div className="rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
@@ -444,7 +436,9 @@ function UsageCard() {
         {rows.map((row) => (
           <div key={row.label}>
             <div className="mb-1 flex justify-between text-xs">
-              <span className="text-[var(--color-text-secondary)]">{row.label}</span>
+              <span className="text-[var(--color-text-secondary)]">
+                {row.label}
+              </span>
               <span className="font-mono text-[11.5px] text-[var(--color-text-primary)]">
                 {row.value}
               </span>
@@ -474,15 +468,18 @@ function HelperCard({ onJump }: { onJump?: (tab: TabId) => void }) {
         Voice Mode vs Chat Speech
       </div>
       <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-        Voice Mode is the live spoken conversation.{' '}
-        <span className="font-semibold text-[var(--color-text-primary)]">Chat Speech</span> is
-        optional voice-over for written replies — they share providers but configure independently.
+        Voice Mode is the live spoken conversation.{" "}
+        <span className="font-semibold text-[var(--color-text-primary)]">
+          Chat Speech
+        </span>{" "}
+        is optional voice-over for written replies — they share providers but
+        configure independently.
       </p>
       <Button
         variant="outline"
         size="sm"
         className="mt-3 w-full justify-center"
-        onClick={() => onJump?.('chat-speech')}
+        onClick={() => onJump?.("chat-speech")}
       >
         Open Chat Speech
       </Button>
@@ -507,9 +504,13 @@ function Section({
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h3>
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+            {title}
+          </h3>
           {description && (
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{description}</p>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {description}
+            </p>
           )}
         </div>
         {action}
