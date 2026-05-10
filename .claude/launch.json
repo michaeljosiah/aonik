@@ -64,6 +64,18 @@
       "runtimeArgs": ["-m", "http.server", "4173"],
       "port": 4173,
       "cwd": "Templates/aonik-admin-starterkit"
+    },
+    {
+      "name": "voxa-sample",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "C:/Users/mjosi/source/repos/Voxa/samples/Voxa.Samples.AspNetServer/Voxa.Samples.AspNetServer.csproj",
+        "--launch-profile",
+        "http"
+      ],
+      "port": 5009
     }
   ]
 }

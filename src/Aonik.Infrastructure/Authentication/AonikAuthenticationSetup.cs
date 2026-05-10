@@ -37,6 +37,17 @@ public static class AonikAuthenticationSetup
         "X-Original-Authorization"
     ];
 
+    // WebSocket upgrades from Flutter's WebSocketChannel sometimes drop
+    // Authorization headers — clients may pass the JWT as ?access_token=...
+    // instead. Only honor the query token for paths where it's expected.
+    // See spec docs/specifications/022.aonik-voice-realtime.md Phase 1.
+    private static readonly string[] QueryStringTokenPaths =
+    [
+        "/ai/voice",
+    ];
+
+    private const string QueryStringTokenParameter = "access_token";
+
     public static IServiceCollection AddAonikAuthentication(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -118,7 +129,7 @@ public static class AonikAuthenticationSetup
                     return Task.CompletedTask;
                 }
 
-                var token = ResolveBearerTokenFromHeaders(context.HttpContext.Request.Headers);
+                var token = ResolveBearerToken(context.HttpContext.Request);
                 if (!string.IsNullOrWhiteSpace(token))
                 {
                     context.Token = token;
@@ -398,7 +409,51 @@ public static class AonikAuthenticationSetup
 
     private static string? GetBearerToken(HttpContext context)
     {
-        return ResolveBearerTokenFromHeaders(context.Request.Headers);
+        return ResolveBearerToken(context.Request);
+    }
+
+    /// <summary>
+    /// Resolves a bearer token from the request. Tries headers first, then
+    /// falls back to <c>?access_token=...</c> on paths in <see cref="QueryStringTokenPaths"/>
+    /// (specifically WebSocket upgrade paths where Flutter's <c>WebSocketChannel</c>
+    /// can't reliably attach an <c>Authorization</c> header).
+    /// </summary>
+    private static string? ResolveBearerToken(HttpRequest request)
+    {
+        var token = ResolveBearerTokenFromHeaders(request.Headers);
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            return token;
+        }
+
+        // Query-string fallback for WebSocket upgrade paths only. Limiting the
+        // path scope prevents accidentally accepting query tokens on regular
+        // HTTP routes where they'd leak into server logs and referrer headers.
+        if (!IsQueryStringTokenPath(request.Path))
+        {
+            return null;
+        }
+
+        var queryToken = request.Query[QueryStringTokenParameter].FirstOrDefault();
+        return string.IsNullOrWhiteSpace(queryToken) ? null : queryToken;
+    }
+
+    private static bool IsQueryStringTokenPath(PathString path)
+    {
+        if (!path.HasValue)
+        {
+            return false;
+        }
+
+        foreach (var allowed in QueryStringTokenPaths)
+        {
+            if (path.StartsWithSegments(allowed, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string? ResolveBearerTokenFromHeaders(IHeaderDictionary headers)

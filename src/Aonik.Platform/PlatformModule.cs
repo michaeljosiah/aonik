@@ -87,6 +87,14 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
         services.AddScoped<IPayaboSetupProfileService, PayaboSetupProfileService>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITenantTextToSpeechSettingsService, TenantTextToSpeechSettingsService>();
+        // Voice provider settings — same JSON-payload-on-existing-Settings-table pattern as TTS.
+        // See docs/specifications/022.aonik-voice-realtime.md Phase 2.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITenantVoiceProviderSettingsService, TenantVoiceProviderSettingsService>();
+        // Voice provider credentials — encrypted at rest with status-only readback,
+        // resolves tenant override → host default → configuration fallback. Spec Phase 5.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IVoiceProviderCredentialSettingsService, VoiceProviderCredentialSettingsService>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IVoiceProviderCredentialResolver>(
+            sp => sp.GetRequiredService<Aonik.SharedKernel.Abstractions.Ai.IVoiceProviderCredentialSettingsService>());
         services.AddScoped<ITextToSpeechCredentialSettingsService, TextToSpeechCredentialSettingsService>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITextToSpeechCredentialResolver>(sp => sp.GetRequiredService<ITextToSpeechCredentialSettingsService>());
         services.AddScoped<IUserBriefContextDataProvider, UserBriefContextDataProvider>();

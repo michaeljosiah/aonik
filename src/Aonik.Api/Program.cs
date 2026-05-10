@@ -9,6 +9,8 @@ using Aonik.Infrastructure;
 using Aonik.Infrastructure.VectorStore;
 using Aonik.Platform;
 using Aonik.Platform.Endpoints.Admin.Notifications;
+using Aonik.Voice;
+using Aonik.Voice.Endpoints;
 using FastEndpoints;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Text.Json.Serialization;
@@ -26,6 +28,7 @@ builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
+builder.Services.AddAonikVoiceModule(builder.Configuration);
 
 builder.Services.AddAonikCors(builder.Configuration);
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
@@ -42,6 +45,7 @@ builder.Services.AddFastEndpoints(o =>
         typeof(FinanceModule).Assembly,
         typeof(AiModule).Assembly,
         typeof(AgentsModule).Assembly,
+        typeof(AonikVoiceModule).Assembly,
     ];
 });
 
@@ -90,6 +94,10 @@ if (builder.Configuration.GetValue<bool>("Auth:Diagnostics:LogHeaderPresence"))
 app.UseRouting();
 app.UseAonikCors();
 
+// Enable WebSocket upgrades for the voice endpoint at /ai/voice.
+// See docs/specifications/022.aonik-voice-realtime.md Phase 1.
+app.UseWebSockets();
+
 app.UseAonikDevelopmentStaticFiles(app.Environment, builder.Configuration);
 
 // CRITICAL: Middleware order matters!
@@ -135,6 +143,13 @@ app.MapPlaygroundScenarioGenerate("/ai/playground/scenarios/generate")
 
 app.MapAdminNotificationStreaming("/admin/notifications/stream")
     .RequireAuthorization("AdminPolicy")
+    .RequireCors(CorsConfiguration.PolicyName);
+
+// Voice WebSocket — Payabo mobile real-time voice mode.
+// AonikAuthenticationSetup honours ?access_token=... for this path because
+// Flutter WS upgrades may not forward the Authorization header reliably.
+app.MapAonikVoiceEndpoints("/ai/voice")
+    .RequireAuthorization("MobileVoicePolicy")
     .RequireCors(CorsConfiguration.PolicyName);
 
 // 7. Scalar API Reference (OpenAPI UI) — must be after routing/FastEndpoints.

@@ -363,6 +363,14 @@ public static class DependencyInjection
                     ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations", "ReadOnly"],
                     Array.Empty<string>())));
 
+            // Mobile voice policy — Payabo end users only. Tighter than AdminUserPolicy:
+            // does NOT include admin roles. Used by WSS /ai/voice. See spec
+            // docs/specifications/022.aonik-voice-realtime.md Phase 1.
+            options.AddPolicy("MobileVoicePolicy", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PersonalUser"],
+                    Array.Empty<string>())));
+
             // Back-compat aliases (prefer *Policy names)
             options.AddPolicy("AdminUser", policy =>
                 policy.Requirements.Add(new RoleOrPermissionRequirement(

@@ -24,6 +24,7 @@
     <ProjectReference Include="..\Aonik.Platform\Aonik.Platform.csproj" />
     <ProjectReference Include="..\Aonik.Ai\Aonik.Ai.csproj" />
     <ProjectReference Include="..\Aonik.Agents\Aonik.Agents.csproj" />
+    <ProjectReference Include="..\Aonik.Voice\Aonik.Voice.csproj" />
     <ProjectReference Include="..\Aonik.ServiceDefaults\Aonik.ServiceDefaults.csproj" />
   </ItemGroup>
 

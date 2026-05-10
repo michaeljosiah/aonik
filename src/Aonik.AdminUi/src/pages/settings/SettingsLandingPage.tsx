@@ -88,6 +88,14 @@ const settingsTiles: SettingsTile[] = [
   },
   {
     section: 'AI & Agents',
+    title: 'Voice & Speech',
+    description: 'Real-time voice mode for Payabo: recipe picker, provider credentials, voice preview, kill switch.',
+    href: '/settings/voice',
+    icon: <AudioLines className="h-[18px] w-[18px]" />,
+    badge: 'AI',
+  },
+  {
+    section: 'AI & Agents',
     title: 'AI Policies',
     description: 'Approval thresholds, kill switch, model policy routing, and tool governance.',
     href: '/ai/policies',

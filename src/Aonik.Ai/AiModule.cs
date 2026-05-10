@@ -66,6 +66,12 @@ public sealed class AiModule : IModule
         // Tenant-aware prompt store: DB overrides (tenant → global) → file-based fallback
         services.AddScoped<IPromptStore, TenantAwarePromptStore>();
 
+        // Public ISpeechTextNormalizer facade — exposes the internal SpeechTextNormalizer
+        // to non-Ai modules (notably Aonik.Voice) without leaking implementation
+        // details. Singleton because the underlying static method is stateless.
+        // See docs/specifications/022.aonik-voice-realtime.md Phase 2.
+        services.AddSingleton<Aonik.SharedKernel.Abstractions.Ai.ISpeechTextNormalizer, Services.SpeechTextNormalizerFacade>();
+
         // NOTE: IAiProviderSettings is registered in Infrastructure's DependencyInjection.cs
         // because the implementation (AiProviderSettings) needs Aonik.Platform's ISettingProvider,
         // which Aonik.Ai does not reference.

@@ -22,7 +22,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.1" />
     <!--
       Bumped to 10.0.4 to match the transitive minimum demanded by
-      Microsoft.Extensions.AI 10.4.1 (which Microsoft.Agents.AI rc4 brings in).
+      Microsoft.Extensions.AI 10.5.1 (which Microsoft.Agents.AI 1.5.0 brings in).
       Without these, SharedKernel produces NU1605 (package downgrade detected)
       when consumers resolve the graph.
     -->
@@ -35,8 +35,8 @@
       contract. Domain modules contribute their agents through this surface
       without taking a back-pointing reference on Aonik.Agents.
     -->
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-rc4" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.1" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.5.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
   </ItemGroup>
 
 </Project>

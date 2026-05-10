@@ -17,7 +17,11 @@ public sealed record PostStreamPersistenceContext(
     bool IsNewThread,
     string? FirstUserMessage,
     string ThreadIdString,
-    string RunId);
+    string RunId,
+    string? UseCase = null);
+//   ^ UseCase added by Aonik.Voice (spec docs/specifications/022.aonik-voice-realtime.md
+//   Phase 3 / "Post-Turn Persistence And AiRun Rows"). Voice supplies "voice"; AGUI keeps
+//   the legacy AgentId-derived behavior by leaving it null.
 
 /// <summary>
 /// Runs thread-message persistence, title generation, and AiRun metrics

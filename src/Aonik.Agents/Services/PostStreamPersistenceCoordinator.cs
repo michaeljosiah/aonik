@@ -136,7 +136,12 @@ public sealed class PostStreamPersistenceCoordinator : IPostStreamPersistenceCoo
 
         try
         {
-            var useCase = context.AgentId ?? "master-orchestrator";
+            // Voice (and any future caller) can specify UseCase explicitly so AiRun
+            // rows aren't tagged by AgentId. AGUI doesn't supply it and falls back
+            // to the legacy AgentId-derived behavior.
+            var useCase = !string.IsNullOrWhiteSpace(context.UseCase)
+                ? context.UseCase!
+                : context.AgentId ?? "master-orchestrator";
             var aiRunId = await aiRunWriter.StartRunAsync(
                 useCase,
                 $"{{\"threadId\":\"{context.ThreadIdString}\"}}",

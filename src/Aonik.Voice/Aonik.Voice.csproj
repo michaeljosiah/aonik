@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aonik.Voice</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Boundary enforcement: only Api, Infrastructure, and test projects may
+    access internals. Mirrors the convention used by Aonik.Agents.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Api" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Voice.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+    <!--
+      Aonik.Voice depends on Aonik.Agents for IAgentContextualizer,
+      IChatThreadManager, IPostStreamPersistenceCoordinator, AguiRunOptionsBuilder,
+      IAguiMessageConverter, AguiMessage, ToolCallClassifier. The voice adapter
+      mirrors AGUI's stateless re-run pattern so reuses these contracts directly.
+    -->
+    <ProjectReference Include="..\Aonik.Agents\Aonik.Agents.csproj" />
+    <!--
+      Aonik.Voice depends on Aonik.Ai for ISpeechTextNormalizer (Phase 2 abstraction)
+      and AiTelemetry constants (UseCaseAttribute, ActivitySource).
+    -->
+    <ProjectReference Include="..\Aonik.Ai\Aonik.Ai.csproj" />
+
+    <!--
+      Voxa references — sibling clone at C:\Users\mjosi\source\repos\Voxa\.
+      Phase B: Voxa.AspNetCore (fluent MapVoxaVoice + VoicePipelineBuilder) and
+      Voxa.Services.MicrosoftAgents (MicrosoftAgentVoice.CreateProcessor) are now in.
+      The local AonikAgentProcessor / AonikVoiceWebSocketSink are being replaced by
+      closure-configured calls into MicrosoftAgentVoice + WebSocketAudioSink with a
+      custom serializer hook. Composite providers (AzureVoiceLive / OpenAIRealtime)
+      remain deferred to v1.1.
+    -->
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Core\Voxa.Core.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.AspNetCore\Voxa.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Transports.WebSocket\Voxa.Transports.WebSocket.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.Abstractions\Voxa.Speech.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Services.MicrosoftAgents\Voxa.Services.MicrosoftAgents.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.OpenAI\Voxa.Speech.OpenAI.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.Azure\Voxa.Speech.Azure.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.ElevenLabs\Voxa.Speech.ElevenLabs.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Speech.Mistral\Voxa.Speech.Mistral.csproj" />
+    <ProjectReference Include="..\..\..\Voxa\src\Voxa.Audio.SileroVad\Voxa.Audio.SileroVad.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      MAF aligned with Voxa at 1.5.0. The agent loop is delegated to
+      Voxa.Services.MicrosoftAgents.MicrosoftAgentVoice.CreateProcessor; AONIK
+      injects history / preamble / run-options / frontend-tool semantics through the
+      closure-configured MicrosoftAgentVoiceOptions delegates.
+    -->
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.5.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
+  </ItemGroup>
+
+</Project>
