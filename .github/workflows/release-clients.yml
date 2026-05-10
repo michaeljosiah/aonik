@@ -1,0 +1,279 @@
+# Release Clients
+#
+# Builds the Aonik CLI (cross-platform self-contained binaries) and the
+# Aonik Admin Desktop app (NSIS / DMG / AppImage installers) and attaches
+# the artifacts to the GitHub Release matching the triggering tag.
+#
+# Companion to release.yml (which packages the API). Both workflows attach
+# to the SAME release — the upload action is idempotent, so each workflow
+# adds its own files without overwriting the other's.
+#
+# Trigger
+# -------
+#   - Push a tag like `v0.2.0`
+#   - OR run via "Run workflow" with an explicit tag input
+#
+# Versioning notes
+# ----------------
+#   - Bump src/Aonik.AdminDesktop/package.json `version` BEFORE tagging.
+#     The Desktop installer filename embeds package.json's version (we
+#     also override at build time via electron-builder so the installer
+#     metadata matches the tag).
+#   - The CLI version is set via `/p:Version=...` from the tag, so no
+#     manual bump is required for the CLI itself.
+#
+# Code signing
+# ------------
+#   This workflow ships UNSIGNED artifacts. SmartScreen / Gatekeeper
+#   warnings are expected. Wire signing later by:
+#     - Windows: load a code-signing PFX from secrets and run signtool
+#       inside the Desktop build step (or via electron-builder's signing
+#       hook for the installer).
+#     - macOS: enable electron-builder's notarize step with APPLE_ID,
+#       APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID, and a Developer ID
+#       Application certificate stored as a base64 secret.
+
+name: Release Clients
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v0.2.0). Must already exist as a git tag.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+# A single release tag should not have two parallel runs of this workflow
+# trying to upload the same artifact filename. Cancel-in-progress is OFF
+# so that an in-flight run completes (we don't want half-uploaded assets).
+concurrency:
+  group: release-clients-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Compute the tag + version once and fan out to every downstream job.
+  # ─────────────────────────────────────────────────────────────────────────
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Resolve tag and version
+        id: meta
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          # Strip leading 'v' so SemVer-strict tools (electron-builder,
+          # NuGet) get a clean version string.
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag=$TAG version=$VERSION"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # CLI — self-contained single-file binary per RID.
+  #
+  # All five RIDs build cleanly on ubuntu-latest because .NET cross-compiles
+  # via the `--runtime` flag (no platform-specific tooling needed when
+  # we're not signing). Move osx-* to macos-latest only when codesign is
+  # added; move win-x64 to windows-latest when signtool is added.
+  # ─────────────────────────────────────────────────────────────────────────
+  build-cli:
+    name: Build CLI · ${{ matrix.rid }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            archive: tar.gz
+          - rid: linux-arm64
+            archive: tar.gz
+          - rid: win-x64
+            archive: zip
+          - rid: osx-x64
+            archive: tar.gz
+          - rid: osx-arm64
+            archive: tar.gz
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore CLI
+        run: dotnet restore src/Aonik.Cli/Aonik.Cli.csproj --runtime ${{ matrix.rid }}
+
+      # PublishTrimmed is intentionally OFF — Spectre.Console and
+      # System.CommandLine use reflection that would need explicit
+      # trim-safety annotations. Enable it once the CLI surface is
+      # AOT/trim-clean.
+      - name: Publish CLI
+        run: |
+          dotnet publish src/Aonik.Cli/Aonik.Cli.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=embedded \
+            -p:Version=${{ needs.prepare.outputs.version }} \
+            --output artifacts/cli/${{ matrix.rid }}
+
+      - name: Package CLI
+        shell: bash
+        run: |
+          mkdir -p artifacts/release
+          ASSET="aonik-cli-${{ needs.prepare.outputs.tag }}-${{ matrix.rid }}"
+          cd artifacts/cli/${{ matrix.rid }}
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -r "../../release/${ASSET}.zip" .
+          else
+            tar -czf "../../release/${ASSET}.tar.gz" .
+          fi
+          ls -la ../../release/
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.rid }}
+          path: artifacts/release/aonik-cli-*
+          if-no-files-found: error
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Desktop — Electron installers MUST build on their target OS:
+  #   • Windows NSIS  → windows-latest (uses signtool, builds .exe)
+  #   • macOS  DMG    → macos-latest   (needs Xcode for codesign/notarize)
+  #   • Linux  AppImage → ubuntu-latest
+  #
+  # The renderer is the AdminUI web app — its prebuild step copies
+  # src/Aonik.AdminUi/dist/ into out/renderer/, so we MUST build the
+  # AdminUI first on each runner.
+  # ─────────────────────────────────────────────────────────────────────────
+  build-desktop:
+    name: Build Desktop · ${{ matrix.os }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: dist:win
+            artifact-name: desktop-windows
+          - os: macos-latest
+            script: dist:mac
+            artifact-name: desktop-macos
+          - os: ubuntu-latest
+            script: dist:linux
+            artifact-name: desktop-linux
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            src/Aonik.AdminUi/package-lock.json
+            src/Aonik.AdminDesktop/package-lock.json
+
+      - name: Build Admin UI (renderer)
+        working-directory: src/Aonik.AdminUi
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Desktop dependencies
+        working-directory: src/Aonik.AdminDesktop
+        run: npm ci
+
+      # `--publish=never` tells electron-builder to produce installers
+      # without trying to upload them itself; we attach the files in the
+      # `attach-to-release` job. The `extraMetadata.version` flag
+      # overrides package.json's version for THIS build only — keeps the
+      # installer filename + auto-update metadata in sync with the tag.
+      - name: Build Desktop installer
+        working-directory: src/Aonik.AdminDesktop
+        shell: bash
+        run: |
+          npm run ${{ matrix.script }} -- \
+            --publish=never \
+            -c.extraMetadata.version=${{ needs.prepare.outputs.version }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          # Capture every shippable file electron-builder produces:
+          #   - installers      *.exe / *.dmg / *.AppImage / *.deb / *.zip
+          #   - update metadata latest*.yml      (electron-updater feed)
+          #   - block-maps      *.blockmap       (delta updates)
+          path: |
+            src/Aonik.AdminDesktop/release/*.exe
+            src/Aonik.AdminDesktop/release/*.dmg
+            src/Aonik.AdminDesktop/release/*.AppImage
+            src/Aonik.AdminDesktop/release/*.deb
+            src/Aonik.AdminDesktop/release/*.zip
+            src/Aonik.AdminDesktop/release/latest*.yml
+            src/Aonik.AdminDesktop/release/*.blockmap
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Aggregate every artifact and attach it to the release for this tag.
+  #
+  # softprops/action-gh-release is idempotent — if release.yml has already
+  # created the release for this tag, we attach to it; if not, we create
+  # it. Auto-generated notes pull commits/PRs since the previous tag.
+  # ─────────────────────────────────────────────────────────────────────────
+  attach-to-release:
+    name: Attach to GitHub Release
+    needs: [prepare, build-cli, build-desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download every artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f -printf '%P\t%s bytes\n' | sort
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: |
+            artifacts/cli-*/aonik-cli-*
+            artifacts/desktop-*/*.exe
+            artifacts/desktop-*/*.dmg
+            artifacts/desktop-*/*.AppImage
+            artifacts/desktop-*/*.deb
+            artifacts/desktop-*/*.zip
+            artifacts/desktop-*/latest*.yml
+            artifacts/desktop-*/*.blockmap
