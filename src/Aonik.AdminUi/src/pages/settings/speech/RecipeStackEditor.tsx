@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -26,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SheetBody, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { voiceRecipeLibraryService } from '@/services/voiceRecipeLibraryService';
 import type { SpeechProvider, SpeechProviderType } from '@/types/speechLibrary';
@@ -175,23 +175,23 @@ export function RecipeStackEditor({
     }
   };
 
+  const headerTitle = isEditingTenantRow
+    ? 'Edit recipe'
+    : isCloningBuiltIn
+      ? `Clone "${initial!.displayName}"`
+      : 'Add recipe';
+  const headerSubtitle = isCloningBuiltIn
+    ? 'Built-in recipes are immutable — cloning creates an editable tenant copy.'
+    : 'Compose a voice pipeline. Pick providers from your library and tune per-step options.';
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          {isEditingTenantRow
-            ? 'Edit recipe'
-            : isCloningBuiltIn
-              ? `Clone "${initial!.displayName}"`
-              : 'Add recipe'}
-        </CardTitle>
-        <CardDescription>
-          {isCloningBuiltIn
-            ? 'Built-in recipes are immutable. Cloning creates an editable tenant copy.'
-            : 'Compose a voice pipeline by picking providers from your library and tuning the per-step options. Save to add it to the recipe catalog.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <>
+      <SheetHeader
+        icon={<Webhook className="h-4 w-4" />}
+        title={headerTitle}
+        subtitle={headerSubtitle}
+      />
+      <SheetBody className="gap-5">
         {/* Header: name + description + kind */}
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
@@ -266,17 +266,17 @@ export function RecipeStackEditor({
           />
         )}
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onCancel} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={() => void handleSave()} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {isEditingTenantRow ? 'Save changes' : isCloningBuiltIn ? 'Clone & save' : 'Create'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </SheetBody>
+      <SheetFooter className="justify-end">
+        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isEditingTenantRow ? 'Save changes' : isCloningBuiltIn ? 'Clone & save' : 'Create'}
+        </Button>
+      </SheetFooter>
+    </>
   );
 }
 

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Plug, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -13,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SheetBody, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { speechProviderLibraryService } from '@/services/speechProviderLibraryService';
 import type {
@@ -89,11 +89,15 @@ export function ProviderEditPanel({
 
   if (vendors.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-6 text-sm text-muted-foreground">
-          Loading vendor catalog…
-        </CardContent>
-      </Card>
+      <>
+        <SheetHeader
+          icon={<Plug className="h-4 w-4" />}
+          title="Loading vendor catalog…"
+        />
+        <SheetBody>
+          <p className="text-sm text-[var(--color-text-secondary)]">Just a moment.</p>
+        </SheetBody>
+      </>
     );
   }
 
@@ -146,23 +150,19 @@ export function ProviderEditPanel({
     }
   };
 
+  const headerTitle = isEditingTenantRow
+    ? 'Edit provider'
+    : isCloningBuiltIn
+      ? `Clone "${initial!.displayName}"`
+      : 'Add provider';
+  const headerSubtitle = isCloningBuiltIn
+    ? 'Built-in archetypes are immutable — this creates an editable tenant copy.'
+    : 'Configure a vendor instance. Many providers can coexist per vendor.';
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          {isEditingTenantRow
-            ? 'Edit provider'
-            : isCloningBuiltIn
-              ? `Clone "${initial!.displayName}"`
-              : 'Add provider'}
-        </CardTitle>
-        <CardDescription>
-          {isCloningBuiltIn
-            ? 'Built-in archetypes are immutable. This creates a tenant-owned editable copy you can rename and reconfigure.'
-            : 'Configure a vendor instance. Many providers can coexist for the same vendor (e.g. multiple OpenAI TTS voices).'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <>
+      <SheetHeader icon={<Plug className="h-4 w-4" />} title={headerTitle} subtitle={headerSubtitle} />
+      <SheetBody className="gap-5">
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Type</Label>
@@ -223,8 +223,8 @@ export function ProviderEditPanel({
         </div>
 
         {schema && (
-          <div className="space-y-3 rounded-md border p-4">
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="space-y-3 rounded-md border border-[var(--color-border-light)] p-4">
+            <div className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
               {schema.configKind} configuration
             </div>
             {schema.fields.map((field) => (
@@ -238,25 +238,20 @@ export function ProviderEditPanel({
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onCancel} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={() => void handleSave()} disabled={saving}>
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {isEditingTenantRow ? 'Save changes' : isCloningBuiltIn ? 'Clone & save' : 'Create'}
-          </Button>
-        </div>
-
         {isEditingTenantRow && initial!.type !== 'Composite' && (
           <ProviderTestSection providerId={initial!.id} type={initial!.type} />
         )}
-      </CardContent>
-    </Card>
+      </SheetBody>
+      <SheetFooter className="justify-end">
+        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isEditingTenantRow ? 'Save changes' : isCloningBuiltIn ? 'Clone & save' : 'Create'}
+        </Button>
+      </SheetFooter>
+    </>
   );
 }
 

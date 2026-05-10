@@ -1,27 +1,83 @@
 import { useEffect, useState } from 'react';
-import { AudioLines } from 'lucide-react';
+import {
+  Layers,
+  Mic,
+  Radio,
+  Speaker,
+  type LucideIcon,
+} from 'lucide-react';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
+import { ChatSpeechTab } from './speech/ChatSpeechTab';
 import { ProvidersTab } from './speech/ProvidersTab';
 import { RecipesTab } from './speech/RecipesTab';
+import { VoiceModeTab } from './speech/VoiceModeTab';
 
 /**
- * Consolidated Speech & Voice settings page (spec 024). v1.1 ships the
- * Providers tab fully populated; Recipes / Voice mode / Chat speech tabs are
- * stubbed and light up as Phase B / C land.
+ * Consolidated Speech & Voice settings page (spec 024). Inner left-rail layout
+ * adapted from `Templates/aonik-admin-starterkit/screens/speech.jsx`:
  *
- * Route: `/settings/speech`. The legacy `/settings/voice` and
- * `/settings/text-to-speech` pages will redirect here in the next phase.
+ *   ┌── 240px rail ──┐┌─────── content ───────┐
+ *   │ Settings · AI  ││  PageHeader           │
+ *   │ Speech & Voice ││  KPI / banner         │
+ *   │ ─ Providers    ││  Filter pills         │
+ *   │ ─ Recipes      ││  Cards / sections     │
+ *   │ ─ Voice mode   ││                       │
+ *   │ ─ Chat speech  ││                       │
+ *   │ ── now active ─│└───────────────────────┘
+ *   └────────────────┘
+ *
+ * Providers + Recipes are wired to the new library backend (Phase A + B).
+ * Voice mode + Chat speech are visual previews — Phase C ships the persistence
+ * layer that backs them; the legacy `/settings/voice` and
+ * `/settings/text-to-speech` pages remain functional in the meantime.
  */
+
+type TabId = 'providers' | 'recipes' | 'voice-mode' | 'chat-speech';
+
+interface SpeechTab {
+  id: TabId;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}
+
+const TABS: SpeechTab[] = [
+  {
+    id: 'providers',
+    label: 'Providers',
+    description: 'STT, TTS, and realtime services',
+    icon: Layers,
+  },
+  {
+    id: 'recipes',
+    label: 'Recipes',
+    description: 'Reusable voice configurations',
+    icon: Radio,
+  },
+  {
+    id: 'voice-mode',
+    label: 'Voice mode',
+    description: 'Live spoken conversations',
+    icon: Mic,
+  },
+  {
+    id: 'chat-speech',
+    label: 'Chat speech',
+    description: 'Speak chat responses aloud',
+    icon: Speaker,
+  },
+];
+
 export function SettingsSpeechPage() {
   // Persist active tab to URL query so deep links work (e.g.
   // `/settings/speech?tab=voice-mode` from a "Configure" link in another panel).
-  const [activeTab, setActiveTab] = useState<string>(() => {
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === 'undefined') return 'providers';
     const params = new URLSearchParams(window.location.search);
-    return params.get('tab') ?? 'providers';
+    const candidate = params.get('tab') as TabId | null;
+    return TABS.some((t) => t.id === candidate) ? (candidate as TabId) : 'providers';
   });
 
   useEffect(() => {
@@ -32,65 +88,83 @@ export function SettingsSpeechPage() {
   }, [activeTab]);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-start gap-3">
-        <AudioLines className="mt-1 h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-xl font-semibold">Speech &amp; Voice</h1>
-          <p className="text-sm text-muted-foreground">
-            One library of configured speech providers (STT, TTS, Composite). Compose them into
-            named voice recipes; pick one as your active voice mode and one TTS for chat speech.
+    <div className="flex h-full min-h-0">
+      {/* Inner left rail */}
+      <aside className="flex w-[240px] shrink-0 flex-col border-r border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-5">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">
+          Settings · AI
+        </p>
+        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Speech &amp; Voice</h2>
+        <p className="mt-1 mb-4 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+          Configure the providers, recipes, and live experiences that power voice in this workspace.
+        </p>
+
+        <nav className="flex flex-col gap-0.5">
+          {TABS.map((tab) => {
+            const active = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex items-start gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors',
+                  active
+                    ? 'bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]'
+                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]',
+                )}
+              >
+                <tab.icon
+                  className={cn(
+                    'mt-0.5 h-3.5 w-3.5 shrink-0',
+                    active ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]',
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className={cn('text-[13px]', active ? 'font-semibold' : 'font-medium')}>
+                    {tab.label}
+                  </div>
+                  <div
+                    className={cn(
+                      'mt-0.5 text-[11px]',
+                      active
+                        ? 'text-[var(--color-brand-primary)]/85'
+                        : 'text-[var(--color-text-tertiary)]',
+                    )}
+                  >
+                    {tab.description}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* "Now active" footer — placeholder until Phase C wires real settings */}
+        <div className="mt-auto border-t border-[var(--color-border-light)] pt-4">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
+            Now active
           </p>
+          <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-primary)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />
+            Voice mode · <span className="font-semibold">Premium chained</span>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-primary)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />
+            Chat speech · <span className="font-semibold">Aria</span>
+          </div>
         </div>
+      </aside>
+
+      {/* Right column */}
+      <div className="min-w-0 flex-1 overflow-auto p-8">
+        {activeTab === 'providers' && <ProvidersTab />}
+        {activeTab === 'recipes' && <RecipesTab />}
+        {activeTab === 'voice-mode' && <VoiceModeTab onJump={(id) => setActiveTab(id)} />}
+        {activeTab === 'chat-speech' && <ChatSpeechTab onJump={(id) => setActiveTab(id)} />}
       </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="providers">Providers</TabsTrigger>
-          <TabsTrigger value="recipes">Recipes</TabsTrigger>
-          <TabsTrigger value="voice-mode">Voice mode</TabsTrigger>
-          <TabsTrigger value="chat-speech">Chat speech</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="providers" className="space-y-6">
-          <ProvidersTab />
-        </TabsContent>
-
-        <TabsContent value="recipes">
-          <RecipesTab />
-        </TabsContent>
-
-        <TabsContent value="voice-mode">
-          <ComingSoonCard
-            title="Voice mode"
-            description="Pick the active voice recipe and run a live pipeline test. Lands in Phase C of spec 024 once the recipe library is in. The legacy voice settings page at /settings/voice still works in the meantime."
-          />
-        </TabsContent>
-
-        <TabsContent value="chat-speech">
-          <ComingSoonCard
-            title="Chat speech"
-            description="Pick the active TTS provider for AGUI streaming voice synth and helper-text TTS. Lands in Phase C; the legacy /settings/text-to-speech page still works in the meantime."
-          />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
 
-function ComingSoonCard({ title, description }: { title: string; description: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Configure providers in the <strong>Providers</strong> tab today; this tab activates when
-          the next phase ships.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
+export type { TabId };
