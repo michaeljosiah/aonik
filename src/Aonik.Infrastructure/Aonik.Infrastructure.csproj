@@ -12,6 +12,11 @@
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
     <ProjectReference Include="..\Aonik.Ai\Aonik.Ai.csproj" />
     <ProjectReference Include="..\Aonik.Agents\Aonik.Agents.csproj" />
+    <!--
+      Voice entities (spec 024 — speech provider library) live in Aonik.Voice but their EF
+      migrations land in this project's canonical AonikDbContext per AONIK convention.
+    -->
+    <ProjectReference Include="..\Aonik.Voice\Aonik.Voice.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,7 +40,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.6" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.4" />
     <PackageReference Include="Polly" Version="8.4.0" />

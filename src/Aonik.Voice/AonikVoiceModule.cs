@@ -1,7 +1,12 @@
+using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.SharedKernel.Modules;
+using Aonik.SharedKernel.Persistence;
 using Aonik.Voice.Configuration;
+using Aonik.Voice.Library;
+using Aonik.Voice.Persistence;
 using Aonik.Voice.Pipeline;
 using Aonik.Voice.Tools;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -55,6 +60,29 @@ public sealed class AonikVoiceModule : IModule
         // build a one-shot Voxa engine on demand for any supported vendor without spinning up a
         // full pipeline. Stateless; safe as a singleton.
         services.AddSingleton<IPreviewEngineFactory, PreviewEngineFactory>();
+
+        // Speech provider library (spec 024 Phase A). Built-ins ship in code; tenant-owned rows
+        // live in AnkSpeechProviders. The DbContext is module-scoped per AONIK convention but
+        // shares the physical database with AonikDbContext via dbo schema + Ank table prefix.
+        services.AddSingleton<IBuiltInSpeechCatalog, BuiltInSpeechCatalog>();
+        services.AddScoped<ISpeechProviderLibraryService, SpeechProviderLibraryService>();
+        services.AddDbContext<VoiceDbContext>((sp, options) =>
+        {
+            if (configuration.GetValue<bool>("UseInMemoryDatabase"))
+            {
+                var dbName = configuration.GetValue<string>("InMemoryDatabaseName")
+                    ?? $"VoiceDb_{Guid.NewGuid()}";
+                options.UseInMemoryDatabase(dbName);
+            }
+            else
+            {
+                var connectionString = configuration.GetConnectionString("DefaultConnection")
+                    ?? configuration.GetConnectionString("AonikDb")
+                    ?? "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
+                options.UseSqlServer(connectionString, sqlServerOptions =>
+                    sqlServerOptions.EnableRetryOnFailure());
+            }
+        });
 
         return services;
     }

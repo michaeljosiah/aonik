@@ -21,6 +21,7 @@ using Aonik.Platform.Entities.Settings;
 using Aonik.Ai.Entities;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
+using Aonik.Voice.Entities;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
@@ -150,6 +151,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<WorkflowComment> WorkflowComments { get; set; } = null!;
     public virtual DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
 
+    // Voice — speech provider library (spec 024)
+    public virtual DbSet<SpeechProviderEntity> SpeechProviders { get; set; } = null!;
+
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -179,6 +183,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
         // Apply Agents configurations from Agents assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Agents.Entities.Agent).Assembly);
+
+        // Apply Voice configurations (spec 024 — speech provider library)
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(SpeechProviderEntity).Assembly);
 
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);

@@ -67,6 +67,13 @@
     -->
     <PackageReference Include="Microsoft.Agents.AI" Version="1.5.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
+
+    <!--
+      EF Core (spec 024 Phase A — speech provider library). VoiceDbContext is module-scoped per
+      AONIK convention; migrations still ship via the canonical AonikDbContext.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
   </ItemGroup>
 
 </Project>
