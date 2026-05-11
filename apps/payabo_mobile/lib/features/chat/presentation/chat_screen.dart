@@ -329,6 +329,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Widget build(BuildContext context) {
     final bool isVoiceActive =
         _showVoiceStage || _voiceStagePhase != _VoiceStagePhase.idle;
+    final bool realtimeVoiceModeEnabled =
+        ref.watch(voxaVoiceModeEnabledProvider);
+    // When the realtime orb is on screen the composer's End / Talk-again
+    // buttons are dead weight — the orb is the entire interaction surface.
+    // Hide the whole composer rail (text field + mic + end) so the orb
+    // gets the full screen and we don't ship taps to dead handlers.
+    final bool hideComposer = realtimeVoiceModeEnabled && _showVoiceStage;
     final String displayName = ref.watch(
       profileHeaderProvider.select(
         (ProfileHeaderState state) => state.displayName,
@@ -661,23 +668,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
                     const _ChatErrorSlot(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        PayaboSpacing.md,
-                        0,
-                        PayaboSpacing.md,
-                        PayaboSpacing.md,
+                    if (!hideComposer)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          PayaboSpacing.md,
+                          0,
+                          PayaboSpacing.md,
+                          PayaboSpacing.md,
+                        ),
+                        child: _ChatComposer(
+                          controller: _controller,
+                          isVoiceActive: isVoiceActive,
+                          voiceStagePhase: _voiceStagePhase,
+                          voiceVisualStateListenable: _voiceVisualState,
+                          onEndVoiceTap: () => unawaited(_dismissVoiceStage()),
+                          onVoiceTap: () => unawaited(_handleVoiceTap()),
+                          onSubmitted: _submitPrompt,
+                        ),
                       ),
-                      child: _ChatComposer(
-                        controller: _controller,
-                        isVoiceActive: isVoiceActive,
-                        voiceStagePhase: _voiceStagePhase,
-                        voiceVisualStateListenable: _voiceVisualState,
-                        onEndVoiceTap: () => unawaited(_dismissVoiceStage()),
-                        onVoiceTap: () => unawaited(_handleVoiceTap()),
-                        onSubmitted: _submitPrompt,
-                      ),
-                    ),
                   ],
                 ),
               ),
