@@ -1,10 +1,10 @@
 // ignore_for_file: public_member_api_docs
 
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mp_audio_stream/mp_audio_stream.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:record/record.dart';
 
 import '../../app/auth/auth_session_store.dart';
@@ -15,18 +15,29 @@ import 'voxa_voice_client.dart';
 /// Combines [VoxaVoiceClient] with a 16 kHz PCM mic recorder + 24 kHz PCM
 /// streaming player. One [start]/[stop] cycle per conversation; the underlying
 /// client is single-use so we build a fresh one on each [start].
+///
+/// Playback uses [SoLoud]'s buffer-stream API. Unlike the previous
+/// `mp_audio_stream` ring buffer (which silently dropped samples on overflow
+/// — the root cause of the "last word missing" symptom), SoLoud's stream:
+///   * Accepts raw `s16le` PCM directly (no Float32 conversion needed).
+///   * Throws on out-of-memory rather than dropping silently, so producer
+///     errors are observable.
+///   * Frees memory of already-played samples ([BufferingType.released]) so
+///     long sessions don't grow unbounded.
+///   * Pauses-and-resumes around underrun based on a configurable buffering
+///     time, matching what the web client gets from Web Audio scheduling.
 class VoxaVoiceSession {
   VoxaVoiceSession({
     required VoxaVoiceClient Function() clientFactory,
     AudioRecorder? recorder,
-    AudioStream? player,
+    SoLoud? player,
   })  : _clientFactory = clientFactory,
         _recorder = recorder ?? AudioRecorder(),
-        _player = player ?? getAudioStream();
+        _player = player ?? SoLoud.instance;
 
   final VoxaVoiceClient Function() _clientFactory;
   final AudioRecorder _recorder;
-  final AudioStream _player;
+  final SoLoud _player;
 
   VoxaVoiceClient? _activeClient;
   StreamSubscription<Uint8List>? _micSubscription;
@@ -34,7 +45,13 @@ class VoxaVoiceSession {
   StreamSubscription<VoxaVoiceEvent>? _eventsSubscription;
   StreamSubscription<VoxaConnectionState>? _stateSubscription;
 
-  bool _playerInitialised = false;
+  /// The active SoLoud stream source for this session. Created in [start],
+  /// torn down in [stop]. We don't deinit the SoLoud engine itself between
+  /// sessions — `init()` is idempotent and the engine sleeps when nothing
+  /// is playing, so leaving it warm makes the next session start faster.
+  AudioSource? _streamSource;
+  SoundHandle? _streamHandle;
+
   bool _running = false;
 
   /// User-driven mic gate from the voice stage's mute button. Independent of
@@ -42,8 +59,8 @@ class VoxaVoiceSession {
   /// frame to reach the WSS.
   bool _userMuted = false;
 
-  // Captured on start so [_resetPlayerBuffer] can re-init with the same shape.
-  int _playerChannels = 1;
+  // Captured on start so the silence tail-pad can synthesise the right number
+  // of zero samples to push.
   int _playerSampleRate = 24000;
 
   // Mic gate: speakers bleed into the mic; without it Whisper transcribes the
@@ -58,8 +75,8 @@ class VoxaVoiceSession {
   Duration? _lastBotAudioAt;
 
   // Mic stays muted this long after the server's `speaking:false` to let the
-  // local PCM queue drain. Must exceed [_playerBufferMilliSec] +
-  // [_playerWaitingBufferMilliSec] or the bot's tail leaks back into STT.
+  // local PCM queue drain. Tuned to comfortably cover the time it takes
+  // SoLoud's buffered stream to play out queued audio after the wire event.
   static const Duration _postBotStopHangover = Duration(milliseconds: 3300);
 
   // Drop mic frames within this window of the last inbound bot audio frame —
@@ -67,25 +84,25 @@ class VoxaVoiceSession {
   // playback that the event gate misses.
   static const Duration _audioTailGuard = Duration(milliseconds: 1200);
 
-  // `mp_audio_stream.push()` silently drops samples when the ring buffer is
-  // full (see package doc: "When buffer is full, the input is ignored"). The
-  // chained TTS path bursts an entire sentence's audio (often 5–10 s) into
-  // the buffer in well under realtime, so a 3 s buffer was the cause of the
-  // "missing the last word or two from each sentence" symptom: the tail of
-  // every long sentence overflowed and got dropped at push time. 15 s of ring
-  // capacity is more than any realistic sentence; phones can spare the RAM
-  // (15 s × 24 kHz × 4 bytes ≈ 1.4 MB).
-  static const int _playerBufferMilliSec = 15000;
+  /// SoLoud's [setBufferStream.maxBufferSizeBytes] cap. With
+  /// [BufferingType.released] this is the total cumulative bytes the stream
+  /// will accept across its lifetime, not memory at any instant; played
+  /// samples are freed. 100 MB ≈ 17 min of continuous s16le 24 kHz mono
+  /// audio, comfortably more than any realistic voice session.
+  static const int _streamMaxBufferBytes = 100 * 1024 * 1024;
 
-  // How much accumulated PCM mp_audio_stream waits for before resuming
-  // playback after the buffer drains. The chained TTS path emits sentence-
-  // by-sentence, with ~200–500 ms of TTS request latency between sentences;
-  // a high `waiting` value here was audible as a chop between every sentence.
-  // 80 ms is just enough to absorb single-frame jitter without becoming the
-  // audible silence the user notices. Gapless cross-sentence playback wants
-  // a scheduler-based player (Web Audio-style) rather than a ring buffer —
-  // tracked as a follow-up.
-  static const int _playerWaitingBufferMilliSec = 80;
+  /// Seconds of buffered audio SoLoud needs accumulated before resuming
+  /// playback after an underrun. Equivalent to the old
+  /// `_playerWaitingBufferMilliSec` knob — 80 ms is short enough to be
+  /// imperceptible as a between-sentence gap, long enough to absorb single-
+  /// frame network jitter.
+  static const double _bufferingTimeNeedsSeconds = 0.08;
+
+  /// Silence pushed to the stream on every bot `speaking:false` so the buffer
+  /// never goes empty exactly at the boundary between sentences — covers the
+  /// 200–500 ms TTS request latency for the next sentence on the chained
+  /// pipeline so playback never has to pause-and-rebuffer.
+  static const double _tailPadSeconds = 0.5;
 
   final StreamController<VoxaVoiceEvent> _eventsController =
       StreamController<VoxaVoiceEvent>.broadcast();
@@ -117,20 +134,28 @@ class VoxaVoiceSession {
     }
 
     // Player first so the first inbound bot frame isn't dropped during setup.
-    _playerChannels = 1;
     _playerSampleRate = botSampleRate;
-    final int initResult = _player.init(
-      channels: _playerChannels,
-      sampleRate: _playerSampleRate,
-      bufferMilliSec: _playerBufferMilliSec,
-      waitingBufferMilliSec: _playerWaitingBufferMilliSec,
-    );
-    _playerInitialised = initResult == 0;
-    if (!_playerInitialised) {
-      throw StateError(
-          'Failed to initialise PCM audio player (mp_audio_stream init returned $initResult).');
+    if (!_player.isInitialized) {
+      try {
+        await _player.init();
+      } catch (err) {
+        throw StateError('Failed to initialise SoLoud engine: $err');
+      }
     }
-    _player.resume();
+    try {
+      _streamSource = _player.setBufferStream(
+        maxBufferSizeBytes: _streamMaxBufferBytes,
+        sampleRate: botSampleRate,
+        channels: Channels.mono,
+        format: BufferType.s16le,
+        bufferingType: BufferingType.released,
+        bufferingTimeNeeds: _bufferingTimeNeedsSeconds,
+      );
+      _streamHandle = await _player.play(_streamSource!);
+    } catch (err) {
+      await _disposeStream();
+      throw StateError('Failed to start SoLoud buffer stream: $err');
+    }
 
     final VoxaVoiceClient client = _clientFactory();
     _activeClient = client;
@@ -151,13 +176,9 @@ class VoxaVoiceSession {
           _botSpeaking = true;
           _botStoppedHangoverTimer = null;
         } else {
-          // Tail-pad the player buffer with silence. mp_audio_stream pauses
-          // playback when the buffer drops below `waitingBufferMilliSec`, so
-          // without padding the last ~80 ms of the bot's last word gets stuck
-          // in the buffer and never plays — that's the "voice ends too
-          // abruptly" symptom users hear at the end of a reply. The silence
-          // pushes the real audio past the threshold so the player drains it
-          // fully before quiescing.
+          // Pad the stream with silence so the buffer never goes empty at the
+          // boundary between sentences. Covers the TTS request latency for
+          // the next sentence so SoLoud doesn't have to pause-and-rebuffer.
           _padPlayerTail();
           _botStoppedHangoverTimer = Timer(_postBotStopHangover, () {
             _botSpeaking = false;
@@ -241,7 +262,8 @@ class VoxaVoiceSession {
     _userMuted = muted;
   }
 
-  /// Send `{type:"end"}`, close the WS, stop the recorder, uninit the player.
+  /// Send `{type:"end"}`, close the WS, stop the recorder, tear down the
+  /// SoLoud stream. The engine itself stays initialised for fast restart.
   /// Safe to call repeatedly.
   Future<void> stop() async {
     _running = false;
@@ -273,17 +295,12 @@ class VoxaVoiceSession {
     await _stateSubscription?.cancel();
     _stateSubscription = null;
 
-    if (_playerInitialised) {
-      try {
-        _player.uninit();
-      } catch (_) {
-        // already torn down
-      }
-      _playerInitialised = false;
-    }
+    await _disposeStream();
   }
 
-  /// One-shot release; the session can't be reused after this.
+  /// One-shot release; the session can't be reused after this. SoLoud itself
+  /// is a process-wide singleton so we don't deinit it — it'll be shut down
+  /// when the app exits.
   Future<void> dispose() async {
     await stop();
     await _recorder.dispose();
@@ -293,38 +310,77 @@ class VoxaVoiceSession {
 
   // ── Internals ────────────────────────────────────────────────────────────
 
-  /// Push 500 ms of silent samples to the player at the end of each bot turn.
-  /// Without this, mp_audio_stream's drain heuristic holds back the trailing
-  /// frames of the bot's last word — audible as the audio cutting off
-  /// mid-syllable on every reply.
+  /// Push 500 ms of silent samples to the stream at the end of each bot turn
+  /// (or each TTS sentence in the chained pipeline, where `speaking:false`
+  /// fires per sentence). Bridges the next-sentence TTS request latency so
+  /// playback flows continuously instead of having to pause-and-rebuffer.
   void _padPlayerTail() {
-    if (!_playerInitialised) return;
-    final int silenceSamples = (_playerSampleRate * 0.5).round();
-    if (silenceSamples <= 0) return;
-    final Float32List silence = Float32List(silenceSamples);
+    final AudioSource? source = _streamSource;
+    if (source == null) return;
+    // bytes = sampleRate × seconds × 2 bytes per s16 sample, mono.
+    final int byteCount = (_playerSampleRate * _tailPadSeconds * 2).round();
+    if (byteCount <= 0) return;
+    final Uint8List silence = Uint8List(byteCount);
     try {
-      _player.push(silence);
-    } catch (_) {
-      // Best-effort tail pad — if the player is mid-teardown it's harmless to
-      // skip.
+      _player.addAudioDataStream(source, silence);
+    } catch (err) {
+      // Best-effort tail pad — if the stream is mid-teardown or the buffer is
+      // unexpectedly full it's harmless to skip the silence pad.
+      if (kDebugMode) {
+        debugPrint('VoxaVoiceSession._padPlayerTail: $err');
+      }
     }
   }
 
   void _onBotAudioFrame(Uint8List pcmBytes) {
     if (pcmBytes.isEmpty) return;
-    if (!_playerInitialised) return;
+    final AudioSource? source = _streamSource;
+    if (source == null) return;
     _lastBotAudioAt = _clock.elapsed;
-
-    // Int16 LE PCM → Float32 [-1, 1] for mp_audio_stream. ByteData view keeps
-    // us independent of host endianness.
-    final int sampleCount = pcmBytes.length ~/ 2;
-    if (sampleCount == 0) return;
-    final Float32List floats = Float32List(sampleCount);
-    final ByteData view = ByteData.sublistView(pcmBytes);
-    for (int i = 0; i < sampleCount; i++) {
-      floats[i] = view.getInt16(i * 2, Endian.little) / 0x8000;
+    try {
+      // SoLoud accepts raw s16le PCM directly — no Float32 conversion needed.
+      _player.addAudioDataStream(source, pcmBytes);
+    } catch (err) {
+      // The stream's max buffer can be reached on very long sessions; surface
+      // the error rather than silently dropping (which is what the previous
+      // mp_audio_stream player did and caused the "last word missing" bug).
+      _eventsController.add(VoxaVoiceEvent.error(
+        message: 'Failed to enqueue bot audio frame: $err',
+        code: 'audio-enqueue',
+      ));
     }
-    _player.push(floats);
+  }
+
+  /// Stop + dispose the active SoLoud stream source. Safe to call multiple
+  /// times. Doesn't touch the engine itself — that's a process-wide
+  /// singleton we keep warm.
+  Future<void> _disposeStream() async {
+    final SoundHandle? handle = _streamHandle;
+    _streamHandle = null;
+    final AudioSource? source = _streamSource;
+    _streamSource = null;
+    if (!_player.isInitialized) return;
+    if (handle != null) {
+      try {
+        await _player.stop(handle);
+      } catch (_) {
+        // Already stopped / handle invalid — ignore.
+      }
+    }
+    if (source != null) {
+      try {
+        // Marking the stream ended lets SoLoud finalise any internal state
+        // even though we're about to dispose it.
+        _player.setDataIsEnded(source);
+      } catch (_) {
+        // Source might already be ended.
+      }
+      try {
+        await _player.disposeSource(source);
+      } catch (_) {
+        // Already disposed.
+      }
+    }
   }
 
   Future<void> _teardownAfterFailure() async {
@@ -341,14 +397,7 @@ class VoxaVoiceSession {
       await client.close();
     }
 
-    if (_playerInitialised) {
-      try {
-        _player.uninit();
-      } catch (_) {
-        // already torn down
-      }
-      _playerInitialised = false;
-    }
+    await _disposeStream();
   }
 }
 
