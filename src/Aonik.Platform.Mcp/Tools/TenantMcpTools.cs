@@ -36,11 +36,10 @@ public static class TenantMcpTools
         return await tenantService.ListTenantsAsync(request, cancellationToken);
     }
 
-    [McpServerTool(Name = "platform_list_tenants_for_login"), Description("Lists active tenants available for login. Returns minimal info: ID, name, subdomain, environment.")]
-    public static async Task<TenantListForLoginResponse> ListTenantsForLogin(
-        ITenantService tenantService,
-        CancellationToken cancellationToken = default)
-    {
-        return await tenantService.ListTenantsForLoginAsync(cancellationToken);
-    }
+    // platform_list_tenants_for_login was retired alongside the public
+    // /host/tenants/list-for-login endpoint — exposing a directory of all
+    // tenants to MCP tool calls is the same enumeration leak the web/desktop
+    // org pickers were rewritten to avoid. If we need a per-user tenant
+    // lookup in MCP context later, add a `ListMyTenants` tool keyed on
+    // the calling user's identity.
 }
