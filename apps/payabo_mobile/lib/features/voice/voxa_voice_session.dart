@@ -64,10 +64,25 @@ class VoxaVoiceSession {
   /// hangover elapses. Cancelled if the bot starts speaking again before it fires.
   Timer? _botStoppedHangoverTimer;
 
+  /// Monotonic timestamp of the last bot audio frame we received. The mic
+  /// listener uses this together with [_audioTailGuard] to drop frames while
+  /// the local audio queue is still draining — even when the server's
+  /// `speaking:false` event fires earlier than the actual playback ends.
+  DateTime? _lastBotAudioAt;
+
   /// Buffer / drain budget. Must be ≥ the player's bufferMilliSec below so the local
   /// PCM queue has time to play out before we re-open the mic. If the user's
   /// experience is "bot's tail gets transcribed as me repeating myself", raise this.
-  static const Duration _postBotStopHangover = Duration(milliseconds: 1500);
+  static const Duration _postBotStopHangover = Duration(milliseconds: 2000);
+
+  /// How long after the last bot audio frame we keep the mic gated, independent
+  /// of the server's `speaking` events. Catches two timing races the event-based
+  /// gate misses:
+  /// 1. Bot audio frames arriving *before* the `speaking:true` envelope — the
+  ///    mic would otherwise stay open while the first chunk is already playing.
+  /// 2. Bot audio still queued in the local PCM ring buffer after `speaking:false`
+  ///    — the speaker is still emitting even though the server is done.
+  static const Duration _audioTailGuard = Duration(milliseconds: 1200);
 
   /// Maximum amount of bot audio we hold in the ring buffer. Smaller = less tail
   /// after the bot logically stops; larger = more headroom for bursty TTS frames
@@ -187,6 +202,9 @@ class VoxaVoiceSession {
         _botStoppedHangoverTimer?.cancel();
         _botStoppedHangoverTimer = null;
         _botSpeaking = false;
+        // Drop the tail-guard so the user's next utterance flows immediately —
+        // the queued bot audio is no longer playing thanks to the buffer flush.
+        _lastBotAudioAt = null;
       }
       _eventsController.add(event);
     });
@@ -206,6 +224,16 @@ class VoxaVoiceSession {
     // Now that the WS is up, start mic capture. The recorder's stream emits chunks at
     // its own native cadence — typically 20-50 ms — which the WebSocket happily
     // forwards as binary frames of arbitrary size.
+    //
+    // **Hardware echo cancellation.** Android's default audio source is unprocessed
+    // mic, which doesn't engage the platform AEC even when `echoCancel: true`. To
+    // actually get the hardware echo canceller we have to (a) pick the VoIP audio
+    // source and (b) switch the audio manager to communication mode. Without these
+    // the speaker's own playback bleeds into the mic and Whisper transcribes the
+    // bot's voice as a new user turn — which is the "AI thinks I'm repeating
+    // myself" symptom on real devices. iOS routes through AVAudioSession's VoIP
+    // chat mode automatically when `echoCancel: true` is set, so this only matters
+    // for Android.
     final Stream<Uint8List> micStream;
     try {
       micStream = await _recorder.startStream(
@@ -213,12 +241,20 @@ class VoxaVoiceSession {
           encoder: AudioEncoder.pcm16bits,
           sampleRate: micSampleRate,
           numChannels: 1,
-          // Echo cancellation + noise suppression mirror the chat_voice_service defaults.
-          // Without echo cancellation the recorder picks up the bot's own playback,
-          // causing a feedback loop that confuses Whisper.
           echoCancel: true,
           noiseSuppress: true,
           autoGain: true,
+          androidConfig: const AndroidRecordConfig(
+            // VoIP source: engages built-in AEC + AGC + noise suppression. Pixel /
+            // Samsung / OnePlus all ship a tuned DSP behind this source — much
+            // stronger than the generic `AudioSource.MIC` default.
+            audioSource: AndroidAudioSource.voiceCommunication,
+            // In-communication mode tells AudioManager to use the VoIP audio
+            // pipeline (echo path tracking, routing through the earpiece / chosen
+            // BT headset, etc.). The record plugin's docs explicitly call this
+            // out for "acoustic echo cancellation issues on some devices".
+            audioManagerMode: AudioManagerMode.modeInCommunication,
+          ),
         ),
       );
     } catch (err) {
@@ -231,6 +267,17 @@ class VoxaVoiceSession {
         if (_botSpeaking) {
           // Drop frames while the bot is talking — see _eventsSubscription
           // closure above for the rationale.
+          return;
+        }
+        final DateTime? lastBotAudio = _lastBotAudioAt;
+        if (lastBotAudio != null &&
+            DateTime.now().difference(lastBotAudio) < _audioTailGuard) {
+          // Belt-and-braces: even if the event-based gate is open, the speaker
+          // could still be emitting bot audio that hasn't finished playing.
+          // Drop these frames so they don't bleed back through the mic into
+          // STT. The guard window self-extends every time another bot audio
+          // frame arrives, so it tracks the real playback tail and not just a
+          // fixed timer from the last `speaking:false` event.
           return;
         }
         _activeClient?.sendPcm(pcm);
@@ -253,6 +300,7 @@ class VoxaVoiceSession {
     _botSpeaking = false;
     _botStoppedHangoverTimer?.cancel();
     _botStoppedHangoverTimer = null;
+    _lastBotAudioAt = null;
 
     await _micSubscription?.cancel();
     _micSubscription = null;
@@ -331,6 +379,10 @@ class VoxaVoiceSession {
   void _onBotAudioFrame(Uint8List pcmBytes) {
     if (pcmBytes.isEmpty) return;
     if (!_playerInitialised) return;
+
+    // Stamp arrival time so the mic listener can drop frames during the actual
+    // speaker tail (audio queued for playback, not just "server still streaming").
+    _lastBotAudioAt = DateTime.now();
 
     // Convert Int16 PCM bytes → Float32 in [-1, 1] for the mp_audio_stream player.
     // pcmBytes is 16-bit signed LE PCM (mono). We use a ByteData view to avoid
