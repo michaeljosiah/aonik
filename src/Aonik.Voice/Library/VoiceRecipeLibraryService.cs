@@ -351,6 +351,13 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
     };
 
     /// <summary>
+    /// ElevenLabs voice ids: exactly 20 alphanumeric characters. The library UI
+    /// returns ids like <c>21m00Tcm4TlvDq8ikWAM</c>, <c>EXAVITQu4vr4xnSDxMaL</c>.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex ElevenLabsVoiceIdRegex =
+        new(@"^[A-Za-z0-9]{20}$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
     /// Reject voice ids that obviously don't belong to the recipe's TTS vendor — the
     /// classic case is keeping a Mistral GUID after swapping the TTS provider to
     /// OpenAI in the recipe editor (UI doesn't currently reset the voice picker on
@@ -385,15 +392,34 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
                 break;
 
             case "mistral":
-            case "elevenlabs":
-                // Both vendors use GUIDs (Mistral via /v1/audio/voices, ElevenLabs via
-                // their voice library). Anything that doesn't parse as a Guid is almost
-                // certainly wrong.
+                // Mistral's /v1/audio/voices catalog returns GUIDs.
                 if (!isGuidShaped)
                 {
                     throw new SpeechLibraryValidationException(
-                        $"Voice '{trimmedVoice}' doesn't look like a {char.ToUpperInvariant(normalisedVendor[0]) + normalisedVendor[1..]} voice id "
+                        $"Voice '{trimmedVoice}' doesn't look like a Mistral voice id "
                         + "(expected a GUID such as 90b8805d-8e89-4ecc-adc7-a40e62cb1710).",
+                        fieldName);
+                }
+                break;
+
+            case "elevenlabs":
+                // ElevenLabs voice ids from the Voice Library are 20-character
+                // alphanumeric strings (e.g. `21m00Tcm4TlvDq8ikWAM`). They are
+                // NOT GUIDs — rejecting GUIDs explicitly guards against the
+                // copy-paste-from-Mistral mistake, then the regex catches typos.
+                if (isGuidShaped)
+                {
+                    throw new SpeechLibraryValidationException(
+                        $"Voice '{trimmedVoice}' is a GUID; ElevenLabs voice ids are "
+                        + "20-character alphanumeric strings (e.g. 21m00Tcm4TlvDq8ikWAM). "
+                        + "Copy the voice id from elevenlabs.io's Voice Library.",
+                        fieldName);
+                }
+                if (!ElevenLabsVoiceIdRegex.IsMatch(trimmedVoice))
+                {
+                    throw new SpeechLibraryValidationException(
+                        $"Voice '{trimmedVoice}' doesn't look like an ElevenLabs voice id "
+                        + "(expected 20 alphanumeric characters, e.g. 21m00Tcm4TlvDq8ikWAM).",
                         fieldName);
                 }
                 break;

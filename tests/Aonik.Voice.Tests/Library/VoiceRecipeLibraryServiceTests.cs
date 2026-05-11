@@ -86,6 +86,92 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateAsync_Accepts_ElevenLabs_Voice_Id_With_20_Char_Alphanumeric()
+    {
+        // Real ElevenLabs voice ids from the Voice Library are 20 alphanumeric chars,
+        // NOT GUIDs (e.g. Rachel = 21m00Tcm4TlvDq8ikWAM). Previously the validator
+        // demanded a GUID and rejected real voice ids; this test pins the right shape.
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedElevenLabsProvider("ElevenLabs");
+
+        var r = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
+            DisplayName: "Rachel",
+            Description: null,
+            Kind: VoiceRecipeKind.Chained,
+            Chained: new ChainedRecipeBody(
+                SttProviderId: stt,
+                TtsProviderId: tts,
+                TtsVoiceId: "21m00Tcm4TlvDq8ikWAM",
+                TtsModelId: "eleven_multilingual_v2",
+                SttModel: null,
+                SttLanguage: null,
+                PinnedAgentId: null,
+                Vad: "energy",
+                VadStopMs: null,
+                TranscriptionFilter: true,
+                SentenceAggregator: true),
+            Composite: null));
+
+        r.Chained!.TtsVoiceId.Should().Be("21m00Tcm4TlvDq8ikWAM");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Rejects_ElevenLabs_Voice_Id_That_Is_A_Guid()
+    {
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedElevenLabsProvider("ElevenLabs");
+
+        var act = async () => await _sut.CreateAsync(new CreateVoiceRecipeRequest(
+            DisplayName: "wrong shape",
+            Description: null,
+            Kind: VoiceRecipeKind.Chained,
+            Chained: new ChainedRecipeBody(
+                SttProviderId: stt,
+                TtsProviderId: tts,
+                TtsVoiceId: "90b8805d-8e89-4ecc-adc7-a40e62cb1710",
+                TtsModelId: null,
+                SttModel: null,
+                SttLanguage: null,
+                PinnedAgentId: null,
+                Vad: "energy",
+                VadStopMs: null,
+                TranscriptionFilter: true,
+                SentenceAggregator: true),
+            Composite: null));
+
+        await act.Should()
+            .ThrowAsync<SpeechLibraryValidationException>()
+            .WithMessage("*GUID*ElevenLabs*alphanumeric*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Accepts_Mistral_Voice_Id_That_Is_A_Guid()
+    {
+        var stt = await SeedSttProvider("Whisper");
+        var tts = await SeedMistralProvider("Mistral");
+
+        var r = await _sut.CreateAsync(new CreateVoiceRecipeRequest(
+            DisplayName: "voxtral",
+            Description: null,
+            Kind: VoiceRecipeKind.Chained,
+            Chained: new ChainedRecipeBody(
+                SttProviderId: stt,
+                TtsProviderId: tts,
+                TtsVoiceId: "90b8805d-8e89-4ecc-adc7-a40e62cb1710",
+                TtsModelId: "voxtral-mini-tts-2603",
+                SttModel: null,
+                SttLanguage: null,
+                PinnedAgentId: null,
+                Vad: "energy",
+                VadStopMs: null,
+                TranscriptionFilter: true,
+                SentenceAggregator: true),
+            Composite: null));
+
+        r.Chained!.TtsVoiceId.Should().Be("90b8805d-8e89-4ecc-adc7-a40e62cb1710");
+    }
+
+    [Fact]
     public async Task CreateAsync_Rejects_Chained_Recipe_Without_TtsVoiceId()
     {
         var stt = await SeedSttProvider("Whisper");
@@ -382,6 +468,24 @@ public class VoiceRecipeLibraryServiceTests : IDisposable
             Type: SpeechProviderType.Tts,
             Vendor: "openai",
             Config: new OpenAITtsConfig(DefaultModelId: "tts-1")))).Id;
+
+    private async Task<string> SeedElevenLabsProvider(string name) =>
+        (await _providers.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: name,
+            Type: SpeechProviderType.Tts,
+            Vendor: "elevenlabs",
+            Config: new ElevenLabsTtsConfig(
+                DefaultModelId: "eleven_multilingual_v2",
+                DefaultStability: null,
+                DefaultSimilarityBoost: null,
+                DefaultOptimizeStreamingLatency: null)))).Id;
+
+    private async Task<string> SeedMistralProvider(string name) =>
+        (await _providers.CreateAsync(new CreateSpeechProviderRequest(
+            DisplayName: name,
+            Type: SpeechProviderType.Tts,
+            Vendor: "mistral",
+            Config: new MistralTtsConfig(DefaultModelId: "voxtral-mini-tts-2603")))).Id;
 
     private async Task<string> SeedCompositeProvider(string name) =>
         (await _providers.CreateAsync(new CreateSpeechProviderRequest(
