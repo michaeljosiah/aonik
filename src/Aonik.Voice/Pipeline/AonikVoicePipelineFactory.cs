@@ -269,7 +269,12 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
 
         if (recipe.UseSentenceAggregator)
         {
-            builder = builder.Then(new SentenceAggregator());
+            // AonikSentenceAggregator is a drop-in replacement for Voxa's upstream
+            // SentenceAggregator that doesn't treat end-of-buffer as a sentence boundary.
+            // Upstream would split "$10,000.00" into "$10,000." + "00" when the LLM
+            // streamed the period at the end of one chunk; ours waits for whitespace
+            // (or LlmTurnEndedFrame / EndFrame) to flush, so decimal amounts stay whole.
+            builder = builder.Then(new AonikSentenceAggregator());
         }
 
         return builder
