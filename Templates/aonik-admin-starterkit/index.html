@@ -91,6 +91,7 @@
 <script type="text/babel" src="screens/approvals.jsx"></script>
 <script type="text/babel" src="screens/tenant-signup.jsx"></script>
 <script type="text/babel" src="screens/account.jsx"></script>
+<script type="text/babel" src="screens/speech.jsx"></script>
 
 <!-- Background Workers (added) -->
 <script src="mock-data.js"></script>
@@ -500,6 +501,21 @@ function App() {
           </DCArtboard>
           <DCArtboard id="account-security" label="Account · Security · password + 2FA + sessions" width={W} height={H}>
             {mkShell('myspace', ['Account', 'Security'], ScreenAccountSecurity)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="speech" title="Speech & Voice" subtitle="Providers · Recipes · Voice Mode · Chat Speech — guided configuration for spoken AI">
+          <DCArtboard id="speech-providers" label="Speech & Voice · Providers · STT / TTS / Realtime · cards + filters" width={W} height={H}>
+            {mkShell('settings', ['Settings', 'AI', 'Speech & Voice', 'Providers'], ScreenSpeechProviders)}
+          </DCArtboard>
+          <DCArtboard id="speech-recipes" label="Speech & Voice · Recipes · chained vs realtime · visual flow" width={W} height={H}>
+            {mkShell('settings', ['Settings', 'AI', 'Speech & Voice', 'Recipes'], ScreenSpeechRecipes)}
+          </DCArtboard>
+          <DCArtboard id="speech-voicemode" label="Speech & Voice · Voice Mode · live spoken conversations" width={W} height={H}>
+            {mkShell('settings', ['Settings', 'AI', 'Speech & Voice', 'Voice Mode'], ScreenSpeechVoiceMode)}
+          </DCArtboard>
+          <DCArtboard id="speech-chatspeech" label="Speech & Voice · Chat Speech · spoken playback for written replies" width={W} height={H}>
+            {mkShell('settings', ['Settings', 'AI', 'Speech & Voice', 'Chat Speech'], ScreenSpeechChatSpeech)}
           </DCArtboard>
         </DCSection>
 

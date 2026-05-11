@@ -78,6 +78,14 @@ const EXTRA_ICONS = {
   moon:       '<path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/>',
   signout:    '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
   creditcard: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/>',
+  mic:        '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3M9 21h6"/>',
+  micoff:     '<path d="M9 9v2a3 3 0 0 0 5 2"/><path d="M15 9V6a3 3 0 0 0-6 0v1"/><path d="M5 11a7 7 0 0 0 11.5 5.4"/><path d="M19 11a7 7 0 0 1-1.4 4.2"/><path d="M12 18v3M9 21h6"/><path d="M3 3l18 18"/>',
+  speaker:    '<path d="M3 9v6h4l5 4V5L7 9z"/><path d="M16 8a5 5 0 0 1 0 8M19 5a9 9 0 0 1 0 14"/>',
+  speakeroff: '<path d="M3 9v6h4l5 4V5L7 9z"/><path d="M16 9l5 6M21 9l-5 6"/>',
+  waveform:   '<path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 11v2M22 12h-2"/>',
+  radio:      '<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/>',
+  headphones: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><rect x="3" y="14" width="4" height="7" rx="1"/><rect x="17" y="14" width="4" height="7" rx="1"/>',
+  flow:       '<rect x="3" y="4" width="6" height="6" rx="1"/><rect x="15" y="4" width="6" height="6" rx="1"/><rect x="3" y="14" width="6" height="6" rx="1"/><rect x="15" y="14" width="6" height="6" rx="1"/><path d="M9 7h6M9 17h6M6 10v4M18 10v4"/>',
 };
 
 // Merge into ICONS map at boot time

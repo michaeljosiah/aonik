@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Payabo · AI finance for the diaspora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: "Open Sans", system-ui, sans-serif; background: #0b0a09; }
+  body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #stage {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(circle at 25% 20%, rgba(243,121,32,0.12) 0%, transparent 45%),
+      radial-gradient(circle at 75% 85%, rgba(215,161,78,0.10) 0%, transparent 45%),
+      linear-gradient(180deg, #0F0D0E 0%, #1A1411 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* Animations used across screens */
+  @keyframes payFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes payRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes paySlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes payPulse {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.15); opacity: 0.35; }
+  }
+  @keyframes payFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @keyframes payTyping {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+  }
+  @keyframes payOrbBreath {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  @keyframes paySpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes payShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  /* Hide scrollbars on inner panes */
+  ::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="root"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="android-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="components/payabo-core.jsx"></script>
+<script type="text/babel" src="components/screens-home.jsx"></script>
+<script type="text/babel" src="components/screens-pay.jsx"></script>
+<script type="text/babel" src="components/screens-plan.jsx"></script>
+<script type="text/babel" src="components/quick-actions.jsx"></script>
+<script type="text/babel" src="components/screens-chat.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "heroMode": "warm",
+  "heroLayout": "classic",
+  "simiPresence": "hidden",
+  "density": "regular",
+  "dataMode": "fresh"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  // App routing state
+  const [route, setRoute] = React.useState('onboarding'); // onboarding | home | plan | spending | chat
+  const [overlay, setOverlay] = React.useState(null);     // 'voice' | 'txn' | 'send' | 'notif' | 'quick' | null
+  const [transitionKey, setTransitionKey] = React.useState(0);
+
+  function go(r) {
+    setRoute(r);
+    setOverlay(null);
+    setTransitionKey(k => k + 1);
+  }
+
+  const tweaks = t;
+
+  let screen;
+  if (route === 'onboarding') {
+    screen = <OnboardingScreen onDone={() => go('home')} />;
+  } else if (route === 'home') {
+    screen = <HomeScreen tweaks={tweaks} onTxn={() => setOverlay('txn')} onSimi={() => go('chat')} onBell={() => setOverlay('notif')} onPay={() => go('pay')} />;
+  } else if (route === 'pay') {
+    screen = <PayScreen tweaks={tweaks} onSend={() => setOverlay('send')} onBill={() => go('spending')} onSimi={() => go('chat')} />;
+  } else if (route === 'plan') {
+    screen = <PlanScreen tweaks={tweaks} onSimi={() => go('chat')} onTxn={() => setOverlay('txn')} />;
+  } else if (route === 'spending') {
+    screen = <SpendingScreen tweaks={tweaks} onTxn={() => setOverlay('txn')} />;
+  } else if (route === 'chat') {
+    screen = <ChatScreen tweaks={tweaks} onVoice={() => setOverlay('voice')} onBack={() => go('home')} />;
+  }
+
+  const showNav = route !== 'onboarding' && route !== 'chat';
+  const showSimiBadge = showNav && tweaks.simiPresence !== 'hidden' && route !== 'chat';
+
+  return (
+    <>
+      <AndroidDevice width={412} height={892} dark={route === 'onboarding' || route === 'chat'}>
+        <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div key={transitionKey} style={{ flex: 1, position: 'relative', overflow: 'hidden', animation: 'payFade 240ms ease-out' }}>
+            {screen}
+            {showSimiBadge && tweaks.simiPresence === 'hero' && <SimiBadge onClick={() => go('chat')} presence="hero"/>}
+            {showSimiBadge && tweaks.simiPresence === 'copilot' && <SimiBadge onClick={() => go('chat')} presence="copilot"/>}
+          </div>
+
+          {showNav && (
+            <PayBottomNav current={route} onChange={go}
+              onFabClick={() => setOverlay('quick')}/>
+          )}
+
+          {overlay === 'quick' && (
+            <QuickActionsSheet
+              onClose={() => setOverlay(null)}
+              onBill={() => { setOverlay(null); go('spending'); }}
+              onTransfer={() => setOverlay('send')}
+            />
+          )}
+
+          {overlay === 'send' && <SendFlow onClose={() => setOverlay(null)} onDone={() => { setOverlay('txn'); }} />}
+          {overlay === 'voice' && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 60, animation: 'payFade 200ms ease-out' }}>
+              <VoiceScreen onBack={() => setOverlay(null)} />
+            </div>
+          )}
+          {overlay === 'txn' && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 55, background: 'white', animation: 'paySlideUp 280ms cubic-bezier(.2,.8,.2,1)' }}>
+              <TxnDetailScreen onBack={() => setOverlay(null)} />
+            </div>
+          )}
+          {overlay === 'notif' && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 55, background: 'white', animation: 'paySlideUp 280ms cubic-bezier(.2,.8,.2,1)' }}>
+              <NotificationsScreen onBack={() => setOverlay(null)} />
+            </div>
+          )}
+        </div>
+      </AndroidDevice>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Hero treatment"/>
+        <TweakRadio label="Background" value={tweaks.heroMode}
+          options={['dark', 'warm']} onChange={v => setTweak('heroMode', v)}/>
+        <TweakSelect label="Layout" value={tweaks.heroLayout}
+          options={['classic', 'expressive', 'split']}
+          onChange={v => setTweak('heroLayout', v)}/>
+
+        <TweakSection label="Simi presence"/>
+        <TweakSelect label="How prominent" value={tweaks.simiPresence}
+          options={['hidden', 'copilot', 'hero']}
+          onChange={v => setTweak('simiPresence', v)}/>
+
+        <TweakSection label="Density"/>
+        <TweakRadio label="Cards" value={tweaks.density}
+          options={['compact', 'regular']} onChange={v => setTweak('density', v)}/>
+
+        <TweakSection label="Data state"/>
+        <TweakRadio label="Demo data" value={tweaks.dataMode}
+          options={['populated', 'fresh']} onChange={v => setTweak('dataMode', v)}/>
+
+        <TweakSection label="Navigate"/>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+          {['onboarding','home','plan','pay','spending','chat'].map(r => (
+            <TweakButton key={r} onClick={() => go(r)} active={route === r}>{r}</TweakButton>
+          ))}
+        </div>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
