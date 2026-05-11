@@ -49,6 +49,11 @@ class VoxaVoiceSession {
   bool _playerInitialised = false;
   bool _running = false;
 
+  /// True between [SpeakingEvent](who:bot, started:true) and (who:bot, started:false).
+  /// While this is true we drop incoming mic frames instead of forwarding them to the
+  /// server — see [start] for the rationale.
+  bool _botSpeaking = false;
+
   final StreamController<VoxaVoiceEvent> _eventsController =
       StreamController<VoxaVoiceEvent>.broadcast();
   final StreamController<VoxaConnectionState> _stateController =
@@ -117,7 +122,22 @@ class VoxaVoiceSession {
         ));
       },
     );
-    _eventsSubscription = client.events.listen(_eventsController.add);
+    _eventsSubscription = client.events.listen((VoxaVoiceEvent event) {
+      // Track who's speaking so the mic listener below can drop frames while
+      // the bot is talking. Android's hardware echo cancellation isn't strong
+      // enough to suppress the phone speaker bleeding into the mic — if we
+      // forward those frames, Whisper transcribes the bot's own voice as a
+      // new user turn and the agent loops on its own reply.
+      //
+      // Trade-off: this disables barge-in (the user can't interrupt the bot
+      // mid-sentence). For v1 of voice mode this is the right call; barge-in
+      // can come back once we have a proper mic-side echo canceller or move
+      // to a duplex realtime model that handles this server-side.
+      if (event is SpeakingEvent && event.who == 'bot') {
+        _botSpeaking = event.started;
+      }
+      _eventsController.add(event);
+    });
     _stateSubscription = client.stateChanges.listen(_stateController.add);
 
     try {
@@ -156,6 +176,11 @@ class VoxaVoiceSession {
 
     _micSubscription = micStream.listen(
       (Uint8List pcm) {
+        if (_botSpeaking) {
+          // Drop frames while the bot is talking — see _eventsSubscription
+          // closure above for the rationale.
+          return;
+        }
         _activeClient?.sendPcm(pcm);
       },
       onError: (Object err, StackTrace _) {
@@ -173,6 +198,7 @@ class VoxaVoiceSession {
   /// the recorder, and uninits the player. Safe to call repeatedly.
   Future<void> stop() async {
     _running = false;
+    _botSpeaking = false;
 
     await _micSubscription?.cancel();
     _micSubscription = null;

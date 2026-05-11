@@ -72,14 +72,22 @@ export function LiveVoiceTestCard({
 
   const wsRef = useRef<WebSocket | null>(null);
   const transcriptIdRef = useRef(0);
+  // Mirror of whoIsSpeaking for the recorder's onChunk closure — useState's value would
+  // be stale inside the long-lived callback. Updated below via useEffect.
+  const whoIsSpeakingRef = useRef<"user" | "bot" | null>(null);
 
   const player = usePcmStreamPlayer({ sampleRate: PLAYER_SAMPLE_RATE });
 
-  // Push every PCM chunk straight onto the WS. The recorder also internally buffers (so
-  // stopAndCollect would still work), but we don't use that — streaming is fire-and-forget.
+  // Push every PCM chunk straight onto the WS — UNLESS the bot is currently speaking.
+  // Browser AEC isn't strong enough on built-in laptop / phone mics to suppress the
+  // speakers; without this gate, Whisper transcribes the bot's reply back to us as a
+  // new user utterance and the agent loops on its own response. Trade-off: no barge-in
+  // (user can't interrupt the bot mid-sentence). That's the right call for v1; barge-in
+  // can come back once we have proper mic-side echo cancellation.
   const recorder = usePcmRecorder({
     sampleRate: RECORDER_SAMPLE_RATE,
     onChunk: (pcm) => {
+      if (whoIsSpeakingRef.current === "bot") return;
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         // Send the underlying ArrayBuffer (Int16Array view's .buffer). Cast satisfies the
@@ -352,6 +360,12 @@ export function LiveVoiceTestCard({
     await cleanupConnection();
     setStatus("idle");
   }, [cleanupConnection]);
+
+  // Keep the recorder's onChunk closure able to read the latest whoIsSpeaking without
+  // re-creating the recorder (which would tear the mic stream down on every change).
+  useEffect(() => {
+    whoIsSpeakingRef.current = whoIsSpeaking;
+  }, [whoIsSpeaking]);
 
   // Tear down on unmount so a tab switch mid-conversation doesn't leak the mic + WS.
   useEffect(() => {
