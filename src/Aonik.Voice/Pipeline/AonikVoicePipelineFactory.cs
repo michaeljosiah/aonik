@@ -9,7 +9,6 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Voxa.Audio.SileroVad;
 using Voxa.Pipelines;
 using Voxa.Speech;
 using Voxa.Speech.Azure;
@@ -156,41 +155,49 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             userId: request.UserId,
             logger: _loggerFactory.CreateLogger("Aonik.Voice.AonikVoiceAgent"));
 
-        // Pipeline order matches the spec:
-        //   WebSocketAudioSource → SileroVadProcessor → STT → AonikVoiceAgent
-        //   → [SentenceAggregator?] → SpeechTextNormalizerProcessor → TextToSpeechProcessor
-        //   → WebSocketAudioSink
+        // Pipeline shape mirrors Voxa's reference sample at /voice/openai-batch —
+        // proven working end-to-end against this same Whisper + TTS stack:
         //
-        // VAD is REQUIRED, not optional, for the chained-OpenAI recipe — contrary to an
-        // earlier comment that claimed "Whisper handles segmentation server-side". It
-        // doesn't. Voxa's `OpenAIWhisperEngine` is a batch engine that buffers PCM and
-        // only force-flushes when it sees a `UserStoppedSpeakingFrame`. Without VAD
-        // emitting that frame the engine waits the full `SttBufferSeconds` (30 s default)
-        // before posting to /v1/audio/transcriptions, which on Azure Container Apps
-        // means the WS idle-times out before the user ever hears a response. The
-        // SileroVadProcessor below emits `UserStartedSpeakingFrame` /
-        // `UserStoppedSpeakingFrame` from the Silero v5 ONNX model, giving turn latency
-        // close to natural conversation pace.
+        //   WebSocketAudioSource → AudioArrivalLogger → SilenceGateProcessor (VAD)
+        //   → STT → TranscriptionFilter → AonikVoiceAgent → [SentenceAggregator?]
+        //   → SpeechTextNormalizerProcessor → TextToSpeechProcessor → WebSocketAudioSink
         //
-        // ConfidenceThreshold tuned to 0.3 because browser/mobile mic audio with AGC
-        // compresses dynamic range and Silero's probabilities can hover below 0.5 even
-        // for clean speech — Pipecat's documented value for AGC'd browser mics.
-        // StopDuration left at the 800 ms default; raise per-tenant later if users
-        // pause mid-sentence to think.
+        // Why SilenceGate not SileroVad: SileroVad needs the ONNX runtime to load a
+        // shipped model on first call. In the Azure Container App that init step has
+        // failed silently (no surface to client; WS just hangs then 1006s out).
+        // SilenceGate is pure RMS math — zero native deps, can't fail to initialise.
+        // The Voxa sample defaults to SilenceGate for the same reason. We can revisit
+        // Silero once we have observability into the ONNX init path.
         //
-        // The sentence aggregator is gated by the recipe's UseSentenceAggregator knob —
-        // disabling it lets tokens flow through unbuffered (useful for snappier
-        // echoback agents).
-        var vad = new SileroVadProcessor(new SileroVadOptions
-        {
-            SampleRate = 16000,
-            ConfidenceThreshold = 0.3f,
-        });
+        // Why TranscriptionFilter: Whisper hallucinates "Thank you.", "you", "." etc.
+        // from breath and room noise. Without the filter the agent re-runs on every
+        // hallucination, racking up API spend AND adding latency to genuine turns.
+        //
+        // Why AudioArrivalLogger: same diag the sample uses. Prints frames/bytes/peak-RMS
+        // per second so we can see audio is actually flowing through the WS at the
+        // expected sample rate. Inserted right after the source so it instruments the
+        // raw inbound, not the gate-filtered stream.
+        //
+        // VAD is REQUIRED — Voxa's OpenAIWhisperEngine only flushes on
+        // UserStoppedSpeakingFrame. The earlier comment claiming "Whisper handles
+        // segmentation server-side" was wrong; see SpeechToTextProcessor.cs:66-73.
+        //
+        // The sentence aggregator stays gated by the recipe's UseSentenceAggregator
+        // knob — disabling it lets tokens flow unbuffered (snappier echoback agents).
+        var audioArrivalLogger = new AudioArrivalLogger(
+            _loggerFactory.CreateLogger("Aonik.Voice.AudioArrival"));
+
+        var vad = new SilenceGateProcessor(
+            hangover: TimeSpan.FromMilliseconds(800));
+
+        var transcriptionFilter = new TranscriptionFilter();
 
         var builder = Voxa.Pipelines.Pipeline.Build()
             .Source(source)
+            .Then(audioArrivalLogger)
             .Then(vad)
             .Then(stt)
+            .Then(transcriptionFilter)
             .Then(agent);
 
         if (recipe.UseSentenceAggregator)
