@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, createElement, useCallback } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { isElectron } from '@/lib/electron';
 
-const Router = typeof window !== 'undefined' && (window as any).electronAPI ? HashRouter : BrowserRouter;
+// Use HashRouter under Electron: the renderer is loaded via file://, so
+// BrowserRouter's pathname matching never lines up with the app routes.
+const Router = isElectron ? HashRouter : BrowserRouter;
 import { Toaster } from 'sonner';
 import { AiChatPanel, LoadingScreen } from '@/components/layout';
 import { AonikSidebar } from '@/components/layout/aonik/AonikSidebar';

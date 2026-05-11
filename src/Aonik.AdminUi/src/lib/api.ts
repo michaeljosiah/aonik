@@ -1,7 +1,7 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { apiConfig } from '@/auth';
 import { clearSelectedTenant, getSelectedTenant } from '@/lib/tenantContext';
-import { isElectron, electronAPI } from '@/lib/electron';
+import { getApiBaseUrlOnce } from '@/lib/electron';
 
 // Create axios instance with base configuration
 const apiClient: AxiosInstance = axios.create({
@@ -14,20 +14,11 @@ const apiClient: AxiosInstance = axios.create({
 
 // In Electron production builds the renderer is served from file://, so the
 // relative /api base URL won't resolve. The main process exposes the real
-// backend URL over IPC, but the call is async — without gating outgoing
-// requests on it we'd race: the first request fires with baseURL `/api`,
-// resolves to `file:///api/...`, and either errors or hangs.
-//
-// Resolve once, cache, and have every request await the resolution.
-const electronBaseUrlReady: Promise<void> | null =
-  isElectron && electronAPI
-    ? electronAPI
-        .getApiBaseUrl()
-        .then((url: string) => {
-          if (url) apiClient.defaults.baseURL = url;
-        })
-        .catch(() => undefined)
-    : null;
+// backend URL over IPC; without awaiting it, the first request fires with
+// baseURL `/api` and resolves to `file:///api/...`. Resolve once and apply.
+const electronBaseUrlReady = getApiBaseUrlOnce().then((url) => {
+  if (url) apiClient.defaults.baseURL = url;
+});
 
 // Token getter function - will be set by AuthProvider
 let getAccessTokenFn: (() => Promise<string | null>) | null = null;
@@ -40,11 +31,9 @@ export function setAccessTokenGetter(getter: () => Promise<string | null>) {
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Block the request until the Electron-provided baseURL has been applied.
-    // Resolves immediately after the first call (the promise is reused).
-    if (electronBaseUrlReady) {
-      await electronBaseUrlReady;
-    }
+    // Block the request until the Electron-provided baseURL has been applied
+    // (no-op in the browser — the promise resolves with `null` synchronously).
+    await electronBaseUrlReady;
 
     // Attach tenant context header for tenant-scoped routes.
     // (/host/* and /bootstrap/* bypass tenant middleware; avoid sending there to reduce confusion.)
