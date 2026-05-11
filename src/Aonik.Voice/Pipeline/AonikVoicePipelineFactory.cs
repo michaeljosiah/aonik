@@ -328,9 +328,10 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         var voiceId = recipe.TtsVoiceId;
         var modelId = recipe.TtsModelId ?? mistral.DefaultModelId;
         var httpClient = _httpClientFactory.CreateClient("Aonik.Voice.Mistral");
+        var logger = _loggerFactory.CreateLogger("Aonik.Voice.MistralEngine");
 
         return new TextToSpeechProcessor(
-            engineFactory: () => new AonikMistralVoiceEngine(apiKey, voiceId, modelId, httpClient),
+            engineFactory: () => new AonikMistralVoiceEngine(apiKey, voiceId, modelId, httpClient, logger),
             outputSampleRate: 24000);
     }
 
