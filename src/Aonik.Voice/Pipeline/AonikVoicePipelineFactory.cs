@@ -666,11 +666,15 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         var apiKey = ResolveApiKey(credentialResolver, "Mistral", recipe.TtsProviderDisplayName);
         var voiceId = recipe.TtsVoiceId;
         var modelId = recipe.TtsModelId ?? mistral.DefaultModelId;
+        // Vendor-level response_format default. Recipes don't override yet (no per-recipe
+        // knob); admins toggle this on the provider row in Settings → Speech Providers.
+        var responseFormat = mistral.DefaultResponseFormat;
         var httpClient = _httpClientFactory.CreateClient("Aonik.Voice.Mistral");
         var logger = _loggerFactory.CreateLogger("Aonik.Voice.MistralEngine");
 
         return new TextToSpeechProcessor(
-            engineFactory: () => new AonikMistralVoiceEngine(apiKey, voiceId, modelId, httpClient, logger),
+            engineFactory: () => new AonikMistralVoiceEngine(
+                apiKey, voiceId, modelId, responseFormat, httpClient, logger),
             outputSampleRate: 24000);
     }
 

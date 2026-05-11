@@ -200,7 +200,39 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "mistral-tts",
                 Fields: new[]
                 {
-                    Field("defaultModelId", "Default model", "text", required: false, defaultValue: "voxtral-mini-tts-2603"),
+                    // Mistral publishes a single Voxtral TTS model id today; the legacy
+                    // "voxtral-tts" placeholder is rewritten by AonikMistralVoiceEngine
+                    // so existing rows keep working. Dropdown stays a `select` so a new
+                    // option can ship without re-editing the field's widget.
+                    Field("defaultModelId", "Default model", "select", required: false,
+                        defaultValue: "voxtral-mini-tts-2603",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption(
+                                "voxtral-mini-tts-2603",
+                                "voxtral-mini-tts-2603",
+                                "Low-latency Voxtral mini (only published TTS model id)."),
+                        },
+                        description: "Recipes can override per-call."),
+                    // Mistral's `/v1/audio/speech` returns Server-Sent Events whose
+                    // `audio_data` payloads carry whichever container the request asked
+                    // for. AonikMistralVoiceEngine supports WAV and raw PCM; everything
+                    // else needs a decoder we don't ship yet. WAV is the default because
+                    // its 44-byte header auto-validates sample rate / bit depth.
+                    Field("defaultResponseFormat", "Audio format", "select", required: false,
+                        defaultValue: "wav",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption(
+                                "wav",
+                                "WAV (default)",
+                                "PCM + 44-byte header. Validates 24 kHz / 16-bit / mono on the wire."),
+                            new SpeechVendorFormOption(
+                                "pcm",
+                                "Raw PCM",
+                                "Marginally lower latency. Trusts 24 kHz / 16-bit / mono; a vendor-side rate change would distort playback."),
+                        },
+                        description: "WAV is safest; pick PCM only if you've benchmarked the latency win and pinned the vendor rate."),
                 }),
         });
 

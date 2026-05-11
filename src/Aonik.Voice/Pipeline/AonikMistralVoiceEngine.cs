@@ -76,6 +76,7 @@ internal sealed class AonikMistralVoiceEngine : ITextToSpeechEngine
     private readonly string _apiKey;
     private readonly string _voiceId;
     private readonly string _modelId;
+    private readonly string _responseFormat;
     private readonly HttpClient _http;
     private readonly bool _ownsHttpClient;
     private readonly ILogger _logger;
@@ -84,6 +85,7 @@ internal sealed class AonikMistralVoiceEngine : ITextToSpeechEngine
         string apiKey,
         string voiceId,
         string? modelId,
+        string? responseFormat = null,
         HttpClient? httpClient = null,
         ILogger? logger = null)
     {
@@ -100,13 +102,31 @@ internal sealed class AonikMistralVoiceEngine : ITextToSpeechEngine
         _voiceId = voiceId;
         // Mirror PreviewEngineFactory/AonikVoicePipelineFactory's rewrite of the legacy
         // placeholder model id so stale recipes keep working without manual edits.
-        var raw = string.IsNullOrWhiteSpace(modelId) ? DefaultModel : modelId!;
-        _modelId = raw.Trim().Equals("voxtral-tts", StringComparison.OrdinalIgnoreCase)
+        var rawModel = string.IsNullOrWhiteSpace(modelId) ? DefaultModel : modelId!;
+        _modelId = rawModel.Trim().Equals("voxtral-tts", StringComparison.OrdinalIgnoreCase)
             ? DefaultModel
-            : raw;
+            : rawModel;
+        // wav (default) gives us a header to validate sample rate / bit depth; pcm
+        // trusts 24 kHz / 16-bit / mono. Anything else throws because the downstream
+        // sink decodes raw PCM only — we don't ship MP3/Opus decoders.
+        _responseFormat = NormaliseResponseFormat(responseFormat);
         _http = httpClient ?? new HttpClient();
         _ownsHttpClient = httpClient is null;
         _logger = logger ?? NullLogger.Instance;
+    }
+
+    private static string NormaliseResponseFormat(string? raw)
+    {
+        var trimmed = (raw ?? string.Empty).Trim().ToLowerInvariant();
+        return trimmed switch
+        {
+            "" or "wav" => "wav",
+            "pcm" => "pcm",
+            _ => throw new ArgumentException(
+                $"Mistral response_format '{raw}' is not supported. "
+                + "Use 'wav' (default) or 'pcm'.",
+                nameof(raw)),
+        };
     }
 
     public Task StartAsync(CancellationToken ct) => Task.CompletedTask;
@@ -123,9 +143,7 @@ internal sealed class AonikMistralVoiceEngine : ITextToSpeechEngine
                 Model: _modelId,
                 Input: text,
                 VoiceId: _voiceId,
-                // WAV gives us a 44-byte header with the actual sample rate / bit
-                // depth / channels — see class-level docs for the rationale.
-                ResponseFormat: "wav",
+                ResponseFormat: _responseFormat,
                 Stream: true), options: SerializerOptions),
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
@@ -136,7 +154,10 @@ internal sealed class AonikMistralVoiceEngine : ITextToSpeechEngine
         resp.EnsureSuccessStatusCode();
 
         var carryover = new List<byte>(ChunkSize);
-        var headerParsed = false;
+        // Skip header-parsing in the PCM branch — Mistral emits raw 24 kHz 16-bit
+        // mono samples directly, no RIFF/WAVE wrapper. WAV (default) still parses
+        // the 44-byte header off the first SSE event.
+        var headerParsed = _responseFormat == "pcm";
 
         await using var network = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new StreamReader(network);

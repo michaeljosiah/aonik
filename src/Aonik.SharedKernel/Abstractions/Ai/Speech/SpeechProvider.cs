@@ -109,8 +109,27 @@ public sealed record ElevenLabsTtsConfig(
     double? DefaultSimilarityBoost,
     int? DefaultOptimizeStreamingLatency) : SpeechProviderConfig;
 
-/// <summary>Mistral Voxtral TTS — used by <c>Voxa.Speech.Mistral.MistralTextToSpeechEngine</c>.</summary>
-public sealed record MistralTtsConfig(string? DefaultModelId) : SpeechProviderConfig;
+/// <summary>
+/// Mistral Voxtral TTS. Used by <see cref="Aonik.Voice.Pipeline.AonikMistralVoiceEngine"/>
+/// which posts to <c>/v1/audio/speech</c>. Recipes pin <c>voice_id</c> + override
+/// <c>DefaultModelId</c>; the response format defaults here so admins can pick the
+/// latency-vs-safety trade-off once per vendor row.
+/// </summary>
+/// <param name="DefaultModelId">
+/// Voxtral model id. Today the only published id is <c>voxtral-mini-tts-2603</c>;
+/// the legacy placeholder <c>voxtral-tts</c> is rewritten transparently for recipes
+/// authored before the rename.
+/// </param>
+/// <param name="DefaultResponseFormat">
+/// Mistral audio format. Supported values: <c>wav</c> (default — PCM + 44-byte header
+/// that auto-validates sample rate / bit depth / channels) and <c>pcm</c> (raw 24 kHz
+/// 16-bit mono, marginally lower latency but no header so a vendor-side rate change
+/// would silently distort playback). MP3/FLAC/OPUS aren't wired through the engine
+/// yet — Voxa's downstream sink expects raw PCM at a known rate.
+/// </param>
+public sealed record MistralTtsConfig(
+    string? DefaultModelId,
+    string? DefaultResponseFormat = null) : SpeechProviderConfig;
 
 // ── Composite configs ───────────────────────────────────────────────────────────────────────
 
