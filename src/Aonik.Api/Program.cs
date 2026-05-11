@@ -96,7 +96,18 @@ app.UseAonikCors();
 
 // Enable WebSocket upgrades for the voice endpoint at /ai/voice.
 // See docs/specifications/022.aonik-voice-realtime.md Phase 1.
-app.UseWebSockets();
+//
+// KeepAliveInterval — Kestrel sends a ping frame every 30 s while the WebSocket
+// is open. The default is 2 minutes, but Azure Container Apps' ingress idles
+// inactive WebSockets around the same threshold (and our voice sessions
+// regularly have multi-second quiet windows between turns while the LLM is
+// thinking + TTS hasn't started). Without the explicit interval we saw code
+// 1006 (abnormal closure, no close frame) right after the bot finished its
+// first reply. 30 s matches the Voxa sample server's setting verbatim.
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(30),
+});
 
 app.UseAonikDevelopmentStaticFiles(app.Environment, builder.Configuration);
 
