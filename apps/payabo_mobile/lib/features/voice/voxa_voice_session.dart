@@ -67,10 +67,15 @@ class VoxaVoiceSession {
   // playback that the event gate misses.
   static const Duration _audioTailGuard = Duration(milliseconds: 1200);
 
-  // Cloud TTS bursts faster than realtime; an undersized ring buffer drops
-  // samples and speeds the voice up. 3 s of total ring capacity is enough
-  // headroom for cellular jitter.
-  static const int _playerBufferMilliSec = 3000;
+  // `mp_audio_stream.push()` silently drops samples when the ring buffer is
+  // full (see package doc: "When buffer is full, the input is ignored"). The
+  // chained TTS path bursts an entire sentence's audio (often 5–10 s) into
+  // the buffer in well under realtime, so a 3 s buffer was the cause of the
+  // "missing the last word or two from each sentence" symptom: the tail of
+  // every long sentence overflowed and got dropped at push time. 15 s of ring
+  // capacity is more than any realistic sentence; phones can spare the RAM
+  // (15 s × 24 kHz × 4 bytes ≈ 1.4 MB).
+  static const int _playerBufferMilliSec = 15000;
 
   // How much accumulated PCM mp_audio_stream waits for before resuming
   // playback after the buffer drains. The chained TTS path emits sentence-
