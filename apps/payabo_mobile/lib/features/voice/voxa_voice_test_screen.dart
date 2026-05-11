@@ -8,14 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'voxa_voice_client.dart';
 import 'voxa_voice_session.dart';
 
-/// Smoke-test screen for the new WSS voice mode pipeline (spec 024 Phase H follow-up).
+/// Smoke-test screen for the WSS voice mode pipeline (spec 024 Phase H).
 ///
 /// Wires a [VoxaVoiceSession] to the simplest possible UI — Start / Stop button,
-/// connection state, a transcript trail, and an inline error chip. Intended as a
-/// pre-production smoke test, NOT a replacement for `chat_voice_service.dart`'s
-/// production voice mode. Swapping the chat screen behind
-/// [voxaVoiceModeEnabledProvider] is a separate piece of work that needs careful
-/// coordination with the chat UI team.
+/// connection state, a transcript trail, and an inline error chip. Kept as a
+/// debug surface independent of the main chat screen so the realtime pipeline
+/// can be exercised in isolation.
 class VoxaVoiceTestScreen extends ConsumerStatefulWidget {
   const VoxaVoiceTestScreen({super.key, this.agentId = 'personal-finance-agent'});
 

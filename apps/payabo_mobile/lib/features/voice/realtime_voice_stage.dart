@@ -17,7 +17,7 @@ import 'realtime_voice_controller.dart';
 /// when the bot is talking and settles to a gentle breath when it's the
 /// user's turn or no one is speaking.
 ///
-/// Architecture compared to the legacy `_RealtimeVoiceStage`:
+/// Architecture:
 ///  * **One forward-only `AnimationController`** drives a single phase value
 ///    (0→1 over 1.8 s, then loops). Multiple rings sample that phase with
 ///    offsets so we get a continuous "ping" rhythm from a single ticker.
@@ -27,9 +27,7 @@ import 'realtime_voice_controller.dart';
 ///
 /// The widget is purely a renderer — it reads
 /// [realtimeVoiceControllerProvider] and forwards taps to [onOrbTap]. The
-/// chat screen owns the start/stop policy so a single voice toggle works
-/// for both the realtime and legacy paths while the
-/// [voxaVoiceModeEnabledProvider] flag is in place.
+/// chat screen owns the start/stop policy.
 class RealtimeVoiceStage extends ConsumerStatefulWidget {
   const RealtimeVoiceStage({
     super.key,
@@ -38,8 +36,8 @@ class RealtimeVoiceStage extends ConsumerStatefulWidget {
 
   /// Invoked when the user taps the orb. The chat screen interprets the
   /// tap based on the current phase (idle/error → start, connecting/live
-  /// → stop) so the legacy `_handleVoiceTap` busy-watchdog wrapping can
-  /// keep guarding against re-entrant taps.
+  /// → stop) and wraps the call in a busy-watchdog so re-entrant taps
+  /// can't diverge the state machine.
   final Future<void> Function() onOrbTap;
 
   @override

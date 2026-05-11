@@ -31,10 +31,6 @@ import '../../app/environment/environment_provider.dart';
 /// Auth: the access token is sent as `?access_token=<jwt>` because the browser/Flutter
 /// WebSocket APIs can't reliably set Authorization headers; the AONIK auth setup honours
 /// that fallback for this path. (Same pattern the admin UI's LiveVoiceTestCard uses.)
-///
-/// **Not yet wired into the chat screen.** Phase H follow-up swaps the per-screen
-/// usage of `chatVoiceServiceProvider` for this client when the
-/// [voxaVoiceModeEnabledProvider] flag is true.
 class VoxaVoiceClient {
   VoxaVoiceClient({
     required String apiBaseUrl,
@@ -468,15 +464,6 @@ class ToolCallEvent extends VoxaVoiceEvent {
 enum VoxaConnectionState { idle, connecting, connected, closed, error }
 
 // ── Riverpod wiring ────────────────────────────────────────────────────────────────
-
-/// Feature flag for the new voice-mode WebSocket pipeline. Defaults to `true`
-/// — the chat screen renders the slim 4-phase realtime stage and routes mic
-/// + bot audio through the Voxa WSS pipeline. Flip back to `false` here to
-/// fall back to the legacy SSE-based `chatVoiceServiceProvider` path while
-/// the new pipeline is being stabilised.
-final Provider<bool> voxaVoiceModeEnabledProvider = Provider<bool>((Ref ref) {
-  return true;
-});
 
 /// Per-screen [VoxaVoiceClient] factory. Each `ref.watch(voxaVoiceClientProvider)` call
 /// returns a fresh client — voice sessions are connection-scoped and reusing one client

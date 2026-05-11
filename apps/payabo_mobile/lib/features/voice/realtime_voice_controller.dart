@@ -16,12 +16,9 @@ import 'voxa_voice_session.dart';
 /// session's typed event stream into [ChatController] writes (user turn → bot
 /// turn), and exposes a slim 4-phase state machine the orb widget binds to.
 ///
-/// **Why a separate controller (and not a wrapper around `ChatVoiceService`):**
-/// the legacy turn-based service has a `startListening`/`stopListening`/`speak`
-/// interface that maps poorly onto duplex WSS audio. Forcing the duplex client
-/// into that shape loses the benefits (continuous mic, server VAD, barge-in,
-/// no thinking gap). Instead we keep the controllers parallel and gate the
-/// chat-screen orb on [voxaVoiceModeEnabledProvider].
+/// Owns one realtime session per voice-mode activation and exposes a slim
+/// 4-phase state machine that the chat-screen orb binds to. The duplex WSS
+/// audio path gets continuous mic, server VAD, barge-in, and no thinking gap.
 ///
 /// **Lifecycle:** one [start] per voice activation; [stop] tears down.
 /// Re-using the controller for a second activation works — the underlying

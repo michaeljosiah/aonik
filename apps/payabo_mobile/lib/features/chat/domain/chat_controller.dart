@@ -342,45 +342,6 @@ class ChatController extends StateNotifier<ChatState> {
   final ChatRepository _repository;
   StreamSubscription<ChatStreamEvent>? _subscription;
 
-  // ── Voice-mode forwarding ───────────────────────────────────────────
-  //
-  // Voice-mode runs surface inline TTS audio as ChatStreamSpeechAudio /
-  // ChatStreamSpeechAudioError. We do NOT route these through state —
-  // audio bytes are large, high-volume, and have no presentation effect,
-  // so ChatScreen registers direct forwarders before sending and we
-  // dispatch events from `_onEvent` without rebuilding any widgets.
-  //
-  // [setVoiceForwarders] is called from the chat screen when it spins up
-  // the voice queue; it's cleared when the queue is cancelled. Set both
-  // sides together — the controller treats `null` as "voice mode is not
-  // active for this run".
-  bool _nextRunVoiceMode = false;
-  void Function(ChatStreamSpeechAudio frame)? _onSpeechAudio;
-  void Function(ChatStreamSpeechAudioError err)? _onSpeechAudioError;
-
-  /// Register direct forwarders for inline voice-mode audio events.
-  /// Subsequent [sendMessage] calls will set `voiceMode=true` on the
-  /// AGUI request and dispatch [ChatStreamSpeechAudio] /
-  /// [ChatStreamSpeechAudioError] events to these handlers without
-  /// touching state.
-  void setVoiceForwarders({
-    required void Function(ChatStreamSpeechAudio frame) onAudio,
-    required void Function(ChatStreamSpeechAudioError err) onError,
-  }) {
-    _onSpeechAudio = onAudio;
-    _onSpeechAudioError = onError;
-    _nextRunVoiceMode = true;
-  }
-
-  /// Clear the voice-mode forwarders. Subsequent [sendMessage] calls
-  /// revert to the legacy non-voice path (no `voiceMode` flag, no inline
-  /// audio expected).
-  void clearVoiceForwarders() {
-    _onSpeechAudio = null;
-    _onSpeechAudioError = null;
-    _nextRunVoiceMode = false;
-  }
-
   /// Fire-and-forget voice-mode diagnostic event reporting. The controller
   /// owns the AG-UI thread/run correlation IDs, while the screen owns the
   /// native playback state that populates [details].
@@ -617,7 +578,7 @@ class ChatController extends StateNotifier<ChatState> {
       threadId: state.threadId,
       userMessage: trimmedReply,
       history: requestHistory,
-      voiceMode: _nextRunVoiceMode,
+      voiceMode: false,
     );
 
     _subscription = stream.listen(
@@ -675,7 +636,7 @@ class ChatController extends StateNotifier<ChatState> {
       threadId: state.threadId,
       userMessage: trimmed,
       history: requestHistory,
-      voiceMode: _nextRunVoiceMode,
+      voiceMode: false,
     );
 
     _subscription = stream.listen(
@@ -1014,12 +975,14 @@ class ChatController extends StateNotifier<ChatState> {
         );
 
       case ChatStreamSpeechAudio():
-        // Audio bytes bypass state — they're high-volume and have no
-        // presentation effect. Direct forward to the voice service.
-        _onSpeechAudio?.call(event);
+        // Audio bytes bypass state — the legacy SSE-based voice path has
+        // been removed in favour of the realtime WSS pipeline, so these
+        // frames are dropped on the floor here. Kept in the switch so the
+        // sealed-class exhaustiveness check still passes.
+        break;
 
       case ChatStreamSpeechAudioError():
-        _onSpeechAudioError?.call(event);
+        break;
 
       case ChatStreamError():
         state = state._clearStreaming().copyWith(
@@ -1237,7 +1200,6 @@ class ChatController extends StateNotifier<ChatState> {
   void newConversation() {
     _subscription?.cancel();
     _discardPendingText();
-    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -1254,7 +1216,6 @@ class ChatController extends StateNotifier<ChatState> {
   void loadConversation(ChatConversation conversation) {
     _subscription?.cancel();
     _discardPendingText();
-    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -1274,7 +1235,6 @@ class ChatController extends StateNotifier<ChatState> {
   Future<void> loadThread(String threadId) async {
     _subscription?.cancel();
     _discardPendingText();
-    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
@@ -1311,7 +1271,6 @@ class ChatController extends StateNotifier<ChatState> {
   void dispose() {
     _subscription?.cancel();
     _discardPendingText();
-    clearVoiceForwarders();
 
     // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
