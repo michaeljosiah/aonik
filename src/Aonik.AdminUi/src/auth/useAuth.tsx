@@ -5,6 +5,7 @@ import { InteractionStatus } from '@azure/msal-browser';
 import { msalLoginRequest, msalApiTokenRequest, auth0Config, type AuthProvider } from './authConfig';
 import { isElectron } from '@/lib/electron';
 import { clearSelectedTenant } from '@/lib/tenantContext';
+import { invalidateTenantBootstrap } from '@/hooks/useTenantBootstrap';
 
 // Unified user type
 export interface AuthUser {
@@ -269,6 +270,7 @@ function useAuth0Auth(): AuthContextType {
       // producing a confusing wall of 401s and a "session expired" loop
       // that's actually a tenant-mismatch.
       clearSelectedTenant();
+      invalidateTenantBootstrap();
 
       if (isElectron) {
         await auth0Logout({ openUrl: false });

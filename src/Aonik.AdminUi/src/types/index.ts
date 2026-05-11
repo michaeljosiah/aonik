@@ -1243,7 +1243,9 @@ export interface UpdateUserRolesRequest {
   roleIds: string[];
 }
 
-// Tenant list for login dropdown (public endpoint)
+// Tenant list for login dropdown (public endpoint).
+// @deprecated Public enumeration leaks the tenant directory. Use
+// MyTenantSummary + tenantService.listMyTenants() after authentication.
 export interface TenantListItemForLogin {
   tenantId: string;
   name: string;
@@ -1251,8 +1253,22 @@ export interface TenantListItemForLogin {
   environment: TenantEnvironment;
 }
 
+/** @deprecated See TenantListItemForLogin. */
 export interface TenantListForLoginResponse {
   tenants: TenantListItemForLogin[];
+}
+
+// Per-user tenant lookup (authenticated, /host/me/tenants). Carries the
+// minimum needed to render the post-auth org picker.
+export interface MyTenantSummary {
+  tenantId: string;
+  name: string;
+  subdomain?: string | null;
+  environment: TenantEnvironment;
+}
+
+export interface MyTenantsResponse {
+  tenants: MyTenantSummary[];
 }
 
 export interface TenantFeatureItemResponse {

@@ -1,8 +1,10 @@
 // 1:1 port of Templates/aonik-admin-starterkit/screens/login.jsx, adapted to
 // our redirect-based Auth0 flow:
 //   - email-only field (no password) — forwarded to the IdP as login_hint
-//   - tenant org rendered as an inline pill above the subtitle: clickable
-//     selector on apex domains, static text on tenant subdomains
+//   - no tenant picker here. Tenant resolution happens *after* auth via
+//     /host/me/tenants — the post-auth flow either auto-selects, uses a
+//     cached choice, or routes to /select-organization (see
+//     TenantResolutionGate + OrganizationPickerPage).
 //   - SSO buttons render in template style but currently call the generic
 //     login() (Auth0 picker). Per-connection wiring is a follow-up.
 //
@@ -11,14 +13,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowRight, Building2, Check, ChevronDown, Info, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, Info, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/auth';
-import { tenantService } from '@/services/tenantService';
-import type { TenantListItemForLogin } from '@/types';
-import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
-import { isTenantScopedHostname } from '@/lib/tenantRouting';
 import { LoadingScreen } from '@/components/layout';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -31,45 +28,6 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  const [tenants, setTenants] = useState<TenantListItemForLogin[]>([]);
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
-  const [isLoadingTenants, setIsLoadingTenants] = useState(false);
-  const [showTenantSelector, setShowTenantSelector] = useState(false);
-  const [tenantPickerOpen, setTenantPickerOpen] = useState(false);
-
-  useEffect(() => {
-    setShowTenantSelector(!isTenantScopedHostname(window.location.hostname));
-  }, []);
-
-  useEffect(() => {
-    if (!showTenantSelector) return;
-
-    const loadTenants = async () => {
-      setIsLoadingTenants(true);
-      try {
-        const response = await tenantService.listForLogin();
-        setTenants(response.tenants);
-
-        const previous = getSelectedTenant();
-        if (previous?.tenantId && response.tenants.some(t => t.tenantId === previous.tenantId)) {
-          setSelectedTenantId(previous.tenantId);
-          return;
-        }
-        if (response.tenants.length > 0) {
-          setSelectedTenantId(response.tenants[0].tenantId);
-        }
-      } catch (err) {
-        // Don't block sign-in if the public list endpoint fails — user can
-        // still proceed via Auth0 and we'll resolve their tenant post-redirect.
-        console.error('Failed to load tenants:', err);
-      } finally {
-        setIsLoadingTenants(false);
-      }
-    };
-
-    loadTenants();
-  }, [showTenantSelector]);
 
   useEffect(() => {
     if (authError) {
@@ -89,7 +47,9 @@ export function LoginPage() {
   useEffect(() => {
     if (!reason) return;
     if (reason === 'session-expired') setNotice('Your session expired. Please sign in again.');
-    if (reason === 'tenant-missing') setNotice('Select an organization to continue.');
+    if (reason === 'tenant-missing') {
+      setNotice('Your organization selection expired. Sign in again to continue.');
+    }
   }, [reason]);
 
   useEffect(() => {
@@ -101,40 +61,15 @@ export function LoginPage() {
     }
   }, [isAuthenticated, isLoading, navigate, from, reason]);
 
-  const selectedTenant = tenants.find(t => t.tenantId === selectedTenantId);
-
-  const persistTenantSelection = useCallback(() => {
-    if (!selectedTenantId) return;
-    setSelectedTenant({
-      tenantId: selectedTenantId,
-      name: selectedTenant?.name,
-      subdomain: selectedTenant?.subdomain,
-      environment: selectedTenant?.environment,
-    });
-  }, [selectedTenantId, selectedTenant?.name, selectedTenant?.subdomain, selectedTenant?.environment]);
-
   const initiateLogin = useCallback(
     async (loginHint?: string) => {
-      // Tenant discovery is async on apex domains. Don't redirect to the IdP
-      // until it resolves — otherwise the user comes back to
-      // /login?reason=tenant-missing after the round-trip.
-      if (showTenantSelector && isLoadingTenants) {
-        return;
-      }
-      if (showTenantSelector && !selectedTenantId && tenants.length > 0) {
-        setError('Please select an organization to continue.');
-        return;
-      }
-
       setError(null);
       setIsLoggingIn(true);
 
       try {
-        persistTenantSelection();
-
         if (isAuthenticated && reason === 'tenant-missing') {
-          // Already authenticated; just bounce back into the app with the
-          // freshly-selected tenant context.
+          // Already authenticated; just bounce back into the app and let
+          // TenantResolutionGate re-resolve the tenant.
           navigate(from, { replace: true });
           return;
         }
@@ -145,21 +80,10 @@ export function LoginPage() {
         setIsLoggingIn(false);
       }
     },
-    [
-      showTenantSelector,
-      isLoadingTenants,
-      selectedTenantId,
-      tenants.length,
-      persistTenantSelection,
-      isAuthenticated,
-      reason,
-      navigate,
-      from,
-      login,
-    ],
+    [isAuthenticated, reason, navigate, from, login],
   );
 
-  const ssoDisabled = isLoggingIn || (showTenantSelector && isLoadingTenants);
+  const ssoDisabled = isLoggingIn;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -243,16 +167,16 @@ export function LoginPage() {
               Welcome back
             </h2>
 
-            <TenantLine
-              showSelector={showTenantSelector}
-              tenants={tenants}
-              selectedTenantId={selectedTenantId}
-              onSelect={setSelectedTenantId}
-              isLoadingTenants={isLoadingTenants}
-              open={tenantPickerOpen}
-              onOpenChange={setTenantPickerOpen}
-              selectedTenant={selectedTenant ?? null}
-            />
+            <p
+              style={{
+                fontSize: 13.5,
+                color: 'var(--color-text-secondary)',
+                marginTop: 6,
+                lineHeight: 1.5,
+              }}
+            >
+              Continue to your Aonik workspace
+            </p>
           </header>
 
           <Banners error={error} notice={notice} />
@@ -330,7 +254,7 @@ export function LoginPage() {
 
           <button
             type="submit"
-            disabled={isLoggingIn || (showTenantSelector && isLoadingTenants)}
+            disabled={isLoggingIn}
             style={{
               width: '100%',
               height: 42,
@@ -345,7 +269,7 @@ export function LoginPage() {
               background: 'var(--color-brand-primary)',
               color: '#fff',
               cursor: isLoggingIn ? 'progress' : 'pointer',
-              opacity: isLoggingIn || (showTenantSelector && isLoadingTenants) ? 0.7 : 1,
+              opacity: isLoggingIn ? 0.7 : 1,
               transition: 'opacity 120ms ease, transform 80ms ease',
             }}
             onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)'; }}
@@ -625,156 +549,6 @@ function ProposalPreviewCard() {
 }
 
 // ─── Right-pane helpers ───────────────────────────────────────────────────
-
-interface TenantLineProps {
-  showSelector: boolean;
-  tenants: TenantListItemForLogin[];
-  selectedTenantId: string;
-  onSelect: (tenantId: string) => void;
-  isLoadingTenants: boolean;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  selectedTenant: TenantListItemForLogin | null;
-}
-
-function TenantLine({
-  showSelector,
-  tenants,
-  selectedTenantId,
-  onSelect,
-  isLoadingTenants,
-  open,
-  onOpenChange,
-  selectedTenant,
-}: TenantLineProps) {
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: 13.5,
-    color: 'var(--color-text-secondary)',
-    marginTop: 6,
-    lineHeight: 1.5,
-    display: 'flex',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-  };
-
-  // Tenant subdomain — render the selected tenant statically.
-  if (!showSelector) {
-    if (!selectedTenant) {
-      return (
-        <p style={{ ...subtitleStyle, color: 'var(--color-text-secondary)' }}>
-          Continue to your workspace
-        </p>
-      );
-    }
-    return (
-      <p style={subtitleStyle}>
-        <span>Continue to&nbsp;</span>
-        <b style={{ color: 'var(--color-text-primary)' }}>{selectedTenant.name}</b>
-        {selectedTenant.environment && (
-          <>
-            <span>&nbsp;·&nbsp;</span>
-            <span>{selectedTenant.environment}</span>
-          </>
-        )}
-      </p>
-    );
-  }
-
-  // Apex domain — pill is interactive.
-  if (isLoadingTenants && tenants.length === 0) {
-    return <p style={{ ...subtitleStyle, color: 'var(--color-text-tertiary)' }}>Loading organizations…</p>;
-  }
-
-  if (tenants.length === 0) {
-    return <p style={{ ...subtitleStyle, color: 'var(--color-text-tertiary)' }}>No organizations available</p>;
-  }
-
-  return (
-    <p style={subtitleStyle}>
-      <span>Continue to&nbsp;</span>
-      <Popover open={open} onOpenChange={onOpenChange}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '3px 10px',
-              borderRadius: 999,
-              border: '1px solid var(--color-border)',
-              background: 'var(--color-surface-inset)',
-              color: 'var(--color-text-primary)',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'background 120ms ease, border-color 120ms ease',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-brand-primary-20)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-          >
-            <Building2 size={12} />
-            {selectedTenant?.name ?? 'Select organization'}
-            <ChevronDown size={12} style={{ opacity: 0.6 }} />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-72 p-2">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {tenants.map((t) => {
-              const isSelected = t.tenantId === selectedTenantId;
-              return (
-                <button
-                  key={t.tenantId}
-                  type="button"
-                  onClick={() => {
-                    onSelect(t.tenantId);
-                    onOpenChange(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    padding: '8px 10px',
-                    borderRadius: 6,
-                    border: 'none',
-                    background: isSelected ? 'var(--color-brand-primary-10)' : 'transparent',
-                    color: 'var(--color-text-primary)',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) e.currentTarget.style.background = 'var(--color-surface-inset)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span>{t.name}</span>
-                    <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
-                      {t.environment}
-                    </span>
-                  </span>
-                  {isSelected && <Check size={14} color="var(--color-brand-primary)" />}
-                </button>
-              );
-            })}
-          </div>
-        </PopoverContent>
-      </Popover>
-      {selectedTenant?.environment && (
-        <>
-          <span>&nbsp;·&nbsp;</span>
-          <span>{selectedTenant.environment}</span>
-        </>
-      )}
-    </p>
-  );
-}
 
 const ssoButtonStyle: React.CSSProperties = {
   display: 'flex',

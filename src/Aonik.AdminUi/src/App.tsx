@@ -14,6 +14,7 @@ import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
   MySpacePage,
   LoginPage,
+  OrganizationPickerPage,
   SetupWizardPage,
   SetupJourneyPage,
   SetupGuidePage,
@@ -26,6 +27,7 @@ import { useModules } from '@/modules';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { TenantResolutionGate } from '@/components/TenantResolutionGate';
 import { setAccessTokenGetter } from '@/lib/api';
 import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
@@ -454,29 +456,39 @@ function AuthenticatedApp() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
-        <Route 
-          path="/setup/tenant" 
+        <Route
+          path="/select-organization"
+          element={
+            <ProtectedRoute>
+              <OrganizationPickerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/setup/tenant"
           element={
             <ProtectedRoute>
               <TenantSetupWizardPage onComplete={() => window.location.href = '/'} />
             </ProtectedRoute>
-          } 
+          }
         />
         {tenantNeedsSetup ? (
-          <Route 
-            path="/*" 
+          <Route
+            path="/*"
             element={
               <ProtectedRoute>
                 <TenantSetupWizardPage onComplete={() => window.location.href = '/'} />
               </ProtectedRoute>
-            } 
+            }
           />
         ) : (
           <Route
             path="/*"
             element={
               <ProtectedRoute>
-                <AppLayout />
+                <TenantResolutionGate>
+                  <AppLayout />
+                </TenantResolutionGate>
               </ProtectedRoute>
             }
           />
