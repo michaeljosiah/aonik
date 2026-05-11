@@ -7,9 +7,13 @@ using Aonik.Voice.Processors;
 using Aonik.Voice.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Voxa.Audio.SileroVad;
+using Voxa.Frames;
 using Voxa.Pipelines;
+using Voxa.Processors;
 using Voxa.Speech;
 using Voxa.Speech.Azure;
 using Voxa.Speech.ElevenLabs;
@@ -90,11 +94,16 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
     // we use it so DNS rotation, pooling, and SocketsHttpHandler timers behave correctly
     // across long-running voice connections.
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _configuration;
 
-    public AonikVoicePipelineFactory(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
+    public AonikVoicePipelineFactory(
+        ILoggerFactory loggerFactory,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration)
     {
         _loggerFactory = loggerFactory;
         _httpClientFactory = httpClientFactory;
+        _configuration = configuration;
     }
 
     public Voxa.Pipelines.Pipeline BuildChained(VoicePipelineBuildRequest request, ChainedRecipeRuntimeSpec recipe)
@@ -158,16 +167,35 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         // Pipeline shape mirrors Voxa's reference sample at /voice/openai-batch —
         // proven working end-to-end against this same Whisper + TTS stack:
         //
-        //   WebSocketAudioSource → AudioArrivalLogger → SilenceGateProcessor (VAD)
+        //   WebSocketAudioSource → AudioArrivalLogger → VAD (config-driven)
         //   → STT → TranscriptionFilter → AonikVoiceAgent → [SentenceAggregator?]
         //   → SpeechTextNormalizerProcessor → TextToSpeechProcessor → WebSocketAudioSink
         //
-        // Why SilenceGate not SileroVad: SileroVad needs the ONNX runtime to load a
-        // shipped model on first call. In the Azure Container App that init step has
-        // failed silently (no surface to client; WS just hangs then 1006s out).
-        // SilenceGate is pure RMS math — zero native deps, can't fail to initialise.
-        // The Voxa sample defaults to SilenceGate for the same reason. We can revisit
-        // Silero once we have observability into the ONNX init path.
+        // VAD is REQUIRED — Voxa's OpenAIWhisperEngine only flushes on
+        // UserStoppedSpeakingFrame. The earlier comment claiming "Whisper handles
+        // segmentation server-side" was wrong; see SpeechToTextProcessor.cs:66-73.
+        //
+        // VAD selector via `Voice:Vad` configuration:
+        //
+        //   "silence" (default) — SilenceGateProcessor. Pure RMS math, no native deps,
+        //                         can't fail to initialise. Proven working end-to-end.
+        //                         Lower noise rejection than Silero — fans / keyboards /
+        //                         distant chatter all pass through and may trigger
+        //                         Whisper hallucinations (caught by TranscriptionFilter).
+        //   "silero"            — SileroVadProcessor. ML-based gate via ONNX Runtime
+        //                         loading Silero v6. Much better noise rejection but
+        //                         needs the ONNX runtime to load a shipped model on
+        //                         first call. Opt-in until we have OTEL on the init
+        //                         path — if init fails on the container the pipeline
+        //                         silently bypasses to SilenceGate per Silero's own
+        //                         sample-rate-mismatch fallback. ConfidenceThreshold
+        //                         tuned to 0.3 for AGC'd browser / mobile mics per
+        //                         Pipecat's documented value.
+        //   "none"              — Skip VAD entirely. Use ONLY for tests that drive
+        //                         the pipeline with synthetic UserStartedSpeakingFrame /
+        //                         UserStoppedSpeakingFrame events directly; in
+        //                         production this freezes the STT engine waiting for
+        //                         frames that never come.
         //
         // Why TranscriptionFilter: Whisper hallucinates "Thank you.", "you", "." etc.
         // from breath and room noise. Without the filter the agent re-runs on every
@@ -178,17 +206,13 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         // expected sample rate. Inserted right after the source so it instruments the
         // raw inbound, not the gate-filtered stream.
         //
-        // VAD is REQUIRED — Voxa's OpenAIWhisperEngine only flushes on
-        // UserStoppedSpeakingFrame. The earlier comment claiming "Whisper handles
-        // segmentation server-side" was wrong; see SpeechToTextProcessor.cs:66-73.
-        //
         // The sentence aggregator stays gated by the recipe's UseSentenceAggregator
         // knob — disabling it lets tokens flow unbuffered (snappier echoback agents).
         var audioArrivalLogger = new AudioArrivalLogger(
             _loggerFactory.CreateLogger("Aonik.Voice.AudioArrival"));
 
-        var vad = new SilenceGateProcessor(
-            hangover: TimeSpan.FromMilliseconds(800));
+        var vadLogger = _loggerFactory.CreateLogger("Aonik.Voice.Vad");
+        var vad = BuildVadProcessor(_configuration, vadLogger);
 
         var transcriptionFilter = new TranscriptionFilter();
 
@@ -209,6 +233,80 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             .Then(normalizer)
             .Then(tts)
             .Sink(sink);
+    }
+
+    // ── VAD selector ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Pick the VAD processor based on the <c>Voice:Vad</c> configuration value.
+    /// Defaults to <see cref="SilenceGateProcessor"/> (proven working, no native
+    /// deps). <c>silero</c> enables the ML-based gate behind an opt-in flag so we
+    /// can compare in the wild without making it the default path. <c>none</c>
+    /// returns a passthrough — useful for tests that drive turn boundaries via
+    /// synthetic frames, never for production.
+    ///
+    /// <para>
+    /// The 800 ms hangover / stop duration matches Pipecat's <c>stop_secs=0.8</c>
+    /// default — long enough for a brief in-sentence breath, short enough to keep
+    /// turn-taking snappy.
+    /// </para>
+    /// </summary>
+    private static FrameProcessor BuildVadProcessor(IConfiguration configuration, ILogger logger)
+    {
+        var mode = (configuration["Voice:Vad"] ?? string.Empty).Trim().ToLowerInvariant();
+        var stopMs = int.TryParse(configuration["Voice:VadStopMs"], out var s) ? s : 800;
+        var startMs = int.TryParse(configuration["Voice:VadStartMs"], out var st) ? st : 200;
+
+        switch (mode)
+        {
+            case "silero":
+            case "silerovad":
+            case "ml":
+                logger.LogInformation(
+                    "VAD = Silero (ML, ONNX). startMs={StartMs} stopMs={StopMs}. " +
+                    "Falls back to passthrough on sample-rate mismatch — watch for "
+                    + "'SileroVadProcessor received audio at … forwarding without VAD' warnings.",
+                    startMs, stopMs);
+                return new SileroVadProcessor(new SileroVadOptions
+                {
+                    SampleRate = 16000,
+                    // Browser / phone mic AGC compresses dynamic range; Silero's stock
+                    // 0.5 confidence threshold under-triggers on quiet speech. 0.3 is
+                    // Pipecat's documented value for AGC'd mics.
+                    ConfidenceThreshold = 0.3f,
+                    StartDuration = TimeSpan.FromMilliseconds(startMs),
+                    StopDuration = TimeSpan.FromMilliseconds(stopMs),
+                });
+
+            case "none":
+            case "off":
+            case "disabled":
+                logger.LogWarning(
+                    "VAD = none (passthrough). STT will never receive UserStoppedSpeakingFrame; "
+                    + "audio buffers until Voxa's SttBufferSeconds backstop fires. "
+                    + "Use only for tests with synthetic turn frames.");
+                return new PassthroughVad();
+
+            default:
+                logger.LogInformation(
+                    "VAD = SilenceGate (energy + hangover). hangoverMs={StopMs}",
+                    stopMs);
+                return new SilenceGateProcessor(
+                    hangover: TimeSpan.FromMilliseconds(stopMs));
+        }
+    }
+
+    /// <summary>
+    /// No-op VAD used when <c>Voice:Vad=none</c>. Forwards all frames untouched,
+    /// emits no UserStarted / UserStopped speaking frames. Practically only useful
+    /// for tests that inject those frames synthetically.
+    /// </summary>
+    private sealed class PassthroughVad : FrameProcessor
+    {
+        public PassthroughVad() : base("PassthroughVad") { }
+
+        protected override ValueTask ProcessFrameAsync(Frame frame, CancellationToken ct)
+            => PushFrameAsync(frame, ct);
     }
 
     // ── STT processor dispatch ───────────────────────────────────────────────────────────
