@@ -50,7 +50,13 @@ internal sealed class ElevenLabsTextToSpeechProvider : ITextToSpeechProvider
         var query = new List<string>();
         if (!string.IsNullOrWhiteSpace(request.OutputFormat))
         {
-            query.Add($"output_format={Uri.EscapeDataString(request.OutputFormat)}");
+            // ElevenLabs's `output_format` query param doesn't accept bare codecs like
+            // "mp3" or "wav" — it requires a SKU that pins sample rate + bitrate
+            // (e.g. "mp3_44100_128", "wav_24000"). Callers that just want "give me an
+            // MP3" historically pass "mp3" and we got 400'd. Map the short codes to
+            // sensible defaults so callers don't have to know ElevenLabs's SKU grid.
+            var resolved = ResolveElevenLabsOutputFormat(request.OutputFormat);
+            query.Add($"output_format={Uri.EscapeDataString(resolved)}");
         }
 
         if (request.ProviderOptions.TryGetValue("optimizeStreamingLatency", out var optimizeLatency)
@@ -187,6 +193,36 @@ internal sealed class ElevenLabsTextToSpeechProvider : ITextToSpeechProvider
             ParseBool(providerOptions, "useSpeakerBoost"));
 
         return settings.IsEmpty ? null : settings;
+    }
+
+    /// <summary>
+    /// Translate the cross-provider short codes our callers use (<c>mp3</c>, <c>wav</c>,
+    /// <c>pcm</c>) into the ElevenLabs SKU grid. Anything that already looks like a SKU
+    /// (contains an underscore) passes through unchanged so admins who deliberately picked
+    /// e.g. <c>pcm_44100</c> on a recipe still get exactly that.
+    /// </summary>
+    internal static string ResolveElevenLabsOutputFormat(string raw)
+    {
+        var trimmed = raw.Trim();
+        if (trimmed.Contains('_', StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+        return trimmed.ToLowerInvariant() switch
+        {
+            // mp3_44100_128 is ElevenLabs's documented "balanced" default — good quality,
+            // small payload, plays directly in every browser's <audio> element.
+            "mp3" => "mp3_44100_128",
+            // wav_24000 keeps PCM aligned with the AONIK pipeline's 24 kHz sink.
+            "wav" => "wav_24000",
+            // pcm_24000 mirrors the pipeline default.
+            "pcm" => "pcm_24000",
+            // opus_48000_128 if a caller asks for opus.
+            "opus" => "opus_48000_128",
+            // Unknown short code — pass through and let ElevenLabs surface the 400 with
+            // its catalogue of accepted SKUs (which is the most useful error anyway).
+            _ => trimmed,
+        };
     }
 
     private static string BuildErrorMessage(string operation, System.Net.HttpStatusCode statusCode, string? errorBody)
