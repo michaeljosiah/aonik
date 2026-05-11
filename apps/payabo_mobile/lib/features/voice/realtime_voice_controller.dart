@@ -2,6 +2,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -10,19 +11,10 @@ import '../chat/domain/chat_controller.dart';
 import 'voxa_voice_client.dart';
 import 'voxa_voice_session.dart';
 
-/// Controller for the realtime (Voxa WSS) voice mode used by the chat screen.
-///
-/// Owns one [VoxaVoiceSession] per voice-mode activation, translates the
-/// session's typed event stream into [ChatController] writes (user turn → bot
-/// turn), and exposes a slim 4-phase state machine the orb widget binds to.
-///
-/// Owns one realtime session per voice-mode activation and exposes a slim
-/// 4-phase state machine that the chat-screen orb binds to. The duplex WSS
-/// audio path gets continuous mic, server VAD, barge-in, and no thinking gap.
-///
-/// **Lifecycle:** one [start] per voice activation; [stop] tears down.
-/// Re-using the controller for a second activation works — the underlying
-/// session is constructed fresh from [voxaVoiceSessionProvider] each time.
+/// Owns the realtime (Voxa WSS) voice session lifecycle. The chat screen only
+/// toggles UI visibility — this controller owns busy state, the re-entrancy
+/// guard, the watchdog timer, error surface, and the bridge into
+/// [ChatController] for transcript writes.
 class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
   RealtimeVoiceController({
     required Ref ref,
@@ -31,6 +23,13 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         _chatController = chatController,
         super(const RealtimeVoiceState());
 
+  /// Watchdog deadline for [toggle]. A platform call that hangs without this
+  /// would leave the busy flag stuck on forever and every subsequent tap would
+  /// be silently ignored.
+  static const Duration _busyMaxDuration = Duration(seconds: 8);
+
+  static const String _logPrefix = '[RealtimeVoice]';
+
   final Ref _ref;
   final ChatController _chatController;
 
@@ -38,44 +37,53 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
   StreamSubscription<VoxaVoiceEvent>? _eventsSub;
   StreamSubscription<VoxaConnectionState>? _stateSub;
 
-  /// Subscription that keeps [voxaVoiceSessionProvider] alive across the
-  /// async hops in [start]. Without it the autoDispose microtask runs
-  /// during `session.start()`'s `await`s (mic permission, WS connect) and
-  /// tears the session down — including uniniting the player — half-way
-  /// through the connect. The subscription's callback is empty: we only
-  /// hold it for its lifetime side-effect, not for change notifications.
-  /// Closed in [_teardown] so the session auto-disposes once stop() runs.
+  // Keeps the autoDispose [voxaVoiceSessionProvider] alive across the awaits
+  // in [_start] — without it the dispose microtask runs mid-connect and tears
+  // the recorder + player down. Closed in [_teardown] so the session can
+  // auto-dispose between voice calls.
   ProviderSubscription<VoxaVoiceSession>? _sessionKeepAlive;
 
-  /// True when a streaming assistant turn is in flight in ChatController.
-  /// We track it locally so [TranscriptionEvent], [BotTextEvent], and
-  /// [SpeakingEvent] can collaborate on when to finalize the assistant
-  /// message in [ChatController.finishRealtimeAssistantTurn].
+  // Tracks whether ChatController has an open assistant turn so transcription
+  // / text / speaking events can collaborate on finalisation.
   bool _assistantTurnActive = false;
 
-  /// Start a realtime voice session for [agentId]. Reuses the chat thread
-  /// id from [ChatController.state] so the conversation continues whichever
-  /// pipeline (SSE or WSS) opened it.
-  ///
-  /// Errors from mic permission or the WS handshake surface in
-  /// [RealtimeVoiceState.errorMessage] and the phase flips to
-  /// [RealtimeVoicePhase.error]. The caller doesn't need to catch — the
-  /// state machine is the source of truth.
-  Future<void> start({
-    String agentId = 'personal-finance-agent',
-  }) async {
-    if (state.phase == RealtimeVoicePhase.connecting ||
-        state.phase == RealtimeVoicePhase.live) {
+  Timer? _busyWatchdog;
+
+  /// Idle / error → start; connecting / live → stop. The chat screen calls
+  /// this from the orb tap and reads the resulting [state.phase] to decide
+  /// whether to show the stage.
+  Future<void> toggle({String agentId = 'personal-finance-agent'}) async {
+    if (state.busy) {
+      _log('tap IGNORED — busy');
       return;
     }
+    switch (state.phase) {
+      case RealtimeVoicePhase.idle:
+      case RealtimeVoicePhase.error:
+        await _runBusy('start', () => _start(agentId));
+      case RealtimeVoicePhase.connecting:
+      case RealtimeVoicePhase.live:
+        await _runBusy('stop', _stop);
+    }
+  }
 
-    state = const RealtimeVoiceState(phase: RealtimeVoicePhase.connecting);
+  /// Imperative tear-down — used when the user navigates away or pivots to a
+  /// different surface. Idempotent. Doesn't go through [_runBusy] because the
+  /// caller is already tearing the UI down.
+  Future<void> dismiss() async {
+    if (state.phase == RealtimeVoicePhase.idle &&
+        _session == null &&
+        _eventsSub == null) {
+      return;
+    }
+    await _stop();
+  }
 
-    // Acquire a keep-alive subscription on the autoDispose voxa session
-    // BEFORE reading its value. `ref.read` alone is transient — the
-    // dispose microtask would fire during this method's awaits and
-    // tear the recorder + player down mid-connect. The subscription
-    // holds the provider alive until [_teardown] closes it.
+  // ── Internals ────────────────────────────────────────────────────────────
+
+  Future<void> _start(String agentId) async {
+    state = const RealtimeVoiceState(phase: RealtimeVoicePhase.connecting, busy: true);
+
     _sessionKeepAlive ??= _ref.listen<VoxaVoiceSession>(
       voxaVoiceSessionProvider,
       (_, __) {},
@@ -86,7 +94,6 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
 
     await _eventsSub?.cancel();
     _eventsSub = session.events.listen(_onEvent);
-
     await _stateSub?.cancel();
     _stateSub = session.stateChanges.listen(_onConnectionState);
 
@@ -112,16 +119,7 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
     }
   }
 
-  /// Stop the active session. Finalizes any in-flight assistant text into
-  /// chat history, closes the WebSocket, and returns to [RealtimeVoicePhase.idle].
-  /// Safe to call repeatedly.
-  Future<void> stop() async {
-    if (state.phase == RealtimeVoicePhase.idle &&
-        _session == null &&
-        _eventsSub == null) {
-      return;
-    }
-
+  Future<void> _stop() async {
     if (_assistantTurnActive) {
       _chatController.finishRealtimeAssistantTurn();
       _assistantTurnActive = false;
@@ -130,14 +128,37 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
 
     await _teardown();
 
-    // Keep an error phase visible so the user sees the failure reason; any
-    // subsequent [start] will clear it.
+    // Preserve error state so the user sees the failure reason; the next
+    // [toggle] clears it.
     if (state.phase != RealtimeVoicePhase.error) {
       state = const RealtimeVoiceState();
     }
   }
 
-  // ── Internals ─────────────────────────────────────────────────────────
+  /// Holds [state.busy] true for the duration of [op], with a watchdog that
+  /// surfaces a timeout error if the underlying platform call hangs.
+  Future<void> _runBusy(String label, Future<void> Function() op) async {
+    state = state.copyWith(busy: true);
+    _busyWatchdog?.cancel();
+    _busyWatchdog = Timer(_busyMaxDuration, () {
+      if (!state.busy) return;
+      _log('watchdog FIRED for $label after ${_busyMaxDuration.inSeconds}s');
+      state = state.copyWith(
+        phase: RealtimeVoicePhase.error,
+        errorMessage: 'Voice took too long to respond. Tap Talk to try again.',
+        busy: false,
+      );
+    });
+    try {
+      await op();
+    } finally {
+      _busyWatchdog?.cancel();
+      _busyWatchdog = null;
+      if (mounted) {
+        state = state.copyWith(busy: false);
+      }
+    }
+  }
 
   void _onEvent(VoxaVoiceEvent event) {
     switch (event) {
@@ -168,7 +189,7 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         } else {
           speaker = RealtimeSpeaker.user;
         }
-        // Bot finished speaking → materialize its message in chat history.
+        // Bot finished → materialise its message in chat history.
         if (!started && who == 'bot' && _assistantTurnActive) {
           _chatController.finishRealtimeAssistantTurn();
           _assistantTurnActive = false;
@@ -176,8 +197,8 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         state = state.copyWith(whoIsSpeaking: speaker);
 
       case InterruptionEvent():
-        // User barged in mid-bot-speech. Preserve the partial reply in chat
-        // history; the next BotTextEvent (if any) will open a new turn.
+        // User barged in — preserve the partial reply; the next BotTextEvent
+        // opens a fresh turn.
         if (_assistantTurnActive) {
           _chatController.markRealtimeInterruption();
           _assistantTurnActive = false;
@@ -185,7 +206,6 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         state = state.copyWith(whoIsSpeaking: RealtimeSpeaker.user);
 
       case StatusEvent():
-        // Informational only — no state update.
         break;
 
       case ErrorEvent(:final String message):
@@ -211,9 +231,8 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         _chatController.setRealtimeThreadId(chatThreadId);
 
       case ToolCallEvent():
-        // Tool calls flow through the existing ChatController approval flow;
-        // surfacing them in voice mode is a future polish task (Phase F /
-        // composite-recipe follow-up). No-op for v1.
+        // Tool calls flow through ChatController's existing approval surface;
+        // voice-mode rendering is a future polish task. No-op for now.
         break;
     }
   }
@@ -236,8 +255,6 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
           state = const RealtimeVoiceState();
         }
       case VoxaConnectionState.error:
-        // We may have already populated [errorMessage] via an ErrorEvent;
-        // only set a generic fallback if it's empty.
         state = state.copyWith(
           phase: RealtimeVoicePhase.error,
           errorMessage:
@@ -280,47 +297,31 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
       }
     }
 
-    // Drop the keep-alive so the voxa session provider can auto-dispose
-    // its recorder + player. Next [start] will reacquire and read a
-    // fresh session.
-    final ProviderSubscription<VoxaVoiceSession>? keepAlive =
-        _sessionKeepAlive;
+    final ProviderSubscription<VoxaVoiceSession>? keepAlive = _sessionKeepAlive;
     _sessionKeepAlive = null;
     keepAlive?.close();
 
     _assistantTurnActive = false;
   }
 
+  void _log(String message) {
+    if (!kDebugMode) return;
+    debugPrint('$_logPrefix $message');
+  }
+
   @override
   void dispose() {
+    _busyWatchdog?.cancel();
     unawaited(_teardown());
     super.dispose();
   }
 }
 
-/// Phases of the realtime voice UI. Deliberately fewer than the legacy
-/// turn-based state machine (`idle | listening | thinking | speaking | ready`)
-/// because server-side VAD owns turn detection, so the client doesn't need
-/// to distinguish "listening" from "speaking" or surface a "thinking" gap.
-///
-/// Pulse / who-is-speaking visuals are driven by
-/// [RealtimeVoiceState.whoIsSpeaking] independently of this phase.
-enum RealtimeVoicePhase {
-  /// Voice mode is off.
-  idle,
+/// Phases of the realtime voice UI. Server VAD owns turn detection so we don't
+/// need separate `listening`/`thinking`/`speaking` phases — who-is-speaking is
+/// surfaced separately via [RealtimeVoiceState.whoIsSpeaking].
+enum RealtimeVoicePhase { idle, connecting, live, error }
 
-  /// WebSocket handshake or mic permission check in flight.
-  connecting,
-
-  /// Duplex audio is flowing.
-  live,
-
-  /// Last session failed. Tap to retry.
-  error,
-}
-
-/// Who is currently producing audio. Driven by server-emitted SpeakingEvents
-/// rather than client-side inference — flips back to [none] between turns.
 enum RealtimeSpeaker { none, user, bot }
 
 class RealtimeVoiceState {
@@ -329,19 +330,22 @@ class RealtimeVoiceState {
     this.whoIsSpeaking = RealtimeSpeaker.none,
     this.livePartialTranscript = '',
     this.errorMessage,
+    this.busy = false,
   });
 
   final RealtimeVoicePhase phase;
   final RealtimeSpeaker whoIsSpeaking;
 
   /// Latest partial transcript from the server. Cleared on each final.
-  /// The orb / transcript chip surfaces this so the user has continuous
-  /// feedback that the mic is working.
   final String livePartialTranscript;
 
-  /// Populated when [phase] is [RealtimeVoicePhase.error]. Cleared on the
-  /// next successful [RealtimeVoiceController.start].
+  /// Populated when [phase] is [RealtimeVoicePhase.error]. Cleared on the next
+  /// successful [RealtimeVoiceController.toggle].
   final String? errorMessage;
+
+  /// True while [RealtimeVoiceController.toggle] is in flight. The chat screen
+  /// can read this to decide whether the orb should appear pending.
+  final bool busy;
 
   bool get isLive => phase == RealtimeVoicePhase.live;
   bool get isConnecting => phase == RealtimeVoicePhase.connecting;
@@ -352,6 +356,7 @@ class RealtimeVoiceState {
     RealtimeSpeaker? whoIsSpeaking,
     String? livePartialTranscript,
     Object? errorMessage = _sentinel,
+    bool? busy,
   }) {
     return RealtimeVoiceState(
       phase: phase ?? this.phase,
@@ -360,34 +365,20 @@ class RealtimeVoiceState {
           livePartialTranscript ?? this.livePartialTranscript,
       errorMessage:
           errorMessage == _sentinel ? this.errorMessage : errorMessage as String?,
+      busy: busy ?? this.busy,
     );
   }
 }
 
 const Object _sentinel = Object();
 
-/// App-scoped [RealtimeVoiceController] — NOT autoDispose.
-///
-/// Earlier this was `autoDispose` so the WSS session would be torn down
-/// when no widget was listening. That broke voice mode: tapping the mic
-/// races with the autoDispose microtask. The flow is —
-///
-///   1. `_handleRealtimeVoiceTap` calls `ref.read(notifier)` (transient sub)
-///   2. `setState(_showVoiceStage = true)` schedules a rebuild
-///   3. `await notifier.start()` yields control to the event loop
-///   4. Riverpod's dispose microtask fires *before* the rebuild mounts
-///      `RealtimeVoiceStage` (which would have kept the controller alive
-///      via its own `ref.watch`)
-///   5. The controller is disposed mid-`session.start()`, which tears the
-///      recorder + player down half-way through the connect handshake
-///
-/// Resource cost of keeping the controller alive is negligible — it's a
-/// thin orchestrator that owns stream subscriptions and a few flags. The
-/// heavy native handles (mic recorder, AAudio player, WS channel) live
-/// inside [VoxaVoiceSession] which remains autoDispose; the controller
-/// acquires/releases that via a [ProviderSubscription] inside [start]
-/// and [_teardown] so we still get prompt resource release between
-/// voice calls.
+/// App-scoped — NOT autoDispose. Riverpod's dispose microtask fires *before*
+/// the rebuild that mounts the orb, so an autoDispose controller would be torn
+/// down mid-`session.start()` (right after the chat screen's `ref.read` + the
+/// `setState` that adds the stage to the tree). Resource cost of keeping the
+/// controller alive is negligible — the heavy native handles live in
+/// [VoxaVoiceSession] which IS autoDispose, acquired via a
+/// [ProviderSubscription] inside [_start] and released in [_teardown].
 final StateNotifierProvider<RealtimeVoiceController, RealtimeVoiceState>
     realtimeVoiceControllerProvider =
     StateNotifierProvider<RealtimeVoiceController, RealtimeVoiceState>(

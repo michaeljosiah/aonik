@@ -12,21 +12,9 @@ import '../../app/environment/app_environment.dart';
 import '../../app/environment/environment_provider.dart';
 import 'voxa_voice_client.dart';
 
-/// High-level voice session that combines [VoxaVoiceClient] with a raw-PCM mic recorder
-/// and a streaming PCM player. The session is the unit a UI talks to — `start` /
-/// `stop` / observe streams — without caring about the mic plugin or audio output plumbing
-/// directly.
-///
-/// **Audio contract (spec 024 chained pipeline):**
-/// * Mic capture: 16-bit signed LE PCM, 16 kHz, mono. Matches `record.AudioRecorder`
-///   with `AudioEncoder.pcm16bits` and the AONIK WSS pipeline's STT expectation.
-/// * Bot output: 16-bit signed LE PCM, 24 kHz, mono (OpenAI / Azure / ElevenLabs /
-///   Mistral default sink rate). Converted to Float32 in `[-1, 1]` for the
-///   `mp_audio_stream` player which accepts normalized floats.
-///
-/// **Lifecycle:** one `start()` per conversation; call `stop()` to tear down. Re-using a
-/// session after `stop()` works but the underlying [VoxaVoiceClient] is single-use — the
-/// session lazily constructs a fresh one on each `start`.
+/// Combines [VoxaVoiceClient] with a 16 kHz PCM mic recorder + 24 kHz PCM
+/// streaming player. One [start]/[stop] cycle per conversation; the underlying
+/// client is single-use so we build a fresh one on each [start].
 class VoxaVoiceSession {
   VoxaVoiceSession({
     required VoxaVoiceClient Function() clientFactory,
@@ -49,54 +37,35 @@ class VoxaVoiceSession {
   bool _playerInitialised = false;
   bool _running = false;
 
-  // Player config — captured on start() so [_resetPlayerBuffer] can re-init with the
-  // same parameters when the server fires an interruption.
+  // Captured on start so [_resetPlayerBuffer] can re-init with the same shape.
   int _playerChannels = 1;
   int _playerSampleRate = 24000;
 
-  /// True between [SpeakingEvent](who:bot, started:true) and (who:bot, started:false)
-  /// PLUS a hangover after the server says "stopped speaking" to let the local audio
-  /// queue drain. While true we drop incoming mic frames — see [start] for the
-  /// rationale.
+  // Mic gate: speakers bleed into the mic; without it Whisper transcribes the
+  // bot's own voice as a new user turn. Trade-off: no barge-in in v1.
   bool _botSpeaking = false;
-
-  /// Pending timer that flips [_botSpeaking] back to false after the post-stop
-  /// hangover elapses. Cancelled if the bot starts speaking again before it fires.
   Timer? _botStoppedHangoverTimer;
 
-  /// Monotonic timestamp of the last bot audio frame we received. The mic
-  /// listener uses this together with [_audioTailGuard] to drop frames while
-  /// the local audio queue is still draining — even when the server's
-  /// `speaking:false` event fires earlier than the actual playback ends.
+  // Tail guard uses a monotonic Stopwatch (immune to wall-clock jumps) so we
+  // can drop mic frames during the real speaker tail, independent of the
+  // server's `speaking` events. See [_micSubscription] below.
   final Stopwatch _clock = Stopwatch()..start();
   Duration? _lastBotAudioAt;
 
-  /// Buffer / drain budget. Must be ≥ the player's bufferMilliSec below so the local
-  /// PCM queue has time to play out before we re-open the mic. If the user's
-  /// experience is "bot's tail gets transcribed as me repeating myself", raise this.
+  // Mic stays muted this long after the server's `speaking:false` to let the
+  // local PCM queue drain. Must exceed [_playerBufferMilliSec] +
+  // [_playerWaitingBufferMilliSec] or the bot's tail leaks back into STT.
   static const Duration _postBotStopHangover = Duration(milliseconds: 3300);
 
-  /// How long after the last bot audio frame we keep the mic gated, independent
-  /// of the server's `speaking` events. Catches two timing races the event-based
-  /// gate misses:
-  /// 1. Bot audio frames arriving *before* the `speaking:true` envelope — the
-  ///    mic would otherwise stay open while the first chunk is already playing.
-  /// 2. Bot audio still queued in the local PCM ring buffer after `speaking:false`
-  ///    — the speaker is still emitting even though the server is done.
+  // Drop mic frames within this window of the last inbound bot audio frame —
+  // catches both pre-`speaking:true` audio and post-`speaking:false` queue
+  // playback that the event gate misses.
   static const Duration _audioTailGuard = Duration(milliseconds: 1200);
 
-  /// Maximum amount of bot audio we hold in the ring buffer. Smaller = less tail
-  /// after the bot logically stops; larger = more headroom for bursty TTS frames
-  /// without dropping samples. Keep the package's 3000 ms default because cloud TTS
-  /// often delivers audio faster than realtime; an undersized buffer can skip samples
-  /// and sound like speech speeding up.
+  // Cloud TTS bursts faster than realtime; an undersized ring buffer drops
+  // samples and speeds the voice up. 300 ms jitter buffer avoids underrun on
+  // bursty network paths at the cost of a small start-of-utterance delay.
   static const int _playerBufferMilliSec = 3000;
-
-  /// How much audio must be queued before playback starts. Lower = lower start-of-
-  /// utterance latency, higher = less risk of underrun. Mobile voice frames arrive
-  /// over WSS from bursty TTS/network paths, so keep a modest jitter buffer instead
-  /// of the package's 100 ms default; this trades a small start delay for steadier
-  /// mid-sentence playback.
   static const int _playerWaitingBufferMilliSec = 300;
 
   final StreamController<VoxaVoiceEvent> _eventsController =
@@ -104,22 +73,13 @@ class VoxaVoiceSession {
   final StreamController<VoxaConnectionState> _stateController =
       StreamController<VoxaConnectionState>.broadcast();
 
-  /// Typed events from the underlying client, surfaced through the session so widgets
-  /// only have to subscribe to one stream.
   Stream<VoxaVoiceEvent> get events => _eventsController.stream;
-
-  /// Connection state changes from the underlying client.
   Stream<VoxaConnectionState> get stateChanges => _stateController.stream;
-
-  /// True while [start] has succeeded and [stop] hasn't yet been called.
   bool get isRunning => _running;
-
-  /// Connection-level state. Idle when no session is active or the last one ended.
   VoxaConnectionState get connectionState =>
       _activeClient?.state ?? VoxaConnectionState.idle;
 
-  /// Start a new voice session. Throws if mic permission is denied or the WebSocket
-  /// fails to open.
+  /// Open the mic + player + WSS. Throws on permission denial or handshake failure.
   Future<void> start({
     required String agentId,
     String? chatThreadId,
@@ -137,10 +97,7 @@ class VoxaVoiceSession {
           'Microphone permission denied. Open device settings to grant Payabo access.');
     }
 
-    // Initialise the player BEFORE connecting so the first inbound bot frame doesn't
-    // get dropped while we're still setting up. `init` returns 0 on success per the
-    // mp_audio_stream contract; non-zero indicates platform-level failure (e.g. no
-    // audio device).
+    // Player first so the first inbound bot frame isn't dropped during setup.
     _playerChannels = 1;
     _playerSampleRate = botSampleRate;
     final int initResult = _player.init(
@@ -156,7 +113,6 @@ class VoxaVoiceSession {
     }
     _player.resume();
 
-    // Construct a fresh client per session — VoxaVoiceClient.connect() is single-shot.
     final VoxaVoiceClient client = _clientFactory();
     _activeClient = client;
 
@@ -170,44 +126,24 @@ class VoxaVoiceSession {
       },
     );
     _eventsSubscription = client.events.listen((VoxaVoiceEvent event) {
-      // Track who's speaking so the mic listener below can drop frames while
-      // the bot is talking. Android's hardware echo cancellation isn't strong
-      // enough to suppress the phone speaker bleeding into the mic — if we
-      // forward those frames, Whisper transcribes the bot's own voice as a
-      // new user turn and the agent loops on its own reply.
-      //
-      // The server fires `speaking:false` when it finishes SENDING audio, but
-      // the local PCM player still has frames queued for up to `bufferMilliSec`
-      // afterwards. Unmuting the mic immediately captures that tail through
-      // the speakers. We schedule a hangover timer so the mic stays muted long
-      // enough for the queue to drain.
-      //
-      // Trade-off: this disables barge-in (the user can't interrupt the bot
-      // mid-sentence). For v1 of voice mode this is the right call; barge-in
-      // can come back once we have a proper mic-side echo canceller or move
-      // to a duplex realtime model that handles this server-side.
       if (event is SpeakingEvent && event.who == 'bot') {
         _botStoppedHangoverTimer?.cancel();
         if (event.started) {
           _botSpeaking = true;
           _botStoppedHangoverTimer = null;
         } else {
-          // Keep the mic muted until the local audio queue drains.
           _botStoppedHangoverTimer = Timer(_postBotStopHangover, () {
             _botSpeaking = false;
           });
         }
       } else if (event is InterruptionEvent) {
-        // Server-side VAD detected the user talking over the bot. Flush the
-        // local PCM ring buffer so playback stops mid-word — without this the
-        // queued audio keeps playing for up to `_playerBufferMilliSec` after
-        // the agent has logically been interrupted, which feels broken.
+        // Server-side VAD detected user barge-in. Flush queued audio so the
+        // bot stops mid-word, and drop the tail guard so the user's next
+        // utterance flows immediately.
         _resetPlayerBuffer();
         _botStoppedHangoverTimer?.cancel();
         _botStoppedHangoverTimer = null;
         _botSpeaking = false;
-        // Drop the tail-guard so the user's next utterance flows immediately —
-        // the queued bot audio is no longer playing thanks to the buffer flush.
         _lastBotAudioAt = null;
       }
       _eventsController.add(event);
@@ -225,19 +161,11 @@ class VoxaVoiceSession {
       rethrow;
     }
 
-    // Now that the WS is up, start mic capture. The recorder's stream emits chunks at
-    // its own native cadence — typically 20-50 ms — which the WebSocket happily
-    // forwards as binary frames of arbitrary size.
-    //
-    // **Hardware echo cancellation.** Android's default audio source is unprocessed
-    // mic, which doesn't engage the platform AEC even when `echoCancel: true`. To
-    // actually get the hardware echo canceller we have to (a) pick the VoIP audio
-    // source and (b) switch the audio manager to communication mode. Without these
-    // the speaker's own playback bleeds into the mic and Whisper transcribes the
-    // bot's voice as a new user turn — which is the "AI thinks I'm repeating
-    // myself" symptom on real devices. iOS routes through AVAudioSession's VoIP
-    // chat mode automatically when `echoCancel: true` is set, so this only matters
-    // for Android.
+    // VoIP audio source + communication mode engage Android's hardware AEC.
+    // `echoCancel: true` alone is just a hint — without these the platform
+    // routes through the generic mic path with no echo cancellation and the
+    // speaker bleeds straight back into STT. iOS handles AEC via AVAudioSession
+    // automatically when `echoCancel: true` is set.
     final Stream<Uint8List> micStream;
     try {
       micStream = await _recorder.startStream(
@@ -249,14 +177,7 @@ class VoxaVoiceSession {
           noiseSuppress: true,
           autoGain: true,
           androidConfig: const AndroidRecordConfig(
-            // VoIP source: engages built-in AEC + AGC + noise suppression. Pixel /
-            // Samsung / OnePlus all ship a tuned DSP behind this source — much
-            // stronger than the generic `AudioSource.MIC` default.
             audioSource: AndroidAudioSource.voiceCommunication,
-            // In-communication mode tells AudioManager to use the VoIP audio
-            // pipeline (echo path tracking, routing through the earpiece / chosen
-            // BT headset, etc.). The record plugin's docs explicitly call this
-            // out for "acoustic echo cancellation issues on some devices".
             audioManagerMode: AudioManagerMode.modeInCommunication,
           ),
         ),
@@ -268,20 +189,10 @@ class VoxaVoiceSession {
 
     _micSubscription = micStream.listen(
       (Uint8List pcm) {
-        if (_botSpeaking) {
-          // Drop frames while the bot is talking — see _eventsSubscription
-          // closure above for the rationale.
-          return;
-        }
+        if (_botSpeaking) return;
         final Duration? lastBotAudio = _lastBotAudioAt;
         if (lastBotAudio != null &&
             _clock.elapsed - lastBotAudio < _audioTailGuard) {
-          // Belt-and-braces: even if the event-based gate is open, the speaker
-          // could still be emitting bot audio that hasn't finished playing.
-          // Drop these frames so they don't bleed back through the mic into
-          // STT. The guard window self-extends every time another bot audio
-          // frame arrives, so it tracks the real playback tail and not just a
-          // fixed timer from the last `speaking:false` event.
           return;
         }
         _activeClient?.sendPcm(pcm);
@@ -297,8 +208,8 @@ class VoxaVoiceSession {
     _running = true;
   }
 
-  /// Stop the session. Sends `{type:"end"}` to the server, closes the WebSocket, stops
-  /// the recorder, and uninits the player. Safe to call repeatedly.
+  /// Send `{type:"end"}`, close the WS, stop the recorder, uninit the player.
+  /// Safe to call repeatedly.
   Future<void> stop() async {
     _running = false;
     _botSpeaking = false;
@@ -312,7 +223,7 @@ class VoxaVoiceSession {
     try {
       await _recorder.stop();
     } catch (_) {
-      // Best-effort — recorder may already be stopped on permission revoke etc.
+      // Best-effort — recorder may already be stopped (permission revoke etc).
     }
 
     final VoxaVoiceClient? client = _activeClient;
@@ -338,8 +249,7 @@ class VoxaVoiceSession {
     }
   }
 
-  /// Release all resources. After this the session can't be reused — construct a new
-  /// one via the provider.
+  /// One-shot release; the session can't be reused after this.
   Future<void> dispose() async {
     await stop();
     await _recorder.dispose();
@@ -347,18 +257,11 @@ class VoxaVoiceSession {
     await _stateController.close();
   }
 
-  // ── Internals ────────────────────────────────────────────────────────────────────
+  // ── Internals ────────────────────────────────────────────────────────────
 
-  /// Drop everything queued in the local PCM ring buffer.
-  ///
-  /// `mp_audio_stream` doesn't expose a flush primitive — its only ways to drop
-  /// queued audio are `uninit()` (releases the device) or `init()` again (which
-  /// the package docs say "makes a new AudioStream, the previous device will be
-  /// uninited"). We re-init with the same parameters so playback can resume the
-  /// moment the next frame arrives, with no audible click / pop on Android.
-  ///
-  /// Called when the server emits an `interruption` event so the bot's queued
-  /// audio stops mid-word instead of playing out to completion.
+  // mp_audio_stream has no flush API; the package docs say a second `init()`
+  // call uninits the previous device. Re-init with the same params lets the
+  // next inbound frame play with no audible click on Android.
   void _resetPlayerBuffer() {
     if (!_playerInitialised) return;
     try {
@@ -374,32 +277,23 @@ class VoxaVoiceSession {
       }
       _player.resume();
     } catch (_) {
-      // Best-effort flush — if the platform layer is unhappy we'd rather let
-      // playback continue than crash the session. The next `stop()` will tear
-      // the player down cleanly either way.
+      // Best-effort flush; next stop() will tear things down cleanly.
     }
   }
 
   void _onBotAudioFrame(Uint8List pcmBytes) {
     if (pcmBytes.isEmpty) return;
     if (!_playerInitialised) return;
-
-    // Stamp arrival time so the mic listener can drop frames during the actual
-    // speaker tail (audio queued for playback, not just "server still streaming").
     _lastBotAudioAt = _clock.elapsed;
 
-    // Convert Int16 PCM bytes → Float32 in [-1, 1] for the mp_audio_stream player.
-    // pcmBytes is 16-bit signed LE PCM (mono). We use a ByteData view to avoid
-    // depending on the platform's host endianness — Whisper / Azure / Mistral all
-    // emit little-endian and so do we.
+    // Int16 LE PCM → Float32 [-1, 1] for mp_audio_stream. ByteData view keeps
+    // us independent of host endianness.
     final int sampleCount = pcmBytes.length ~/ 2;
     if (sampleCount == 0) return;
-
     final Float32List floats = Float32List(sampleCount);
     final ByteData view = ByteData.sublistView(pcmBytes);
     for (int i = 0; i < sampleCount; i++) {
-      final int sample = view.getInt16(i * 2, Endian.little);
-      floats[i] = sample / 0x8000;
+      floats[i] = view.getInt16(i * 2, Endian.little) / 0x8000;
     }
     _player.push(floats);
   }
@@ -429,16 +323,9 @@ class VoxaVoiceSession {
   }
 }
 
-/// Per-screen [VoxaVoiceSession] factory. Each `ref.watch` returns a fresh session;
-/// the autoDispose contract tears the session (and its underlying recorder / player /
-/// WS client) down when no widget is listening, so navigating away mid-conversation
-/// stops the mic immediately.
-///
-/// The factory constructs a *fresh* [VoxaVoiceClient] on each `session.start()` —
-/// VoxaVoiceClient is single-use (its broadcast controllers and channel state don't
-/// reset across connect cycles), so reusing one instance across multiple sessions
-/// would mix old subscribers with new sessions. We resolve config + auth from
-/// Riverpod up-front so the factory closure stays pure.
+/// Per-screen session factory. AutoDispose so navigating away mid-conversation
+/// tears the mic + player + WS down. The controller holds a keep-alive across
+/// its own start/stop cycle (see [RealtimeVoiceController]).
 final Provider<VoxaVoiceSession> voxaVoiceSessionProvider =
     Provider.autoDispose<VoxaVoiceSession>((Ref ref) {
   final AppEnvironment environment = ref.watch(appEnvironmentProvider);
@@ -459,10 +346,8 @@ final Provider<VoxaVoiceSession> voxaVoiceSessionProvider =
       getAccessToken: getAccessToken,
     ),
   );
-  // Fire-and-forget — the session's own dispose is fully async and can wait on the
-  // recorder shutting down; the provider can't await async work in onDispose. The
-  // ignore is for the lint that would otherwise prefer the tearoff form — we use a
-  // lambda here so the comment above stays adjacent to the call.
+  // dispose is async; provider can't await it. The lambda keeps the
+  // discarded_futures ignore visually attached to the call site.
   // ignore: unnecessary_lambdas
   ref.onDispose(() {
     // ignore: discarded_futures

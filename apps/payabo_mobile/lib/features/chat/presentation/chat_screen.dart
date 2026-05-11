@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -125,31 +124,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   static const double _historyOverlayWidthFactor = 0.9;
   static const Duration _streamingAutoScrollMinInterval =
       Duration(milliseconds: 48);
-  static const String _voiceLogPrefix = '[ChatVoice]';
-
-  /// Maximum time any single voice tap async operation
-  /// (`start` / `stop`) is allowed to occupy [_voiceBusy]. If a platform
-  /// call hangs forever without this watchdog the finally block never runs,
-  /// [_voiceBusy] stays `true`, and every subsequent tap is silently
-  /// ignored — forcing the user to restart the app. The watchdog forcibly
-  /// clears the flag and surfaces a toast so the failure is recoverable.
-  static const Duration _voiceBusyMaxDuration = Duration(seconds: 8);
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final AnimationController _historyOverlayController;
   DateTime? _lastStreamingAutoScrollAt;
   bool _showVoiceStage = false;
-
-  /// Guards against re-entrant voice taps while an async voice operation
-  /// (start / stop) is in flight. Without this, rapid taps cause the state
-  /// machine to diverge from the realtime controller's state.
-  bool _voiceBusy = false;
-
-  /// Watchdog paired with [_voiceBusy]. If the async op takes longer than
-  /// [_voiceBusyMaxDuration], we force-clear the flag so the user can
-  /// recover with another tap. See [_voiceBusyMaxDuration] doc.
-  Timer? _voiceBusyWatchdog;
 
   /// The conversation starter question currently displayed on the empty chat
   /// stage. Stored here so it can be prepended as context when the user sends
@@ -173,7 +153,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _controller.dispose();
     _scrollController.dispose();
     _historyOverlayController.dispose();
-    _voiceBusyWatchdog?.cancel();
     super.dispose();
   }
 
@@ -189,6 +168,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         (ProfileHeaderState state) => state.displayName,
       ),
     );
+
+    // Surface the controller's error message as a snackbar whenever it
+    // transitions from null → set (e.g. the watchdog fires on a hung start).
+    // The orb stage shows the inline error too; this is the recovery hint.
+    ref.listen<RealtimeVoiceState>(realtimeVoiceControllerProvider, (
+      RealtimeVoiceState? prev,
+      RealtimeVoiceState next,
+    ) {
+      if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(next.errorMessage!)));
+      }
+    });
 
     // Auto-scroll when streaming text updates arrive.
     ref.listen<ChatState>(chatControllerProvider, (
@@ -482,119 +475,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _scrollToBottom(force: true);
   }
 
-  /// Realtime (Voxa WSS) voice path. The realtime controller owns turn
-  /// detection (server VAD), barge-in, and the bot's audio playback — the
-  /// chat screen only manages stage visibility and re-entrancy.
+  /// Orb tap → controller toggles its own session lifecycle; we only flip the
+  /// stage visibility so the orb appears (on start) / disappears (on stop).
+  /// Busy / watchdog / error are all in [RealtimeVoiceController].
   Future<void> _handleVoiceTap() async {
-    if (_voiceBusy) {
-      _voiceLog('voice tap IGNORED — async operation in flight');
-      return;
-    }
-
     final RealtimeVoiceController notifier =
         ref.read(realtimeVoiceControllerProvider.notifier);
     final RealtimeVoicePhase phase =
         ref.read(realtimeVoiceControllerProvider).phase;
-    _voiceLog('realtime voice tap while phase=$phase');
 
-    switch (phase) {
-      case RealtimeVoicePhase.idle:
-      case RealtimeVoicePhase.error:
-        if (mounted) {
-          setState(() {
-            _showVoiceStage = true;
-          });
-        }
-        await _runBusyVoiceOp('realtimeStart', () async {
-          await notifier.start();
-        });
-      case RealtimeVoicePhase.connecting:
-      case RealtimeVoicePhase.live:
-        await _runBusyVoiceOp('realtimeStop', () async {
-          await notifier.stop();
-        });
-        if (mounted) {
-          setState(() {
-            _showVoiceStage = false;
-          });
-        }
+    // Show the stage immediately on entry to a live session; hide it once
+    // we're back at idle. Error keeps the stage visible so the user sees the
+    // failure reason and can tap to retry.
+    if (phase == RealtimeVoicePhase.idle ||
+        phase == RealtimeVoicePhase.error) {
+      if (mounted) setState(() => _showVoiceStage = true);
+    }
+    await notifier.toggle();
+    if (!mounted) return;
+    if (ref.read(realtimeVoiceControllerProvider).phase ==
+        RealtimeVoicePhase.idle) {
+      setState(() => _showVoiceStage = false);
     }
   }
 
-  /// Runs [op] while [_voiceBusy] is held, with a watchdog timer that
-  /// force-clears the flag after [_voiceBusyMaxDuration] in case [op]
-  /// hangs on a stale platform channel.
-  ///
-  /// Without the watchdog, an awaited MethodChannel call that never
-  /// completes would leave [_voiceBusy] stuck forever, silently swallowing
-  /// every subsequent voice tap and forcing the user to restart the app.
-  Future<void> _runBusyVoiceOp(
-    String label,
-    Future<void> Function() op,
-  ) async {
-    _voiceBusy = true;
-    _voiceBusyWatchdog?.cancel();
-    _voiceBusyWatchdog = Timer(_voiceBusyMaxDuration, () {
-      if (!_voiceBusy) {
-        return;
-      }
-      _voiceLog(
-        'voice busy watchdog FIRED for $label — force-clearing _voiceBusy after ${_voiceBusyMaxDuration.inSeconds}s',
-      );
-      _voiceBusy = false;
-      if (mounted) {
-        _showVoiceSnackBar(
-          'Voice took too long to respond. Tap Talk to try again.',
-        );
-      }
-    });
-    try {
-      await op();
-    } finally {
-      _voiceBusyWatchdog?.cancel();
-      _voiceBusyWatchdog = null;
-      _voiceBusy = false;
-    }
-  }
-
-  /// Stop any active realtime voice session and hide the stage. Called when
-  /// the user pivots to a different surface (new conversation, typed send,
-  /// history navigation) so the WSS session doesn't keep running in the
-  /// background.
+  /// Tear the active session down when the user pivots away (new conversation,
+  /// typed send, history navigation) and hide the stage.
   Future<void> _dismissVoiceStage() async {
-    final RealtimeVoiceController notifier =
-        ref.read(realtimeVoiceControllerProvider.notifier);
-    final RealtimeVoicePhase phase =
-        ref.read(realtimeVoiceControllerProvider).phase;
-
-    if (phase == RealtimeVoicePhase.connecting ||
-        phase == RealtimeVoicePhase.live) {
-      await notifier.stop();
-    }
-
-    if (!mounted) {
-      return;
-    }
-
+    await ref.read(realtimeVoiceControllerProvider.notifier).dismiss();
+    if (!mounted) return;
     if (_showVoiceStage) {
-      setState(() {
-        _showVoiceStage = false;
-      });
+      setState(() => _showVoiceStage = false);
     }
-  }
-
-  void _showVoiceSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _voiceLog(String message) {
-    if (!kDebugMode) {
-      return;
-    }
-
-    debugPrint('$_voiceLogPrefix $message');
   }
 
   void _handleHistoryDragUpdate(
