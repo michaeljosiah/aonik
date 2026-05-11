@@ -289,21 +289,49 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
                 },
                 _httpClientFactory.CreateClient("Voxa.Speech.ElevenLabs")),
 
-            MistralTtsConfig mistral => Mistral.Synthesis(
-                new MistralSpeechOptions
-                {
-                    ApiKey = ResolveApiKey(credentialResolver, "Mistral", recipe.TtsProviderDisplayName),
-                    Voice = recipe.TtsVoiceId,
-                    // Same on-the-fly rewrite as PreviewEngineFactory: stale "voxtral-tts"
-                    // rows map to the production model id so admins don't have to bulk-edit.
-                    Model = ResolveMistralModel(recipe.TtsModelId ?? mistral.DefaultModelId),
-                },
-                _httpClientFactory.CreateClient("Voxa.Speech.Mistral")),
+            MistralTtsConfig mistral => BuildMistralTtsProcessor(recipe, credentialResolver, mistral),
 
             _ => throw new VoiceConfigurationException(
                 $"TTS provider '{recipe.TtsProviderDisplayName}' uses {recipe.TtsConfig.GetType().Name}; "
                 + "supported chained TTS configs are OpenAITtsConfig, AzureTtsConfig, ElevenLabsTtsConfig, MistralTtsConfig."),
         };
+    }
+
+    /// <summary>
+    /// Build a TTS processor backed by <see cref="AonikMistralVoiceEngine"/> rather than
+    /// <c>Voxa.Speech.Mistral.MistralTextToSpeechEngine</c>.
+    ///
+    /// <para>
+    /// Voxa's 0.4.0-alpha Mistral engine reads the response as raw PCM bytes; Mistral
+    /// actually returns an SSE event-stream (<c>data: {"audio_data":"&lt;base64&gt;"}</c>
+    /// lines, even when <c>response_format=pcm</c>). The mismatch produced the
+    /// "horribly garbled, sounds like static" symptom we hit on the live test card —
+    /// the SSE wire-format text was being sent to the client as if it were PCM samples.
+    /// AonikMistralVoiceEngine parses the SSE stream correctly, mirroring the
+    /// approach <c>Aonik.Ai.Providers.MistralTextToSpeechProvider</c> uses for the
+    /// chat-speech path (which is known-good in production).
+    /// </para>
+    ///
+    /// <para>
+    /// Output rate is hard-coded to 24 kHz because Mistral's <c>response_format=pcm</c>
+    /// always returns 24 kHz mono signed 16-bit LE PCM (OpenAI-compatible). This matches
+    /// what Voxa's <see cref="MistralSpeechOptions.OutputSampleRate"/> default declared,
+    /// so the AudioRawFrame tagging downstream stays consistent.
+    /// </para>
+    /// </summary>
+    private TextToSpeechProcessor BuildMistralTtsProcessor(
+        ChainedRecipeRuntimeSpec recipe,
+        IVoiceProviderCredentialResolver credentialResolver,
+        MistralTtsConfig mistral)
+    {
+        var apiKey = ResolveApiKey(credentialResolver, "Mistral", recipe.TtsProviderDisplayName);
+        var voiceId = recipe.TtsVoiceId;
+        var modelId = recipe.TtsModelId ?? mistral.DefaultModelId;
+        var httpClient = _httpClientFactory.CreateClient("Aonik.Voice.Mistral");
+
+        return new TextToSpeechProcessor(
+            engineFactory: () => new AonikMistralVoiceEngine(apiKey, voiceId, modelId, httpClient),
+            outputSampleRate: 24000);
     }
 
     // ── Shared helpers ───────────────────────────────────────────────────────────────────
