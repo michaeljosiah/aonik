@@ -49,10 +49,36 @@ class VoxaVoiceSession {
   bool _playerInitialised = false;
   bool _running = false;
 
-  /// True between [SpeakingEvent](who:bot, started:true) and (who:bot, started:false).
-  /// While this is true we drop incoming mic frames instead of forwarding them to the
-  /// server — see [start] for the rationale.
+  // Player config — captured on start() so [_resetPlayerBuffer] can re-init with the
+  // same parameters when the server fires an interruption.
+  int _playerChannels = 1;
+  int _playerSampleRate = 24000;
+
+  /// True between [SpeakingEvent](who:bot, started:true) and (who:bot, started:false)
+  /// PLUS a hangover after the server says "stopped speaking" to let the local audio
+  /// queue drain. While true we drop incoming mic frames — see [start] for the
+  /// rationale.
   bool _botSpeaking = false;
+
+  /// Pending timer that flips [_botSpeaking] back to false after the post-stop
+  /// hangover elapses. Cancelled if the bot starts speaking again before it fires.
+  Timer? _botStoppedHangoverTimer;
+
+  /// Buffer / drain budget. Must be ≥ the player's bufferMilliSec below so the local
+  /// PCM queue has time to play out before we re-open the mic. If the user's
+  /// experience is "bot's tail gets transcribed as me repeating myself", raise this.
+  static const Duration _postBotStopHangover = Duration(milliseconds: 1500);
+
+  /// Maximum amount of bot audio we hold in the ring buffer. Smaller = less tail
+  /// after the bot logically stops; larger = more headroom for bursty TTS frames
+  /// without dropping samples. 1500 ms is comfortably more than typical TTS bursts
+  /// but short enough that interruptions feel snappy.
+  static const int _playerBufferMilliSec = 1500;
+
+  /// How much audio must be queued before playback starts. Lower = lower start-of-
+  /// utterance latency, higher = less risk of underrun. 100 ms is the package's
+  /// default and matches what the web admin UI uses.
+  static const int _playerWaitingBufferMilliSec = 100;
 
   final StreamController<VoxaVoiceEvent> _eventsController =
       StreamController<VoxaVoiceEvent>.broadcast();
@@ -96,11 +122,13 @@ class VoxaVoiceSession {
     // get dropped while we're still setting up. `init` returns 0 on success per the
     // mp_audio_stream contract; non-zero indicates platform-level failure (e.g. no
     // audio device).
+    _playerChannels = 1;
+    _playerSampleRate = botSampleRate;
     final int initResult = _player.init(
-      channels: 1,
-      sampleRate: botSampleRate,
-      bufferMilliSec: 3000,
-      waitingBufferMilliSec: 100,
+      channels: _playerChannels,
+      sampleRate: _playerSampleRate,
+      bufferMilliSec: _playerBufferMilliSec,
+      waitingBufferMilliSec: _playerWaitingBufferMilliSec,
     );
     _playerInitialised = initResult == 0;
     if (!_playerInitialised) {
@@ -129,12 +157,36 @@ class VoxaVoiceSession {
       // forward those frames, Whisper transcribes the bot's own voice as a
       // new user turn and the agent loops on its own reply.
       //
+      // The server fires `speaking:false` when it finishes SENDING audio, but
+      // the local PCM player still has frames queued for up to `bufferMilliSec`
+      // afterwards. Unmuting the mic immediately captures that tail through
+      // the speakers. We schedule a hangover timer so the mic stays muted long
+      // enough for the queue to drain.
+      //
       // Trade-off: this disables barge-in (the user can't interrupt the bot
       // mid-sentence). For v1 of voice mode this is the right call; barge-in
       // can come back once we have a proper mic-side echo canceller or move
       // to a duplex realtime model that handles this server-side.
       if (event is SpeakingEvent && event.who == 'bot') {
-        _botSpeaking = event.started;
+        _botStoppedHangoverTimer?.cancel();
+        if (event.started) {
+          _botSpeaking = true;
+          _botStoppedHangoverTimer = null;
+        } else {
+          // Keep the mic muted until the local audio queue drains.
+          _botStoppedHangoverTimer = Timer(_postBotStopHangover, () {
+            _botSpeaking = false;
+          });
+        }
+      } else if (event is InterruptionEvent) {
+        // Server-side VAD detected the user talking over the bot. Flush the
+        // local PCM ring buffer so playback stops mid-word — without this the
+        // queued audio keeps playing for up to `_playerBufferMilliSec` after
+        // the agent has logically been interrupted, which feels broken.
+        _resetPlayerBuffer();
+        _botStoppedHangoverTimer?.cancel();
+        _botStoppedHangoverTimer = null;
+        _botSpeaking = false;
       }
       _eventsController.add(event);
     });
@@ -199,6 +251,8 @@ class VoxaVoiceSession {
   Future<void> stop() async {
     _running = false;
     _botSpeaking = false;
+    _botStoppedHangoverTimer?.cancel();
+    _botStoppedHangoverTimer = null;
 
     await _micSubscription?.cancel();
     _micSubscription = null;
@@ -242,6 +296,37 @@ class VoxaVoiceSession {
   }
 
   // ── Internals ────────────────────────────────────────────────────────────────────
+
+  /// Drop everything queued in the local PCM ring buffer.
+  ///
+  /// `mp_audio_stream` doesn't expose a flush primitive — its only ways to drop
+  /// queued audio are `uninit()` (releases the device) or `init()` again (which
+  /// the package docs say "makes a new AudioStream, the previous device will be
+  /// uninited"). We re-init with the same parameters so playback can resume the
+  /// moment the next frame arrives, with no audible click / pop on Android.
+  ///
+  /// Called when the server emits an `interruption` event so the bot's queued
+  /// audio stops mid-word instead of playing out to completion.
+  void _resetPlayerBuffer() {
+    if (!_playerInitialised) return;
+    try {
+      final int initResult = _player.init(
+        channels: _playerChannels,
+        sampleRate: _playerSampleRate,
+        bufferMilliSec: _playerBufferMilliSec,
+        waitingBufferMilliSec: _playerWaitingBufferMilliSec,
+      );
+      if (initResult != 0) {
+        _playerInitialised = false;
+        return;
+      }
+      _player.resume();
+    } catch (_) {
+      // Best-effort flush — if the platform layer is unhappy we'd rather let
+      // playback continue than crash the session. The next `stop()` will tear
+      // the player down cleanly either way.
+    }
+  }
 
   void _onBotAudioFrame(Uint8List pcmBytes) {
     if (pcmBytes.isEmpty) return;

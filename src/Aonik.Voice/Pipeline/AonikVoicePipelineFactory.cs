@@ -19,6 +19,8 @@ using Voxa.Speech.Azure;
 using Voxa.Speech.ElevenLabs;
 using Voxa.Speech.Mistral;
 using Voxa.Speech.OpenAI;
+using Voxa.Services.AzureVoiceLive;
+using Voxa.Services.OpenAIRealtime;
 using Voxa.Transports.WebSocket;
 
 namespace Aonik.Voice.Pipeline;
@@ -39,6 +41,14 @@ namespace Aonik.Voice.Pipeline;
 public interface IAonikVoicePipelineFactory
 {
     Voxa.Pipelines.Pipeline BuildChained(VoicePipelineBuildRequest request, ChainedRecipeRuntimeSpec recipe);
+
+    /// <summary>
+    /// Build a composite voice pipeline (OpenAI Realtime or Azure Voice Live). v1 wiring
+    /// pipes audio in and out of the bidirectional composite processor. Tool dispatch and
+    /// chat-thread persistence are deferred follow-ups — voice chat works, but the agent
+    /// can't invoke MAF functions yet and the conversation isn't persisted to AGUI.
+    /// </summary>
+    Voxa.Pipelines.Pipeline BuildComposite(VoicePipelineBuildRequest request, CompositeRecipeRuntimeSpec recipe);
 }
 
 /// <summary>
@@ -97,6 +107,27 @@ public sealed record ChainedRecipeRuntimeSpec(
     /// both Silence and Silero. Null = vendor default (800 ms).
     /// </summary>
     int? VadStopMs);
+
+/// <summary>
+/// Fully-resolved composite recipe — the composite provider's config + the per-recipe
+/// voice / model / instructions picks. The factory pattern-matches on
+/// <see cref="ProviderConfig"/> to wire the right concrete processor.
+/// </summary>
+/// <param name="RecipeId">Recipe id. Surfaced for logging only.</param>
+/// <param name="RecipeDisplayName">Human-readable recipe name. Surfaced for error messages.</param>
+/// <param name="ProviderDisplayName">Human-readable provider name. For error messages.</param>
+/// <param name="ProviderConfig">Polymorphic provider config; runtime requires <see cref="OpenAIRealtimeCompositeConfig"/> or <see cref="AzureVoiceLiveCompositeConfig"/>.</param>
+/// <param name="Voice">Per-recipe voice id (e.g. <c>alloy</c>, <c>nova</c>).</param>
+/// <param name="Model">Per-recipe model override; null falls back to the provider's default.</param>
+/// <param name="InstructionsAddendum">Per-recipe instruction addendum appended to the agent instructions.</param>
+public sealed record CompositeRecipeRuntimeSpec(
+    string RecipeId,
+    string RecipeDisplayName,
+    string ProviderDisplayName,
+    SpeechProviderConfig ProviderConfig,
+    string Voice,
+    string? Model,
+    string? InstructionsAddendum);
 
 internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
 {
@@ -245,6 +276,185 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             .Then(normalizer)
             .Then(tts)
             .Sink(sink);
+    }
+
+    // ── Composite pipeline (OpenAI Realtime / Azure Voice Live) ──────────────────────────
+
+    /// <summary>
+    /// Build the per-connection composite voice pipeline. The shape is dramatically
+    /// simpler than the chained one: the composite processor folds STT+LLM+TTS+VAD+turn-
+    /// taking into a single bidirectional WSS session, so we only need to bridge audio
+    /// frames in and out plus upsample 16 kHz mic audio to the 24 kHz both vendors
+    /// require on their input audio buffer.
+    ///
+    /// <para>
+    /// Pipeline:
+    /// </para>
+    ///
+    /// <code>
+    ///   WebSocketAudioSource(16 kHz)
+    ///     → LinearResampler(16→24 kHz)
+    ///     → AudioArrivalLogger
+    ///     → OpenAIRealtimeProcessor | AzureVoiceLiveProcessor
+    ///     → WebSocketAudioSink
+    /// </code>
+    ///
+    /// <para>
+    /// <b>v1 limitations</b> — both deferred to follow-up tasks:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>
+    ///     <b>Tool dispatch.</b> Voxa's composite processors emit
+    ///     <c>ToolCallRequestFrame</c> when the model invokes a tool, and expect
+    ///     <c>ToolCallResultFrame</c> back. We pass an empty Tools list for now so the
+    ///     model can't invoke functions — the experience is conversational only. Wiring
+    ///     MAF <c>AIFunction</c> dispatch into a downstream <c>MafToolDispatcher</c>
+    ///     processor is the natural follow-up.
+    ///   </item>
+    ///   <item>
+    ///     <b>Chat-thread persistence.</b> The chained path runs every turn through
+    ///     <see cref="AonikVoiceAgent.CreateProcessor"/> which writes <c>AiRun</c> +
+    ///     ChatThread rows. The composite path bypasses that processor entirely; voice
+    ///     conversations through GPT Realtime aren't yet saved to AGUI history. Will be
+    ///     wired by capturing the composite's <c>TranscriptionFrame</c> +
+    ///     <c>LlmTextChunkFrame</c> emissions and feeding them through a slimmed
+    ///     persistence-only processor.
+    ///   </item>
+    /// </list>
+    /// </summary>
+    public Voxa.Pipelines.Pipeline BuildComposite(VoicePipelineBuildRequest request, CompositeRecipeRuntimeSpec recipe)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(recipe);
+
+        var credentialResolver = request.RequestServices
+            .GetRequiredService<Aonik.SharedKernel.Abstractions.Ai.IVoiceProviderCredentialResolver>();
+
+        // Mic clients send 16 kHz; both composite APIs require 24 kHz pcm16. Tag the
+        // source as 16 kHz so the resampler picks the frames up (frames at any other
+        // sample rate pass through unchanged).
+        var source = new WebSocketAudioSource(
+            request.WebSocket,
+            new WebSocketAudioOptions
+            {
+                InputSampleRate = 16000,
+                Channels = 1,
+            });
+
+        // Voxa's WebSocketAudioSink covers BotStarted/BotStopped/User*Speaking + Audio
+        // frames natively — the composite processor emits all of these — so JSON
+        // `speaking` and `interruption` envelopes reach the client without extra glue.
+        var sink = new WebSocketAudioSink(
+            request.WebSocket,
+            customSerializer: ThreadReadyFrameSerializer.Serialize);
+
+        var resampler = new LinearResamplerProcessor(inputSampleRate: 16000, outputSampleRate: 24000);
+
+        var audioArrivalLogger = new AudioArrivalLogger(
+            _loggerFactory.CreateLogger("Aonik.Voice.AudioArrival"));
+
+        var composite = BuildCompositeProcessor(request, recipe, credentialResolver);
+
+        return Voxa.Pipelines.Pipeline.Build()
+            .Source(source)
+            .Then(resampler)
+            .Then(audioArrivalLogger)
+            .Then(composite)
+            .Sink(sink);
+    }
+
+    /// <summary>
+    /// Dispatch on the composite provider config to construct the right Voxa processor.
+    /// Throws <see cref="VoiceConfigurationException"/> if the config shape doesn't match
+    /// either of the two supported vendors — the endpoint surfaces the message to the
+    /// client.
+    /// </summary>
+    private FrameProcessor BuildCompositeProcessor(
+        VoicePipelineBuildRequest request,
+        CompositeRecipeRuntimeSpec recipe,
+        IVoiceProviderCredentialResolver credentialResolver)
+    {
+        // Resolve agent instructions (best-effort). The composite vendors take their own
+        // instructions field; we prepend the agent's resolved instructions so behaviour
+        // stays consistent with the chained path even though tools aren't wired yet.
+        var instructions = ComposeCompositeInstructions(request, recipe);
+
+        return recipe.ProviderConfig switch
+        {
+            OpenAIRealtimeCompositeConfig openai => new OpenAIRealtimeProcessor(
+                options: new OpenAIRealtimeOptions
+                {
+                    ApiKey = ResolveApiKey(credentialResolver, "openai-realtime", recipe.ProviderDisplayName),
+                    Model = recipe.Model ?? openai.DefaultModel ?? "gpt-realtime-mini",
+                    Voice = recipe.Voice,
+                    Instructions = instructions,
+                    // v1: empty tools. See BuildComposite XML for follow-up plan.
+                    Tools = Array.Empty<OpenAIRealtimeTool>(),
+                },
+                transportFactory: null,
+                logger: _loggerFactory.CreateLogger<OpenAIRealtimeProcessor>()),
+
+            AzureVoiceLiveCompositeConfig azure => new AzureVoiceLiveProcessor(
+                options: new AzureVoiceLiveOptions
+                {
+                    Endpoint = ParseRequiredUri(azure.Endpoint, recipe.ProviderDisplayName, "Endpoint"),
+                    ApiKey = ResolveApiKey(credentialResolver, "azure-voice-live", recipe.ProviderDisplayName),
+                    Model = recipe.Model ?? azure.DefaultModel ?? "gpt-realtime-mini",
+                    Voice = recipe.Voice,
+                    Instructions = instructions,
+                    Tools = Array.Empty<AzureVoiceLiveTool>(),
+                },
+                transportFactory: null,
+                logger: _loggerFactory.CreateLogger<AzureVoiceLiveProcessor>()),
+
+            _ => throw new VoiceConfigurationException(
+                $"Composite provider '{recipe.ProviderDisplayName}' uses {recipe.ProviderConfig.GetType().Name}; "
+                + "supported composite configs are OpenAIRealtimeCompositeConfig and AzureVoiceLiveCompositeConfig."),
+        };
+    }
+
+    /// <summary>
+    /// Best-effort instruction composition. The recipe-level addendum is appended to the
+    /// agent's resolved instructions (if any) so a recipe can layer voice-specific
+    /// behaviour on top of the agent's primary system prompt. If the agent doesn't
+    /// expose instructions through its public surface, the addendum stands alone.
+    /// </summary>
+    private static string? ComposeCompositeInstructions(
+        VoicePipelineBuildRequest request,
+        CompositeRecipeRuntimeSpec recipe)
+    {
+        // Aonik agents (ChatClientAgent) expose Instructions on the underlying ChatOptions.
+        // The AIAgent base class doesn't have it directly, so we read it off the run
+        // options the endpoint already prepared. If absent (e.g. agents whose instructions
+        // live elsewhere), fall back to just the recipe addendum.
+        var agentInstructions = request.RunOptions?.ChatOptions?.Instructions;
+        if (string.IsNullOrWhiteSpace(agentInstructions))
+        {
+            return string.IsNullOrWhiteSpace(recipe.InstructionsAddendum)
+                ? null
+                : recipe.InstructionsAddendum;
+        }
+
+        return string.IsNullOrWhiteSpace(recipe.InstructionsAddendum)
+            ? agentInstructions
+            : $"{agentInstructions}\n\n{recipe.InstructionsAddendum}";
+    }
+
+    private static Uri ParseRequiredUri(string? raw, string providerDisplayName, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            throw new VoiceConfigurationException(
+                $"Composite provider '{providerDisplayName}' is missing a {fieldName}. "
+                + "Edit the provider config and set the WSS endpoint URL.");
+        }
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        {
+            throw new VoiceConfigurationException(
+                $"Composite provider '{providerDisplayName}' has an invalid {fieldName}: '{raw}'. "
+                + "Expected an absolute URI (e.g. 'wss://<resource>.cognitiveservices.azure.com/voice-live/realtime?model=...&api-version=...').");
+        }
+        return uri;
     }
 
     // ── VAD selector ─────────────────────────────────────────────────────────────────────

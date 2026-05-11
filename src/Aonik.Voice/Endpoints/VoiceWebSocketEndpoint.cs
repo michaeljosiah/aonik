@@ -100,10 +100,10 @@ internal static class VoiceWebSocketEndpoint
                 return;
             }
 
-            ChainedRecipeRuntimeSpec recipeSpec;
+            ResolvedRecipe resolvedRecipe;
             try
             {
-                recipeSpec = await ResolveRecipeAsync(services, voiceModeSettings.ActiveRecipeId!, cancellationToken);
+                resolvedRecipe = await ResolveRecipeAsync(services, voiceModeSettings.ActiveRecipeId!, cancellationToken);
             }
             catch (VoiceConfigurationException ex)
             {
@@ -149,24 +149,30 @@ internal static class VoiceWebSocketEndpoint
             Guid? tenantId = TryGetTenantId(services);
             Guid? userId = TryGetUserId(services);
 
-            // Compose the pipeline.
+            // Compose the pipeline. Chained vs composite is the one fork in the runtime —
+            // each shape has its own builder + runtime spec.
             var factory = services.GetRequiredService<IAonikVoicePipelineFactory>();
+            var buildRequest = new VoicePipelineBuildRequest(
+                WebSocket: socket,
+                VoiceAgent: voiceAgentResult.Agent,
+                UserBriefPreamble: agentContext.UserBriefPreamble,
+                RunOptions: runOptions,
+                FrontendToolNames: catalog.AllowedNames,
+                InitialChatThreadId: hello.ChatThreadId,
+                AgentId: hello.AgentId,
+                TenantId: tenantId,
+                UserId: userId,
+                RequestServices: services);
+
             Voxa.Pipelines.Pipeline pipeline;
             try
             {
-                pipeline = factory.BuildChained(
-                    new VoicePipelineBuildRequest(
-                        WebSocket: socket,
-                        VoiceAgent: voiceAgentResult.Agent,
-                        UserBriefPreamble: agentContext.UserBriefPreamble,
-                        RunOptions: runOptions,
-                        FrontendToolNames: catalog.AllowedNames,
-                        InitialChatThreadId: hello.ChatThreadId,
-                        AgentId: hello.AgentId,
-                        TenantId: tenantId,
-                        UserId: userId,
-                        RequestServices: services),
-                    recipeSpec);
+                pipeline = resolvedRecipe switch
+                {
+                    ResolvedRecipe.Chained chained => factory.BuildChained(buildRequest, chained.Spec),
+                    ResolvedRecipe.Composite composite => factory.BuildComposite(buildRequest, composite.Spec),
+                    _ => throw new InvalidOperationException("Unreachable: ResolvedRecipe is sealed."),
+                };
             }
             catch (VoiceConfigurationException ex)
             {
@@ -186,15 +192,9 @@ internal static class VoiceWebSocketEndpoint
             // switch immediately blocks new voice connections without us needing a separate
             // gate here.
             var aiRunWriter = services.GetRequiredService<IAiRunWriter>();
-            var voiceSessionInputRefs = JsonSerializer.Serialize(new
-            {
-                recipeId = recipeSpec.RecipeId,
-                recipeName = recipeSpec.RecipeDisplayName,
-                sttProvider = recipeSpec.SttProviderDisplayName,
-                ttsProvider = recipeSpec.TtsProviderDisplayName,
-                agentId = hello.AgentId,
-                chatThreadId = hello.ChatThreadId,
-            }, JsonOpts);
+            var voiceSessionInputRefs = JsonSerializer.Serialize(
+                resolvedRecipe.ToAiRunInputRefs(hello.AgentId, hello.ChatThreadId),
+                JsonOpts);
 
             Guid? voiceRunId = null;
             try
@@ -301,13 +301,51 @@ internal static class VoiceWebSocketEndpoint
     }
 
     /// <summary>
-    /// Pulls the named recipe from the speech library, validates it's a chained recipe in
-    /// active status, then resolves the STT + TTS provider refs into a fully-typed runtime
-    /// spec the factory can consume without further library lookups. Each failure mode
-    /// throws <see cref="VoiceConfigurationException"/> with a message safe to surface to
-    /// the client.
+    /// Tagged union of resolved recipe shapes. Wraps the kind-specific runtime spec so
+    /// the endpoint can dispatch to <see cref="IAonikVoicePipelineFactory.BuildChained"/>
+    /// or <see cref="IAonikVoicePipelineFactory.BuildComposite"/> without leaking each
+    /// shape's fields into the surrounding code.
     /// </summary>
-    private static async Task<ChainedRecipeRuntimeSpec> ResolveRecipeAsync(
+    private abstract record ResolvedRecipe
+    {
+        public sealed record Chained(ChainedRecipeRuntimeSpec Spec) : ResolvedRecipe;
+        public sealed record Composite(CompositeRecipeRuntimeSpec Spec) : ResolvedRecipe;
+
+        public object ToAiRunInputRefs(string? agentId, string? chatThreadId) => this switch
+        {
+            Chained c => new
+            {
+                recipeId = c.Spec.RecipeId,
+                recipeName = c.Spec.RecipeDisplayName,
+                sttProvider = c.Spec.SttProviderDisplayName,
+                ttsProvider = c.Spec.TtsProviderDisplayName,
+                kind = "chained",
+                agentId,
+                chatThreadId,
+            },
+            Composite c => new
+            {
+                recipeId = c.Spec.RecipeId,
+                recipeName = c.Spec.RecipeDisplayName,
+                compositeProvider = c.Spec.ProviderDisplayName,
+                voice = c.Spec.Voice,
+                model = c.Spec.Model,
+                kind = "composite",
+                agentId,
+                chatThreadId,
+            },
+            _ => throw new InvalidOperationException("Unreachable: ResolvedRecipe is sealed."),
+        };
+    }
+
+    /// <summary>
+    /// Pulls the named recipe from the speech library, validates it's active, and resolves
+    /// its referenced providers into a fully-typed runtime spec the factory can consume.
+    /// Chained and Composite both supported. Each failure mode throws
+    /// <see cref="VoiceConfigurationException"/> with a message safe to surface to the
+    /// client.
+    /// </summary>
+    private static async Task<ResolvedRecipe> ResolveRecipeAsync(
         IServiceProvider services,
         string recipeId,
         CancellationToken ct)
@@ -326,10 +364,27 @@ internal static class VoiceWebSocketEndpoint
             throw new VoiceConfigurationException(
                 $"Voice recipe '{recipe.DisplayName}' is not active. Re-enable it or pick a different recipe.");
         }
-        if (recipe.Kind != VoiceRecipeKind.Chained || recipe.Chained is null)
+
+        return recipe.Kind switch
+        {
+            VoiceRecipeKind.Chained => new ResolvedRecipe.Chained(
+                await ResolveChainedSpecAsync(recipe, providers, ct)),
+            VoiceRecipeKind.Composite => new ResolvedRecipe.Composite(
+                await ResolveCompositeSpecAsync(recipe, providers, ct)),
+            _ => throw new VoiceConfigurationException(
+                $"Voice recipe '{recipe.DisplayName}' has unknown kind '{recipe.Kind}'."),
+        };
+    }
+
+    private static async Task<ChainedRecipeRuntimeSpec> ResolveChainedSpecAsync(
+        VoiceRecipe recipe,
+        ISpeechProviderLibraryService providers,
+        CancellationToken ct)
+    {
+        if (recipe.Chained is null)
         {
             throw new VoiceConfigurationException(
-                $"Voice recipe '{recipe.DisplayName}' is a {recipe.Kind} recipe; only Chained recipes are wired in v1.");
+                $"Voice recipe '{recipe.DisplayName}' is marked Chained but has no chained body.");
         }
 
         var stt = await providers.GetAsync(recipe.Chained.SttProviderId, ct)
@@ -374,6 +429,41 @@ internal static class VoiceWebSocketEndpoint
             UseSentenceAggregator: recipe.Chained.SentenceAggregator,
             Vad: recipe.Chained.Vad,
             VadStopMs: recipe.Chained.VadStopMs);
+    }
+
+    private static async Task<CompositeRecipeRuntimeSpec> ResolveCompositeSpecAsync(
+        VoiceRecipe recipe,
+        ISpeechProviderLibraryService providers,
+        CancellationToken ct)
+    {
+        if (recipe.Composite is null)
+        {
+            throw new VoiceConfigurationException(
+                $"Voice recipe '{recipe.DisplayName}' is marked Composite but has no composite body.");
+        }
+
+        var provider = await providers.GetAsync(recipe.Composite.CompositeProviderId, ct)
+            ?? throw new VoiceConfigurationException(
+                $"Composite provider '{recipe.Composite.CompositeProviderId}' referenced by recipe '{recipe.DisplayName}' was not found.");
+        if (provider.Type != SpeechProviderType.Composite)
+        {
+            throw new VoiceConfigurationException(
+                $"Provider '{provider.DisplayName}' referenced as Composite by recipe '{recipe.DisplayName}' is type {provider.Type}, expected Composite.");
+        }
+        if (provider.Status != SpeechProviderStatus.Active)
+        {
+            throw new VoiceConfigurationException(
+                $"Composite provider '{provider.DisplayName}' is not active. Re-enable it or pick a different provider.");
+        }
+
+        return new CompositeRecipeRuntimeSpec(
+            RecipeId: recipe.Id,
+            RecipeDisplayName: recipe.DisplayName,
+            ProviderDisplayName: provider.DisplayName,
+            ProviderConfig: provider.Config,
+            Voice: recipe.Composite.Voice,
+            Model: recipe.Composite.Model,
+            InstructionsAddendum: recipe.Composite.InstructionsAddendum);
     }
 
     private static Guid? TryGetTenantId(IServiceProvider services)

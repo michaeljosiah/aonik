@@ -61,6 +61,13 @@
     <PackageReference Include="Voxa.Speech.ElevenLabs" Version="0.4.0-alpha" />
     <PackageReference Include="Voxa.Speech.Mistral" Version="0.4.0-alpha" />
     <PackageReference Include="Voxa.Audio.SileroVad" Version="0.4.0-alpha" />
+    <!--
+      Composite voice (Phase H follow-up). One bidirectional processor each for OpenAI's
+      Realtime API and Azure Voice Live, both folding STT+LLM+TTS+VAD+turn-taking into a
+      single WSS session. Pulled in by AonikVoicePipelineFactory.BuildComposite.
+    -->
+    <PackageReference Include="Voxa.Services.OpenAIRealtime" Version="0.4.0-alpha" />
+    <PackageReference Include="Voxa.Services.AzureVoiceLive" Version="0.4.0-alpha" />
 
     <!--
       MAF aligned with Voxa at 1.5.0.
