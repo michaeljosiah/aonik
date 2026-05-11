@@ -48,8 +48,25 @@ public static class CorsConfiguration
     ];
 
     /// <summary>
+    /// Origins that must always be allowed regardless of environment.
+    /// <para>
+    /// The Aonik Admin desktop (Electron) renderer loads from <c>file://</c>.
+    /// Chromium sends <c>Origin: null</c> for cross-origin fetches from that
+    /// scheme, so the API has to explicitly allowlist the literal string
+    /// <c>"null"</c> — otherwise every authenticated call (post-login
+    /// tenant lookup, every <c>/api/*</c> after that) trips the CORS
+    /// preflight check and the renderer silently drops the response.
+    /// </para>
+    /// </summary>
+    private static readonly string[] AlwaysAllowedOrigins =
+    [
+        "null",
+    ];
+
+    /// <summary>
     /// Registers the <c>AonikCors</c> policy in DI. The configured origins
-    /// are merged with <see cref="LocalDevOrigins"/> and de-duplicated.
+    /// are merged with <see cref="LocalDevOrigins"/> and
+    /// <see cref="AlwaysAllowedOrigins"/> and de-duplicated.
     /// </summary>
     public static IServiceCollection AddAonikCors(
         this IServiceCollection services,
@@ -61,6 +78,7 @@ public static class CorsConfiguration
 
         var allOrigins = configuredOrigins
             .Concat(LocalDevOrigins)
+            .Concat(AlwaysAllowedOrigins)
             .Where(o => !string.IsNullOrWhiteSpace(o))
             .Distinct()
             .ToArray();
