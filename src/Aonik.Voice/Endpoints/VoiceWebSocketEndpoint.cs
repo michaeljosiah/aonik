@@ -371,7 +371,9 @@ internal static class VoiceWebSocketEndpoint
             TtsModelId: recipe.Chained.TtsModelId,
             SttModel: recipe.Chained.SttModel,
             SttLanguage: recipe.Chained.SttLanguage,
-            UseSentenceAggregator: recipe.Chained.SentenceAggregator);
+            UseSentenceAggregator: recipe.Chained.SentenceAggregator,
+            Vad: recipe.Chained.Vad,
+            VadStopMs: recipe.Chained.VadStopMs);
     }
 
     private static Guid? TryGetTenantId(IServiceProvider services)

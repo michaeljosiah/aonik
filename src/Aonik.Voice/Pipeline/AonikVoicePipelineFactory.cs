@@ -84,7 +84,19 @@ public sealed record ChainedRecipeRuntimeSpec(
     string? TtsModelId,
     string? SttModel,
     string? SttLanguage,
-    bool UseSentenceAggregator);
+    bool UseSentenceAggregator,
+    /// <summary>
+    /// VAD mode chosen on the recipe in the admin UI. "energy" / "silence" →
+    /// SilenceGateProcessor, "silero" → SileroVadProcessor, "none" →
+    /// passthrough (tests only). If empty, falls back to the global
+    /// <c>Voice:Vad</c> configuration, then to "energy".
+    /// </summary>
+    string? Vad,
+    /// <summary>
+    /// Silence-required-before-gate-close (Pipecat's <c>stop_secs</c>) for
+    /// both Silence and Silero. Null = vendor default (800 ms).
+    /// </summary>
+    int? VadStopMs);
 
 internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
 {
@@ -212,7 +224,7 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             _loggerFactory.CreateLogger("Aonik.Voice.AudioArrival"));
 
         var vadLogger = _loggerFactory.CreateLogger("Aonik.Voice.Vad");
-        var vad = BuildVadProcessor(_configuration, vadLogger);
+        var vad = BuildVadProcessor(recipe, _configuration, vadLogger);
 
         var transcriptionFilter = new TranscriptionFilter();
 
@@ -238,23 +250,32 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
     // ── VAD selector ─────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Pick the VAD processor based on the <c>Voice:Vad</c> configuration value.
-    /// Defaults to <see cref="SilenceGateProcessor"/> (proven working, no native
-    /// deps). <c>silero</c> enables the ML-based gate behind an opt-in flag so we
-    /// can compare in the wild without making it the default path. <c>none</c>
-    /// returns a passthrough — useful for tests that drive turn boundaries via
-    /// synthetic frames, never for production.
+    /// Pick the VAD processor for this connection. Resolution order:
+    /// recipe-level <see cref="ChainedRecipeRuntimeSpec.Vad"/> → host-wide
+    /// <c>Voice:Vad</c> configuration → "energy" (SilenceGate). Stop-silence
+    /// ms uses the recipe value first, then <c>Voice:VadStopMs</c>, then 800.
     ///
     /// <para>
-    /// The 800 ms hangover / stop duration matches Pipecat's <c>stop_secs=0.8</c>
-    /// default — long enough for a brief in-sentence breath, short enough to keep
-    /// turn-taking snappy.
+    /// "energy" / "silence" → <see cref="SilenceGateProcessor"/>. Proven
+    /// working, zero native deps. The default for new recipes.
+    /// "silero" → <see cref="SileroVadProcessor"/>. ML-based, much better
+    /// noise rejection but requires ONNX Runtime. Opt-in per recipe.
+    /// "none" → passthrough; for tests that inject UserStarted/Stopped
+    /// frames synthetically. Using it in production freezes STT.
     /// </para>
     /// </summary>
-    private static FrameProcessor BuildVadProcessor(IConfiguration configuration, ILogger logger)
+    private static FrameProcessor BuildVadProcessor(
+        ChainedRecipeRuntimeSpec recipe,
+        IConfiguration configuration,
+        ILogger logger)
     {
-        var mode = (configuration["Voice:Vad"] ?? string.Empty).Trim().ToLowerInvariant();
-        var stopMs = int.TryParse(configuration["Voice:VadStopMs"], out var s) ? s : 800;
+        // Recipe > host config > "energy" default.
+        var rawMode = !string.IsNullOrWhiteSpace(recipe.Vad)
+            ? recipe.Vad!
+            : configuration["Voice:Vad"];
+        var mode = (rawMode ?? string.Empty).Trim().ToLowerInvariant();
+        var stopMs = recipe.VadStopMs
+            ?? (int.TryParse(configuration["Voice:VadStopMs"], out var s) ? s : 800);
         var startMs = int.TryParse(configuration["Voice:VadStartMs"], out var st) ? st : 200;
 
         switch (mode)
@@ -263,10 +284,10 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             case "silerovad":
             case "ml":
                 logger.LogInformation(
-                    "VAD = Silero (ML, ONNX). startMs={StartMs} stopMs={StopMs}. " +
+                    "VAD = Silero (ML, ONNX) for recipe '{Recipe}'. startMs={StartMs} stopMs={StopMs}. " +
                     "Falls back to passthrough on sample-rate mismatch — watch for "
                     + "'SileroVadProcessor received audio at … forwarding without VAD' warnings.",
-                    startMs, stopMs);
+                    recipe.RecipeDisplayName, startMs, stopMs);
                 return new SileroVadProcessor(new SileroVadOptions
                 {
                     SampleRate = 16000,
@@ -282,15 +303,20 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             case "off":
             case "disabled":
                 logger.LogWarning(
-                    "VAD = none (passthrough). STT will never receive UserStoppedSpeakingFrame; "
-                    + "audio buffers until Voxa's SttBufferSeconds backstop fires. "
-                    + "Use only for tests with synthetic turn frames.");
+                    "VAD = none (passthrough) for recipe '{Recipe}'. STT will never receive "
+                    + "UserStoppedSpeakingFrame; audio buffers until Voxa's SttBufferSeconds "
+                    + "backstop fires. Use only for tests with synthetic turn frames.",
+                    recipe.RecipeDisplayName);
                 return new PassthroughVad();
 
             default:
+                // "energy" / "silence" / anything else → SilenceGate. The
+                // canonical name for the energy gate in our recipe schema is
+                // "energy"; "silence" is accepted as an alias for parity with
+                // the global Voice:Vad config naming.
                 logger.LogInformation(
-                    "VAD = SilenceGate (energy + hangover). hangoverMs={StopMs}",
-                    stopMs);
+                    "VAD = SilenceGate (energy + hangover) for recipe '{Recipe}'. hangoverMs={StopMs}",
+                    recipe.RecipeDisplayName, stopMs);
                 return new SilenceGateProcessor(
                     hangover: TimeSpan.FromMilliseconds(stopMs));
         }
