@@ -68,12 +68,13 @@ class VoxaVoiceSession {
   /// listener uses this together with [_audioTailGuard] to drop frames while
   /// the local audio queue is still draining — even when the server's
   /// `speaking:false` event fires earlier than the actual playback ends.
-  DateTime? _lastBotAudioAt;
+  final Stopwatch _clock = Stopwatch()..start();
+  Duration? _lastBotAudioAt;
 
   /// Buffer / drain budget. Must be ≥ the player's bufferMilliSec below so the local
   /// PCM queue has time to play out before we re-open the mic. If the user's
   /// experience is "bot's tail gets transcribed as me repeating myself", raise this.
-  static const Duration _postBotStopHangover = Duration(milliseconds: 2000);
+  static const Duration _postBotStopHangover = Duration(milliseconds: 3300);
 
   /// How long after the last bot audio frame we keep the mic gated, independent
   /// of the server's `speaking` events. Catches two timing races the event-based
@@ -86,14 +87,17 @@ class VoxaVoiceSession {
 
   /// Maximum amount of bot audio we hold in the ring buffer. Smaller = less tail
   /// after the bot logically stops; larger = more headroom for bursty TTS frames
-  /// without dropping samples. 1500 ms is comfortably more than typical TTS bursts
-  /// but short enough that interruptions feel snappy.
-  static const int _playerBufferMilliSec = 1500;
+  /// without dropping samples. Keep the package's 3000 ms default because cloud TTS
+  /// often delivers audio faster than realtime; an undersized buffer can skip samples
+  /// and sound like speech speeding up.
+  static const int _playerBufferMilliSec = 3000;
 
   /// How much audio must be queued before playback starts. Lower = lower start-of-
-  /// utterance latency, higher = less risk of underrun. 100 ms is the package's
-  /// default and matches what the web admin UI uses.
-  static const int _playerWaitingBufferMilliSec = 100;
+  /// utterance latency, higher = less risk of underrun. Mobile voice frames arrive
+  /// over WSS from bursty TTS/network paths, so keep a modest jitter buffer instead
+  /// of the package's 100 ms default; this trades a small start delay for steadier
+  /// mid-sentence playback.
+  static const int _playerWaitingBufferMilliSec = 300;
 
   final StreamController<VoxaVoiceEvent> _eventsController =
       StreamController<VoxaVoiceEvent>.broadcast();
@@ -269,9 +273,9 @@ class VoxaVoiceSession {
           // closure above for the rationale.
           return;
         }
-        final DateTime? lastBotAudio = _lastBotAudioAt;
+        final Duration? lastBotAudio = _lastBotAudioAt;
         if (lastBotAudio != null &&
-            DateTime.now().difference(lastBotAudio) < _audioTailGuard) {
+            _clock.elapsed - lastBotAudio < _audioTailGuard) {
           // Belt-and-braces: even if the event-based gate is open, the speaker
           // could still be emitting bot audio that hasn't finished playing.
           // Drop these frames so they don't bleed back through the mic into
@@ -382,7 +386,7 @@ class VoxaVoiceSession {
 
     // Stamp arrival time so the mic listener can drop frames during the actual
     // speaker tail (audio queued for playback, not just "server still streaming").
-    _lastBotAudioAt = DateTime.now();
+    _lastBotAudioAt = _clock.elapsed;
 
     // Convert Int16 PCM bytes → Float32 in [-1, 1] for the mp_audio_stream player.
     // pcmBytes is 16-bit signed LE PCM (mono). We use a ByteData view to avoid
