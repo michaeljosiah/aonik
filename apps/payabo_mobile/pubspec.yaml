@@ -39,6 +39,13 @@ dependencies:
   # Phase H (spec 024): low-level WebSocket client for the VoxaVoiceClient that talks to
   # the AONIK /ai/voice WSS endpoint. Standard cross-platform Flutter package.
   web_socket_channel: ^3.0.1
+  # Phase H follow-up — audio I/O for the WSS voice pipeline.
+  # `record` exposes raw 16-bit PCM mic frames via .startStream so we don't have to
+  # post-process device-specific encoded audio formats. iOS / Android / desktop.
+  # `mp_audio_stream` plays a continuous stream of 16-bit PCM frames at a fixed rate
+  # without needing a file-backed source — perfect for the bot's inbound audio frames.
+  record: ^6.0.0
+  mp_audio_stream: ^0.2.2
   path_provider: ^2.1.5
   youtube_player_iframe: ^5.2.0
 

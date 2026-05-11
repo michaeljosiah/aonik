@@ -71,6 +71,7 @@ import '../../features/spending/presentation/statement_review_screen.dart';
 import '../../features/spending/presentation/statement_upload_screen.dart';
 import '../../features/spending/presentation/transaction_detail_screen.dart';
 import '../../features/support_planning/presentation/add_beneficiary_screen.dart';
+import '../../features/voice/voxa_voice_test_screen.dart';
 import '../auth/auth_controller.dart';
 import '../demo/demo_mode.dart';
 
@@ -242,6 +243,17 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/design-system',
           name: 'design-system',
           builder: (context, state) => const DesignSystemScreen(),
+        ),
+        GoRoute(
+          // Phase H follow-up (spec 024) — smoke test for the WSS voice pipeline.
+          // Not auth-gated by the router itself; the underlying VoxaVoiceClient
+          // refuses to connect without a valid access token, so reaching the
+          // screen without auth surfaces a friendly error rather than crashing.
+          // Accessible via deep link `/voice-test` once Phase H ships behind a
+          // hidden dev menu or a settings page.
+          path: '/voice-test',
+          name: 'voice-test',
+          builder: (context, state) => const VoxaVoiceTestScreen(),
         ),
         GoRoute(
           path: '/intro',
