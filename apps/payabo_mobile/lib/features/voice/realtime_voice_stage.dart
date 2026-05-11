@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/text/sentence_spacing.dart';
 import '../../shared/theme/payabo_palette.dart';
 import '../../shared/theme/payabo_spacing.dart';
 import 'realtime_voice_controller.dart';
@@ -396,21 +397,33 @@ class _TranscriptBlock extends StatelessWidget {
   }
 
   /// Resolution order for the primary line:
-  ///   1. Live assistant text while the bot is speaking (the "what Simi is
-  ///      saying" view).
-  ///   2. Live partial transcription while the user is speaking.
+  ///   1. User mid-speech — show their live partial transcript so they can
+  ///      see the recogniser keeping up.
+  ///   2. Otherwise, if the bot has anything to say in this turn — show its
+  ///      text. This stays visible *between* turns too (after `speaking:false`
+  ///      and until the user starts their next utterance) so the user has
+  ///      time to read what Simi just said.
   ///   3. Phase-specific placeholders, gated on whether the session has had
   ///      any interaction yet — the "Speak whenever you're ready" prompt
   ///      only appears at the very start, not between every turn.
   static ({String text, bool italic}) _primary(RealtimeVoiceState state) {
     if (state.phase == RealtimeVoicePhase.live) {
-      if (state.whoIsSpeaking == RealtimeSpeaker.bot &&
-          state.liveAssistantText.isNotEmpty) {
-        return (text: state.liveAssistantText, italic: false);
-      }
-      if (state.livePartialTranscript.isNotEmpty) {
+      if (state.whoIsSpeaking == RealtimeSpeaker.user &&
+          state.livePartialTranscript.isNotEmpty) {
         return (text: state.livePartialTranscript, italic: true);
       }
+      if (state.liveAssistantText.isNotEmpty) {
+        // Stays visible until the next user turn clears it (the controller
+        // only resets `liveAssistantText` on user-speaking-true). Decoupled
+        // from `whoIsSpeaking` so the text doesn't vanish the instant the
+        // bot stops speaking.
+        return (
+          text: normalizeSentenceSpacing(state.liveAssistantText),
+          italic: false,
+        );
+      }
+      // Falls through to placeholders below — neither user nor bot has text
+      // to show yet.
     }
     final String fallback = switch (state.phase) {
       RealtimeVoicePhase.idle => '',

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/chat_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
+import '../../../shared/text/sentence_spacing.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/theme/payabo_theme.dart';
@@ -1182,7 +1183,7 @@ class _ChatMessageBlock extends StatelessWidget {
                 (String line) => Padding(
                   padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
                   child: Text(
-                    line,
+                    normalizeSentenceSpacing(line),
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: _chatBodyTextColor(context),
                           height: 1.58,
@@ -1650,7 +1651,7 @@ class _StreamingMessageBlock extends ConsumerWidget {
               // sibling to avoid re-measuring the inline WidgetSpan on every
               // token delta.
               Text(
-                text,
+                normalizeSentenceSpacing(text),
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: _chatBodyTextColor(context),
                       height: 1.58,
