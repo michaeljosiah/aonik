@@ -29,7 +29,7 @@ import { isPortalAdmin as resolvePortalAdmin } from '@/lib/roleUtils';
 import { identityService } from '@/services/identityService';
 import { tenantService } from '@/services/tenantService';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
-import type { TenantListItemForLogin } from '@/types';
+import type { MyTenantSummary } from '@/types';
 import { getWorkspacePanelForRoute, getWorkspaceTemplates } from '@/workspace/registry';
 import { loadWorkspaceState } from '@/workspace/storage';
 import type { WorkspaceTemplate } from '@/workspace/types';
@@ -477,7 +477,7 @@ function WorkspaceSwitcher() {
   const containerRef = useRef<HTMLDivElement>(null);
   const tenant = getSelectedTenant();
   const [isOpen, setIsOpen] = useState(false);
-  const [tenants, setTenants] = useState<TenantListItemForLogin[] | null>(null);
+  const [tenants, setTenants] = useState<MyTenantSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -488,7 +488,7 @@ function WorkspaceSwitcher() {
     setLoading(true);
     setError(null);
     tenantService
-      .listForLogin()
+      .listMyTenants()
       .then((res) => {
         if (cancelled) return;
         setTenants(res.tenants);
@@ -534,7 +534,7 @@ function WorkspaceSwitcher() {
 
   if (!tenant?.tenantId) return null;
 
-  const handleSwitch = (next: TenantListItemForLogin) => {
+  const handleSwitch = (next: MyTenantSummary) => {
     if (next.tenantId === tenant.tenantId) {
       setIsOpen(false);
       return;

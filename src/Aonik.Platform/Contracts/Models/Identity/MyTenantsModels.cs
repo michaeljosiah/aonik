@@ -13,9 +13,9 @@ public record MyTenantSummary(
 );
 
 /// <summary>
-/// Response for the per-user "what tenants do I belong to?" lookup. Replaces
-/// the public enumeration via <c>TenantListForLoginResponse</c> for the
-/// post-auth tenant-resolution step on web (apex) and desktop.
+/// Response for the per-user "what tenants do I belong to?" lookup. The
+/// only directory-style tenant lookup the API surfaces — public
+/// enumeration was retired alongside the old list-for-login endpoint.
 /// </summary>
 public record MyTenantsResponse(
     List<MyTenantSummary> Tenants

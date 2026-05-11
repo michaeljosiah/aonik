@@ -4,7 +4,6 @@ import type {
   CreateTenantRequest,
   UpdateTenantRequest,
   PagedResult,
-  TenantListForLoginResponse,
   MyTenantsResponse,
 } from '@/types';
 
@@ -27,15 +26,6 @@ export interface TenantHealthResult {
 }
 
 export const tenantService = {
-  /**
-   * List tenants for login dropdown (public, no auth required).
-   * @deprecated Public enumeration leaks the tenant directory. Use
-   *   {@link tenantService.listMyTenants} after authentication.
-   */
-  listForLogin: async (): Promise<TenantListForLoginResponse> => {
-    return api.get<TenantListForLoginResponse>('/host/tenants/list-for-login');
-  },
-
   // Tenants the currently-authenticated identity belongs to. Drives the
   // post-auth org picker (or auto-select when there is exactly one). Server
   // requires a valid JWT but no tenant context — this *is* the call that

@@ -48,12 +48,10 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Routes that are explicitly designed for unauthenticated callers. We
-    // never want to block these on Auth0 silent-auth — when no session
-    // exists, `getAccessTokenSilently` can take several seconds to fail
-    // (iframe attempt → timeout → login_required) which makes the login
-    // page feel frozen while it waits for the tenant dropdown.
-    const isPublicEndpoint = url === '/host/tenants/list-for-login';
+    // While the user is on the login page they are by definition
+    // unauthenticated — don't fire Auth0 silent-auth for outgoing calls
+    // there. Without this guard, `getAccessTokenSilently` would burn
+    // several seconds timing out before the actual request fires.
     const onLoginRoute =
       typeof window !== 'undefined' &&
       (window.location.pathname.startsWith('/login') ||
@@ -63,7 +61,7 @@ apiClient.interceptors.request.use(
     // Host routes mix public and protected endpoints, so attach the bearer token by
     // default unless a caller already set Authorization explicitly.
     const hasExplicitAuthorization = !!config.headers.Authorization;
-    const skipAuth = isBootstrapRoute || isPublicEndpoint || onLoginRoute;
+    const skipAuth = isBootstrapRoute || onLoginRoute;
     if (!skipAuth && !hasExplicitAuthorization && getAccessTokenFn) {
       try {
         const token = await getAccessTokenFn();

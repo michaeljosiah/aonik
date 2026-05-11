@@ -39,12 +39,12 @@ internal sealed class TenantTools
         return await _tenantService.ListTenantsAsync(request, cancellationToken);
     }
 
-    [Description("Lists active tenants available for login. Returns minimal info: ID, name, subdomain, environment.")]
-    public async Task<TenantListForLoginResponse> ListTenantsForLogin(
-        CancellationToken cancellationToken = default)
-    {
-        return await _tenantService.ListTenantsForLoginAsync(cancellationToken);
-    }
+    // platform_list_tenants_for_login was retired alongside the public
+    // /host/tenants/list-for-login endpoint — exposing a directory of all
+    // tenants to LLM tool calls is the same enumeration leak the web/desktop
+    // org pickers were rewritten to avoid. If we need a per-user tenant
+    // lookup in agent context later, add a `ListMyTenants` tool keyed on
+    // the calling user's identity.
 
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all tenant tools.
@@ -55,6 +55,5 @@ internal sealed class TenantTools
 
         yield return AIFunctionFactory.Create(tools.GetTenant, name: "platform_get_tenant");
         yield return AIFunctionFactory.Create(tools.ListTenants, name: "platform_list_tenants");
-        yield return AIFunctionFactory.Create(tools.ListTenantsForLogin, name: "platform_list_tenants_for_login");
     }
 }

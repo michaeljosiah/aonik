@@ -33,8 +33,7 @@ import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
 import { identityService } from '@/services/identityService';
 import { agentConfigService } from '@/services/aiService';
-import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
-import { isTenantScopedHostname } from '@/lib/tenantRouting';
+import { getSelectedTenant } from '@/lib/tenantContext';
 
 const orchestratorEntry: AiAgentSelectorItem = {
   id: '',
@@ -55,43 +54,15 @@ function ApiAuthSetup() {
   return null;
 }
 
-function TenantContextSetup() {
-  const { isLoading: authLoading } = useAuth();
-
-  useEffect(() => {
-    const ensureTenantSelected = async () => {
-      if (authLoading) return;
-
-      // If a tenant is already selected (login dropdown or earlier session), nothing to do.
-      if (getSelectedTenant()?.tenantId) return;
-
-      // If running on a tenant subdomain, try to resolve it via the public host endpoint.
-      const hostname = window.location.hostname;
-      const looksTenantScoped = isTenantScopedHostname(hostname);
-      if (!looksTenantScoped) return;
-
-      const subdomain = hostname.split('.')[0];
-      try {
-        const response = await tenantService.listForLogin();
-        const match = response.tenants.find(t => (t.subdomain ?? '').toLowerCase() === subdomain.toLowerCase());
-        if (match) {
-          setSelectedTenant({
-            tenantId: match.tenantId,
-            name: match.name,
-            subdomain: match.subdomain,
-            environment: match.environment,
-          });
-        }
-      } catch {
-        // If we can't resolve, leave unset and let API return a clear error.
-      }
-    };
-
-    ensureTenantSelected();
-  }, [authLoading]);
-
-  return null;
-}
+// The previous TenantContextSetup pre-resolved a tenant from the
+// hostname's subdomain via the public list-for-login endpoint. Both the
+// pre-auth enumeration and the client-side subdomain match are gone now:
+//   - tenants are resolved post-auth via /host/me/tenants
+//     (TenantResolutionGate + OrganizationPickerPage)
+//   - when a request hits the API without X-Tenant-Id, the server's
+//     ITenantResolver still falls back to the subdomain, so subdomain-
+//     based routing on the web continues to "just work" on the server
+//     side without the client needing to pre-select.
 
 function AppLayout() {
   const location = useLocation();
@@ -438,7 +409,6 @@ function AuthenticatedApp() {
     return (
       <>
         <ApiAuthSetup />
-        <TenantContextSetup />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/setup-guides" element={<AppLayout />} />
@@ -452,7 +422,6 @@ function AuthenticatedApp() {
   return (
     <>
       <ApiAuthSetup />
-      <TenantContextSetup />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />

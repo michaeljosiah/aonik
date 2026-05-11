@@ -478,24 +478,6 @@ internal class TenantService : AdminServiceBase, ITenantService
             cancellationToken);
     }
 
-    public async Task<TenantListForLoginResponse> ListTenantsForLoginAsync(CancellationToken cancellationToken = default)
-    {
-        // Public endpoint - no authentication/permission check required
-        // Only return active tenants with minimal info
-        var tenants = await _dbContext.Tenants
-            .AsNoTracking()
-            .Where(t => t.Status == TenantStatus.Active)
-            .OrderBy(t => t.Name)
-            .Select(t => new TenantListItemForLogin(
-                t.Id,
-                t.Name,
-                t.Subdomain,
-                t.Environment))
-            .ToListAsync(cancellationToken);
-
-        return new TenantListForLoginResponse(tenants);
-    }
-
     public async Task<MyTenantsResponse> ListTenantsForCurrentUserAsync(
         string externalIssuer,
         string externalSubject,

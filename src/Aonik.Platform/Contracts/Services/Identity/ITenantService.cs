@@ -13,14 +13,6 @@ public interface ITenantService
     Task ActivateTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lists active tenants for login dropdown (public, no authentication required).
-    /// Returns minimal info: TenantId, Name, Subdomain, Environment.
-    /// </summary>
-    [Obsolete("Public enumeration leaks the tenant directory. Use " +
-        nameof(ListTenantsForCurrentUserAsync) + " after authentication instead.")]
-    Task<TenantListForLoginResponse> ListTenantsForLoginAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Lists active tenants the currently-authenticated external identity
     /// (issuer + subject) has a membership in. Bypasses tenant query filters
     /// because a single identity can have User rows across multiple tenants
