@@ -974,16 +974,6 @@ class ChatController extends StateNotifier<ChatState> {
           ],
         );
 
-      case ChatStreamSpeechAudio():
-        // Audio bytes bypass state — the legacy SSE-based voice path has
-        // been removed in favour of the realtime WSS pipeline, so these
-        // frames are dropped on the floor here. Kept in the switch so the
-        // sealed-class exhaustiveness check still passes.
-        break;
-
-      case ChatStreamSpeechAudioError():
-        break;
-
       case ChatStreamError():
         state = state._clearStreaming().copyWith(
           activity: ChatActivity.error,

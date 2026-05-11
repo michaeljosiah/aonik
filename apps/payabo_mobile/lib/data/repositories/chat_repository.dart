@@ -333,60 +333,12 @@ class ChatStreamSpeechChunk extends ChatStreamEvent {
   final bool isFinal;
 }
 
-/// One window of synthesized TTS audio for a chunk identified by
-/// [chunkIndex]. Voice-mode AGUI runs emit one or more of these per
-/// [ChatStreamSpeechChunk]. The terminal frame for a chunk has [isFinal]
-/// set to `true`; clients reassemble [data] across frames in arrival
-/// order, then play the chunk in [chunkIndex] order.
-///
-/// [data] is the raw decoded audio bytes (the wire base64 has already
-/// been decoded by the repository). [mime] is one of `audio/mpeg`,
-/// `audio/opus`, `audio/wav`.
-class ChatStreamSpeechAudio extends ChatStreamEvent {
-  const ChatStreamSpeechAudio({
-    required this.messageId,
-    required this.chunkIndex,
-    required this.seq,
-    required this.mime,
-    required this.data,
-    required this.isFinal,
-    required this.cached,
-    this.provider,
-    this.voiceId,
-    this.ttsAiRunId,
-  });
-
-  final String messageId;
-  final int chunkIndex;
-  final int seq;
-  final String mime;
-  final List<int> data;
-  final bool isFinal;
-  final bool cached;
-  final String? provider;
-  final String? voiceId;
-  final String? ttsAiRunId;
-}
-
-/// Audio synthesis failed for the chunk identified by [chunkIndex]. The
-/// chunk's text was already delivered via [ChatStreamSpeechChunk]; the
-/// terminal flag tells the client to advance playback past this chunk
-/// without waiting on audio that will never arrive.
-class ChatStreamSpeechAudioError extends ChatStreamEvent {
-  const ChatStreamSpeechAudioError({
-    required this.messageId,
-    required this.chunkIndex,
-    required this.code,
-    required this.message,
-  });
-
-  final String messageId;
-  final int chunkIndex;
-
-  /// One of `timeout`, `backpressure_dropped`, `synth_failed` in v1.
-  final String code;
-  final String message;
-}
+// Legacy inline TTS audio events (`ChatStreamSpeechAudio` /
+// `ChatStreamSpeechAudioError`) were removed when the SSE voice path was
+// retired in favour of the WSS realtime pipeline. The server may still emit
+// `speech.audio.*` SSE frames if the client asks for them, but the client
+// no longer requests voice-mode on the chat stream (see ChatController's
+// hardcoded `voiceMode: false`), so those frames are never produced.
 
 /// The types of display widgets the agent can request.
 enum DisplayWidgetType {
@@ -452,12 +404,12 @@ abstract class ChatRepository {
   /// [threadId] identifies the conversation thread (null to start a new one).
   /// [history] is the full AG-UI message history for the current thread.
   ///
-  /// When [voiceMode] is `true`, the server inlines TTS audio bytes as
-  /// [ChatStreamSpeechAudio] / [ChatStreamSpeechAudioError] events on the
-  /// same response stream. The client is expected to play audio inline
-  /// instead of issuing per-chunk synthesize calls. [audioFormat] picks
-  /// the wire container; defaults to `mp3` and is ignored when
-  /// [voiceMode] is `false`.
+  /// The [voiceMode] / [audioFormat] params are vestigial since the legacy
+  /// SSE inline-audio path was retired (voice mode now runs over the
+  /// dedicated WSS `/ai/voice` endpoint via VoxaVoiceClient). The signature
+  /// is kept on `IChatRepository` because both the live and mock
+  /// repositories accept the flag — `false` is the only useful value for
+  /// callers today.
   Stream<ChatStreamEvent> sendMessage({
     String? threadId,
     required String userMessage,
