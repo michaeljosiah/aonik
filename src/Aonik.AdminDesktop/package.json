@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
+    "prebuild": "npm --prefix ../Aonik.AdminUi run build:desktop",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "postbuild": "npm run copy-renderer",

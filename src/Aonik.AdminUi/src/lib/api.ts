@@ -13,13 +13,21 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 // In Electron production builds the renderer is served from file://, so the
-// relative /api base URL won't resolve. Override with the backend URL provided
-// by the main process via IPC.
-if (isElectron) {
-  electronAPI.getApiBaseUrl().then((url: string) => {
-    if (url) apiClient.defaults.baseURL = url;
-  });
-}
+// relative /api base URL won't resolve. The main process exposes the real
+// backend URL over IPC, but the call is async — without gating outgoing
+// requests on it we'd race: the first request fires with baseURL `/api`,
+// resolves to `file:///api/...`, and either errors or hangs.
+//
+// Resolve once, cache, and have every request await the resolution.
+const electronBaseUrlReady: Promise<void> | null =
+  isElectron && electronAPI
+    ? electronAPI
+        .getApiBaseUrl()
+        .then((url: string) => {
+          if (url) apiClient.defaults.baseURL = url;
+        })
+        .catch(() => undefined)
+    : null;
 
 // Token getter function - will be set by AuthProvider
 let getAccessTokenFn: (() => Promise<string | null>) | null = null;
@@ -32,6 +40,12 @@ export function setAccessTokenGetter(getter: () => Promise<string | null>) {
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    // Block the request until the Electron-provided baseURL has been applied.
+    // Resolves immediately after the first call (the promise is reused).
+    if (electronBaseUrlReady) {
+      await electronBaseUrlReady;
+    }
+
     // Attach tenant context header for tenant-scoped routes.
     // (/host/* and /bootstrap/* bypass tenant middleware; avoid sending there to reduce confusion.)
     const url = config.url ?? '';
@@ -45,11 +59,23 @@ apiClient.interceptors.request.use(
       }
     }
 
+    // Routes that are explicitly designed for unauthenticated callers. We
+    // never want to block these on Auth0 silent-auth — when no session
+    // exists, `getAccessTokenSilently` can take several seconds to fail
+    // (iframe attempt → timeout → login_required) which makes the login
+    // page feel frozen while it waits for the tenant dropdown.
+    const isPublicEndpoint = url === '/host/tenants/list-for-login';
+    const onLoginRoute =
+      typeof window !== 'undefined' &&
+      (window.location.pathname.startsWith('/login') ||
+        window.location.hash.startsWith('#/login'));
+
     // Bootstrap routes are intentionally unauthenticated.
     // Host routes mix public and protected endpoints, so attach the bearer token by
     // default unless a caller already set Authorization explicitly.
     const hasExplicitAuthorization = !!config.headers.Authorization;
-    if (!isBootstrapRoute && !hasExplicitAuthorization && getAccessTokenFn) {
+    const skipAuth = isBootstrapRoute || isPublicEndpoint || onLoginRoute;
+    if (!skipAuth && !hasExplicitAuthorization && getAccessTokenFn) {
       try {
         const token = await getAccessTokenFn();
         if (token) {

@@ -1,5 +1,18 @@
 import { apiConfig } from '@/auth';
+import { isElectron, electronAPI } from '@/lib/electron';
 import type { BootstrapStatusResponse, BootstrapTenantResult } from '@/types';
+
+let cachedElectronBaseUrl: string | null = null;
+const electronBaseUrlPromise: Promise<string | null> | null =
+  isElectron && electronAPI
+    ? electronAPI
+        .getApiBaseUrl()
+        .then((url: string) => {
+          cachedElectronBaseUrl = url || null;
+          return cachedElectronBaseUrl;
+        })
+        .catch(() => null)
+    : null;
 
 interface BootstrapInitializeRequest {
   setupSecret: string;
@@ -25,11 +38,18 @@ const statusMessages: Record<number, string> = {
   504: 'The request timed out. Please try again.',
 };
 
-const buildUrl = (path: string): string => {
-  const baseUrl = apiConfig.baseUrl.endsWith('/')
-    ? apiConfig.baseUrl.slice(0, -1)
-    : apiConfig.baseUrl;
+const resolveBaseUrl = async (): Promise<string> => {
+  if (isElectron) {
+    if (cachedElectronBaseUrl) return cachedElectronBaseUrl;
+    const resolved = await electronBaseUrlPromise;
+    if (resolved) return resolved;
+  }
+  return apiConfig.baseUrl;
+};
 
+const buildUrl = async (path: string): Promise<string> => {
+  const raw = await resolveBaseUrl();
+  const baseUrl = raw.endsWith('/') ? raw.slice(0, -1) : raw;
   return `${baseUrl}${path}`;
 };
 
@@ -81,7 +101,7 @@ const requestBootstrap = async <T>(
   let response: Response;
 
   try {
-    response = await fetch(buildUrl(path), {
+    response = await fetch(await buildUrl(path), {
       method: options?.method ?? 'GET',
       headers,
       cache: options?.forceRefresh ? 'no-store' : 'default',

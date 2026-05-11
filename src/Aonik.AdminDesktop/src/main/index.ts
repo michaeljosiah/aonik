@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification, shell, session } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Notification, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { loadWindowState, saveWindowState } from './window-state'
@@ -6,6 +6,7 @@ import { writeFile } from 'fs/promises'
 
 // Declared by electron-vite define config
 declare const ADMIN_UI_DEV_URL: string
+declare const AONIK_API_DEFAULT_URL: string
 
 const PROTOCOL = 'aonik'
 
@@ -27,12 +28,10 @@ function createWindow(): void {
     y: windowState.y,
     minWidth: 1024,
     minHeight: 680,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#00000000',
-      symbolColor: '#6b7280',
-      height: 50
-    },
+    // Use the OS native title bar so the window is reliably draggable on every
+    // screen (login, loading, setup) without each route having to declare its
+    // own `-webkit-app-region: drag` zone.
+    title: 'Aonik Admin',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -57,29 +56,54 @@ function createWindow(): void {
     mainWindow!.show()
   })
 
-  // Open external links in the default browser
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  // Open auth-provider popups inside Electron so window.open() returns a
+  // real handle (required by Auth0 loginWithPopup / MSAL popup). All other
+  // external links go to the OS default browser.
+  //
+  // Auth0 SDK opens window.open('', 'auth0:authorize:popup') first and only
+  // afterwards sets popup.location.href to the authorize URL — so we have to
+  // match on the frame name rather than the URL.
+  const isAuthPopupFrame = (frameName: string): boolean =>
+    frameName === 'auth0:authorize:popup' || frameName.startsWith('msal.')
+
+  const isAuthPopupUrl = (url: string): boolean => {
+    if (!url || url === 'about:blank') return false
+    try {
+      const host = new URL(url).hostname
+      return host.endsWith('.auth0.com') || host === 'login.microsoftonline.com'
+    } catch {
+      return false
+    }
+  }
+
+  mainWindow.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    if (isAuthPopupFrame(frameName) || isAuthPopupUrl(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 480,
+          height: 700,
+          modal: true,
+          parent: mainWindow ?? undefined,
+          autoHideMenuBar: true,
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true
+          }
+        }
+      }
+    }
     shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  // Configure CSP
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self';" +
-          " script-src 'self' 'unsafe-inline';" +
-          " style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;" +
-          " font-src 'self' https://fonts.gstatic.com;" +
-          " img-src 'self' data: https:;" +
-          " connect-src 'self' https: wss:;" +
-          " frame-src 'self' https://login.microsoftonline.com https://*.auth0.com;"
-        ]
-      }
-    })
-  })
+  // NOTE: Previously we installed a webRequest.onHeadersReceived CSP override
+  // here. That hook fires for every HTTP(S) response in the default session,
+  // which meant it also rewrote the Auth0 popup's CSP and broke its own
+  // scripts/styles. The renderer is loaded via file:// (no HTTP headers to
+  // override anyway), so CSP for our pages belongs in the renderer's
+  // index.html as a <meta http-equiv> tag, not here.
 
   // Load the app
   if (is.dev && ADMIN_UI_DEV_URL) {
@@ -131,7 +155,7 @@ function registerIpcHandlers(): void {
       process.env.AONIK_API_URL ||
       process.env.services__api__https__0 ||
       process.env.services__api__http__0 ||
-      'https://localhost:5001'
+      AONIK_API_DEFAULT_URL
     )
   })
 

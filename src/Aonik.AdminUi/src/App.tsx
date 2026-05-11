@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, createElement, useCallback } from 'react';
-import { BrowserRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+
+const Router = typeof window !== 'undefined' && (window as any).electronAPI ? HashRouter : BrowserRouter;
 import { Toaster } from 'sonner';
 import { AiChatPanel, LoadingScreen } from '@/components/layout';
 import { AonikSidebar } from '@/components/layout/aonik/AonikSidebar';
@@ -483,7 +485,7 @@ function AuthenticatedApp() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <ThemeProvider>
         <AuthProvider>
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -492,7 +494,7 @@ function App() {
           </div>
         </AuthProvider>
       </ThemeProvider>
-    </BrowserRouter>
+    </Router>
   );
 }
 

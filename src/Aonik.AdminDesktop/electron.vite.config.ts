@@ -6,6 +6,13 @@ const adminUiDevUrl =
   process.env.services__adminui__http__0 ||
   'http://localhost:5173'
 
+// Baked-in API base URL the renderer falls back to when no runtime override
+// (AONIK_API_URL / Aspire service discovery) is present. Defaults to the
+// deployed dev environment so signed Windows installers work out of the box.
+const apiDefaultUrl =
+  process.env.AONIK_API_DEFAULT_URL ||
+  'https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io'
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
@@ -15,14 +22,21 @@ export default defineConfig({
       }
     },
     define: {
-      ADMIN_UI_DEV_URL: JSON.stringify(adminUiDevUrl)
+      ADMIN_UI_DEV_URL: JSON.stringify(adminUiDevUrl),
+      AONIK_API_DEFAULT_URL: JSON.stringify(apiDefaultUrl)
     }
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        input: 'src/preload/index.ts'
+        input: 'src/preload/index.ts',
+        // Sandboxed preload scripts must be CommonJS — ESM `import` syntax
+        // throws SyntaxError inside the renderer sandbox.
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].js'
+        }
       }
     }
   },
