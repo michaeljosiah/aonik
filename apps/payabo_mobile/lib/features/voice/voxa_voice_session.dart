@@ -37,6 +37,11 @@ class VoxaVoiceSession {
   bool _playerInitialised = false;
   bool _running = false;
 
+  /// User-driven mic gate from the voice stage's mute button. Independent of
+  /// [_botSpeaking] (which is server-driven) — both must be false for a mic
+  /// frame to reach the WSS.
+  bool _userMuted = false;
+
   // Captured on start so [_resetPlayerBuffer] can re-init with the same shape.
   int _playerChannels = 1;
   int _playerSampleRate = 24000;
@@ -63,10 +68,19 @@ class VoxaVoiceSession {
   static const Duration _audioTailGuard = Duration(milliseconds: 1200);
 
   // Cloud TTS bursts faster than realtime; an undersized ring buffer drops
-  // samples and speeds the voice up. 300 ms jitter buffer avoids underrun on
-  // bursty network paths at the cost of a small start-of-utterance delay.
+  // samples and speeds the voice up. 3 s of total ring capacity is enough
+  // headroom for cellular jitter.
   static const int _playerBufferMilliSec = 3000;
-  static const int _playerWaitingBufferMilliSec = 300;
+
+  // How much accumulated PCM mp_audio_stream waits for before resuming
+  // playback after the buffer drains. The chained TTS path emits sentence-
+  // by-sentence, with ~200–500 ms of TTS request latency between sentences;
+  // a high `waiting` value here was audible as a chop between every sentence.
+  // 80 ms is just enough to absorb single-frame jitter without becoming the
+  // audible silence the user notices. Gapless cross-sentence playback wants
+  // a scheduler-based player (Web Audio-style) rather than a ring buffer —
+  // tracked as a follow-up.
+  static const int _playerWaitingBufferMilliSec = 80;
 
   final StreamController<VoxaVoiceEvent> _eventsController =
       StreamController<VoxaVoiceEvent>.broadcast();
@@ -136,16 +150,14 @@ class VoxaVoiceSession {
             _botSpeaking = false;
           });
         }
-      } else if (event is InterruptionEvent) {
-        // Server-side VAD detected user barge-in. Flush queued audio so the
-        // bot stops mid-word, and drop the tail guard so the user's next
-        // utterance flows immediately.
-        _resetPlayerBuffer();
-        _botStoppedHangoverTimer?.cancel();
-        _botStoppedHangoverTimer = null;
-        _botSpeaking = false;
-        _lastBotAudioAt = null;
       }
+      // Barge-in is intentionally not supported in v1: an InterruptionEvent
+      // from the server's VAD is *forwarded* (so the controller can render
+      // any UI it wants) but the session takes no action. We deliberately do
+      // NOT clear `_botSpeaking` / `_lastBotAudioAt` here — doing so would
+      // open the mic mid-playback and feed the bot's own audio back into STT.
+      // The bot finishes its current TTS naturally; if the user wants to
+      // continue they wait for the natural turn boundary.
       _eventsController.add(event);
     });
     _stateSubscription = client.stateChanges.listen(_stateController.add);
@@ -189,6 +201,7 @@ class VoxaVoiceSession {
 
     _micSubscription = micStream.listen(
       (Uint8List pcm) {
+        if (_userMuted) return;
         if (_botSpeaking) return;
         final Duration? lastBotAudio = _lastBotAudioAt;
         if (lastBotAudio != null &&
@@ -208,11 +221,19 @@ class VoxaVoiceSession {
     _running = true;
   }
 
+  /// Gate the mic from the UI without tearing the session down. Bot audio
+  /// keeps flowing so the user can still hear the assistant talk; only the
+  /// upstream mic frames are suppressed.
+  void setMuted(bool muted) {
+    _userMuted = muted;
+  }
+
   /// Send `{type:"end"}`, close the WS, stop the recorder, uninit the player.
   /// Safe to call repeatedly.
   Future<void> stop() async {
     _running = false;
     _botSpeaking = false;
+    _userMuted = false;
     _botStoppedHangoverTimer?.cancel();
     _botStoppedHangoverTimer = null;
     _lastBotAudioAt = null;
@@ -258,28 +279,6 @@ class VoxaVoiceSession {
   }
 
   // ── Internals ────────────────────────────────────────────────────────────
-
-  // mp_audio_stream has no flush API; the package docs say a second `init()`
-  // call uninits the previous device. Re-init with the same params lets the
-  // next inbound frame play with no audible click on Android.
-  void _resetPlayerBuffer() {
-    if (!_playerInitialised) return;
-    try {
-      final int initResult = _player.init(
-        channels: _playerChannels,
-        sampleRate: _playerSampleRate,
-        bufferMilliSec: _playerBufferMilliSec,
-        waitingBufferMilliSec: _playerWaitingBufferMilliSec,
-      );
-      if (initResult != 0) {
-        _playerInitialised = false;
-        return;
-      }
-      _player.resume();
-    } catch (_) {
-      // Best-effort flush; next stop() will tear things down cleanly.
-    }
-  }
 
   void _onBotAudioFrame(Uint8List pcmBytes) {
     if (pcmBytes.isEmpty) return;

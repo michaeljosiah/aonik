@@ -28,6 +28,15 @@ namespace Aonik.Voice.Processors;
 /// </para>
 ///
 /// <para>
+/// <b>Whitespace preservation.</b> Flushed sentences retain their original whitespace
+/// — we do NOT <c>.Trim()</c>. The wire envelope is also what the mobile client appends
+/// to the on-screen chat bubble; trimming the boundary space would collapse
+/// <c>"Hold on. "</c> + <c>"Here's a snapshot"</c> into <c>"Hold on.Here's a snapshot"</c>
+/// on the client. The TTS engine ignores leading/trailing whitespace, so leaving it
+/// in is free from an audio standpoint.
+/// </para>
+///
+/// <para>
 /// Abbreviations like <c>"Mr."</c> aren't handled — that needs a curated dictionary
 /// which we don't ship yet. The upstream Voxa aggregator has the same gap.
 /// </para>
@@ -92,14 +101,19 @@ public sealed class AonikSentenceAggregator : FrameProcessor
 
             if (lastBoundary >= 0)
             {
-                toFlush = content[..(lastBoundary + 1)].Trim();
+                // Emit through the boundary character WITHOUT trimming. The wire
+                // envelope is also what the mobile client appends to the on-screen
+                // chat bubble; trimming here would collapse `"Hold on. "` + `"Here's"`
+                // into `"Hold on.Here's"` on the client. Leading whitespace from the
+                // very first chunk is harmless — the TTS engine ignores it.
+                toFlush = content[..(lastBoundary + 1)];
                 _buffer.Clear();
                 _buffer.Append(content[(lastBoundary + 1)..]);
             }
             else if (_buffer.Length >= MaxBufferChars)
             {
                 // Hard cap — emit whatever we have so TTS doesn't stall on a runaway response.
-                toFlush = _buffer.ToString().Trim();
+                toFlush = _buffer.ToString();
                 _buffer.Clear();
             }
         }
@@ -115,12 +129,16 @@ public sealed class AonikSentenceAggregator : FrameProcessor
         string? leftover;
         lock (_lock)
         {
-            leftover = _buffer.Length > 0 ? _buffer.ToString().Trim() : null;
+            leftover = _buffer.Length > 0 ? _buffer.ToString() : null;
             _buffer.Clear();
         }
-        if (!string.IsNullOrEmpty(leftover))
+        // Only `IsNullOrWhiteSpace` filtered — a leftover that's pure whitespace is
+        // nothing to render and nothing to synthesise, but a leftover ending in a
+        // space (e.g. the post-boundary fragment of a previous flush) is meaningful
+        // content for the client's running buffer.
+        if (!string.IsNullOrWhiteSpace(leftover))
         {
-            await PushFrameAsync(new TextFrame(leftover), ct).ConfigureAwait(false);
+            await PushFrameAsync(new TextFrame(leftover!), ct).ConfigureAwait(false);
         }
     }
 

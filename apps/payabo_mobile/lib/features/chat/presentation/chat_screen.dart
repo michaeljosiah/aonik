@@ -172,6 +172,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Surface the controller's error message as a snackbar whenever it
     // transitions from null → set (e.g. the watchdog fires on a hung start).
     // The orb stage shows the inline error too; this is the recovery hint.
+    //
+    // Also auto-hides the stage if the session goes idle from a non-tap
+    // source (server-side close, dispose during route pop, etc).
     ref.listen<RealtimeVoiceState>(realtimeVoiceControllerProvider, (
       RealtimeVoiceState? prev,
       RealtimeVoiceState next,
@@ -180,6 +183,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(next.errorMessage!)));
+      }
+      // Stage stays visible on error so the user sees the failure reason.
+      if (prev != null &&
+          prev.phase != RealtimeVoicePhase.idle &&
+          next.phase == RealtimeVoicePhase.idle &&
+          _showVoiceStage) {
+        setState(() => _showVoiceStage = false);
       }
     });
 
@@ -309,6 +319,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         starterQuestion: _activeStarterQuestion,
                         showVoiceStage: _showVoiceStage,
                         onVoiceOrbTap: _handleVoiceTap,
+                        onMinimiseVoiceStage: _minimiseVoiceStage,
                         onSuggestionTap: _submitPrompt,
                         onApprove: (String toolCallId) {
                           ref
@@ -509,6 +520,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
+  /// Minimise the stage without ending the session — the WSS keeps streaming
+  /// in the background and chat history continues to capture transcripts.
+  /// Tapping the voice orb in the chat header brings the stage back.
+  void _minimiseVoiceStage() {
+    if (!mounted) return;
+    if (_showVoiceStage) {
+      setState(() => _showVoiceStage = false);
+    }
+  }
+
   void _handleHistoryDragUpdate(
     DragUpdateDetails details,
     BuildContext context,
@@ -698,6 +719,7 @@ class _ChatStage extends ConsumerWidget {
     required this.starterQuestion,
     required this.showVoiceStage,
     required this.onVoiceOrbTap,
+    required this.onMinimiseVoiceStage,
     required this.onSuggestionTap,
     required this.onApprove,
     required this.onReject,
@@ -709,6 +731,7 @@ class _ChatStage extends ConsumerWidget {
   final String starterQuestion;
   final bool showVoiceStage;
   final Future<void> Function() onVoiceOrbTap;
+  final VoidCallback onMinimiseVoiceStage;
   final void Function(String prompt) onSuggestionTap;
   final void Function(String toolCallId) onApprove;
   final void Function(String toolCallId, [String? reason]) onReject;
@@ -724,7 +747,10 @@ class _ChatStage extends ConsumerWidget {
       // a slim 4-phase state machine the stage widget binds to directly.
       stageChild = KeyedSubtree(
         key: const ValueKey<String>('chat-realtime-voice-stage'),
-        child: RealtimeVoiceStage(onOrbTap: onVoiceOrbTap),
+        child: RealtimeVoiceStage(
+          onOrbTap: onVoiceOrbTap,
+          onMinimise: onMinimiseVoiceStage,
+        ),
       );
     } else {
       // Narrow the watch surface — watch only the fields that affect the

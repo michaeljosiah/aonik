@@ -1,5 +1,11 @@
+using System.Threading.Channels;
+
 using Aonik.Voice.Processors;
+
 using FluentAssertions;
+
+using Voxa.Frames;
+using Voxa.Processors;
 
 namespace Aonik.Voice.Tests.Pipeline;
 
@@ -108,5 +114,109 @@ public class AonikSentenceAggregatorTests
             .Should().Be(-1);
         AonikSentenceAggregator.FindLastSentenceBoundary(string.Empty)
             .Should().Be(-1);
+    }
+
+    // ── Whitespace preservation (frame-level) ────────────────────────────────────────────
+
+    /// <summary>
+    /// Pins the fix for the mobile chat "Hold on.Here's a snapshot…" concatenation bug.
+    /// Adjacent flushes used to lose their boundary whitespace because the aggregator
+    /// <c>.Trim()</c>'d every <see cref="TextFrame"/> it emitted. The wire envelope is what
+    /// the mobile client appends to its chat bubble, so trimming the join space collapsed
+    /// two sentences into one mid-word. The contract now: leave the original whitespace
+    /// in the flushed sentence.
+    /// </summary>
+    [Fact]
+    public async Task Adjacent_Flushes_Preserve_Boundary_Whitespace()
+    {
+        await using var harness = new ProcessorHarness(new AonikSentenceAggregator());
+
+        // Two-sentence chunk + a follow-up that triggers a flush of the leftover.
+        await harness.SendAsync(new LlmTextChunkFrame("Hold on. Here's a snapshot. Done."));
+        await harness.SendAsync(new LlmTurnEndedFrame("turn-1"));
+
+        var frames = await harness.WaitForTextFramesAsync(minCount: 2);
+
+        // Joined text mirrors what the mobile client builds by concatenating successive
+        // BotTextEvent payloads — must preserve the space between sentences.
+        var joined = string.Concat(frames.Select(f => f.Text));
+        joined.Should().Contain("Hold on. Here's", "client concatenation must keep the join space");
+        joined.Should().NotContain("Hold on.Here's", "the buggy concatenation must not reappear");
+    }
+
+    [Fact]
+    public async Task Numbered_List_Items_Preserve_Space_After_The_Numeric_Prefix()
+    {
+        // The agent streams "1. Other..." — the `1.` qualifies as a sentence boundary
+        // (period followed by whitespace). Before the fix, the trim swallowed that
+        // whitespace and the client concatenation rendered "1.Other" / "2.Housing".
+        // Two chunks here forces TWO flushes so we exercise the join behaviour the
+        // mobile client sees in production (one BotTextEvent per flush).
+        await using var harness = new ProcessorHarness(new AonikSentenceAggregator());
+        await harness.SendAsync(new LlmTextChunkFrame("1. Other thing. "));
+        await harness.SendAsync(new LlmTextChunkFrame("2. Housing item."));
+        await harness.SendAsync(new LlmTurnEndedFrame("turn-1"));
+
+        var frames = await harness.WaitForTextFramesAsync(minCount: 2);
+        var joined = string.Concat(frames.Select(f => f.Text));
+        joined.Should().NotContain("1.Other", "list-item prefix must keep its trailing space");
+        joined.Should().NotContain("2.Housing", "list-item prefix must keep its trailing space");
+        joined.Should().Contain("1. Other thing. 2.");
+    }
+
+    // ── Harness ──────────────────────────────────────────────────────────────────────────
+
+    private sealed class ProcessorHarness : IAsyncDisposable
+    {
+        private readonly FrameProcessor _processor;
+        private readonly CaptureSink _sink;
+
+        public ProcessorHarness(FrameProcessor processor)
+        {
+            _processor = processor;
+            _sink = new CaptureSink();
+            _processor.Link(_sink);
+            _processor.Start();
+            _sink.Start();
+            _ = _processor.QueueFrameAsync(new StartFrame());
+        }
+
+        public ValueTask SendAsync(Frame frame) => _processor.QueueFrameAsync(frame);
+
+        public Task<IReadOnlyList<TextFrame>> WaitForTextFramesAsync(int minCount)
+            => _sink.WaitForTextFramesAsync(minCount);
+
+        public async ValueTask DisposeAsync()
+        {
+            try { await _processor.QueueFrameAsync(new EndFrame()); } catch { /* shutdown race */ }
+            await _processor.DisposeAsync();
+            await _sink.DisposeAsync();
+        }
+    }
+
+    private sealed class CaptureSink : FrameProcessor
+    {
+        private readonly Channel<TextFrame> _text = Channel.CreateUnbounded<TextFrame>();
+
+        public CaptureSink() : base("CaptureSink") { }
+
+        protected override async ValueTask ProcessFrameAsync(Frame frame, CancellationToken ct)
+        {
+            if (frame is TextFrame t)
+            {
+                await _text.Writer.WriteAsync(t, ct);
+            }
+        }
+
+        public async Task<IReadOnlyList<TextFrame>> WaitForTextFramesAsync(int minCount)
+        {
+            var collected = new List<TextFrame>();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            while (collected.Count < minCount)
+            {
+                collected.Add(await _text.Reader.ReadAsync(cts.Token));
+            }
+            return collected;
+        }
     }
 }

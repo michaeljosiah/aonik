@@ -79,9 +79,20 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
     await _stop();
   }
 
+  /// Flip the mic gate. The session keeps consuming bot audio (so the user can
+  /// still hear the assistant), but mic frames stop reaching the server until
+  /// the next call. Auto-resets to unmuted on the next [_start].
+  void toggleMute() {
+    final bool next = !state.micMuted;
+    _session?.setMuted(next);
+    state = state.copyWith(micMuted: next);
+  }
+
   // ── Internals ────────────────────────────────────────────────────────────
 
   Future<void> _start(String agentId) async {
+    // Always start unmuted — carrying mute state across sessions would silently
+    // dead-air the next call from the user's perspective.
     state = const RealtimeVoiceState(phase: RealtimeVoicePhase.connecting, busy: true);
 
     _sessionKeepAlive ??= _ref.listen<VoxaVoiceSession>(
@@ -177,8 +188,15 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         if (!_assistantTurnActive) {
           _chatController.beginRealtimeAssistantTurn();
           _assistantTurnActive = true;
+          // New assistant turn → reset the on-stage typewriter target.
+          state = state.copyWith(liveAssistantText: '');
         }
         _chatController.appendRealtimeAssistantText(text);
+        // Parallel display copy for the stage's typewriter; chat history
+        // already gets the same text via ChatController above.
+        state = state.copyWith(
+          liveAssistantText: state.liveAssistantText + text,
+        );
 
       case SpeakingEvent(:final String who, :final bool started):
         final RealtimeSpeaker speaker;
@@ -189,21 +207,39 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         } else {
           speaker = RealtimeSpeaker.user;
         }
-        // Bot finished → materialise its message in chat history.
-        if (!started && who == 'bot' && _assistantTurnActive) {
+        // The chained pipeline emits `speaking:false` between EACH TTS sentence
+        // (audio gap while the next sentence is being synthesised). Closing
+        // the chat bubble here would fragment one reply into N bubbles — one
+        // per sentence. The real turn boundary is the user speaking again, an
+        // interruption, the session ending, or an explicit dismiss. Those are
+        // handled in their own cases below.
+        //
+        // We also intentionally do NOT clear `liveAssistantText` on
+        // `speaking:false` — the on-stage typewriter would flicker between
+        // sentences. It's cleared when the user starts speaking (real next
+        // turn), on interruption, or when a fresh BotTextEvent opens a new
+        // turn after a real boundary.
+        if (started && who == 'user' && _assistantTurnActive) {
+          // User starting their next turn = real boundary. Materialise the
+          // assistant's reply in chat history and clear the stage typewriter.
           _chatController.finishRealtimeAssistantTurn();
           _assistantTurnActive = false;
+          state = state.copyWith(
+            whoIsSpeaking: speaker,
+            liveAssistantText: '',
+          );
+        } else {
+          state = state.copyWith(whoIsSpeaking: speaker);
         }
-        state = state.copyWith(whoIsSpeaking: speaker);
 
       case InterruptionEvent():
-        // User barged in — preserve the partial reply; the next BotTextEvent
-        // opens a fresh turn.
-        if (_assistantTurnActive) {
-          _chatController.markRealtimeInterruption();
-          _assistantTurnActive = false;
-        }
-        state = state.copyWith(whoIsSpeaking: RealtimeSpeaker.user);
+        // Barge-in is not supported in v1. The server's VAD may still emit
+        // InterruptionEvent on background noise or genuine user-over-bot, but
+        // we ignore it client-side: the bot's current TTS plays to its natural
+        // end and the user waits for the turn to finish. Don't close the
+        // assistant turn, don't clear the typewriter, don't reshape the
+        // speaker indicator — just drop the event.
+        break;
 
       case StatusEvent():
         break;
@@ -329,8 +365,10 @@ class RealtimeVoiceState {
     this.phase = RealtimeVoicePhase.idle,
     this.whoIsSpeaking = RealtimeSpeaker.none,
     this.livePartialTranscript = '',
+    this.liveAssistantText = '',
     this.errorMessage,
     this.busy = false,
+    this.micMuted = false,
   });
 
   final RealtimeVoicePhase phase;
@@ -338,6 +376,11 @@ class RealtimeVoiceState {
 
   /// Latest partial transcript from the server. Cleared on each final.
   final String livePartialTranscript;
+
+  /// Assistant text accumulated for the current bot turn — parallel display
+  /// copy of what's also being streamed into chat history. Cleared on bot
+  /// `speaking:false` or on interruption.
+  final String liveAssistantText;
 
   /// Populated when [phase] is [RealtimeVoicePhase.error]. Cleared on the next
   /// successful [RealtimeVoiceController.toggle].
@@ -347,6 +390,10 @@ class RealtimeVoiceState {
   /// can read this to decide whether the orb should appear pending.
   final bool busy;
 
+  /// User has muted the mic via the voice stage action bar. Resets to false on
+  /// every new session.
+  final bool micMuted;
+
   bool get isLive => phase == RealtimeVoicePhase.live;
   bool get isConnecting => phase == RealtimeVoicePhase.connecting;
   bool get isActive => isLive || isConnecting;
@@ -355,17 +402,21 @@ class RealtimeVoiceState {
     RealtimeVoicePhase? phase,
     RealtimeSpeaker? whoIsSpeaking,
     String? livePartialTranscript,
+    String? liveAssistantText,
     Object? errorMessage = _sentinel,
     bool? busy,
+    bool? micMuted,
   }) {
     return RealtimeVoiceState(
       phase: phase ?? this.phase,
       whoIsSpeaking: whoIsSpeaking ?? this.whoIsSpeaking,
       livePartialTranscript:
           livePartialTranscript ?? this.livePartialTranscript,
+      liveAssistantText: liveAssistantText ?? this.liveAssistantText,
       errorMessage:
           errorMessage == _sentinel ? this.errorMessage : errorMessage as String?,
       busy: busy ?? this.busy,
+      micMuted: micMuted ?? this.micMuted,
     );
   }
 }

@@ -1,44 +1,50 @@
 // ignore_for_file: public_member_api_docs
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/theme/payabo_palette.dart';
 import '../../shared/theme/payabo_spacing.dart';
 import 'realtime_voice_controller.dart';
+import 'widgets/voice_action_bar.dart';
+import 'widgets/voice_glow_orb.dart';
+import 'widgets/voice_orb.dart';
+import 'widgets/voice_status_pill.dart';
 
-/// Slim realtime voice stage for the Voxa WSS pipeline.
+/// Branded voice mode stage — mirrors the [`VoiceScreen`] from the Payabo
+/// mobile starter kit (`Templates/payabo-mobile-starterkit/components/
+/// screens-chat.jsx`).
 ///
-/// The visual centrepiece is a Siri-style orb — concentric rings that expand
-/// outward and fade, anchored by a soft breathing core. Ring intensity is
-/// gated on [RealtimeVoiceState.whoIsSpeaking] so the pulse "comes alive"
-/// when the bot is talking and settles to a gentle breath when it's the
-/// user's turn or no one is speaking.
+/// Layout:
+///   * Header — close button (left) + status pill (right) with a pulse dot.
+///   * Centre — orb with a soft halo + breathing core, primary transcript
+///     line, optional sub-line.
+///   * Footer — three round buttons: mute, end, minimise.
 ///
-/// Architecture:
-///  * **One forward-only `AnimationController`** drives a single phase value
-///    (0→1 over 1.8 s, then loops). Multiple rings sample that phase with
-///    offsets so we get a continuous "ping" rhythm from a single ticker.
-///  * **No** thinking sound, end-of-turn timer, retry budget, "ready" phase
-///    or periodic 160 ms `setState` tick — server VAD owns turn detection,
-///    the WS connection state owns the error surface, barge-in is implicit.
-///
-/// The widget is purely a renderer — it reads
-/// [realtimeVoiceControllerProvider] and forwards taps to [onOrbTap]. The
-/// chat screen owns the start/stop policy.
+/// All session lifecycle (busy / watchdog / error / mute) is owned by
+/// [RealtimeVoiceController]. The stage is purely a renderer.
 class RealtimeVoiceStage extends ConsumerStatefulWidget {
   const RealtimeVoiceStage({
     super.key,
     required this.onOrbTap,
+    required this.onMinimise,
+    this.subline,
   });
 
-  /// Invoked when the user taps the orb. The chat screen interprets the
-  /// tap based on the current phase (idle/error → start, connecting/live
-  /// → stop) and wraps the call in a busy-watchdog so re-entrant taps
-  /// can't diverge the state machine.
+  /// Invoked when the orb / overall stage area is tapped. Controller decides
+  /// whether this starts or stops the session.
   final Future<void> Function() onOrbTap;
+
+  /// Hides the stage without ending the session — the call keeps running in
+  /// the background and the user returns to chat history.
+  final VoidCallback onMinimise;
+
+  /// Optional muted sub-line below the primary transcript. The starter kit
+  /// uses this for context like "That's GHS 1,942 at today's rate"; we leave
+  /// it null in v1 because the live transcript already covers most prompts.
+  final String? subline;
 
   @override
   ConsumerState<RealtimeVoiceStage> createState() =>
@@ -52,13 +58,12 @@ class _RealtimeVoiceStageState extends ConsumerState<RealtimeVoiceStage>
   @override
   void initState() {
     super.initState();
-    // Forward-only saw-tooth (0 → 1, jump back, repeat) over 1.8 s. With four
-    // rings offset by 25 % each, a new ring starts roughly every 450 ms — fast
-    // enough to feel responsive when the bot is mid-sentence, slow enough that
-    // a single ring takes long enough to expand all the way out.
+    // Single forward-only saw-tooth (0 → 1, jump back, repeat) over 2.6 s —
+    // matches the React `period = 2600` in the starter kit so the breathing
+    // feels identical.
     _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 2600),
     )..repeat();
   }
 
@@ -74,61 +79,212 @@ class _RealtimeVoiceStageState extends ConsumerState<RealtimeVoiceStage>
         ref.watch(realtimeVoiceControllerProvider);
     final ColorScheme scheme = Theme.of(context).colorScheme;
     final bool isError = state.phase == RealtimeVoicePhase.error;
+    final Color accent = isError ? scheme.error : PayaboPalette.orange500;
 
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            PayaboSpacing.xl,
-            PayaboSpacing.xl,
-            PayaboSpacing.xl,
-            PayaboSpacing.xl,
+    return Stack(
+      children: <Widget>[
+        // Ambient glow orb behind the orb — same trick the chat screen uses
+        // to push the dark gradient towards "alive".
+        Positioned(
+          top: MediaQuery.sizeOf(context).height * 0.18,
+          left: -80,
+          child: const VoiceGlowOrb(
+            size: 380,
+            color: PayaboPalette.orange500,
+            opacity: 0.32,
+            blur: 80,
           ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      _eyebrowLabel(state),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: isError ? scheme.error : scheme.primary,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 3.2,
-                          ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    Semantics(
-                      button: true,
-                      label: 'Voice orb',
-                      child: GestureDetector(
-                        onTap: () => unawaited(widget.onOrbTap()),
-                        behavior: HitTestBehavior.opaque,
-                        child: _RealtimeOrb(state: state, pulse: _pulse),
+        ),
+        const Positioned(
+          bottom: 80,
+          right: -60,
+          child: VoiceGlowOrb(
+            size: 220,
+            color: Color(0xFFD7A14E),
+            opacity: 0.18,
+            blur: 70,
+          ),
+        ),
+        SafeArea(
+          child: Column(
+            children: <Widget>[
+              _StageHeader(
+                accent: accent,
+                state: state,
+                onClose: widget.onMinimise,
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder:
+                      (BuildContext context, BoxConstraints constraints) {
+                    // Cap the orb at 240 px (the starter-kit size) but shrink
+                    // on small screens so the transcript still has room.
+                    final double orbSize = constraints.maxWidth < 320
+                        ? constraints.maxWidth * 0.72
+                        : 240;
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PayaboSpacing.xl,
                       ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.lg),
-                    _BodyPanel(state: state),
-                  ],
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Semantics(
+                              button: true,
+                              label: 'Voice orb',
+                              child: GestureDetector(
+                                onTap: () =>
+                                    unawaited(widget.onOrbTap()),
+                                behavior: HitTestBehavior.opaque,
+                                child: VoiceOrb(
+                                  size: orbSize,
+                                  pulse: _pulse,
+                                  intensity: _intensityFor(state),
+                                  color: accent,
+                                  center: _centerFor(state),
+                                  portraitAsset: 'assets/images/simi.png',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            _TranscriptBlock(
+                              state: state,
+                              subline: widget.subline,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  PayaboSpacing.lg,
+                  PayaboSpacing.md,
+                  PayaboSpacing.lg,
+                  PayaboSpacing.lg,
+                ),
+                child: VoiceActionBar(
+                  muted: state.micMuted,
+                  muteEnabled: state.phase == RealtimeVoicePhase.live,
+                  onToggleMute: () => ref
+                      .read(realtimeVoiceControllerProvider.notifier)
+                      .toggleMute(),
+                  onEnd: () => unawaited(_end()),
+                  onMinimise: widget.onMinimise,
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
-  String _eyebrowLabel(RealtimeVoiceState state) {
+  /// Tear the session down explicitly from the bottom-bar end button. The
+  /// minimise button keeps the call alive — only this path stops it.
+  Future<void> _end() async {
+    await ref.read(realtimeVoiceControllerProvider.notifier).dismiss();
+    if (!mounted) return;
+    widget.onMinimise();
+  }
+
+  /// Map controller state → orb intensity. Bot speaking is the "loud" state,
+  /// error is flat. Same shape as the starter kit's `intensity` calculation.
+  static double _intensityFor(RealtimeVoiceState state) {
+    switch (state.phase) {
+      case RealtimeVoicePhase.error:
+        return 0;
+      case RealtimeVoicePhase.idle:
+        return 0.4;
+      case RealtimeVoicePhase.connecting:
+        return 0.5;
+      case RealtimeVoicePhase.live:
+        switch (state.whoIsSpeaking) {
+          case RealtimeSpeaker.bot:
+            return 1.0;
+          case RealtimeSpeaker.user:
+            return 0.6;
+          case RealtimeSpeaker.none:
+            return 0.4;
+        }
+    }
+  }
+
+  static VoiceOrbCenter _centerFor(RealtimeVoiceState state) {
+    switch (state.phase) {
+      case RealtimeVoicePhase.idle:
+        return VoiceOrbCenter.portrait;
+      case RealtimeVoicePhase.connecting:
+        return VoiceOrbCenter.connecting;
+      case RealtimeVoicePhase.error:
+        return VoiceOrbCenter.error;
+      case RealtimeVoicePhase.live:
+        switch (state.whoIsSpeaking) {
+          case RealtimeSpeaker.bot:
+            return VoiceOrbCenter.bot;
+          case RealtimeSpeaker.user:
+            return VoiceOrbCenter.user;
+          case RealtimeSpeaker.none:
+            return VoiceOrbCenter.portrait;
+        }
+    }
+  }
+}
+
+class _StageHeader extends StatelessWidget {
+  const _StageHeader({
+    required this.accent,
+    required this.state,
+    required this.onClose,
+  });
+
+  final Color accent;
+  final RealtimeVoiceState state;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        PayaboSpacing.md,
+        PayaboSpacing.sm,
+        PayaboSpacing.md,
+        PayaboSpacing.sm,
+      ),
+      child: Row(
+        children: <Widget>[
+          _HeaderIconButton(
+            icon: Icons.close_rounded,
+            onTap: onClose,
+            semanticsLabel: 'Close voice mode',
+          ),
+          const Spacer(),
+          VoiceStatusPill(
+            label: _label(state),
+            color: accent,
+            showPulse: state.phase != RealtimeVoicePhase.error,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _label(RealtimeVoiceState state) {
+    if (state.micMuted && state.phase == RealtimeVoicePhase.live) {
+      return 'MIC MUTED';
+    }
     return switch (state.phase) {
       RealtimeVoicePhase.idle => 'SIMI',
       RealtimeVoicePhase.connecting => 'OPENING THE LINE',
       RealtimeVoicePhase.error => 'TAP TO RETRY',
       RealtimeVoicePhase.live => switch (state.whoIsSpeaking) {
-          RealtimeSpeaker.bot => 'SIMI RESPONDING',
+          RealtimeSpeaker.bot => 'SIMI SPEAKING',
           RealtimeSpeaker.user => 'SIMI LISTENING',
           RealtimeSpeaker.none => 'SIMI LIVE',
         },
@@ -136,54 +292,135 @@ class _RealtimeVoiceStageState extends ConsumerState<RealtimeVoiceStage>
   }
 }
 
-class _BodyPanel extends StatelessWidget {
-  const _BodyPanel({required this.state});
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({
+    required this.icon,
+    required this.onTap,
+    required this.semanticsLabel,
+  });
 
-  final RealtimeVoiceState state;
+  final IconData icon;
+  final VoidCallback onTap;
+  final String semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.06),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Icon(icon, color: Colors.white, size: 18),
+        ),
+      ),
+    );
+  }
+}
+
+class _TranscriptBlock extends StatelessWidget {
+  const _TranscriptBlock({required this.state, required this.subline});
+
+  final RealtimeVoiceState state;
+  final String? subline;
+
+  @override
+  Widget build(BuildContext context) {
+    // Error state owns the whole text block.
     if (state.phase == RealtimeVoicePhase.error) {
       return _ErrorPanel(message: state.errorMessage);
     }
 
-    final String text;
-    final bool italic;
-    if (state.livePartialTranscript.isNotEmpty &&
-        state.phase == RealtimeVoicePhase.live) {
-      // Surface live partials in italic so the user sees the mic is working
-      // between server-side finals.
-      text = state.livePartialTranscript;
-      italic = true;
-    } else {
-      italic = false;
-      text = switch (state.phase) {
-        RealtimeVoicePhase.idle =>
-          'Tap the orb to start a voice conversation.',
-        RealtimeVoicePhase.connecting => 'Opening the line…',
-        RealtimeVoicePhase.live => switch (state.whoIsSpeaking) {
-            RealtimeSpeaker.bot => '',
-            RealtimeSpeaker.user => 'Listening…',
-            RealtimeSpeaker.none => 'Speak whenever you’re ready.',
-          },
-        RealtimeVoicePhase.error => '',
-      };
+    final ({String text, bool italic}) primary = _primary(state);
+    if (primary.text.isEmpty && (subline == null || subline!.isEmpty)) {
+      return const SizedBox.shrink();
     }
-
-    if (text.isEmpty) return const SizedBox.shrink();
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 360),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withValues(alpha: 0.64),
-              height: 1.55,
-              fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (primary.text.isNotEmpty)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: Text(
+                primary.text,
+                key: ValueKey<String>(primary.text),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                      letterSpacing: -0.4,
+                      fontStyle: primary.italic
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
+              ),
             ),
+          if (subline != null && subline!.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(
+              subline!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    height: 1.55,
+                  ),
+            ),
+          ],
+          // Tap hint while idle so the user knows what to do.
+          if (state.phase == RealtimeVoicePhase.idle) ...<Widget>[
+            const SizedBox(height: 12),
+            Text(
+              'Tap the orb to start',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    letterSpacing: 0.4,
+                  ),
+            ),
+          ],
+        ],
       ),
     );
+  }
+
+  /// Resolution order for the primary line:
+  ///   1. Live assistant text while the bot is speaking (the "what Simi is
+  ///      saying" view).
+  ///   2. Live partial transcription while the user is speaking.
+  ///   3. Phase-specific placeholders.
+  static ({String text, bool italic}) _primary(RealtimeVoiceState state) {
+    if (state.phase == RealtimeVoicePhase.live) {
+      if (state.whoIsSpeaking == RealtimeSpeaker.bot &&
+          state.liveAssistantText.isNotEmpty) {
+        return (text: state.liveAssistantText, italic: false);
+      }
+      if (state.livePartialTranscript.isNotEmpty) {
+        return (text: state.livePartialTranscript, italic: true);
+      }
+    }
+    final String fallback = switch (state.phase) {
+      RealtimeVoicePhase.idle => '',
+      RealtimeVoicePhase.connecting => 'Opening the line…',
+      RealtimeVoicePhase.live => switch (state.whoIsSpeaking) {
+          RealtimeSpeaker.bot => '',
+          RealtimeSpeaker.user => 'Listening…',
+          RealtimeSpeaker.none => 'Speak whenever you’re ready.',
+        },
+      RealtimeVoicePhase.error => '',
+    };
+    return (text: fallback, italic: false);
   }
 }
 
@@ -218,221 +455,6 @@ class _ErrorPanel extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Siri-style animated orb. Four concentric rings expand outward from the
-/// core, fading as they grow, with phase offsets so a new ring is always
-/// "leaving" the centre while previous rings dissipate at the edge. A soft
-/// inner core breathes underneath the rings so the orb feels alive even
-/// during silence.
-///
-/// Intensity (ring count opacity + breathing amplitude) is gated on
-/// `state.whoIsSpeaking`:
-///
-///   bot  → strongest, lively pulse (the AI is talking — show it)
-///   user → moderate, the mic is hot
-///   none → gentle breath
-///   error → static red dot, no rings
-///
-/// Transitions between intensities animate smoothly via [TweenAnimationBuilder]
-/// so flipping between speakers doesn't look snappy.
-class _RealtimeOrb extends StatelessWidget {
-  const _RealtimeOrb({required this.state, required this.pulse});
-
-  final RealtimeVoiceState state;
-  final AnimationController pulse;
-
-  /// Number of concentric expanding rings.
-  static const int _ringCount = 4;
-
-  /// Inner core size at rest. Rings expand from this radius outward.
-  static const double _coreSize = 120;
-
-  /// Total bounding box (also the maximum extent the outermost ring reaches).
-  static const double _orbSize = 320;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Color primary = state.phase == RealtimeVoicePhase.error
-        ? scheme.error
-        : scheme.primary;
-    final double targetIntensity = _targetIntensity(state);
-
-    return SizedBox(
-      width: _orbSize,
-      height: _orbSize,
-      child: TweenAnimationBuilder<double>(
-        // Cross-fade intensity over ~500 ms so transitions between user/bot
-        // speech don't look like a switch flip.
-        tween: Tween<double>(begin: targetIntensity, end: targetIntensity),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOutCubic,
-        builder: (BuildContext context, double intensity, Widget? _) {
-          return AnimatedBuilder(
-            animation: pulse,
-            builder: (BuildContext context, Widget? __) {
-              return Stack(
-                alignment: Alignment.center,
-                children: <Widget>[
-                  // Ring waves — drawn back-to-front so the freshest ring
-                  // (closest to the core) sits on top.
-                  for (int i = _ringCount - 1; i >= 0; i--)
-                    _Ring(
-                      phase: (pulse.value + (i / _ringCount)) % 1.0,
-                      color: primary,
-                      intensity: intensity,
-                      coreSize: _coreSize,
-                      maxSize: _orbSize,
-                    ),
-                  // Inner breathing core.
-                  _Core(
-                    pulseValue: pulse.value,
-                    intensity: intensity,
-                    color: primary,
-                    showSpinner:
-                        state.phase == RealtimeVoicePhase.connecting,
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  /// Per-phase intensity multiplier. The ring opacity AND breathing amplitude
-  /// scale by this — bot speech is the "loud" state, error is flat.
-  static double _targetIntensity(RealtimeVoiceState state) {
-    switch (state.phase) {
-      case RealtimeVoicePhase.error:
-        return 0;
-      case RealtimeVoicePhase.idle:
-        return 0.25;
-      case RealtimeVoicePhase.connecting:
-        return 0.45;
-      case RealtimeVoicePhase.live:
-        switch (state.whoIsSpeaking) {
-          case RealtimeSpeaker.bot:
-            return 1.0;
-          case RealtimeSpeaker.user:
-            return 0.7;
-          case RealtimeSpeaker.none:
-            return 0.35;
-        }
-    }
-  }
-}
-
-/// One expanding/fading ring. [phase] is the position in the 0→1 cycle —
-/// 0 = just emitted at core radius, 1 = fully expanded and faded out.
-class _Ring extends StatelessWidget {
-  const _Ring({
-    required this.phase,
-    required this.color,
-    required this.intensity,
-    required this.coreSize,
-    required this.maxSize,
-  });
-
-  final double phase;
-  final Color color;
-  final double intensity;
-  final double coreSize;
-  final double maxSize;
-
-  @override
-  Widget build(BuildContext context) {
-    // Use easeOut so rings sprint out from the core then decelerate as they
-    // fade — mirrors how a real ripple loses energy as it travels.
-    final double eased = Curves.easeOutCubic.transform(phase);
-    final double size = coreSize + eased * (maxSize - coreSize) * intensity;
-    // Opacity envelope: peaks just after the ring emerges (so it's visible)
-    // and tapers to zero as it reaches the edge. Sin(pi * phase) gives a
-    // nice hump shape.
-    final double envelope = math.sin(phase * math.pi);
-    final double opacity = envelope * 0.55 * intensity;
-    // Stroke fattens slightly as the ring grows so the visual mass stays
-    // roughly constant rather than the ring thinning into invisibility.
-    final double strokeWidth = 1.5 + (1.5 * eased);
-
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: color.withValues(alpha: opacity.clamp(0.0, 1.0)),
-            width: strokeWidth,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The orb's inner core. Solid circle with a radial gradient that gently
-/// breathes (sin-shaped scale modulation) so the orb feels alive even when
-/// no rings are emitting (idle / error states).
-class _Core extends StatelessWidget {
-  const _Core({
-    required this.pulseValue,
-    required this.intensity,
-    required this.color,
-    required this.showSpinner,
-  });
-
-  final double pulseValue;
-  final double intensity;
-  final Color color;
-  final bool showSpinner;
-
-  @override
-  Widget build(BuildContext context) {
-    // sin(2π · pulse) gives a continuous breathing rhythm at the same period
-    // as the ring cycle — feels like the rings are pumping out of the core.
-    final double breath = (math.sin(pulseValue * 2 * math.pi) + 1) / 2;
-    final double coreSize = 108 + (breath * 12 * intensity);
-    final double innerGlow = 0.7 + (breath * 0.2 * intensity);
-
-    return Container(
-      width: coreSize,
-      height: coreSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: <Color>[
-            color,
-            color.withValues(alpha: innerGlow),
-          ],
-        ),
-        boxShadow: <BoxShadow>[
-          // Soft glow that intensifies with the breath — sells the "alive"
-          // feeling more than the gradient alone does.
-          BoxShadow(
-            color: color.withValues(alpha: 0.35 * intensity),
-            blurRadius: 20 + (breath * 10 * intensity),
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: showSpinner
-          ? const Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            )
-          : const SizedBox.shrink(),
     );
   }
 }
