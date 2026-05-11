@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, Notification, shell } from 'electr
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { loadWindowState, saveWindowState } from './window-state'
+import { registerAuthIpc, handleAuthDeepLink } from './auth'
 import { writeFile } from 'fs/promises'
 
 // Declared by electron-vite define config
@@ -125,25 +126,33 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient(PROTOCOL)
 }
 
+const getMainWindow = (): BrowserWindow | null => mainWindow
+
+async function dispatchDeepLink(rawUrl: string): Promise<void> {
+  // Auth callbacks are intercepted in main; everything else (future deep
+  // links like aonik://invite/...) is forwarded to the renderer.
+  const handled = await handleAuthDeepLink(rawUrl, getMainWindow)
+  if (!handled) {
+    mainWindow?.webContents.send('deep-link', rawUrl)
+  }
+}
+
 // Handle second instance (Windows deep-link handler)
 app.on('second-instance', (_event, commandLine) => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.focus()
 
-    // Deep link URL is the last argument on Windows
     const deepLinkUrl = commandLine.find((arg) => arg.startsWith(`${PROTOCOL}://`))
     if (deepLinkUrl) {
-      mainWindow.webContents.send('deep-link', deepLinkUrl)
+      void dispatchDeepLink(deepLinkUrl)
     }
   }
 })
 
 // macOS deep-link handler
 app.on('open-url', (_event, url) => {
-  if (mainWindow) {
-    mainWindow.webContents.send('deep-link', url)
-  }
+  void dispatchDeepLink(url)
 })
 
 // IPC Handlers
@@ -195,6 +204,7 @@ function registerIpcHandlers(): void {
 // App lifecycle
 app.whenReady().then(() => {
   registerIpcHandlers()
+  registerAuthIpc(getMainWindow)
   createWindow()
 
   app.on('activate', () => {

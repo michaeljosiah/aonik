@@ -19,6 +19,29 @@
  * `src/Aonik.AdminDesktop/src/preload/index.ts` — the two are linked by
  * convention rather than by import (the preload lives in a separate package).
  */
+
+export interface AuthTokenSet {
+  access_token: string;
+  id_token?: string;
+  refresh_token?: string;
+  token_type: string;
+  expires_in: number;
+  scope?: string;
+}
+
+export interface AuthErrorEvent {
+  error: string;
+  description?: string;
+}
+
+export interface AuthBridge {
+  begin: (loginHint?: string) => Promise<{ state: string }>;
+  refresh: (refreshToken: string) => Promise<AuthTokenSet>;
+  cancel: () => Promise<void>;
+  onTokens: (callback: (tokens: AuthTokenSet) => void) => () => void;
+  onError: (callback: (event: AuthErrorEvent) => void) => () => void;
+}
+
 export interface ElectronBridge {
   getAppVersion: () => Promise<string>;
   getApiBaseUrl: () => Promise<string>;
@@ -28,6 +51,7 @@ export interface ElectronBridge {
   windowMaximize: () => void;
   windowClose: () => void;
   onDeepLink: (callback: (url: string) => void) => () => void;
+  auth: AuthBridge;
 }
 
 declare global {

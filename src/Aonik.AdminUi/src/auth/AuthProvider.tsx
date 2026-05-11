@@ -10,9 +10,15 @@ import {
   getProviderDisplayName,
   getRawAuthProvider
 } from './authConfig';
-import { MsalAuthContextProvider, Auth0AuthContextProvider, MockAuthContextProvider } from './useAuth';
+import {
+  MsalAuthContextProvider,
+  Auth0AuthContextProvider,
+  MockAuthContextProvider,
+  ElectronAuthContextProvider,
+} from './useAuth';
 import { AuthError, AuthErrors, type AuthErrorInfo } from '@/components/AuthError';
 import { LoadingScreen } from '@/components/layout';
+import { isElectron } from '@/lib/electron';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -127,6 +133,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Render the appropriate provider
   if (provider === 'mock') {
     return <MockAuthContextProvider>{children}</MockAuthContextProvider>;
+  }
+
+  // Desktop (Electron) uses the system-browser PKCE flow handled in the
+  // main process — the @auth0/auth0-react SDK doesn't work cleanly under
+  // file:// (no postMessage origin), so we bypass it entirely. The web
+  // path keeps using Auth0Provider unchanged.
+  if (provider === 'auth0' && isElectron) {
+    return <ElectronAuthContextProvider>{children}</ElectronAuthContextProvider>;
   }
 
   if (provider === 'auth0') {

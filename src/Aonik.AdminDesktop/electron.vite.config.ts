@@ -13,6 +13,14 @@ const apiDefaultUrl =
   process.env.AONIK_API_DEFAULT_URL ||
   'https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io'
 
+// Auth0 config used by the main-process PKCE flow (system-browser sign-in).
+// Defaults match the same Auth0 application the web renderer uses today;
+// override at build time to point at a separate "Native" client.
+const auth0Domain = process.env.AUTH0_DOMAIN || 'aonik.uk.auth0.com'
+const auth0ClientId =
+  process.env.AUTH0_CLIENT_ID || 'ZoiNbhyAsfjKiNHYPudqsZ75zI1vFyYb'
+const auth0Audience = process.env.AUTH0_AUDIENCE || 'https://api.aonik.com'
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
@@ -23,7 +31,10 @@ export default defineConfig({
     },
     define: {
       ADMIN_UI_DEV_URL: JSON.stringify(adminUiDevUrl),
-      AONIK_API_DEFAULT_URL: JSON.stringify(apiDefaultUrl)
+      AONIK_API_DEFAULT_URL: JSON.stringify(apiDefaultUrl),
+      AUTH0_DOMAIN: JSON.stringify(auth0Domain),
+      AUTH0_CLIENT_ID: JSON.stringify(auth0ClientId),
+      AUTH0_AUDIENCE: JSON.stringify(auth0Audience)
     }
   },
   preload: {

@@ -1,9 +1,9 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { useMsal, useIsAuthenticated as useMsalIsAuthenticated } from '@azure/msal-react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { msalLoginRequest, msalApiTokenRequest, auth0Config, type AuthProvider } from './authConfig';
-import { isElectron } from '@/lib/electron';
+import { isElectron, electronAPI, type AuthTokenSet } from '@/lib/electron';
 import { clearSelectedTenant } from '@/lib/tenantContext';
 import { invalidateTenantBootstrap } from '@/hooks/useTenantBootstrap';
 
@@ -388,4 +388,202 @@ function MockAuthContextProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
-export { AuthContext, MsalAuthContextProvider, Auth0AuthContextProvider, MockAuthContextProvider };
+// ─────────────────────────────────────────────────────────────────────────
+// Electron desktop auth — system-browser PKCE flow.
+//
+// The main process handles the OAuth dance (see preload/index.ts + main/
+// auth.ts). The renderer doesn't talk to Auth0 directly; it kicks the flow
+// off via `electronAPI.auth.begin()` and waits for a token delivery over
+// the IPC bridge. We don't use the @auth0/auth0-react SDK on this path —
+// it expects a browser origin it can postMessage to, which file:// can't
+// provide.
+// ─────────────────────────────────────────────────────────────────────────
+
+function decodeJwtPayload<T = Record<string, unknown>>(token: string): T | null {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const padded = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (padded.length % 4)) % 4;
+    const json = atob(padded + '='.repeat(padLen));
+    return JSON.parse(decodeURIComponent(escape(json))) as T;
+  } catch {
+    return null;
+  }
+}
+
+interface ElectronAuthState {
+  tokens: AuthTokenSet | null;
+  /** Absolute epoch ms when the current access token expires. */
+  accessTokenExpiresAt: number | null;
+  isLoading: boolean;
+  authError: Error | null;
+}
+
+function useElectronAuth(): AuthContextType {
+  const [state, setState] = useState<ElectronAuthState>({
+    tokens: null,
+    accessTokenExpiresAt: null,
+    isLoading: false,
+    authError: null,
+  });
+  // Hold a stable ref to avoid stale-closure issues in async getAccessToken.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const refreshInFlightRef = useRef<Promise<string | null> | null>(null);
+
+  useEffect(() => {
+    if (!electronAPI) return;
+
+    const unsubTokens = electronAPI.auth.onTokens((tokens) => {
+      const expiresAt = Date.now() + tokens.expires_in * 1000;
+      setState({
+        tokens,
+        accessTokenExpiresAt: expiresAt,
+        isLoading: false,
+        authError: null,
+      });
+    });
+    const unsubError = electronAPI.auth.onError((event) => {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        authError: new Error(event.description || event.error),
+      }));
+    });
+
+    return () => {
+      unsubTokens();
+      unsubError();
+    };
+  }, []);
+
+  const user: AuthUser | null = state.tokens?.id_token
+    ? (() => {
+        const claims = decodeJwtPayload<{
+          sub?: string;
+          email?: string;
+          name?: string;
+          picture?: string;
+          'https://aonik.com/roles'?: string[];
+        }>(state.tokens.id_token);
+        if (!claims) return null;
+        return {
+          id: claims.sub ?? '',
+          email: claims.email ?? '',
+          name: claims.name ?? claims.email ?? '',
+          picture: claims.picture,
+          roles: claims['https://aonik.com/roles'] ?? [],
+          roleSource: 'claims',
+        };
+      })()
+    : null;
+
+  const login = useCallback(async (options?: LoginOptions) => {
+    if (!electronAPI) {
+      throw new Error('Electron bridge is not available.');
+    }
+    setState((prev) => ({ ...prev, isLoading: true, authError: null }));
+    try {
+      await electronAPI.auth.begin(options?.loginHint);
+      // Tokens arrive asynchronously over IPC; the onTokens subscription
+      // updates state. We do not resolve `login` until then — but failure
+      // to receive a token (user closed the browser) leaves us pending.
+      // The renderer can show a "you can retry" affordance on the login
+      // page; we don't need an artificial timeout here.
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        authError: err instanceof Error ? err : new Error(String(err)),
+      }));
+      throw err;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    clearSelectedTenant();
+    invalidateTenantBootstrap();
+    if (electronAPI) {
+      await electronAPI.auth.cancel().catch(() => undefined);
+    }
+    setState({
+      tokens: null,
+      accessTokenExpiresAt: null,
+      isLoading: false,
+      authError: null,
+    });
+  }, []);
+
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    const current = stateRef.current;
+    if (!current.tokens) return null;
+
+    // Refresh ~60s before expiry to absorb clock skew and request latency.
+    const expiresAt = current.accessTokenExpiresAt ?? 0;
+    const stillFresh = Date.now() < expiresAt - 60_000;
+    if (stillFresh) {
+      return current.tokens.access_token;
+    }
+
+    if (!electronAPI || !current.tokens.refresh_token) {
+      return current.tokens.access_token;
+    }
+
+    // Single-flight: concurrent callers share the same refresh.
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current;
+    }
+
+    refreshInFlightRef.current = (async () => {
+      try {
+        const fresh = await electronAPI.auth.refresh(current.tokens!.refresh_token!);
+        const expires = Date.now() + fresh.expires_in * 1000;
+        setState({
+          // Auth0 returns a rotated refresh token (if rotation is enabled);
+          // fall back to the previous one if not.
+          tokens: { ...fresh, refresh_token: fresh.refresh_token ?? current.tokens!.refresh_token },
+          accessTokenExpiresAt: expires,
+          isLoading: false,
+          authError: null,
+        });
+        return fresh.access_token;
+      } catch (err) {
+        setState((prev) => ({
+          ...prev,
+          authError: err instanceof Error ? err : new Error(String(err)),
+        }));
+        return null;
+      } finally {
+        refreshInFlightRef.current = null;
+      }
+    })();
+
+    return refreshInFlightRef.current;
+  }, []);
+
+  return {
+    isAuthenticated: state.tokens !== null,
+    isLoading: state.isLoading,
+    user,
+    accessToken: state.tokens?.access_token ?? null,
+    provider: 'auth0',
+    authError: state.authError,
+    login,
+    logout,
+    getAccessToken,
+  };
+}
+
+function ElectronAuthContextProvider({ children }: { children: ReactNode }) {
+  const auth = useElectronAuth();
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
+}
+
+export {
+  AuthContext,
+  MsalAuthContextProvider,
+  Auth0AuthContextProvider,
+  MockAuthContextProvider,
+  ElectronAuthContextProvider,
+};
