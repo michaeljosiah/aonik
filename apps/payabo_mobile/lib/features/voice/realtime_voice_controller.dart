@@ -179,9 +179,18 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
           if (trimmed.isNotEmpty) {
             _chatController.addRealtimeUserTurn(trimmed);
           }
-          state = state.copyWith(livePartialTranscript: '');
+          state = state.copyWith(
+            livePartialTranscript: '',
+            hasInteracted: trimmed.isNotEmpty ? true : null,
+          );
         } else {
-          state = state.copyWith(livePartialTranscript: trimmed);
+          state = state.copyWith(
+            livePartialTranscript: trimmed,
+            // First partial = user is mid-speech; that counts as interaction
+            // so the "Speak whenever you're ready" placeholder retires even
+            // before the final transcript lands.
+            hasInteracted: trimmed.isNotEmpty ? true : null,
+          );
         }
 
       case BotTextEvent(:final String text):
@@ -196,6 +205,7 @@ class RealtimeVoiceController extends StateNotifier<RealtimeVoiceState> {
         // already gets the same text via ChatController above.
         state = state.copyWith(
           liveAssistantText: state.liveAssistantText + text,
+          hasInteracted: true,
         );
 
       case SpeakingEvent(:final String who, :final bool started):
@@ -369,6 +379,7 @@ class RealtimeVoiceState {
     this.errorMessage,
     this.busy = false,
     this.micMuted = false,
+    this.hasInteracted = false,
   });
 
   final RealtimeVoicePhase phase;
@@ -394,6 +405,12 @@ class RealtimeVoiceState {
   /// every new session.
   final bool micMuted;
 
+  /// True once the user has spoken or the bot has emitted any text in this
+  /// session. Gates the "Speak whenever you're ready" placeholder so it only
+  /// appears at the very start — after the first turn the stage is quiet
+  /// when no one's currently speaking. Resets to false on every new session.
+  final bool hasInteracted;
+
   bool get isLive => phase == RealtimeVoicePhase.live;
   bool get isConnecting => phase == RealtimeVoicePhase.connecting;
   bool get isActive => isLive || isConnecting;
@@ -406,6 +423,7 @@ class RealtimeVoiceState {
     Object? errorMessage = _sentinel,
     bool? busy,
     bool? micMuted,
+    bool? hasInteracted,
   }) {
     return RealtimeVoiceState(
       phase: phase ?? this.phase,
@@ -417,6 +435,7 @@ class RealtimeVoiceState {
           errorMessage == _sentinel ? this.errorMessage : errorMessage as String?,
       busy: busy ?? this.busy,
       micMuted: micMuted ?? this.micMuted,
+      hasInteracted: hasInteracted ?? this.hasInteracted,
     );
   }
 }

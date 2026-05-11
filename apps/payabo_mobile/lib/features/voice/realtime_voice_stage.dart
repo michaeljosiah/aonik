@@ -399,7 +399,9 @@ class _TranscriptBlock extends StatelessWidget {
   ///   1. Live assistant text while the bot is speaking (the "what Simi is
   ///      saying" view).
   ///   2. Live partial transcription while the user is speaking.
-  ///   3. Phase-specific placeholders.
+  ///   3. Phase-specific placeholders, gated on whether the session has had
+  ///      any interaction yet — the "Speak whenever you're ready" prompt
+  ///      only appears at the very start, not between every turn.
   static ({String text, bool italic}) _primary(RealtimeVoiceState state) {
     if (state.phase == RealtimeVoicePhase.live) {
       if (state.whoIsSpeaking == RealtimeSpeaker.bot &&
@@ -416,7 +418,11 @@ class _TranscriptBlock extends StatelessWidget {
       RealtimeVoicePhase.live => switch (state.whoIsSpeaking) {
           RealtimeSpeaker.bot => '',
           RealtimeSpeaker.user => 'Listening…',
-          RealtimeSpeaker.none => 'Speak whenever you’re ready.',
+          // Only show the prompt before ANY turn has happened; once we've
+          // seen a partial / final / bot reply, the stage is intentionally
+          // quiet between turns so the orb is the only visual cue.
+          RealtimeSpeaker.none =>
+            state.hasInteracted ? '' : 'Speak whenever you’re ready.',
         },
       RealtimeVoicePhase.error => '',
     };

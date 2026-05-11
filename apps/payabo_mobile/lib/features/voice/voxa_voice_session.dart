@@ -146,6 +146,14 @@ class VoxaVoiceSession {
           _botSpeaking = true;
           _botStoppedHangoverTimer = null;
         } else {
+          // Tail-pad the player buffer with silence. mp_audio_stream pauses
+          // playback when the buffer drops below `waitingBufferMilliSec`, so
+          // without padding the last ~80 ms of the bot's last word gets stuck
+          // in the buffer and never plays — that's the "voice ends too
+          // abruptly" symptom users hear at the end of a reply. The silence
+          // pushes the real audio past the threshold so the player drains it
+          // fully before quiescing.
+          _padPlayerTail();
           _botStoppedHangoverTimer = Timer(_postBotStopHangover, () {
             _botSpeaking = false;
           });
@@ -279,6 +287,23 @@ class VoxaVoiceSession {
   }
 
   // ── Internals ────────────────────────────────────────────────────────────
+
+  /// Push 500 ms of silent samples to the player at the end of each bot turn.
+  /// Without this, mp_audio_stream's drain heuristic holds back the trailing
+  /// frames of the bot's last word — audible as the audio cutting off
+  /// mid-syllable on every reply.
+  void _padPlayerTail() {
+    if (!_playerInitialised) return;
+    final int silenceSamples = (_playerSampleRate * 0.5).round();
+    if (silenceSamples <= 0) return;
+    final Float32List silence = Float32List(silenceSamples);
+    try {
+      _player.push(silence);
+    } catch (_) {
+      // Best-effort tail pad — if the player is mid-teardown it's harmless to
+      // skip.
+    }
+  }
 
   void _onBotAudioFrame(Uint8List pcmBytes) {
     if (pcmBytes.isEmpty) return;
