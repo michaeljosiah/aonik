@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -105,6 +106,7 @@ class VoxaVoiceClient {
     }
 
     final Uri wsUri = _buildWsUri(_apiBaseUrl, token);
+    _log('connect → ${wsUri.replace(queryParameters: <String, String>{'access_token': '<redacted>'})}');
 
     final IOWebSocketChannel channel;
     try {
@@ -121,15 +123,18 @@ class VoxaVoiceClient {
         pingInterval: const Duration(seconds: 30),
       );
     } catch (err) {
+      _log('IOWebSocketChannel.connect threw synchronously: $err');
       _setState(VoxaConnectionState.error);
       rethrow;
     }
     _channel = channel;
 
-    // Listen BEFORE sending hello so an instant rejection is captured.
+    // Listen BEFORE awaiting handshake so any instant rejection is captured
+    // by our error/done handlers (not just thrown from channel.ready).
     _channelSubscription = channel.stream.listen(
       _onChannelMessage,
       onError: (Object error, StackTrace stackTrace) {
+        _log('transport ERROR: $error');
         _eventsController.add(VoxaVoiceEvent.error(
           message: error.toString(),
           code: 'transport',
@@ -138,6 +143,7 @@ class VoxaVoiceClient {
         unawaited(_teardown());
       },
       onDone: () {
+        _log('socket onDone (state was $_state)');
         // Server closed the socket — flip to closed unless we already errored.
         if (_state != VoxaConnectionState.error) {
           _setState(VoxaConnectionState.closed);
@@ -146,6 +152,27 @@ class VoxaVoiceClient {
       },
       cancelOnError: false,
     );
+
+    // `IOWebSocketChannel.connect` returns immediately without confirming
+    // the HTTP→WS upgrade succeeded. If the upgrade fails (401, 426, TLS
+    // error, or Azure Container Apps not routing the upgrade), we'd
+    // otherwise plough on and send `hello` into a half-open socket — and
+    // never see a transport error fire because the listener attaches
+    // before any error has been queued. Awaiting `channel.ready` surfaces
+    // the failure explicitly and lets the caller see why.
+    try {
+      await channel.ready;
+      _log('handshake OK');
+    } catch (err) {
+      _log('handshake FAILED: $err');
+      _setState(VoxaConnectionState.error);
+      _eventsController.add(VoxaVoiceEvent.error(
+        message: 'WebSocket handshake failed: $err',
+        code: 'handshake',
+      ));
+      await _teardown();
+      rethrow;
+    }
 
     // Hello envelope. The server validates agentId + frontendTools allow-list before
     // emitting any frames; if either is wrong, we'll get a {type:"error"} envelope back
@@ -162,6 +189,7 @@ class VoxaVoiceClient {
       },
     };
     channel.sink.add(jsonEncode(helloEnvelope));
+    _log('sent hello agentId=$agentId tools=${frontendTools.length} threadId=${chatThreadId ?? "-"}');
 
     _setState(VoxaConnectionState.connected);
   }
@@ -228,6 +256,7 @@ class VoxaVoiceClient {
 
   void _onChannelMessage(dynamic message) {
     if (message is Uint8List) {
+      // Audio frames are high-volume; logging each one floods the console.
       _audioFramesController.add(message);
       return;
     }
@@ -238,11 +267,18 @@ class VoxaVoiceClient {
     if (message is String) {
       final VoxaVoiceEvent? event = _parseTextEnvelope(message);
       if (event != null) {
+        _log('inbound ${event.runtimeType}');
         _eventsController.add(event);
+      } else {
+        _log('inbound unparseable text=${message.length > 80 ? "${message.substring(0, 80)}..." : message}');
       }
       return;
     }
     // Unknown frame type — Voxa's wire protocol says drop unknowns.
+  }
+
+  static void _log(String msg) {
+    developer.log(msg, name: 'VoxaVoiceClient');
   }
 
   Future<void> _teardown() async {
@@ -433,12 +469,13 @@ enum VoxaConnectionState { idle, connecting, connected, closed, error }
 
 // ── Riverpod wiring ────────────────────────────────────────────────────────────────
 
-/// Feature flag for the new voice-mode WebSocket pipeline. Defaults to `false` so
-/// production traffic continues to flow through the existing `chatVoiceServiceProvider`
-/// (SSE-based). Flip to `true` here (or behind a tenant setting in a follow-up) to
-/// route voice mode through the new client.
+/// Feature flag for the new voice-mode WebSocket pipeline. Defaults to `true`
+/// — the chat screen renders the slim 4-phase realtime stage and routes mic
+/// + bot audio through the Voxa WSS pipeline. Flip back to `false` here to
+/// fall back to the legacy SSE-based `chatVoiceServiceProvider` path while
+/// the new pipeline is being stabilised.
 final Provider<bool> voxaVoiceModeEnabledProvider = Provider<bool>((Ref ref) {
-  return false;
+  return true;
 });
 
 /// Per-screen [VoxaVoiceClient] factory. Each `ref.watch(voxaVoiceClientProvider)` call

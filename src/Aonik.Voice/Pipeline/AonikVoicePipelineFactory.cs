@@ -9,6 +9,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Voxa.Audio.SileroVad;
 using Voxa.Pipelines;
 using Voxa.Speech;
 using Voxa.Speech.Azure;
@@ -114,7 +115,21 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
         var stt = BuildSttProcessor(recipe, credentialResolver);
         var tts = BuildTtsProcessor(recipe, credentialResolver);
 
-        var source = new WebSocketAudioSource(request.WebSocket);
+        // Tag incoming binary frames as 16 kHz mono PCM. The Voxa default is 24 kHz
+        // (Voice Live's native rate), but BOTH our clients send 16 kHz: Flutter's
+        // `record` plugin records 16-bit PCM at 16 kHz to match Whisper's expectation,
+        // and the admin UI's `LiveVoiceTestCard` resamples to 16 kHz before sending.
+        // Without this override, `AudioRawFrame.SampleRate == 24000` mis-tag would
+        // cause SileroVadProcessor to short-circuit ("sample rate mismatch, forwarding
+        // without VAD") — defeating the whole point of wiring it in below.
+        var source = new WebSocketAudioSource(
+            request.WebSocket,
+            new WebSocketAudioOptions
+            {
+                InputSampleRate = 16000,
+                Channels = 1,
+            });
+
         // Voxa's WebSocketAudioSink + custom-serializer hook covers the AONIK threadReady
         // envelope. No subclass needed; the local AonikVoiceWebSocketSink was retired in
         // Phase B.
@@ -142,14 +157,39 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             logger: _loggerFactory.CreateLogger("Aonik.Voice.AonikVoiceAgent"));
 
         // Pipeline order matches the spec:
-        //   WebSocketAudioSource → STT → AonikVoiceAgent → [SentenceAggregator?]
-        //   → SpeechTextNormalizerProcessor → TextToSpeechProcessor → WebSocketAudioSink
-        // VAD is not enabled in v1 chained-OpenAI (Whisper handles segmentation
-        // server-side); the spec calls VAD optional. The sentence aggregator is gated by
-        // the recipe's UseSentenceAggregator knob — disabling it lets tokens flow through
-        // unbuffered (useful for snappier echoback agents).
+        //   WebSocketAudioSource → SileroVadProcessor → STT → AonikVoiceAgent
+        //   → [SentenceAggregator?] → SpeechTextNormalizerProcessor → TextToSpeechProcessor
+        //   → WebSocketAudioSink
+        //
+        // VAD is REQUIRED, not optional, for the chained-OpenAI recipe — contrary to an
+        // earlier comment that claimed "Whisper handles segmentation server-side". It
+        // doesn't. Voxa's `OpenAIWhisperEngine` is a batch engine that buffers PCM and
+        // only force-flushes when it sees a `UserStoppedSpeakingFrame`. Without VAD
+        // emitting that frame the engine waits the full `SttBufferSeconds` (30 s default)
+        // before posting to /v1/audio/transcriptions, which on Azure Container Apps
+        // means the WS idle-times out before the user ever hears a response. The
+        // SileroVadProcessor below emits `UserStartedSpeakingFrame` /
+        // `UserStoppedSpeakingFrame` from the Silero v5 ONNX model, giving turn latency
+        // close to natural conversation pace.
+        //
+        // ConfidenceThreshold tuned to 0.3 because browser/mobile mic audio with AGC
+        // compresses dynamic range and Silero's probabilities can hover below 0.5 even
+        // for clean speech — Pipecat's documented value for AGC'd browser mics.
+        // StopDuration left at the 800 ms default; raise per-tenant later if users
+        // pause mid-sentence to think.
+        //
+        // The sentence aggregator is gated by the recipe's UseSentenceAggregator knob —
+        // disabling it lets tokens flow through unbuffered (useful for snappier
+        // echoback agents).
+        var vad = new SileroVadProcessor(new SileroVadOptions
+        {
+            SampleRate = 16000,
+            ConfidenceThreshold = 0.3f,
+        });
+
         var builder = Voxa.Pipelines.Pipeline.Build()
             .Source(source)
+            .Then(vad)
             .Then(stt)
             .Then(agent);
 

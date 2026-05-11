@@ -405,6 +405,136 @@ class ChatController extends StateNotifier<ChatState> {
     ));
   }
 
+  // ── Realtime voice-mode injection (Voxa WSS path) ───────────────────
+  //
+  // The realtime path (spec 024 Phase H, lib/features/voice/) doesn't
+  // talk to /mobile/chat/run — it streams over /ai/voice WSS and emits
+  // typed events (TranscriptionEvent / BotTextEvent / SpeakingEvent /
+  // ThreadReadyEvent / InterruptionEvent). The controller exposes the
+  // methods below so the realtime controller can write transcripts and
+  // bot text directly into chat state, keeping `state.messages` as the
+  // single source of truth across both pipelines.
+  //
+  // The streaming-text batching machinery (_pendingTextDelta,
+  // _flushPendingText) is reused so realtime bot chunks coalesce at the
+  // same ~16 ms frame cadence as SSE token deltas — no double O(n²)
+  // rebuild cost.
+  String? _realtimeAssistantMessageId;
+
+  /// Append a finalized user transcript to history. The WSS session owns
+  /// the request lifecycle — this is purely a state injection.
+  void addRealtimeUserTurn(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    final userMessage = ChatMessage(
+      id: 'voice_user_${DateTime.now().millisecondsSinceEpoch}',
+      sender: ChatSender.user,
+      lines: [trimmed],
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, userMessage],
+      activity: ChatActivity.streaming,
+      errorMessage: null,
+    );
+  }
+
+  /// Begin a streaming assistant turn from the realtime WSS pipeline.
+  /// Clears any prior streaming buffer and primes the message id so
+  /// subsequent [appendRealtimeAssistantText] calls accumulate correctly.
+  void beginRealtimeAssistantTurn({String? messageId}) {
+    _discardPendingText();
+    final id =
+        messageId ?? 'voice_asst_${DateTime.now().millisecondsSinceEpoch}';
+    _realtimeAssistantMessageId = id;
+
+    state = state.copyWith(
+      activity: ChatActivity.streaming,
+      streamingText: '',
+      streamingMessageId: id,
+    );
+  }
+
+  /// Append a chunk from a BotTextEvent to the streaming assistant turn.
+  /// Routes through the existing text-delta coalesce so realtime renders
+  /// at the same frame cadence as SSE deltas.
+  void appendRealtimeAssistantText(String chunk) {
+    if (chunk.isEmpty) return;
+    if (_realtimeAssistantMessageId == null) {
+      // Auto-begin so the first chunk isn't dropped if the caller
+      // missed the speaking-started → begin sequence.
+      beginRealtimeAssistantTurn();
+    }
+    _pendingTextDelta.write(chunk);
+    _pendingTextMessageId = _realtimeAssistantMessageId;
+    _scheduleTextFlush();
+  }
+
+  /// Finalize the current streaming assistant turn into [state.messages].
+  /// Safe to call when nothing has been streamed — becomes a no-op that
+  /// just clears the streaming buffer.
+  void finishRealtimeAssistantTurn() {
+    _flushPendingText();
+    final id = _realtimeAssistantMessageId;
+    _realtimeAssistantMessageId = null;
+
+    if (id == null || state.streamingText.isEmpty) {
+      state = state.copyWith(
+        streamingText: '',
+        streamingMessageId: null,
+      );
+      return;
+    }
+
+    final assistantMessage = ChatMessage(
+      id: id,
+      sender: ChatSender.assistant,
+      lines: [state.streamingText],
+    );
+    state = state.copyWith(
+      messages: [...state.messages, assistantMessage],
+      streamingText: '',
+      streamingMessageId: null,
+    );
+  }
+
+  /// Sync the chat thread id from the WSS threadReady envelope so a
+  /// subsequent non-voice (SSE) send continues the same conversation.
+  void setRealtimeThreadId(String threadId) {
+    if (threadId.isEmpty) return;
+    state = state.copyWith(threadId: threadId);
+  }
+
+  /// Mark the realtime session as errored. Surfaces the message via
+  /// [state.errorMessage] and finalizes any in-flight streaming text so
+  /// the partial response isn't lost.
+  void markRealtimeError(String message) {
+    finishRealtimeAssistantTurn();
+    state = state.copyWith(
+      activity: ChatActivity.error,
+      errorMessage: message,
+    );
+  }
+
+  /// End the realtime session. Finalizes any in-flight assistant text
+  /// and returns the controller to idle (unless it already errored).
+  void endRealtimeSession() {
+    finishRealtimeAssistantTurn();
+    if (state.activity != ChatActivity.error) {
+      state = state.copyWith(activity: ChatActivity.idle);
+    }
+  }
+
+  /// Handle a server-emitted InterruptionEvent — the user spoke over
+  /// the bot. Finalize whatever was streamed so the truncated reply is
+  /// preserved in history; activity stays at streaming because the
+  /// session is still live.
+  void markRealtimeInterruption() {
+    finishRealtimeAssistantTurn();
+    state = state.copyWith(activity: ChatActivity.streaming);
+  }
+
   /// Client-side timing — started when a message is sent, used to measure
   /// round-trip latency from mobile → server → LLM → mobile.
   final Stopwatch _clientStopwatch = Stopwatch();

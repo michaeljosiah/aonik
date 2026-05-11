@@ -14,6 +14,9 @@ import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/theme/payabo_theme.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../profile/presentation/profile_state.dart';
+import '../../voice/realtime_voice_controller.dart';
+import '../../voice/realtime_voice_stage.dart';
+import '../../voice/voxa_voice_client.dart';
 import '../domain/chat_controller.dart';
 import '../domain/chat_voice_service.dart';
 import 'chat_history_screen.dart';
@@ -827,6 +830,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
 
+    // Branch to the Voxa WSS realtime pipeline when the feature flag is on.
+    // The legacy turn-based path below is preserved verbatim so the chat
+    // screen keeps working when the flag is off (production default today).
+    if (ref.read(voxaVoiceModeEnabledProvider)) {
+      await _handleRealtimeVoiceTap();
+      return;
+    }
+
     _voiceLog('voice tap while phase=$_voiceStagePhase');
     await _runBusyVoiceOp('handleVoiceTap', () async {
       switch (_voiceStagePhase) {
@@ -842,6 +853,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           break;
       }
     });
+  }
+
+  /// Voxa WSS realtime path. The realtime controller owns turn detection
+  /// (server VAD), barge-in, and the bot's audio playback — the chat
+  /// screen only manages stage visibility and re-entrancy. No retry
+  /// budget, no thinking-loop audio, no end-of-turn timer — those
+  /// concerns are gone in the duplex pipeline.
+  Future<void> _handleRealtimeVoiceTap() async {
+    final RealtimeVoiceController notifier =
+        ref.read(realtimeVoiceControllerProvider.notifier);
+    final RealtimeVoicePhase phase =
+        ref.read(realtimeVoiceControllerProvider).phase;
+    _voiceLog('realtime voice tap while phase=$phase');
+
+    switch (phase) {
+      case RealtimeVoicePhase.idle:
+      case RealtimeVoicePhase.error:
+        if (mounted) {
+          setState(() {
+            _showVoiceStage = true;
+          });
+        }
+        await _runBusyVoiceOp('realtimeStart', () async {
+          await notifier.start();
+        });
+      case RealtimeVoicePhase.connecting:
+      case RealtimeVoicePhase.live:
+        await _runBusyVoiceOp('realtimeStop', () async {
+          await notifier.stop();
+        });
+        if (mounted) {
+          setState(() {
+            _showVoiceStage = false;
+          });
+        }
+    }
   }
 
   /// Runs [op] while [_voiceBusy] is held, with a watchdog timer that
@@ -1984,26 +2031,40 @@ class _ChatStage extends ConsumerWidget {
     late final Widget stageChild;
 
     if (showVoiceStage) {
-      stageChild = KeyedSubtree(
-        key: const ValueKey<String>('chat-voice-stage'),
-        child: ValueListenableBuilder<_VoiceStageVisualState>(
-          valueListenable: voiceVisualStateListenable,
-          builder: (
-            BuildContext context,
-            _VoiceStageVisualState voiceVisualState,
-            Widget? child,
-          ) {
-            return _RealtimeVoiceStage(
-              phase: voiceStagePhase,
-              pulseTick: voiceVisualState.pulseTick,
-              speakingPulse: voiceSpeakingPulse,
-              elapsedMs: voiceVisualState.elapsedMs,
-              transcript: voiceTranscript,
-              onOrbTap: onVoiceOrbTap,
-            );
-          },
-        ),
-      );
+      // The Voxa WSS realtime path uses a slim 4-phase stage with no
+      // periodic tick or thinking-loop audio — server VAD owns turn
+      // detection. Falls back to the legacy 5-phase _RealtimeVoiceStage
+      // when the flag is off (default in production until the new
+      // pipeline is dogfooded).
+      final bool realtimeVoiceModeEnabled =
+          ref.watch(voxaVoiceModeEnabledProvider);
+      if (realtimeVoiceModeEnabled) {
+        stageChild = KeyedSubtree(
+          key: const ValueKey<String>('chat-realtime-voice-stage'),
+          child: RealtimeVoiceStage(onOrbTap: onVoiceOrbTap),
+        );
+      } else {
+        stageChild = KeyedSubtree(
+          key: const ValueKey<String>('chat-voice-stage'),
+          child: ValueListenableBuilder<_VoiceStageVisualState>(
+            valueListenable: voiceVisualStateListenable,
+            builder: (
+              BuildContext context,
+              _VoiceStageVisualState voiceVisualState,
+              Widget? child,
+            ) {
+              return _RealtimeVoiceStage(
+                phase: voiceStagePhase,
+                pulseTick: voiceVisualState.pulseTick,
+                speakingPulse: voiceSpeakingPulse,
+                elapsedMs: voiceVisualState.elapsedMs,
+                transcript: voiceTranscript,
+                onOrbTap: onVoiceOrbTap,
+              );
+            },
+          ),
+        );
+      }
     } else {
       // Narrow the watch surface — watch only the fields that affect the
       // conversation's *structure* (what slots the list renders, which
