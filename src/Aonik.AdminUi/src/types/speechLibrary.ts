@@ -184,7 +184,8 @@ export type SpeechVendorWidget =
   | 'select'
   | 'remote-select'
   | 'number'
-  | 'textarea';
+  | 'textarea'
+  | 'checkbox';
 
 export interface SpeechVendorFormField {
   name: string;

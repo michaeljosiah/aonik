@@ -345,9 +345,17 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
     // OpenAI's TTS voices are the six built-in names — no other shape is accepted.
     // Kept here rather than fetched from the OpenAI API per save: the list is small,
     // changes rarely, and we want a fast offline validation.
+    /// <summary>
+    /// All OpenAI TTS voice ids. Recipes that pin <c>tts-1</c> or <c>tts-1-hd</c> must
+    /// pick from the legacy subset (excludes <c>ballad</c>, <c>marin</c>, <c>cedar</c>);
+    /// <c>gpt-4o-mini-tts</c> accepts the full set. The validator doesn't currently know
+    /// the recipe's model id so it accepts any of the 13 — the OpenAI API surfaces a
+    /// clear 4xx if you pair a v4-only voice with a legacy model.
+    /// </summary>
     private static readonly HashSet<string> OpenAiTtsVoiceNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "alloy", "echo", "fable", "onyx", "nova", "shimmer", "ash", "coral", "sage",
+        "alloy", "ash", "ballad", "cedar", "coral", "echo", "fable",
+        "marin", "nova", "onyx", "sage", "shimmer", "verse",
     };
 
     /// <summary>

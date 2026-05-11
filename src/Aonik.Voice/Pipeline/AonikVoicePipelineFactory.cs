@@ -625,6 +625,21 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
                     ApiKey = ResolveApiKey(credentialResolver, "ElevenLabs", recipe.TtsProviderDisplayName),
                     VoiceId = recipe.TtsVoiceId,
                     ModelId = recipe.TtsModelId ?? eleven.DefaultModelId ?? "eleven_multilingual_v2",
+                    // Default sample rate = 24 kHz so AudioRawFrames downstream match the
+                    // rest of the pipeline. Other rates resample at the client.
+                    OutputSampleRate = eleven.DefaultOutputSampleRate ?? 24000,
+                    // Only build a VoiceSettings payload if at least one knob is set;
+                    // otherwise ElevenLabs uses the voice's saved settings.
+                    VoiceSettings = HasAnyElevenLabsSetting(eleven)
+                        ? new ElevenLabsVoiceSettings
+                        {
+                            Stability = eleven.DefaultStability,
+                            SimilarityBoost = eleven.DefaultSimilarityBoost,
+                            Style = eleven.DefaultStyle,
+                            Speed = eleven.DefaultSpeed,
+                            UseSpeakerBoost = eleven.DefaultUseSpeakerBoost,
+                        }
+                        : null,
                 },
                 _httpClientFactory.CreateClient("Voxa.Speech.ElevenLabs")),
 
@@ -677,6 +692,18 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
                 apiKey, voiceId, modelId, responseFormat, httpClient, logger),
             outputSampleRate: 24000);
     }
+
+    /// <summary>
+    /// Voxa's ElevenLabs engine only serializes a <c>voice_settings</c> payload when one
+    /// is provided; passing all-nulls forces ElevenLabs to fall back to the voice's saved
+    /// defaults. Return true when ANY knob is set so the engine sends our overrides.
+    /// </summary>
+    private static bool HasAnyElevenLabsSetting(ElevenLabsTtsConfig eleven) =>
+        eleven.DefaultStability.HasValue
+        || eleven.DefaultSimilarityBoost.HasValue
+        || eleven.DefaultStyle.HasValue
+        || eleven.DefaultSpeed.HasValue
+        || eleven.DefaultUseSpeakerBoost.HasValue;
 
     // ── Shared helpers ───────────────────────────────────────────────────────────────────
 

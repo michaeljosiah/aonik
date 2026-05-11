@@ -127,11 +127,21 @@ internal static class SpeechVendorCatalog
                     Field("defaultModelId", "Default model", "select", required: false, defaultValue: "tts-1",
                         options: new[]
                         {
-                            new SpeechVendorFormOption("tts-1", "tts-1", "Standard quality, lower latency"),
-                            new SpeechVendorFormOption("tts-1-hd", "tts-1-hd", "Higher fidelity"),
-                            new SpeechVendorFormOption("gpt-4o-mini-tts", "gpt-4o-mini-tts", "GPT-4o-based"),
+                            new SpeechVendorFormOption(
+                                "tts-1",
+                                "tts-1 (default)",
+                                "Lowest latency. Works with all voices except ballad/marin/cedar."),
+                            new SpeechVendorFormOption(
+                                "tts-1-hd",
+                                "tts-1-hd",
+                                "Higher fidelity. Slightly more latency than tts-1."),
+                            new SpeechVendorFormOption(
+                                "gpt-4o-mini-tts",
+                                "gpt-4o-mini-tts (recommended)",
+                                "Newest model. Supports the full voice set incl. ballad/marin/cedar. " +
+                                "Best with an `instructions` prompt (not yet plumbed)."),
                         },
-                        description: "Recipes can override per-call."),
+                        description: "Recipes can override per-call. Voice picks happen on the recipe."),
                 }),
         });
 
@@ -173,19 +183,57 @@ internal static class SpeechVendorCatalog
                 ConfigKind: "elevenlabs-tts",
                 Fields: new[]
                 {
-                    Field("defaultModelId", "Default model", "select", required: false, defaultValue: "eleven_multilingual_v2",
+                    Field("defaultModelId", "Default model", "select", required: false,
+                        defaultValue: "eleven_multilingual_v2",
                         options: new[]
                         {
-                            new SpeechVendorFormOption("eleven_multilingual_v2", "Multilingual v2", "Stable, multi-language"),
-                            new SpeechVendorFormOption("eleven_turbo_v2_5", "Turbo v2.5", "Lower latency"),
-                            new SpeechVendorFormOption("eleven_flash_v2_5", "Flash v2.5", "Lowest latency"),
-                        }),
-                    Field("defaultStability", "Default stability", "number", required: false, min: 0, max: 1,
-                        description: "0.0–1.0. Higher = more consistent. Vendor-wide default."),
-                    Field("defaultSimilarityBoost", "Default similarity boost", "number", required: false, min: 0, max: 1,
-                        description: "0.0–1.0. Higher = closer to original voice."),
-                    Field("defaultOptimizeStreamingLatency", "Default latency optimization", "number", required: false, min: 0, max: 4,
-                        description: "0–4. Higher = lower latency, more artefacts."),
+                            new SpeechVendorFormOption(
+                                "eleven_multilingual_v2",
+                                "Multilingual v2 (default)",
+                                "Highest fidelity. ~600 ms first-byte latency. Best for non-realtime."),
+                            new SpeechVendorFormOption(
+                                "eleven_turbo_v2_5",
+                                "Turbo v2.5",
+                                "Lower latency, 32 languages. Good middle ground for voice mode."),
+                            new SpeechVendorFormOption(
+                                "eleven_flash_v2_5",
+                                "Flash v2.5 (lowest latency)",
+                                "~75 ms first-byte. Best for realtime voice. Slightly less expressive than Multilingual v2."),
+                            new SpeechVendorFormOption(
+                                "eleven_v3",
+                                "v3 (alpha)",
+                                "Newest model. Highest expressiveness; still in alpha — try before pinning."),
+                        },
+                        description: "Recipes can override per-call."),
+                    Field("defaultStability", "Stability", "number", required: false,
+                        defaultValue: "0.5", min: 0, max: 1,
+                        description: "0.0–1.0. Higher = more consistent / less expressive. ElevenLabs default 0.5."),
+                    Field("defaultSimilarityBoost", "Similarity boost", "number", required: false,
+                        defaultValue: "0.75", min: 0, max: 1,
+                        description: "0.0–1.0. Higher = closer to the reference voice. ElevenLabs default 0.75."),
+                    Field("defaultStyle", "Style exaggeration", "number", required: false,
+                        defaultValue: "0", min: 0, max: 1,
+                        description: "0.0–1.0. Higher = more emotional / dramatic delivery. 0 = neutral."),
+                    Field("defaultSpeed", "Speed", "number", required: false,
+                        defaultValue: "1", min: 0.5, max: 2,
+                        description: "0.5–2.0. 1.0 = natural. Below 0.7 sounds slurred; above 1.5 clips fast voices."),
+                    Field("defaultUseSpeakerBoost", "Speaker boost", "checkbox", required: false,
+                        defaultValue: "true",
+                        description: "Boost similarity to the speaker reference. Recommended ON for cloned voices."),
+                    Field("defaultOutputSampleRate", "Output sample rate", "select", required: false,
+                        defaultValue: "24000",
+                        options: new[]
+                        {
+                            new SpeechVendorFormOption("16000", "16 kHz (smallest payload)"),
+                            new SpeechVendorFormOption("22050", "22.05 kHz"),
+                            new SpeechVendorFormOption("24000", "24 kHz (default — matches pipeline)"),
+                            new SpeechVendorFormOption("44100", "44.1 kHz (CD quality)"),
+                            new SpeechVendorFormOption("48000", "48 kHz (studio)"),
+                        },
+                        description: "PCM sample rate. 24 kHz matches the AONIK pipeline default; other rates resample on the client."),
+                    Field("defaultOptimizeStreamingLatency", "Legacy latency optimization (unused)", "number",
+                        required: false, min: 0, max: 4,
+                        description: "Kept for backwards compatibility. Not currently wired through Voxa's options."),
                 }),
         });
 

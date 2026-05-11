@@ -371,6 +371,22 @@ function FieldRenderer({
           placeholder={field.placeholder ?? ''}
           rows={3}
         />
+      ) : field.widget === 'checkbox' ? (
+        // Boolean toggle. We carry the value as the string "true"/"false" inside
+        // the form state so the existing string-keyed values map keeps working;
+        // buildConfig() converts back to a real bool before posting.
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            id={id}
+            type="checkbox"
+            checked={value === 'true'}
+            onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+            className="h-4 w-4"
+          />
+          <span className="text-[var(--color-text-secondary)]">
+            {field.placeholder ?? 'Enabled'}
+          </span>
+        </label>
       ) : (
         <Input
           id={id}
@@ -559,7 +575,15 @@ function buildConfig(
       config[f.name] = f.required ? raw ?? '' : null;
       continue;
     }
-    config[f.name] = f.widget === 'number' ? Number.parseFloat(raw) : raw;
+    if (f.widget === 'number') {
+      config[f.name] = Number.parseFloat(raw);
+    } else if (f.widget === 'checkbox') {
+      // Form state carries "true"/"false" strings; convert back to a real bool
+      // so the C# `bool?` deserializer picks it up correctly.
+      config[f.name] = raw === 'true';
+    } else {
+      config[f.name] = raw;
+    }
   }
   return config as unknown as SpeechProviderConfig;
 }

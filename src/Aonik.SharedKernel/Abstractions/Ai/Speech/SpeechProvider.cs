@@ -102,12 +102,42 @@ public sealed record OpenAITtsConfig(string? DefaultModelId) : SpeechProviderCon
 /// <summary>Azure Speech TTS — region is the only vendor-level setting; voice picks live on the recipe.</summary>
 public sealed record AzureTtsConfig(string Region) : SpeechProviderConfig;
 
-/// <summary>ElevenLabs TTS — used by <c>Voxa.Speech.ElevenLabs.ElevenLabsTextToSpeechEngine</c>.</summary>
+/// <summary>
+/// ElevenLabs TTS — Voxa's <c>ElevenLabsTextToSpeechEngine</c> wraps the
+/// <c>/text-to-speech/{voice_id}/stream</c> endpoint. All voice-tuning knobs are
+/// vendor-level defaults; recipes pick the voice id + model id, and a future
+/// per-recipe override pass can layer on top of these.
+/// </summary>
+/// <param name="DefaultStyle">
+/// Style exaggeration in <c>[0, 1]</c>. ElevenLabs default 0 — higher values push
+/// the voice toward more emotional / dramatic delivery at the cost of stability.
+/// </param>
+/// <param name="DefaultSpeed">
+/// Speech rate in <c>[0.5, 2.0]</c>. Default 1.0. Below 0.7 sounds slurred; above
+/// 1.5 starts to clip syllables on quick voices.
+/// </param>
+/// <param name="DefaultUseSpeakerBoost">
+/// Boost similarity to the speaker reference. Default true — recommended for cloned
+/// voices, can muddy timbre slightly on stock voices.
+/// </param>
+/// <param name="DefaultOutputSampleRate">
+/// PCM sample rate the engine asks for. Supported: 16000, 22050, 24000, 44100, 48000.
+/// Default 24000 because that matches the AONIK pipeline's downstream sink rate and
+/// the player config on both surfaces.
+/// </param>
+/// <param name="DefaultOptimizeStreamingLatency">
+/// Legacy field; not currently wired through Voxa's options. Kept for backwards
+/// compatibility on existing rows. Future Voxa extension can pick this up.
+/// </param>
 public sealed record ElevenLabsTtsConfig(
     string? DefaultModelId,
     double? DefaultStability,
     double? DefaultSimilarityBoost,
-    int? DefaultOptimizeStreamingLatency) : SpeechProviderConfig;
+    int? DefaultOptimizeStreamingLatency,
+    double? DefaultStyle = null,
+    double? DefaultSpeed = null,
+    bool? DefaultUseSpeakerBoost = null,
+    int? DefaultOutputSampleRate = null) : SpeechProviderConfig;
 
 /// <summary>
 /// Mistral Voxtral TTS. Used by <see cref="Aonik.Voice.Pipeline.AonikMistralVoiceEngine"/>
