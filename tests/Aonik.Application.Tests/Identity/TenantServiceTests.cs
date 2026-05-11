@@ -627,6 +627,209 @@ public class TenantServiceTests
         assignedRoleNames.Should().NotContain("PlatformAdmin");
     }
 
+    // ----------------------------------------------------------------
+    // ListTenantsForCurrentUserAsync — post-auth tenant resolution
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public async Task ListTenantsForCurrentUserAsync_ShouldReturnEmptyList_WhenIdentityHasNoMemberships()
+    {
+        using var dbContext = NewInMemoryDbContext(out var tenantContext, out var clock, out var actorId);
+        var service = NewTenantService(dbContext, tenantContext, clock, actorId);
+
+        var response = await service.ListTenantsForCurrentUserAsync(
+            externalIssuer: "https://aonik.uk.auth0.com/",
+            externalSubject: "auth0|nobody",
+            CancellationToken.None);
+
+        response.Tenants.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ListTenantsForCurrentUserAsync_ShouldReturnAllActiveTenants_WhenIdentityIsMemberOfMany()
+    {
+        // Same external identity (iss, sub) provisioned across two active
+        // tenants — both should come back in alphabetical order.
+        using var dbContext = NewInMemoryDbContext(out var tenantContext, out var clock, out var actorId);
+
+        var tenantA = SeedTenant(dbContext, name: "Acme", environment: "Dev", clock, actorId);
+        var tenantB = SeedTenant(dbContext, name: "Beta", environment: "Staging", clock, actorId);
+
+        const string iss = "https://aonik.uk.auth0.com/";
+        const string sub = "auth0|shared-user";
+        SeedUser(dbContext, tenantA.Id, iss, sub, clock, actorId);
+        SeedUser(dbContext, tenantB.Id, iss, sub, clock, actorId);
+
+        // EnforceTenantOnWrites requires *a* tenant context. Per-entity
+        // TenantId is set explicitly above so the value isn't re-stamped.
+        tenantContext.TenantId = tenantA.Id;
+        await dbContext.SaveChangesAsync();
+
+        var service = NewTenantService(dbContext, tenantContext, clock, actorId);
+
+        var response = await service.ListTenantsForCurrentUserAsync(iss, sub, CancellationToken.None);
+
+        response.Tenants.Should().HaveCount(2);
+        response.Tenants.Select(t => t.Name).Should().Equal("Acme", "Beta");
+        response.Tenants.Select(t => t.TenantId).Should().BeEquivalentTo(new[] { tenantA.Id, tenantB.Id });
+    }
+
+    [Fact]
+    public async Task ListTenantsForCurrentUserAsync_ShouldExcludeInactiveTenants()
+    {
+        using var dbContext = NewInMemoryDbContext(out var tenantContext, out var clock, out var actorId);
+
+        var activeTenant = SeedTenant(dbContext, name: "Active Inc", environment: "Dev", clock, actorId);
+        var suspendedTenant = SeedTenant(dbContext, name: "Suspended Inc", environment: "Dev", clock, actorId, status: Aonik.Platform.Entities.Identity.TenantStatus.Suspended);
+
+        const string iss = "https://aonik.uk.auth0.com/";
+        const string sub = "auth0|mixed-user";
+        SeedUser(dbContext, activeTenant.Id, iss, sub, clock, actorId);
+        SeedUser(dbContext, suspendedTenant.Id, iss, sub, clock, actorId);
+
+        tenantContext.TenantId = activeTenant.Id;
+        await dbContext.SaveChangesAsync();
+
+        var service = NewTenantService(dbContext, tenantContext, clock, actorId);
+
+        var response = await service.ListTenantsForCurrentUserAsync(iss, sub, CancellationToken.None);
+
+        response.Tenants.Should().ContainSingle()
+            .Which.TenantId.Should().Be(activeTenant.Id);
+    }
+
+    [Fact]
+    public async Task ListTenantsForCurrentUserAsync_ShouldExcludeInactiveUserRows()
+    {
+        // A deactivated User row in tenant B must not surface tenant B in
+        // the picker even though the tenant itself is active.
+        using var dbContext = NewInMemoryDbContext(out var tenantContext, out var clock, out var actorId);
+
+        var tenantA = SeedTenant(dbContext, name: "Acme", environment: "Dev", clock, actorId);
+        var tenantB = SeedTenant(dbContext, name: "Beta", environment: "Dev", clock, actorId);
+
+        const string iss = "https://aonik.uk.auth0.com/";
+        const string sub = "auth0|partial-user";
+        SeedUser(dbContext, tenantA.Id, iss, sub, clock, actorId);
+        SeedUser(dbContext, tenantB.Id, iss, sub, clock, actorId, userStatus: "Deactivated");
+
+        tenantContext.TenantId = tenantA.Id;
+        await dbContext.SaveChangesAsync();
+
+        var service = NewTenantService(dbContext, tenantContext, clock, actorId);
+
+        var response = await service.ListTenantsForCurrentUserAsync(iss, sub, CancellationToken.None);
+
+        response.Tenants.Should().ContainSingle()
+            .Which.TenantId.Should().Be(tenantA.Id);
+    }
+
+    [Fact]
+    public async Task ListTenantsForCurrentUserAsync_ShouldThrow_WhenIdentityClaimsAreBlank()
+    {
+        using var dbContext = NewInMemoryDbContext(out var tenantContext, out var clock, out var actorId);
+        var service = NewTenantService(dbContext, tenantContext, clock, actorId);
+
+        var act = async () => await service.ListTenantsForCurrentUserAsync(
+            externalIssuer: "",
+            externalSubject: "auth0|sub",
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    // ----------------------------------------------------------------
+    // Test helpers
+    // ----------------------------------------------------------------
+
+    private static PlatformDbContext NewInMemoryDbContext(
+        out TestTenantContext tenantContext,
+        out FixedClock clock,
+        out Guid actorId)
+    {
+        tenantContext = new TestTenantContext();
+        actorId = Guid.NewGuid();
+        clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
+            .Options;
+        return new PlatformDbContext(
+            options,
+            new HttpContextTenantProvider(tenantContext),
+            new TestCurrentUserProvider(actorId),
+            clock);
+    }
+
+    private static TenantService NewTenantService(
+        PlatformDbContext dbContext,
+        TestTenantContext tenantContext,
+        FixedClock clock,
+        Guid actorId)
+    {
+        var auditLogWriter = new TestAuditLogWriter();
+        var correlationContext = new TestCorrelationContext();
+        var currentUserProvider = new TestCurrentUserProvider(actorId);
+        return new TenantService(
+            dbContext,
+            new TestTenantProvisioner(dbContext, clock, actorId),
+            auditLogWriter,
+            clock,
+            currentUserProvider,
+            correlationContext,
+            tenantContext,
+            new AllowAllPermissionService(),
+            new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(dbContext, clock, currentUserProvider, auditLogWriter, correlationContext));
+    }
+
+    private static Aonik.Platform.Entities.Identity.Tenant SeedTenant(
+        PlatformDbContext dbContext,
+        string name,
+        string environment,
+        FixedClock clock,
+        Guid actorId,
+        string status = "Active",
+        string? subdomain = null)
+    {
+        var tenant = new Aonik.Platform.Entities.Identity.Tenant
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Environment = environment,
+            Subdomain = subdomain,
+            DefaultCurrency = "USD",
+            Status = status,
+            CreatedAt = clock.UtcNow,
+            CreatedBy = actorId,
+        };
+        dbContext.Tenants.Add(tenant);
+        return tenant;
+    }
+
+    private static Aonik.Platform.Entities.Identity.User SeedUser(
+        PlatformDbContext dbContext,
+        Guid tenantId,
+        string externalIssuer,
+        string externalSubject,
+        FixedClock clock,
+        Guid actorId,
+        string userStatus = "Active")
+    {
+        var user = new Aonik.Platform.Entities.Identity.User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = externalIssuer,
+            ExternalSubject = externalSubject,
+            Email = $"user-{Guid.NewGuid():N}@example.test",
+            Status = userStatus,
+            CreatedAt = clock.UtcNow,
+            CreatedBy = actorId,
+        };
+        dbContext.Users.Add(user);
+        return user;
+    }
+
     private static void SeedReferenceData(PlatformDbContext dbContext)
     {
         dbContext.Countries.Add(new Country

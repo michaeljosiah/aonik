@@ -16,5 +16,20 @@ public interface ITenantService
     /// Lists active tenants for login dropdown (public, no authentication required).
     /// Returns minimal info: TenantId, Name, Subdomain, Environment.
     /// </summary>
+    [Obsolete("Public enumeration leaks the tenant directory. Use " +
+        nameof(ListTenantsForCurrentUserAsync) + " after authentication instead.")]
     Task<TenantListForLoginResponse> ListTenantsForLoginAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists active tenants the currently-authenticated external identity
+    /// (issuer + subject) has a membership in. Bypasses tenant query filters
+    /// because a single identity can have User rows across multiple tenants
+    /// and the caller has not yet picked one.
+    /// </summary>
+    /// <param name="externalIssuer">JWT <c>iss</c> claim of the caller.</param>
+    /// <param name="externalSubject">JWT <c>sub</c> (or Entra <c>oid</c>) claim of the caller.</param>
+    Task<MyTenantsResponse> ListTenantsForCurrentUserAsync(
+        string externalIssuer,
+        string externalSubject,
+        CancellationToken cancellationToken = default);
 }

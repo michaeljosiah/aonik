@@ -496,6 +496,37 @@ internal class TenantService : AdminServiceBase, ITenantService
         return new TenantListForLoginResponse(tenants);
     }
 
+    public async Task<MyTenantsResponse> ListTenantsForCurrentUserAsync(
+        string externalIssuer,
+        string externalSubject,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(externalIssuer)) throw new ArgumentException("externalIssuer is required.", nameof(externalIssuer));
+        if (string.IsNullOrWhiteSpace(externalSubject)) throw new ArgumentException("externalSubject is required.", nameof(externalSubject));
+
+        // A single (iss, sub) identity can have User rows in multiple tenants.
+        // User is ITenantScoped so the default query filter pins us to one
+        // tenant — AcrossTenants() opts out of that for this lookup, which
+        // is the whole point of the endpoint. Tenant itself is not
+        // tenant-scoped, so no filter to opt out of on the join side.
+        var tenants = await _dbContext.Users
+            .AsNoTracking()
+            .AcrossTenants()
+            .Where(u => u.ExternalIssuer == externalIssuer
+                     && u.ExternalSubject == externalSubject
+                     && u.Status == "Active")
+            .Join(
+                _dbContext.Tenants.Where(t => t.Status == TenantStatus.Active),
+                u => u.TenantId,
+                t => t.Id,
+                (u, t) => new MyTenantSummary(t.Id, t.Name, t.Subdomain, t.Environment))
+            .Distinct()
+            .OrderBy(s => s.Name)
+            .ToListAsync(cancellationToken);
+
+        return new MyTenantsResponse(tenants);
+    }
+
 
     private async Task<TenantResponse> MapToResponseAsync(Tenant tenant, CancellationToken cancellationToken)
     {
