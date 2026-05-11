@@ -277,7 +277,7 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
                 throw new SpeechLibraryValidationException("Chained recipes must NOT include a composite body.", fieldName: nameof(composite));
             }
             await ValidateProviderRefAsync(chained.SttProviderId, SpeechProviderType.Stt, nameof(chained.SttProviderId), ct);
-            await ValidateProviderRefAsync(chained.TtsProviderId, SpeechProviderType.Tts, nameof(chained.TtsProviderId), ct);
+            var ttsProvider = await ValidateProviderRefAsync(chained.TtsProviderId, SpeechProviderType.Tts, nameof(chained.TtsProviderId), ct);
 
             // Voice id moved off the provider config (post-spec-024 refactor); recipes now own
             // it. Required because there's no sensible vendor-level default once you have
@@ -288,6 +288,12 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
                     "Chained recipes must specify a TTS voice id.",
                     fieldName: nameof(chained.TtsVoiceId));
             }
+            // Catch the most common foot-gun: changing the TTS provider in the recipe
+            // editor without updating the voice picker. OpenAI's TTS expects a built-in
+            // voice name; Mistral / ElevenLabs expect a GUID-formatted id; Azure expects
+            // `locale-VoiceName`. A GUID landing on OpenAI 400s with no useful client
+            // signal — better to reject at save time with a clear field error.
+            ValidateVoiceIdShapeForVendor(ttsProvider.Vendor, chained.TtsVoiceId, nameof(chained.TtsVoiceId));
         }
         else if (kind == VoiceRecipeKind.Composite)
         {
@@ -310,7 +316,7 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
         }
     }
 
-    private async Task ValidateProviderRefAsync(
+    private async Task<SpeechProvider> ValidateProviderRefAsync(
         string providerId,
         SpeechProviderType expectedType,
         string fieldName,
@@ -332,6 +338,82 @@ internal sealed class VoiceRecipeLibraryService : IVoiceRecipeLibraryService
             throw new SpeechLibraryValidationException(
                 $"Referenced provider '{providerId}' is type {provider.Type}, expected {expectedType}.",
                 fieldName);
+        }
+        return provider;
+    }
+
+    // OpenAI's TTS voices are the six built-in names — no other shape is accepted.
+    // Kept here rather than fetched from the OpenAI API per save: the list is small,
+    // changes rarely, and we want a fast offline validation.
+    private static readonly HashSet<string> OpenAiTtsVoiceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "alloy", "echo", "fable", "onyx", "nova", "shimmer", "ash", "coral", "sage",
+    };
+
+    /// <summary>
+    /// Reject voice ids that obviously don't belong to the recipe's TTS vendor — the
+    /// classic case is keeping a Mistral GUID after swapping the TTS provider to
+    /// OpenAI in the recipe editor (UI doesn't currently reset the voice picker on
+    /// provider change). This is a shape check, not an authoritative voice-exists
+    /// check; the engine itself will surface 4xx if the voice id is unknown to the
+    /// vendor's catalog. Goal is to catch the obvious mismatch up-front with a
+    /// useful field-level error.
+    /// </summary>
+    private static void ValidateVoiceIdShapeForVendor(string vendor, string voiceId, string fieldName)
+    {
+        var normalisedVendor = (vendor ?? string.Empty).Trim().ToLowerInvariant();
+        var trimmedVoice = voiceId.Trim();
+        var isGuidShaped = Guid.TryParse(trimmedVoice, out _);
+
+        switch (normalisedVendor)
+        {
+            case "openai":
+                if (isGuidShaped)
+                {
+                    throw new SpeechLibraryValidationException(
+                        $"Voice '{trimmedVoice}' looks like a Mistral / ElevenLabs voice id. "
+                        + "OpenAI TTS expects a built-in voice name (alloy, echo, fable, onyx, nova, shimmer).",
+                        fieldName);
+                }
+                if (!OpenAiTtsVoiceNames.Contains(trimmedVoice))
+                {
+                    throw new SpeechLibraryValidationException(
+                        $"Voice '{trimmedVoice}' isn't a recognised OpenAI TTS voice. "
+                        + "Pick one of: " + string.Join(", ", OpenAiTtsVoiceNames) + ".",
+                        fieldName);
+                }
+                break;
+
+            case "mistral":
+            case "elevenlabs":
+                // Both vendors use GUIDs (Mistral via /v1/audio/voices, ElevenLabs via
+                // their voice library). Anything that doesn't parse as a Guid is almost
+                // certainly wrong.
+                if (!isGuidShaped)
+                {
+                    throw new SpeechLibraryValidationException(
+                        $"Voice '{trimmedVoice}' doesn't look like a {char.ToUpperInvariant(normalisedVendor[0]) + normalisedVendor[1..]} voice id "
+                        + "(expected a GUID such as 90b8805d-8e89-4ecc-adc7-a40e62cb1710).",
+                        fieldName);
+                }
+                break;
+
+            case "azure":
+                // Azure neural voices follow `<locale>-<VoiceName>Neural` (e.g.
+                // en-US-JennyNeural). The `Neural` suffix is conventional; other
+                // shapes exist (e.g. classic voices) but the neural variant is the
+                // default and shipping recipes consistently use it.
+                if (isGuidShaped || !trimmedVoice.Contains('-'))
+                {
+                    throw new SpeechLibraryValidationException(
+                        $"Voice '{trimmedVoice}' doesn't look like an Azure Speech voice "
+                        + "(expected something like 'en-US-JennyNeural').",
+                        fieldName);
+                }
+                break;
+
+            // Unknown vendors (e.g. openai-realtime composite) — no shape check; the
+            // engine will surface its own errors at connect time.
         }
     }
 
