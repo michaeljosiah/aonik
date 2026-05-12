@@ -16,16 +16,22 @@ import 'voxa_voice_client.dart';
 /// streaming player. One [start]/[stop] cycle per conversation; the underlying
 /// client is single-use so we build a fresh one on each [start].
 ///
-/// Playback uses [SoLoud]'s buffer-stream API. Unlike the previous
-/// `mp_audio_stream` ring buffer (which silently dropped samples on overflow
-/// — the root cause of the "last word missing" symptom), SoLoud's stream:
+/// Playback uses [SoLoud]'s buffer-stream API:
 ///   * Accepts raw `s16le` PCM directly (no Float32 conversion needed).
 ///   * Throws on out-of-memory rather than dropping silently, so producer
 ///     errors are observable.
 ///   * Frees memory of already-played samples ([BufferingType.released]) so
 ///     long sessions don't grow unbounded.
-///   * Pauses-and-resumes around underrun based on a configurable buffering
-///     time, matching what the web client gets from Web Audio scheduling.
+///   * Emits an `onBuffering` callback whenever playback pauses for an
+///     underrun and resumes when the buffer refills — we use this to gate
+///     the mic, replacing the previous fragile timer-based gates.
+///
+/// Echo prevention: the mic listener drops frames whenever SoLoud reports
+/// it's *actually playing audio* (`_isPlayerActive == true`). When SoLoud's
+/// internal buffer drains and playback pauses, the gate opens immediately —
+/// no fixed-duration hangover, no wire-event timing dependency. The
+/// behaviour is tied to the speaker's real output, so a "missing last word
+/// + still echoing" scenario can't happen.
 class VoxaVoiceSession {
   VoxaVoiceSession({
     required VoxaVoiceClient Function() clientFactory,
@@ -55,39 +61,19 @@ class VoxaVoiceSession {
   bool _running = false;
 
   /// User-driven mic gate from the voice stage's mute button. Independent of
-  /// [_botSpeaking] (which is server-driven) — both must be false for a mic
-  /// frame to reach the WSS.
+  /// [_isPlayerActive] — both must be false for a mic frame to reach the WSS.
   bool _userMuted = false;
 
-  // Captured on start so the silence tail-pad can synthesise the right number
-  // of zero samples to push.
+  /// True iff SoLoud is currently playing back queued PCM. Driven by the
+  /// stream's `onBuffering` callback: flips false when the buffer drains and
+  /// playback pauses, flips true again when fresh data refills the buffer
+  /// past `_bufferingTimeNeedsSeconds`. This is the single source of truth
+  /// for the mic gate.
+  bool _isPlayerActive = false;
+
+  /// Captured on start so the silence tail-pad can synthesise the right
+  /// number of zero samples to push.
   int _playerSampleRate = 24000;
-
-  // Mic gate: speakers bleed into the mic; without it Whisper transcribes the
-  // bot's own voice as a new user turn. Trade-off: no barge-in in v1.
-  bool _botSpeaking = false;
-  Timer? _botStoppedHangoverTimer;
-
-  // Tail guard uses a monotonic Stopwatch (immune to wall-clock jumps) so we
-  // can drop mic frames during the real speaker tail, independent of the
-  // server's `speaking` events. See [_micSubscription] below.
-  final Stopwatch _clock = Stopwatch()..start();
-  Duration? _lastBotAudioAt;
-
-  // Mic stays muted this long after the server's `speaking:false` to let the
-  // local PCM queue drain. Tuned upward from the mp_audio_stream era (3.3 s)
-  // because SoLoud's buffered stream model can hold ~1–2 s of bursted-ahead
-  // TTS audio when `speaking:false` fires — that audio is still played out
-  // at realtime after the wire event, and the mic gate has to cover it or
-  // the speaker bleed leaks into STT.
-  static const Duration _postBotStopHangover = Duration(milliseconds: 5000);
-
-  // Drop mic frames within this window of the last inbound bot audio frame —
-  // catches the late tail that the wire-event gate misses (e.g. when the
-  // SoLoud queue still has buffered samples after `speaking:false` fired).
-  // Tuned upward from the mp_audio_stream era (1.2 s) for the same reason
-  // as [_postBotStopHangover] above.
-  static const Duration _audioTailGuard = Duration(milliseconds: 2500);
 
   /// SoLoud's [setBufferStream.maxBufferSizeBytes] cap. With
   /// [BufferingType.released] this is the total cumulative bytes the stream
@@ -97,16 +83,19 @@ class VoxaVoiceSession {
   static const int _streamMaxBufferBytes = 100 * 1024 * 1024;
 
   /// Seconds of buffered audio SoLoud needs accumulated before resuming
-  /// playback after an underrun. Equivalent to the old
-  /// `_playerWaitingBufferMilliSec` knob — 80 ms is short enough to be
-  /// imperceptible as a between-sentence gap, long enough to absorb single-
-  /// frame network jitter.
+  /// playback after an underrun. Doubles as the *minimum window* the mic
+  /// gate stays open between sentences — if the buffer empties for less
+  /// than this, SoLoud waits to refill so playback stays smooth and the
+  /// gate doesn't flap open/closed.
   static const double _bufferingTimeNeedsSeconds = 0.08;
 
   /// Silence pushed to the stream on every bot `speaking:false` so the buffer
   /// never goes empty exactly at the boundary between sentences — covers the
   /// 200–500 ms TTS request latency for the next sentence on the chained
-  /// pipeline so playback never has to pause-and-rebuffer.
+  /// pipeline so playback flows continuously instead of pause-and-rebuffer.
+  /// This also keeps `_isPlayerActive` true through the sentence boundary,
+  /// so the mic gate stays closed across the gap (no echo from the trailing
+  /// edge leaking in).
   static const double _tailPadSeconds = 0.5;
 
   /// Output volume for the bot's audio. Slightly under full so that on Android
@@ -147,20 +136,12 @@ class VoxaVoiceSession {
     }
 
     // ── Step 1: recorder first ──
-    // Starting the recorder is what flips the OS audio session into voice-
-    // processing / in-communication mode (AVAudioSession `playAndRecord` +
-    // voice-chat on iOS; `MODE_IN_COMMUNICATION` on Android). That mode is
-    // what engages hardware AEC. If we let SoLoud open its output stream
-    // first (as we did originally) iOS commits to `.playback` and the
-    // recorder's later switch may not promote it back to voice-processing,
-    // so the speaker bleed leaks straight into STT. Start the mic capture
-    // first to lock in the right session, THEN bring the player up.
-    //
-    // The captured PCM stream isn't yet wired to a listener — that happens
-    // after we have the client + audio gate state ready. So no mic frames
-    // reach the server during the window between this call and the listener
-    // being attached below; they just buffer inside the OS-level capture
-    // pipeline harmlessly.
+    // Starting the recorder flips the OS audio session into voice-processing
+    // mode (AVAudioSession `playAndRecord` + voice-chat on iOS;
+    // `MODE_IN_COMMUNICATION` on Android), which is what engages hardware
+    // AEC. Doing this before SoLoud opens its output stream ensures the
+    // platform AEC pipeline is active when SoLoud's audio reaches the
+    // speaker — without this the bleed leaks straight into STT.
     final Stream<Uint8List> micStream;
     try {
       micStream = await _recorder.startStream(
@@ -171,11 +152,9 @@ class VoxaVoiceSession {
           echoCancel: true,
           noiseSuppress: true,
           // AGC OFF on purpose. Android's voice-communication source already
-          // applies platform-level dynamic-range processing, and AGC on top
-          // amplifies any speaker bleed that slips past AEC to be Whisper-
-          // audible. With AGC off, residual bleed stays well under Whisper's
-          // pickup threshold and genuine user speech is still well-levelled
-          // by the platform pre-processing.
+          // applies platform-level dynamic-range processing; AGC on top
+          // amplifies any speaker bleed that slips past AEC up to Whisper-
+          // audible level. Off → residual bleed stays small.
           autoGain: false,
           androidConfig: const AndroidRecordConfig(
             audioSource: AndroidAudioSource.voiceCommunication,
@@ -188,9 +167,6 @@ class VoxaVoiceSession {
     }
 
     // ── Step 2: SoLoud player ──
-    // With the OS session already in voice-processing mode, SoLoud's output
-    // stream attaches into that pipeline so its audio is reference-fed to the
-    // platform AEC.
     _playerSampleRate = botSampleRate;
     if (!_player.isInitialized) {
       try {
@@ -208,6 +184,13 @@ class VoxaVoiceSession {
         format: BufferType.s16le,
         bufferingType: BufferingType.released,
         bufferingTimeNeeds: _bufferingTimeNeedsSeconds,
+        // The single signal driving the mic gate. SoLoud fires this with
+        // isBuffering=true when its buffer drains and playback pauses, and
+        // again with isBuffering=false when fresh data refills past the
+        // threshold. We flip [_isPlayerActive] in lockstep so the mic
+        // listener can drop frames precisely while the speaker is playing
+        // the bot.
+        onBuffering: _onPlayerBufferingChanged,
       );
       _streamHandle = await _player.play(_streamSource!, volume: _playerVolume);
     } catch (err) {
@@ -229,28 +212,18 @@ class VoxaVoiceSession {
       },
     );
     _eventsSubscription = client.events.listen((VoxaVoiceEvent event) {
-      if (event is SpeakingEvent && event.who == 'bot') {
-        _botStoppedHangoverTimer?.cancel();
-        if (event.started) {
-          _botSpeaking = true;
-          _botStoppedHangoverTimer = null;
-        } else {
-          // Pad the stream with silence so the buffer never goes empty at the
-          // boundary between sentences. Covers the TTS request latency for
-          // the next sentence so SoLoud doesn't have to pause-and-rebuffer.
-          _padPlayerTail();
-          _botStoppedHangoverTimer = Timer(_postBotStopHangover, () {
-            _botSpeaking = false;
-          });
-        }
+      // The only thing the speaking event drives in the session is the
+      // sentence-boundary silence pad — the mic gate is now playback-state
+      // driven, so we don't care about wire `speaking:true`/`speaking:false`
+      // for gating purposes. Pad on `speaking:false` keeps the SoLoud queue
+      // fed across the chained TTS sentence gap so playback stays continuous
+      // (and `_isPlayerActive` stays true through the boundary).
+      if (event is SpeakingEvent && event.who == 'bot' && !event.started) {
+        _padPlayerTail();
       }
-      // Barge-in is intentionally not supported in v1: an InterruptionEvent
-      // from the server's VAD is *forwarded* (so the controller can render
-      // any UI it wants) but the session takes no action. We deliberately do
-      // NOT clear `_botSpeaking` / `_lastBotAudioAt` here — doing so would
-      // open the mic mid-playback and feed the bot's own audio back into STT.
-      // The bot finishes its current TTS naturally; if the user wants to
-      // continue they wait for the natural turn boundary.
+      // Barge-in is intentionally not supported in v1 — forward the event
+      // for UI consumption but take no session-side action. The mic gate
+      // stays closed until SoLoud actually finishes playing.
       _eventsController.add(event);
     });
     _stateSubscription = client.stateChanges.listen(_stateController.add);
@@ -269,12 +242,7 @@ class VoxaVoiceSession {
     _micSubscription = micStream.listen(
       (Uint8List pcm) {
         if (_userMuted) return;
-        if (_botSpeaking) return;
-        final Duration? lastBotAudio = _lastBotAudioAt;
-        if (lastBotAudio != null &&
-            _clock.elapsed - lastBotAudio < _audioTailGuard) {
-          return;
-        }
+        if (_isPlayerActive) return;
         _activeClient?.sendPcm(pcm);
       },
       onError: (Object err, StackTrace _) {
@@ -311,11 +279,8 @@ class VoxaVoiceSession {
   /// Safe to call repeatedly.
   Future<void> stop() async {
     _running = false;
-    _botSpeaking = false;
     _userMuted = false;
-    _botStoppedHangoverTimer?.cancel();
-    _botStoppedHangoverTimer = null;
-    _lastBotAudioAt = null;
+    _isPlayerActive = false;
 
     await _micSubscription?.cancel();
     _micSubscription = null;
@@ -354,10 +319,31 @@ class VoxaVoiceSession {
 
   // ── Internals ────────────────────────────────────────────────────────────
 
+  /// Bridges SoLoud's `onBuffering` callback to our mic-gate state. The
+  /// callback is invoked from the SoLoud worker thread; flipping a `bool`
+  /// is atomic in Dart so no further synchronisation is required.
+  ///
+  /// * `isBuffering = true` — the queue ran dry and playback paused.
+  ///   Set [_isPlayerActive] false so the mic gate opens immediately.
+  /// * `isBuffering = false` — the queue refilled past
+  ///   [_bufferingTimeNeedsSeconds] and playback resumed.
+  ///   Set [_isPlayerActive] true so the mic gate closes again.
+  void _onPlayerBufferingChanged(bool isBuffering, int handle, double time) {
+    _isPlayerActive = !isBuffering;
+    if (kDebugMode) {
+      debugPrint(
+          'VoxaVoiceSession: player ${_isPlayerActive ? "active" : "paused"} (handle=$handle, time=${time.toStringAsFixed(3)}s)');
+    }
+  }
+
   /// Push 500 ms of silent samples to the stream at the end of each bot turn
   /// (or each TTS sentence in the chained pipeline, where `speaking:false`
-  /// fires per sentence). Bridges the next-sentence TTS request latency so
-  /// playback flows continuously instead of having to pause-and-rebuffer.
+  /// fires per sentence). Two purposes:
+  ///   1. Bridges the next-sentence TTS request latency so playback flows
+  ///      continuously instead of having to pause-and-rebuffer.
+  ///   2. Keeps `_isPlayerActive` true through the gap so the mic gate
+  ///      doesn't flap open between sentences while the speaker's tail is
+  ///      still settling.
   void _padPlayerTail() {
     final AudioSource? source = _streamSource;
     if (source == null) return;
@@ -380,7 +366,6 @@ class VoxaVoiceSession {
     if (pcmBytes.isEmpty) return;
     final AudioSource? source = _streamSource;
     if (source == null) return;
-    _lastBotAudioAt = _clock.elapsed;
     try {
       // SoLoud accepts raw s16le PCM directly — no Float32 conversion needed.
       _player.addAudioDataStream(source, pcmBytes);
