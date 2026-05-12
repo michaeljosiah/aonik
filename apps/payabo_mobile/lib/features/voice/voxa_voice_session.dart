@@ -16,30 +16,39 @@ import 'voxa_voice_client.dart';
 /// streaming player. One [start]/[stop] cycle per conversation; the underlying
 /// client is single-use so we build a fresh one on each [start].
 ///
-/// Playback uses [SoLoud]'s buffer-stream API:
-///   * Accepts raw `s16le` PCM directly (no Float32 conversion needed).
-///   * Throws on out-of-memory rather than dropping silently, so producer
-///     errors are observable.
-///   * Frees memory of already-played samples ([BufferingType.released]) so
-///     long sessions don't grow unbounded.
-///   * Exposes `getStreamTimeConsumed` so we can ask the engine, in real
-///     time, how much of the audio we pushed has actually been played out.
+/// Playback uses [SoLoud]'s buffer-stream API in [BufferingType.preserved]
+/// mode. (We initially used [BufferingType.released], but that variant has
+/// an internal "stream ended" state that gets set when the play head catches
+/// up to the write head — between turns the bot audio is fully drained and
+/// the source quietly stops accepting new data, which produces the
+/// "last turn was silent" symptom in a multi-turn session.) Preserved
+/// avoids that gotcha at the cost of growing memory for the duration of
+/// the session, bounded by `maxBufferSizeBytes` (100 MB ≈ 34 min of mono
+/// s16le 24 kHz audio — comfortably more than any realistic voice call,
+/// and freed on [stop] when we tear down the engine).
 ///
 /// Echo prevention: the mic listener drops frames whenever there's still
 /// queued bot audio yet to be played. We track [_totalPushedSeconds] (a
 /// running total of what we've pushed, including the silence tail-pad) and
-/// compare against `getStreamTimeConsumed` on every mic frame. When the
-/// engine has consumed everything we've pushed, the gate opens — driven by
-/// the engine's actual playback position, not wire-event timing. A small
-/// [_speakerOutputLatency] grace covers the hardware DAC delay between
-/// SoLoud reporting "consumed" and the speaker physically finishing.
+/// compare against `getPosition(handle)` on every mic frame. When the
+/// playback head reaches everything we've pushed, the gate opens — driven
+/// by the engine's actual playback position, not wire-event timing. A small
+/// [_speakerOutputLatencySeconds] grace covers the hardware DAC delay
+/// between SoLoud reporting the position and the speaker physically
+/// finishing.
 ///
 /// We deliberately do NOT use `setBufferStream(onBuffering: ...)`. That
 /// callback's FFI bridge is invoked one last time during stream teardown,
 /// after Dart has already finalised the closure — fatal abort with
-/// "Callback invoked after it has been deleted". Polling
-/// `getStreamTimeConsumed` from the mic listener avoids the callback
-/// lifecycle hazard entirely.
+/// "Callback invoked after it has been deleted". Polling `getPosition`
+/// from the mic listener avoids the callback lifecycle hazard entirely.
+///
+/// We also fully [deinit] the SoLoud engine on every [stop] and re-init on
+/// the next [start]. Without this, SoLoud + AAudio accumulate state across
+/// sessions ("AAudioStream already started" warnings, "stream cannot be
+/// stopped from a callback" errors) which can starve later turns of audio.
+/// Init costs ~100 ms — invisible against the user explicitly opening
+/// voice mode.
 class VoxaVoiceSession {
   VoxaVoiceSession({
     required VoxaVoiceClient Function() clientFactory,
@@ -59,10 +68,9 @@ class VoxaVoiceSession {
   StreamSubscription<VoxaVoiceEvent>? _eventsSubscription;
   StreamSubscription<VoxaConnectionState>? _stateSubscription;
 
-  /// The active SoLoud stream source for this session. Created in [start],
-  /// torn down in [stop]. We don't deinit the SoLoud engine itself between
-  /// sessions — `init()` is idempotent and the engine sleeps when nothing
-  /// is playing, so leaving it warm makes the next session start faster.
+  /// The active SoLoud stream source + handle for this session. Created in
+  /// [start], torn down in [stop]. We fully deinit the engine on [stop] —
+  /// see class doc for why.
   AudioSource? _streamSource;
   SoundHandle? _streamHandle;
 
@@ -90,10 +98,11 @@ class VoxaVoiceSession {
   int _playerSampleRate = 24000;
 
   /// SoLoud's [setBufferStream.maxBufferSizeBytes] cap. With
-  /// [BufferingType.released] this is the total cumulative bytes the stream
-  /// will accept across its lifetime, not memory at any instant; played
-  /// samples are freed. 100 MB ≈ 17 min of continuous s16le 24 kHz mono
-  /// audio, comfortably more than any realistic voice session.
+  /// [BufferingType.preserved] this is also the upper bound on RAM the
+  /// stream holds at any instant, since played samples aren't freed.
+  /// 100 MB ≈ 34 min of continuous s16le 24 kHz mono audio — comfortably
+  /// more than any realistic voice session and freed entirely on [stop]
+  /// when the engine is deinitialised.
   static const int _streamMaxBufferBytes = 100 * 1024 * 1024;
 
   /// Seconds of buffered audio SoLoud needs accumulated before resuming
@@ -201,18 +210,20 @@ class VoxaVoiceSession {
       }
     }
     try {
-      // No `onBuffering` callback — see class doc. We poll
-      // `getStreamTimeConsumed` instead.
+      // No `onBuffering` callback — see class doc. We poll `getPosition`
+      // instead. BufferingType.preserved avoids the "stream auto-ends on
+      // drain" gotcha that broke later turns with released mode.
       _streamSource = _player.setBufferStream(
         maxBufferSizeBytes: _streamMaxBufferBytes,
         sampleRate: botSampleRate,
         channels: Channels.mono,
         format: BufferType.s16le,
-        bufferingType: BufferingType.released,
+        bufferingType: BufferingType.preserved,
         bufferingTimeNeeds: _bufferingTimeNeedsSeconds,
       );
       _streamHandle = await _player.play(_streamSource!, volume: _playerVolume);
       _totalPushedSeconds = 0;
+      _engineDrainedAt = null;
     } catch (err) {
       await _disposeStream();
       await _stopRecorder();
@@ -279,32 +290,32 @@ class VoxaVoiceSession {
   /// Whether SoLoud is currently still outputting bot audio (or has audio
   /// queued and pending). Two-stage logic:
   ///
-  ///   1. Engine still has data to consume → gate closed.
-  ///   2. Engine has consumed everything, but the speaker's DAC pipeline
-  ///      is still flushing the last [_speakerOutputLatencySeconds] of
-  ///      audio → gate stays closed until that latency window elapses.
+  ///   1. Playback head is behind what we've pushed → gate closed.
+  ///   2. Playback head has caught up, but the speaker's DAC pipeline is
+  ///      still flushing the last [_speakerOutputLatencySeconds] of audio
+  ///      → gate stays closed until that latency window elapses.
   ///
-  /// Called on every mic frame; the FFI hop to `getStreamTimeConsumed` is a
-  /// few microseconds — much cheaper than the wire-event gates it replaces.
-  /// The state mutation (recording / clearing `_engineDrainedAt`) is
-  /// idempotent and stays inside this single isolate, so making it a getter
-  /// is a tiny lie but works fine in practice.
+  /// Called on every mic frame; `getPosition` is an FFI hop of ~microseconds
+  /// — much cheaper than the wire-event gates it replaces. The state mutation
+  /// (recording / clearing `_engineDrainedAt`) is idempotent and stays inside
+  /// this single isolate, so making it a getter is a tiny lie but works fine
+  /// in practice.
   bool get _isPlayerActive {
-    final AudioSource? source = _streamSource;
-    if (source == null) return false;
+    final SoundHandle? handle = _streamHandle;
+    if (handle == null) return false;
     if (!_player.isInitialized) return false;
     try {
-      final Duration consumed = _player.getStreamTimeConsumed(source);
-      final double consumedSec = consumed.inMicroseconds / 1e6;
-      final double remainingSec = _totalPushedSeconds - consumedSec;
+      final Duration played = _player.getPosition(handle);
+      final double playedSec = played.inMicroseconds / 1e6;
+      final double remainingSec = _totalPushedSeconds - playedSec;
       if (remainingSec > 0.001) {
-        // Engine still has audio to consume. Reset the drain marker — we'll
-        // re-stamp it once the engine catches up.
+        // Engine still has audio to play. Reset the drain marker — we'll
+        // re-stamp it once playback catches up.
         _engineDrainedAt = null;
         return true;
       }
-      // Engine has consumed everything we've pushed. The speaker's DAC is
-      // still flushing for ~150 ms — keep the gate closed until then.
+      // Playback head has caught up. The speaker's DAC is still flushing
+      // for ~150 ms — keep the gate closed until then.
       _engineDrainedAt ??= DateTime.now();
       final Duration sinceDrain = DateTime.now().difference(_engineDrainedAt!);
       const double latencyWindowMs = _speakerOutputLatencySeconds * 1000;
@@ -335,8 +346,7 @@ class VoxaVoiceSession {
   }
 
   /// Send `{type:"end"}`, close the WS, stop the recorder, tear down the
-  /// SoLoud stream. The engine itself stays initialised for fast restart.
-  /// Safe to call repeatedly.
+  /// SoLoud stream and deinit the engine. Safe to call repeatedly.
   Future<void> stop() async {
     _running = false;
     _userMuted = false;
@@ -366,11 +376,23 @@ class VoxaVoiceSession {
     _stateSubscription = null;
 
     await _disposeStream();
+
+    // Deinit the engine between sessions for clean state. Without this,
+    // AAudio + SoLoud state from previous sessions accumulates and starves
+    // later turns of audio. Re-init on next [start] takes ~100 ms — invisible
+    // against the user explicitly opening voice mode.
+    if (_player.isInitialized) {
+      try {
+        _player.deinit();
+      } catch (_) {
+        // Engine may already be in a teardown state — ignore.
+      }
+    }
   }
 
-  /// One-shot release; the session can't be reused after this. SoLoud itself
-  /// is a process-wide singleton so we don't deinit it — it'll be shut down
-  /// when the app exits.
+  /// One-shot release; the session can't be reused after this. [stop] above
+  /// also deinitialises the SoLoud engine, so there's nothing extra to free
+  /// at the engine level.
   Future<void> dispose() async {
     await stop();
     await _recorder.dispose();
@@ -427,8 +449,7 @@ class VoxaVoiceSession {
   }
 
   /// Stop + dispose the active SoLoud stream source. Safe to call multiple
-  /// times. Doesn't touch the engine itself — that's a process-wide
-  /// singleton we keep warm.
+  /// times. Doesn't touch the engine itself — that's done in [stop].
   Future<void> _disposeStream() async {
     final SoundHandle? handle = _streamHandle;
     _streamHandle = null;
