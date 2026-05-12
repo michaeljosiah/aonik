@@ -150,56 +150,57 @@ function ScreenLogin() {
 }
 
 // ─── Scenario library ─────────────────────────────────────────────
-// The chat cycles through these "agent raises an important alert →
-// operator decides → agent executes" stories. Each is one full pass of
-// a six-step state machine (see STEP_DURATIONS below). The first
-// scenario renders Approve / Decline buttons inline inside the agent's
-// prompt bubble; the others use a quick chat-style reply.
+// Three scenarios that map 1:1 to Aonik's product lines:
+//   1. Payments        — bill payments (with inline Approve / Decline)
+//   2. Collections     — cross-border inbound wires + FX settlement
+//   3. Personal Finance — PFM intelligence (idle cash → savings sweep)
+// Each scenario plays the same six-step state machine (typing → alert
+// → decision → typing → execution → hold) before advancing.
 const SCENARIOS = [
   {
-    id: 'treasury',
-    team: 'Treasury',
+    id: 'bills',
+    team: 'Payments',
     badge: 'HUMAN-IN-LOOP',
     badgeTone: 'neutral',
     hasButtons: true,
     operator: 'J',
     messages: [
       { id: 'm1', from: 'agent', visibleAt: 1, tag: 'proposal',
-        text: 'AWS invoice · $12,840 due Friday. Convert from GBP operating account?',
+        text: 'Vodafone Business bill · £4,820 due Friday. Pay from GBP operating account?',
         actions: { approve: 'Approve', decline: 'Decline', approvedAtStep: 2 } },
       // No operator reply bubble — the button click IS the reply
       { id: 'm3', from: 'agent', visibleAt: 4, tag: 'executed',
-        text: 'Paid · £10,182 → $12,840 at 1.261 · ref AON-7421' },
+        text: 'Paid · £4,820 · ref AON-7421 · ledger #98203' },
     ],
   },
   {
-    id: 'fx',
-    team: 'FX & Risk',
-    badge: 'ANOMALY',
+    id: 'collections',
+    team: 'Collections',
+    badge: 'CROSS-BORDER',
     badgeTone: 'warning',
     hasButtons: false,
     operator: 'J',
     messages: [
-      { id: 'm1', from: 'agent', visibleAt: 1, tag: 'alert',
-        text: 'GBP/USD dropped 1.4% in 15 min — hedge ladder underwater $4,200.' },
-      { id: 'm2', from: 'operator', visibleAt: 2, text: 'Rebalance hedge' },
+      { id: 'm1', from: 'agent', visibleAt: 1, tag: 'inbound',
+        text: 'Inbound wire · $24,500 from Acme Corp (US). FX to GBP at 1.262?' },
+      { id: 'm2', from: 'operator', visibleAt: 2, text: 'Settle to GBP' },
       { id: 'm3', from: 'agent', visibleAt: 4, tag: 'executed',
-        text: 'Rebalanced · $50K locked at 1.262 · risk back in band' },
+        text: 'Settled · £19,415 credited · invoice INV-2041 reconciled' },
     ],
   },
   {
-    id: 'aml',
-    team: 'Compliance',
-    badge: 'POLICY FLAG',
-    badgeTone: 'danger',
+    id: 'pfm',
+    team: 'Personal Finance',
+    badge: 'INSIGHT',
+    badgeTone: 'insight',
     hasButtons: false,
     operator: 'J',
     messages: [
-      { id: 'm1', from: 'agent', visibleAt: 1, tag: 'risk',
-        text: 'New vendor "Acme Holdings Ltd" — $24,000 payout outside policy band.' },
-      { id: 'm2', from: 'operator', visibleAt: 2, text: 'Hold for review' },
+      { id: 'm1', from: 'agent', visibleAt: 1, tag: 'insight',
+        text: 'Idle £12,400 in current · earning 0.1% APY. Sweep to ISA at 5.1%?' },
+      { id: 'm2', from: 'operator', visibleAt: 2, text: 'Sweep £10,000' },
       { id: 'm3', from: 'agent', visibleAt: 4, tag: 'executed',
-        text: 'Held · compliance ticket #C-8042 · KYC re-run queued' },
+        text: 'Swept · £10,000 → ISA · +£42/mo at 5.1% APY' },
     ],
   },
 ];
@@ -219,16 +220,19 @@ const STEP_DURATIONS = {
 // Tag chip styles inside agent bubbles
 const TAG_STYLES = {
   proposal: { color: '#7d5811', dot: '#e8a838', label: 'PROPOSAL' },
+  inbound:  { color: '#a85a0e', dot: '#f59f25', label: 'INBOUND WIRE' },
+  insight:  { color: '#1f6e7a', dot: '#3a9aa8', label: 'INSIGHT' },
   alert:    { color: '#a85a0e', dot: '#f59f25', label: 'ALERT' },
   risk:     { color: '#a8341a', dot: '#d24a2c', label: 'POLICY RISK' },
   executed: { color: '#2b7a31', dot: '#6abf6e', label: 'EXECUTED' },
 };
 
-// Header badge tone palette (neutral / warning / danger)
+// Header badge tone palette (neutral / warning / danger / insight)
 const BADGE_TONES = {
   neutral: { fill: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.6)' },
   warning: { fill: 'rgba(232,168,56,0.16)',  border: 'rgba(232,168,56,0.45)',  color: '#f4cb7a' },
   danger:  { fill: 'rgba(210,74,44,0.18)',   border: 'rgba(210,74,44,0.50)',   color: '#ee8d75' },
+  insight: { fill: 'rgba(58,154,168,0.18)',  border: 'rgba(58,154,168,0.55)',  color: '#7fcfd9' },
 };
 
 // ─── Animated agent ↔ operator chat ────────────────────────────────
