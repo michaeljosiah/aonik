@@ -75,14 +75,19 @@ class VoxaVoiceSession {
   Duration? _lastBotAudioAt;
 
   // Mic stays muted this long after the server's `speaking:false` to let the
-  // local PCM queue drain. Tuned to comfortably cover the time it takes
-  // SoLoud's buffered stream to play out queued audio after the wire event.
-  static const Duration _postBotStopHangover = Duration(milliseconds: 3300);
+  // local PCM queue drain. Tuned upward from the mp_audio_stream era (3.3 s)
+  // because SoLoud's buffered stream model can hold ~1–2 s of bursted-ahead
+  // TTS audio when `speaking:false` fires — that audio is still played out
+  // at realtime after the wire event, and the mic gate has to cover it or
+  // the speaker bleed leaks into STT.
+  static const Duration _postBotStopHangover = Duration(milliseconds: 5000);
 
   // Drop mic frames within this window of the last inbound bot audio frame —
-  // catches both pre-`speaking:true` audio and post-`speaking:false` queue
-  // playback that the event gate misses.
-  static const Duration _audioTailGuard = Duration(milliseconds: 1200);
+  // catches the late tail that the wire-event gate misses (e.g. when the
+  // SoLoud queue still has buffered samples after `speaking:false` fired).
+  // Tuned upward from the mp_audio_stream era (1.2 s) for the same reason
+  // as [_postBotStopHangover] above.
+  static const Duration _audioTailGuard = Duration(milliseconds: 2500);
 
   /// SoLoud's [setBufferStream.maxBufferSizeBytes] cap. With
   /// [BufferingType.released] this is the total cumulative bytes the stream
@@ -133,12 +138,51 @@ class VoxaVoiceSession {
           'Microphone permission denied. Open device settings to grant Payabo access.');
     }
 
-    // Player first so the first inbound bot frame isn't dropped during setup.
+    // ── Step 1: recorder first ──
+    // Starting the recorder is what flips the OS audio session into voice-
+    // processing / in-communication mode (AVAudioSession `playAndRecord` +
+    // voice-chat on iOS; `MODE_IN_COMMUNICATION` on Android). That mode is
+    // what engages hardware AEC. If we let SoLoud open its output stream
+    // first (as we did originally) iOS commits to `.playback` and the
+    // recorder's later switch may not promote it back to voice-processing,
+    // so the speaker bleed leaks straight into STT. Start the mic capture
+    // first to lock in the right session, THEN bring the player up.
+    //
+    // The captured PCM stream isn't yet wired to a listener — that happens
+    // after we have the client + audio gate state ready. So no mic frames
+    // reach the server during the window between this call and the listener
+    // being attached below; they just buffer inside the OS-level capture
+    // pipeline harmlessly.
+    final Stream<Uint8List> micStream;
+    try {
+      micStream = await _recorder.startStream(
+        RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: micSampleRate,
+          numChannels: 1,
+          echoCancel: true,
+          noiseSuppress: true,
+          autoGain: true,
+          androidConfig: const AndroidRecordConfig(
+            audioSource: AndroidAudioSource.voiceCommunication,
+            audioManagerMode: AudioManagerMode.modeInCommunication,
+          ),
+        ),
+      );
+    } catch (err) {
+      rethrow;
+    }
+
+    // ── Step 2: SoLoud player ──
+    // With the OS session already in voice-processing mode, SoLoud's output
+    // stream attaches into that pipeline so its audio is reference-fed to the
+    // platform AEC.
     _playerSampleRate = botSampleRate;
     if (!_player.isInitialized) {
       try {
         await _player.init();
       } catch (err) {
+        await _stopRecorder();
         throw StateError('Failed to initialise SoLoud engine: $err');
       }
     }
@@ -154,6 +198,7 @@ class VoxaVoiceSession {
       _streamHandle = await _player.play(_streamSource!);
     } catch (err) {
       await _disposeStream();
+      await _stopRecorder();
       throw StateError('Failed to start SoLoud buffer stream: $err');
     }
 
@@ -207,32 +252,6 @@ class VoxaVoiceSession {
       rethrow;
     }
 
-    // VoIP audio source + communication mode engage Android's hardware AEC.
-    // `echoCancel: true` alone is just a hint — without these the platform
-    // routes through the generic mic path with no echo cancellation and the
-    // speaker bleeds straight back into STT. iOS handles AEC via AVAudioSession
-    // automatically when `echoCancel: true` is set.
-    final Stream<Uint8List> micStream;
-    try {
-      micStream = await _recorder.startStream(
-        RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: micSampleRate,
-          numChannels: 1,
-          echoCancel: true,
-          noiseSuppress: true,
-          autoGain: true,
-          androidConfig: const AndroidRecordConfig(
-            audioSource: AndroidAudioSource.voiceCommunication,
-            audioManagerMode: AudioManagerMode.modeInCommunication,
-          ),
-        ),
-      );
-    } catch (err) {
-      await _teardownAfterFailure();
-      rethrow;
-    }
-
     _micSubscription = micStream.listen(
       (Uint8List pcm) {
         if (_userMuted) return;
@@ -253,6 +272,17 @@ class VoxaVoiceSession {
     );
 
     _running = true;
+  }
+
+  /// Stops the OS-level recorder. Used in failure paths during [start] when
+  /// we've already opened the capture pipeline but a later step failed and
+  /// we need to release the mic before throwing.
+  Future<void> _stopRecorder() async {
+    try {
+      await _recorder.stop();
+    } catch (_) {
+      // Best-effort — recorder may already be stopped.
+    }
   }
 
   /// Gate the mic from the UI without tearing the session down. Bot audio
@@ -398,6 +428,9 @@ class VoxaVoiceSession {
     }
 
     await _disposeStream();
+    // With the new init order the recorder is opened before the WSS client.
+    // If the WSS handshake fails, we still need to release the mic capture.
+    await _stopRecorder();
   }
 }
 
