@@ -109,6 +109,14 @@ class VoxaVoiceSession {
   /// pipeline so playback never has to pause-and-rebuffer.
   static const double _tailPadSeconds = 0.5;
 
+  /// Output volume for the bot's audio. Slightly under full so that on Android
+  /// devices where `AcousticEchoCanceler` is software-implemented (mid-range
+  /// hardware that lacks HAL AEC) the residual speaker bleed is below
+  /// Whisper's pickup threshold. Full volume + imperfect AEC = the bot
+  /// occasionally transcribes itself; ~0.85 is a measurable safety margin
+  /// without making playback feel quiet.
+  static const double _playerVolume = 0.85;
+
   final StreamController<VoxaVoiceEvent> _eventsController =
       StreamController<VoxaVoiceEvent>.broadcast();
   final StreamController<VoxaConnectionState> _stateController =
@@ -162,7 +170,13 @@ class VoxaVoiceSession {
           numChannels: 1,
           echoCancel: true,
           noiseSuppress: true,
-          autoGain: true,
+          // AGC OFF on purpose. Android's voice-communication source already
+          // applies platform-level dynamic-range processing, and AGC on top
+          // amplifies any speaker bleed that slips past AEC to be Whisper-
+          // audible. With AGC off, residual bleed stays well under Whisper's
+          // pickup threshold and genuine user speech is still well-levelled
+          // by the platform pre-processing.
+          autoGain: false,
           androidConfig: const AndroidRecordConfig(
             audioSource: AndroidAudioSource.voiceCommunication,
             audioManagerMode: AudioManagerMode.modeInCommunication,
@@ -195,7 +209,7 @@ class VoxaVoiceSession {
         bufferingType: BufferingType.released,
         bufferingTimeNeeds: _bufferingTimeNeedsSeconds,
       );
-      _streamHandle = await _player.play(_streamSource!);
+      _streamHandle = await _player.play(_streamSource!, volume: _playerVolume);
     } catch (err) {
       await _disposeStream();
       await _stopRecorder();
