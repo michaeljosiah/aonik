@@ -22,16 +22,24 @@ import 'voxa_voice_client.dart';
 ///     errors are observable.
 ///   * Frees memory of already-played samples ([BufferingType.released]) so
 ///     long sessions don't grow unbounded.
-///   * Emits an `onBuffering` callback whenever playback pauses for an
-///     underrun and resumes when the buffer refills — we use this to gate
-///     the mic, replacing the previous fragile timer-based gates.
+///   * Exposes `getStreamTimeConsumed` so we can ask the engine, in real
+///     time, how much of the audio we pushed has actually been played out.
 ///
-/// Echo prevention: the mic listener drops frames whenever SoLoud reports
-/// it's *actually playing audio* (`_isPlayerActive == true`). When SoLoud's
-/// internal buffer drains and playback pauses, the gate opens immediately —
-/// no fixed-duration hangover, no wire-event timing dependency. The
-/// behaviour is tied to the speaker's real output, so a "missing last word
-/// + still echoing" scenario can't happen.
+/// Echo prevention: the mic listener drops frames whenever there's still
+/// queued bot audio yet to be played. We track [_totalPushedSeconds] (a
+/// running total of what we've pushed, including the silence tail-pad) and
+/// compare against `getStreamTimeConsumed` on every mic frame. When the
+/// engine has consumed everything we've pushed, the gate opens — driven by
+/// the engine's actual playback position, not wire-event timing. A small
+/// [_speakerOutputLatency] grace covers the hardware DAC delay between
+/// SoLoud reporting "consumed" and the speaker physically finishing.
+///
+/// We deliberately do NOT use `setBufferStream(onBuffering: ...)`. That
+/// callback's FFI bridge is invoked one last time during stream teardown,
+/// after Dart has already finalised the closure — fatal abort with
+/// "Callback invoked after it has been deleted". Polling
+/// `getStreamTimeConsumed` from the mic listener avoids the callback
+/// lifecycle hazard entirely.
 class VoxaVoiceSession {
   VoxaVoiceSession({
     required VoxaVoiceClient Function() clientFactory,
@@ -64,12 +72,18 @@ class VoxaVoiceSession {
   /// [_isPlayerActive] — both must be false for a mic frame to reach the WSS.
   bool _userMuted = false;
 
-  /// True iff SoLoud is currently playing back queued PCM. Driven by the
-  /// stream's `onBuffering` callback: flips false when the buffer drains and
-  /// playback pauses, flips true again when fresh data refills the buffer
-  /// past `_bufferingTimeNeedsSeconds`. This is the single source of truth
-  /// for the mic gate.
-  bool _isPlayerActive = false;
+  /// Running total of audio (in seconds) we've handed to SoLoud across this
+  /// session — every bot audio frame plus every silence tail-pad. Compared
+  /// against `getStreamTimeConsumed` to decide whether the engine is still
+  /// processing bot audio.
+  double _totalPushedSeconds = 0;
+
+  /// Wall-clock time at which the engine first reported "consumed everything
+  /// I was given". From this moment the speaker's DAC pipeline is still
+  /// flushing — we keep the mic gate closed for [_speakerOutputLatencySeconds]
+  /// after this to cover the hardware delay. Cleared whenever fresh audio
+  /// is pushed and the engine has more to consume.
+  DateTime? _engineDrainedAt;
 
   /// Captured on start so the silence tail-pad can synthesise the right
   /// number of zero samples to push.
@@ -88,6 +102,16 @@ class VoxaVoiceSession {
   /// than this, SoLoud waits to refill so playback stays smooth and the
   /// gate doesn't flap open/closed.
   static const double _bufferingTimeNeedsSeconds = 0.08;
+
+  /// Hardware DAC + audio HAL latency between SoLoud reporting a sample as
+  /// "consumed" and that sample physically exiting the speaker. Empirical
+  /// value for Android (AAudio / OpenSL ES); iOS typically sees lower.
+  /// Without this margin the mic gate opens slightly before the speaker's
+  /// last word actually finishes, and Whisper re-transcribes it as user
+  /// input. 150 ms is wide enough to cover the hardware delay on every
+  /// device we've tested, narrow enough that it doesn't perceptibly slow
+  /// the user's turn.
+  static const double _speakerOutputLatencySeconds = 0.15;
 
   /// Silence pushed to the stream on every bot `speaking:false` so the buffer
   /// never goes empty exactly at the boundary between sentences — covers the
@@ -177,6 +201,8 @@ class VoxaVoiceSession {
       }
     }
     try {
+      // No `onBuffering` callback — see class doc. We poll
+      // `getStreamTimeConsumed` instead.
       _streamSource = _player.setBufferStream(
         maxBufferSizeBytes: _streamMaxBufferBytes,
         sampleRate: botSampleRate,
@@ -184,15 +210,9 @@ class VoxaVoiceSession {
         format: BufferType.s16le,
         bufferingType: BufferingType.released,
         bufferingTimeNeeds: _bufferingTimeNeedsSeconds,
-        // The single signal driving the mic gate. SoLoud fires this with
-        // isBuffering=true when its buffer drains and playback pauses, and
-        // again with isBuffering=false when fresh data refills past the
-        // threshold. We flip [_isPlayerActive] in lockstep so the mic
-        // listener can drop frames precisely while the speaker is playing
-        // the bot.
-        onBuffering: _onPlayerBufferingChanged,
       );
       _streamHandle = await _player.play(_streamSource!, volume: _playerVolume);
+      _totalPushedSeconds = 0;
     } catch (err) {
       await _disposeStream();
       await _stopRecorder();
@@ -256,6 +276,46 @@ class VoxaVoiceSession {
     _running = true;
   }
 
+  /// Whether SoLoud is currently still outputting bot audio (or has audio
+  /// queued and pending). Two-stage logic:
+  ///
+  ///   1. Engine still has data to consume → gate closed.
+  ///   2. Engine has consumed everything, but the speaker's DAC pipeline
+  ///      is still flushing the last [_speakerOutputLatencySeconds] of
+  ///      audio → gate stays closed until that latency window elapses.
+  ///
+  /// Called on every mic frame; the FFI hop to `getStreamTimeConsumed` is a
+  /// few microseconds — much cheaper than the wire-event gates it replaces.
+  /// The state mutation (recording / clearing `_engineDrainedAt`) is
+  /// idempotent and stays inside this single isolate, so making it a getter
+  /// is a tiny lie but works fine in practice.
+  bool get _isPlayerActive {
+    final AudioSource? source = _streamSource;
+    if (source == null) return false;
+    if (!_player.isInitialized) return false;
+    try {
+      final Duration consumed = _player.getStreamTimeConsumed(source);
+      final double consumedSec = consumed.inMicroseconds / 1e6;
+      final double remainingSec = _totalPushedSeconds - consumedSec;
+      if (remainingSec > 0.001) {
+        // Engine still has audio to consume. Reset the drain marker — we'll
+        // re-stamp it once the engine catches up.
+        _engineDrainedAt = null;
+        return true;
+      }
+      // Engine has consumed everything we've pushed. The speaker's DAC is
+      // still flushing for ~150 ms — keep the gate closed until then.
+      _engineDrainedAt ??= DateTime.now();
+      final Duration sinceDrain = DateTime.now().difference(_engineDrainedAt!);
+      const double latencyWindowMs = _speakerOutputLatencySeconds * 1000;
+      return sinceDrain.inMilliseconds < latencyWindowMs;
+    } catch (_) {
+      // Engine in a transitional state (init/teardown). Fail closed — keep
+      // the gate closed rather than risk leaking bot audio through.
+      return true;
+    }
+  }
+
   /// Stops the OS-level recorder. Used in failure paths during [start] when
   /// we've already opened the capture pipeline but a later step failed and
   /// we need to release the mic before throwing.
@@ -280,7 +340,8 @@ class VoxaVoiceSession {
   Future<void> stop() async {
     _running = false;
     _userMuted = false;
-    _isPlayerActive = false;
+    _totalPushedSeconds = 0;
+    _engineDrainedAt = null;
 
     await _micSubscription?.cancel();
     _micSubscription = null;
@@ -319,31 +380,14 @@ class VoxaVoiceSession {
 
   // ── Internals ────────────────────────────────────────────────────────────
 
-  /// Bridges SoLoud's `onBuffering` callback to our mic-gate state. The
-  /// callback is invoked from the SoLoud worker thread; flipping a `bool`
-  /// is atomic in Dart so no further synchronisation is required.
-  ///
-  /// * `isBuffering = true` — the queue ran dry and playback paused.
-  ///   Set [_isPlayerActive] false so the mic gate opens immediately.
-  /// * `isBuffering = false` — the queue refilled past
-  ///   [_bufferingTimeNeedsSeconds] and playback resumed.
-  ///   Set [_isPlayerActive] true so the mic gate closes again.
-  void _onPlayerBufferingChanged(bool isBuffering, int handle, double time) {
-    _isPlayerActive = !isBuffering;
-    if (kDebugMode) {
-      debugPrint(
-          'VoxaVoiceSession: player ${_isPlayerActive ? "active" : "paused"} (handle=$handle, time=${time.toStringAsFixed(3)}s)');
-    }
-  }
-
   /// Push 500 ms of silent samples to the stream at the end of each bot turn
   /// (or each TTS sentence in the chained pipeline, where `speaking:false`
   /// fires per sentence). Two purposes:
   ///   1. Bridges the next-sentence TTS request latency so playback flows
   ///      continuously instead of having to pause-and-rebuffer.
-  ///   2. Keeps `_isPlayerActive` true through the gap so the mic gate
-  ///      doesn't flap open between sentences while the speaker's tail is
-  ///      still settling.
+  ///   2. Keeps the mic gate closed through the gap (the silence counts
+  ///      towards `_totalPushedSeconds` so the engine has audio to consume
+  ///      while the next sentence is being synthesised).
   void _padPlayerTail() {
     final AudioSource? source = _streamSource;
     if (source == null) return;
@@ -353,6 +397,7 @@ class VoxaVoiceSession {
     final Uint8List silence = Uint8List(byteCount);
     try {
       _player.addAudioDataStream(source, silence);
+      _totalPushedSeconds += byteCount / (_playerSampleRate * 2);
     } catch (err) {
       // Best-effort tail pad — if the stream is mid-teardown or the buffer is
       // unexpectedly full it's harmless to skip the silence pad.
@@ -369,6 +414,7 @@ class VoxaVoiceSession {
     try {
       // SoLoud accepts raw s16le PCM directly — no Float32 conversion needed.
       _player.addAudioDataStream(source, pcmBytes);
+      _totalPushedSeconds += pcmBytes.length / (_playerSampleRate * 2);
     } catch (err) {
       // The stream's max buffer can be reached on very long sessions; surface
       // the error rather than silently dropping (which is what the previous
