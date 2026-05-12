@@ -106,11 +106,13 @@ class VoxaVoiceSession {
   static const int _streamMaxBufferBytes = 100 * 1024 * 1024;
 
   /// Seconds of buffered audio SoLoud needs accumulated before resuming
-  /// playback after an underrun. Doubles as the *minimum window* the mic
-  /// gate stays open between sentences — if the buffer empties for less
-  /// than this, SoLoud waits to refill so playback stays smooth and the
-  /// gate doesn't flap open/closed.
-  static const double _bufferingTimeNeedsSeconds = 0.08;
+  /// playback after an underrun. Set generous (matches the official
+  /// flutter_soloud WebSocket streaming example) so SoLoud doesn't try to
+  /// pause/resume the AAudio output stream rapidly between TTS sentences —
+  /// rapid cycles produce "stream cannot be stopped from a callback!"
+  /// errors on Android and the output gets stuck so later turns play no
+  /// audio at all.
+  static const double _bufferingTimeNeedsSeconds = 1.5;
 
   /// Hardware DAC + audio HAL latency between SoLoud reporting a sample as
   /// "consumed" and that sample physically exiting the speaker. Empirical
@@ -203,7 +205,10 @@ class VoxaVoiceSession {
     _playerSampleRate = botSampleRate;
     if (!_player.isInitialized) {
       try {
-        await _player.init();
+        // Init the engine at the bot's PCM sample rate (matches the
+        // canonical flutter_soloud WebSocket streaming example) so the
+        // engine doesn't have to resample our audio.
+        await _player.init(sampleRate: botSampleRate);
       } catch (err) {
         await _stopRecorder();
         throw StateError('Failed to initialise SoLoud engine: $err');
@@ -448,34 +453,21 @@ class VoxaVoiceSession {
     }
   }
 
-  /// Stop + dispose the active SoLoud stream source. Safe to call multiple
-  /// times. Doesn't touch the engine itself — that's done in [stop].
+  /// Tear down the active SoLoud stream source. Mirrors the canonical
+  /// flutter_soloud cleanup pattern: drop our references first, then ask
+  /// the engine to dispose all sources in one go. Manual
+  /// `stop(handle) + setDataIsEnded + disposeSource` ordering proved
+  /// fragile (FFI lifecycle race: "Callback invoked after it has been
+  /// deleted"). `disposeAllSources` is the supported one-shot teardown
+  /// and the example app uses it for exactly this case.
   Future<void> _disposeStream() async {
-    final SoundHandle? handle = _streamHandle;
     _streamHandle = null;
-    final AudioSource? source = _streamSource;
     _streamSource = null;
     if (!_player.isInitialized) return;
-    if (handle != null) {
-      try {
-        await _player.stop(handle);
-      } catch (_) {
-        // Already stopped / handle invalid — ignore.
-      }
-    }
-    if (source != null) {
-      try {
-        // Marking the stream ended lets SoLoud finalise any internal state
-        // even though we're about to dispose it.
-        _player.setDataIsEnded(source);
-      } catch (_) {
-        // Source might already be ended.
-      }
-      try {
-        await _player.disposeSource(source);
-      } catch (_) {
-        // Already disposed.
-      }
+    try {
+      await _player.disposeAllSources();
+    } catch (_) {
+      // Best-effort — engine may already be tearing down.
     }
   }
 
