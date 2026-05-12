@@ -1,6 +1,6 @@
 {
   "name": "aonik-admin-desktop",
-  "version": "0.0.1-rc.1",
+  "version": "0.1.0",
   "description": "Aonik Admin Desktop Application",
   "main": "./out/main/index.js",
   "type": "module",

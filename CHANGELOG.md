@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-12
+
 ## [0.0.1-rc.1] - 2026-05-10
 
 ### Added
