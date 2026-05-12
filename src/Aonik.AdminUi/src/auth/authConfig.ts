@@ -1,4 +1,5 @@
 import { type Configuration, LogLevel } from '@azure/msal-browser';
+import { isElectron } from '@/lib/electron';
 
 // Auth provider type - determined by environment variable
 export type AuthProvider = 'azure-ad' | 'auth0' | 'mock';
@@ -16,16 +17,36 @@ export const getRawAuthProvider = (): string => {
   return import.meta.env.VITE_AUTH_PROVIDER || '';
 };
 
-// Get the active auth provider from environment
+// Get the active auth provider from environment.
+//
+// Desktop (Electron) always uses Auth0 — the main process owns the
+// system-browser PKCE flow and the renderer routes through
+// ElectronAuthContextProvider. Env-var-driven selection only applies to
+// web builds.
 export const getAuthProvider = (): AuthProvider => {
+  if (isElectron) return 'auth0';
+
   const provider = import.meta.env.VITE_AUTH_PROVIDER as string;
   if (provider === 'auth0') return 'auth0';
   if (provider === 'mock') return 'mock';
   return 'azure-ad'; // Default to Azure AD
 };
 
-// Validate the authentication configuration
+// Validate the authentication configuration.
+//
+// Desktop bypasses renderer-env validation entirely. Auth0 domain /
+// client_id / audience for the PKCE flow are baked into the main
+// process at build time (src/Aonik.AdminDesktop/electron.vite.config.ts
+// define block) and the renderer never instantiates an IdP SDK directly
+// — so missing VITE_AUTH0_* in the renderer bundle is harmless on
+// desktop. Surfacing the "Authentication Not Configured" page in that
+// case is a dead-end for the user; treat the desktop config as always
+// valid and let ElectronAuthContextProvider drive sign-in.
 export const validateAuthConfig = (): ConfigValidationResult => {
+  if (isElectron) {
+    return { isValid: true, provider: 'auth0', missingFields: [] };
+  }
+
   const rawProvider = getRawAuthProvider();
   const provider = getAuthProvider();
   const missingFields: string[] = [];

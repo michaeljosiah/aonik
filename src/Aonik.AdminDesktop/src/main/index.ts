@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification, shell } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, dialog, Notification, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { loadWindowState, saveWindowState } from './window-state'
@@ -203,6 +203,13 @@ function registerIpcHandlers(): void {
 
 // App lifecycle
 app.whenReady().then(() => {
+  // Remove Electron's default "File / Edit / View / Window / Help" menu.
+  // We expose the relevant actions inside the React UI (window controls in
+  // the title bar, keyboard shortcuts for cut/copy/paste come from the web
+  // platform itself, and devtools is wired through F12 / Ctrl+Shift+I on
+  // dev builds). On macOS this leaves the system's default app menu intact.
+  Menu.setApplicationMenu(null)
+
   registerIpcHandlers()
   registerAuthIpc(getMainWindow)
   createWindow()
