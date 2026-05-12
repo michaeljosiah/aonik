@@ -4,6 +4,12 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-12
+
+### Fixed
+- **Desktop installer (Auth0 configuration)**: Production `vite build` now picks up baked Auth0 identifiers from a committed `src/Aonik.AdminUi/.env.production`, and the renderer's `validateAuthConfig` short-circuits to valid under Electron — packaged builds no longer dead-end on the "Authentication Not Configured" screen, and rely on the main-process system-browser PKCE flow that was already wired up.
+- **Desktop installer (chrome)**: Hide the default Electron `File / Edit / View / Window / Help` menu bar via `Menu.setApplicationMenu(null)`; macOS retains its system app menu, Windows/Linux now ship a clean chromeless window.
+
 ## [0.1.0] - 2026-05-12
 
 ## [0.0.1-rc.1] - 2026-05-10
