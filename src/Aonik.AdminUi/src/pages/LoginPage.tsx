@@ -1,19 +1,27 @@
 // 1:1 port of Templates/aonik-admin-starterkit/screens/login.jsx, adapted to
-// our redirect-based Auth0 flow:
-//   - email-only field (no password) — forwarded to the IdP as login_hint
-//   - no tenant picker here. Tenant resolution happens *after* auth via
-//     /host/me/tenants — the post-auth flow either auto-selects, uses a
-//     cached choice, or routes to /select-organization (see
-//     TenantResolutionGate + OrganizationPickerPage).
-//   - SSO buttons render in template style but currently call the generic
-//     login() (Auth0 picker). Per-connection wiring is a follow-up.
+// our redirect-based Auth0 flow.
 //
-// Tokens: uses --color-* names from src/index.css @theme; the template's
-// unprefixed names are not defined in this app.
+//  Layout (Slack-style "single CTA" pattern):
+//    LEFT  — brand wall: logo, tagline, single primary CTA ("Sign In to
+//            Aonik") that hands off to Auth0 via login() and a footer link
+//            for "Create a new workspace" (currently inert, follow-up).
+//    RIGHT — live animated agent ↔ operator chat (LoginAgentChat) cycling
+//            through three scenarios (Payments / Collections / PFM) that
+//            illustrate the propose-apply-approve loop end-to-end.
+//
+//  Notes vs the template:
+//    - No email / password / SSO picker on the page itself. Email selection,
+//      SSO connection routing, and tenant resolution all happen *after*
+//      auth via the Auth0 universal login + /host/me/tenants flow
+//      (TenantResolutionGate + OrganizationPickerPage).
+//    - returnTo / reason query params are still respected for session
+//      expiry, missing tenant, and post-auth redirects.
+//    - Uses --color-* tokens from src/index.css @theme; the template's
+//      unprefixed --brand-mark-dot / --success names are not defined in
+//      this app and are mapped to --color-brand-mark-dot / --color-success.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowRight, Building2, Info, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { LoadingScreen } from '@/components/layout';
 
@@ -24,7 +32,6 @@ export function LoginPage() {
   const location = useLocation();
   const { isAuthenticated, isLoading, login, authError } = useAuth();
 
-  const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -61,34 +68,24 @@ export function LoginPage() {
     }
   }, [isAuthenticated, isLoading, navigate, from, reason]);
 
-  const initiateLogin = useCallback(
-    async (loginHint?: string) => {
-      setError(null);
-      setIsLoggingIn(true);
+  const initiateLogin = useCallback(async () => {
+    setError(null);
+    setIsLoggingIn(true);
 
-      try {
-        if (isAuthenticated && reason === 'tenant-missing') {
-          // Already authenticated; just bounce back into the app and let
-          // TenantResolutionGate re-resolve the tenant.
-          navigate(from, { replace: true });
-          return;
-        }
-
-        await login(loginHint ? { loginHint } : undefined);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
-        setIsLoggingIn(false);
+    try {
+      if (isAuthenticated && reason === 'tenant-missing') {
+        // Already authenticated; just bounce back into the app and let
+        // TenantResolutionGate re-resolve the tenant.
+        navigate(from, { replace: true });
+        return;
       }
-    },
-    [isAuthenticated, reason, navigate, from, login],
-  );
 
-  const ssoDisabled = isLoggingIn;
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    void initiateLogin(email.trim() || undefined);
-  };
+      await login();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
+      setIsLoggingIn(false);
+    }
+  }, [isAuthenticated, reason, navigate, from, login]);
 
   if (isLoading) {
     return <LoadingScreen phase="authenticating" />;
@@ -96,359 +93,244 @@ export function LoginPage() {
 
   return (
     <div
-      className="aonik-login-grid"
+      className="aonik-login-page"
       style={{
         width: '100%',
         minHeight: '100vh',
-        display: 'grid',
-        gridTemplateColumns: '1.05fr 1fr',
-        background: 'var(--color-background)',
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, #044045 0%, #055a60 50%, #066970 100%)',
+        color: '#fff',
         fontFamily: 'var(--font-sans)',
       }}
     >
-      <BrandPane />
-
-      <section
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '48px 56px',
-          position: 'relative',
-        }}
-      >
-        <div
-          className="aonik-login-helper"
-          style={{
-            position: 'absolute',
-            top: 28,
-            right: 32,
-            fontSize: 12.5,
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          Don't have an account?{' '}
-          <a
-            href="#"
-            onClick={(e) => e.preventDefault()}
-            style={{ color: 'var(--color-brand-primary)', fontWeight: 600, textDecoration: 'none' }}
-          >
-            Request access
-          </a>
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 20 }}
-        >
-          <header>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--color-brand-primary)',
-                marginBottom: 10,
-              }}
-            >
-              Sign in
-            </div>
-            <h2
-              style={{
-                fontFamily: 'var(--font-brand)',
-                fontWeight: 700,
-                fontSize: 28,
-                letterSpacing: '-0.015em',
-                margin: 0,
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              Welcome back
-            </h2>
-
-            <p
-              style={{
-                fontSize: 13.5,
-                color: 'var(--color-text-secondary)',
-                marginTop: 6,
-                lineHeight: 1.5,
-              }}
-            >
-              Continue to your Aonik workspace
-            </p>
-          </header>
-
-          <Banners error={error} notice={notice} />
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <SsoButton provider="google" label="Continue with Google" onClick={() => initiateLogin()} disabled={ssoDisabled} />
-            <SsoButton provider="microsoft" label="Continue with Microsoft" onClick={() => initiateLogin()} disabled={ssoDisabled} />
-            <button
-              type="button"
-              onClick={() => initiateLogin()}
-              disabled={ssoDisabled}
-              style={{ ...ssoButtonStyle, opacity: ssoDisabled ? 0.6 : 1 }}
-              onMouseEnter={(e) => { if (!ssoDisabled) e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-surface)'; }}
-            >
-              <Building2 size={14} color="var(--color-text-secondary)" />
-              Continue with SSO
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ height: 1, flex: 1, background: 'var(--color-border-light)' }} />
-            <span
-              style={{
-                fontSize: 10.5,
-                color: 'var(--color-text-tertiary)',
-                fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              or
-            </span>
-            <span style={{ height: 1, flex: 1, background: 'var(--color-border-light)' }} />
-          </div>
-
-          <Field label="Work email">
-            <input
-              className="aonik-input"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              style={{
-                width: '100%',
-                height: 38,
-                fontSize: 13.5,
-                padding: '0 12px',
-                borderRadius: 8,
-                border: '1px solid var(--color-form-field-border)',
-                background: 'var(--color-form-field-bg)',
-                color: 'var(--color-form-field-text)',
-                outline: 'none',
-                transition: 'border-color 150ms ease, box-shadow 150ms ease',
-              }}
-            />
-          </Field>
-
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 12.5,
-              color: 'var(--color-text-secondary)',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            {/* Visual only for v1; Auth0 session lifetime is server-configured. */}
-            <input type="checkbox" defaultChecked style={{ accentColor: 'var(--color-brand-primary)' }} />
-            Keep me signed in for 30 days
-          </label>
-
-          <button
-            type="submit"
-            disabled={isLoggingIn}
-            style={{
-              width: '100%',
-              height: 42,
-              fontSize: 14,
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              borderRadius: 8,
-              border: 'none',
-              background: 'var(--color-brand-primary)',
-              color: '#fff',
-              cursor: isLoggingIn ? 'progress' : 'pointer',
-              opacity: isLoggingIn ? 0.7 : 1,
-              transition: 'opacity 120ms ease, transform 80ms ease',
-            }}
-            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(1px)'; }}
-            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
-          >
-            {isLoggingIn ? 'Redirecting' : 'Sign in'}
-            <ArrowRight size={14} />
-          </button>
-
-          <footer
-            style={{
-              marginTop: 4,
-              paddingTop: 16,
-              borderTop: '1px solid var(--color-border-light)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: 11,
-              color: 'var(--color-text-tertiary)',
-            }}
-          >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <ShieldCheck size={11} />
-              Protected by Aonik Trust
-            </span>
-            <span style={{ display: 'flex', gap: 14 }}>
-              <a href="#" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Terms</a>
-              <a href="#" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</a>
-              <a href="#" onClick={(e) => e.preventDefault()} style={{ color: 'inherit', textDecoration: 'none' }}>Status</a>
-            </span>
-          </footer>
-        </form>
-      </section>
-
-      <style>{`
-        .aonik-input:focus {
-          border-color: var(--color-brand-primary) !important;
-          box-shadow: var(--shadow-focus);
-        }
-        @media (max-width: 1024px) {
-          .aonik-login-grid { grid-template-columns: 1fr !important; }
-          .aonik-login-brand { display: none !important; }
-          .aonik-login-helper { position: static !important; margin-bottom: 16px; text-align: center; }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// ─── Brand pane ───────────────────────────────────────────────────────────
-
-function BrandPane() {
-  return (
-    <aside
-      className="aonik-login-brand"
-      style={{
-        position: 'relative',
-        background: 'linear-gradient(155deg, #04494e 0%, #055a60 45%, #0a6e72 100%)',
-        color: '#fff',
-        padding: '40px 56px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        overflow: 'hidden',
-      }}
-    >
+      {/* Decorative grid + warm halos */}
       <div
+        aria-hidden
         style={{
           position: 'absolute',
           inset: 0,
           backgroundImage:
-            'radial-gradient(circle at 30% 30%, rgba(232,168,56,0.18) 0%, transparent 45%), linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-          backgroundSize: 'auto, 28px 28px, 28px 28px',
+            'radial-gradient(circle at 22% 28%, rgba(232,168,56,0.14) 0%, transparent 38%),' +
+            'radial-gradient(circle at 78% 72%, rgba(255,255,255,0.06) 0%, transparent 45%),' +
+            'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),' +
+            'linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+          backgroundSize: 'auto, auto, 32px 32px, 32px 32px',
           pointerEvents: 'none',
         }}
       />
 
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span
+      <div
+        className="aonik-login-grid"
+        style={{
+          position: 'relative',
+          minHeight: '100vh',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          alignItems: 'center',
+        }}
+      >
+        {/* ───────── LEFT — brand + sign-in ───────── */}
+        <div
+          className="aonik-login-left"
           style={{
-            position: 'relative',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 36,
-            height: 36,
-            borderRadius: 9,
-            background: '#fff',
-            color: '#055a60',
-            fontFamily: 'var(--font-brand)',
-            fontWeight: 700,
-            fontSize: 22,
-            letterSpacing: '-0.04em',
-            lineHeight: 1,
-            boxShadow: '0 4px 16px -4px rgba(0,0,0,.3)',
+            padding: '64px 0 64px 88px',
+            display: 'flex',
+            flexDirection: 'column',
+            maxWidth: 580,
           }}
         >
-          A
-          <span
-            style={{
-              position: 'absolute',
-              top: 4,
-              right: 4,
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: 'var(--color-brand-mark-dot)',
-            }}
-          />
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-brand)',
-            fontWeight: 700,
-            fontSize: 22,
-            letterSpacing: '-0.015em',
-          }}
-        >
-          aonik
-        </span>
-      </div>
-
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 520 }}>
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'rgba(255,255,255,0.6)',
-              marginBottom: 14,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <span style={{ width: 18, height: 1, background: 'rgba(255,255,255,0.4)' }} />
-            Admin · Operator console
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 56 }}>
+            <span
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 44,
+                height: 44,
+                borderRadius: 11,
+                background: '#fff',
+                color: '#055a60',
+                fontFamily: 'var(--font-brand)',
+                fontWeight: 700,
+                fontSize: 26,
+                letterSpacing: '-0.04em',
+                lineHeight: 1,
+                boxShadow: '0 6px 22px -8px rgba(0,0,0,.35)',
+              }}
+            >
+              A
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 5,
+                  right: 5,
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: 'var(--color-brand-mark-dot)',
+                }}
+              />
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-brand)',
+                fontWeight: 700,
+                fontSize: 30,
+                letterSpacing: '-0.015em',
+                color: '#fff',
+              }}
+            >
+              aonik
+            </span>
           </div>
+
+          {/* Tagline */}
           <h1
             style={{
               fontFamily: 'var(--font-brand)',
               fontWeight: 700,
-              fontSize: 44,
-              lineHeight: 1.08,
-              letterSpacing: '-0.02em',
+              fontSize: 56,
+              lineHeight: 1.05,
+              letterSpacing: '-0.025em',
               margin: 0,
+              marginBottom: 22,
               color: '#fff',
             }}
           >
-            Agents propose.<br />
-            <span style={{ color: 'var(--color-brand-mark-dot)' }}>Systems apply.</span>
+            Agents propose.
+            <br />
+            Systems apply.
+            <br />
+            <span style={{ color: 'var(--color-brand-mark-dot)' }}>Everywhere you work.</span>
           </h1>
+
           <p
             style={{
-              fontSize: 15,
+              fontSize: 16,
               lineHeight: 1.55,
               color: 'rgba(255,255,255,0.78)',
-              marginTop: 16,
-              maxWidth: 460,
+              margin: 0,
+              marginBottom: 40,
+              maxWidth: 480,
             }}
           >
-            The control plane for your operations team — orders, ledger, payouts and AI agents working together under policy.
+            AI-native financial intelligence platform powering the next generation of money
+            products, from bill payments and cross-border collections to personal finance.
           </p>
+
+          <Banners error={error} notice={notice} />
+
+          {/* Primary CTA */}
+          <button
+            type="button"
+            onClick={() => void initiateLogin()}
+            disabled={isLoggingIn}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              width: 320,
+              height: 56,
+              border: 'none',
+              borderRadius: 10,
+              background: '#fff',
+              color: '#055a60',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 600,
+              fontSize: 17,
+              letterSpacing: '-0.005em',
+              cursor: isLoggingIn ? 'progress' : 'pointer',
+              opacity: isLoggingIn ? 0.75 : 1,
+              boxShadow:
+                '0 12px 28px -10px rgba(0,0,0,0.35), inset 0 -2px 0 0 rgba(0,0,0,0.05)',
+              transition: 'transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease',
+            }}
+            onMouseEnter={(e) => {
+              if (isLoggingIn) return;
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow =
+                '0 16px 32px -10px rgba(0,0,0,0.4), inset 0 -2px 0 0 rgba(0,0,0,0.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow =
+                '0 12px 28px -10px rgba(0,0,0,0.35), inset 0 -2px 0 0 rgba(0,0,0,0.05)';
+            }}
+          >
+            {isLoggingIn ? 'Redirecting…' : 'Sign In to Aonik'}
+          </button>
+
+          <p
+            style={{
+              fontSize: 13,
+              lineHeight: 1.5,
+              color: 'rgba(255,255,255,0.6)',
+              margin: 0,
+              marginTop: 14,
+              maxWidth: 320,
+            }}
+          >
+            We'll take you to your web browser to sign in and then bring you back here.
+          </p>
+
+          {/* Footer — new workspace */}
+          <div
+            style={{
+              marginTop: 88,
+              fontSize: 14,
+              color: 'rgba(255,255,255,0.75)',
+            }}
+          >
+            Is your team new to Aonik?{' '}
+            <a
+              href="#"
+              onClick={(e) => e.preventDefault()}
+              style={{
+                color: '#fff',
+                fontWeight: 600,
+                textDecoration: 'underline',
+                textUnderlineOffset: 4,
+                textDecorationColor: 'rgba(255,255,255,0.5)',
+              }}
+            >
+              Create a new workspace
+            </a>
+          </div>
         </div>
 
-        <ProposalPreviewCard />
+        {/* ───────── RIGHT — animated agent ↔ operator chat ───────── */}
+        <div
+          className="aonik-login-right"
+          style={{
+            position: 'relative',
+            minHeight: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingRight: 56,
+          }}
+        >
+          <LoginAgentChat />
+        </div>
       </div>
 
+      {/* Bottom trust strip */}
       <div
+        className="aonik-login-trust"
         style={{
-          position: 'relative',
+          position: 'absolute',
+          left: 88,
+          right: 56,
+          bottom: 28,
           display: 'flex',
           alignItems: 'center',
           gap: 24,
           fontSize: 11,
-          color: 'rgba(255,255,255,0.55)',
+          color: 'rgba(255,255,255,0.45)',
           fontFamily: 'var(--font-mono)',
           letterSpacing: '0.05em',
         }}
@@ -468,176 +350,20 @@ function BrandPane() {
         <span>PCI DSS</span>
         {APP_VERSION && <span style={{ marginLeft: 'auto' }}>v {APP_VERSION}</span>}
       </div>
-    </aside>
-  );
-}
 
-function ProposalPreviewCard() {
-  return (
-    <div
-      style={{
-        background: 'rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255,255,255,0.14)',
-        borderRadius: 12,
-        padding: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        boxShadow: '0 20px 50px -20px rgba(0,0,0,0.4)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: '50%',
-            background: 'var(--color-brand-mark-dot)',
-            color: '#3a2a05',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          B
-        </span>
-        <span style={{ fontSize: 12.5, fontWeight: 600 }}>Billing Agent</span>
-        <span
-          style={{
-            fontSize: 10,
-            fontFamily: 'var(--font-mono)',
-            letterSpacing: '0.05em',
-            color: 'rgba(255,255,255,0.55)',
-            marginLeft: 'auto',
-          }}
-        >
-          2s ago
-        </span>
-      </div>
-      <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>
-        I matched <b>3 invoices</b> to last week's bank transactions — £42,180 total. Drafting journal entries.
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          gap: 6,
-          flexWrap: 'wrap',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10.5,
-        }}
-      >
-        {['search_invoices', 'list_bank_transactions', 'match_invoice_to_txn'].map((t) => (
-          <span
-            key={t}
-            style={{
-              padding: '3px 7px',
-              borderRadius: 4,
-              background: 'rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.85)',
-              border: '1px solid rgba(255,255,255,0.1)',
-            }}
-          >
-            {t}
-          </span>
-        ))}
-      </div>
+      <style>{`
+        @media (max-width: 1024px) {
+          .aonik-login-grid { grid-template-columns: 1fr !important; }
+          .aonik-login-right { display: none !important; }
+          .aonik-login-left { padding: 56px 32px !important; max-width: 100% !important; align-items: flex-start; }
+          .aonik-login-trust { left: 32px !important; right: 32px !important; flex-wrap: wrap; }
+        }
+      `}</style>
     </div>
   );
 }
 
-// ─── Right-pane helpers ───────────────────────────────────────────────────
-
-const ssoButtonStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 10,
-  width: '100%',
-  height: 38,
-  borderRadius: 8,
-  border: '1px solid var(--color-border-light)',
-  background: 'var(--color-surface)',
-  color: 'var(--color-text-primary)',
-  fontSize: 13,
-  fontWeight: 500,
-  cursor: 'pointer',
-  transition: 'background 120ms ease',
-};
-
-interface SsoButtonProps {
-  provider: 'google' | 'microsoft';
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-function SsoButton({ provider, label, onClick, disabled }: SsoButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{ ...ssoButtonStyle, opacity: disabled ? 0.6 : 1 }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-surface)'; }}
-    >
-      {provider === 'google' ? <GoogleLogo /> : <MicrosoftLogo />}
-      {label}
-    </button>
-  );
-}
-
-function GoogleLogo() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C33.6 6.1 29 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z" />
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.1 8 3l5.7-5.7C33.6 6.1 29 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5 0 9.5-1.9 12.9-5l-6-4.9c-2 1.5-4.5 2.4-7 2.4-5.3 0-9.7-3.4-11.3-8l-6.5 5C9.5 39.8 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4-4.1 5.3l6 4.9C40.8 35 44 30 44 24c0-1.2-.1-2.4-.4-3.5z" />
-    </svg>
-  );
-}
-
-function MicrosoftLogo() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-      <rect x="1" y="1" width="10" height="10" fill="#F25022" />
-      <rect x="13" y="1" width="10" height="10" fill="#7FBA00" />
-      <rect x="1" y="13" width="10" height="10" fill="#00A4EF" />
-      <rect x="13" y="13" width="10" height="10" fill="#FFB900" />
-    </svg>
-  );
-}
-
-interface FieldProps {
-  label: string;
-  trailing?: React.ReactNode;
-  children: React.ReactNode;
-}
-
-function Field({ label, trailing, children }: FieldProps) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <label
-          style={{
-            fontSize: 11.5,
-            fontWeight: 600,
-            color: 'var(--color-text-secondary)',
-            letterSpacing: '0.02em',
-          }}
-        >
-          {label}
-        </label>
-        {trailing}
-      </div>
-      {children}
-    </div>
-  );
-}
+// ─── Dark-pane banners for error / notice ────────────────────────────────
 
 interface BannersProps {
   error: string | null;
@@ -656,15 +382,17 @@ function Banners({ error, notice }: BannersProps) {
           alignItems: 'flex-start',
           gap: 8,
           padding: '10px 12px',
-          borderRadius: 8,
-          background: 'var(--color-error-light)',
-          border: '1px solid var(--color-error)',
-          color: 'var(--color-error)',
-          fontSize: 12.5,
+          marginBottom: 20,
+          maxWidth: 480,
+          borderRadius: 10,
+          background: 'rgba(210, 74, 44, 0.18)',
+          border: '1px solid rgba(210, 74, 44, 0.55)',
+          color: '#fdcdc0',
+          fontSize: 13,
           lineHeight: 1.45,
         }}
       >
-        <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span aria-hidden style={{ marginTop: 1 }}>⚠</span>
         <span>{error}</span>
       </div>
     );
@@ -678,16 +406,746 @@ function Banners({ error, notice }: BannersProps) {
         alignItems: 'flex-start',
         gap: 8,
         padding: '10px 12px',
-        borderRadius: 8,
-        background: 'var(--color-brand-primary-10)',
-        border: '1px solid var(--color-brand-primary-20)',
-        color: 'var(--color-brand-primary)',
-        fontSize: 12.5,
+        marginBottom: 20,
+        maxWidth: 480,
+        borderRadius: 10,
+        background: 'rgba(232, 168, 56, 0.15)',
+        border: '1px solid rgba(232, 168, 56, 0.45)',
+        color: '#f6d99a',
+        fontSize: 13,
         lineHeight: 1.45,
       }}
     >
-      <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+      <span aria-hidden style={{ marginTop: 1 }}>•</span>
       <span>{notice}</span>
+    </div>
+  );
+}
+
+// ─── Scenario library ─────────────────────────────────────────────────────
+// Three scenarios that map 1:1 to Aonik's product lines:
+//   1. Payments        — bill payments (with inline Approve / Decline)
+//   2. Collections     — cross-border inbound wires + FX settlement
+//   3. Personal Finance — PFM intelligence (idle cash → savings sweep)
+// Each scenario plays the same six-step state machine (typing → alert
+// → decision → typing → execution → hold) before advancing.
+
+type TagKey = 'proposal' | 'inbound' | 'insight' | 'alert' | 'risk' | 'executed';
+type BadgeTone = 'neutral' | 'warning' | 'danger' | 'insight';
+
+interface MessageActions {
+  approve: string;
+  decline: string;
+  approvedAtStep?: number;
+}
+
+interface ScenarioMessage {
+  id: string;
+  from: 'agent' | 'operator';
+  visibleAt: number;
+  tag?: TagKey;
+  text: string;
+  actions?: MessageActions;
+}
+
+interface Scenario {
+  id: string;
+  team: string;
+  badge: string;
+  badgeTone: BadgeTone;
+  hasButtons: boolean;
+  operator: string;
+  messages: ScenarioMessage[];
+}
+
+const SCENARIOS: Scenario[] = [
+  {
+    id: 'bills',
+    team: 'Payments',
+    badge: 'HUMAN-IN-LOOP',
+    badgeTone: 'neutral',
+    hasButtons: true,
+    operator: 'J',
+    messages: [
+      {
+        id: 'm1',
+        from: 'agent',
+        visibleAt: 1,
+        tag: 'proposal',
+        text: 'Vodafone Business bill · £4,820 due Friday. Pay from GBP operating account?',
+        actions: { approve: 'Approve', decline: 'Decline', approvedAtStep: 2 },
+      },
+      // No operator reply bubble — the button click IS the reply
+      {
+        id: 'm3',
+        from: 'agent',
+        visibleAt: 4,
+        tag: 'executed',
+        text: 'Paid · £4,820 · ref AON-7421 · ledger #98203',
+      },
+    ],
+  },
+  {
+    id: 'collections',
+    team: 'Collections',
+    badge: 'CROSS-BORDER',
+    badgeTone: 'warning',
+    hasButtons: false,
+    operator: 'J',
+    messages: [
+      {
+        id: 'm1',
+        from: 'agent',
+        visibleAt: 1,
+        tag: 'inbound',
+        text: 'Inbound wire · $24,500 from Acme Corp (US). FX to GBP at 1.262?',
+      },
+      { id: 'm2', from: 'operator', visibleAt: 2, text: 'Settle to GBP' },
+      {
+        id: 'm3',
+        from: 'agent',
+        visibleAt: 4,
+        tag: 'executed',
+        text: 'Settled · £19,415 credited · invoice INV-2041 reconciled',
+      },
+    ],
+  },
+  {
+    id: 'pfm',
+    team: 'Personal Finance',
+    badge: 'INSIGHT',
+    badgeTone: 'insight',
+    hasButtons: false,
+    operator: 'J',
+    messages: [
+      {
+        id: 'm1',
+        from: 'agent',
+        visibleAt: 1,
+        tag: 'insight',
+        text: 'Idle £12,400 in current · earning 0.1% APY. Sweep to ISA at 5.1%?',
+      },
+      { id: 'm2', from: 'operator', visibleAt: 2, text: 'Sweep £10,000' },
+      {
+        id: 'm3',
+        from: 'agent',
+        visibleAt: 4,
+        tag: 'executed',
+        text: 'Swept · £10,000 → ISA · +£42/mo at 5.1% APY',
+      },
+    ],
+  },
+];
+
+// Step durations (ms) within a single scenario.
+//   0: opening agent-typing
+//   1: agent alert shown (with action buttons if hasButtons)
+//   2: operator decision (button → approved indicator, or new reply bubble)
+//   3: agent-typing (executing)
+//   4: agent confirmation shown (full thread visible)
+//   5: hold full thread, then advance to next scenario
+const STEP_DURATIONS: Record<'buttons' | 'textOnly', number[]> = {
+  buttons: [700, 2900, 1200, 1100, 1700, 2400],
+  textOnly: [600, 2300, 1100, 1100, 1500, 1900],
+};
+
+// Tag chip styles inside agent bubbles
+const TAG_STYLES: Record<TagKey, { color: string; dot: string; label: string }> = {
+  proposal: { color: '#7d5811', dot: '#e8a838', label: 'PROPOSAL' },
+  inbound: { color: '#a85a0e', dot: '#f59f25', label: 'INBOUND WIRE' },
+  insight: { color: '#1f6e7a', dot: '#3a9aa8', label: 'INSIGHT' },
+  alert: { color: '#a85a0e', dot: '#f59f25', label: 'ALERT' },
+  risk: { color: '#a8341a', dot: '#d24a2c', label: 'POLICY RISK' },
+  executed: { color: '#2b7a31', dot: '#6abf6e', label: 'EXECUTED' },
+};
+
+// Header badge tone palette
+const BADGE_TONES: Record<BadgeTone, { fill: string; border: string; color: string }> = {
+  neutral: {
+    fill: 'rgba(255,255,255,0.04)',
+    border: 'rgba(255,255,255,0.14)',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  warning: {
+    fill: 'rgba(232,168,56,0.16)',
+    border: 'rgba(232,168,56,0.45)',
+    color: '#f4cb7a',
+  },
+  danger: {
+    fill: 'rgba(210,74,44,0.18)',
+    border: 'rgba(210,74,44,0.50)',
+    color: '#ee8d75',
+  },
+  insight: {
+    fill: 'rgba(58,154,168,0.18)',
+    border: 'rgba(58,154,168,0.55)',
+    color: '#7fcfd9',
+  },
+};
+
+// ─── Animated agent ↔ operator chat ──────────────────────────────────────
+// Cycles through SCENARIOS; each scenario plays the same six-step state
+// machine (typing → alert → decision → typing → confirmation → hold). The
+// first scenario renders inline Approve / Decline buttons inside the
+// agent's bubble; on the decision step the buttons collapse into a
+// "✓ Approved by operator" line. Other scenarios use a quick operator
+// chat reply for the decision step.
+function LoginAgentChat() {
+  const [scenarioIdx, setScenarioIdx] = useState(0);
+  const [step, setStep] = useState(0);
+  const scenario = SCENARIOS[scenarioIdx];
+
+  useEffect(() => {
+    const durations = scenario.hasButtons ? STEP_DURATIONS.buttons : STEP_DURATIONS.textOnly;
+    const t = setTimeout(() => {
+      if (step >= durations.length - 1) {
+        setStep(0);
+        setScenarioIdx((i) => (i + 1) % SCENARIOS.length);
+      } else {
+        setStep((s) => s + 1);
+      }
+    }, durations[step]);
+    return () => clearTimeout(t);
+  }, [step, scenarioIdx, scenario.hasButtons]);
+
+  const visible = scenario.messages.filter((m) => step >= m.visibleAt);
+  const showAgentTyping = step === 0 || step === 3;
+  const badgeStyle = BADGE_TONES[scenario.badgeTone];
+
+  return (
+    <div style={{ position: 'relative', width: '100%', maxWidth: 460 }}>
+      {/* Local keyframes */}
+      <style>{`
+        @keyframes aonikMsgIn {
+          0%   { opacity: 0; transform: translateY(8px) scale(0.985); }
+          100% { opacity: 1; transform: translateY(0)   scale(1); }
+        }
+        @keyframes aonikDot {
+          0%, 80%, 100% { opacity: 0.30; transform: translateY(0); }
+          40%           { opacity: 1;    transform: translateY(-3px); }
+        }
+        @keyframes aonikPulseRing {
+          0%   { transform: scale(0.6); opacity: 0.9; }
+          100% { transform: scale(2.2); opacity: 0;   }
+        }
+        @keyframes aonikApprovePop {
+          0%   { transform: scale(0.3); opacity: 0; }
+          60%  { transform: scale(1.18); opacity: 1; }
+          100% { transform: scale(1);    opacity: 1; }
+        }
+      `}</style>
+
+      {/* Soft warm halo behind the panel */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: -36,
+          background:
+            'radial-gradient(circle at 28% 28%, rgba(232,168,56,0.18) 0%, transparent 55%),' +
+            'radial-gradient(circle at 78% 82%, rgba(255,255,255,0.06) 0%, transparent 55%)',
+          filter: 'blur(10px)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Chat surface */}
+      <div
+        style={{
+          position: 'relative',
+          padding: '20px 22px 16px',
+          borderRadius: 22,
+          background:
+            'linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          boxShadow:
+            '0 40px 80px -30px rgba(0,0,0,0.55), inset 0 1px 0 0 rgba(255,255,255,0.05)',
+          backdropFilter: 'blur(10px)',
+        }}
+      >
+        {/* ───── Header ───── */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '0 0 14px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            marginBottom: 18,
+          }}
+        >
+          {/* Agent mark */}
+          <div
+            style={{
+              position: 'relative',
+              width: 38,
+              height: 38,
+              borderRadius: 11,
+              background: '#fff',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#055a60',
+              fontFamily: 'var(--font-brand)',
+              fontWeight: 700,
+              fontSize: 22,
+              letterSpacing: '-0.04em',
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
+            A
+            <span
+              style={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#e8a838',
+              }}
+            />
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              key={scenario.id + '-title'}
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#fff',
+                letterSpacing: '-0.005em',
+                animation: 'aonikMsgIn 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
+              }}
+            >
+              Aonik Agent · {scenario.team}
+            </div>
+            <div
+              style={{
+                fontSize: 10.5,
+                color: 'rgba(255,255,255,0.6)',
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.05em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 3,
+              }}
+            >
+              {/* Live pulse */}
+              <span
+                style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  width: 8,
+                  height: 8,
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: 999,
+                    background: '#6abf6e',
+                    animation: 'aonikPulseRing 1.8s ease-out infinite',
+                  }}
+                />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 1,
+                    left: 1,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: '#6abf6e',
+                  }}
+                />
+              </span>
+              LIVE · POLICY v3
+            </div>
+          </div>
+
+          {/* Dynamic alert badge — colour shifts with scenario severity */}
+          <div
+            key={scenario.id + '-badge'}
+            style={{
+              fontSize: 10,
+              color: badgeStyle.color,
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.06em',
+              padding: '4px 9px',
+              borderRadius: 999,
+              border: `1px solid ${badgeStyle.border}`,
+              background: badgeStyle.fill,
+              fontWeight: 600,
+              animation: 'aonikMsgIn 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
+            }}
+          >
+            {scenario.badge}
+          </div>
+        </div>
+
+        {/* ───── Messages ───── */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            minHeight: 290,
+          }}
+        >
+          {visible.map((m) => (
+            <ChatBubble
+              key={`${scenario.id}-${m.id}`}
+              from={m.from}
+              text={m.text}
+              tag={m.tag}
+              actions={m.actions}
+              operator={scenario.operator}
+              isApproved={!!m.actions && step >= (m.actions.approvedAtStep ?? Infinity)}
+            />
+          ))}
+          {showAgentTyping && <ChatTyping key={`typing-${scenario.id}-${step}`} />}
+        </div>
+
+        {/* ───── Composer (decorative) ───── */}
+        <div
+          style={{
+            marginTop: 14,
+            paddingTop: 14,
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              height: 38,
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 14px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              fontSize: 13,
+              color: 'rgba(255,255,255,0.42)',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            Reply to agent…
+          </div>
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden
+            style={{
+              width: 38,
+              height: 38,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 10,
+              border: 'none',
+              cursor: 'default',
+              background: '#e8a838',
+              color: '#3a2a05',
+              fontSize: 16,
+              fontWeight: 700,
+              lineHeight: 1,
+              boxShadow: '0 6px 14px -4px rgba(0,0,0,0.35)',
+            }}
+          >
+            ↑
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Single chat bubble (agent or operator) ──────────────────────────────
+// Agent bubbles carry a `tag` chip (proposal / alert / risk / executed)
+// and optional inline `actions`. When `actions` are present they render
+// as Approve / Decline buttons; once `isApproved` flips true the row
+// collapses into a "✓ Approved by operator" indicator.
+
+interface ChatBubbleProps {
+  from: 'agent' | 'operator';
+  text: string;
+  tag?: TagKey;
+  actions?: MessageActions;
+  isApproved: boolean;
+  operator: string;
+}
+
+function ChatBubble({ from, text, tag, actions, isApproved, operator }: ChatBubbleProps) {
+  const isAgent = from === 'agent';
+  const tagStyle = tag ? TAG_STYLES[tag] : null;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: isAgent ? 'row' : 'row-reverse',
+        alignItems: 'flex-end',
+        gap: 10,
+        animation: 'aonikMsgIn 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
+      }}
+    >
+      {/* Avatar */}
+      <div
+        style={{
+          position: 'relative',
+          width: 26,
+          height: 26,
+          borderRadius: '50%',
+          flexShrink: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'var(--font-brand)',
+          fontWeight: 700,
+          fontSize: 11,
+          background: isAgent ? '#fff' : '#e8a838',
+          color: isAgent ? '#055a60' : '#3a2a05',
+          boxShadow: '0 2px 8px -2px rgba(0,0,0,0.45)',
+        }}
+      >
+        {isAgent ? 'A' : operator || 'J'}
+        {isAgent && (
+          <span
+            style={{
+              position: 'absolute',
+              bottom: -1,
+              right: -1,
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: '#e8a838',
+              border: '2px solid #055a60',
+            }}
+          />
+        )}
+      </div>
+
+      {/* Bubble */}
+      <div
+        style={{
+          maxWidth: 340,
+          padding: actions ? '11px 14px 10px' : '10px 14px',
+          borderRadius: 14,
+          ...(isAgent
+            ? {
+                background: 'rgba(255,255,255,0.96)',
+                color: '#0c2a2c',
+                borderBottomLeftRadius: 4,
+              }
+            : {
+                background: 'rgba(232,168,56,0.96)',
+                color: '#3a2a05',
+                borderBottomRightRadius: 4,
+              }),
+          fontSize: 13.5,
+          lineHeight: 1.45,
+          fontFamily: 'var(--font-sans)',
+          boxShadow: '0 6px 18px -6px rgba(0,0,0,0.35)',
+        }}
+      >
+        {tagStyle && (
+          <div
+            style={{
+              fontSize: 9.5,
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              marginBottom: 4,
+              fontWeight: 600,
+              color: tagStyle.color,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: 999,
+                background: tagStyle.dot,
+              }}
+            />
+            {tagStyle.label}
+          </div>
+        )}
+        <div>{text}</div>
+
+        {/* Inline action buttons — shown while a decision is pending */}
+        {actions && !isApproved && (
+          <div
+            style={{
+              marginTop: 11,
+              paddingTop: 10,
+              borderTop: '1px solid rgba(12,42,44,0.08)',
+              display: 'flex',
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#055a60',
+                color: '#fff',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 600,
+                fontSize: 12.5,
+                letterSpacing: '-0.005em',
+                cursor: 'default',
+                boxShadow: '0 2px 6px -2px rgba(5,90,96,0.45)',
+              }}
+            >
+              {actions.approve}
+            </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid rgba(12,42,44,0.18)',
+                background: 'transparent',
+                color: '#0c2a2c',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 600,
+                fontSize: 12.5,
+                cursor: 'default',
+              }}
+            >
+              {actions.decline}
+            </button>
+          </div>
+        )}
+
+        {/* Approved indicator — replaces the buttons once the decision is in */}
+        {actions && isApproved && (
+          <div
+            style={{
+              marginTop: 11,
+              paddingTop: 10,
+              borderTop: '1px solid rgba(12,42,44,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 11.5,
+              color: '#2b7a31',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              letterSpacing: '-0.005em',
+            }}
+          >
+            <span
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: '#6abf6e',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 800,
+                animation: 'aonikApprovePop 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
+              }}
+            >
+              ✓
+            </span>
+            Approved by operator {operator || 'J'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Animated "agent is typing" indicator ────────────────────────────────
+function ChatTyping() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: 10,
+        animation: 'aonikMsgIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: 26,
+          height: 26,
+          borderRadius: '50%',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#fff',
+          color: '#055a60',
+          fontFamily: 'var(--font-brand)',
+          fontWeight: 700,
+          fontSize: 11,
+          boxShadow: '0 2px 8px -2px rgba(0,0,0,0.45)',
+          flexShrink: 0,
+        }}
+      >
+        A
+        <span
+          style={{
+            position: 'absolute',
+            bottom: -1,
+            right: -1,
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: '#e8a838',
+            border: '2px solid #055a60',
+          }}
+        />
+      </div>
+      <div
+        style={{
+          padding: '12px 16px',
+          borderRadius: 14,
+          borderBottomLeftRadius: 4,
+          background: 'rgba(255,255,255,0.92)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          boxShadow: '0 6px 18px -6px rgba(0,0,0,0.35)',
+        }}
+      >
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#055a60',
+              animation: `aonikDot 1.2s ease-in-out ${i * 0.18}s infinite`,
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
