@@ -96,7 +96,10 @@ export function LoginPage() {
       className="aonik-login-page"
       style={{
         width: '100%',
-        minHeight: '100vh',
+        // In Electron the renderer area is `100vh - titlebar`; use the CSS
+        // var (0 on web, 32px in the desktop build) so the hero fills the
+        // available viewport without being clipped by `#root { overflow:hidden }`.
+        minHeight: 'calc(100vh - var(--app-titlebar-height, 0px))',
         position: 'relative',
         overflow: 'hidden',
         background: 'linear-gradient(135deg, #044045 0%, #055a60 50%, #066970 100%)',
@@ -124,7 +127,7 @@ export function LoginPage() {
         className="aonik-login-grid"
         style={{
           position: 'relative',
-          minHeight: '100vh',
+          minHeight: 'calc(100vh - var(--app-titlebar-height, 0px))',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           alignItems: 'center',

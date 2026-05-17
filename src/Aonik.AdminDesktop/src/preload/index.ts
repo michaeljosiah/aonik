@@ -39,6 +39,13 @@ export interface ElectronAPI {
   windowMinimize: () => void
   windowMaximize: () => void
   windowClose: () => void
+  /**
+   * Retint the Window Controls Overlay (the strip with min/max/close in the
+   * top-right). Called by the renderer when navigating between pages with
+   * different background colours, so the bar visually fuses with the page.
+   * No-op on macOS — that platform uses traffic-light buttons on host chrome.
+   */
+  setTitleBarColor: (color: string, symbolColor: string) => void
   onDeepLink: (callback: (url: string) => void) => () => void
   auth: AuthBridge
 }
@@ -69,6 +76,8 @@ const api: ElectronAPI = {
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),
   windowClose: () => ipcRenderer.send('window-close'),
+  setTitleBarColor: (color: string, symbolColor: string) =>
+    ipcRenderer.send('title-bar:set-color', { color, symbolColor }),
   onDeepLink: (callback: (url: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, url: string) => callback(url)
     ipcRenderer.on('deep-link', handler)

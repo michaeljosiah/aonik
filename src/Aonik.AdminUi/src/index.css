@@ -332,6 +332,57 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   min-width: 0;
 }
 
+/* ---------------------------------------------------------------------------
+ * Electron Window Controls Overlay (WCO) — title bar handling
+ *
+ * In the Electron desktop build, the main process opts into a frameless
+ * window with the native min/max/close buttons rendered via WCO in the
+ * top-right (`titleBarStyle: 'hidden'` + `titleBarOverlay`). The remaining
+ * strip at the top is owned by the renderer and must be a drag-handle so
+ * the user can move the window — otherwise the app is "pinned".
+ *
+ * `--app-titlebar-height` is 0 in the browser and 32 in Electron (the
+ * `is-electron` class is added by `lib/electron.ts` on first import). All
+ * full-viewport pages (`min-h-screen`, the login hero) should derive their
+ * minimum height from `calc(100vh - var(--app-titlebar-height))` so they
+ * fit inside the renderer area without being clipped at the bottom.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --app-titlebar-height: 0px;
+}
+
+html.is-electron {
+  --app-titlebar-height: 32px;
+}
+
+html.is-electron #root {
+  height: calc(100vh - var(--app-titlebar-height));
+  margin-top: var(--app-titlebar-height);
+}
+
+/* Tailwind's `.min-h-screen` resolves to `min-height: 100vh`. In Electron
+   the viewable area is reduced by the WCO bar — without this override the
+   bottom edge of full-page screens gets clipped by `#root { overflow:hidden }`. */
+html.is-electron .min-h-screen {
+  min-height: calc(100vh - var(--app-titlebar-height));
+}
+
+/* The drag strip itself. Spans the full window width; the OS-rendered
+   min/max/close buttons sit on top of the right portion and take
+   precedence for clicks in their region, so a single full-width drag
+   region is the safe, simple choice. Transparent — `titleBarOverlay`
+   paints the right side's background; the left side shows page bg. */
+.app-titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--app-titlebar-height);
+  -webkit-app-region: drag;
+  z-index: 9999;
+}
+
 /* Scrollbar Styling -- Centrali default hides WebKit scrollbars globally */
 *::-webkit-scrollbar {
   width: 0 !important;

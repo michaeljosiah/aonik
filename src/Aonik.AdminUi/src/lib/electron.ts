@@ -50,6 +50,7 @@ export interface ElectronBridge {
   windowMinimize: () => void;
   windowMaximize: () => void;
   windowClose: () => void;
+  setTitleBarColor: (color: string, symbolColor: string) => void;
   onDeepLink: (callback: (url: string) => void) => () => void;
   auth: AuthBridge;
 }
@@ -67,6 +68,14 @@ export const isElectron =
 export const electronAPI: ElectronBridge | null = isElectron
   ? (window.electronAPI as ElectronBridge)
   : null;
+
+// Tag the document root for CSS branching (title bar height, drag strip,
+// `.min-h-screen` override). Done as a side-effect on first import so the
+// class is present before React's first paint — App.tsx imports this
+// module, so the side-effect runs ahead of any layout calculation.
+if (isElectron && typeof document !== 'undefined') {
+  document.documentElement.classList.add('is-electron');
+}
 
 /**
  * Single-flight resolver for the backend base URL exposed by the desktop
@@ -101,4 +110,18 @@ export function getApiBaseUrlOnce(): Promise<string | null> {
     });
 
   return inFlight;
+}
+
+/**
+ * Retint the Electron Window Controls Overlay (the strip with min/max/close
+ * in the top-right). Pages call this on mount so the title bar visually
+ * fuses with the page background.
+ *
+ * No-op outside Electron and on platforms where the bridge does not expose
+ * the helper — older preloads bundled before this change won't have it,
+ * and we don't want one missing version to break the renderer.
+ */
+export function setTitleBarColor(color: string, symbolColor: string): void {
+  if (!electronAPI || typeof electronAPI.setTitleBarColor !== 'function') return;
+  electronAPI.setTitleBarColor(color, symbolColor);
 }

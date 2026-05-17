@@ -29,10 +29,29 @@ function createWindow(): void {
     y: windowState.y,
     minWidth: 1024,
     minHeight: 680,
-    // Use the OS native title bar so the window is reliably draggable on every
-    // screen (login, loading, setup) without each route having to declare its
-    // own `-webkit-app-region: drag` zone.
     title: 'Aonik Admin',
+    // First-paint bg shown before the renderer's CSS resolves. Match the
+    // login title-bar colour so the brief gap between window-open and
+    // React-mount looks like an extension of the teal hero rather than a
+    // flash of white. The renderer overrides body bg once a page mounts.
+    backgroundColor: '#044045',
+    // Hide the OS title bar but keep the native min/max/close buttons in the
+    // top-right via Window Controls Overlay. The bar's colour is updated per
+    // page by the renderer via `title-bar:set-color` so it matches the page
+    // background (teal on login, off-white in the authenticated shell).
+    //
+    // The renderer is responsible for rendering a draggable strip in the
+    // user-controllable portion of the title bar area — see `.app-titlebar`
+    // in index.css and the `<div className="app-titlebar" />` in App.tsx.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      // Default to the login bg so the bar looks correct from the very
+      // first frame; the renderer overrides this once a page mounts.
+      color: '#044045',
+      symbolColor: '#ffffff',
+      height: 32
+    },
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -199,6 +218,29 @@ function registerIpcHandlers(): void {
     }
   })
   ipcMain.on('window-close', () => mainWindow?.close())
+
+  // Per-page recolour of the Window Controls Overlay. The renderer fires
+  // this when a page mounts so the title bar matches the page background.
+  // Only Windows (and Linux on supported builds) expose the overlay API;
+  // call is a no-op on macOS, where the traffic-light buttons sit on a
+  // host-rendered chrome we do not retint.
+  ipcMain.on(
+    'title-bar:set-color',
+    (_event, payload: { color: string; symbolColor: string }) => {
+      if (!mainWindow) return
+      if (process.platform !== 'win32') return
+      try {
+        mainWindow.setTitleBarOverlay({
+          color: payload.color,
+          symbolColor: payload.symbolColor
+        })
+      } catch {
+        // setTitleBarOverlay throws if the window was created without
+        // titleBarStyle:'hidden' — guard so a future refactor that drops
+        // the overlay doesn't take the renderer down with it.
+      }
+    }
+  )
 }
 
 // App lifecycle

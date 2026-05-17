@@ -1,6 +1,70 @@
 import { useEffect, useRef, useState, createElement, useCallback } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { isElectron } from '@/lib/electron';
+import { isElectron, setTitleBarColor } from '@/lib/electron';
+
+/**
+ * Title bar colours for the Electron Window Controls Overlay.
+ *
+ * Pre-auth (login): solid teal matching the top of the LoginPage gradient
+ * (`linear-gradient(135deg, #044045 0%, ...)`). If you change the
+ * LoginPage gradient, update LOGIN_TITLE_BAR_COLOR to keep the bar fused
+ * with the page top.
+ *
+ * Post-auth: read at runtime from `--color-background` / `--color-text-primary`
+ * so the bar tracks the active theme (light/dark) and any future palette
+ * tweaks without a code change.
+ */
+const LOGIN_TITLE_BAR_COLOR = '#044045';
+const LOGIN_TITLE_BAR_SYMBOL = '#ffffff';
+
+function readPostAuthTitleBarColors(): { color: string; symbolColor: string } {
+  const root = document.documentElement;
+  const styles = getComputedStyle(root);
+  const color = styles.getPropertyValue('--color-background').trim() || '#f9fafb';
+  const symbolColor = styles.getPropertyValue('--color-text-primary').trim() || '#2f2f2f';
+  return { color, symbolColor };
+}
+
+/**
+ * Watches the active route and keeps three things in sync so the title bar
+ * area visually fuses with the page:
+ *
+ *   1. The Window Controls Overlay (top-right strip with min/max/close) —
+ *      retinted via `setTitleBarColor`.
+ *   2. `document.body.backgroundColor` — needed because `is-electron`
+ *      pushes `#root` down by the titlebar height; without a matching body
+ *      bg, the exposed strip at the top of the window shows the default
+ *      off-white through, giving the bar a two-tone "white-on-the-left,
+ *      teal-on-the-right" look.
+ *   3. The `<html data-app-bg>` attribute — not strictly required today,
+ *      but a useful hook if a future page wants to assert "I rendered the
+ *      bg the title bar expects" without coupling to this component.
+ *
+ * Rendered once near the router root — keeping the logic centralised
+ * avoids "last-mount-wins" races when two pages transition.
+ */
+function TitleBarColorSync() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!isElectron) return;
+
+    let color: string;
+    let symbolColor: string;
+    if (location.pathname === '/login') {
+      color = LOGIN_TITLE_BAR_COLOR;
+      symbolColor = LOGIN_TITLE_BAR_SYMBOL;
+    } else {
+      ({ color, symbolColor } = readPostAuthTitleBarColors());
+    }
+
+    setTitleBarColor(color, symbolColor);
+    document.body.style.backgroundColor = color;
+    document.documentElement.setAttribute('data-app-bg', color);
+  }, [location.pathname]);
+
+  return null;
+}
 
 // Use HashRouter under Electron: the renderer is loaded via file://, so
 // BrowserRouter's pathname matching never lines up with the app routes.
@@ -472,6 +536,14 @@ function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
+          {/* Electron-only: a transparent drag strip pinned to the top of the
+              window. Required because `titleBarStyle: 'hidden'` removes the
+              OS title bar; without -webkit-app-region:drag on this strip
+              the user cannot move the window. Sits above all content via
+              z-index, the native min/max/close buttons (WCO) overlay it on
+              the right. No-op in the web build. */}
+          {isElectron && <div className="app-titlebar" aria-hidden="true" />}
+          <TitleBarColorSync />
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
             <AuthenticatedApp />
             <Toaster richColors position="top-right" />
