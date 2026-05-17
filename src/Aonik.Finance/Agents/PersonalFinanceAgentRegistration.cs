@@ -90,7 +90,8 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         - EXCEPTION: `user_memory_save` is NOT subject to `confirmAction`. Its audit trail is the chat stream itself — call it directly when the user states a preference, identity fact, or correction.
         - Confirmation must name the entity in human terms, show each old -> new change, include scope caveats, and include the user's cancellation reason when cancelling an order.
         - If approved, do the action and confirm in one short sentence. If declined, say it was left unchanged.
-        - Use direct tools for what, when, how much. Use `pf_run_spending_intelligence` or `pf_run_obligation_planning` for why or what-next. Prefer one specialist per turn.
+        - Use direct tools for what, when, how much. For why / what-changed / walk-and-flag / ordered lists, use `pf_run_insights`. For forward projections, coverage, savings ETAs, and what-ifs, use `pf_run_forecast`. For walking the categorisation review queue at scale, use `pf_run_classify_review`. Never invoke more than one specialist sub-agent in the same turn — pick the most relevant one.
+        - When a specialist returns `recommendedActions[]` (or `options[]` on forecast) with a `simiTool` named, surface them to the user via `display_option_selector` when they must pick, or via `display_follow_up_suggestions` when they're optional. If the user picks one, call the named tool with the pre-filled `argsHint` through `confirmAction` first — never apply it directly.
         - For trends, prefer `pf_compare_snapshots`; call `pf_list_snapshot_history` first. Describe the direction of change, not every number.
         - For budget questions, start with `pf_list_budgets`.
         - For mixed-currency category or merchant spend, name the currency used and offer to rerun for another account or currency if needed.

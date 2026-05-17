@@ -197,8 +197,15 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<IDomainAgentDescriptor, FinanceAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PersonalFinanceAgentDescriptor>();
-        services.AddSingleton<IDomainAgentDescriptor, SpendingIntelligenceAgentDescriptor>();
-        services.AddSingleton<IDomainAgentDescriptor, ObligationPlanningAgentDescriptor>();
+
+        // Spec 025 — three analytical sub-agents Simi invokes via the
+        // pf_run_insights / pf_run_forecast / pf_run_classify_review tools.
+        // Replaced the legacy pf-spending-intelligence + pf-obligation-planning
+        // sub-agents in Phase 6 (their descriptor / tool / structured-output
+        // files were deleted at the same time as this DI list shrunk).
+        services.AddSingleton<IDomainAgentDescriptor, PfInsightsAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, PfForecastAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, PfClassifyAgentDescriptor>();
 
         // ── Global Seed Contributors ────────────────────────────────────
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.PersonalFinanceSeedContributor>();

@@ -44,8 +44,6 @@ internal sealed class PersonalFinanceTools
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly IAgentConfigurationService _agentConfigurationService;
-    private readonly IDomainAgentDescriptor? _spendingIntelligenceDescriptor;
-    private readonly IDomainAgentDescriptor? _obligationPlanningDescriptor;
 
     private PersonalFinanceTools(
         IPersonalAccountService accountService,
@@ -66,9 +64,7 @@ internal sealed class PersonalFinanceTools
         ICurrentUserProvider currentUserProvider,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
-        IAgentConfigurationService agentConfigurationService,
-        IDomainAgentDescriptor? spendingIntelligenceDescriptor,
-        IDomainAgentDescriptor? obligationPlanningDescriptor)
+        IAgentConfigurationService agentConfigurationService)
     {
         _accountService = accountService;
         _transactionService = transactionService;
@@ -89,8 +85,6 @@ internal sealed class PersonalFinanceTools
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _agentConfigurationService = agentConfigurationService;
-        _spendingIntelligenceDescriptor = spendingIntelligenceDescriptor;
-        _obligationPlanningDescriptor = obligationPlanningDescriptor;
     }
 
     // ── Account Read Tools ────────────────────────────────────────
@@ -243,86 +237,104 @@ internal sealed class PersonalFinanceTools
         return await _fxRateService.GetRateHistoryAsync(baseCurrency, targetCurrency, days, cancellationToken);
     }
 
-    // ── Sub-Agent Tools ──────────────────────────────────────────
+    // ── Spec 025 Sub-Agent Tools ─────────────────────────────────
+    //
+    // Triggers that route Simi's "why / what next / clean my categories"
+    // questions to the three CodeAct-powered analytical sub-agents
+    // (Spec 025 §5). All three return schema-bound JSON Simi paraphrases
+    // before replying to the user. Mutations stay on Simi's direct surface
+    // (per-call confirmAction) — sub-agents are pure read-only by design.
+    //
+    // Descriptors are resolved from the service provider on demand instead
+    // of cached in the constructor so the constructor signature does not
+    // grow as more sub-agents are added.
 
-    [Description("Runs the internal spending-intelligence specialist and returns schema-bound analysis JSON plus the parsed structured result. Use this for reasoning-heavy questions about spending patterns, budget pressure, and where the user should focus first.")]
-    public async Task<SpendingIntelligenceAgentToolResponse> RunSpendingIntelligence(
-        [Description("The user question or planning goal that needs analysis")] string userQuestion,
-        [Description("Start of the analysis period (UTC)")] DateTime periodStart,
-        [Description("End of the analysis period (UTC)")] DateTime periodEnd,
-        [Description("Optional account ID to scope the analysis to")] Guid? personalAccountId = null,
-        [Description("Whether to include the narrative insight")] bool includeNarrative = true,
-        [Description("Whether to include snapshot-backed signals")] bool includeSnapshotSignals = true,
-        [Description("Whether to include budget pressure signals")] bool includeBudgetSignals = true,
+    [Description("Runs the internal pf-insights specialist (Spec 025 §5.1) and returns schema-bound analysis JSON for 'why / what changed / walk-and-flag / rank' questions over historical spending and commitments. Use this for reasoning-heavy questions, subscription audits, anomaly detection, and ordered lists. Prefer one specialist per Simi turn.")]
+    public async Task<InsightsAgentToolResponse> RunInsights(
+        [Description("The user's question or planning goal as a natural-language string")] string userQuestion,
+        [Description("Optional kind hint: 'explain' (why something happened), 'audit' (walk-and-flag a set), 'rank' (ordered list). Null lets the sub-agent decide based on the question.")] string? kind = null,
+        [Description("Start of the analysis period (UTC). Null defaults to the start of the current month.")] DateTime? periodStart = null,
+        [Description("End of the analysis period (UTC). Null defaults to today.")] DateTime? periodEnd = null,
+        [Description("Optional account ID to scope the analysis to a single personal account")] Guid? personalAccountId = null,
         CancellationToken cancellationToken = default)
     {
-        if (_spendingIntelligenceDescriptor is null)
-            throw new InvalidOperationException("The spending intelligence agent is not registered.");
+        var descriptor = ResolveSubAgentDescriptor("pf-insights");
+        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
 
-        var agent = await BuildStructuredSubAgentAsync(
-            _spendingIntelligenceDescriptor,
-            cancellationToken);
+        var request = new InsightsRequest(userQuestion, kind, periodStart, periodEnd, personalAccountId);
+        var message = JsonSerializer.Serialize(request, InsightsStructuredOutputContract.SerializerOptions);
 
-        var request = new SpendingIntelligenceRequest(
-            userQuestion,
-            periodStart,
-            periodEnd,
-            personalAccountId,
-            includeNarrative,
-            includeSnapshotSignals,
-            includeBudgetSignals);
-
-        var message = JsonSerializer.Serialize(request, SpendingIntelligenceStructuredOutputContract.SerializerOptions);
-        var response = await agent.RunAsync<SpendingIntelligenceResult>(
+        var response = await agent.RunAsync<InsightsResult>(
             message,
             session: null,
-            serializerOptions: SpendingIntelligenceStructuredOutputContract.SerializerOptions,
+            serializerOptions: InsightsStructuredOutputContract.SerializerOptions,
             options: null,
             cancellationToken: cancellationToken);
 
         var analysis = response.Result;
-        var analysisJson = JsonSerializer.Serialize(
-            analysis,
-            SpendingIntelligenceStructuredOutputContract.SerializerOptions);
-
-        return new SpendingIntelligenceAgentToolResponse(analysis, analysisJson);
+        var analysisJson = JsonSerializer.Serialize(analysis, InsightsStructuredOutputContract.SerializerOptions);
+        return new InsightsAgentToolResponse(analysis, analysisJson);
     }
 
-    [Description("Runs the internal obligation-planning specialist and returns schema-bound analysis for due-soon bills, recurring obligations, coverage pressure, and prioritised next steps.")]
-    public async Task<ObligationPlanningAgentToolResponse> RunObligationPlanning(
-        [Description("The user question or planning goal that needs analysis")] string userQuestion,
-        [Description("Number of days ahead to inspect for obligations (default: 30)")] int withinDays = 30,
-        [Description("Whether to include snapshot-backed coverage signals")] bool includeSnapshotSignals = true,
-        [Description("Whether to include household context if available")] bool includeHouseholdContext = true,
+    [Description("Runs the internal pf-forecast specialist (Spec 025 §5.2) and returns schema-bound projection JSON for forward-looking questions: coverage on a future date ('will rent be okay'), savings ETA ('when do I hit my goal'), and parametric what-ifs ('what if I delay the energy bill'). The sub-agent does deterministic arithmetic — prefer this over reasoning about numbers in your own head. Prefer one specialist per Simi turn.")]
+    public async Task<ForecastAgentToolResponse> RunForecast(
+        [Description("The user's question or planning goal as a natural-language string")] string userQuestion,
+        [Description("Optional reference date for the projection (UTC). Null defaults to today UTC.")] DateTime? asOfDate = null,
+        [Description("Optional projection horizon in days. Null lets the sub-agent pick (typically 30-90 days).")] int? horizonDays = null,
         CancellationToken cancellationToken = default)
     {
-        if (_obligationPlanningDescriptor is null)
-            throw new InvalidOperationException("The obligation planning agent is not registered.");
+        var descriptor = ResolveSubAgentDescriptor("pf-forecast");
+        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
 
-        var agent = await BuildStructuredSubAgentAsync(
-            _obligationPlanningDescriptor,
-            cancellationToken);
+        var request = new ForecastRequest(userQuestion, asOfDate, horizonDays);
+        var message = JsonSerializer.Serialize(request, ForecastStructuredOutputContract.SerializerOptions);
 
-        var request = new ObligationPlanningRequest(
-            userQuestion,
-            withinDays,
-            includeSnapshotSignals,
-            includeHouseholdContext);
-
-        var message = JsonSerializer.Serialize(request, ObligationPlanningStructuredOutputContract.SerializerOptions);
-        var response = await agent.RunAsync<ObligationPlanningResult>(
+        var response = await agent.RunAsync<ForecastResult>(
             message,
             session: null,
-            serializerOptions: ObligationPlanningStructuredOutputContract.SerializerOptions,
+            serializerOptions: ForecastStructuredOutputContract.SerializerOptions,
             options: null,
             cancellationToken: cancellationToken);
 
         var analysis = response.Result;
-        var analysisJson = JsonSerializer.Serialize(
-            analysis,
-            ObligationPlanningStructuredOutputContract.SerializerOptions);
+        var analysisJson = JsonSerializer.Serialize(analysis, ForecastStructuredOutputContract.SerializerOptions);
+        return new ForecastAgentToolResponse(analysis, analysisJson);
+    }
 
-        return new ObligationPlanningAgentToolResponse(analysis, analysisJson);
+    [Description("Runs the internal pf-classify specialist (Spec 025 §5.3) on the user's classification review queue and returns schema-bound proposed corrections per item, plus optional categorisation-rule recommendations where the merchant pattern is strong. The sub-agent only proposes — apply each user-accepted correction via pf_override_transaction_category and pf_create_categorisation_rule (with confirmAction). Prefer one specialist per Simi turn.")]
+    public async Task<ClassifyAgentToolResponse> RunClassifyReview(
+        [Description("The user's question or framing for the review (e.g. 'help me clean up my categories', 'what's still waiting to be classified')")] string userQuestion,
+        [Description("Max number of queue items to review in this pass (default: 25). Simi can re-invoke for further pages.")] int? maxItems = null,
+        [Description("Optional account ID to scope the queue to a single personal account")] Guid? personalAccountId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var descriptor = ResolveSubAgentDescriptor("pf-classify");
+        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+
+        var request = new ClassifyRequest(userQuestion, maxItems, personalAccountId);
+        var message = JsonSerializer.Serialize(request, ClassifyStructuredOutputContract.SerializerOptions);
+
+        var response = await agent.RunAsync<ClassifyResult>(
+            message,
+            session: null,
+            serializerOptions: ClassifyStructuredOutputContract.SerializerOptions,
+            options: null,
+            cancellationToken: cancellationToken);
+
+        var analysis = response.Result;
+        var analysisJson = JsonSerializer.Serialize(analysis, ClassifyStructuredOutputContract.SerializerOptions);
+        return new ClassifyAgentToolResponse(analysis, analysisJson);
+    }
+
+    private IDomainAgentDescriptor ResolveSubAgentDescriptor(string name)
+    {
+        var descriptor = _serviceProvider
+            .GetServices<IDomainAgentDescriptor>()
+            .FirstOrDefault(d => string.Equals(d.Name, name, StringComparison.Ordinal));
+
+        return descriptor
+            ?? throw new InvalidOperationException(
+                $"The '{name}' sub-agent descriptor is not registered in DI. Check FinanceModule.ConfigureServices.");
     }
 
     // ── Account Mutating Tools ────────────────────────────────────
@@ -952,7 +964,6 @@ internal sealed class PersonalFinanceTools
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
-        var descriptors = serviceProvider.GetServices<IDomainAgentDescriptor>();
         var tools = new PersonalFinanceTools(
             serviceProvider.GetRequiredService<IPersonalAccountService>(),
             serviceProvider.GetRequiredService<IPersonalTransactionService>(),
@@ -972,9 +983,7 @@ internal sealed class PersonalFinanceTools
             serviceProvider.GetRequiredService<ICurrentUserProvider>(),
             serviceProvider.GetRequiredService<IChatClient>(),
             serviceProvider,
-            serviceProvider.GetRequiredService<IAgentConfigurationService>(),
-            descriptors.FirstOrDefault(x => x.Name == "pf-spending-intelligence-agent"),
-            descriptors.FirstOrDefault(x => x.Name == "pf-obligation-planning-agent"));
+            serviceProvider.GetRequiredService<IAgentConfigurationService>());
 
         // Read-only — safe for autonomous use
         yield return AIFunctionFactory.Create(tools.ListAccounts, name: "pf_list_accounts");
@@ -992,8 +1001,15 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.GetMerchantHistory, name: "pf_get_merchant_history");
         yield return AIFunctionFactory.Create(tools.GetDashboard, name: "pf_get_dashboard");
         yield return AIFunctionFactory.Create(tools.GetFxRateHistory, name: "pf_get_fx_rate_history");
-        yield return AIFunctionFactory.Create(tools.RunSpendingIntelligence, name: "pf_run_spending_intelligence");
-        yield return AIFunctionFactory.Create(tools.RunObligationPlanning, name: "pf_run_obligation_planning");
+
+        // Spec 025 §5 — three sub-agent triggers replace the legacy
+        // pf_run_spending_intelligence / pf_run_obligation_planning pair.
+        // The legacy descriptors stay registered in DI but no longer appear
+        // in Simi's tool catalogue (Phase 6 removes them entirely).
+        yield return AIFunctionFactory.Create(tools.RunInsights, name: "pf_run_insights");
+        yield return AIFunctionFactory.Create(tools.RunForecast, name: "pf_run_forecast");
+        yield return AIFunctionFactory.Create(tools.RunClassifyReview, name: "pf_run_classify_review");
+
         yield return AIFunctionFactory.Create(tools.ListCommitments, name: "pf_list_commitments");
         yield return AIFunctionFactory.Create(tools.GetCommitment, name: "pf_get_commitment");
         yield return AIFunctionFactory.Create(tools.ListDetectedCommitments, name: "pf_list_detected_commitments");
@@ -1025,6 +1041,88 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.DeleteTransactionAttachment, name: "pf_delete_transaction_attachment");
         yield return AIFunctionFactory.Create(tools.CancelOrder, name: "pf_cancel_order");
     }
+
+    // ── Per-Sub-Agent Read-Only Tool Slices (Spec 025) ───────────
+    //
+    // These slices feed the three CodeAct-powered analytical sub-agents
+    // introduced in `docs/specifications/025.personal-finance-agent-split-and-codeact.html`.
+    // Each whitelist is pure read-only: mutations stay on Simi's direct
+    // surface so the existing per-call `confirmAction` flow continues to
+    // gate every change (CodeAct's whole-block approval semantics therefore
+    // never trigger inside a sub-agent sandbox).
+    //
+    // Tool definitions and `[Description]` strings remain authored once in
+    // this class — the slice methods just filter `CreateAll` by name so the
+    // sub-agent whitelists can never drift from Simi's catalogue.
+
+    private static readonly HashSet<string> InsightsSubAgentToolNames = new(StringComparer.Ordinal)
+    {
+        // Spec 025 §5.1 — explain / audit / rank.
+        "pf_get_category_breakdown",
+        "pf_get_merchant_breakdown",
+        "pf_get_account_breakdown",
+        "pf_get_merchant_history",
+        "pf_list_transactions",
+        "pf_get_transaction",
+        "pf_list_commitments",
+        "pf_get_commitment",
+        "pf_list_detected_commitments",
+        "pf_list_snapshot_history",
+        "pf_compare_snapshots",
+        "pf_get_spending_summary",
+        "pf_get_upcoming_bills",
+    };
+
+    private static readonly HashSet<string> ForecastSubAgentToolNames = new(StringComparer.Ordinal)
+    {
+        // Spec 025 §5.2 — projections / what-if / scenarios.
+        "pf_get_dashboard",
+        "pf_get_spending_summary",
+        "pf_get_upcoming_bills",
+        "pf_list_commitments",
+        "pf_list_budgets",
+        "pf_list_snapshot_history",
+        "pf_compare_snapshots",
+        "pf_get_fx_rate_history",
+    };
+
+    private static readonly HashSet<string> ClassifySubAgentToolNames = new(StringComparer.Ordinal)
+    {
+        // Spec 025 §5.3 — categorisation queue review at scale.
+        "pf_list_classification_review_queue",
+        "pf_get_transaction",
+        "pf_list_transactions",
+        "pf_get_merchant_history",
+        "pf_get_category_breakdown",
+    };
+
+    /// <summary>
+    /// Read-only tool slice for the <c>pf-insights</c> sub-agent (Spec 025 §5.1).
+    /// Composes data-fetching operations for explain/audit/rank questions over
+    /// the user's historical spending and commitments. Never exposes mutating
+    /// tools — sub-agents are read-only by design.
+    /// </summary>
+    public static IEnumerable<AITool> CreateForInsightsSubAgent(IServiceProvider serviceProvider)
+        => CreateAll(serviceProvider).Where(tool => InsightsSubAgentToolNames.Contains(tool.Name));
+
+    /// <summary>
+    /// Read-only tool slice for the <c>pf-forecast</c> sub-agent (Spec 025 §5.2).
+    /// Composes data-fetching operations for forward projections and what-if
+    /// scenarios. Never exposes mutating tools.
+    /// </summary>
+    public static IEnumerable<AITool> CreateForForecastSubAgent(IServiceProvider serviceProvider)
+        => CreateAll(serviceProvider).Where(tool => ForecastSubAgentToolNames.Contains(tool.Name));
+
+    /// <summary>
+    /// Read-only tool slice for the <c>pf-classify</c> sub-agent (Spec 025 §5.3).
+    /// Composes data-fetching operations for walking the classification review
+    /// queue and proposing per-item corrections. Never exposes mutating tools —
+    /// Simi handles the per-action `pf_override_transaction_category` and
+    /// `pf_create_categorisation_rule` calls via the existing `confirmAction`
+    /// flow after the sub-agent has surfaced proposals.
+    /// </summary>
+    public static IEnumerable<AITool> CreateForClassifySubAgent(IServiceProvider serviceProvider)
+        => CreateAll(serviceProvider).Where(tool => ClassifySubAgentToolNames.Contains(tool.Name));
 
     private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(
         IDomainAgentDescriptor descriptor,

@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 025 · Personal Finance Agent Split + CodeAct</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.framework { background: #ece4f6; color: #5e3a8c; }
+    .tag.codeact { background: #fff0d4; color: #7a5800; }
+    .tag.retire { background: #efefef; color: #555; text-decoration: line-through; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 025</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag">Domain: Finance / Agents</span>
+  <h1>Personal Finance Agent Split &amp; CodeAct Adoption</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Restructures today's monolithic <code>personal-finance-agent</code> ("Simi") into a
+    user-facing orchestrator that owns most tools directly and delegates only analytical
+    work to three CodeAct-powered sub-agents. Locks in CodeAct (via Microsoft Agent
+    Framework + Hyperlight) as the runtime for sub-agents whose work is computational
+    or loop-heavy.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#background">Background</a></li>
+    <li><a href="#orchestrators">Two-orchestrator model</a></li>
+    <li><a href="#simi-tools">Simi's direct tool surface</a></li>
+    <li><a href="#sub-agents">The three sub-agents</a></li>
+    <li><a href="#codeact">CodeAct implementation</a></li>
+    <li><a href="#retired">What gets retired</a></li>
+    <li><a href="#turn-flows">Sample turn flows</a></li>
+    <li><a href="#operations">Operational considerations</a></li>
+    <li><a href="#decisions">Decisions made &amp; rejected</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  Aonik runs <strong>two independent orchestrators</strong>: a <em>master orchestrator</em>
+  in the Admin UI that routes operator queries across domain agents, and the
+  <em>personal-finance-agent</em> ("Simi") that orchestrates the end-user experience in
+  Payabo. This spec covers only Simi.
+</p>
+
+<p>
+  Today Simi is a single ChatClientAgent with ~45 PF tools attached directly plus two
+  read-only sub-agents (<code>pf-spending-intelligence-agent</code> and
+  <code>pf-obligation-planning-agent</code>) invoked as tools. After this change:
+</p>
+
+<ul>
+  <li>
+    <strong>Simi keeps her persona and owns ~50 direct tools</strong> — every read,
+    every CRUD mutation, every display widget, plus memory and navigation. Most user
+    turns complete in 2 LLM hops (decide + reply).
+  </li>
+  <li>
+    <strong>Three new analytical sub-agents take over computational and loop-heavy work</strong>:
+    <code>pf-insights</code>, <code>pf-forecast</code>, <code>pf-classify</code>. All
+    three are <strong>read-only</strong>, <strong>CodeAct-powered</strong>, and never
+    speak to the user directly &mdash; Simi paraphrases their structured output.
+  </li>
+  <li>
+    <strong>The two existing sub-agents retire</strong>, their scope absorbed into the
+    new three.
+  </li>
+  <li>
+    <strong>CodeAct is adopted Day 1</strong> for the three new sub-agents, via the
+    <a href="https://learn.microsoft.com/en-us/agent-framework/agents/code_act?pivots=programming-language-csharp">Microsoft Agent Framework CodeAct pattern</a>
+    backed by the <a href="https://learn.microsoft.com/en-us/agent-framework/integrations/hyperlight">Hyperlight</a>
+    Python WASM sandbox.
+  </li>
+</ul>
+
+<p>
+  Mutations stay on Simi's surface with per-call <code>confirmAction</code> approval &mdash; the
+  "agents propose; systems execute" rule is preserved. CodeAct's whole-block approval
+  semantics never trigger because the sub-agents are read-only.
+</p>
+
+<h2 id="background">2. Background</h2>
+
+<h3>2.1 What we have today</h3>
+<ul>
+  <li>
+    <code>PersonalFinanceAgentDescriptor</code>
+    (<code>src/Aonik.Finance/Agents/PersonalFinanceAgentRegistration.cs</code>) &mdash;
+    Simi. AgentType <code>Orchestrator</code>, <code>RequiresUserBrief = true</code>,
+    ~45 PF tools + account-linking + memory.
+  </li>
+  <li>
+    <code>SpendingIntelligenceAgentDescriptor</code> &mdash; sub-agent, single tool,
+    returns JSON conforming to <code>spending-intelligence.v1</code> schema.
+  </li>
+  <li>
+    <code>ObligationPlanningAgentDescriptor</code> &mdash; sub-agent, single tool,
+    returns JSON conforming to <code>obligation-planning.v1</code> schema.
+  </li>
+  <li>
+    Simi invokes the sub-agents as tools via
+    <code>pf_run_spending_intelligence</code> and <code>pf_run_obligation_planning</code>.
+  </li>
+  <li>
+    All mutations are wrapped in <code>ApprovalRequiredAIFunction</code> and surface
+    via the frontend <code>confirmAction</code> tool.
+  </li>
+</ul>
+
+<h3>2.2 Problems with today's shape</h3>
+<ul>
+  <li>
+    <strong>Tool surface is too wide for one LLM call.</strong> 45+ tool schemas in a
+    single prompt hurts tool-call accuracy and inflates input tokens on every turn.
+  </li>
+  <li>
+    <strong>Analytical questions are throttled by the tool catalogue.</strong>
+    "What if I cut dining by 20% and delay rent?", "Walk all my subscriptions and flag
+    drift" &mdash; these need composition + computation that no single tool exposes.
+    The existing sub-agents punt to a single big "do everything" tool, limiting depth.
+  </li>
+  <li>
+    <strong>The mega-prompt rule.</strong> Per
+    <a href="https://web.meetcleo.com/blog/inside-cleos-multi-agent-architecture">Cleo's
+    multi-agent architecture writeup</a>, "a mega-prompt that covers everything
+    accumulates redundancy and internal conflicts." Simi's instructions today already
+    run 120+ lines. Adding new capability means re-balancing the whole prompt.
+  </li>
+</ul>
+
+<h3>2.3 What this spec does NOT change</h3>
+<ul>
+  <li>The master orchestrator in <code>Aonik.Agents.Framework</code>.</li>
+  <li>The B2B <code>finance-agent</code>, <code>financial-life-graph-agent</code>, <code>platform-agent</code>.</li>
+  <li>The <code>ApprovalRequiredAIFunction</code> mechanism or the frontend <code>confirmAction</code> contract.</li>
+  <li>The User Brief injection pipeline.</li>
+  <li>The <code>CustomerInsightSnapshot</code> / <code>CustomerInsightAiSummary</code> background pipeline.</li>
+</ul>
+
+<h2 id="orchestrators">3. Two-orchestrator model</h2>
+
+<div class="ascii-diagram">master-orchestrator                          (Admin UI &middot; operator surface)
+├── finance-agent                            (B2B ledger, invoicing)
+├── platform-agent                           (tenants, identity, ops)
+├── financial-life-graph-agent               (schema discovery, traversal)
+└── personal-finance-agent  "Simi"           ← PF orchestrator (END USER surface)
+    │
+    ├── (Simi's ~50 direct tools — see §4)
+    │
+    └── 3 CodeAct sub-agents — all read-only, all analytical:
+        ├── pf-insights        (why / explain / audit)
+        ├── pf-forecast        (projections / what-if / scenarios)
+        └── pf-classify        (queue review at scale)</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Orchestrator</th>
+      <th>Audience</th>
+      <th>Calls</th>
+      <th>Persona</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>master-orchestrator</code></td>
+      <td>Operators in Admin UI</td>
+      <td>Cross-domain agents (finance, platform, FLG, personal-finance)</td>
+      <td>Neutral, internal</td>
+    </tr>
+    <tr>
+      <td><code>personal-finance-agent</code> (Simi)</td>
+      <td>End users in Payabo</td>
+      <td>Her own tools + 3 sub-agents</td>
+      <td>Warm, calm, conversational ("Simi" voice)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The two orchestrators are entirely independent agents &mdash; they don't share an LLM loop.
+  The master orchestrator treats Simi as one of several agent-tools, exactly as today.
+</p>
+
+<h2 id="simi-tools">4. Simi's direct tool surface</h2>
+
+<p>
+  Simi handles every read, every CRUD mutation, every display, and all cross-cutting
+  tools herself. She delegates <strong>only</strong> when the work needs analytical depth
+  (insights, forecast, classify queue). For everything else she just calls a tool.
+</p>
+
+<h3>4.1 Reads <span class="tag read">read</span></h3>
+
+<table>
+  <thead><tr><th>Domain</th><th>Tools</th></tr></thead>
+  <tbody>
+    <tr><td>Accounts</td><td><code>pf_list_accounts</code>, <code>pf_get_account</code></td></tr>
+    <tr><td>Linked accounts</td><td><code>pf_list_linked_accounts</code>, <code>pf_get_account_link_summary</code></td></tr>
+    <tr><td>Transactions</td><td><code>pf_list_transactions</code>, <code>pf_get_transaction</code></td></tr>
+    <tr><td>Bills</td><td><code>pf_list_bills</code>, <code>pf_get_bill</code>, <code>pf_get_upcoming_bills</code></td></tr>
+    <tr><td>Commitments</td><td><code>pf_list_commitments</code>, <code>pf_get_commitment</code>, <code>pf_list_detected_commitments</code></td></tr>
+    <tr><td>Budgets</td><td><code>pf_list_budgets</code></td></tr>
+    <tr><td>Spending (single-shot)</td><td><code>pf_get_spending_summary</code>, <code>pf_get_category_breakdown</code>, <code>pf_get_merchant_breakdown</code>, <code>pf_get_account_breakdown</code>, <code>pf_get_merchant_history</code>, <code>pf_get_dashboard</code></td></tr>
+    <tr><td>FX</td><td><code>pf_get_fx_rate_history</code></td></tr>
+    <tr><td>Snapshots (single-shot)</td><td><code>pf_list_snapshot_history</code>, <code>pf_compare_snapshots</code></td></tr>
+    <tr><td>Orders</td><td><code>pf_list_orders</code>, <code>pf_get_order</code></td></tr>
+    <tr><td>Imports</td><td><code>pf_list_statement_imports</code>, <code>pf_list_statement_import_rows</code></td></tr>
+    <tr><td>Attachments</td><td><code>pf_list_transaction_attachments</code></td></tr>
+    <tr><td>Classification queue (listing only)</td><td><code>pf_list_classification_review_queue</code></td></tr>
+  </tbody>
+</table>
+
+<p style="font-size: 13.5px; color: var(--muted); margin-top: -4px;">
+  22 read tools. Reads stay direct on Simi because each is a one-shot lookup that
+  produces a user-facing answer without composition.
+</p>
+
+<h3>4.2 Mutations <span class="tag mutate">mutate</span></h3>
+
+<p>
+  Every mutation tool is wrapped in <code>ApprovalRequiredAIFunction</code> and triggers
+  the <code>confirmAction</code> approval flow before execution. The wrapping is at tool
+  registration time; Simi simply calls the tool, and the framework holds execution
+  pending user approval.
+</p>
+
+<table>
+  <thead><tr><th>Domain</th><th>Tools</th></tr></thead>
+  <tbody>
+    <tr><td>Accounts</td><td><code>pf_create_account</code>, <code>pf_archive_account</code></td></tr>
+    <tr><td>Transactions</td><td><code>pf_create_transaction</code></td></tr>
+    <tr><td>Bills</td><td><code>pf_create_bill</code>, <code>pf_update_bill</code>, <code>pf_archive_bill</code></td></tr>
+    <tr><td>Commitments</td><td><code>pf_create_commitment_from_transaction</code>, <code>pf_confirm_commitment</code>, <code>pf_reject_commitment</code></td></tr>
+    <tr><td>Budgets</td><td><code>pf_create_budget</code>, <code>pf_update_budget_amount</code>, <code>pf_delete_budget</code></td></tr>
+    <tr><td>Classification</td><td><code>pf_override_transaction_category</code>, <code>pf_create_categorisation_rule</code></td></tr>
+    <tr><td>Imports</td><td><code>pf_apply_statement_import</code></td></tr>
+    <tr><td>Attachments</td><td><code>pf_delete_transaction_attachment</code></td></tr>
+    <tr><td>Linked accounts</td><td><code>pf_create_account_link_session</code>, <code>pf_refresh_linked_account</code>, <code>pf_sync_linked_account_transactions</code>, <code>pf_disconnect_linked_account</code></td></tr>
+    <tr><td>Orders</td><td><code>pf_cancel_order</code></td></tr>
+  </tbody>
+</table>
+
+<p style="font-size: 13.5px; color: var(--muted); margin-top: -4px;">19 mutation tools.</p>
+
+<h3>4.3 Cross-cutting (Simi only) <span class="tag framework">framework</span></h3>
+
+<table>
+  <thead><tr><th>Group</th><th>Tools</th></tr></thead>
+  <tbody>
+    <tr><td>Approval &amp; memory</td><td><code>confirmAction</code>, <code>user_memory_save</code>, <code>user_memory_recall</code></td></tr>
+    <tr><td>Navigation</td><td><code>navigate_to_screen</code></td></tr>
+    <tr><td>Displays</td><td><code>display_budget_breakdown</code>, <code>display_spending_pie_chart</code>, <code>display_fx_rate_chart</code>, <code>display_autopilot_proposal</code>, <code>display_follow_up_suggestions</code>, <code>display_option_selector</code></td></tr>
+  </tbody>
+</table>
+
+<h3>4.4 Sub-agent invocations <span class="tag codeact">codeact</span></h3>
+
+<table>
+  <thead><tr><th>Tool</th><th>Calls</th><th>When Simi uses it</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>pf_run_insights</code></td>
+      <td><code>pf-insights</code></td>
+      <td>"Why is X happening", trend explanations, subscription audits, anomaly detection</td>
+    </tr>
+    <tr>
+      <td><code>pf_run_forecast</code></td>
+      <td><code>pf-forecast</code></td>
+      <td>"Will I be okay", what-ifs, savings ETAs, coverage projections</td>
+    </tr>
+    <tr>
+      <td><code>pf_run_classify_review</code></td>
+      <td><code>pf-classify</code></td>
+      <td>"Fix my categorisation" workflow when the queue has non-trivial size</td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="margin-top: 8px;">
+  <strong>Total Simi tool surface:</strong> 22 reads + 19 mutations + 9 cross-cutting + 3
+  sub-agent triggers = <strong>~53 tools</strong>. Larger than ideal cosmetically, but
+  each is a single concept Simi understands well, and most turns touch only 1&ndash;2.
+</p>
+
+<h2 id="sub-agents">5. The three sub-agents</h2>
+
+<p>
+  All three sub-agents follow the same shape: invoked by Simi via a tool, run inside a
+  Hyperlight Python sandbox with a narrow whitelist of host tools accessed through
+  <code>call_tool(...)</code>, return structured-data-plus-narrative back to Simi, never
+  speak to the user directly, never mutate anything. Simi paraphrases their output for
+  the user.
+</p>
+
+<h3 id="sub-insights">5.1 <code>pf-insights</code> &mdash; explain what happened</h3>
+
+<table>
+  <tbody>
+    <tr><th>Replaces</th><td>Today's <code>pf-spending-intelligence-agent</code> + portions of <code>pf-obligation-planning-agent</code>. Their separate schemas merge into the insights output contract.</td></tr>
+    <tr><th>Purpose</th><td>Answer "why" / "what does this mean" questions over the user's historical data.</td></tr>
+    <tr><th>Typical questions</th><td>"Why was last month tight?" &middot; "Walk my subscriptions and flag drift" &middot; "Which upcoming bills matter most?" &middot; "What changed about my spending recently?"</td></tr>
+    <tr><th>CodeAct fit</th><td><strong>Strong.</strong> Loop over N items + per-item lookup + ranking. Currently awkward as a 10&ndash;20 step tool loop; natural as one script execution.</td></tr>
+    <tr><th>Host tools (read-only)</th><td>All <code>pf_get_*_breakdown</code>, <code>pf_get_merchant_history</code>, <code>pf_list_transactions</code>, <code>pf_get_transaction</code>, <code>pf_list_commitments</code>, <code>pf_get_commitment</code>, <code>pf_list_detected_commitments</code>, <code>pf_list_snapshot_history</code>, <code>pf_compare_snapshots</code>, <code>pf_get_spending_summary</code>, <code>pf_get_upcoming_bills</code></td></tr>
+    <tr><th>Approval</th><td>None &mdash; read-only.</td></tr>
+  </tbody>
+</table>
+
+<h4>Output contract</h4>
+<pre><code>{
+  "kind": "explain" | "audit" | "rank",
+  "summary": "1-2 sentence narrative for Simi to paraphrase",
+  "metrics": { /* supporting numbers, keys depend on kind */ },
+  "entities": [
+    { "ref": "txn:abc", "label": "Honest Burgers · £14.50 · 12 Apr" }
+  ],
+  "recommended_actions": [
+    {
+      "label": "Cancel that subscription",
+      "simi_tool": "pf_archive_bill",
+      "args_hint": { "billId": "..." }
+    }
+  ]
+}</code></pre>
+
+<h3 id="sub-forecast">5.2 <code>pf-forecast</code> &mdash; model what happens next</h3>
+
+<table>
+  <tbody>
+    <tr><th>Replaces</th><td>Forward-looking portions of today's <code>pf-obligation-planning-agent</code>. New capability for what-if simulations.</td></tr>
+    <tr><th>Purpose</th><td>Forward projections and parametric simulations the model couldn't reliably do in its own head.</td></tr>
+    <tr><th>Typical questions</th><td>"Will rent be covered on the 30th?" &middot; "If I save £200/mo, when do I hit my emergency fund target?" &middot; "What if Vodafone goes up 5% and I delay the energy bill?"</td></tr>
+    <tr><th>CodeAct fit</th><td><strong>Strongest of the three.</strong> Parametric arithmetic across multi-source data. The LLM is unreliable at multi-variable math; Python is exact. Without CodeAct, this whole capability is hard to deliver.</td></tr>
+    <tr><th>Host tools (read-only)</th><td><code>pf_get_dashboard</code>, <code>pf_get_spending_summary</code>, <code>pf_get_upcoming_bills</code>, <code>pf_list_commitments</code>, <code>pf_list_budgets</code>, <code>pf_list_snapshot_history</code>, <code>pf_compare_snapshots</code>, <code>pf_get_fx_rate_history</code></td></tr>
+    <tr><th>Approval</th><td>None &mdash; read-only.</td></tr>
+  </tbody>
+</table>
+
+<h4>Output contract</h4>
+<pre><code>{
+  "scenario": "Rent coverage on 30 April",
+  "result": {
+    "verdict": "short" | "covered" | "tight",
+    "amount": -120.00,
+    "currency": "GBP"
+  },
+  "assumptions": [
+    "Income on 25th matches last three months",
+    "No new discretionary spend until rent"
+  ],
+  "breakdown": [
+    { "label": "Projected income", "amount": 2150.00 },
+    { "label": "Committed bills", "amount": -1980.00 },
+    { "label": "Run-rate discretionary", "amount": -290.00 }
+  ],
+  "options": [
+    {
+      "label": "Move energy bill to next month",
+      "delta": 85.00,
+      "simi_tool": "pf_update_bill",
+      "args_hint": { "billId": "...", "field": "dueDate" }
+    }
+  ]
+}</code></pre>
+
+<h3 id="sub-classify">5.3 <code>pf-classify</code> &mdash; review the categorisation queue</h3>
+
+<table>
+  <tbody>
+    <tr><th>Replaces</th><td>Nothing &mdash; new capability. The queue exists today but there is no agent that does the per-item analysis at scale.</td></tr>
+    <tr><th>Purpose</th><td>Walk the classification review queue, suggest a category for each item, and propose categorisation rules where the pattern is strong.</td></tr>
+    <tr><th>Typical questions</th><td>"Help me clean up my categories" &middot; "What's still waiting to be classified?" &middot; "Suggest rules for my regular shops"</td></tr>
+    <tr><th>CodeAct fit</th><td><strong>Strong.</strong> Loop over N items + per-item analysis + ranking. Without CodeAct this is N&times;5 = 50+ sequential tool calls per queue review.</td></tr>
+    <tr><th>Host tools (read-only)</th><td><code>pf_list_classification_review_queue</code>, <code>pf_get_transaction</code>, <code>pf_list_transactions</code>, <code>pf_get_merchant_history</code>, <code>pf_get_category_breakdown</code></td></tr>
+    <tr><th>Approval</th><td>None for the analysis. Simi handles individual <code>pf_override_transaction_category</code> and <code>pf_create_categorisation_rule</code> calls with per-action <code>confirmAction</code> based on the user's selection from the proposed corrections.</td></tr>
+  </tbody>
+</table>
+
+<h4>Output contract</h4>
+<pre><code>{
+  "summary": "12 items reviewed: 9 confident reclassifications, 3 need your input.",
+  "proposed_corrections": [
+    {
+      "txn_ref": "txn:abc",
+      "label": "Honest Burgers · £14.50 · 12 Apr",
+      "current_category": null,
+      "suggestions": [
+        { "category": "Dining", "confidence": 0.95 },
+        { "category": "Groceries", "confidence": 0.04 }
+      ],
+      "rule_recommended": {
+        "match": "merchant_name == 'Honest Burgers'",
+        "category": "Dining"
+      }
+    }
+  ]
+}</code></pre>
+
+<h2 id="codeact">6. CodeAct implementation</h2>
+
+<p>
+  Microsoft Agent Framework's CodeAct lets an agent "solve a task by writing code and
+  executing it through an <code>execute_code</code> tool" instead of issuing one tool
+  call at a time. The plan runs once inside a sandbox, the tools stay the same. For
+  tool-heavy workloads this materially reduces latency and tokens (see the
+  <a href="https://github.com/microsoft/agent-framework/blob/main/python/packages/hyperlight/samples/codeact_benchmark.py">Hyperlight
+  benchmark sample</a>).
+</p>
+
+<p>
+  All three Aonik sub-agents adopt this pattern from Day 1 via the
+  <a href="https://learn.microsoft.com/en-us/agent-framework/integrations/hyperlight">Hyperlight
+  CodeAct connector</a>. The .NET docs for CodeAct were "coming soon" at the time of
+  writing &mdash; we lean on the
+  <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct">C# samples</a>
+  as the leading-edge reference.
+</p>
+
+<h3>6.1 Why CodeAct here</h3>
+<ul>
+  <li>
+    <strong>Loop + per-item analysis</strong>: <code>pf-classify</code> walks a queue
+    of N items and scores candidates for each. With CodeAct this is one Python loop,
+    one model hop, one audit row. Without it, the model issues N&times;K tool calls
+    sequentially.
+  </li>
+  <li>
+    <strong>Parametric arithmetic</strong>: <code>pf-forecast</code> computes
+    scenarios that involve multi-variable math. The LLM is unreliable at this; Python
+    is exact. There is no tool surface design that would let us deliver this feature
+    cleanly without code execution.
+  </li>
+  <li>
+    <strong>Dynamic composition</strong>: <code>pf-insights</code> needs to fetch +
+    transform + rank in patterns we don't know in advance. CodeAct lets the model
+    write the query rather than us pre-baking every analysis shape.
+  </li>
+</ul>
+
+<h3>6.2 Why CodeAct is safe here (the whole-block approval issue)</h3>
+
+<p>
+  Microsoft's docs warn: "Approvals currently apply to the <code>execute_code</code>
+  call as a whole. If you need individual operations to be approved one by one, keep
+  those operations as direct agent tools instead of relying on <code>call_tool(...)</code>."
+</p>
+
+<div class="callout">
+  <span class="callout-label">Design</span>
+  All three Aonik sub-agents expose <strong>only read-only host tools via
+  <code>call_tool</code></strong>. No mutating tool ever appears in a sub-agent's
+  sandbox whitelist. The whole-block approval semantics therefore never trigger.
+  Mutations stay on Simi's direct surface where per-call <code>confirmAction</code>
+  applies as today &mdash; "agents propose; systems execute" is preserved.
+</div>
+
+<h3>6.3 Wiring (per sub-agent)</h3>
+
+<p>
+  Each sub-agent's <code>IDomainAgentDescriptor</code> implementation builds a
+  <code>ChatClientAgent</code> with a <code>HyperlightCodeActProvider</code> registered
+  as an <code>AIContextProvider</code>. The provider is constructed with that
+  sub-agent's narrow tool whitelist via
+  <code>HyperlightCodeActProviderOptions.Tools</code>. No tool surface is shared
+  across sub-agents.
+</p>
+
+<p>
+  Pattern (sketch &mdash; not for direct copy):
+</p>
+
+<pre><code>using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hyperlight;
+using Microsoft.Extensions.AI;
+
+// Per-sub-agent: build a Hyperlight provider with its read-only host tools.
+var options = HyperlightCodeActProviderOptions.CreateForWasm(guestPath);
+options.Tools = [
+    AIFunctionFactory.Create(tools.GetCategoryBreakdown, name: "pf_get_category_breakdown"),
+    AIFunctionFactory.Create(tools.GetMerchantHistory,   name: "pf_get_merchant_history"),
+    // ... read-only host tools only ...
+];
+using var codeAct = new HyperlightCodeActProvider(options);
+
+var agent = chatClient.AsAIAgent(new ChatClientAgentOptions {
+    ChatOptions = new() { Instructions = subAgentInstructions },
+    AIContextProviders = [codeAct],
+});</code></pre>
+
+<p>
+  This is the <em>Step 02</em> shape from the
+  <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct">official
+  samples</a>. We do not use <code>HyperlightExecuteCodeFunction</code> directly
+  (Step 03), because the per-run snapshot semantics of the provider are useful for
+  per-tenant tool whitelisting later.
+</p>
+
+<h3>6.4 Reference sample mapping</h3>
+
+<table>
+  <thead><tr><th>Sample</th><th>Shape</th><th>Relevance to us</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step01_Interpreter">Step 01 &mdash; Interpreter</a></td>
+      <td>Sandbox with no host tools; pure Python execution.</td>
+      <td>Reference only. We always expose host tools.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step02_ToolEnabled">Step 02 &mdash; Tool-enabled</a></td>
+      <td><code>HyperlightCodeActProvider</code> with host tools registered via <code>options.Tools</code>; <code>call_tool(...)</code> from inside Python.</td>
+      <td><strong>The pattern we adopt.</strong> Per-sub-agent whitelist; read-only only.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step03_ManualWiring">Step 03 &mdash; Manual wiring</a></td>
+      <td><code>HyperlightExecuteCodeFunction</code> directly as a tool, fixed surface for the agent's lifetime.</td>
+      <td>Considered and rejected for v1; provider gives us per-run snapshot flexibility we may want later.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="retired">7. What gets retired</h2>
+
+<table>
+  <thead><tr><th>Today</th><th>Status</th><th>Replacement</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>SpendingIntelligenceAgentDescriptor</code></td>
+      <td><span class="tag retire">retire</span></td>
+      <td>Scope absorbed by <code>pf-insights</code></td>
+    </tr>
+    <tr>
+      <td><code>ObligationPlanningAgentDescriptor</code></td>
+      <td><span class="tag retire">retire</span></td>
+      <td>Audit scope &rarr; <code>pf-insights</code>; coverage projection scope &rarr; <code>pf-forecast</code></td>
+    </tr>
+    <tr>
+      <td><code>SpendingIntelligenceTools.cs</code></td>
+      <td><span class="tag retire">retire</span></td>
+      <td>Not needed &mdash; the new sub-agent composes from Simi's existing read tools via <code>call_tool</code></td>
+    </tr>
+    <tr>
+      <td><code>ObligationPlanningTools.cs</code></td>
+      <td><span class="tag retire">retire</span></td>
+      <td>Same as above</td>
+    </tr>
+    <tr>
+      <td><code>spending-intelligence.v1</code> + <code>obligation-planning.v1</code> output schemas</td>
+      <td><span class="tag retire">retire</span></td>
+      <td>Replaced by the insights + forecast schemas defined in §5</td>
+    </tr>
+    <tr>
+      <td><code>pf_run_spending_intelligence</code> tool</td>
+      <td><span class="tag retire">retire</span></td>
+      <td><code>pf_run_insights</code></td>
+    </tr>
+    <tr>
+      <td><code>pf_run_obligation_planning</code> tool</td>
+      <td><span class="tag retire">retire</span></td>
+      <td><code>pf_run_insights</code> for audit questions, <code>pf_run_forecast</code> for coverage</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="turn-flows">8. Sample turn flows</h2>
+
+<h3>Turn: "What's my current balance?"</h3>
+<pre><code>Simi LLM (decide + reply)
+  └─ pf_get_dashboard  →  reply
+Total: 1 LLM hop. 1 tool call. No sub-agent.</code></pre>
+
+<h3>Turn: "Pay my Vodafone bill of £45"</h3>
+<pre><code>Simi LLM
+  ├─ pf_list_bills              (find the bill)
+  ├─ confirmAction              "Pay £45 to Vodafone from current account?"
+  │     └─ user approves
+  └─ pf_update_bill or pf_cancel_order (depending on flow) → reply
+Total: 1 LLM hop. No sub-agent. Per-call confirmAction as today.</code></pre>
+
+<h3>Turn: "Why was last month tight?"</h3>
+<pre><code>Simi LLM
+  └─ pf_run_insights
+        ↓
+        pf-insights (Hyperlight sandbox)
+          execute_code(Python):
+            cat = call_tool('pf_get_category_breakdown', period='2026-03')
+            prev = call_tool('pf_get_category_breakdown', period='2026-02')
+            merchants = call_tool('pf_get_merchant_breakdown', period='2026-03')
+            # rank drivers, build summary
+            return { kind: 'explain', summary: ..., ... }
+        ↑
+Simi LLM (paraphrase the structured output) → reply
+Total: 2 LLM hops on the critical path. Multiple tool calls in 1 execute_code.</code></pre>
+
+<h3>Turn: "Will I be okay for rent on the 30th?"</h3>
+<pre><code>Simi LLM
+  └─ pf_run_forecast
+        ↓
+        pf-forecast (Hyperlight sandbox)
+          execute_code(Python): compute projected income vs obligations
+          return { scenario, result: 'short -£120', options: [...] }
+        ↑
+Simi LLM (paraphrase + display_option_selector with the 3 moves) → reply
+Total: 2 LLM hops. Forecast computation runs once in the sandbox.</code></pre>
+
+<h3>Turn: "Help me clean up my categories"</h3>
+<pre><code>Simi LLM
+  └─ pf_run_classify_review
+        ↓
+        pf-classify (Hyperlight sandbox)
+          execute_code(Python): walk queue, score per item, return proposals
+        ↑
+Simi LLM (presents top ambiguous items via display_option_selector) → reply
+
+(Subsequent turn after user picks)
+Simi LLM
+  ├─ confirmAction       "Reclassify Honest Burgers as Dining?"
+  │     └─ user approves
+  └─ pf_override_transaction_category → reply
+Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
+
+<h2 id="operations">9. Operational considerations</h2>
+
+<h3>9.1 Deployment additions</h3>
+
+<table>
+  <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td>NuGet package</td><td><code>Microsoft.Agents.AI.Hyperlight</code> referenced from <code>Aonik.Finance</code> (where the sub-agent descriptors live)</td></tr>
+    <tr><td>Build artifact</td><td>Hyperlight Python guest WASM module &mdash; built once per release, shipped alongside the API container and the Worker container</td></tr>
+    <tr><td>Environment variable</td><td><code>HYPERLIGHT_PYTHON_GUEST_PATH</code> wired into both API and Worker container env</td></tr>
+    <tr><td>Deployment validations</td><td>(a) guest binary present at expected path; (b) sandbox boots on the runtime (smoke test); (c) <code>call_tool</code> round-trip works for at least one read tool per sub-agent</td></tr>
+    <tr><td>Network &amp; FS posture</td><td>All sandboxes denied outbound network and filesystem access. All data flows through <code>call_tool</code> to host tools &mdash; the sandbox itself has nothing to leak.</td></tr>
+  </tbody>
+</table>
+
+<h3>9.2 Observability</h3>
+<ul>
+  <li>One <code>AiRun</code> record per <code>execute_code</code> invocation, with inner <code>call_tool</code> invocations recorded as child events linked to the parent. This is new schema work &mdash; see <a href="#open">§11</a>.</li>
+  <li>Per-sub-agent script source + tool-call trace stored on the <code>AiRun</code> record, surfaced in the existing trace explorer (App Insights pipeline). Sandbox stdout (<code>print</code>) optionally captured at the <code>execute_code</code> boundary for debugging.</li>
+  <li>Per-sub-agent model selection via route policy / task profile resolver (existing mechanism) &mdash; verify this still works when the agent is a CodeAct-backed <code>ChatClientAgent</code>.</li>
+</ul>
+
+<h3>9.3 Cost &amp; latency expectations</h3>
+<ul>
+  <li>
+    <strong>Trivial reads:</strong> Simi handles directly. 1 LLM hop. Should be the
+    fast majority of turns.
+  </li>
+  <li>
+    <strong>Mutation flows:</strong> Simi calls tool, framework prompts for approval,
+    user approves, tool executes. 1 LLM hop + UI round trip for approval. Same as today.
+  </li>
+  <li>
+    <strong>Analytical turns (sub-agent invoked):</strong> 2 LLM hops on the critical
+    path (Simi decide + Simi paraphrase), plus 1 hop inside the sub-agent for the
+    <code>execute_code</code> generation. Sub-agent's <em>inner</em> tool calls
+    collapse from N sequential LLM hops to 1 script execution &mdash; this is the
+    primary CodeAct win.
+  </li>
+  <li>
+    <strong>Worst case</strong> (sub-agent + multiple Simi tool calls in the same
+    turn): 3 LLM hops. Comparable to today's sub-agent flow (Simi &rarr; sub-agent &rarr;
+    Simi summary).
+  </li>
+</ul>
+
+<h2 id="decisions">10. Decisions made (and the alternatives we rejected)</h2>
+
+<table>
+  <thead><tr><th>Decision</th><th>Rejected alternative</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Simi keeps her persona; sub-agents are voice-less workers.</td>
+      <td>Cleo-style: N user-facing specialists, each carrying the Simi voice, with a thin router.</td>
+      <td>Single point of persona evolution. Easier to keep voice consistent. Cost is one extra LLM hop per analytical turn (paraphrase) &mdash; acceptable.</td>
+    </tr>
+    <tr>
+      <td>No <code>select_new_agent</code> peer handoff.</td>
+      <td>Cleo-style mid-conversation handoff between specialists.</td>
+      <td>Doesn't apply &mdash; sub-agents aren't peers, they're tools. Simi is the only re-dispatcher.</td>
+    </tr>
+    <tr>
+      <td>Always paraphrase sub-agent output through Simi.</td>
+      <td>Pass-through-when-safe (Simi forwards verbatim drafts the sub-agent wrote in Simi's voice).</td>
+      <td>Latency savings illusory (Simi still reads to judge); complexity cost real (voice rules duplicated across sub-agents, audit gets a new field).</td>
+    </tr>
+    <tr>
+      <td>Sub-agents are read-only; mutations stay on Simi.</td>
+      <td>Sub-agents own full mutation lifecycle including <code>ApprovalRequiredAIFunction</code> propagation.</td>
+      <td>Cleanly preserves per-call <code>confirmAction</code>. Avoids reopening the nested-approval guard in <code>MasterOrchestratorService</code>. CodeAct's whole-block approval never triggers.</td>
+    </tr>
+    <tr>
+      <td>3 sub-agents, all CodeAct.</td>
+      <td>7 narrow conversational specialists (one per user-question domain).</td>
+      <td>3 is the smallest set that earns its keep. Lifecycle / CRUD work doesn't benefit from sub-agent depth &mdash; Simi handles it directly.</td>
+    </tr>
+    <tr>
+      <td>CodeAct on Day 1 for all 3 sub-agents.</td>
+      <td>Phase 1 conventional tool-loop, Phase 2 convert to CodeAct.</td>
+      <td>Each sub-agent's core workload (loops, parametric math, queue analysis) is exactly what CodeAct is for. Building them conventionally then converting is more work, not less.</td>
+    </tr>
+    <tr>
+      <td>Hyperlight provider (Step 02 sample shape).</td>
+      <td><code>HyperlightExecuteCodeFunction</code> direct wiring (Step 03).</td>
+      <td>Provider gives per-run snapshot semantics &mdash; useful for future per-tenant tool whitelisting.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="open">11. Open decisions</h2>
+
+<div class="callout open">
+  <span class="callout-label">Open · 11.1</span>
+  <strong>Unified insights output schema.</strong> Collapsing two existing schemas
+  (<code>spending-intelligence.v1</code> + <code>obligation-planning.v1</code>) into one
+  needs a unified shape that covers "explain", "audit", and "rank" without becoming
+  a kitchen-sink type. Suggested shape sketched in §5.1; needs a schema-first design
+  pass before implementation.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · 11.2</span>
+  <strong>Forecast output schema.</strong> New territory. Suggested shape in §5.2;
+  needs review with the front-end team since the <code>options[]</code> array drives
+  <code>display_option_selector</code> labels in Simi's reply.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · 11.3</span>
+  <strong>AiRun child events for CodeAct.</strong> Need a new audit-record shape for
+  <code>execute_code</code> runs: parent <code>AiRun</code> + N child entries (one
+  per inner <code>call_tool</code>) so the trace explorer can show what the script
+  actually did. Tactical schema add to <code>AonikDbContext</code> via the canonical
+  migration stream.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · 11.4</span>
+  <strong>Sub-agent invocation limits per Simi turn.</strong> Should Simi ever invoke
+  2+ sub-agents in one turn? "How am I doing overall" plausibly wants
+  <code>pf-insights</code> + <code>pf-forecast</code>. <strong>Simplest v1:</strong> one
+  sub-agent per turn; revisit if user data shows we need cross-sub-agent synthesis.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · 11.5</span>
+  <strong>Hyperlight guest module CI.</strong> Where does the Python WASM guest get
+  built? The sample uses a pre-built guest. We'd want it built reproducibly in CI
+  alongside the API container &mdash; needs ops design before the first sub-agent ships.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · 11.6</span>
+  <strong>Per-sub-agent model.</strong> Forecast probably wants the most capable
+  model (math reasoning); classify can run lighter; insights somewhere between. Confirm
+  the existing route-policy / task-profile resolver supports per-sub-agent model
+  overrides, or extend it.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · 11.7</span>
+  <strong>UserBrief injection on sub-agents.</strong> Today Simi has
+  <code>RequiresUserBrief = true</code>. Should sub-agents also receive the brief, or
+  do they pull what they need from their own tools? Default proposal: sub-agents
+  pull from tools; they get the user/tenant context they need from the host tool
+  bindings, not from a brief injection.
+</div>
+
+<h2 id="refs">12. References</h2>
+
+<h3>Microsoft Agent Framework &middot; CodeAct</h3>
+<ul>
+  <li>
+    <a href="https://learn.microsoft.com/en-us/agent-framework/agents/code_act?pivots=programming-language-csharp">CodeAct
+    overview (Microsoft Learn, C# pivot)</a> &mdash; what CodeAct is, when to use it,
+    when to stay with direct tool calling, and the current limitations.
+  </li>
+  <li>
+    <a href="https://learn.microsoft.com/en-us/agent-framework/integrations/hyperlight">Hyperlight
+    CodeAct integration</a> &mdash; the connector our sub-agents use.
+  </li>
+  <li>
+    <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct">AgentWithCodeAct
+    C# samples (microsoft/agent-framework on GitHub)</a> &mdash; the leading-edge
+    .NET reference until the official .NET docs land.
+    <ul>
+      <li>
+        <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step01_Interpreter">Step 01 &middot; Interpreter</a>
+        &mdash; pure sandboxed Python, no host tools.
+      </li>
+      <li>
+        <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step02_ToolEnabled">Step 02 &middot; Tool-enabled</a>
+        &mdash; <strong>the pattern this spec adopts</strong>. Provider with
+        <code>options.Tools</code> whitelist; <code>call_tool(...)</code> from inside
+        Python.
+      </li>
+      <li>
+        <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step03_ManualWiring">Step 03 &middot; Manual wiring</a>
+        &mdash; direct <code>HyperlightExecuteCodeFunction</code> as a tool.
+        Considered, not adopted (see §10).
+      </li>
+    </ul>
+  </li>
+  <li>
+    <a href="https://github.com/microsoft/agent-framework/blob/main/python/packages/hyperlight/samples/codeact_benchmark.py">Hyperlight
+    benchmark sample</a> &mdash; latency/token comparison between direct tool calling
+    and CodeAct on tool-heavy workloads.
+  </li>
+</ul>
+
+<h3>Comparable architectures</h3>
+<ul>
+  <li>
+    <a href="https://web.meetcleo.com/blog/inside-cleos-multi-agent-architecture">Inside
+    Cleo's multi-agent architecture</a> &mdash; informed parts of the design
+    (specialists, narrow tool sets, per-agent model rollout). We diverged on persona
+    location and on whether specialists own the user reply path (see §10).
+  </li>
+</ul>
+
+<h3>Related Aonik specs</h3>
+<ul>
+  <li><code>docs/specifications/015.personal-finance-customer-insight-pipeline.md</code> &mdash; the background analysis pipeline (<code>CustomerInsightSnapshot</code> + <code>CustomerInsightAiSummary</code>) that Simi's <code>UserBrief</code> draws from.</li>
+  <li><code>docs/specifications/018.personal-finance-agent-capability-gap-matrix.md</code> &mdash; capability inventory that motivated the split.</li>
+  <li><code>docs/specifications/019.personal-finance-commitments.md</code> &mdash; commitments domain consumed by <code>pf-insights</code>.</li>
+  <li><code>docs/specifications/023.server-side-ai-tool-approval.md</code> &mdash; the <code>ApprovalRequiredAIFunction</code> + <code>confirmAction</code> contract preserved by this design.</li>
+</ul>
+
+<h3>Code references (as of this spec)</h3>
+<ul>
+  <li><code>src/Aonik.Finance/Agents/PersonalFinanceAgentRegistration.cs</code> &mdash; current Simi descriptor (to be refactored).</li>
+  <li><code>src/Aonik.Finance/Agents/SpendingIntelligenceAgentRegistration.cs</code> &mdash; to be retired (§7).</li>
+  <li><code>src/Aonik.Finance/Agents/ObligationPlanningAgentRegistration.cs</code> &mdash; to be retired (§7).</li>
+  <li><code>src/Aonik.Finance/Agents/Tools/PersonalFinanceTools.cs</code> &mdash; Simi's tool factory (to be split into Simi-direct and per-sub-agent factories).</li>
+  <li><code>src/Aonik.SharedKernel/Abstractions/Agents/IDomainAgentDescriptor.cs</code> &mdash; descriptor interface (unchanged).</li>
+  <li><code>src/Aonik.Agents.Framework/Framework/MasterOrchestratorService.cs</code> &mdash; no interface change; treats new Simi as it treats old Simi.</li>
+</ul>
+
+<footer>
+  <p>
+    Spec 025 &middot; Drafted as part of the Aonik agent architecture discussion. Owner: TBD.
+    File path: <code>docs/specifications/025.personal-finance-agent-split-and-codeact.html</code>.
+  </p>
+</footer>
+
+</body>
+</html>
