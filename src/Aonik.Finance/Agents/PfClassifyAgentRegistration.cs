@@ -1,3 +1,4 @@
+using Aonik.Finance.Agents.CodeAct;
 using Aonik.Finance.Agents.StructuredOutputs;
 using Aonik.Finance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
@@ -171,13 +172,7 @@ public sealed class PfClassifyAgentDescriptor : IDomainAgentDescriptor
         """;
 
     public AIAgent Build(IChatClient chatClient, IServiceProvider serviceProvider)
-    {
-        return new ChatClientAgent(
-            chatClient,
-            name: Name,
-            instructions: InstructionsText,
-            tools: PersonalFinanceTools.CreateForClassifySubAgent(serviceProvider).ToList());
-    }
+        => Build(chatClient, serviceProvider, instructionsOverride: null, allowedToolNames: null);
 
     public AIAgent Build(
         IChatClient chatClient,
@@ -185,6 +180,26 @@ public sealed class PfClassifyAgentDescriptor : IDomainAgentDescriptor
         string? instructionsOverride,
         IReadOnlySet<string>? allowedToolNames)
     {
+        var instructions = instructionsOverride ?? InstructionsText;
+
+        // CodeAct path (Spec 025 Phase 1) — see PfInsightsAgentDescriptor
+        // for the full rationale. Classify benefits because the per-item
+        // queue walk + scoring becomes one Python loop instead of N×K
+        // sequential LLM tool calls.
+        if (HyperlightHostAvailability.IsAvailable)
+        {
+            var executeCode = CodeActSubAgentFactory.BuildExecuteCodeTool(
+                serviceProvider,
+                sp => PersonalFinanceTools.CreateForClassifySubAgent(sp)
+                    .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name)));
+
+            return new ChatClientAgent(
+                chatClient,
+                name: Name,
+                instructions: instructions,
+                tools: [executeCode]);
+        }
+
         var tools = PersonalFinanceTools.CreateForClassifySubAgent(serviceProvider)
             .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
             .ToList();
@@ -192,7 +207,7 @@ public sealed class PfClassifyAgentDescriptor : IDomainAgentDescriptor
         return new ChatClientAgent(
             chatClient,
             name: Name,
-            instructions: instructionsOverride ?? InstructionsText,
+            instructions: instructions,
             tools: tools);
     }
 

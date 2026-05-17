@@ -35,6 +35,22 @@
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
   </ItemGroup>
 
+  <!--
+    Spec 025 Phase 1 — Hyperlight sandbox for CodeAct-style sub-agent
+    execution. Bundled Python WASM guest in `Guest.Python` solves the §11.5
+    sourcing blocker; `Extensions.AI` ships a MAF-shaped CodeExecutionTool
+    whose `.AsAIFunction()` drops into `ChatOptions.Tools`. The native
+    runtime is Linux-only at v0.4.0 (Windows support in flight upstream),
+    so each sub-agent descriptor's Build() picks the CodeAct path only when
+    HyperlightHostAvailability.IsAvailable; Windows local dev falls back to
+    the conventional tool-loop ChatClientAgent path.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Hyperlight.HyperlightSandbox.Api" Version="0.4.0" />
+    <PackageReference Include="Hyperlight.HyperlightSandbox.Extensions.AI" Version="0.4.0" />
+    <PackageReference Include="Hyperlight.HyperlightSandbox.Guest.Python" Version="0.4.0" />
+  </ItemGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="Services\Seeding\Data\*.json" />
   </ItemGroup>

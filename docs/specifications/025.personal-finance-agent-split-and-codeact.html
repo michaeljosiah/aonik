@@ -591,21 +591,28 @@
 <h2 id="codeact">6. CodeAct implementation</h2>
 
 <p>
-  Microsoft Agent Framework's CodeAct lets an agent "solve a task by writing code and
-  executing it through an <code>execute_code</code> tool" instead of issuing one tool
-  call at a time. The plan runs once inside a sandbox, the tools stay the same. For
-  tool-heavy workloads this materially reduces latency and tokens (see the
-  <a href="https://github.com/microsoft/agent-framework/blob/main/python/packages/hyperlight/samples/codeact_benchmark.py">Hyperlight
-  benchmark sample</a>).
+  CodeAct lets an agent "solve a task by writing code and executing it through an
+  <code>execute_code</code> tool" instead of issuing one tool call at a time. The plan
+  runs once inside a sandbox; the underlying tools stay the same. For tool-heavy
+  workloads this materially reduces latency and tokens.
 </p>
 
 <p>
-  All three Aonik sub-agents adopt this pattern from Day 1 via the
-  <a href="https://learn.microsoft.com/en-us/agent-framework/integrations/hyperlight">Hyperlight
-  CodeAct connector</a>. The .NET docs for CodeAct were "coming soon" at the time of
-  writing &mdash; we lean on the
-  <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct">C# samples</a>
-  as the leading-edge reference.
+  All three Aonik sub-agents adopt this pattern via the
+  <a href="https://github.com/hyperlight-dev/hyperlight-sandbox">hyperlight-dev/hyperlight-sandbox</a>
+  .NET SDK (v0.4.0). The SDK ships a MAF-shaped
+  <code>CodeExecutionTool.AsAIFunction()</code> that drops straight into a
+  <code>ChatClientAgent</code>'s tool list, and bundles the Python WASM guest inside
+  <code>Hyperlight.HyperlightSandbox.Guest.Python</code> so there is no separate
+  WASM guest binary to source or package.
+</p>
+
+<p>
+  Spec drafted around <code>Microsoft.Agents.AI.Hyperlight</code> originally; that
+  package is preview-only with no bundled guest. <code>hyperlight-sandbox</code> is
+  a CNCF sandbox project from the same upstream Hyperlight team, ships its own
+  Sandbox / RegisterTool / CodeExecutionTool surface, and resolves the guest-sourcing
+  blocker (§11.5) in one move because the guest binary travels inside the NuGet.
 </p>
 
 <h3>6.1 Why CodeAct here</h3>
@@ -632,80 +639,121 @@
 <h3>6.2 Why CodeAct is safe here (the whole-block approval issue)</h3>
 
 <p>
-  Microsoft's docs warn: "Approvals currently apply to the <code>execute_code</code>
-  call as a whole. If you need individual operations to be approved one by one, keep
-  those operations as direct agent tools instead of relying on <code>call_tool(...)</code>."
+  CodeAct frameworks generally treat the <code>execute_code</code> call as a single
+  unit of approval &mdash; if any host tool reachable from the sandbox is gated by
+  per-call approval, that gate degrades to "approve the entire script" once it sits
+  behind <code>call_tool(...)</code>.
 </p>
 
 <div class="callout">
   <span class="callout-label">Design</span>
   All three Aonik sub-agents expose <strong>only read-only host tools via
   <code>call_tool</code></strong>. No mutating tool ever appears in a sub-agent's
-  sandbox whitelist. The whole-block approval semantics therefore never trigger.
-  Mutations stay on Simi's direct surface where per-call <code>confirmAction</code>
-  applies as today &mdash; "agents propose; systems execute" is preserved.
+  sandbox whitelist. The whole-block approval question therefore never arises &mdash;
+  there is nothing to approve inside the sandbox. Mutations stay on Simi's direct
+  surface where per-call <code>confirmAction</code> applies as today, preserving the
+  "agents propose; systems execute" invariant.
 </div>
 
 <h3>6.3 Wiring (per sub-agent)</h3>
 
 <p>
-  Each sub-agent's <code>IDomainAgentDescriptor</code> implementation builds a
-  <code>ChatClientAgent</code> with a <code>HyperlightCodeActProvider</code> registered
-  as an <code>AIContextProvider</code>. The provider is constructed with that
-  sub-agent's narrow tool whitelist via
-  <code>HyperlightCodeActProviderOptions.Tools</code>. No tool surface is shared
-  across sub-agents.
+  Each sub-agent's <code>IDomainAgentDescriptor.Build()</code> picks one of two paths
+  based on <code>HyperlightHostAvailability.IsAvailable</code>. The check probes once
+  per process: explicit <code>AONIK_DISABLE_HYPERLIGHT=true</code> opt-out, then OS
+  family (Linux only at hyperlight-sandbox v0.4.0), then a real sandbox build to
+  confirm the hypervisor is accessible (KVM in containers, MSHV on bare metal). The
+  result is cached for the process lifetime.
 </p>
 
 <p>
-  Pattern (sketch &mdash; not for direct copy):
+  Pattern (sketch &mdash; the live code lives in
+  <code>src/Aonik.Finance/Agents/CodeAct/</code>):
 </p>
 
-<pre><code>using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.Hyperlight;
+<pre><code>using HyperlightSandbox.Api;
+using HyperlightSandbox.Extensions.AI;
+using HyperlightSandbox.Guest.Python;
 using Microsoft.Extensions.AI;
 
-// Per-sub-agent: build a Hyperlight provider with its read-only host tools.
-var options = HyperlightCodeActProviderOptions.CreateForWasm(guestPath);
-options.Tools = [
-    AIFunctionFactory.Create(tools.GetCategoryBreakdown, name: "pf_get_category_breakdown"),
-    AIFunctionFactory.Create(tools.GetMerchantHistory,   name: "pf_get_merchant_history"),
-    // ... read-only host tools only ...
-];
-using var codeAct = new HyperlightCodeActProvider(options);
+// CodeAct path — one wrapped sandbox per sub-agent invocation.
+var codeTool = new CodeExecutionTool(
+    new SandboxBuilder()
+        .WithPythonModule()     // bundled Python WASM guest
+        .WithTempOutput());
 
-var agent = chatClient.AsAIAgent(new ChatClientAgentOptions {
-    ChatOptions = new() { Instructions = subAgentInstructions },
-    AIContextProviders = [codeAct],
-});</code></pre>
+foreach (var aiFn in PersonalFinanceTools
+    .CreateForInsightsSubAgent(serviceProvider).OfType&lt;AIFunction&gt;())
+{
+    // Bridge each host AIFunction to the sandbox's call_tool registry.
+    codeTool.RegisterToolAsync(aiFn.Name, async json =&gt;
+    {
+        var args = ParseArgs(json);
+        var result = await aiFn.InvokeAsync(new AIFunctionArguments(args));
+        return JsonSerializer.Serialize(result);
+    });
+}
+
+var executeCode = codeTool.AsAIFunction(
+    name: "execute_code",
+    description: "Execute Python in a secure isolated sandbox...");
+
+return new ChatClientAgent(
+    chatClient, name: Name, instructions: InstructionsText,
+    tools: [executeCode]);   // single tool: the sandbox itself</code></pre>
 
 <p>
-  This is the <em>Step 02</em> shape from the
-  <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct">official
-  samples</a>. We do not use <code>HyperlightExecuteCodeFunction</code> directly
-  (Step 03), because the per-run snapshot semantics of the provider are useful for
-  per-tenant tool whitelisting later.
+  On non-Linux hosts (Windows local dev, macOS, Linux without KVM passthrough), the
+  same <code>Build()</code> falls back to the conventional tool-loop path:
+  <code>tools: PersonalFinanceTools.CreateForInsightsSubAgent(sp).ToList()</code>.
+  The Phase-4 prompts say "via <code>call_tool(...)</code>; when CodeAct is
+  unavailable the same tools are exposed directly" precisely so a single prompt
+  serves both paths without rework.
 </p>
 
-<h3>6.4 Reference sample mapping</h3>
+<h3>6.4 Lifetime &amp; cost</h3>
+
+<p>
+  v1 builds a fresh <code>CodeExecutionTool</code> per sub-agent invocation. Cold
+  start is ~2.5 s; subsequent <code>Execute()</code> calls inside the same invocation
+  use the automatic snapshot/restore the SDK provides (≈ 200&times; faster). The
+  ~2.5 s cost is acceptable while we gather telemetry. Pooling sandboxes per
+  sub-agent name &mdash; with a scope-bridging tool registry so request-scoped
+  services still resolve correctly &mdash; is the natural next optimisation when
+  usage shows it earns the complexity.
+</p>
+
+<p>
+  Native resources are reclaimed via the <code>SafeHandle</code> finalizer chain
+  when the wrapping <code>AIFunction</code> becomes unreachable after the request
+  completes. No explicit <code>Dispose</code> handoff is required for the
+  per-request usage pattern.
+</p>
+
+<h3>6.5 Package mapping</h3>
 
 <table>
-  <thead><tr><th>Sample</th><th>Shape</th><th>Relevance to us</th></tr></thead>
+  <thead><tr><th>NuGet (v0.4.0)</th><th>Purpose</th><th>Used by</th></tr></thead>
   <tbody>
     <tr>
-      <td><a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step01_Interpreter">Step 01 &mdash; Interpreter</a></td>
-      <td>Sandbox with no host tools; pure Python execution.</td>
-      <td>Reference only. We always expose host tools.</td>
+      <td><code>Hyperlight.HyperlightSandbox.Api</code></td>
+      <td>Sandbox, SandboxBuilder, ExecutionResult, snapshots.</td>
+      <td><code>HyperlightHostAvailability.cs</code>, <code>CodeActSubAgentFactory.cs</code></td>
     </tr>
     <tr>
-      <td><a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step02_ToolEnabled">Step 02 &mdash; Tool-enabled</a></td>
-      <td><code>HyperlightCodeActProvider</code> with host tools registered via <code>options.Tools</code>; <code>call_tool(...)</code> from inside Python.</td>
-      <td><strong>The pattern we adopt.</strong> Per-sub-agent whitelist; read-only only.</td>
+      <td><code>Hyperlight.HyperlightSandbox.Extensions.AI</code></td>
+      <td><code>CodeExecutionTool</code> + <code>.AsAIFunction()</code> &mdash; the MAF-shaped wrapper.</td>
+      <td><code>CodeActSubAgentFactory.cs</code></td>
     </tr>
     <tr>
-      <td><a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step03_ManualWiring">Step 03 &mdash; Manual wiring</a></td>
-      <td><code>HyperlightExecuteCodeFunction</code> directly as a tool, fixed surface for the agent's lifetime.</td>
-      <td>Considered and rejected for v1; provider gives us per-run snapshot flexibility we may want later.</td>
+      <td><code>Hyperlight.HyperlightSandbox.Guest.Python</code></td>
+      <td>Bundled Python WASM guest module + <code>WithPythonModule()</code> extension.</td>
+      <td><code>HyperlightHostAvailability.cs</code>, <code>CodeActSubAgentFactory.cs</code></td>
+    </tr>
+    <tr>
+      <td><code>Hyperlight.HyperlightSandbox.PInvoke</code></td>
+      <td>P/Invoke bindings + native Rust FFI (transitive dependency &mdash; no direct reference).</td>
+      <td>(transitive)</td>
     </tr>
   </tbody>
 </table>
@@ -817,11 +865,12 @@ Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
 <table>
   <thead><tr><th>Item</th><th>Detail</th></tr></thead>
   <tbody>
-    <tr><td>NuGet package</td><td><code>Microsoft.Agents.AI.Hyperlight</code> referenced from <code>Aonik.Finance</code> (where the sub-agent descriptors live)</td></tr>
-    <tr><td>Build artifact</td><td>Hyperlight Python guest WASM module &mdash; built once per release, shipped alongside the API container and the Worker container</td></tr>
-    <tr><td>Environment variable</td><td><code>HYPERLIGHT_PYTHON_GUEST_PATH</code> wired into both API and Worker container env</td></tr>
-    <tr><td>Deployment validations</td><td>(a) guest binary present at expected path; (b) sandbox boots on the runtime (smoke test); (c) <code>call_tool</code> round-trip works for at least one read tool per sub-agent</td></tr>
-    <tr><td>Network &amp; FS posture</td><td>All sandboxes denied outbound network and filesystem access. All data flows through <code>call_tool</code> to host tools &mdash; the sandbox itself has nothing to leak.</td></tr>
+    <tr><td>NuGet packages</td><td><code>Hyperlight.HyperlightSandbox.Api</code>, <code>.Extensions.AI</code>, <code>.Guest.Python</code> (v0.4.0) referenced from <code>Aonik.Finance</code>. PInvoke + native FFI come in transitively.</td></tr>
+    <tr><td>WASM guest</td><td>Bundled inside <code>Hyperlight.HyperlightSandbox.Guest.Python</code> &mdash; no separate build artifact, no environment variable, no IaC plumbing for a guest path. The NuGet ships it and <code>SandboxBuilder.WithPythonModule()</code> finds it via the package's content files.</td></tr>
+    <tr><td>Hypervisor</td><td>API + Worker containers run on Linux nodes with <code>/dev/kvm</code> accessible. On AKS this means a node SKU that supports nested virtualisation (e.g. <code>D*s_v5</code>) and a pod spec that grants <code>/dev/kvm</code> access. CodeAct path is automatically disabled (per <code>HyperlightHostAvailability</code>) on hosts without KVM, so missing config is loud at the trace level rather than fatal. <strong>Important:</strong> Aonik's current deployment platform is Azure Container Apps (see <code>iac/azure/stacks/aca/main.bicep</code>); ACA's managed sandbox does <em>not</em> expose <code>/dev/kvm</code> and there is no IaC parameter that changes that. Until we move API/Worker to AKS (or stand up a sidecar AKS / VM dispatcher), the CodeAct path runs in WSL2 / local Linux dev only and the deployed environments stay on the tool-loop path.</td></tr>
+    <tr><td>Environment variable</td><td><code>AONIK_DISABLE_HYPERLIGHT=true</code> &mdash; optional opt-out for forcing the tool-loop fallback on a Linux host that otherwise supports the sandbox. Useful in tests and for emergency rollback.</td></tr>
+    <tr><td>Deployment validations</td><td>(a) packages restore on Linux container build; (b) <code>HyperlightHostAvailability.IsAvailable</code> returns true at startup on dev / staging / prod; (c) one end-to-end smoke run of <code>pf_run_insights</code> through to a structured-output response.</td></tr>
+    <tr><td>Network &amp; FS posture</td><td>All sandboxes denied outbound network and filesystem access by default (the SDK's "allow-by-default-deny" posture &mdash; we never call <code>AllowDomain()</code>). All data flows through <code>call_tool</code> to host tools &mdash; the sandbox itself has nothing to leak.</td></tr>
   </tbody>
 </table>
 
@@ -855,6 +904,55 @@ Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
     Simi summary).
   </li>
 </ul>
+
+<h3>9.4 Local dev validation (WSL2 on a Windows host)</h3>
+
+<p>
+  Because the deployed ACA environments cannot host Hyperlight, the only end-to-end
+  validation path today is local Linux. On a Windows dev box that means WSL2.
+</p>
+
+<ol>
+  <li>
+    Install WSL2 with an Ubuntu distro (<code>wsl --install -d Ubuntu</code>). Enable
+    the Windows feature "Virtual Machine Platform" if Windows complains. WSL2 exposes
+    <code>/dev/kvm</code> to its guest Linux automatically; no extra setup needed.
+  </li>
+  <li>
+    Inside the WSL distro, install the .NET 10 SDK and node 20+ (the AdminUi
+    front-end is part of the Aspire AppHost). Mount the repo at
+    <code>/mnt/c/Users/&lt;you&gt;/source/repos/aonik</code> &mdash; that path is the
+    same Windows tree, just visible from Linux, so no clone is required.
+  </li>
+  <li>
+    Run <code>dotnet run --project src/Aonik.AppHost</code> from inside WSL.
+    The AppHost orchestrates API + Worker + Admin UI + Qdrant; sub-agent invocations
+    will hit the CodeAct path because <code>HyperlightHostAvailability.IsAvailable</code>
+    returns true under WSL2.
+  </li>
+  <li>
+    Smoke-test: open the Admin UI playground (<code>http://localhost:&lt;port&gt;/ai/playground</code>),
+    pick the <code>personal-finance-agent</code>, and ask a question that should route
+    to a sub-agent &mdash; e.g. <em>"Why was last month tight?"</em> for
+    <code>pf-insights</code> or <em>"Will rent be covered on the 30th?"</em> for
+    <code>pf-forecast</code>. The trace view should show one <code>execute_code</code>
+    call with multiple inner <code>call_tool</code> invocations rather than N
+    sequential host-tool calls.
+  </li>
+  <li>
+    Compare the same question against the tool-loop fallback by setting
+    <code>AONIK_DISABLE_HYPERLIGHT=true</code> in the AppHost environment and restarting.
+    Same prompt should still answer correctly via N host-tool calls. This is the
+    proof that the platform-conditional <code>Build()</code> covers both paths
+    with no prompt-side divergence.
+  </li>
+</ol>
+
+<p>
+  Once we have local-validation data showing CodeAct's value vs. the tool-loop
+  fallback, we can decide whether to invest in the ACA &rarr; AKS migration (or a
+  sidecar AKS / VM dispatcher) for the deployed environments.
+</p>
 
 <h2 id="decisions">10. Decisions made (and the alternatives we rejected)</h2>
 
@@ -892,9 +990,14 @@ Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
       <td>Each sub-agent's core workload (loops, parametric math, queue analysis) is exactly what CodeAct is for. Building them conventionally then converting is more work, not less.</td>
     </tr>
     <tr>
-      <td>Hyperlight provider (Step 02 sample shape).</td>
-      <td><code>HyperlightExecuteCodeFunction</code> direct wiring (Step 03).</td>
-      <td>Provider gives per-run snapshot semantics &mdash; useful for future per-tenant tool whitelisting.</td>
+      <td>hyperlight-dev/hyperlight-sandbox direct (v0.4.0).</td>
+      <td><code>Microsoft.Agents.AI.Hyperlight</code> preview NuGet (spec's original prescription).</td>
+      <td>hyperlight-sandbox bundles the Python WASM guest inside its NuGet (solves §11.5 in one move), exposes a MAF-shaped <code>CodeExecutionTool.AsAIFunction()</code> that drops straight into <code>ChatOptions.Tools</code>, and is Apache-2.0 / CNCF rather than preview MS-only. Trade-off: Linux-only at v0.4.0 (Windows upstream in flight), addressed via platform-conditional <code>Build()</code>.</td>
+    </tr>
+    <tr>
+      <td>Platform-conditional <code>Build()</code> per sub-agent descriptor.</td>
+      <td>CodeAct always-on, require WSL2 for Windows local dev.</td>
+      <td>Local dev keeps working unchanged on Windows. Linux dev/prod containers automatically pick up the CodeAct path via the <code>HyperlightHostAvailability</code> probe. Same prompts power both paths (Phase 4 was written CodeAct-aware for this).</td>
     </tr>
   </tbody>
 </table>
@@ -934,11 +1037,16 @@ Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
   sub-agent per turn; revisit if user data shows we need cross-sub-agent synthesis.
 </div>
 
-<div class="callout open">
-  <span class="callout-label">Open · 11.5</span>
-  <strong>Hyperlight guest module CI.</strong> Where does the Python WASM guest get
-  built? The sample uses a pre-built guest. We'd want it built reproducibly in CI
-  alongside the API container &mdash; needs ops design before the first sub-agent ships.
+<div class="callout">
+  <span class="callout-label">Resolved · 11.5</span>
+  <strong>Hyperlight guest module sourcing.</strong> Resolved by adopting
+  <a href="https://github.com/hyperlight-dev/hyperlight-sandbox">hyperlight-dev/hyperlight-sandbox</a>
+  v0.4.0 (see §6 rewrite). The Python WASM guest ships inside
+  <code>Hyperlight.HyperlightSandbox.Guest.Python</code> &mdash; no separate build
+  artifact, no IaC plumbing, no <code>HYPERLIGHT_PYTHON_GUEST_PATH</code> env var.
+  Trade-off: the SDK is Linux-only at v0.4.0 (Windows support in flight upstream),
+  so each sub-agent's <code>Build()</code> is platform-conditional and falls back
+  to the conventional tool-loop path on Windows/macOS hosts.
 </div>
 
 <div class="callout open">
@@ -960,43 +1068,45 @@ Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
 
 <h2 id="refs">12. References</h2>
 
-<h3>Microsoft Agent Framework &middot; CodeAct</h3>
+<h3>Hyperlight &middot; the runtime we use</h3>
 <ul>
   <li>
-    <a href="https://learn.microsoft.com/en-us/agent-framework/agents/code_act?pivots=programming-language-csharp">CodeAct
-    overview (Microsoft Learn, C# pivot)</a> &mdash; what CodeAct is, when to use it,
-    when to stay with direct tool calling, and the current limitations.
-  </li>
-  <li>
-    <a href="https://learn.microsoft.com/en-us/agent-framework/integrations/hyperlight">Hyperlight
-    CodeAct integration</a> &mdash; the connector our sub-agents use.
-  </li>
-  <li>
-    <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct">AgentWithCodeAct
-    C# samples (microsoft/agent-framework on GitHub)</a> &mdash; the leading-edge
-    .NET reference until the official .NET docs land.
+    <a href="https://github.com/hyperlight-dev/hyperlight-sandbox">hyperlight-dev/hyperlight-sandbox</a>
+    &mdash; the .NET SDK + Python/JS WASM guests we ship behind our CodeAct path.
+    CNCF sandbox project, Apache-2.0.
     <ul>
       <li>
-        <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step01_Interpreter">Step 01 &middot; Interpreter</a>
-        &mdash; pure sandboxed Python, no host tools.
+        <a href="https://github.com/hyperlight-dev/hyperlight-sandbox/blob/main/src/sdk/dotnet/README.md">.NET
+        SDK README</a> &mdash; <code>Sandbox</code> / <code>SandboxBuilder</code>
+        / <code>CodeExecutionTool</code> surface, API reference, build commands.
       </li>
       <li>
-        <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step02_ToolEnabled">Step 02 &middot; Tool-enabled</a>
-        &mdash; <strong>the pattern this spec adopts</strong>. Provider with
-        <code>options.Tools</code> whitelist; <code>call_tool(...)</code> from inside
-        Python.
+        <a href="https://github.com/hyperlight-dev/hyperlight-sandbox/blob/main/examples/agent-framework/DotnetAgent.cs">examples/agent-framework/DotnetAgent.cs</a>
+        &mdash; the MAF integration shape we mirror, including
+        <code>CodeExecutionTool.AsAIFunction()</code> + <code>ChatOptions.Tools</code>.
       </li>
       <li>
-        <a href="https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/02-agents/AgentWithCodeAct/AgentWithCodeAct_Step03_ManualWiring">Step 03 &middot; Manual wiring</a>
-        &mdash; direct <code>HyperlightExecuteCodeFunction</code> as a tool.
-        Considered, not adopted (see §10).
+        <a href="https://github.com/hyperlight-dev/hyperlight-sandbox/blob/main/src/sdk/dotnet/core/Extensions.AI/CodeExecutionTool.cs">CodeExecutionTool.cs
+        source</a> &mdash; the wrapping <code>AIFunction</code>'s implementation,
+        including automatic snapshot/restore semantics.
       </li>
     </ul>
   </li>
   <li>
-    <a href="https://github.com/microsoft/agent-framework/blob/main/python/packages/hyperlight/samples/codeact_benchmark.py">Hyperlight
-    benchmark sample</a> &mdash; latency/token comparison between direct tool calling
-    and CodeAct on tool-heavy workloads.
+    <a href="https://github.com/hyperlight-dev/hyperlight">hyperlight-dev/hyperlight</a>
+    &mdash; the underlying lightweight VMM. We don't reference this directly;
+    hyperlight-sandbox sits on top of it.
+  </li>
+</ul>
+
+<h3>Microsoft Agent Framework</h3>
+<ul>
+  <li>
+    <a href="https://learn.microsoft.com/en-us/agent-framework/agents/code_act?pivots=programming-language-csharp">CodeAct
+    overview (Microsoft Learn, C# pivot)</a> &mdash; the conceptual framing.
+    Our sub-agents follow the pattern but use hyperlight-sandbox's
+    <code>CodeExecutionTool</code> directly rather than
+    <code>Microsoft.Agents.AI.Hyperlight</code> (see §6).
   </li>
 </ul>
 
@@ -1018,14 +1128,19 @@ Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
   <li><code>docs/specifications/023.server-side-ai-tool-approval.md</code> &mdash; the <code>ApprovalRequiredAIFunction</code> + <code>confirmAction</code> contract preserved by this design.</li>
 </ul>
 
-<h3>Code references (as of this spec)</h3>
+<h3>Code references (post-implementation)</h3>
 <ul>
-  <li><code>src/Aonik.Finance/Agents/PersonalFinanceAgentRegistration.cs</code> &mdash; current Simi descriptor (to be refactored).</li>
-  <li><code>src/Aonik.Finance/Agents/SpendingIntelligenceAgentRegistration.cs</code> &mdash; to be retired (§7).</li>
-  <li><code>src/Aonik.Finance/Agents/ObligationPlanningAgentRegistration.cs</code> &mdash; to be retired (§7).</li>
-  <li><code>src/Aonik.Finance/Agents/Tools/PersonalFinanceTools.cs</code> &mdash; Simi's tool factory (to be split into Simi-direct and per-sub-agent factories).</li>
+  <li><code>src/Aonik.Finance/Agents/PersonalFinanceAgentRegistration.cs</code> &mdash; Simi descriptor (Phase 5 prompt updated to route to <code>pf_run_insights</code> / <code>pf_run_forecast</code> / <code>pf_run_classify_review</code> with one-specialist-per-turn rule).</li>
+  <li><code>src/Aonik.Finance/Agents/PfInsightsAgentRegistration.cs</code> &mdash; pf-insights sub-agent descriptor (platform-conditional <code>Build()</code>).</li>
+  <li><code>src/Aonik.Finance/Agents/PfForecastAgentRegistration.cs</code> &mdash; pf-forecast sub-agent descriptor.</li>
+  <li><code>src/Aonik.Finance/Agents/PfClassifyAgentRegistration.cs</code> &mdash; pf-classify sub-agent descriptor.</li>
+  <li><code>src/Aonik.Finance/Agents/Tools/PersonalFinanceTools.cs</code> &mdash; Simi's tool factory + per-sub-agent slice helpers (<code>CreateForInsightsSubAgent</code>, <code>CreateForForecastSubAgent</code>, <code>CreateForClassifySubAgent</code>) + the three <code>RunInsights</code> / <code>RunForecast</code> / <code>RunClassifyReview</code> trigger methods.</li>
+  <li><code>src/Aonik.Finance/Agents/CodeAct/HyperlightHostAvailability.cs</code> &mdash; cached one-shot probe for whether the host can run the Hyperlight Python sandbox (Linux + KVM check, with <code>AONIK_DISABLE_HYPERLIGHT</code> opt-out).</li>
+  <li><code>src/Aonik.Finance/Agents/CodeAct/CodeActSubAgentFactory.cs</code> &mdash; builds the single <code>execute_code</code> <code>AIFunction</code> backed by a Hyperlight Python sandbox, bridging each host-side <code>AIFunction</code> to the sandbox's <code>call_tool</code> registry.</li>
+  <li><code>src/Aonik.Finance/Agents/StructuredOutputs/{Insights,Forecast,Classify}StructuredModels.cs</code> &mdash; insights.v1 / forecast.v1 / classify.v1 schemas + C# records.</li>
+  <li><code>src/Aonik.Finance/FinanceModule.cs</code> &mdash; DI registrations for the 3 new sub-agent descriptors (legacy pf-spending-intelligence and pf-obligation-planning registrations removed in Phase 6).</li>
   <li><code>src/Aonik.SharedKernel/Abstractions/Agents/IDomainAgentDescriptor.cs</code> &mdash; descriptor interface (unchanged).</li>
-  <li><code>src/Aonik.Agents.Framework/Framework/MasterOrchestratorService.cs</code> &mdash; no interface change; treats new Simi as it treats old Simi.</li>
+  <li><code>src/Aonik.Agents.Framework/Framework/MasterOrchestratorService.cs</code> &mdash; no interface change; treats Simi (now with new sub-agent triggers) as it treated her before.</li>
 </ul>
 
 <footer>
