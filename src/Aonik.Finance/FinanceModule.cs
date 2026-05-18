@@ -97,6 +97,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Seeding.Phases.HouseholdsSeedPhase>();
         services.AddScoped<Services.Seeding.Phases.CrossBorderPricingSeedPhase>();
         services.AddScoped<Services.Seeding.Phases.OrderActivitySeedPhase>();
+        services.AddScoped<Services.Seeding.Phases.PersonalFinanceActivitySeedPhase>();
         services.AddScoped<SharedKernel.Abstractions.IDemoSeedContributor, Services.Seeding.FinanceDemoSeedContributor>();
 
         // Pricing

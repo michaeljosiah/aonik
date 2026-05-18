@@ -27,5 +27,13 @@
     "kofiAmaRelationshipId":      "93c83fed-d56a-4ca6-8f44-4512f50eeecb",
     "oliviaNalediRelationshipId": "f28be4e6-e5bc-43a5-8c52-cf3906f6c16f",
     "liamKwameRelationshipId":    "0fd357dd-58a3-481b-a36d-5e7efde0ebca"
+  },
+
+  "personalFinancePersonas": {
+    "_comment": "UK-based personal-finance demo personas (Spec 025 / Simi). Party rows live in Platform; a year of PersonalTransaction/Bill/Subscription rows live in Finance keyed by the synthetic UserIds below. The UserIds are deliberately not linked to any Auth0 user — a future admin feature will invite a real user and rewrite all rows from the synthetic UserId to the real one. Seamus = struggling profile (high bills, high credit card usage, low income). Mark = comfortable profile (high income, low bills, light card usage).",
+    "seamusKeanePartyId":          "c1e1ff01-5ea3-4001-9001-000000000001",
+    "markKeanePartyId":            "c1e1ff01-5ea3-4001-9001-000000000002",
+    "seamusKeaneUserId":           "c1e1ff01-5ea3-4001-9001-100000000001",
+    "markKeaneUserId":             "c1e1ff01-5ea3-4001-9001-100000000002"
   }
 }

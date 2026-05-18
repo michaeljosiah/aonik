@@ -20,6 +20,7 @@ internal sealed class PlatformDemoSeedIds
     public required DemoPairIds DemoPair { get; init; }
     public required PersonaIds Personas { get; init; }
     public required PersonaRelationshipIds PersonaRelationships { get; init; }
+    public required PersonalFinancePersonaIds PersonalFinancePersonas { get; init; }
 
     private static PlatformDemoSeedIds LoadFromEmbeddedResource()
     {
@@ -66,4 +67,17 @@ internal sealed class PlatformDemoSeedIds
         Guid KofiAmaRelationshipId,
         Guid OliviaNalediRelationshipId,
         Guid LiamKwameRelationshipId);
+
+    /// <summary>
+    /// Deterministic Guids for the UK personal-finance demo personas (Seamus + Mark Keane).
+    /// UserIds are synthetic and not linked to any IdP account — they exist so personal-finance
+    /// entities (PersonalTransaction, Bill, Subscription, PersonalAccount) can be scoped to a
+    /// stable identity. A future admin feature will let the operator invite a real user and
+    /// rewrite all rows here from the synthetic UserId to the real one.
+    /// </summary>
+    internal sealed record PersonalFinancePersonaIds(
+        Guid SeamusKeanePartyId,
+        Guid MarkKeanePartyId,
+        Guid SeamusKeaneUserId,
+        Guid MarkKeaneUserId);
 }

@@ -35,6 +35,7 @@ internal sealed class FinanceDemoSeedIds
     public required GlobalCategoryIds GlobalCategories { get; init; }
     public required OrderActivityIds OrderActivity { get; init; }
     public required PartyReferenceIds PartyReferences { get; init; }
+    public required PersonalFinancePersonaIds PersonalFinancePersonas { get; init; }
 
     private static FinanceDemoSeedIds LoadFromEmbeddedResource()
     {
@@ -176,4 +177,23 @@ internal sealed class FinanceDemoSeedIds
         Guid AcmeImportsPartyId,
         Guid OliviaPartyId,
         Guid LiamPartyId);
+
+    /// <summary>
+    /// Deterministic Guids for the UK personal-finance demo personas (Seamus + Mark Keane).
+    /// Mirrors the entries in <c>platform-demo-ids.json#personalFinancePersonas</c> plus
+    /// the Finance-side PersonalProfile and PersonalAccount ids.
+    /// </summary>
+    internal sealed record PersonalFinancePersonaIds(
+        Guid SeamusKeanePartyId,
+        Guid MarkKeanePartyId,
+        Guid SeamusKeaneUserId,
+        Guid MarkKeaneUserId,
+        Guid SeamusKeanePersonalProfileId,
+        Guid MarkKeanePersonalProfileId,
+        Guid SeamusCurrentAccountId,
+        Guid SeamusCreditCardAccountId,
+        Guid SeamusSavingsAccountId,
+        Guid MarkCurrentAccountId,
+        Guid MarkCreditCardAccountId,
+        Guid MarkSavingsAccountId);
 }

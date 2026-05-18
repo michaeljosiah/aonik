@@ -16,11 +16,23 @@ namespace Aonik.Platform.Services.Seeding.Phases;
 internal sealed class ReverseSeedPhase
 {
     private static readonly PlatformDemoSeedNames SeedNames = PlatformDemoSeedNames.Instance;
+    private static readonly PlatformDemoSeedIds SeedIds = PlatformDemoSeedIds.Instance;
 
     private static readonly string[] DemoWorkflowSlugs = SeedNames.WorkflowSlugs;
     private static readonly string[] DemoNotificationTypes = SeedNames.NotificationTypes;
     private static readonly string[] DemoAgentNames = SeedNames.AgentNames;
     private static readonly string[] DemoPartnerNames = SeedNames.PartnerNames;
+
+    // Synthetic user ids backing the personal-finance personas. Removing
+    // every PersonalTransaction/Bill/Subscription/Account/Profile keyed by
+    // these ids tears down the year-of-PF-data seeded by
+    // PersonalFinanceActivitySeedPhase. The ids match the entries in
+    // platform-demo-ids.json#personalFinancePersonas.
+    private static readonly Guid[] PersonalFinancePersonaUserIds = new[]
+    {
+        SeedIds.PersonalFinancePersonas.SeamusKeaneUserId,
+        SeedIds.PersonalFinancePersonas.MarkKeaneUserId
+    };
 
     private readonly PlatformDbContext _dbContext;
     private readonly FinanceDbContext _financeDbContext;
@@ -90,6 +102,51 @@ internal sealed class ReverseSeedPhase
             .ExecuteDeleteAsync(cancellationToken);
 
         operations.Add($"Removed {orderCount} demo orders");
+    }
+
+    /// <summary>
+    /// Removes the year of personal-finance data seeded by
+    /// <c>PersonalFinanceActivitySeedPhase</c> (transactions, accounts,
+    /// recurring bills, subscriptions, profiles) for both Keane personas.
+    /// Must run BEFORE <c>ReversePartiesAsync</c> because the platform
+    /// reverse drops the parties they're linked to.
+    /// </summary>
+    public async Task ReversePersonalFinanceActivityAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    {
+        var userIds = PersonalFinancePersonaUserIds;
+
+        var txCount = await _financeDbContext.PersonalTransactions
+            .IncludeSoftDeleted()
+            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var billCount = await _financeDbContext.PersonalRecurringBills
+            .IncludeSoftDeleted()
+            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var subCount = await _financeDbContext.Subscriptions
+            .IncludeSoftDeleted()
+            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var accountCount = await _financeDbContext.PersonalAccounts
+            .IncludeSoftDeleted()
+            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var profileCount = await _financeDbContext.PersonalProfiles
+            .IncludeSoftDeleted()
+            .Where(item => item.TenantId == tenantId && userIds.Contains(item.UserId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (txCount + billCount + subCount + accountCount + profileCount > 0)
+        {
+            operations.Add(
+                $"Removed personal-finance demo data: {txCount} transactions, " +
+                $"{accountCount} accounts, {billCount} recurring bills, " +
+                $"{subCount} subscriptions, {profileCount} profiles");
+        }
     }
 
     public async Task ReverseHouseholdsAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)

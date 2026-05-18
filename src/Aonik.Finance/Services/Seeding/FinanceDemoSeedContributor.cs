@@ -33,6 +33,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
     private readonly HouseholdsSeedPhase _households;
     private readonly CrossBorderPricingSeedPhase _crossBorderPricing;
     private readonly OrderActivitySeedPhase _orderActivity;
+    private readonly PersonalFinanceActivitySeedPhase _personalFinanceActivity;
 
     // Primary constructor — used by DI (all phase helpers injected).
     public FinanceDemoSeedContributor(
@@ -46,7 +47,8 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
         CrossBorderCatalogSeedPhase crossBorderCatalog,
         HouseholdsSeedPhase households,
         CrossBorderPricingSeedPhase crossBorderPricing,
-        OrderActivitySeedPhase orderActivity)
+        OrderActivitySeedPhase orderActivity,
+        PersonalFinanceActivitySeedPhase personalFinanceActivity)
     {
         _financeDbContext = financeDbContext;
         _logger = logger;
@@ -59,6 +61,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
         _households = households;
         _crossBorderPricing = crossBorderPricing;
         _orderActivity = orderActivity;
+        _personalFinanceActivity = personalFinanceActivity;
     }
 
     // Legacy constructor — used by tests that construct FinanceDemoSeedContributor
@@ -78,7 +81,8 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             new CrossBorderCatalogSeedPhase(financeDbContext, new CatalogUpsertHelper(financeDbContext)),
             new HouseholdsSeedPhase(financeDbContext),
             new CrossBorderPricingSeedPhase(financeDbContext, new PricingUpsertHelper(financeDbContext)),
-            new OrderActivitySeedPhase(financeDbContext))
+            new OrderActivitySeedPhase(financeDbContext),
+            new PersonalFinanceActivitySeedPhase(financeDbContext))
     {
     }
 
@@ -99,9 +103,19 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             DemoSeedPhase.CrossBorderCatalog       => await _crossBorderCatalog.SeedAsync(context, _results, cancellationToken),
             DemoSeedPhase.Households               => await _households.SeedAsync(context, _results, cancellationToken),
             DemoSeedPhase.CrossBorderPricing       => await _crossBorderPricing.SeedAsync(context, _results, cancellationToken),
-            DemoSeedPhase.Activity                 => await _orderActivity.SeedAsync(context, _results, cancellationToken),
+            DemoSeedPhase.Activity                 => await SeedActivityAsync(context, cancellationToken),
             _                                      => Array.Empty<string>()
         };
+    }
+
+    private async Task<IReadOnlyList<string>> SeedActivityAsync(
+        DemoSeedContext context,
+        CancellationToken cancellationToken)
+    {
+        var combined = new List<string>();
+        combined.AddRange(await _orderActivity.SeedAsync(context, _results, cancellationToken));
+        combined.AddRange(await _personalFinanceActivity.SeedAsync(context, _results, cancellationToken));
+        return combined;
     }
 
     public void ClearTracking()

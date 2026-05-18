@@ -134,5 +134,21 @@
     "acmeImportsPartyId":           "f0f72256-f43b-455a-af08-8fab70115794",
     "oliviaPartyId":                "fb229001-e24c-4fd3-a87d-e0458a2cf8cb",
     "liamPartyId":                  "3f48a4fc-c7ce-4f78-af09-a2796e735f85"
+  },
+
+  "personalFinancePersonas": {
+    "_comment": "UK personal-finance personas (mirrors platform-demo-ids.json#personalFinancePersonas). UserIds are synthetic — a future admin feature will rewrite all rows here to the real Auth0 user once one is linked to the party. PersonalProfile / PersonalAccount IDs are deterministic so re-seeding is idempotent.",
+    "seamusKeanePartyId":              "c1e1ff01-5ea3-4001-9001-000000000001",
+    "markKeanePartyId":                "c1e1ff01-5ea3-4001-9001-000000000002",
+    "seamusKeaneUserId":               "c1e1ff01-5ea3-4001-9001-100000000001",
+    "markKeaneUserId":                 "c1e1ff01-5ea3-4001-9001-100000000002",
+    "seamusKeanePersonalProfileId":    "c1e1ff01-5ea3-4001-9001-200000000001",
+    "markKeanePersonalProfileId":      "c1e1ff01-5ea3-4001-9001-200000000002",
+    "seamusCurrentAccountId":          "c1e1ff01-5ea3-4001-9001-300000000001",
+    "seamusCreditCardAccountId":       "c1e1ff01-5ea3-4001-9001-300000000002",
+    "seamusSavingsAccountId":          "c1e1ff01-5ea3-4001-9001-300000000003",
+    "markCurrentAccountId":            "c1e1ff01-5ea3-4001-9001-300000000011",
+    "markCreditCardAccountId":         "c1e1ff01-5ea3-4001-9001-300000000012",
+    "markSavingsAccountId":            "c1e1ff01-5ea3-4001-9001-300000000013"
   }
 }

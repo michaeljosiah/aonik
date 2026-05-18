@@ -45,6 +45,9 @@ internal sealed class PartySeedPhase
     private static readonly Guid OliviaNalediRelationshipId = SeedIds.PersonaRelationships.OliviaNalediRelationshipId;
     private static readonly Guid LiamKwameRelationshipId = SeedIds.PersonaRelationships.LiamKwameRelationshipId;
 
+    private static readonly Guid SeamusKeanePartyId = SeedIds.PersonalFinancePersonas.SeamusKeanePartyId;
+    private static readonly Guid MarkKeanePartyId = SeedIds.PersonalFinancePersonas.MarkKeanePartyId;
+
     private readonly PlatformDbContext _dbContext;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -65,7 +68,8 @@ internal sealed class PartySeedPhase
     {
         DemoPayerPartyId, DemoReceiverPartyId, TundePartyId, AdwoaPartyId, PeterPartyId,
         NalediPartyId, AishaPartyId, KofiPartyId, AcmeImportsPartyId, SafariFreightPartyId,
-        OliviaPartyId, LiamPartyId
+        OliviaPartyId, LiamPartyId,
+        SeamusKeanePartyId, MarkKeanePartyId
     };
 
     // ── Phase 7: Bill-collection party pair ──────────────────────────
@@ -194,6 +198,42 @@ internal sealed class PartySeedPhase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return (payerParty.Id, receiverParty.Id, relationshipId);
+    }
+
+    // ── Phase 7.5: Personal-finance personas (Seamus + Mark Keane) ────
+    //
+    // Runs after the bill-collection pair so the Keane parties are always
+    // present (regardless of seedType), giving the Finance module a stable
+    // pair of UK personas to attach a year of PersonalTransaction / Bill /
+    // Subscription / PersonalAccount rows to. The synthetic UserIds for the
+    // Finance side live in finance-demo-ids.json#personalFinancePersonas.
+
+    public async Task<IReadOnlyList<Guid>> SeedPersonalFinancePersonasAsync(
+        Guid tenantId,
+        List<string> operations,
+        CancellationToken cancellationToken)
+    {
+        var now = _clock.UtcNow;
+        var userId = _currentUserProvider.GetCurrentUserId();
+
+        var personas = new List<DemoPersonSeed>
+        {
+            new(SeamusKeanePartyId, "Seamus Keane", "seamus.keane@mailinator.com", "+447700900301", "GB", "Retail", "Seamus", "Keane", "IE", "Warehouse Operative", "42 Hollybush Lane", "Manchester", "England", "M14 6JP"),
+            new(MarkKeanePartyId,   "Mark Keane",   "mark.keane@mailinator.com",   "+447700900302", "GB", "Premium", "Mark",  "Keane", "IE", "Senior Software Engineer", "118 Crouch End Hill", "London", "England", "N8 8DH")
+        };
+
+        var partyIds = new List<Guid>();
+
+        foreach (var persona in personas)
+        {
+            var partyId = await UpsertPersonPartyAsync(tenantId, persona, now, userId, cancellationToken);
+            partyIds.Add(partyId);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        operations.Add("Seeded personal-finance personas (Seamus + Mark Keane)");
+
+        return partyIds;
     }
 
     // ── Phase 14: Cross-border persona roster ────────────────────────

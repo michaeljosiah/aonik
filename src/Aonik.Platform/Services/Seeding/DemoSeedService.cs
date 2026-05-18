@@ -164,6 +164,13 @@ internal class DemoSeedService : IDemoSeedService
             var partyIds = await _partyPhase.SeedPartiesAsync(tenantId, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
 
+            // Phase 7.5: Personal-finance personas — Seamus + Mark Keane.
+            // Always runs (independent of seedType) so the Finance.Activity
+            // phase below can attach a year of PF data to a stable pair of
+            // UK parties. See PartySeedPhase.SeedPersonalFinancePersonasAsync.
+            await _partyPhase.SeedPersonalFinancePersonasAsync(tenantId, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+
             // Phase 8: Pricing (via contributors)
             await SeedContributorsAsync(DemoSeedPhase.Pricing, seedContext, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
@@ -280,6 +287,7 @@ internal class DemoSeedService : IDemoSeedService
             await _reversePhase.ReverseAgentActivityAsync(tenantId, operations, cancellationToken);
             await _reversePhase.ReverseNotificationsAsync(tenantId, operations, cancellationToken);
             await _reversePhase.ReverseOrdersAsync(tenantId, operations, cancellationToken);
+            await _reversePhase.ReversePersonalFinanceActivityAsync(tenantId, operations, cancellationToken);
             await _reversePhase.ReverseHouseholdsAsync(tenantId, operations, cancellationToken);
             await _reversePhase.ReverseWorkflowRegistryAsync(tenantId, operations, cancellationToken);
             await _reversePhase.ReverseCatalogAndPricingAsync(tenantId, operations, cancellationToken);
