@@ -52,7 +52,10 @@ resource sessionPool 'Microsoft.App/sessionPools@2024-08-02-preview' = {
   location: location
   tags: tags
   properties: {
-    poolManagementType: 'System'
+    // `Dynamic` is the only valid poolManagementType for the system code
+    // interpreter pool (the API rejects `System` with
+    // SessionPoolInvalidPoolManagementType).
+    poolManagementType: 'Dynamic'
     containerType: 'PythonLTS'
     scaleConfiguration: {
       maxConcurrentSessions: maxConcurrentSessions
@@ -62,11 +65,13 @@ resource sessionPool 'Microsoft.App/sessionPools@2024-08-02-preview' = {
       cooldownPeriodInSeconds: cooldownSeconds
     }
     sessionNetworkConfiguration: {
-      // Default `EgressDisabled` keeps the sandbox from making arbitrary
-      // outbound calls — only the Python preamble's HTTPS callback to OUR
-      // API needs egress, and our API is reachable via the platform's
-      // bypass for the dynamic-sessions managed path.
-      status: 'EgressDisabled'
+      // `EgressEnabled` is required so the Python preamble can POST back to
+      // our callback endpoint (`/ai/codeact/call-tool/{nonce}`). The nonce is
+      // the only auth on that endpoint, so a leaked URL is mitigated by
+      // HMAC signing + tool whitelist + budget cap rather than by network
+      // restriction. If we tighten this later, switch to a VNet-integrated
+      // pool with explicit egress allowlist to our API FQDN only.
+      status: 'EgressEnabled'
     }
   }
 }
