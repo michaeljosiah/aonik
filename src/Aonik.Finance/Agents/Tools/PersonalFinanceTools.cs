@@ -260,6 +260,13 @@ internal sealed class PersonalFinanceTools
         [Description("Optional account ID to scope the analysis to a single personal account")] Guid? personalAccountId = null,
         CancellationToken cancellationToken = default)
     {
+        // DIAGNOSTIC: capture the resolved user id BEFORE building the sub-agent
+        // so we can prove whether the parent's impersonation override propagates
+        // into the request scope the sub-agent's tools resolve against. Echoed
+        // out via the warnings[] field on every response so it's visible from
+        // the playground without needing server logs.
+        var userIdBeforeSubAgent = _currentUserProvider.GetCurrentUserId();
+
         var descriptor = ResolveSubAgentDescriptor("pf-insights");
         var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
 
@@ -275,7 +282,8 @@ internal sealed class PersonalFinanceTools
                 options: null,
                 cancellationToken: cancellationToken);
 
-            var analysis = response.Result;
+            var userIdAfterSubAgent = _currentUserProvider.GetCurrentUserId();
+            var analysis = AppendDiagnosticWarning(response.Result, userIdBeforeSubAgent, userIdAfterSubAgent);
             var analysisJson = JsonSerializer.Serialize(analysis, InsightsStructuredOutputContract.SerializerOptions);
             return new InsightsAgentToolResponse(analysis, analysisJson);
         }
@@ -284,6 +292,21 @@ internal sealed class PersonalFinanceTools
             LogSubAgentException("pf-insights", userQuestion, ex);
             return BuildInsightsErrorResponse(userQuestion, ex);
         }
+    }
+
+    /// <summary>
+    /// Stamps the sub-agent's response with a diagnostic warning showing what
+    /// UserId the parent saw before / after the sub-agent ran. Lets us prove
+    /// from the playground whether the impersonation override propagates to
+    /// the sub-agent's tool-invocation scope without requiring server logs.
+    /// Safe to keep — non-empty warnings are how the sub-agent already signals
+    /// data caveats to Simi, so an extra diagnostic line is harmless.
+    /// </summary>
+    private static InsightsResult AppendDiagnosticWarning(InsightsResult original, Guid? beforeUserId, Guid? afterUserId)
+    {
+        var diag = $"[diag] parent UserId before sub-agent: {beforeUserId?.ToString() ?? "<null>"}, after: {afterUserId?.ToString() ?? "<null>"}";
+        var warnings = new List<string>(original.Warnings) { diag };
+        return original with { Warnings = warnings };
     }
 
     [Description("Runs the internal pf-forecast specialist (Spec 025 §5.2) and returns schema-bound projection JSON for forward-looking questions: coverage on a future date ('will rent be okay'), savings ETA ('when do I hit my goal'), and parametric what-ifs ('what if I delay the energy bill'). The sub-agent does deterministic arithmetic — prefer this over reasoning about numbers in your own head. Prefer one specialist per Simi turn.")]
