@@ -205,6 +205,11 @@ public sealed class ResetAgentPromptRequestValidator : Validator<ResetAgentPromp
     public ResetAgentPromptRequestValidator() => RuleFor(x => x.Name).RequiredText(128);
 }
 
+public sealed class ResetAgentToolsetRequestValidator : Validator<ResetAgentToolsetRequest>
+{
+    public ResetAgentToolsetRequestValidator() => RuleFor(x => x.Name).RequiredText(128);
+}
+
 public sealed class UpsertAgentConfigurationEndpointRequestValidator : Validator<UpsertAgentConfigurationEndpointRequest>
 {
     public UpsertAgentConfigurationEndpointRequestValidator()
