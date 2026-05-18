@@ -109,6 +109,7 @@ Environment secrets used by infrastructure/runtime deployment:
 - `BOOTSTRAP_SETUP_SECRET` (runtime deployment; injected as `Bootstrap__SetupSecret`)
 - `ACS_CONNECTION_STRING` (optional; required for ACS email/SMS dispatch)
 - `VERIFICATION_HASH_KEY` (optional; required for verification hash protection)
+- `AI__CODEACT__NONCESIGNINGKEY` (optional; required only when `AI__CODEACT__PROVIDER=AcaSessions` — 32-byte hex/base64 secret that signs the personal-finance sub-agent callback nonces; see [runbook](../runbooks/codeact-sandbox-providers.md))
 - `AZURE_CLIENT_SECRET` (optional fallback)
 
 Environment variables used by deployment workflows:
@@ -169,8 +170,22 @@ If runtime deploy fails with missing tags:
 
 Avoid mixing ad-hoc service tags. Runtime deploy intentionally blocks partial version sets.
 
+## Provisioned resources
+
+The `cd-infra.yml` + `cd-deploy.yml` chain provisions the following per
+environment. New entries since launch are flagged.
+
+- Container Registry (`Microsoft.ContainerRegistry/registries`)
+- Container Apps Environment + the API / Worker / Admin UI / Qdrant container apps
+- SQL Server + database (`Microsoft.Sql/servers`)
+- Key Vault (`Microsoft.KeyVault/vaults`) — holds all platform secrets including the CodeAct nonce signing key (`Ai--CodeAct--NonceSigningKey`, added Spec 025 post-launch)
+- Storage account (Qdrant snapshots + blob containers)
+- Log Analytics workspace + App Insights
+- ACA Dynamic Sessions pool (`Microsoft.App/sessionPools` named `aonik-<env>-sessions`, added Spec 025 post-launch) — Hyper-V isolated Python sandbox for the personal-finance sub-agents. Inert unless `AI__CODEACT__PROVIDER=AcaSessions`. See the [CodeAct sandbox providers runbook](../runbooks/codeact-sandbox-providers.md) for the opt-in flow.
+
 ## Operations Runbooks
 
 - `docs/runbooks/bootstrap.md`
 - `docs/runbooks/build-and-push.md`
 - `docs/runbooks/deploy-runtime.md`
+- `docs/runbooks/codeact-sandbox-providers.md` — operator guide for the personal-finance sub-agent sandbox (Hyperlight / AcaSessions / Disabled).

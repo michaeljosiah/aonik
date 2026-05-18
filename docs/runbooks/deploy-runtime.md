@@ -45,8 +45,11 @@ Store credentials as **Secrets**; non-sensitive values as **Variables**.
 | Category | Variable (var) | Secret |
 |----------|---------------|--------|
 | AI | `AI__PROVIDER`, `AI__OPENAI__MODEL` | `AI__OPENAI__APIKEY` |
+| AI / CodeAct sub-agent sandbox (Spec 025) | `AI__CODEACT__PROVIDER` (`AcaSessions` to enable; `Hyperlight` for local Linux /dev/kvm hosts; anything else falls back to the tool-loop path) | `AI__CODEACT__NONCESIGNINGKEY` (32-byte hex or base64; required only when `Provider=AcaSessions`) |
 | Auth | `SETTINGS__AUTH_PROVIDER`, `SETTINGS__AUTH_AUTH0_DOMAIN`, `SETTINGS__AUTH_AUTH0_AUDIENCE`, `SETTINGS__AUTH_AUTH0_CLIENTID`, `SETTINGS__AUTH_AUTH0_CONNECTION`, `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTID`, `SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE` | `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET` |
 | Plaid | `FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI`, `FINANCE__PERSONALFINANCE__PLAID__BASEURL`, `FINANCE__PERSONALFINANCE__PLAID__CLIENTID`, `FINANCE__PERSONALFINANCE__PLAID__WEBHOOKURL` | `FINANCE__PERSONALFINANCE__PLAID__SECRET` |
+
+> Full opt-in flow + failure modes for the CodeAct sandbox: [runbook](codeact-sandbox-providers.md).
 
 If a variable is omitted or empty, runtime uses image/application defaults and any values already defined in the host platform.
 

@@ -108,6 +108,32 @@ Workflows are resolved via `IServiceProvider.GetKeyedService<IWorkflowFactory>(n
 - [ADR-004: Adopt Microsoft Agent Framework](../decisions/004-adopt-microsoft-agent-framework.md)
 - [ADR-005: Modular monolith restructuring](../decisions/005-adopt-module-first-modular-monolith.md)
 
+## Personal-finance sub-agents (Spec 025)
+
+Simi (personal-finance-agent) delegates analytical work to three read-only
+sub-agents — `pf-insights`, `pf-forecast`, `pf-classify` — via the
+`pf_run_insights`, `pf_run_forecast`, and `pf_run_classify_review` trigger
+tools. Each sub-agent runs a single `execute_code` call inside a Python
+sandbox that calls back into Simi's host tools through a `call_tool(name,
+**kwargs)` bridge — one LLM hop typically replaces 50+ sequential tool
+invocations.
+
+The sandbox provider is pluggable behind `ICodeActSandboxProvider`:
+
+| Provider | Hosts | Notes |
+|---|---|---|
+| `Hyperlight` | Local Linux dev with `/dev/kvm` or `/dev/mshv` | In-process Hyper-V sandbox; uses `Hyperlight.HyperlightSandbox.*` NuGet packages. |
+| `AcaSessions` | Azure Container Apps (cloud) | Managed sandbox over REST; Python posts back to `POST /ai/codeact/call-tool/{nonce}` to invoke host tools. |
+| `Disabled` (default) | Anywhere | Forces the conventional tool-loop fallback — the sub-agent prompts gracefully degrade with no quality loss other than higher LLM-turn count. |
+
+Selected at runtime by `Ai:CodeAct:Provider`. Each sub-agent descriptor's
+`Build()` calls `ICodeActSandboxProvider.TryBuildExecuteCodeTool(...)`; a
+`null` return means the provider can't service the request and the
+sub-agent gets the conventional `tools: hostTools` configuration instead.
+
+- Operator guide: [Runbook: CodeAct sandbox providers](../runbooks/codeact-sandbox-providers.md)
+- Design rationale: [Spec 025 — Personal Finance Agent Split & CodeAct](../specifications/025.personal-finance-agent-split-and-codeact.html)
+
 ## Related Documentation
 
 - [AI Observability (OpenTelemetry + Langfuse)](ai-observability.md) — Trace instrumentation, OTLP exporters, sensitive data controls

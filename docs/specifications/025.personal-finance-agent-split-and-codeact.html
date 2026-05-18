@@ -730,6 +730,58 @@ return new ChatClientAgent(
   per-request usage pattern.
 </p>
 
+<h3 id="provider-abstraction">6.4a Provider abstraction (post-launch)</h3>
+
+<div class="callout">
+  Spec drafted around <code>HyperlightHostAvailability.IsAvailable</code> as a
+  single-implementation gate. Post-launch reality: Hyperlight's hypervisor
+  prerequisite (<code>/dev/kvm</code> or <code>/dev/mshv</code>) isn't exposed
+  by Azure Container Apps, so the cloud deployment couldn't actually use
+  CodeAct &mdash; every sub-agent invocation crashed with
+  <code>SandboxException: failed to build ProtoWasmSandbox</code>. The
+  in-product fix was to refactor behind <code>ICodeActSandboxProvider</code>
+  with three implementations selected via <code>Ai:CodeAct:Provider</code>
+  configuration (<code>Hyperlight</code>, <code>AcaSessions</code>, <code>Disabled</code>
+  &mdash; the last forces the tool-loop fallback). The Hyperlight path
+  stays for local Linux dev. Cloud takes the
+  <a href="https://learn.microsoft.com/en-us/azure/container-apps/sessions-code-interpreter">Azure Container Apps Dynamic Sessions</a>
+  path, which is a managed Hyper-V-isolated Python sandbox over REST.
+</div>
+
+<p>
+  The ACA Sessions path can't host the in-process <code>call_tool</code> bridge
+  Hyperlight provides &mdash; the sandbox runs on a separate VM in a
+  separate process with only network egress. To preserve the existing
+  <code>call_tool(name, **kwargs)</code> contract (and the sub-agent prompts'
+  one-execute-replaces-50-tool-calls value), the AcaSessions provider:
+</p>
+
+<ol>
+  <li>Mints an HMAC-signed nonce binding <code>(runId, subAgent, tenant,
+  user, toolWhitelist, exp, jti)</code>.</li>
+  <li>Bakes the nonce + callback URL literally into a Python preamble that
+  defines <code>call_tool(name, **kwargs)</code> as a synchronous
+  <code>urllib.request</code> POST back to our API
+  (<code>POST /ai/codeact/call-tool/{nonce}</code>).</li>
+  <li>Submits <code>{preamble + LLM-generated code}</code> to ACA Sessions'
+  synchronous <code>/executions</code> endpoint.</li>
+</ol>
+
+<p>
+  The callback endpoint validates the nonce signature, consumes one unit of
+  the per-nonce callback budget (default 30 calls), re-establishes the
+  tenant + user scope from the payload, and dispatches the named tool
+  through the matching <code>PersonalFinanceTools.CreateForXxxSubAgent</code>
+  slice. Tool whitelist enforcement is server-side &mdash; a leaked nonce
+  can still only invoke the tools that sub-agent was built for.
+</p>
+
+<p>
+  Operator-facing details (config shape, opt-in steps, failure modes, kill
+  switch): see <a href="../runbooks/codeact-sandbox-providers.md">runbook:
+  CodeAct Sandbox Providers</a>.
+</p>
+
 <h3>6.5 Package mapping</h3>
 
 <table>
@@ -1135,8 +1187,13 @@ Total per turn: 2 LLM hops + per-action confirmAction.</code></pre>
   <li><code>src/Aonik.Finance/Agents/PfForecastAgentRegistration.cs</code> &mdash; pf-forecast sub-agent descriptor.</li>
   <li><code>src/Aonik.Finance/Agents/PfClassifyAgentRegistration.cs</code> &mdash; pf-classify sub-agent descriptor.</li>
   <li><code>src/Aonik.Finance/Agents/Tools/PersonalFinanceTools.cs</code> &mdash; Simi's tool factory + per-sub-agent slice helpers (<code>CreateForInsightsSubAgent</code>, <code>CreateForForecastSubAgent</code>, <code>CreateForClassifySubAgent</code>) + the three <code>RunInsights</code> / <code>RunForecast</code> / <code>RunClassifyReview</code> trigger methods.</li>
-  <li><code>src/Aonik.Finance/Agents/CodeAct/HyperlightHostAvailability.cs</code> &mdash; cached one-shot probe for whether the host can run the Hyperlight Python sandbox (Linux + KVM check, with <code>AONIK_DISABLE_HYPERLIGHT</code> opt-out).</li>
-  <li><code>src/Aonik.Finance/Agents/CodeAct/CodeActSubAgentFactory.cs</code> &mdash; builds the single <code>execute_code</code> <code>AIFunction</code> backed by a Hyperlight Python sandbox, bridging each host-side <code>AIFunction</code> to the sandbox's <code>call_tool</code> registry.</li>
+  <li><code>src/Aonik.Finance/Agents/CodeAct/HyperlightHostAvailability.cs</code> &mdash; cached one-shot probe for whether the host can run the Hyperlight Python sandbox (Linux + KVM/MSHV device-file check, with <code>AONIK_DISABLE_HYPERLIGHT</code> opt-out).</li>
+  <li><code>src/Aonik.SharedKernel/Abstractions/Agents/ICodeActSandboxProvider.cs</code> &mdash; provider abstraction; the live implementations are <code>HyperlightCodeActSandboxProvider</code> (local Linux dev), <code>AcaSessionsCodeActSandboxProvider</code> (Azure Container Apps), and <code>NullCodeActSandboxProvider</code> (forces tool-loop fallback). See &sect;6.4a and the <a href="../runbooks/codeact-sandbox-providers.md">CodeAct sandbox providers runbook</a> for the rationale.</li>
+  <li><code>src/Aonik.Finance/Agents/CodeAct/{Hyperlight,AcaSessions,Null}CodeActSandboxProvider.cs</code> &mdash; one file per provider. Replaced the original static <code>CodeActSubAgentFactory.cs</code>.</li>
+  <li><code>src/Aonik.Finance/Agents/CodeAct/AcaSessionsClient.cs</code> &mdash; typed <code>HttpClient</code> over the ACA Sessions <code>/executions</code> endpoint with <code>DefaultAzureCredential</code> token caching.</li>
+  <li><code>src/Aonik.Finance/Agents/CodeAct/CodeActCallbackNonceService.cs</code> &mdash; HMAC-signed nonce issuance + per-nonce callback budget tracker for the ACA path.</li>
+  <li><code>src/Aonik.Finance/Endpoints/Agents/CodeActCallbackEndpoint.cs</code> &mdash; <code>POST /ai/codeact/call-tool/{nonce}</code>; AllowAnonymous (nonce IS the auth); re-establishes tenant + user scope from the nonce payload before dispatching the named host tool.</li>
+  <li><code>iac/azure/modules/sessions.bicep</code> + <code>iac/azure/modules/data.bicep</code> (signing-key secret) + <code>iac/azure/stacks/aca/main.bicep</code> (env vars + role assignment) &mdash; cloud wiring.</li>
   <li><code>src/Aonik.Finance/Agents/StructuredOutputs/{Insights,Forecast,Classify}StructuredModels.cs</code> &mdash; insights.v1 / forecast.v1 / classify.v1 schemas + C# records.</li>
   <li><code>src/Aonik.Finance/FinanceModule.cs</code> &mdash; DI registrations for the 3 new sub-agent descriptors (legacy pf-spending-intelligence and pf-obligation-planning registrations removed in Phase 6).</li>
   <li><code>src/Aonik.SharedKernel/Abstractions/Agents/IDomainAgentDescriptor.cs</code> &mdash; descriptor interface (unchanged).</li>
