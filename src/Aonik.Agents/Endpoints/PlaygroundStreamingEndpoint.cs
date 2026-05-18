@@ -111,6 +111,8 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         // (via ICurrentUserContext.UserId) targets THAT user's data instead
         // of the calling admin's. Bounded by the AdminPolicy already applied
         // to this endpoint, and only affects the current request scope.
+        // MUST run before BuildAgentAsync so the tools built for the agent
+        // resolve services against the overridden user.
         Guid? originalUserId = _currentUserContext?.UserId;
         Guid? impersonatedUserId = null;
         if (request.ImpersonateUserId.HasValue && _currentUserContext is not null)
@@ -123,6 +125,15 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                 request.ImpersonateUserId,
                 runId);
         }
+
+        // ── Set SSE headers ─────────────────────────────────────────────
+        // Must happen BEFORE any WriteSseEventAsync — setting headers after
+        // the response body has started writing fails with HeaderDictionary
+        // ThrowIfReadOnly in TestServer.
+        response.ContentType = "text/event-stream";
+        response.Headers.CacheControl = "no-cache,no-store";
+        response.Headers["Pragma"] = "no-cache";
+        response.Headers["X-Accel-Buffering"] = "no";
 
         // ── DEBUG event so we can confirm from the SSE stream whether
         // impersonation actually fired and which user the downstream
@@ -138,12 +149,6 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
             currentUserIdAfterOverride = _currentUserContext?.UserId,
             impersonatedUserId,
         }, cancellationToken);
-
-        // ── Set SSE headers ─────────────────────────────────────────────
-        response.ContentType = "text/event-stream";
-        response.Headers.CacheControl = "no-cache,no-store";
-        response.Headers["Pragma"] = "no-cache";
-        response.Headers["X-Accel-Buffering"] = "no";
 
         // ── Build the agent ─────────────────────────────────────────────
         AIAgent agent;
