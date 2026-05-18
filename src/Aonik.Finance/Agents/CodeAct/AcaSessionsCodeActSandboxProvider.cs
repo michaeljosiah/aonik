@@ -268,13 +268,18 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
 
     private static byte[] DecodeKey(string raw)
     {
-        try { return Convert.FromHexString(raw); }
+        // Mirror CodeActCallbackNonceService.DecodeKey — trim before parsing
+        // so trailing whitespace from GitHub Actions secret copy-paste
+        // doesn't break key resolution.
+        var trimmed = raw.Trim();
+        try { return Convert.FromHexString(trimmed); }
         catch (FormatException) { /* fall through */ }
-        try { return Convert.FromBase64String(raw); }
+        try { return Convert.FromBase64String(trimmed); }
         catch (FormatException)
         {
             throw new InvalidOperationException(
-                "Ai:CodeAct:NonceSigningKey must be hex or base64 encoded.");
+                "Ai:CodeAct:NonceSigningKey must be hex or base64 encoded " +
+                $"(received {trimmed.Length} characters after trimming whitespace).");
         }
     }
 }

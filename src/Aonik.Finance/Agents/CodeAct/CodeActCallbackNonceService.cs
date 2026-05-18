@@ -240,10 +240,16 @@ public sealed class CodeActCallbackNonceService
 
     private static byte[] DecodeKey(string raw)
     {
-        // Accept hex or base64 to keep operators flexible.
+        // Accept hex or base64 to keep operators flexible. GitHub Actions
+        // secrets are particularly prone to picking up trailing whitespace
+        // from copy-paste in the UI, so we trim aggressively before parsing
+        // — neither hex nor base64 has any legitimate use for surrounding
+        // whitespace, so trimming is always safe.
+        var trimmed = raw.Trim();
+
         try
         {
-            return Convert.FromHexString(raw);
+            return Convert.FromHexString(trimmed);
         }
         catch (FormatException)
         {
@@ -252,12 +258,13 @@ public sealed class CodeActCallbackNonceService
 
         try
         {
-            return Convert.FromBase64String(raw);
+            return Convert.FromBase64String(trimmed);
         }
         catch (FormatException)
         {
             throw new InvalidOperationException(
-                $"Configuration value '{ConfigKey}' must be hex or base64 encoded.");
+                $"Configuration value '{ConfigKey}' must be hex or base64 encoded " +
+                $"(received {trimmed.Length} characters after trimming whitespace).");
         }
     }
 
