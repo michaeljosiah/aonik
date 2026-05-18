@@ -18,15 +18,18 @@ internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefReques
     private readonly IUserBriefProjector _projector;
     private readonly ITenantProvider _tenantProvider;
     private readonly IUserBriefContextDataProvider _contextDataProvider;
+    private readonly IPersonalFinancePartyResolver? _personalFinancePartyResolver;
 
     public ProjectUserBriefEndpoint(
         IUserBriefProjector projector,
         ITenantProvider tenantProvider,
-        IUserBriefContextDataProvider contextDataProvider)
+        IUserBriefContextDataProvider contextDataProvider,
+        IPersonalFinancePartyResolver? personalFinancePartyResolver = null)
     {
         _projector = projector;
         _tenantProvider = tenantProvider;
         _contextDataProvider = contextDataProvider;
+        _personalFinancePartyResolver = personalFinancePartyResolver;
     }
 
     public override void Configure()
@@ -51,7 +54,19 @@ internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefReques
 
         if (userId == Guid.Empty && req.PartyId != Guid.Empty)
         {
+            // First try the Platform-side UserParty link.
             var resolved = await _contextDataProvider.GetUserIdForPartyAsync(tenantId, req.PartyId, ct);
+
+            // Fall back to PersonalProfile.PartyId so demo personas (e.g. the
+            // seeded Seamus / Mark Keane personas — which have a synthetic
+            // UserId in PersonalProfile but no real UserParty link) resolve
+            // cleanly. The playground User Brief picker would otherwise 400
+            // with "no user linked to this party" for every seeded persona.
+            if (resolved is null && _personalFinancePartyResolver is not null)
+            {
+                resolved = await _personalFinancePartyResolver.GetUserIdForPartyAsync(tenantId, req.PartyId, ct);
+            }
+
             if (resolved is null)
             {
                 AddError("No user linked to this party");

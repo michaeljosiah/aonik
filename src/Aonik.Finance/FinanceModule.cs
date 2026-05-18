@@ -98,6 +98,9 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Seeding.Phases.CrossBorderPricingSeedPhase>();
         services.AddScoped<Services.Seeding.Phases.OrderActivitySeedPhase>();
         services.AddScoped<Services.Seeding.Phases.PersonalFinanceActivitySeedPhase>();
+
+        // Playground User Brief party→user fallback (demo personas with no UserParty link).
+        services.AddScoped<SharedKernel.Abstractions.UserBrief.IPersonalFinancePartyResolver, Services.PersonalFinance.PersonalFinancePartyResolver>();
         services.AddScoped<SharedKernel.Abstractions.IDemoSeedContributor, Services.Seeding.FinanceDemoSeedContributor>();
 
         // Pricing
