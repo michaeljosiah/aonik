@@ -275,11 +275,6 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: data.outputs.verificationHashKeySecretUri
           identity: 'system'
         }
-        {
-          name: 'code-act-nonce-signing-key'
-          keyVaultUrl: data.outputs.codeActNonceSigningKeySecretUri
-          identity: 'system'
-        }
       ] : [
         {
           name: 'sql-connection'
@@ -298,9 +293,20 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'verification-hash-key'
           value: 'placeholder'
         }
+      ], [
+        // CodeAct nonce signing key — always a Key Vault reference regardless
+        // of `enableOptionalSecrets`. The data module always creates the
+        // secret (with empty value when no GH secret is configured); the
+        // .NET-side validator throws a clear "must decode to at least 32
+        // bytes" error when the KV value is empty. Previously this entry
+        // sat inside the enableOptionalSecrets ternary with a 'placeholder'
+        // literal fallback that ACA read in preference to the operator's
+        // real secret — caused "received 11 characters after trimming"
+        // when AcaSessions provider was enabled in dev.
         {
           name: 'code-act-nonce-signing-key'
-          value: 'placeholder'
+          keyVaultUrl: data.outputs.codeActNonceSigningKeySecretUri
+          identity: 'system'
         }
       ], empty(bootstrapSetupSecret) ? [] : [
         {
