@@ -45,6 +45,19 @@ public class TenantValidationMiddleware
                 return;
             }
 
+            // Skip the CodeAct callback endpoint — the Python sandbox calling
+            // back in has no JWT (auth is the nonce in the URL path), so there
+            // is no tenant to resolve at this point. The endpoint itself
+            // re-establishes tenant + user scope from the signed nonce payload
+            // before dispatching the named host tool.
+            // See src/Aonik.Finance/Endpoints/Agents/CodeActCallbackEndpoint.cs
+            // and docs/runbooks/codeact-sandbox-providers.md.
+            if (context.Request.Path.StartsWithSegments("/ai/codeact/call-tool"))
+            {
+                await _next(context);
+                return;
+            }
+
             // Tenant should already be resolved by TenantContextMiddleware
             if (!tenantContext.IsResolved || tenantContext.TenantId is null)
             {
