@@ -9,7 +9,7 @@ namespace Aonik.Finance.Endpoints.Agents;
 /// log shipping. Admin-only; intended for diagnostic use during the Spec 025
 /// rollout. Safe to keep — never leaks the nonce signing key.
 /// </summary>
-internal sealed class CodeActDebugTailEndpoint : EndpointWithoutRequest<AcaSessionsCodeActSandboxProvider.AcaSessionsExecutionDiagnostic?>
+internal sealed class CodeActDebugTailEndpoint : EndpointWithoutRequest<CodeActDebugTailResponse>
 {
     public override void Configure()
     {
@@ -17,14 +17,18 @@ internal sealed class CodeActDebugTailEndpoint : EndpointWithoutRequest<AcaSessi
         Policies("AdminPolicy");
         Summary(s =>
         {
-            s.Summary = "Last execute_code result captured by the AcaSessions provider";
-            s.Description = "Diagnostic endpoint for the Spec 025 sandbox rollout. Returns the most recent ACA Dynamic Sessions execute_code response (status + stdout + stderr + timing) so a developer can see what the Python sandbox actually printed without scraping container logs.";
-            s.Response(200, "Last diagnostic, or null if no execute_code has run yet");
+            s.Summary = "Last execute_code result + last token claims captured by the AcaSessions provider";
+            s.Description = "Diagnostic endpoint for the Spec 025 sandbox rollout. Returns the most recent ACA Dynamic Sessions execute_code response and the subset of JWT claims (aud/iss/oid/appid/exp) of the token used — so a developer can see what the Python sandbox printed AND which managed identity was actually authenticating.";
+            s.Response(200, "Last diagnostic; null when no execute_code has run yet");
         });
-        // No WithTags — keep parity with the CodeActCallbackEndpoint until
-        // a Tags helper is in place. Swagger discovery still works.
     }
 
     public override Task HandleAsync(CancellationToken ct)
-        => Send.OkAsync(AcaSessionsCodeActSandboxProvider.LastExecution, ct);
+        => Send.OkAsync(new CodeActDebugTailResponse(
+            AcaSessionsCodeActSandboxProvider.LastExecution,
+            AcaSessionsClient.LastTokenClaimsForDiagnostic), ct);
 }
+
+public sealed record CodeActDebugTailResponse(
+    AcaSessionsCodeActSandboxProvider.AcaSessionsExecutionDiagnostic? LastExecution,
+    string? LastTokenClaims);

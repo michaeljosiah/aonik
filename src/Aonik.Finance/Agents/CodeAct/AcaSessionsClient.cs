@@ -103,16 +103,48 @@ public sealed class AcaSessionsClient
         CancellationToken cancellationToken)
     {
         var token = await GetTokenAsync(forceRefresh: false, cancellationToken).ConfigureAwait(false);
+        LastTokenClaimsForDiagnostic = DecodeJwtClaimsSafe(token);
         var response = await SendAsync(path, body, token, cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             response.Dispose();
             token = await GetTokenAsync(forceRefresh: true, cancellationToken).ConfigureAwait(false);
+            LastTokenClaimsForDiagnostic = DecodeJwtClaimsSafe(token);
             response = await SendAsync(path, body, token, cancellationToken).ConfigureAwait(false);
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// Last decoded JWT claims (subset: aud / oid / iss / appid / exp) of the
+    /// token used to call ACA Sessions. Static, single-slot, populated on every
+    /// call so the diagnostic endpoint can reveal whether the token's identity
+    /// matches the principalId the Session Executor role was granted to.
+    /// Never includes the signature — safe to expose to admin callers.
+    /// </summary>
+    public static string? LastTokenClaimsForDiagnostic { get; private set; }
+
+    private static string DecodeJwtClaimsSafe(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return "(jwt missing payload segment)";
+            var padded = parts[1].Replace('-', '+').Replace('_', '/');
+            switch (padded.Length % 4) { case 2: padded += "=="; break; case 3: padded += "="; break; }
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(padded));
+            // Only surface the subset of claims that matter for RBAC diagnosis.
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            string Get(string name) => root.TryGetProperty(name, out var v) ? v.ToString() : "(missing)";
+            return $"aud={Get("aud")} | iss={Get("iss")} | oid={Get("oid")} | appid={Get("appid")} | exp={Get("exp")}";
+        }
+        catch (Exception ex)
+        {
+            return $"(decode failed: {ex.GetType().Name}: {ex.Message})";
+        }
     }
 
     private async Task<HttpResponseMessage> SendAsync<TBody>(
