@@ -94,6 +94,13 @@ internal sealed class PersonalFinanceActivitySeedPhase
         foreach (var bill in persona.RecurringBills)
         {
             await UpsertRecurringBillAsync(persona, bill, context, cancellationToken);
+            // Both Bill (old payment-execution table) and PersonalRecurringBill
+            // (new commitment-tracking table) get populated from the same source.
+            // Tools like pf_get_upcoming_bills / pf_get_dashboard read the Bill
+            // table while customer-insight snapshots + commitments aggregation
+            // read PersonalRecurringBill, so we need both for Simi's full
+            // toolset to surface coherent data.
+            await UpsertBillAsync(persona, bill, context, cancellationToken);
         }
 
         foreach (var sub in persona.Subscriptions)
@@ -302,6 +309,58 @@ internal sealed class PersonalFinanceActivitySeedPhase
             existing.LastObservedAt = bill.LastObservedAt;
             existing.LastPaidAt = bill.LastObservedAt;
             existing.LastPaidAmount = bill.ExpectedAmount;
+            existing.UpdatedAt = context.Now;
+            existing.UpdatedBy = context.UserId;
+        }
+    }
+
+    private async Task UpsertBillAsync(
+        PersonaDefinition persona,
+        RecurringBillSeed bill,
+        DemoSeedContext context,
+        CancellationToken cancellationToken)
+    {
+        // Use a different seed-key prefix so the deterministic Guid is distinct
+        // from the PersonalRecurringBill row, even though both rows mirror the
+        // same conceptual obligation.
+        var billId = DeterministicGuid(persona.UserId, $"bill:{bill.Key}");
+
+        var existing = await _db.Bills
+            .FirstOrDefaultAsync(b => b.Id == billId, cancellationToken);
+
+        if (existing == null)
+        {
+            _db.Bills.Add(new Bill
+            {
+                Id = billId,
+                TenantId = context.TenantId,
+                UserId = persona.UserId,
+                PaidFromAccountId = bill.PaidFromAccountId,
+                Payee = bill.Payee,
+                Frequency = "Monthly",
+                NextDueDate = bill.NextDueDate,
+                ExpectedAmount = bill.ExpectedAmount,
+                Currency = "GBP",
+                Autopay = bill.Autopay,
+                LinkedInvoiceId = null,
+                LinkedOrderId = null,
+                Status = "Active",
+                CreatedAt = context.Now,
+                CreatedBy = context.UserId
+            });
+        }
+        else
+        {
+            existing.TenantId = context.TenantId;
+            existing.UserId = persona.UserId;
+            existing.PaidFromAccountId = bill.PaidFromAccountId;
+            existing.Payee = bill.Payee;
+            existing.Frequency = "Monthly";
+            existing.NextDueDate = bill.NextDueDate;
+            existing.ExpectedAmount = bill.ExpectedAmount;
+            existing.Currency = "GBP";
+            existing.Autopay = bill.Autopay;
+            existing.Status = "Active";
             existing.UpdatedAt = context.Now;
             existing.UpdatedBy = context.UserId;
         }
