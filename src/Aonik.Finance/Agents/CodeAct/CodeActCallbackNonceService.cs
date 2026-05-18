@@ -31,6 +31,26 @@ namespace Aonik.Finance.Agents.CodeAct;
 /// later, swap this for a distributed cache.
 /// </para>
 /// </remarks>
+/// <summary>
+/// Reason buckets surfaced in the callback endpoint's 401 body so a developer
+/// can see WHY validation failed without inspecting server logs (which aren't
+/// always accessible from automated test harnesses).
+/// </summary>
+public enum NonceValidationResult
+{
+    Valid,
+    MissingOrEmpty,
+    MalformedSegmentCount,
+    WrongVersionPrefix,
+    PayloadNotBase64Url,
+    SignatureNotBase64Url,
+    SigningKeyUnavailable,
+    SignatureMismatch,
+    PayloadNotJson,
+    PayloadEmpty,
+    Expired,
+}
+
 public sealed class CodeActCallbackNonceService
 {
     private const string Version = "nonce_v1";
@@ -139,17 +159,34 @@ public sealed class CodeActCallbackNonceService
     /// happens at the right point in the request pipeline.
     /// </summary>
     public bool TryValidate(string? nonce, out CodeActCallbackPayload? payload)
+        => Validate(nonce, out payload, out _) == NonceValidationResult.Valid;
+
+    /// <summary>
+    /// Like <see cref="TryValidate"/> but returns an enum reason for failure
+    /// so the callback endpoint can surface specific 401 diagnostics. Don't
+    /// return raw signature comparisons to the caller — the enum buckets give
+    /// enough info to debug without leaking key material.
+    /// </summary>
+    public NonceValidationResult Validate(
+        string? nonce,
+        out CodeActCallbackPayload? payload,
+        out int signatureKeyByteLength)
     {
         payload = null;
+        signatureKeyByteLength = 0;
         if (string.IsNullOrWhiteSpace(nonce))
         {
-            return false;
+            return NonceValidationResult.MissingOrEmpty;
         }
 
         var parts = nonce.Split('.', 3);
-        if (parts.Length != 3 || !string.Equals(parts[0], Version, StringComparison.Ordinal))
+        if (parts.Length != 3)
         {
-            return false;
+            return NonceValidationResult.MalformedSegmentCount;
+        }
+        if (!string.Equals(parts[0], Version, StringComparison.Ordinal))
+        {
+            return NonceValidationResult.WrongVersionPrefix;
         }
 
         byte[] payloadBytes;
@@ -157,17 +194,34 @@ public sealed class CodeActCallbackNonceService
         try
         {
             payloadBytes = Base64UrlDecode(parts[1]);
+        }
+        catch (FormatException)
+        {
+            return NonceValidationResult.PayloadNotBase64Url;
+        }
+        try
+        {
             presentedSignature = Base64UrlDecode(parts[2]);
         }
         catch (FormatException)
         {
-            return false;
+            return NonceValidationResult.SignatureNotBase64Url;
         }
 
-        var expectedSignature = HmacSign($"{parts[0]}.{parts[1]}");
+        byte[] expectedSignature;
+        try
+        {
+            expectedSignature = HmacSign($"{parts[0]}.{parts[1]}");
+            signatureKeyByteLength = _signingKey.Value.Length;
+        }
+        catch (Exception)
+        {
+            return NonceValidationResult.SigningKeyUnavailable;
+        }
+
         if (!CryptographicOperations.FixedTimeEquals(expectedSignature, presentedSignature))
         {
-            return false;
+            return NonceValidationResult.SignatureMismatch;
         }
 
         CodeActCallbackPayload? decoded;
@@ -177,23 +231,22 @@ public sealed class CodeActCallbackNonceService
         }
         catch (JsonException)
         {
-            return false;
+            return NonceValidationResult.PayloadNotJson;
         }
 
         if (decoded is null)
         {
-            return false;
+            return NonceValidationResult.PayloadEmpty;
         }
 
         if (decoded.ExpiresAtUtc <= _timeProvider.GetUtcNow())
         {
-            // Garbage-collect any leftover budget entry for the expired nonce.
             _budget.TryRemove(decoded.Jti, out _);
-            return false;
+            return NonceValidationResult.Expired;
         }
 
         payload = decoded;
-        return true;
+        return NonceValidationResult.Valid;
     }
 
     /// <summary>
