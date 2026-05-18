@@ -336,3 +336,141 @@ internal sealed class AdminListCommitmentsEndpoint
         await Send.OkAsync(response, ct);
     }
 }
+
+// ── Bind a Party's PF data to a User ───────────────────────────────────
+//
+// Stop-gap admin tool for the upcoming "invite a user and map them to an
+// existing customer party" workflow. Looks up the PersonalProfile for the
+// given party, then rewrites every PersonalFinance row keyed by that
+// profile's UserId to the supplied target UserId (or the current admin
+// user if none is supplied). Idempotent — re-binding to the same user is
+// a no-op. Tenant-scoped: only touches rows in the current tenant.
+//
+// This makes it possible to log in (or run the playground) as the bound
+// user and see Seamus/Mark Keane's seeded data without having to wire up
+// the full invite-and-map UX first. Once that proper workflow exists,
+// this endpoint can be kept as the lower-level primitive it calls into.
+
+internal sealed class AdminBindPersonalFinancePartyToUserRequest
+{
+    /// <summary>The Party whose PersonalFinance data should be re-pointed.</summary>
+    public Guid PartyId { get; set; }
+
+    /// <summary>
+    /// The User that the party's PersonalFinance data should be bound to.
+    /// If null, defaults to the calling admin user — convenient for "bind
+    /// to me" testing flows.
+    /// </summary>
+    public Guid? TargetUserId { get; init; }
+}
+
+internal sealed record AdminBindPersonalFinancePartyToUserResponse(
+    Guid PartyId,
+    Guid PreviousUserId,
+    Guid NewUserId,
+    int ProfilesUpdated,
+    int AccountsUpdated,
+    int TransactionsUpdated,
+    int RecurringBillsUpdated,
+    int BillsUpdated,
+    int SubscriptionsUpdated);
+
+internal sealed class AdminBindPersonalFinancePartyToUserEndpoint
+    : Endpoint<AdminBindPersonalFinancePartyToUserRequest, AdminBindPersonalFinancePartyToUserResponse>
+{
+    private readonly FinanceDbContext _db;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly Aonik.SharedKernel.Abstractions.ICurrentUserContext _currentUserContext;
+
+    public AdminBindPersonalFinancePartyToUserEndpoint(
+        FinanceDbContext db,
+        ITenantProvider tenantProvider,
+        Aonik.SharedKernel.Abstractions.ICurrentUserContext currentUserContext)
+    {
+        _db = db;
+        _tenantProvider = tenantProvider;
+        _currentUserContext = currentUserContext;
+    }
+
+    public override void Configure()
+    {
+        Post("/admin/personal-finance/parties/{PartyId:guid}/bind-user");
+        Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Bind a party's personal-finance data to a user";
+            s.Description = "Rewrites every PersonalFinance row keyed by the synthetic UserId of the party's PersonalProfile to the supplied target UserId (defaults to the current admin user). Tenant-scoped; idempotent; useful for testing seeded personas in the playground until the proper 'invite a user and map them to a party' workflow exists.";
+            s.Response(200, "Bind succeeded");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "No PersonalProfile found for this party");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(AdminBindPersonalFinancePartyToUserRequest req, CancellationToken ct)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var targetUserId = req.TargetUserId
+            ?? _currentUserContext.UserId
+            ?? throw new InvalidOperationException(
+                "TargetUserId not supplied and the calling user has no resolvable internal UserId.");
+
+        var profile = await _db.PersonalProfiles
+            .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.PartyId == req.PartyId, ct);
+
+        if (profile is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        var previousUserId = profile.UserId;
+
+        if (previousUserId == targetUserId)
+        {
+            await Send.OkAsync(new AdminBindPersonalFinancePartyToUserResponse(
+                req.PartyId, previousUserId, targetUserId, 0, 0, 0, 0, 0, 0), ct);
+            return;
+        }
+
+        // ExecuteUpdate keeps these as raw UPDATE statements — no entity
+        // materialisation for ~1k rows per persona, and no change-tracker
+        // overhead. All filters include TenantId so we never cross tenants.
+
+        var profilesUpdated = await _db.PersonalProfiles
+            .Where(p => p.TenantId == tenantId && p.UserId == previousUserId)
+            .ExecuteUpdateAsync(u => u.SetProperty(x => x.UserId, targetUserId), ct);
+
+        var accountsUpdated = await _db.PersonalAccounts
+            .Where(a => a.TenantId == tenantId && a.UserId == previousUserId)
+            .ExecuteUpdateAsync(u => u.SetProperty(x => x.UserId, targetUserId), ct);
+
+        var transactionsUpdated = await _db.PersonalTransactions
+            .Where(t => t.TenantId == tenantId && t.UserId == previousUserId)
+            .ExecuteUpdateAsync(u => u.SetProperty(x => x.UserId, targetUserId), ct);
+
+        var recurringBillsUpdated = await _db.PersonalRecurringBills
+            .Where(b => b.TenantId == tenantId && b.UserId == previousUserId)
+            .ExecuteUpdateAsync(u => u.SetProperty(x => x.UserId, targetUserId), ct);
+
+        var billsUpdated = await _db.Bills
+            .Where(b => b.TenantId == tenantId && b.UserId == previousUserId)
+            .ExecuteUpdateAsync(u => u.SetProperty(x => x.UserId, targetUserId), ct);
+
+        var subscriptionsUpdated = await _db.Subscriptions
+            .Where(s => s.TenantId == tenantId && s.UserId == previousUserId)
+            .ExecuteUpdateAsync(u => u.SetProperty(x => x.UserId, targetUserId), ct);
+
+        await Send.OkAsync(new AdminBindPersonalFinancePartyToUserResponse(
+            req.PartyId,
+            previousUserId,
+            targetUserId,
+            profilesUpdated,
+            accountsUpdated,
+            transactionsUpdated,
+            recurringBillsUpdated,
+            billsUpdated,
+            subscriptionsUpdated), ct);
+    }
+}

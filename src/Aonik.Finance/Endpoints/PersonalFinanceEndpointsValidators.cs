@@ -52,6 +52,15 @@ internal sealed class AdminListTransactionsRequestValidator : Validator<AdminLis
     }
 }
 
+internal sealed class AdminBindPersonalFinancePartyToUserRequestValidator : Validator<AdminBindPersonalFinancePartyToUserRequest>
+{
+    public AdminBindPersonalFinancePartyToUserRequestValidator()
+    {
+        RuleFor(x => x.PartyId).RequiredId();
+        RuleFor(x => x.TargetUserId).ValidIdWhenSupplied();
+    }
+}
+
 internal sealed class AdminGetFinancialLifeGraphRequestValidator : Validator<AdminGetFinancialLifeGraphRequest>
 {
     public AdminGetFinancialLifeGraphRequestValidator() => RuleFor(x => x.UserId).RequiredId();
