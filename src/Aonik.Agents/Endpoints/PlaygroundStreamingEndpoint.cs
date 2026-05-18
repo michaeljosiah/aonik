@@ -111,16 +111,33 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         // (via ICurrentUserContext.UserId) targets THAT user's data instead
         // of the calling admin's. Bounded by the AdminPolicy already applied
         // to this endpoint, and only affects the current request scope.
+        Guid? originalUserId = _currentUserContext?.UserId;
+        Guid? impersonatedUserId = null;
         if (request.ImpersonateUserId.HasValue && _currentUserContext is not null)
         {
-            var originalUserId = _currentUserContext.UserId;
             _currentUserContext.UserId = request.ImpersonateUserId;
+            impersonatedUserId = request.ImpersonateUserId;
             _logger.LogInformation(
                 "Playground impersonation: admin {OriginalUserId} running as {ImpersonatedUserId} for run {RunId}",
                 originalUserId,
                 request.ImpersonateUserId,
                 runId);
         }
+
+        // ── DEBUG event so we can confirm from the SSE stream whether
+        // impersonation actually fired and which user the downstream
+        // services will resolve to. Cheap to keep — it's a single small
+        // event before the actual run starts.
+        await WriteSseEventAsync(response, new
+        {
+            type = "PLAYGROUND_IMPERSONATION",
+            runId,
+            contextResolved = _currentUserContext is not null,
+            requestedImpersonation = request.ImpersonateUserId,
+            originalUserId,
+            currentUserIdAfterOverride = _currentUserContext?.UserId,
+            impersonatedUserId,
+        }, cancellationToken);
 
         // ── Set SSE headers ─────────────────────────────────────────────
         response.ContentType = "text/event-stream";
