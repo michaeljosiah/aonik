@@ -13,7 +13,7 @@ namespace Aonik.Agents.Endpoints;
 /// Unlike <see cref="GetUserBriefEndpoint"/>, this accepts an explicit user/party ID
 /// rather than using the current authenticated user.
 /// </summary>
-internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefRequest, UserBrief>
+internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefRequest, ProjectUserBriefResponse>
 {
     private readonly IUserBriefProjector _projector;
     private readonly ITenantProvider _tenantProvider;
@@ -36,7 +36,7 @@ internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefReques
         Summary(s =>
         {
             s.Summary = "Project user brief by ID";
-            s.Description = "Projects a user brief for an arbitrary user by user ID or party ID. Used by the Admin UI playground to load real user context for testing.";
+            s.Description = "Projects a user brief for an arbitrary user by user ID or party ID. Returns the resolved user id alongside the brief so the playground can pass it as ImpersonateUserId on subsequent /ai/playground/run calls.";
             s.Response(200, "Success");
             s.Response(400, "Invalid request");
             s.Response(401, "Not authenticated");
@@ -70,9 +70,19 @@ internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefReques
         }
 
         var brief = await _projector.ProjectAsync(tenantId, userId, null, ct);
-        await Send.OkAsync(brief, ct);
+        await Send.OkAsync(new ProjectUserBriefResponse(userId, brief), ct);
     }
 }
+
+/// <summary>
+/// Wraps the projected user brief with the resolved user id so the Admin UI
+/// can use it as <c>ImpersonateUserId</c> when sending the brief into a
+/// playground run — needed so personal-finance sub-agents target the briefed
+/// user's data instead of the calling admin's.
+/// </summary>
+public sealed record ProjectUserBriefResponse(
+    Guid UserId,
+    UserBrief Brief);
 
 /// <summary>
 /// Request DTO for projecting a user brief for the playground.

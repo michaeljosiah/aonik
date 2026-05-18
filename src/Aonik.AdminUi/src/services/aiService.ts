@@ -391,10 +391,17 @@ export const promptSpecService = {
 
 // ── Playground service ──────────────────────────────────────────────
 
+export interface ProjectUserBriefResponse {
+  /** Internal user id the brief was projected for; pass as impersonateUserId on /ai/playground/run so personal-finance sub-agents target the briefed user's data. */
+  userId: string;
+  /** The actual brief payload that gets JSON.stringified into the system prompt. */
+  brief: unknown;
+}
+
 export const playgroundService = {
   /** Project a real user brief by user ID or party ID (admin only). */
-  projectUserBrief: async (options: { userId?: string; partyId?: string }): Promise<unknown> => {
-    return api.post('/ai/playground/user-brief', options);
+  projectUserBrief: async (options: { userId?: string; partyId?: string }): Promise<ProjectUserBriefResponse> => {
+    return api.post<ProjectUserBriefResponse>('/ai/playground/user-brief', options);
   },
 };
 

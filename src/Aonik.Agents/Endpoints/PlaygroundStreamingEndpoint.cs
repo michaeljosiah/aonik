@@ -47,6 +47,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
     private readonly ISpeechRenderer _speechRenderer;
     private readonly ILogger<PlaygroundStreamingEndpoint> _logger;
     private readonly ICurrentUserProvider? _currentUserProvider;
+    private readonly ICurrentUserContext? _currentUserContext;
 
     public PlaygroundStreamingEndpoint(
         IChatClient chatClient,
@@ -58,7 +59,8 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         IToolCallClassifier toolClassifier,
         ISpeechRenderer speechRenderer,
         ILogger<PlaygroundStreamingEndpoint> logger,
-        ICurrentUserProvider? currentUserProvider = null)
+        ICurrentUserProvider? currentUserProvider = null,
+        ICurrentUserContext? currentUserContext = null)
     {
         _chatClient = chatClient;
         _taskReader = taskReader;
@@ -70,6 +72,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         _speechRenderer = speechRenderer;
         _logger = logger;
         _currentUserProvider = currentUserProvider;
+        _currentUserContext = currentUserContext;
     }
 
     public override void Configure()
@@ -101,6 +104,23 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
 
         var runId = Guid.NewGuid().ToString("N");
         StampPlaygroundTelemetryContext(request, runId);
+
+        // ── Optional impersonation ──────────────────────────────────────
+        // Lets an admin run the playground "as" another user so that every
+        // service / sub-agent tool downstream that resolves the current user
+        // (via ICurrentUserContext.UserId) targets THAT user's data instead
+        // of the calling admin's. Bounded by the AdminPolicy already applied
+        // to this endpoint, and only affects the current request scope.
+        if (request.ImpersonateUserId.HasValue && _currentUserContext is not null)
+        {
+            var originalUserId = _currentUserContext.UserId;
+            _currentUserContext.UserId = request.ImpersonateUserId;
+            _logger.LogInformation(
+                "Playground impersonation: admin {OriginalUserId} running as {ImpersonatedUserId} for run {RunId}",
+                originalUserId,
+                request.ImpersonateUserId,
+                runId);
+        }
 
         // ── Set SSE headers ─────────────────────────────────────────────
         response.ContentType = "text/event-stream";

@@ -860,6 +860,7 @@ export function AiPlaygroundPage() {
               <UserBriefPicker
                 value={config.userBriefJson}
                 onChange={(json) => updateConfig({ userBriefJson: json })}
+                onImpersonationChange={(userId) => updateConfig({ impersonateUserId: userId })}
               />
             </PopoverContent>
           </Popover>

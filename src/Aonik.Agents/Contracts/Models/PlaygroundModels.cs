@@ -41,6 +41,19 @@ public sealed record PlaygroundRunRequest
     public string? UserBriefJson { get; init; }
 
     /// <summary>
+    /// Optional user to impersonate for the duration of this playground run.
+    /// When set, the request-scoped <see cref="Aonik.SharedKernel.Abstractions.ICurrentUserContext"/>
+    /// has its <c>UserId</c> overridden to this value early in the handler, so
+    /// every downstream service / agent tool that resolves the current user
+    /// (e.g. <c>BillService</c>, <c>DashboardService</c>, the personal-finance
+    /// sub-agents' read tools) targets the impersonated user's data instead of
+    /// the authenticated admin's. Gated by <c>AdminUserPolicy</c> on the
+    /// endpoint — only admins can impersonate. Tenancy is not affected; the
+    /// impersonated user must belong to the current tenant.
+    /// </summary>
+    public Guid? ImpersonateUserId { get; init; }
+
+    /// <summary>
     /// Tool filter for agent mode. Only tools whose names appear in this list
     /// will be available to the LLM. When <c>null</c>, all agent tools are used.
     /// Ignored in raw mode.

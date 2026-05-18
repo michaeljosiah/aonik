@@ -15,6 +15,13 @@ export interface PlaygroundConfig {
   modelId: string | null;
   modelName: string | null;
   userBriefJson: string | null;
+  /**
+   * When set, the playground impersonates this user for the duration of the
+   * run — every service / sub-agent tool that reads ICurrentUserContext.UserId
+   * targets this user's data instead of the calling admin's. Populated by
+   * the UserBriefPicker when a real customer is selected.
+   */
+  impersonateUserId: string | null;
   enabledToolNames: string[];
   temperature: number;
   maxTokens: number;
@@ -96,6 +103,7 @@ export function usePlaygroundChat() {
     modelId: null,
     modelName: null,
     userBriefJson: null,
+    impersonateUserId: null,
     enabledToolNames: [],
     temperature: 1,
     maxTokens: 2048,
@@ -254,6 +262,7 @@ export function usePlaygroundChat() {
             systemPrompt: config.systemPrompt || undefined,
             modelId: config.modelId ?? undefined,
             userBriefJson: config.userBriefJson ?? undefined,
+            impersonateUserId: config.impersonateUserId ?? undefined,
             enabledToolNames: config.enabledToolNames,
             messages: msgs,
             temperature: config.temperature,
@@ -437,6 +446,7 @@ export function usePlaygroundChat() {
             systemPrompt: config.systemPrompt || undefined,
             modelId: config.modelId ?? undefined,
             userBriefJson: config.userBriefJson ?? undefined,
+            impersonateUserId: config.impersonateUserId ?? undefined,
             enabledToolNames: config.enabledToolNames,
             messages: playgroundMessages,
             temperature: config.temperature,

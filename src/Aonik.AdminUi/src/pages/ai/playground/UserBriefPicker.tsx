@@ -13,9 +13,16 @@ import type { CustomerListItem } from '@/types';
 interface UserBriefPickerProps {
   value: string | null;
   onChange: (json: string | null) => void;
+  /**
+   * Called when the source of the brief changes. Lets the parent capture the
+   * resolved user id (only set when "Real User" is selected) so it can pass
+   * it as <c>impersonateUserId</c> on /ai/playground/run — without this the
+   * personal-finance sub-agents would still query the calling admin's data.
+   */
+  onImpersonationChange?: (userId: string | null) => void;
 }
 
-export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
+export function UserBriefPicker({ value, onChange, onImpersonationChange }: UserBriefPickerProps) {
   const [search, setSearch] = useState('');
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -75,9 +82,13 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
     // Immediately clear the previous brief so stale context (e.g. from a
     // sample user) is never used while the real user's context loads.
     onChange(null);
+    onImpersonationChange?.(null);
     try {
-      const brief = await playgroundService.projectUserBrief({ partyId: customer.partyId });
-      onChange(JSON.stringify(brief, null, 2));
+      const result = await playgroundService.projectUserBrief({ partyId: customer.partyId });
+      onChange(JSON.stringify(result.brief, null, 2));
+      // Hand the resolved user id up to the playground page so it can pass
+      // it as impersonateUserId on the next /ai/playground/run.
+      onImpersonationChange?.(result.userId);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -114,7 +125,7 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
         <TabsContent value="samples">
           <div className="space-y-1">
             <button
-              onClick={() => { onChange(null); setSelectionSource(null); setSelectedPartyId(null); }}
+              onClick={() => { onChange(null); setSelectionSource(null); setSelectedPartyId(null); onImpersonationChange?.(null); }}
               className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
                 value === null
                   ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
@@ -126,7 +137,7 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
             {sampleBriefs.map((brief) => (
               <button
                 key={brief.id}
-                onClick={() => { onChange(brief.json); setSelectionSource('samples'); setSelectedPartyId(null); }}
+                onClick={() => { onChange(brief.json); setSelectionSource('samples'); setSelectedPartyId(null); onImpersonationChange?.(null); }}
                 className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
                   value === brief.json
                     ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
@@ -257,7 +268,7 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
         <TabsContent value="manual">
           <Textarea
             value={value ?? ''}
-            onChange={(e) => { onChange(e.target.value || null); setSelectionSource('manual'); setSelectedPartyId(null); }}
+            onChange={(e) => { onChange(e.target.value || null); setSelectionSource('manual'); setSelectedPartyId(null); onImpersonationChange?.(null); }}
             placeholder="Paste User Brief JSON..."
             rows={6}
             className="font-mono text-xs"

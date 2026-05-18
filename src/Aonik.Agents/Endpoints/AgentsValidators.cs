@@ -242,8 +242,12 @@ public sealed class ProjectUserBriefRequestValidator : Validator<ProjectUserBrie
 {
     public ProjectUserBriefRequestValidator()
     {
-        RuleFor(x => x.UserId).RequiredId();
-        RuleFor(x => x.PartyId).RequiredId();
+        // The endpoint accepts EITHER UserId or PartyId (PartyId is resolved
+        // to a UserId internally). The validator previously required both to
+        // be non-empty Guids which made the Admin UI customer picker fail
+        // silently with a 422 (it only sends partyId). Allow either-or here.
+        RuleFor(x => x).Must(req => req.UserId != Guid.Empty || req.PartyId != Guid.Empty)
+            .WithMessage("Either UserId or PartyId must be a non-empty GUID.");
     }
 }
 

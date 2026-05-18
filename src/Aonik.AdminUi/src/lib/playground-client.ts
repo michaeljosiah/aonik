@@ -16,6 +16,13 @@ export interface PlaygroundRunRequest {
   systemPrompt?: string;
   modelId?: string;
   userBriefJson?: string;
+  /**
+   * When set, the backend overrides the request-scoped ICurrentUserContext.UserId
+   * to this value for the duration of the run — so personal-finance sub-agents
+   * and other services target this user's data instead of the calling admin's.
+   * Populated by the User Brief picker when a real customer is selected.
+   */
+  impersonateUserId?: string;
   enabledToolNames?: string[];
   messages: PlaygroundMessage[];
   temperature?: number;
