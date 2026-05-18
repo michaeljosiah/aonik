@@ -87,7 +87,23 @@ public sealed class CodeActCallbackEndpoint : Endpoint<CodeActCallbackRequest, C
     {
         if (!_nonceService.TryValidate(req.Nonce, out var payload) || payload is null)
         {
-            await Send.UnauthorizedAsync(ct);
+            // Surface a structured JSON body so the Python preamble's
+            // RuntimeError message includes a specific reason rather than
+            // generic "HTTP 401". Length-bounds the nonce we echo so a
+            // huge malformed value can't bloat the response.
+            var nonceLen = req.Nonce?.Length ?? 0;
+            var nonceHead = string.IsNullOrEmpty(req.Nonce) ? "" : req.Nonce[..Math.Min(20, req.Nonce.Length)];
+            await Send.ResponseAsync(
+                new CodeActCallbackResponse(
+                    Status: "error",
+                    Result: null,
+                    Error: new CodeActCallbackError(
+                        Code: "nonce_invalid",
+                        Message: $"Nonce validation failed (length={nonceLen}, head=\"{nonceHead}...\"). " +
+                                 "Either the signature is wrong (key mismatch / tampered payload), " +
+                                 "the nonce is expired, or the format is malformed.")),
+                statusCode: 401,
+                cancellation: ct);
             return;
         }
 
