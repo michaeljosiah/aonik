@@ -23,9 +23,13 @@ internal static class CodeActSandboxContextFactory
 {
     public static CodeActSandboxContext Resolve(IServiceProvider sp, string subAgentName)
     {
-        var tenantId = sp.GetRequiredService<ITenantContext>().TenantId
-            ?? throw new InvalidOperationException(
-                "Cannot build CodeAct sandbox context: tenant scope is not resolved.");
+        // Tolerant by design: missing tenant → Guid.Empty. The sub-agent's host
+        // tools (callbacks for AcaSessions, direct for Hyperlight + tool-loop)
+        // will surface their own errors when they actually try to query
+        // tenant-scoped data, with messages that pinpoint the missing scope.
+        // Throwing here makes the entire sub-agent path crash with the opaque
+        // MAF wrapper "Error: Function failed." which is unactionable.
+        var tenantId = sp.GetRequiredService<ITenantContext>().TenantId ?? Guid.Empty;
         var userContext = sp.GetRequiredService<ICurrentUserContext>();
         var runId = Guid.NewGuid().ToString("N");
         return new CodeActSandboxContext(

@@ -260,14 +260,18 @@ internal sealed class PersonalFinanceTools
         [Description("Optional account ID to scope the analysis to a single personal account")] Guid? personalAccountId = null,
         CancellationToken cancellationToken = default)
     {
-        var descriptor = ResolveSubAgentDescriptor("pf-insights");
-        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
-
         var request = new InsightsRequest(userQuestion, kind, periodStart, periodEnd, personalAccountId);
         var message = JsonSerializer.Serialize(request, InsightsStructuredOutputContract.SerializerOptions);
 
         try
         {
+            // Agent construction is inside the try because the descriptor's
+            // Build() resolves request-scoped state (ICodeActSandboxProvider,
+            // tenant/user contexts) and any failure there used to escape as the
+            // unactionable MAF "Error: Function failed." wrapper.
+            var descriptor = ResolveSubAgentDescriptor("pf-insights");
+            var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+
             var response = await agent.RunAsync<InsightsResult>(
                 message,
                 session: null,
@@ -292,14 +296,14 @@ internal sealed class PersonalFinanceTools
         [Description("Optional projection horizon in days. Null lets the sub-agent pick (typically 30-90 days).")] int? horizonDays = null,
         CancellationToken cancellationToken = default)
     {
-        var descriptor = ResolveSubAgentDescriptor("pf-forecast");
-        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
-
         var request = new ForecastRequest(userQuestion, asOfDate, horizonDays);
         var message = JsonSerializer.Serialize(request, ForecastStructuredOutputContract.SerializerOptions);
 
         try
         {
+            var descriptor = ResolveSubAgentDescriptor("pf-forecast");
+            var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+
             var response = await agent.RunAsync<ForecastResult>(
                 message,
                 session: null,
@@ -325,15 +329,15 @@ internal sealed class PersonalFinanceTools
         [Description("Optional account ID to scope the queue to a single personal account")] Guid? personalAccountId = null,
         CancellationToken cancellationToken = default)
     {
-        var descriptor = ResolveSubAgentDescriptor("pf-classify");
-        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
-
         var request = new ClassifyRequest(userQuestion, maxItems, personalAccountId);
         var message = JsonSerializer.Serialize(request, ClassifyStructuredOutputContract.SerializerOptions);
 
         ClassifyResult analysis;
         try
         {
+            var descriptor = ResolveSubAgentDescriptor("pf-classify");
+            var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+
             var response = await agent.RunAsync<ClassifyResult>(
                 message,
                 session: null,
