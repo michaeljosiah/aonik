@@ -323,6 +323,57 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         return MapToResponse(target, tenantId, modelName);
     }
 
+    public async Task<AgentConfigurationResponse> ResetToolsetAsync(
+        string agentName,
+        IServiceProvider serviceProvider,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(serviceProvider);
+
+        var descriptor = _descriptors.FirstOrDefault(d =>
+            string.Equals(d.Name, agentName, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"No hard-coded descriptor exists for agent '{agentName}' — cannot reset toolset.");
+
+        // Resolve the live tool list from the descriptor. This is the same
+        // call SeedGlobalDefaultsAsync makes for new agents, so the result
+        // matches what a fresh seed would produce.
+        var toolNames = descriptor.GetToolNames(serviceProvider);
+        var toolsetJson = toolNames.Count > 0
+            ? JsonSerializer.Serialize(toolNames)
+            : "[]";
+
+        _tenantProvider.TryGetCurrentTenantId(out var tenantId);
+
+        // Target the row the Admin UI edits: tenant override if present, else the global row.
+        var target = tenantId != Guid.Empty
+            ? await _dbContext.Agents.FirstOrDefaultAsync(
+                a => a.Name == agentName && a.TenantId == tenantId, cancellationToken)
+              ?? await _dbContext.Agents.FirstOrDefaultAsync(
+                a => a.Name == agentName && a.TenantId == null, cancellationToken)
+            : await _dbContext.Agents.FirstOrDefaultAsync(
+                a => a.Name == agentName && a.TenantId == null, cancellationToken);
+
+        if (target is null)
+            throw new InvalidOperationException(
+                $"No agent row found for '{agentName}' to reset toolset.");
+
+        target.ToolsetIdsJson = toolsetJson;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await InvalidateResolvedAsync(tenantId, agentName, cancellationToken);
+
+        _logger.LogInformation(
+            "Reset toolset for agent '{AgentName}' in tenant {TenantId} to descriptor default ({ToolCount} tools)",
+            agentName, tenantId, toolNames.Count);
+
+        string? modelName = null;
+        if (target.ModelId.HasValue)
+            modelName = await _modelResolver.ResolveModelNameByIdAsync(target.ModelId.Value, cancellationToken);
+
+        return MapToResponse(target, tenantId, modelName);
+    }
+
     public async Task SeedGlobalDefaultsAsync(
         IServiceProvider serviceProvider,
         CancellationToken cancellationToken = default)

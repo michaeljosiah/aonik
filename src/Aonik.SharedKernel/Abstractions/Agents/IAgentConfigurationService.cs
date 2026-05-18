@@ -59,6 +59,28 @@ public interface IAgentConfigurationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Resets the agent's tool catalogue (<c>ToolsetIdsJson</c>) to the live
+    /// list returned by <see cref="IDomainAgentDescriptor.GetToolNames"/>.
+    /// Useful when a tool surface has changed in code (e.g. a sub-agent
+    /// trigger was renamed or added) but the persisted Agent row still
+    /// reflects the old whitelist — <see cref="SeedGlobalDefaultsAsync"/> is
+    /// idempotent for the toolset to preserve admin customisations, so this
+    /// method is the explicit opt-in path to refresh from the descriptor.
+    /// Only the toolset field is overwritten; prompt, model, risk tier, etc.
+    /// remain intact. Targets the tenant override if one exists for the
+    /// current tenant, otherwise the global row.
+    /// </summary>
+    /// <param name="serviceProvider">
+    /// Service provider used to resolve domain services when calling
+    /// <see cref="IDomainAgentDescriptor.GetToolNames"/>. Required because
+    /// tools are built from DI-resolved service instances.
+    /// </param>
+    Task<AgentConfigurationResponse> ResetToolsetAsync(
+        string agentName,
+        IServiceProvider serviceProvider,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Seeds global default Agent rows (TenantId = null) for each registered
     /// <see cref="IDomainAgentDescriptor"/>. Idempotent — skips agents that
     /// already have a global row.
