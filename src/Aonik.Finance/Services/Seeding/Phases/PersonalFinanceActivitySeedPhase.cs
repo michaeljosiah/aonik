@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
 
+using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
@@ -36,10 +37,27 @@ internal sealed class PersonalFinanceActivitySeedPhase
     private static readonly FinanceDemoSeedIds SeedIds = FinanceDemoSeedIds.Instance;
 
     private readonly FinanceDbContext _db;
+    private readonly ICustomerInsightSnapshotService? _snapshotService;
 
     public PersonalFinanceActivitySeedPhase(FinanceDbContext db)
     {
         _db = db;
+        _snapshotService = null;
+    }
+
+    /// <summary>
+    /// DI ctor — also takes <see cref="ICustomerInsightSnapshotService"/> so
+    /// the seed phase can generate a baseline customer-insight snapshot per
+    /// persona. The pf-insights sub-agent uses <c>pf_list_snapshot_history</c>
+    /// and <c>pf_compare_snapshots</c> to answer "why was last month tight?"
+    /// — without a snapshot it reports <c>snapshot_unavailable</c> and the
+    /// playground demo can't surface the seeded car-repair / takeaway
+    /// anomalies.
+    /// </summary>
+    public PersonalFinanceActivitySeedPhase(FinanceDbContext db, ICustomerInsightSnapshotService snapshotService)
+    {
+        _db = db;
+        _snapshotService = snapshotService;
     }
 
     public async Task<IReadOnlyList<string>> SeedAsync(
@@ -69,6 +87,34 @@ internal sealed class PersonalFinanceActivitySeedPhase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // ── Customer insight snapshots ───────────────────────────────
+        // Generate one baseline snapshot per persona so the pf-insights
+        // sub-agent has something to read for `Why was last month tight?`
+        // questions. Without this it reports `snapshot_unavailable` /
+        // `data_unavailable` and the playground demo never reaches the
+        // car-repair + takeaway anomaly story the seed is designed to tell.
+        if (_snapshotService is not null)
+        {
+            foreach (var persona in personas)
+            {
+                try
+                {
+                    var snapshot = await _snapshotService.GenerateCurrentSnapshotAsync(persona.UserId, cancellationToken);
+                    operations.Add(
+                        $"Generated customer-insight snapshot for {persona.DisplayName} " +
+                        $"(window {snapshot.WindowStartUtc:yyyy-MM-dd}..{snapshot.WindowEndUtc:yyyy-MM-dd}, v{snapshot.Version})");
+                }
+                catch (Exception ex)
+                {
+                    // Don't let a snapshot generation failure block the seed run.
+                    // The transactions / bills / accounts have already saved.
+                    operations.Add(
+                        $"Customer-insight snapshot for {persona.DisplayName} failed: {ex.GetType().Name}: {ex.Message}");
+                }
+            }
+        }
+
         return operations;
     }
 
