@@ -215,6 +215,7 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "ACA Sessions execute failed for session {Session}", sessionIdentifier);
+            CaptureExceptionDiagnostic(sessionIdentifier, callbackUrl, ex);
             return SerializeError(
                 "aca_sessions_http_error",
                 $"ACA Sessions /executions failed: {ex.Message}");
@@ -222,10 +223,23 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected ACA Sessions execute failure for session {Session}", sessionIdentifier);
+            CaptureExceptionDiagnostic(sessionIdentifier, callbackUrl, ex);
             return SerializeError(
                 "aca_sessions_unexpected_error",
                 $"Unexpected error invoking the sandbox: {ex.Message}");
         }
+    }
+
+    private static void CaptureExceptionDiagnostic(string sessionIdentifier, string callbackUrl, Exception ex)
+    {
+        LastExecution = new AcaSessionsExecutionDiagnostic(
+            CapturedAtUtc: DateTimeOffset.UtcNow,
+            SessionIdentifier: sessionIdentifier,
+            CallbackUrlHead: callbackUrl[..Math.Min(80, callbackUrl.Length)],
+            Status: "Exception",
+            Stdout: null,
+            Stderr: $"{ex.GetType().Name}: {ex.Message}",
+            ExecutionTimeMs: null);
     }
 
     /// <summary>
