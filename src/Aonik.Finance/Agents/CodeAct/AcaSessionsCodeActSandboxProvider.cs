@@ -128,10 +128,11 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
         var sessionIdentifier = BuildSessionIdentifier(context);
         var preamble = BuildPythonPreamble(callbackUrl);
 
+        var capturedCallbackUrl = callbackUrl;
         var executeCode = AIFunctionFactory.Create(
             method: (
                 [Description("The Python source code to execute. The sandbox already defines `call_tool(name, **kwargs)` — do NOT redefine it.")] string code,
-                CancellationToken ct) => ExecuteAsync(sessionIdentifier, preamble, code, ct),
+                CancellationToken ct) => ExecuteAsync(sessionIdentifier, preamble, capturedCallbackUrl, code, ct),
             name: ExecuteCodeToolName,
             description: ExecuteCodeToolDescription);
 
@@ -141,6 +142,7 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
     private async Task<string> ExecuteAsync(
         string sessionIdentifier,
         string preamble,
+        string callbackUrl,
         string code,
         CancellationToken cancellationToken)
     {
@@ -169,14 +171,42 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
         {
             var result = await _client.ExecuteAsync(sessionIdentifier, combined, cancellationToken)
                 .ConfigureAwait(false);
-            return JsonSerializer.Serialize(new
-            {
-                status = result.Status,
-                stdout = result.Stdout,
-                stderr = result.Stderr,
-                executionTimeMs = result.ExecutionTimeInMilliseconds,
-                result = result.Result,
-            });
+            // Capture for the diagnostic endpoint regardless of success.
+            LastExecution = new AcaSessionsExecutionDiagnostic(
+                CapturedAtUtc: DateTimeOffset.UtcNow,
+                SessionIdentifier: sessionIdentifier,
+                CallbackUrlHead: callbackUrl[..Math.Min(80, callbackUrl.Length)],
+                Status: result.Status,
+                Stdout: TruncateForDiag(result.Stdout),
+                Stderr: TruncateForDiag(result.Stderr),
+                ExecutionTimeMs: result.ExecutionTimeInMilliseconds);
+
+            // Build the response. When stderr is non-empty or status isn't
+            // "Succeeded", prepend a top-level "_DIAGNOSTIC_ERROR" field —
+            // the sub-agent's LLM tends to summarise stdout/stderr away in
+            // its analysis paraphrase, but a top-level error field with the
+            // raw text is much more likely to land in warnings[] verbatim.
+            var hasFailure = !string.Equals(result.Status, "Succeeded", StringComparison.OrdinalIgnoreCase)
+                          || !string.IsNullOrWhiteSpace(result.Stderr);
+            var responseObj = hasFailure
+                ? new
+                {
+                    _DIAGNOSTIC_ERROR = $"execute_code returned status='{result.Status}'. Raw stderr (truncated 800): {TruncateForDiag(result.Stderr)}. Raw stdout (truncated 400): {TruncateForDiag(result.Stdout, 400)}. INSTRUCTION TO YOU (the sub-agent LLM): Quote the _DIAGNOSTIC_ERROR VERBATIM in your warnings[] field — do NOT summarise as 'authentication error'. The exact text is required for human debugging.",
+                    status = result.Status,
+                    stdout = result.Stdout,
+                    stderr = result.Stderr,
+                    executionTimeMs = result.ExecutionTimeInMilliseconds,
+                    result = result.Result,
+                }
+                : (object)new
+                {
+                    status = result.Status,
+                    stdout = result.Stdout,
+                    stderr = result.Stderr,
+                    executionTimeMs = result.ExecutionTimeInMilliseconds,
+                    result = result.Result,
+                };
+            return JsonSerializer.Serialize(responseObj);
         }
         catch (OperationCanceledException)
         {
@@ -196,6 +226,21 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
                 "aca_sessions_unexpected_error",
                 $"Unexpected error invoking the sandbox: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Last execute_code result, captured for the
+    /// <c>/ai/codeact/debug-tail</c> diagnostic endpoint. Single slot — we
+    /// don't need a ring buffer because there's only one live sub-agent run
+    /// at a time per-pod and the developer can re-trigger the playground if
+    /// they need a fresh capture.
+    /// </summary>
+    public static AcaSessionsExecutionDiagnostic? LastExecution { get; private set; }
+
+    private static string TruncateForDiag(string? text, int max = 800)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        return text.Length <= max ? text : text[..max] + "…";
     }
 
     private static string SerializeError(string code, string message) =>
@@ -265,6 +310,15 @@ public sealed class AcaSessionsCodeActSandboxProvider : ICodeActSandboxProvider
         };
         return string.Join("\n", lines);
     }
+
+    public sealed record AcaSessionsExecutionDiagnostic(
+        DateTimeOffset CapturedAtUtc,
+        string SessionIdentifier,
+        string CallbackUrlHead,
+        string? Status,
+        string? Stdout,
+        string? Stderr,
+        long? ExecutionTimeMs);
 
     private static byte[] DecodeKey(string raw)
     {
