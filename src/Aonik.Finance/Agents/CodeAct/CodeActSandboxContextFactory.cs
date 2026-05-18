@@ -22,16 +22,36 @@ namespace Aonik.Finance.Agents.CodeAct;
 internal static class CodeActSandboxContextFactory
 {
     public static CodeActSandboxContext Resolve(IServiceProvider sp, string subAgentName)
+        => Resolve(sp, subAgentName, snapshot: null);
+
+    /// <summary>
+    /// Builds a fresh sandbox context, preferring the explicit
+    /// <paramref name="snapshot"/> captured by the parent agent before any
+    /// awaits over whatever the scoped contexts expose right now. The
+    /// snapshot path is the only correct one for sub-agents invoked from a
+    /// playground impersonation run — without it, the nonce bakes in
+    /// whichever user the scope happens to read at this moment, which the
+    /// callback then re-applies, silently flipping the sub-agent onto the
+    /// admin's empty personal-finance data set.
+    /// </summary>
+    public static CodeActSandboxContext Resolve(
+        IServiceProvider sp,
+        string subAgentName,
+        SubAgentImpersonationSnapshot? snapshot)
     {
-        var tenantId = sp.GetRequiredService<ITenantContext>().TenantId
+        var tenantId = snapshot?.TenantId
+            ?? sp.GetRequiredService<ITenantContext>().TenantId
             ?? throw new InvalidOperationException(
                 "Cannot build CodeAct sandbox context: tenant scope is not resolved.");
-        var userContext = sp.GetRequiredService<ICurrentUserContext>();
+
+        var userId = snapshot?.UserId
+            ?? sp.GetRequiredService<ICurrentUserContext>().UserId;
+
         var runId = Guid.NewGuid().ToString("N");
         return new CodeActSandboxContext(
             SubAgentName: subAgentName,
             RunId: runId,
             TenantId: tenantId,
-            CurrentUserId: userContext.UserId);
+            CurrentUserId: userId);
     }
 }

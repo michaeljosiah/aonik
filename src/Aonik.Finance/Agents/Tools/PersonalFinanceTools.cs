@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using Aonik.Finance.Agents;
 using Aonik.Finance.Agents.StructuredOutputs;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.Finance.Contracts.Models.Orders;
@@ -260,8 +261,14 @@ internal sealed class PersonalFinanceTools
         [Description("Optional account ID to scope the analysis to a single personal account")] Guid? personalAccountId = null,
         CancellationToken cancellationToken = default)
     {
+        // Snapshot the parent's user + tenant BEFORE any awaits so the
+        // sub-agent's tools observe exactly the impersonated identity the
+        // parent saw at the moment it decided to delegate — even if some
+        // continuation downstream resets the scoped context or runs without
+        // an HttpContext. See SubAgentImpersonation.cs for the full rationale.
+        var snapshot = CaptureImpersonationSnapshot();
         var descriptor = ResolveSubAgentDescriptor("pf-insights");
-        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+        var agent = await BuildStructuredSubAgentAsync(descriptor, snapshot, cancellationToken);
 
         var request = new InsightsRequest(userQuestion, kind, periodStart, periodEnd, personalAccountId);
         var message = JsonSerializer.Serialize(request, InsightsStructuredOutputContract.SerializerOptions);
@@ -292,8 +299,9 @@ internal sealed class PersonalFinanceTools
         [Description("Optional projection horizon in days. Null lets the sub-agent pick (typically 30-90 days).")] int? horizonDays = null,
         CancellationToken cancellationToken = default)
     {
+        var snapshot = CaptureImpersonationSnapshot();
         var descriptor = ResolveSubAgentDescriptor("pf-forecast");
-        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+        var agent = await BuildStructuredSubAgentAsync(descriptor, snapshot, cancellationToken);
 
         var request = new ForecastRequest(userQuestion, asOfDate, horizonDays);
         var message = JsonSerializer.Serialize(request, ForecastStructuredOutputContract.SerializerOptions);
@@ -325,8 +333,9 @@ internal sealed class PersonalFinanceTools
         [Description("Optional account ID to scope the queue to a single personal account")] Guid? personalAccountId = null,
         CancellationToken cancellationToken = default)
     {
+        var snapshot = CaptureImpersonationSnapshot();
         var descriptor = ResolveSubAgentDescriptor("pf-classify");
-        var agent = await BuildStructuredSubAgentAsync(descriptor, cancellationToken);
+        var agent = await BuildStructuredSubAgentAsync(descriptor, snapshot, cancellationToken);
 
         var request = new ClassifyRequest(userQuestion, maxItems, personalAccountId);
         var message = JsonSerializer.Serialize(request, ClassifyStructuredOutputContract.SerializerOptions);
@@ -350,6 +359,19 @@ internal sealed class PersonalFinanceTools
 
         var analysisJson = JsonSerializer.Serialize(analysis, ClassifyStructuredOutputContract.SerializerOptions);
         return new ClassifyAgentToolResponse(analysis, analysisJson);
+    }
+
+    private SubAgentImpersonationSnapshot CaptureImpersonationSnapshot()
+    {
+        // Read directly — both calls run synchronously on the parent's request
+        // scope where impersonation is guaranteed to still be in effect. We
+        // tolerate either being null (e.g. background fixtures) and let the
+        // sub-agent fall back to the scoped resolution in that case.
+        var userId = _currentUserProvider.GetCurrentUserId();
+        var tenantId = _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId)
+            ? (Guid?)resolvedTenantId
+            : null;
+        return new SubAgentImpersonationSnapshot(userId, tenantId);
     }
 
     // ── Sub-agent error handling ──────────────────────────────────
@@ -1243,9 +1265,19 @@ internal sealed class PersonalFinanceTools
 
     private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(
         IDomainAgentDescriptor descriptor,
+        SubAgentImpersonationSnapshot snapshot,
         CancellationToken cancellationToken)
     {
         var config = await _agentConfigurationService.GetResolvedAsync(descriptor.Name, cancellationToken);
+
+        // Re-assert the captured impersonation on the scoped contexts
+        // immediately after the EF round-trip — defensive, so anything in
+        // descriptor.Build that reads the scoped contexts directly (e.g.
+        // CodeActSandboxContextFactory baking UserId into the nonce) gets
+        // the parent's snapshot rather than whatever the scope happens to
+        // expose right now. Sub-agent host tools also get a wrapping
+        // ContextRestoringAIFunction that re-applies on every invocation.
+        ApplyImpersonationSnapshot(snapshot);
 
         string? instructionsOverride = null;
         HashSet<string>? allowedToolNames = null;
@@ -1273,12 +1305,42 @@ internal sealed class PersonalFinanceTools
             }
         }
 
-        var builtAgent = config is null
-            ? descriptor.Build(_chatClient, _serviceProvider)
-            : descriptor.Build(_chatClient, _serviceProvider, instructionsOverride, allowedToolNames);
+        var builtAgent = descriptor switch
+        {
+            ISubAgentDescriptor subAgent => subAgent.BuildWithImpersonation(
+                _chatClient,
+                _serviceProvider,
+                instructionsOverride,
+                allowedToolNames,
+                snapshot),
+            _ when config is null => descriptor.Build(_chatClient, _serviceProvider),
+            _ => descriptor.Build(_chatClient, _serviceProvider, instructionsOverride, allowedToolNames),
+        };
 
         return builtAgent as ChatClientAgent
             ?? throw new InvalidOperationException($"The agent '{descriptor.Name}' must be a ChatClientAgent.");
+    }
+
+    private void ApplyImpersonationSnapshot(SubAgentImpersonationSnapshot snapshot)
+    {
+        if (snapshot.UserId is { } userId)
+        {
+            var userContext = _serviceProvider.GetService<ICurrentUserContext>();
+            if (userContext is not null && userContext.UserId != userId)
+            {
+                userContext.UserId = userId;
+            }
+        }
+
+        if (snapshot.TenantId is { } tenantId)
+        {
+            var tenantContext = _serviceProvider.GetService<ITenantContext>();
+            if (tenantContext is not null && tenantContext.TenantId != tenantId)
+            {
+                tenantContext.TenantId = tenantId;
+                tenantContext.ResolutionSource = "sub-agent-impersonation";
+            }
+        }
     }
 }
 
