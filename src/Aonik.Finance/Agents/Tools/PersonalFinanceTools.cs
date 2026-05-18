@@ -14,6 +14,8 @@ using Microsoft.Agents.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Finance.Agents.Tools;
 
@@ -264,16 +266,24 @@ internal sealed class PersonalFinanceTools
         var request = new InsightsRequest(userQuestion, kind, periodStart, periodEnd, personalAccountId);
         var message = JsonSerializer.Serialize(request, InsightsStructuredOutputContract.SerializerOptions);
 
-        var response = await agent.RunAsync<InsightsResult>(
-            message,
-            session: null,
-            serializerOptions: InsightsStructuredOutputContract.SerializerOptions,
-            options: null,
-            cancellationToken: cancellationToken);
+        try
+        {
+            var response = await agent.RunAsync<InsightsResult>(
+                message,
+                session: null,
+                serializerOptions: InsightsStructuredOutputContract.SerializerOptions,
+                options: null,
+                cancellationToken: cancellationToken);
 
-        var analysis = response.Result;
-        var analysisJson = JsonSerializer.Serialize(analysis, InsightsStructuredOutputContract.SerializerOptions);
-        return new InsightsAgentToolResponse(analysis, analysisJson);
+            var analysis = response.Result;
+            var analysisJson = JsonSerializer.Serialize(analysis, InsightsStructuredOutputContract.SerializerOptions);
+            return new InsightsAgentToolResponse(analysis, analysisJson);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogSubAgentException("pf-insights", userQuestion, ex);
+            return BuildInsightsErrorResponse(userQuestion, ex);
+        }
     }
 
     [Description("Runs the internal pf-forecast specialist (Spec 025 §5.2) and returns schema-bound projection JSON for forward-looking questions: coverage on a future date ('will rent be okay'), savings ETA ('when do I hit my goal'), and parametric what-ifs ('what if I delay the energy bill'). The sub-agent does deterministic arithmetic — prefer this over reasoning about numbers in your own head. Prefer one specialist per Simi turn.")]
@@ -289,16 +299,24 @@ internal sealed class PersonalFinanceTools
         var request = new ForecastRequest(userQuestion, asOfDate, horizonDays);
         var message = JsonSerializer.Serialize(request, ForecastStructuredOutputContract.SerializerOptions);
 
-        var response = await agent.RunAsync<ForecastResult>(
-            message,
-            session: null,
-            serializerOptions: ForecastStructuredOutputContract.SerializerOptions,
-            options: null,
-            cancellationToken: cancellationToken);
+        try
+        {
+            var response = await agent.RunAsync<ForecastResult>(
+                message,
+                session: null,
+                serializerOptions: ForecastStructuredOutputContract.SerializerOptions,
+                options: null,
+                cancellationToken: cancellationToken);
 
-        var analysis = response.Result;
-        var analysisJson = JsonSerializer.Serialize(analysis, ForecastStructuredOutputContract.SerializerOptions);
-        return new ForecastAgentToolResponse(analysis, analysisJson);
+            var analysis = response.Result;
+            var analysisJson = JsonSerializer.Serialize(analysis, ForecastStructuredOutputContract.SerializerOptions);
+            return new ForecastAgentToolResponse(analysis, analysisJson);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogSubAgentException("pf-forecast", userQuestion, ex);
+            return BuildForecastErrorResponse(userQuestion, ex);
+        }
     }
 
     [Description("Runs the internal pf-classify specialist (Spec 025 §5.3) on the user's classification review queue and returns schema-bound proposed corrections per item, plus optional categorisation-rule recommendations where the merchant pattern is strong. The sub-agent only proposes — apply each user-accepted correction via pf_override_transaction_category and pf_create_categorisation_rule (with confirmAction). Prefer one specialist per Simi turn.")]
@@ -314,14 +332,114 @@ internal sealed class PersonalFinanceTools
         var request = new ClassifyRequest(userQuestion, maxItems, personalAccountId);
         var message = JsonSerializer.Serialize(request, ClassifyStructuredOutputContract.SerializerOptions);
 
-        var response = await agent.RunAsync<ClassifyResult>(
-            message,
-            session: null,
-            serializerOptions: ClassifyStructuredOutputContract.SerializerOptions,
-            options: null,
-            cancellationToken: cancellationToken);
+        ClassifyResult analysis;
+        try
+        {
+            var response = await agent.RunAsync<ClassifyResult>(
+                message,
+                session: null,
+                serializerOptions: ClassifyStructuredOutputContract.SerializerOptions,
+                options: null,
+                cancellationToken: cancellationToken);
+            analysis = response.Result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogSubAgentException("pf-classify", userQuestion, ex);
+            return BuildClassifyErrorResponse(userQuestion, ex);
+        }
 
-        var analysis = response.Result;
+        var analysisJson = JsonSerializer.Serialize(analysis, ClassifyStructuredOutputContract.SerializerOptions);
+        return new ClassifyAgentToolResponse(analysis, analysisJson);
+    }
+
+    // ── Sub-agent error handling ──────────────────────────────────
+    //
+    // Failures inside a sub-agent run (Microsoft.Agents.AI / Microsoft.Extensions.AI
+    // exceptions, EF query errors thrown by a tool, structured-output schema
+    // validation, etc.) used to bubble up to the parent agent as the generic
+    // "Function failed" string with no detail — unactionable in the playground
+    // and bad for the customer experience. We now catch them, log the full
+    // exception, and synthesise a valid structured response that carries the
+    // exception type + message in the warnings / reason codes. The parent agent
+    // can read that and surface a helpful message; the original error still
+    // shows up in logs for the developer.
+
+    private void LogSubAgentException(string subAgentName, string userQuestion, Exception ex)
+    {
+        var loggerFactory = _serviceProvider.GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
+        var logger = loggerFactory.CreateLogger("PersonalFinanceTools.SubAgent");
+        logger.LogError(
+            ex,
+            "Sub-agent {SubAgent} failed for question '{Question}': {Message}",
+            subAgentName,
+            userQuestion,
+            ex.Message);
+    }
+
+    private static string FormatExceptionForResponse(Exception ex)
+    {
+        // Keep the message short enough that Simi can paraphrase it without
+        // hitting context-window pressure, but include the type + inner-
+        // exception chain so the playground reveals enough to act on.
+        var lines = new List<string> { $"{ex.GetType().Name}: {ex.Message}" };
+        var inner = ex.InnerException;
+        var depth = 0;
+        while (inner is not null && depth < 3)
+        {
+            lines.Add($"  caused by {inner.GetType().Name}: {inner.Message}");
+            inner = inner.InnerException;
+            depth++;
+        }
+        var joined = string.Join('\n', lines);
+        return joined.Length > 1200 ? joined[..1200] + "..." : joined;
+    }
+
+    private static InsightsAgentToolResponse BuildInsightsErrorResponse(string userQuestion, Exception ex)
+    {
+        var message = FormatExceptionForResponse(ex);
+        var emptyMetrics = JsonDocument.Parse("{}").RootElement;
+        var analysis = new InsightsResult(
+            SchemaVersion: InsightsStructuredOutputContract.SchemaVersion,
+            Kind: "explain",
+            Summary: $"The insights sub-agent crashed while answering '{userQuestion}'. Tell the user we hit an internal error and offer to retry or rephrase.",
+            Confidence: 0m,
+            ReasonCodes: ["sub_agent_exception"],
+            Metrics: emptyMetrics,
+            Entities: [],
+            RecommendedActions: [],
+            Warnings: [message]);
+        var analysisJson = JsonSerializer.Serialize(analysis, InsightsStructuredOutputContract.SerializerOptions);
+        return new InsightsAgentToolResponse(analysis, analysisJson);
+    }
+
+    private static ForecastAgentToolResponse BuildForecastErrorResponse(string userQuestion, Exception ex)
+    {
+        var message = FormatExceptionForResponse(ex);
+        var analysis = new ForecastResult(
+            SchemaVersion: ForecastStructuredOutputContract.SchemaVersion,
+            Scenario: "Sub-agent crashed",
+            Result: new ForecastVerdict(Verdict: "tight", Amount: 0m, Currency: "GBP"),
+            Assumptions: [$"The forecast sub-agent crashed while answering '{userQuestion}'."],
+            Breakdown: [],
+            Options: [],
+            Confidence: 0m,
+            ReasonCodes: ["sub_agent_exception"],
+            Warnings: [message]);
+        var analysisJson = JsonSerializer.Serialize(analysis, ForecastStructuredOutputContract.SerializerOptions);
+        return new ForecastAgentToolResponse(analysis, analysisJson);
+    }
+
+    private static ClassifyAgentToolResponse BuildClassifyErrorResponse(string userQuestion, Exception ex)
+    {
+        var message = FormatExceptionForResponse(ex);
+        var analysis = new ClassifyResult(
+            SchemaVersion: ClassifyStructuredOutputContract.SchemaVersion,
+            Summary: $"The classify sub-agent crashed while answering '{userQuestion}'. Tell the user we hit an internal error and offer to retry.",
+            ProposedCorrections: [],
+            Confidence: 0m,
+            ReasonCodes: ["sub_agent_exception"],
+            Warnings: [message]);
         var analysisJson = JsonSerializer.Serialize(analysis, ClassifyStructuredOutputContract.SerializerOptions);
         return new ClassifyAgentToolResponse(analysis, analysisJson);
     }
