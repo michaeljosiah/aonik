@@ -22,6 +22,10 @@ param acsConnectionString string = ''
 @description('HMAC hash key used by the verification service. Stored in Key Vault even if empty so ACA secretRef entries always resolve.')
 param verificationHashKey string = ''
 
+@secure()
+@description('HMAC signing key for CodeAct callback nonces (32+ bytes hex or base64). Issued by AcaSessionsCodeActSandboxProvider; validated by CodeActCallbackEndpoint. Stored in Key Vault even if empty so ACA secretRef entries always resolve.')
+param codeActNonceSigningKey string = ''
+
 @description('SQL server administrator login username.')
 param sqlAdminLogin string = 'aonikadmin'
 
@@ -113,6 +117,14 @@ resource verificationHashKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01
   parent: keyVault
   properties: {
     value: verificationHashKey
+  }
+}
+
+resource codeActNonceSigningKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'Ai--CodeAct--NonceSigningKey'
+  parent: keyVault
+  properties: {
+    value: codeActNonceSigningKey
   }
 }
 
@@ -357,3 +369,4 @@ output keyVaultId string = keyVault.id
 output sqlConnectionSecretUri string = sqlConnectionSecret.properties.secretUri
 output acsConnectionStringSecretUri string = acsConnectionStringSecret.properties.secretUri
 output verificationHashKeySecretUri string = verificationHashKeySecret.properties.secretUri
+output codeActNonceSigningKeySecretUri string = codeActNonceSigningKeySecret.properties.secretUri

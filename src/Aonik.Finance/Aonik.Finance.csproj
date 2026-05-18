@@ -33,6 +33,14 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
+    <!--
+      AcaSessionsCodeActSandboxProvider — invokes Azure Container Apps Dynamic
+      Sessions over REST with Microsoft Entra tokens minted via
+      DefaultAzureCredential. Versions matched to Aonik.Infrastructure.csproj
+      so the resolver picks the same SDK across modules.
+    -->
+    <PackageReference Include="Azure.Core" Version="1.47.1" />
+    <PackageReference Include="Azure.Identity" Version="1.14.2" />
   </ItemGroup>
 
   <!--

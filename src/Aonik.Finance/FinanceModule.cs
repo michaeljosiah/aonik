@@ -1,4 +1,5 @@
 using Aonik.Finance.Agents;
+using Aonik.Finance.Agents.CodeAct;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
@@ -210,6 +211,41 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<IDomainAgentDescriptor, PfInsightsAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PfForecastAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PfClassifyAgentDescriptor>();
+
+        // ── CodeAct Sandbox Providers ────────────────────────────────
+        // Backs the wrapping `execute_code` AIFunction the three sub-agents
+        // surface to the LLM. The provider selector reads Ai:CodeAct:Provider
+        // and returns Hyperlight (local Linux dev), AcaSessions (cloud), or
+        // Null (forces tool-loop fallback for diagnostics / kill-switch).
+        services.AddOptions<AcaSessionsOptions>().BindConfiguration(AcaSessionsOptions.SectionName);
+        services.AddSingleton<CodeActCallbackNonceService>(sp =>
+            new CodeActCallbackNonceService(
+                sp.GetRequiredService<IConfiguration>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CodeActCallbackNonceService>>()));
+        services.AddHttpClient<AcaSessionsClient>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<AcaSessionsOptions>>().Value;
+            if (Uri.TryCreate(opts.PoolManagementEndpoint, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+            // 240 s > ACA's 220 s per-execution cap, so the upstream timeout
+            // surfaces as the user-facing error rather than ours.
+            client.Timeout = TimeSpan.FromSeconds(240);
+        });
+        services.AddSingleton<HyperlightCodeActSandboxProvider>();
+        services.AddSingleton<AcaSessionsCodeActSandboxProvider>();
+        services.AddSingleton<NullCodeActSandboxProvider>();
+        services.AddSingleton<ICodeActSandboxProvider>(sp =>
+        {
+            var providerName = sp.GetRequiredService<IConfiguration>()["Ai:CodeAct:Provider"];
+            return providerName switch
+            {
+                "AcaSessions" => sp.GetRequiredService<AcaSessionsCodeActSandboxProvider>(),
+                "Hyperlight"  => sp.GetRequiredService<HyperlightCodeActSandboxProvider>(),
+                _             => sp.GetRequiredService<NullCodeActSandboxProvider>(),
+            };
+        });
 
         // ── Global Seed Contributors ────────────────────────────────────
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.PersonalFinanceSeedContributor>();

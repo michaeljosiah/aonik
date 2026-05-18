@@ -4,6 +4,7 @@ using Aonik.Finance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Finance.Agents;
 
@@ -179,19 +180,25 @@ public sealed class PfInsightsAgentDescriptor : IDomainAgentDescriptor
     {
         var instructions = instructionsOverride ?? InstructionsText;
 
-        // CodeAct path (Spec 025 Phase 1): when the Hyperlight sandbox can
-        // run on this host, surface a single `execute_code` AIFunction
-        // backed by a Python sandbox with the same host-tool whitelist
-        // registered as `call_tool` callbacks. Falls back to the
-        // conventional tool-loop path everywhere else (Windows local dev,
-        // containers without /dev/kvm, opt-out via env var, etc.).
-        if (HyperlightHostAvailability.IsAvailable)
-        {
-            var executeCode = CodeActSubAgentFactory.BuildExecuteCodeTool(
-                serviceProvider,
-                sp => PersonalFinanceTools.CreateForInsightsSubAgent(sp)
-                    .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name)));
+        // CodeAct path (Spec 025 Phase 1): surface a single `execute_code`
+        // AIFunction backed by a Python sandbox (Hyperlight in-process for
+        // local Linux dev, Azure Container Apps Dynamic Sessions for cloud
+        // deploys). When the selected provider can't service the request —
+        // unset config, no /dev/kvm on a Linux box, ACA pool endpoint
+        // missing — `TryBuildExecuteCodeTool` returns null and we fall
+        // through to the conventional tool-loop path that we validated
+        // end-to-end after commit 69620409.
+        var hostTools = PersonalFinanceTools.CreateForInsightsSubAgent(serviceProvider)
+            .OfType<AIFunction>()
+            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
+            .ToList();
 
+        var sandbox = serviceProvider.GetRequiredService<ICodeActSandboxProvider>();
+        var sandboxCtx = CodeActSandboxContextFactory.Resolve(serviceProvider, subAgentName: Name);
+        var executeCode = sandbox.TryBuildExecuteCodeTool(sandboxCtx, hostTools);
+
+        if (executeCode is not null)
+        {
             return new ChatClientAgent(
                 chatClient,
                 name: Name,
@@ -199,15 +206,11 @@ public sealed class PfInsightsAgentDescriptor : IDomainAgentDescriptor
                 tools: [executeCode]);
         }
 
-        var tools = PersonalFinanceTools.CreateForInsightsSubAgent(serviceProvider)
-            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
-            .ToList();
-
         return new ChatClientAgent(
             chatClient,
             name: Name,
             instructions: instructions,
-            tools: tools);
+            tools: hostTools.Cast<AITool>().ToList());
     }
 
     public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)

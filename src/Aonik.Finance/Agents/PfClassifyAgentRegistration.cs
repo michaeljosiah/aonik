@@ -4,6 +4,7 @@ using Aonik.Finance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Finance.Agents;
 
@@ -186,13 +187,17 @@ public sealed class PfClassifyAgentDescriptor : IDomainAgentDescriptor
         // for the full rationale. Classify benefits because the per-item
         // queue walk + scoring becomes one Python loop instead of N×K
         // sequential LLM tool calls.
-        if (HyperlightHostAvailability.IsAvailable)
-        {
-            var executeCode = CodeActSubAgentFactory.BuildExecuteCodeTool(
-                serviceProvider,
-                sp => PersonalFinanceTools.CreateForClassifySubAgent(sp)
-                    .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name)));
+        var hostTools = PersonalFinanceTools.CreateForClassifySubAgent(serviceProvider)
+            .OfType<AIFunction>()
+            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
+            .ToList();
 
+        var sandbox = serviceProvider.GetRequiredService<ICodeActSandboxProvider>();
+        var sandboxCtx = CodeActSandboxContextFactory.Resolve(serviceProvider, subAgentName: Name);
+        var executeCode = sandbox.TryBuildExecuteCodeTool(sandboxCtx, hostTools);
+
+        if (executeCode is not null)
+        {
             return new ChatClientAgent(
                 chatClient,
                 name: Name,
@@ -200,15 +205,11 @@ public sealed class PfClassifyAgentDescriptor : IDomainAgentDescriptor
                 tools: [executeCode]);
         }
 
-        var tools = PersonalFinanceTools.CreateForClassifySubAgent(serviceProvider)
-            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
-            .ToList();
-
         return new ChatClientAgent(
             chatClient,
             name: Name,
             instructions: instructions,
-            tools: tools);
+            tools: hostTools.Cast<AITool>().ToList());
     }
 
     public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)

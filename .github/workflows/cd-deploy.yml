@@ -116,6 +116,11 @@ on:
         required: false
       NOTIFICATIONS__FCM__SERVICEACCOUNTJSON:
         required: false
+      # CodeAct callback nonce signing key (32+ bytes hex or base64). Required
+      # whenever AI__CODEACT__PROVIDER=AcaSessions. Empty in environments
+      # using the Hyperlight or Disabled provider.
+      AI__CODEACT__NONCESIGNINGKEY:
+        required: false
 
 permissions:
   id-token: write
@@ -147,6 +152,12 @@ jobs:
       AI__PROVIDER: ${{ vars.AI__PROVIDER }}
       AI__OPENAI__MODEL: ${{ vars.AI__OPENAI__MODEL }}
       AI__OPENAI__APIKEY: ${{ secrets.AI__OPENAI__APIKEY }}
+      # CodeAct sub-agent sandbox (Spec 025). Defaults to Disabled so the
+      # tool-loop fallback path runs until the operator opts in. Set
+      # AI__CODEACT__PROVIDER=AcaSessions to use Azure Container Apps Dynamic
+      # Sessions. POOLMANAGEMENTENDPOINT and CALLBACKBASEURL are wired by the
+      # bicep stack directly on the container, so we don't forward them here.
+      AI__CODEACT__PROVIDER: ${{ vars.AI__CODEACT__PROVIDER }}
       # Auth (Settings module IdP management)
       # These env vars map to .NET config paths like Auth:Auth0:ManagementClientId,
       # which SettingService.GetFromConfiguration() resolves via key.Replace('.', ':').
@@ -259,6 +270,7 @@ jobs:
             --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
             --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
             --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
+            --parameters "codeActNonceSigningKey=${{ secrets.AI__CODEACT__NONCESIGNINGKEY }}"
             --parameters "bootstrapSetupSecret=${{ secrets.BOOTSTRAP_SETUP_SECRET }}"
             --parameters "alertsSharedSecret=${{ secrets.ALERTS_SHARED_SECRET }}"
             ${{ inputs.location != '' && format('--parameters "location={0}"', inputs.location) || '' }}

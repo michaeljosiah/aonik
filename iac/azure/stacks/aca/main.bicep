@@ -34,6 +34,10 @@ param acsConnectionString string = ''
 param verificationHashKey string = ''
 
 @secure()
+@description('HMAC signing key for CodeAct callback nonces. Stored in Key Vault and surfaced to the API container as AI__CODEACT__NONCESIGNINGKEY. Leave empty in environments that disable the AcaSessions provider.')
+param codeActNonceSigningKey string = ''
+
+@secure()
 @description('One-time platform bootstrap install code injected into the API container.')
 param bootstrapSetupSecret string = ''
 
@@ -83,6 +87,21 @@ var adminUiAppName = '${namePrefix}-adminui'
 @description('Whether real ACS and verification secrets are provided (enables Key Vault references instead of empty inline values).')
 param enableOptionalSecrets bool = false
 var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress.fqdn}/integrations/azure/alerts?code=${uriComponent(alertsSharedSecret)}'
+
+// =============================================================================
+// CodeAct / ACA Dynamic Sessions URL composition
+// -----------------------------------------------------------------------------
+// The session pool's management endpoint follows a deterministic pattern
+// (https://learn.microsoft.com/en-us/azure/container-apps/sessions-code-interpreter),
+// so we can compute it without referencing `sessions.outputs.*` in the apiApp
+// env block — avoids the cycle "apiApp env → sessions → apiApp.identity".
+// The callback URL mirrors the working pattern used for `Cors__AllowedOrigins`
+// (line below) so we don't reference `apiApp.properties.configuration.ingress.fqdn`
+// from inside apiApp's own env block (ARM rejects that self-reference).
+// =============================================================================
+var codeActSessionPoolName = '${namePrefix}-sessions'
+var codeActPoolManagementEndpoint = 'https://${location}.dynamicsessions.io/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/sessionPools/${codeActSessionPoolName}'
+var codeActCallbackBaseUrl = 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
 var apiAdditionalEnvVars = [for setting in items(apiAppSettings): {
   name: setting.key
   value: string(setting.value)
@@ -113,6 +132,7 @@ module data '../../modules/data.bicep' = {
     sqlAdminPassword: sqlAdminPassword
     acsConnectionString: acsConnectionString
     verificationHashKey: verificationHashKey
+    codeActNonceSigningKey: codeActNonceSigningKey
     enableResourceLocks: enableResourceLocks
     logAnalyticsWorkspaceId: common.outputs.logAnalyticsWorkspaceId
     publicNetworkAccess: enableNetworkIsolation ? 'Disabled' : 'Enabled'
@@ -255,6 +275,11 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: data.outputs.verificationHashKeySecretUri
           identity: 'system'
         }
+        {
+          name: 'code-act-nonce-signing-key'
+          keyVaultUrl: data.outputs.codeActNonceSigningKeySecretUri
+          identity: 'system'
+        }
       ] : [
         {
           name: 'sql-connection'
@@ -271,6 +296,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
         {
           name: 'verification-hash-key'
+          value: 'placeholder'
+        }
+        {
+          name: 'code-act-nonce-signing-key'
           value: 'placeholder'
         }
       ], empty(bootstrapSetupSecret) ? [] : [
@@ -406,6 +435,22 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'BlobStorage__ContentMedia__PublicBaseUrl'
               value: '${data.outputs.blobStoragePublicEndpoint}content-media'
             }
+          ], [
+            // CodeAct / ACA Dynamic Sessions — Spec 025 sub-agent sandbox.
+            // The provider is `Disabled` by default so this block is inert
+            // until the operator opts in via cd-deploy.yml's AI__CODEACT__PROVIDER var.
+            {
+              name: 'AI__CODEACT__ACASESSIONS__POOLMANAGEMENTENDPOINT'
+              value: codeActPoolManagementEndpoint
+            }
+            {
+              name: 'AI__CODEACT__ACASESSIONS__CALLBACKBASEURL'
+              value: codeActCallbackBaseUrl
+            }
+            {
+              name: 'AI__CODEACT__NONCESIGNINGKEY'
+              secretRef: 'code-act-nonce-signing-key'
+            }
           ], apiAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
@@ -418,6 +463,22 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         maxReplicas: environmentName == 'prod' ? 10 : 3
       }
     }
+  }
+}
+
+// CodeAct / ACA Dynamic Sessions session pool. Declared after `apiApp` so the
+// role assignment can reference `apiApp.identity.principalId`. The pool's
+// management endpoint is constructed deterministically above (see
+// `codeActPoolManagementEndpoint`) so apiApp's env block doesn't need to
+// reference `sessions.outputs.*` and we avoid a circular dependency.
+module sessions '../../modules/sessions.bicep' = {
+  name: 'sessions-${environmentName}'
+  params: {
+    workloadName: workloadName
+    environmentName: environmentName
+    location: location
+    tags: tags
+    apiPrincipalId: apiApp.identity.principalId
   }
 }
 
@@ -797,6 +858,8 @@ module monitoring '../../modules/monitoring.bicep' = if (alertsEnabled) {
 }
 
 output apiUrl string = 'https://${apiApp.properties.configuration.ingress.fqdn}'
+output codeActSessionPoolEndpoint string = sessions.outputs.poolManagementEndpoint
+output codeActSessionPoolId string = sessions.outputs.sessionPoolId
 output adminUiUrl string = 'https://${adminUiApp.properties.configuration.ingress.fqdn}'
 output containerRegistryLoginServer string = common.outputs.containerRegistryLoginServer
 output keyVaultName string = data.outputs.keyVaultName
