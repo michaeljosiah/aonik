@@ -53,11 +53,25 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
             execError = $"{ex.GetType().Name}: {ex.Message}";
         }
 
+        // Capture ACA / identity-related env vars so we can see whether
+        // AZURE_CLIENT_ID is set (which would override ManagedIdentityCredential).
+        var envSnapshot = new Dictionary<string, string?>
+        {
+            ["AZURE_CLIENT_ID"] = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID"),
+            ["AZURE_TENANT_ID"] = Environment.GetEnvironmentVariable("AZURE_TENANT_ID"),
+            ["MSI_ENDPOINT"] = Environment.GetEnvironmentVariable("MSI_ENDPOINT"),
+            ["IDENTITY_ENDPOINT"] = Environment.GetEnvironmentVariable("IDENTITY_ENDPOINT") is not null ? "[set]" : null,
+            ["IDENTITY_HEADER_SET"] = Environment.GetEnvironmentVariable("IDENTITY_HEADER") is not null ? "[set]" : null,
+            ["CONTAINER_APP_NAME"] = Environment.GetEnvironmentVariable("CONTAINER_APP_NAME"),
+            ["CONTAINER_APP_REVISION"] = Environment.GetEnvironmentVariable("CONTAINER_APP_REVISION"),
+        };
+
         await Send.OkAsync(new CodeActProbeResponse(
             SessionIdentifier: sessionId,
             ExecuteResult: result,
             ExceptionMessage: execError,
-            LastTokenClaims: AcaSessionsClient.LastTokenClaimsForDiagnostic), ct);
+            LastTokenClaims: AcaSessionsClient.LastTokenClaimsForDiagnostic,
+            EnvSnapshot: envSnapshot), ct);
     }
 }
 
@@ -65,4 +79,5 @@ public sealed record CodeActProbeResponse(
     string SessionIdentifier,
     AcaSessionsExecutionResult? ExecuteResult,
     string? ExceptionMessage,
-    string? LastTokenClaims);
+    string? LastTokenClaims,
+    Dictionary<string, string?> EnvSnapshot);
