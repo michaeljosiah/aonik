@@ -7,12 +7,14 @@ using Microsoft.Extensions.Options;
 namespace Aonik.Finance.Endpoints.Agents;
 
 /// <summary>
-/// Self-contained probe of the AcaSessions stack. Invokes ACA Sessions
-/// directly across a MATRIX of (endpoint path × api-version) so a single
-/// request shows which combos accept the managed-identity token. Sidesteps
-/// the multi-replica problem with /debug-tail because the call happens inside
-/// this request — the token claims we report are guaranteed to be the ones
-/// the call just used.
+/// Self-contained probe of the AcaSessions stack. First runs the production
+/// <see cref="AcaSessionsClient.ExecuteAsync"/> path (so the static
+/// diagnostic slots reflect a real call, sidestepping the multi-replica
+/// quirk that broke /debug-tail), then sweeps a (path × api-version) matrix
+/// directly against the pool. Originally written to isolate which combo
+/// accepts the managed-identity token; retained as a regression check —
+/// if Microsoft retires our pinned combo or changes the auth model, the
+/// matrix immediately surfaces the next working alternative.
 /// </summary>
 /// <remarks>
 /// Admin-only. Diagnostic-only — does not mint a nonce or call back.
@@ -41,8 +43,8 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
         Policies("AdminPolicy");
         Summary(s =>
         {
-            s.Summary = "Probe ACA Sessions across (path × api-version) matrix";
-            s.Description = "Acquires the dynamicsessions.io managed-identity token and POSTs print('probe ok') against every (endpoint path, api-version) combo. Returns each combo's HTTP status + body + headers so a developer can see exactly which combo accepts MI tokens without needing several deploys.";
+            s.Summary = "Probe ACA Sessions: production call + (path × api-version) matrix";
+            s.Description = "Runs the production AcaSessionsClient.ExecuteAsync against the pool (so executeResult/exceptionMessage reflect what the sub-agents would see), then sweeps every (path × api-version) combo directly with the same managed-identity token. Useful both for confirming the stack is healthy and for diagnosing future regressions if Microsoft changes the data-plane auth model.";
         });
     }
 
@@ -51,8 +53,9 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
         var opts = _options.Value;
         var sessionId = "codeact-probe-" + Guid.NewGuid().ToString("N");
 
-        // Run the original "build a tool + execute" path first so the static
-        // diagnostic slots get populated as a baseline.
+        // Production-path call first — populates the static diagnostic
+        // slots (last token claims, last response headers) and reports the
+        // result the sub-agents would actually see.
         string? execError = null;
         AcaSessionsExecutionResult? result = null;
         try

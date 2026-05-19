@@ -43,20 +43,21 @@ public sealed class AcaSessionsOptions
 
     /// <summary>
     /// Client ID of a user-assigned managed identity to use when acquiring
-    /// the <c>https://dynamicsessions.io/.default</c> token. When empty, falls
-    /// back to the system-assigned identity. See
-    /// <see cref="AcaSessionsClient"/> for why a user-assigned identity is
-    /// required against ACA Sessions today.
+    /// the <c>https://dynamicsessions.io/.default</c> token. When empty,
+    /// <see cref="AcaSessionsClient"/> falls back to the system-assigned
+    /// identity. Set in cloud by Bicep so DefaultAzureCredential / IMDS
+    /// resolves unambiguously to <c>apiPullIdentity</c> (the identity the
+    /// session-pool RBAC grant targets); both flavours work as long as the
+    /// principal holds Session Executor + Contributor on the pool.
     /// </summary>
     public string ManagedIdentityClientId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ACA Sessions data-plane API version. Pinned to <c>2024-02-02-preview</c>
-    /// because that is the only version we've confirmed accepts BOTH user
-    /// tokens AND managed-identity tokens against the <c>/code/execute</c>
-    /// endpoint (see <see cref="AcaSessionsClient.ExecuteAsync"/> for the
-    /// path/version compatibility matrix and why newer versions fail with
-    /// HTTP 401 for MI tokens).
+    /// ACA Sessions data-plane API version paired with the <c>/code/execute</c>
+    /// path. The <c>/executions</c> endpoint exposed by newer versions
+    /// (≥ 2024-10-02-preview) expects a different request-body shape, so
+    /// switching versions requires the matching code change in
+    /// <see cref="AcaSessionsClient.ExecuteAsync"/> — don't bump this alone.
     /// </summary>
     public string DataPlaneApiVersion { get; set; } = "2024-02-02-preview";
 }

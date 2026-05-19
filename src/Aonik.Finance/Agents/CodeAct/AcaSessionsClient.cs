@@ -12,14 +12,15 @@ namespace Aonik.Finance.Agents.CodeAct;
 /// <summary>
 /// Typed <see cref="HttpClient"/> wrapper over the Azure Container Apps
 /// Dynamic Sessions code-execution endpoint. Acquires Microsoft Entra
-/// tokens via <see cref="DefaultAzureCredential"/> with the
+/// tokens via <see cref="ManagedIdentityCredential"/> with the
 /// <c>https://dynamicsessions.io/.default</c> scope, caches them across
 /// requests, and retries once with a forced refresh on a 401.
 /// </summary>
 /// <remarks>
-/// Pool-pinned: the base address is the pool management endpoint, so this
-/// client targets a single pool. The session identifier is supplied per
-/// request via <see cref="ExecuteAsync"/>.
+/// Pool-pinned: the base address is the pool management endpoint (with a
+/// mandatory trailing "/" — see <c>FinanceModule</c>), so this client
+/// targets a single pool. The session identifier is supplied per request
+/// via <see cref="ExecuteAsync"/>.
 /// </remarks>
 public sealed class AcaSessionsClient
 {
@@ -49,22 +50,14 @@ public sealed class AcaSessionsClient
         _logger = logger;
         // Pick which managed identity hits the ACA Sessions /code/execute endpoint.
         //
-        // Empirically, ACA Sessions rejects *system-assigned* MI tokens with HTTP
-        // 401 (no WWW-Authenticate), even with Session Executor + Contributor
-        // roles granted on the pool. System-assigned MIs share a Microsoft-managed
-        // appid (da659c9c-...), so client_credentials tokens have no resource-
-        // specific scp/roles claim — and the ACA Sessions auth gate appears to
-        // require one of those before checking Azure RBAC. User-assigned MIs each
-        // have their own app registration, so their tokens carry a unique appid
-        // that the gate may treat differently. Microsoft's own dynamic-sessions
-        // samples (Azure-Samples/dynamic-sessions-custom-container) use a
-        // user-assigned MI.
-        //
-        // Configuration:
-        //   AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID = <clientId>
-        // makes us use that specific user-assigned identity. Leave it empty to
-        // fall back to the system-assigned identity (legacy behavior; expected
-        // to 401 against ACA Sessions).
+        // When AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID is set, use
+        // that specific user-assigned identity. Otherwise default to the
+        // system-assigned identity. Both flavours are accepted by ACA Sessions
+        // as long as the calling principal holds Session Executor + Contributor
+        // on the pool (see modules/sessions.bicep); the bicep stack pins us to
+        // the user-assigned identity (apiPullIdentity) to match Microsoft's
+        // dynamic-sessions samples and avoid identity-selection ambiguity when
+        // the container has both flavours attached.
         //
         // For local dev / tests, the caller passes credentialOverride.
         if (credentialOverride is not null)
@@ -95,22 +88,18 @@ public sealed class AcaSessionsClient
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionIdentifier);
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
 
-        // ACA Sessions PythonLTS pool has TWO data-plane paths:
-        //   • /code/execute (api-version 2024-02-02-preview) — accepts BOTH user
-        //     AND managed-identity tokens. This is what LangChain's
-        //     azure-dynamic-sessions uses for the Python interpreter.
-        //   • /executions   (api-version ≥ 2024-10-02-preview) — also accepts
-        //     MI tokens but expects a different body shape (the matrix probe
-        //     returned 400 SessionPropertiesMissing for the codeInputType
-        //     payload above) — would need migration work to enable.
+        // PythonLTS data-plane path. `/code/execute` + 2024-02-02-preview is
+        // the combo LangChain's azure-dynamic-sessions uses; the newer
+        // `/executions` endpoint (api-version ≥ 2024-10-02-preview) also
+        // works but expects a different request-body shape than the one
+        // built below.
         //
-        // No leading "/" — BaseAddress already contains the per-pool resource
-        // path (registered in FinanceModule with a mandatory trailing "/"),
-        // so a relative path concatenates cleanly. A leading "/" would
-        // discard the /subscriptions/.../sessionPools/<name> segment and
-        // route the call to the bare https://<region>.dynamicsessions.io/
-        // host, which returns 401 because there is no resource context —
-        // exactly the failure mode we hit before this fix.
+        // The path MUST NOT start with "/". BaseAddress is the per-pool
+        // management endpoint (.../sessionPools/<name>/) registered in
+        // FinanceModule, and per RFC 3986 a leading "/" is an absolute-path
+        // reference that discards the base URI's path — every call would
+        // then hit https://<region>.dynamicsessions.io/code/execute with no
+        // resource context and return HTTP 401.
         var path = $"code/execute?api-version={Uri.EscapeDataString(_options.DataPlaneApiVersion)}" +
                    $"&identifier={Uri.EscapeDataString(sessionIdentifier)}";
 

@@ -454,12 +454,14 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: codeActCallbackBaseUrl
             }
             {
-              // Pin AcaSessionsClient to the user-assigned identity. ACA Sessions
-              // rejects system-assigned MI tokens with HTTP 401 even when both
-              // Session Executor + Contributor are granted on the pool (see the
-              // comment in AcaSessionsClient ctor for the auth-claim analysis).
-              // Both identities are granted the required roles on the pool in
-              // modules/sessions.bicep.
+              // Pin AcaSessionsClient to the user-assigned identity. Matches
+              // Microsoft's dynamic-sessions samples (which use a single
+              // dedicated user-assigned MI for ACA Sessions) and avoids
+              // ambiguity when DefaultAzureCredential / ManagedIdentityCredential
+              // picks between the system + user-assigned MIs both attached to
+              // the API container. Both identities are granted Session Executor
+              // + Contributor on the pool in modules/sessions.bicep, so the
+              // unpinned path still works as a fallback.
               name: 'AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID'
               value: apiPullIdentity.properties.clientId
             }
@@ -496,7 +498,6 @@ module sessions '../../modules/sessions.bicep' = {
     tags: tags
     apiPrincipalId: apiApp.identity.principalId
     apiUserAssignedPrincipalId: apiPullIdentity.properties.principalId
-    apiUserAssignedIdentityResourceId: apiPullIdentity.id
   }
 }
 
