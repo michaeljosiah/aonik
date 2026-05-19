@@ -1,0 +1,38 @@
+---
+title: Aonik
+description: Build your own AI-native financial product on a self-hosted, open-core platform. Configure identity, wire integrations, ship.
+---
+
+Aonik is the open-core platform for building **AI-native financial products**. You self-host it, plug in your identity provider and third-party integrations, and ship the product your customers need on top.
+
+These docs are for **platform operators and self-hosters** — engineers deploying Aonik, configuring tenants and identity, wiring integrations, and keeping the platform healthy.
+
+<Callout type="info">
+  New to Aonik? The [Quickstart](/docs/getting-started/quickstart) gets you a running stack and a bootstrapped tenant in about 15 minutes.
+</Callout>
+
+## What's in the box
+
+Aonik ships as a .NET 10 modular monolith fronted by [FastEndpoints](https://fast-endpoints.com), a React 19 admin UI, and a .NET CLI. Out of the box you get:
+
+- **Identity & multi-tenancy** — Auth0 or Microsoft Entra ID, tenant-scoped data on every entity
+- **Money movement** — orders, payment intents, double-entry ledger, billing & invoicing
+- **Personal finance primitives** — Plaid-linked accounts, transactions, financial life graph, household sharing
+- **AI agents** — domain agents with chat and voice surfaces, human-in-the-loop approval for any mutating action
+- **Operations** — Quartz-scheduled jobs, audit logs, OpenTelemetry traces
+
+See the [Capability matrix](/docs/getting-started/what-you-get) for the full list of modules.
+
+## Pick your path
+
+- **New to Aonik?** Start with the [Quickstart](/docs/getting-started/quickstart).
+- **Setting up identity?** Browse [Identity & Access](/docs/identity-access).
+- **Wiring third-party services?** See [Integrations](/docs/integrations).
+- **Looking up an API endpoint?** Open the [API Reference](/docs/api-reference).
+- **Contributing code?** Head to [For Contributors](/docs/for-contributors).
+
+## How these docs are organised
+
+The sidebar follows the lifecycle of a fresh operator: orient → install → identify → integrate → understand the capabilities → run the platform → contribute. Most sections are still being written — pages marked **Coming soon** point at the most relevant existing material in the meantime.
+
+This rewrite is being delivered in phases on purpose: get the front door right first, then fill in depth.

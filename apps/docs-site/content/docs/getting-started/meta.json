@@ -1,0 +1,10 @@
+{
+  "title": "Getting Started",
+  "pages": [
+    "welcome",
+    "quickstart",
+    "architecture-at-a-glance",
+    "what-you-get",
+    "glossary"
+  ]
+}

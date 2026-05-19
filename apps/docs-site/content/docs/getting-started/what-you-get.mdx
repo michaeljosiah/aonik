@@ -1,0 +1,82 @@
+---
+title: What you get out of the box
+description: The platform modules Aonik ships with, plus what works locally vs what needs external integration.
+---
+
+A module-by-module view of what the platform gives you on day one, and which third parties you actually need accounts with.
+
+<Callout type="info">
+  Before you decide which integration to wire first, it helps to see what Aonik already does without external dependencies.
+</Callout>
+
+## Platform modules
+
+Each module owns a coherent slice of the platform. You don't enable or disable them — they are always present. What varies is which capabilities you expose to end-users through feature flags and configuration.
+
+| Module                   | What it gives you                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| **Identity & Tenancy**   | Tenants, users, roles, permissions. Auth0 or Microsoft Entra ID at the edge.                       |
+| **Party & Profile**      | Unified people / businesses, with KYC/KYB status, tier, addresses, contacts.                       |
+| **Compliance & Risk**    | Cases, document tracking, audit log, alert ingestion.                                              |
+| **Notifications**        | Templates, channel bindings, in-app inbox, transactional send across email / SMS / push.           |
+| **Settings**             | Global / tenant / user settings, with override resolution.                                         |
+| **Reference Data**       | Countries, currencies, biller catalogue, custom reference lists.                                   |
+| **Registration**         | Self-serve user onboarding flows, phone OTP, configurable per-country registration.                |
+| **Audit log**            | Append-only record of significant operator and user actions, captured automatically.               |
+| **Orders**               | Canonical record of a requested financial service. Type-aware, multi-party, lifecycle-tracked.     |
+| **Payments**             | Payment intents and executed payments against orders, abstracted across providers.                 |
+| **Ledger**               | Per-tenant double-entry ledger with immutable journal entries — the source of financial truth.      |
+| **Billing & Invoicing**  | Invoice lifecycle, line items, allocations, dunning, autonumbering.                                |
+| **Personal Finance**     | Linked-account ingestion, transactions, categorisation, financial life graph, household sharing.   |
+| **Catalog**              | Billers, services, dynamic service fields, biller categories.                                      |
+| **Pricing & FX**         | FX quotes with expiry, fee policies, pricing quotes.                                               |
+| **Partners**             | Correspondent / payout partner registry with routing rules.                                        |
+| **AI Platform**          | Provider routing, prompts, AiRuns, user memory, RAG with Qdrant.                                   |
+| **Agents**               | Domain reasoners with tool catalogues, mandatory human-in-the-loop on mutating tools.              |
+| **Voice**                | Real-time voice pipeline (STT → agent → TTS) over WebSocket, with per-tenant voice profiles.       |
+| **CMS / Content Blocks** | Tenant-scoped content delivery for in-app copy, media library.                                     |
+| **Autonumbering**        | Reservation-based sequences for invoice numbers, receipt numbers, custom formats.                  |
+| **Scheduled Jobs**       | Quartz-managed background work — cost guards, snapshots, reconciliation, stale-session cleanup.    |
+| **Observability**        | OpenTelemetry traces and metrics, topology view, AI-specific dashboards.                           |
+
+## Works locally with no external config
+
+Most of the platform runs the moment you finish the [Quickstart](/docs/getting-started/quickstart):
+
+- **Ledger** — double-entry, immutable, all SQL
+- **Orders, payment intents, billing** — fully local
+- **Tenants, users, roles, permissions** — local; identity provider only required for actual logins
+- **Personal finance entities** — accounts, transactions, categorisation rules, financial life graph, household — all local
+- **Notifications** — in-process queue + database persistence
+- **Reference data** — countries, currencies, biller catalog — seeded on first migration
+- **Compliance** — case and document entities work locally
+- **Audit logging** — captured automatically by the base DbContext
+- **Autonumbering** — sequence reservations stored in SQL
+- **Scheduled jobs** — Quartz runs in-process inside the Worker
+- **AI tracing** — every `AiRun` is written to SQL; no external observability stack required
+- **Qdrant** — runs as a Docker container managed by Aspire
+
+## Requires external integration
+
+These need accounts and credentials before they work end-to-end. Add them in the order you actually need them — none are required for the [Quickstart](/docs/getting-started/quickstart).
+
+| Capability               | Provider                                  | Config root                                       |
+| ------------------------ | ----------------------------------------- | ------------------------------------------------- |
+| User authentication      | Auth0 **or** Microsoft Entra ID           | `Auth:Provider`, `Auth:Auth0:*`, `Auth:AzureAd:*` |
+| LLM inference            | OpenAI, Anthropic, or Azure OpenAI        | `Ai:Providers:*`                                  |
+| Bank account linking     | Plaid                                     | `Finance:PersonalFinance:Plaid:*`                 |
+| Card / bank payments     | Stripe (or another `IPaymentGateway`)     | `Finance:Payments:Stripe:*`                       |
+| SMS / WhatsApp           | Twilio                                    | `Notifications:Sms:Twilio:*`                      |
+| Push notifications       | Firebase Cloud Messaging                  | `Notifications:Push:Firebase:*`                   |
+| Text-to-speech           | ElevenLabs (or another TTS vendor)        | `Voice:Tts:ElevenLabs:*`                          |
+| Speech-to-text           | Azure Speech, Google, OpenAI, etc.        | `Voice:Stt:*`                                     |
+| Vector store             | Qdrant                                    | `Qdrant:Url`, `Qdrant:ApiKey`                     |
+| Outbound webhooks        | Your destination URLs                     | per-tenant configuration                          |
+
+Each provider gets a dedicated page in [Integrations](/docs/integrations) (Phase 2 of the docs rewrite).
+
+## What's next
+
+- [Architecture at a glance](/docs/getting-started/architecture-at-a-glance) — see how the modules fit together at runtime
+- [Identity & Access](/docs/identity-access) — wire Auth0 or Entra ID
+- [Integrations](/docs/integrations) — Plaid, Stripe, Twilio, Firebase, providers, Qdrant

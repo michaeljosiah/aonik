@@ -42,7 +42,7 @@
     {
       "name": "docs-site",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "cwd": "apps/docs-site"
     },

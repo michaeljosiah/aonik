@@ -1,0 +1,31 @@
+---
+title: AI Platform
+description: How AI runs in Aonik — providers, route policies, prompts, tools, AiRuns, user memory, RAG, agents, MCP, voice, approval workflows.
+---
+
+<Callout type="warn" title="Coming soon">
+  This section is being written in a later phase of the docs rewrite. Until then, the AI overview lives in [Architecture at a glance](/docs/getting-started/architecture-at-a-glance#how-ai-runs).
+</Callout>
+
+## What this section will cover
+
+The full AI runtime, end-to-end:
+
+- **How AI works in Aonik** — the route → run → trace → approval pipeline
+- **Providers & models** — registering and rotating OpenAI, Anthropic, Azure OpenAI
+- **Route policies** — picking the right model per request
+- **Prompts** — immutable, versioned templates with schema
+- **Tools & tool catalog** — read vs mutating, `ApprovalRequiredAIFunction` wiring
+- **AiRuns and cost tracking** — per-tenant cost guard job
+- **User Memory** — SQL or Qdrant backend, recall heuristics
+- **RAG with Qdrant** — collections, tenant prefixes, embedding strategy
+- **Domain agents** — Finance, Personal Finance, Obligation Planning, Spending Intelligence, Platform
+- **MCP servers** — `Aonik.Finance.Mcp`, `Aonik.Platform.Mcp`
+- **Voice agents** — the `Aonik.Voice` pipeline, recipes, processors
+- **Approval workflows** — server-side approval, proposal lifecycle
+- **Playground & scenarios** — the Admin UI playground for QA
+
+## In the meantime
+
+- [Architecture at a glance](/docs/getting-started/architecture-at-a-glance#how-ai-runs) — short summary of the AI pipeline
+- [Glossary](/docs/getting-started/glossary#ai-platform) — AiRun, Tool, Prompt, Proposal, Approval, Agent, MCP

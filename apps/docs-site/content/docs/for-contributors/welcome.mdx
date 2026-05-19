@@ -1,0 +1,55 @@
+---
+title: Welcome (contributors)
+description: Audience, scope, and the non-negotiable rules for code contributors to Aonik.
+---
+
+You're writing code in the Aonik repository. This section explains the architectural rules you must follow, where the decisions are documented, and how to get changes merged.
+
+## Who this is for
+
+If you are:
+
+- Adding a feature to a module
+- Generating an EF Core migration
+- Wiring a new tool to an agent
+- Touching the Admin UI or a workspace app
+- Reviewing or merging a pull request
+
+…this section is for you. If you are running Aonik for a tenant, go back to the [main docs](/docs) — none of the pages in this section are written with operators in mind.
+
+## Non-negotiable rules
+
+These rules apply to every code change. They are documented in detail in `AGENTS.md` at the repo root and in the ADRs.
+
+1. **Ledger is the source of financial truth.** Double-entry, immutable. Never delete or update a journal entry.
+2. **Orders are the canonical record of a requested financial service.** Don't collapse orders into payments or ledger entries.
+3. **Agents propose; systems apply.** Every mutating tool is wrapped with `ApprovalRequiredAIFunction`. No exceptions.
+4. **Every AI action is auditable** through an `AiRun` record.
+5. **Risk tier determines AI autonomy.** Higher-risk operations require higher-approval roles.
+6. **Domain entities are anemic.** All business logic lives in services, not entities.
+7. **Single migration stream.** All EF Core migrations go through `AonikDbContext`. Module-scoped contexts (`PlatformDbContext`, `FinanceDbContext`, `AiDbContext`, `AgentsDbContext`) have no migration history of their own. The `PlatformDbContext` migration folder is frozen legacy — do not add to it.
+8. **Migrations must be tool-generated.** Agents (Claude, Copilot, anyone) never hand-write migration files. Use `dotnet ef migrations add` exclusively. Hand-written migrations cause snapshot drift and cascading breakage.
+
+## Where the depth lives
+
+The detailed contributor material — module breakdowns, patterns, testing strategy, ADR rationale — currently lives in:
+
+- The repo root: `AGENTS.md`, `CLAUDE.md`, `CHANGELOG.md`
+- The pre-rewrite Docusaurus tree: `apps/docs-site/docs.old/` (preserved during the docs rewrite)
+- Design specs: `docs/specifications/`
+- Source code conventions: the codebase itself
+
+These are being progressively brought into the For Contributors section over later phases of the docs rewrite.
+
+## How to get a change merged
+
+1. Read `AGENTS.md` at the repo root. It is the canonical playbook.
+2. Open an issue (or a draft PR) before substantial work. Architectural changes should land an ADR first.
+3. Generate migrations using `dotnet ef migrations add` against `AonikDbContext` only.
+4. Run `dotnet test Aonik.sln` and `dotnet build Aonik.sln` before requesting review.
+5. Keep PRs focused. Refactors and feature work go in separate PRs.
+
+## What's next
+
+- The [main docs](/docs) — start here if you want to operate Aonik rather than build it
+- `AGENTS.md` at the repo root — the canonical playbook for code changes

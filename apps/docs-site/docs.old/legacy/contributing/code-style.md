@@ -1,0 +1,20 @@
+:::warning Legacy content
+
+This page predates the docs rewrite. It may be inaccurate or out of date. See the current sidebar for the new home of this topic.
+
+:::
+
+<!-- LEGACY_BANNER -->
+
+# Code Style
+
+AONIK follows the conventions described in [AGENTS.md](https://github.com/michaeljosiah/aonik/blob/main/AGENTS.md).
+
+## Highlights
+
+- .NET 10 (`net10.0`)
+- Nullable reference types enabled
+- PascalCase for types/members, `_camelCase` for private fields
+- Keep domain entities anemic (properties only)
+
+See [AGENTS.md](https://github.com/michaeljosiah/aonik/blob/main/AGENTS.md) for full guidance.

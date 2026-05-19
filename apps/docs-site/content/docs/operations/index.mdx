@@ -1,0 +1,33 @@
+---
+title: Operations
+description: Running Aonik in production — jobs, observability, audit, alerts, deploys, scaling, backup.
+---
+
+<Callout type="warn" title="Coming soon">
+  This section is being written in a later phase of the docs rewrite.
+</Callout>
+
+## What this section will cover
+
+The runtime story end-to-end:
+
+- Run the API and the Worker (Quartz)
+- Scheduled jobs reference (CostGuard, SnapshotJob, StaleSession, etc.)
+- Database migrations (Migrator, auto-migrate, the single-stream rule)
+- Seed data (idempotent, what gets seeded)
+- Observability (OpenTelemetry, dashboards, topology)
+- Audit log (what's recorded, querying, retention)
+- Alerts (configuration, escalation)
+- Workflow management (Admin UI workflows editor)
+- Compliance review (Admin UI compliance queue)
+- Backup, restore, disaster recovery
+- Deploy to Azure (Bicep, Container Apps)
+- Deploy with GitHub Actions
+- Performance & scaling (FusionCache, Qdrant, SQL tuning)
+
+## In the meantime
+
+- `apps/docs-site/docs.old/Testing.md` (in the repo) — test patterns and the InMemory DB strategy
+- `apps/docs-site/docs.old/Troubleshooting.md` (in the repo) — common runtime issues and fixes
+- `apps/docs-site/docs.old/deployment/` (in the repo) — pre-rewrite deployment guides
+- `apps/docs-site/docs.old/guides/database-migrations.md` (in the repo)
