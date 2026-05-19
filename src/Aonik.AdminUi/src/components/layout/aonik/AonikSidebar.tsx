@@ -1002,26 +1002,8 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
           )}
         </div>
 
-        {/* Workspace switcher + search (expanded only) */}
-        {!isVisuallyCollapsed && (
-          <>
-            <WorkspaceSwitcher />
-            <div className="relative mb-2">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-              <input
-                type="text"
-                placeholder="Search or ask…"
-                className="h-8 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-8 pr-12 text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none transition-colors focus:border-[var(--color-brand-primary)]"
-              />
-              <span
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-1.5 py-px font-mono text-[10px] text-[var(--color-text-tertiary)]"
-                aria-hidden
-              >
-                ⌘K
-              </span>
-            </div>
-          </>
-        )}
+        {/* Workspace switcher (expanded only) */}
+        {!isVisuallyCollapsed && <WorkspaceSwitcher />}
 
         {/* Nav groups */}
         <nav className="-mx-1 mt-1 flex-1 overflow-y-auto overflow-x-visible px-1">

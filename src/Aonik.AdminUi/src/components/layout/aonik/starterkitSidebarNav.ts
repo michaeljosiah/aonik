@@ -127,6 +127,20 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
           { id: 'ai-usage', label: 'Usage', icon: 'chart', href: '/ai/usage' },
         ],
       },
+    ],
+  },
+  {
+    id: 'host',
+    label: 'Host',
+    audience: 'host',
+    items: [
+      {
+        id: 'tenants',
+        label: 'Tenants',
+        icon: 'building',
+        href: '/tenants',
+        audience: 'host',
+      },
       {
         id: 'observability',
         label: 'Observability',
@@ -143,19 +157,13 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         id: 'settings-global',
         label: 'Settings',
         icon: 'settings',
-        href: '/settings',
         audience: 'host',
+        children: [
+          { id: 'settings-platform', label: 'Platform', icon: 'settings', href: '/settings/global' },
+          { id: 'settings-finance', label: 'Finance', icon: 'bank', href: '/settings/payment-gateways' },
+          { id: 'settings-ai', label: 'AI & Agents', icon: 'sparkles', href: '/settings/speech' },
+        ],
       },
-      {
-        id: 'tenants',
-        label: 'Tenants',
-        icon: 'building',
-        href: '/tenants',
-        audience: 'host',
-      },
-      // System Tools intentionally removed from main sidebar — already
-      // exposed as a card on the /settings landing page. Direct link
-      // /settings/system-tools and route wiring still resolve.
     ],
   },
 ];
