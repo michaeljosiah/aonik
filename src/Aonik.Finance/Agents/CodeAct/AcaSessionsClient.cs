@@ -47,7 +47,22 @@ public sealed class AcaSessionsClient
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
-        _credential = credentialOverride ?? new DefaultAzureCredential();
+        // Prefer ManagedIdentityCredential explicitly over DefaultAzureCredential.
+        //
+        // In ACA the API container has BOTH a system-assigned identity AND a
+        // user-assigned identity (apiPullIdentity, for ACR pull). When both
+        // are present, DefaultAzureCredential's ManagedIdentityCredential
+        // step may pick the user-assigned one — which only has AcrPull and
+        // does NOT have the Azure ContainerApps Session Executor + Contributor
+        // roles on the session pool. Result: ACA Sessions /executions returns
+        // HTTP 401 even though the token is structurally valid.
+        //
+        // ManagedIdentityCredential() with no client_id hits the ACA IDMS
+        // endpoint without specifying an identity, which defaults to the
+        // system-assigned principal — the one our bicep grants the roles to.
+        //
+        // For local dev / tests, the caller can pass credentialOverride.
+        _credential = credentialOverride ?? new ManagedIdentityCredential();
     }
 
     /// <summary>
