@@ -7,6 +7,8 @@ The CLI is implemented in `src/Aonik.Cli` and is designed to support both:
 - human operators working from a terminal
 - agent-driven workflows that need a stable command surface instead of raw HTTP calls
 
+The CLI does not expose a chat or interactive shell. Agent harnesses bring their own chat interface and invoke the CLI as a tool; human operators drive the CLI through explicit commands.
+
 ## What The CLI Is For
 
 The AONIK CLI provides a thin command-line client over existing AONIK APIs.
@@ -193,6 +195,10 @@ dotnet run --project src/Aonik.Cli -- ops workflow --workflow-name reconciliatio
 dotnet run --project src/Aonik.Cli -- ops jobs list --output json
 dotnet run --project src/Aonik.Cli -- ops jobs health --output json
 dotnet run --project src/Aonik.Cli -- ops jobs trigger --job-name daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs get daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs pause daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs resume daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs runs daily-reconciliation --page 1 --page-size 20 --output json
 ```
 
 ### Ledgers
@@ -207,7 +213,47 @@ dotnet run --project src/Aonik.Cli -- ops ledger create --base-currency USD --ou
 ```bash
 dotnet run --project src/Aonik.Cli -- ops invoices list --output json
 dotnet run --project src/Aonik.Cli -- ops invoices list --status Draft --output json
+dotnet run --project src/Aonik.Cli -- ops invoices get <INVOICE_ID> --output json
+dotnet run --project src/Aonik.Cli -- ops invoices create \
+    --customer-id <CUSTOMER_ID> \
+    --invoice-number INV-1001 \
+    --currency USD \
+    --due-utc 2026-05-01T00:00:00Z \
+    --lines-file lines.json --output json
+dotnet run --project src/Aonik.Cli -- ops invoices issue <INVOICE_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops invoices cancel <INVOICE_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops invoices mark-paid <INVOICE_ID> --confirm --output json
 ```
+
+`--lines-file` accepts a JSON array of line items:
+
+```json
+[
+  { "description": "Consulting", "quantity": 3, "unitPrice": 50 },
+  { "description": "Hosting", "quantity": 1, "unitPrice": 25 }
+]
+```
+
+`issue`, `cancel`, and `mark-paid` are financially material — the CLI refuses to run them without `--confirm`.
+
+### Orders
+
+Orders are the canonical record of a requested financial service.
+
+```bash
+dotnet run --project src/Aonik.Cli -- ops orders list --output json
+dotnet run --project src/Aonik.Cli -- ops orders list --status Draft --page 1 --page-size 20 --output json
+dotnet run --project src/Aonik.Cli -- ops orders get <ORDER_ID> --output json
+dotnet run --project src/Aonik.Cli -- ops orders create-bill-payment \
+    --payer-party-id <PARTY_ID> \
+    --origin-country GH \
+    --origin-currency GHS \
+    --items-file items.json --output json
+dotnet run --project src/Aonik.Cli -- ops orders submit <ORDER_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops orders cancel <ORDER_ID> --reason "Customer changed mind" --confirm --output json
+```
+
+`submit` and `cancel` require `--confirm`.
 
 ### Payment Intents
 
@@ -217,24 +263,6 @@ dotnet run --project src/Aonik.Cli -- ops payments get <PAYMENT_INTENT_ID> --out
 dotnet run --project src/Aonik.Cli -- ops payments capture <PAYMENT_INTENT_ID> --output json
 dotnet run --project src/Aonik.Cli -- ops payments cancel <PAYMENT_INTENT_ID> --output json
 ```
-
-## Interactive Shell
-
-For manual exploratory work:
-
-```bash
-dotnet run --project src/Aonik.Cli -- shell
-```
-
-The shell currently exposes:
-
-- session status
-- whoami
-- agent list
-- send agent message
-- stream agent message
-- list threads
-- list approvals
 
 ## Recommended Usage For Agents
 

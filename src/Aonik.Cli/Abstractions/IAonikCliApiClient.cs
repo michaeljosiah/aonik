@@ -75,6 +75,79 @@ public interface IAonikCliApiClient
         string? status,
         CancellationToken cancellationToken = default);
 
+    Task<InvoiceResponse> GetInvoiceAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default);
+
+    Task<InvoiceResponse> CreateInvoiceAsync(
+        CliSession session,
+        CreateInvoiceRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<InvoiceResponse> IssueInvoiceAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default);
+
+    Task<InvoiceResponse> CancelInvoiceAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default);
+
+    Task<InvoiceResponse> MarkInvoicePaidAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResponse<OrderListItemResponse>> ListOrdersAsync(
+        CliSession session,
+        ListOrdersRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<BillPaymentOrderResponse> GetOrderAsync(
+        CliSession session,
+        Guid orderId,
+        CancellationToken cancellationToken = default);
+
+    Task<BillPaymentOrderResponse> CreateBillPaymentOrderAsync(
+        CliSession session,
+        CreateBillPaymentOrderRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<BillPaymentOrderResponse> SubmitOrderAsync(
+        CliSession session,
+        Guid orderId,
+        CancellationToken cancellationToken = default);
+
+    Task<BillPaymentOrderResponse> CancelOrderAsync(
+        CliSession session,
+        Guid orderId,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    Task<ScheduledJobDetailResponse> GetScheduledJobDetailAsync(
+        CliSession session,
+        string jobName,
+        CancellationToken cancellationToken = default);
+
+    Task<ScheduledJobActionResponse> PauseScheduledJobAsync(
+        CliSession session,
+        string jobName,
+        CancellationToken cancellationToken = default);
+
+    Task<ScheduledJobActionResponse> ResumeScheduledJobAsync(
+        CliSession session,
+        string jobName,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResponse<ScheduledJobRunSummary>> ListScheduledJobRunsAsync(
+        CliSession session,
+        string jobName,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
     Task<PaymentIntentResponse> CreatePaymentIntentAsync(
         CliSession session,
         CreatePaymentIntentRequest request,

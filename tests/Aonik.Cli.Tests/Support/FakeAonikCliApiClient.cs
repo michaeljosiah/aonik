@@ -133,6 +133,93 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
             [] )
     ];
 
+    public InvoiceResponse InvoiceDetail { get; set; } = new(
+        Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+        "INV-1001",
+        "USD",
+        150m,
+        "Draft",
+        DateTime.Parse("2026-04-06T08:00:00Z").ToUniversalTime(),
+        DateTime.Parse("2026-04-20T08:00:00Z").ToUniversalTime(),
+        [
+            new InvoiceLineItemResponse(
+                Guid.Parse("12341234-1234-1234-1234-123412341234"),
+                "Consulting",
+                3m,
+                50m,
+                150m)
+        ]);
+
+    public BillPaymentOrderResponse OrderDetail { get; set; } = new(
+        Guid.Parse("aaaa1111-1111-1111-1111-111111111111"),
+        "BillPayment",
+        "Draft",
+        Guid.Parse("bbbb2222-2222-2222-2222-222222222222"),
+        "Acme Co",
+        "GH",
+        "GHS",
+        500m,
+        12m,
+        488m,
+        "USD",
+        "BILL",
+        DateTime.Parse("2026-04-06T08:00:00Z").ToUniversalTime(),
+        null,
+        []);
+
+    public PagedResponse<OrderListItemResponse> OrdersPage { get; set; } = new(
+        [
+            new OrderListItemResponse(
+                Guid.Parse("aaaa1111-1111-1111-1111-111111111111"),
+                "BillPayment",
+                "Draft",
+                Guid.Parse("bbbb2222-2222-2222-2222-222222222222"),
+                "Acme Co",
+                "GH",
+                "GHS",
+                500m,
+                488m,
+                "USD",
+                DateTime.Parse("2026-04-06T08:00:00Z").ToUniversalTime(),
+                null)
+        ],
+        1,
+        1,
+        20);
+
+    public ScheduledJobDetailResponse JobDetailResponse { get; set; } = new(
+        "daily-reconciliation",
+        "finance",
+        "Daily reconciliation",
+        "Reconciles ledgers daily",
+        "0 0 * * *",
+        "UTC",
+        "Active",
+        DateTime.Parse("2026-04-07T00:00:00Z").ToUniversalTime(),
+        DateTime.Parse("2026-04-06T00:00:00Z").ToUniversalTime(),
+        "Success",
+        "Completed",
+        1240,
+        DateTime.Parse("2026-04-06T01:00:00Z").ToUniversalTime(),
+        null);
+
+    public PagedResponse<ScheduledJobRunSummary> JobRunsPage { get; set; } = new(
+        [
+            new ScheduledJobRunSummary(
+                Guid.Parse("cccc3333-3333-3333-3333-333333333333"),
+                "Success",
+                null,
+                1240,
+                "scheduler",
+                DateTime.Parse("2026-04-06T00:00:00Z").ToUniversalTime(),
+                DateTime.Parse("2026-04-06T00:00:01Z").ToUniversalTime(),
+                "fire-1")
+        ],
+        1,
+        1,
+        20);
+
     public PaymentIntentResponse PaymentIntentResponse { get; set; } = new(
         Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
         Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
@@ -279,6 +366,121 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
         _ = status;
         _ = cancellationToken;
         return Task.FromResult(Invoices);
+    }
+
+    public Task<InvoiceResponse> GetInvoiceAsync(CliSession session, Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = invoiceId;
+        _ = cancellationToken;
+        return Task.FromResult(InvoiceDetail);
+    }
+
+    public Task<InvoiceResponse> CreateInvoiceAsync(CliSession session, CreateInvoiceRequest request, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = request;
+        _ = cancellationToken;
+        return Task.FromResult(InvoiceDetail);
+    }
+
+    public Task<InvoiceResponse> IssueInvoiceAsync(CliSession session, Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = invoiceId;
+        _ = cancellationToken;
+        return Task.FromResult(InvoiceDetail with { Status = "Issued" });
+    }
+
+    public Task<InvoiceResponse> CancelInvoiceAsync(CliSession session, Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = invoiceId;
+        _ = cancellationToken;
+        return Task.FromResult(InvoiceDetail with { Status = "Cancelled" });
+    }
+
+    public Task<InvoiceResponse> MarkInvoicePaidAsync(CliSession session, Guid invoiceId, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = invoiceId;
+        _ = cancellationToken;
+        return Task.FromResult(InvoiceDetail with { Status = "Paid" });
+    }
+
+    public Task<PagedResponse<OrderListItemResponse>> ListOrdersAsync(CliSession session, ListOrdersRequest request, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = request;
+        _ = cancellationToken;
+        return Task.FromResult(OrdersPage);
+    }
+
+    public Task<BillPaymentOrderResponse> GetOrderAsync(CliSession session, Guid orderId, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = orderId;
+        _ = cancellationToken;
+        return Task.FromResult(OrderDetail);
+    }
+
+    public Task<BillPaymentOrderResponse> CreateBillPaymentOrderAsync(CliSession session, CreateBillPaymentOrderRequest request, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = request;
+        _ = cancellationToken;
+        return Task.FromResult(OrderDetail);
+    }
+
+    public Task<BillPaymentOrderResponse> SubmitOrderAsync(CliSession session, Guid orderId, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = orderId;
+        _ = cancellationToken;
+        return Task.FromResult(OrderDetail with { Status = "Submitted", SubmittedAt = DateTime.Parse("2026-04-06T09:00:00Z").ToUniversalTime() });
+    }
+
+    public Task<BillPaymentOrderResponse> CancelOrderAsync(CliSession session, Guid orderId, string? reason, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = orderId;
+        _ = reason;
+        _ = cancellationToken;
+        return Task.FromResult(OrderDetail with { Status = "Cancelled" });
+    }
+
+    public Task<ScheduledJobDetailResponse> GetScheduledJobDetailAsync(CliSession session, string jobName, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = jobName;
+        _ = cancellationToken;
+        return Task.FromResult(JobDetailResponse);
+    }
+
+    public Task<ScheduledJobActionResponse> PauseScheduledJobAsync(CliSession session, string jobName, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = jobName;
+        _ = cancellationToken;
+        return Task.FromResult(ScheduledJobActionResponse with { Action = "pause" });
+    }
+
+    public Task<ScheduledJobActionResponse> ResumeScheduledJobAsync(CliSession session, string jobName, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = jobName;
+        _ = cancellationToken;
+        return Task.FromResult(ScheduledJobActionResponse with { Action = "resume" });
+    }
+
+    public Task<PagedResponse<ScheduledJobRunSummary>> ListScheduledJobRunsAsync(CliSession session, string jobName, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        _ = session;
+        _ = jobName;
+        _ = pageNumber;
+        _ = pageSize;
+        _ = cancellationToken;
+        return Task.FromResult(JobRunsPage);
     }
 
     public Task<PaymentIntentResponse> CreatePaymentIntentAsync(CliSession session, CreatePaymentIntentRequest request, CancellationToken cancellationToken = default)

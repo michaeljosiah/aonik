@@ -176,6 +176,10 @@ dotnet run --project src/Aonik.Cli -- ops workflow --workflow-name reconciliatio
 dotnet run --project src/Aonik.Cli -- ops jobs list --output json
 dotnet run --project src/Aonik.Cli -- ops jobs health --output json
 dotnet run --project src/Aonik.Cli -- ops jobs trigger --job-name daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs get daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs pause daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs resume daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs runs daily-reconciliation --output json
 ```
 
 ### Ledger operations
@@ -185,12 +189,31 @@ dotnet run --project src/Aonik.Cli -- ops ledger list --output json
 dotnet run --project src/Aonik.Cli -- ops ledger create --base-currency USD --output json
 ```
 
-### Invoice inspection
+### Invoice lifecycle
 
 ```bash
 dotnet run --project src/Aonik.Cli -- ops invoices list --output json
 dotnet run --project src/Aonik.Cli -- ops invoices list --status Draft --output json
+dotnet run --project src/Aonik.Cli -- ops invoices get <INVOICE_ID> --output json
+dotnet run --project src/Aonik.Cli -- ops invoices create --customer-id <CUSTOMER_ID> --invoice-number INV-1001 --currency USD --due-utc 2026-05-01T00:00:00Z --lines-file lines.json --output json
+dotnet run --project src/Aonik.Cli -- ops invoices issue <INVOICE_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops invoices cancel <INVOICE_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops invoices mark-paid <INVOICE_ID> --confirm --output json
 ```
+
+`issue`, `cancel`, and `mark-paid` are financially material — they refuse to run without `--confirm`.
+
+### Orders
+
+```bash
+dotnet run --project src/Aonik.Cli -- ops orders list --output json
+dotnet run --project src/Aonik.Cli -- ops orders get <ORDER_ID> --output json
+dotnet run --project src/Aonik.Cli -- ops orders create-bill-payment --payer-party-id <PARTY_ID> --origin-country GH --origin-currency GHS --items-file items.json --output json
+dotnet run --project src/Aonik.Cli -- ops orders submit <ORDER_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops orders cancel <ORDER_ID> --reason "..." --confirm --output json
+```
+
+`submit` and `cancel` require `--confirm`.
 
 ### Payment intent operations
 
@@ -200,24 +223,6 @@ dotnet run --project src/Aonik.Cli -- ops payments get <PAYMENT_INTENT_ID> --out
 dotnet run --project src/Aonik.Cli -- ops payments capture <PAYMENT_INTENT_ID> --output json
 dotnet run --project src/Aonik.Cli -- ops payments cancel <PAYMENT_INTENT_ID> --output json
 ```
-
-## Interactive Shell
-
-For manual exploratory work:
-
-```bash
-dotnet run --project src/Aonik.Cli -- shell
-```
-
-The shell currently exposes:
-
-- session status
-- whoami
-- agent list
-- send agent message
-- stream agent message
-- list threads
-- list approvals
 
 ## Recommended Usage Pattern For Agents
 

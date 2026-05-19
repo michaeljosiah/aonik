@@ -93,6 +93,10 @@ dotnet run --project src/Aonik.Cli -- ops workflow --workflow-name reconciliatio
 dotnet run --project src/Aonik.Cli -- ops jobs list --output json
 dotnet run --project src/Aonik.Cli -- ops jobs health --output json
 dotnet run --project src/Aonik.Cli -- ops jobs trigger --job-name daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs get daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs pause daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs resume daily-reconciliation --output json
+dotnet run --project src/Aonik.Cli -- ops jobs runs daily-reconciliation --page 1 --page-size 20 --output json
 ```
 
 ### Ledger
@@ -107,7 +111,27 @@ dotnet run --project src/Aonik.Cli -- ops ledger create --base-currency USD --ou
 ```bash
 dotnet run --project src/Aonik.Cli -- ops invoices list --output json
 dotnet run --project src/Aonik.Cli -- ops invoices list --status Draft --output json
+dotnet run --project src/Aonik.Cli -- ops invoices get <INVOICE_ID> --output json
+dotnet run --project src/Aonik.Cli -- ops invoices create --customer-id <CUSTOMER_ID> --invoice-number INV-1001 --currency USD --due-utc 2026-05-01T00:00:00Z --lines-file lines.json --output json
+dotnet run --project src/Aonik.Cli -- ops invoices issue <INVOICE_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops invoices cancel <INVOICE_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops invoices mark-paid <INVOICE_ID> --confirm --output json
 ```
+
+`issue`, `cancel`, and `mark-paid` refuse to run without `--confirm`.
+
+### Orders
+
+```bash
+dotnet run --project src/Aonik.Cli -- ops orders list --output json
+dotnet run --project src/Aonik.Cli -- ops orders list --status Draft --page 1 --page-size 20 --output json
+dotnet run --project src/Aonik.Cli -- ops orders get <ORDER_ID> --output json
+dotnet run --project src/Aonik.Cli -- ops orders create-bill-payment --payer-party-id <PARTY_ID> --origin-country GH --origin-currency GHS --items-file items.json --output json
+dotnet run --project src/Aonik.Cli -- ops orders submit <ORDER_ID> --confirm --output json
+dotnet run --project src/Aonik.Cli -- ops orders cancel <ORDER_ID> --reason "Reason" --confirm --output json
+```
+
+`submit` and `cancel` require `--confirm`.
 
 ### Payments
 

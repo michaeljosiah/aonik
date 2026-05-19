@@ -4,7 +4,6 @@ using Aonik.Cli.Infrastructure;
 using Aonik.Cli.Models;
 using Aonik.Cli.Tests.Support;
 using FluentAssertions;
-using Spectre.Console;
 
 namespace Aonik.Cli.Tests;
 
@@ -78,7 +77,6 @@ public sealed class CliApplicationTests
         var agentHandler = new AgentCommandHandler(apiClient, sessionStore, outputWriter);
         var opsHandler = new OpsCommandHandler(apiClient, sessionStore, outputWriter);
         var approvalHandler = new ApprovalCommandHandler(apiClient, sessionStore, outputWriter);
-        var shellHandler = new ShellCommandHandler(sessionStore, authHandler, agentHandler, approvalHandler, outputWriter, AnsiConsole.Console);
-        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, shellHandler);
+        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler);
     }
 }

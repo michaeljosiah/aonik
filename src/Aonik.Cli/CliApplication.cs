@@ -1,7 +1,6 @@
 using Aonik.Cli.Commands;
 using Aonik.Cli.Infrastructure;
 using Aonik.Cli.Models;
-using Spectre.Console;
 using System.CommandLine;
 
 namespace Aonik.Cli;
@@ -14,15 +13,13 @@ public sealed class CliApplication
         AuthCommandHandler authCommandHandler,
         AgentCommandHandler agentCommandHandler,
         OpsCommandHandler opsCommandHandler,
-        ApprovalCommandHandler approvalCommandHandler,
-        ShellCommandHandler shellCommandHandler)
+        ApprovalCommandHandler approvalCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
             agentCommandHandler,
             opsCommandHandler,
-            approvalCommandHandler,
-            shellCommandHandler);
+            approvalCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -46,35 +43,25 @@ public sealed class CliApplication
         var agentCommandHandler = new AgentCommandHandler(apiClient, sessionStore, outputWriter);
         var opsCommandHandler = new OpsCommandHandler(apiClient, sessionStore, outputWriter);
         var approvalCommandHandler = new ApprovalCommandHandler(apiClient, sessionStore, outputWriter);
-        var shellCommandHandler = new ShellCommandHandler(
-            sessionStore,
-            authCommandHandler,
-            agentCommandHandler,
-            approvalCommandHandler,
-            outputWriter,
-            AnsiConsole.Console);
 
         return new CliApplication(
             authCommandHandler,
             agentCommandHandler,
             opsCommandHandler,
-            approvalCommandHandler,
-            shellCommandHandler);
+            approvalCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
         AuthCommandHandler authCommandHandler,
         AgentCommandHandler agentCommandHandler,
         OpsCommandHandler opsCommandHandler,
-        ApprovalCommandHandler approvalCommandHandler,
-        ShellCommandHandler shellCommandHandler)
+        ApprovalCommandHandler approvalCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
         rootCommand.Add(BuildAgentCommand(agentCommandHandler));
         rootCommand.Add(BuildOpsCommand(opsCommandHandler));
         rootCommand.Add(BuildApprovalCommand(approvalCommandHandler));
-        rootCommand.Add(BuildShellCommand(shellCommandHandler));
         return rootCommand;
     }
 
@@ -289,9 +276,65 @@ public sealed class CliApplication
                     OutputModeParser.Parse(parseResult.GetValue(jobsTriggerOutputOption))),
                 cancellationToken));
 
+        var jobNameArgument = new Argument<string>("job-name");
+
+        var jobsGetCommand = new Command("get", "Get scheduled job details.");
+        var jobsGetOutputOption = CreateOutputOption(includeNdjson: false);
+        jobsGetCommand.Add(jobNameArgument);
+        jobsGetCommand.Add(jobsGetOutputOption);
+        jobsGetCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.GetScheduledJobAsync(
+                parseResult.GetRequiredValue(jobNameArgument),
+                OutputModeParser.Parse(parseResult.GetValue(jobsGetOutputOption)),
+                cancellationToken));
+
+        var jobsPauseCommand = new Command("pause", "Pause a scheduled job.");
+        var jobsPauseOutputOption = CreateOutputOption(includeNdjson: false);
+        jobsPauseCommand.Add(new Argument<string>("job-name"));
+        jobsPauseCommand.Add(jobsPauseOutputOption);
+        jobsPauseCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.PauseScheduledJobAsync(
+                parseResult.GetRequiredValue<string>("job-name"),
+                OutputModeParser.Parse(parseResult.GetValue(jobsPauseOutputOption)),
+                cancellationToken));
+
+        var jobsResumeCommand = new Command("resume", "Resume a paused scheduled job.");
+        var jobsResumeOutputOption = CreateOutputOption(includeNdjson: false);
+        jobsResumeCommand.Add(new Argument<string>("job-name"));
+        jobsResumeCommand.Add(jobsResumeOutputOption);
+        jobsResumeCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.ResumeScheduledJobAsync(
+                parseResult.GetRequiredValue<string>("job-name"),
+                OutputModeParser.Parse(parseResult.GetValue(jobsResumeOutputOption)),
+                cancellationToken));
+
+        var jobsRunsCommand = new Command("runs", "List scheduled job run history.");
+        var jobsRunsPageOption = new Option<int>("--page") { Description = "Results page number." };
+        var jobsRunsPageSizeOption = new Option<int>("--page-size") { Description = "Results per page." };
+        var jobsRunsOutputOption = CreateOutputOption(includeNdjson: false);
+        jobsRunsCommand.Add(new Argument<string>("job-name"));
+        jobsRunsCommand.Add(jobsRunsPageOption);
+        jobsRunsCommand.Add(jobsRunsPageSizeOption);
+        jobsRunsCommand.Add(jobsRunsOutputOption);
+        jobsRunsCommand.SetAction((parseResult, cancellationToken) =>
+        {
+            var parsedPageSize = parseResult.GetValue(jobsRunsPageSizeOption);
+            return opsCommandHandler.ListScheduledJobRunsAsync(
+                new ListJobRunsOptions(
+                    JobName: parseResult.GetRequiredValue<string>("job-name"),
+                    Page: Math.Max(parseResult.GetValue(jobsRunsPageOption), 1),
+                    PageSize: parsedPageSize is > 0 and <= 100 ? parsedPageSize : 20,
+                    OutputMode: OutputModeParser.Parse(parseResult.GetValue(jobsRunsOutputOption))),
+                cancellationToken);
+        });
+
         jobsCommand.Add(jobsListCommand);
         jobsCommand.Add(jobsHealthCommand);
         jobsCommand.Add(jobsTriggerCommand);
+        jobsCommand.Add(jobsGetCommand);
+        jobsCommand.Add(jobsPauseCommand);
+        jobsCommand.Add(jobsResumeCommand);
+        jobsCommand.Add(jobsRunsCommand);
 
         var ledgerCommand = new Command("ledger", "Inspect and create ledgers.");
         var ledgerListCommand = new Command("list", "List ledgers.");
@@ -330,7 +373,61 @@ public sealed class CliApplication
                     OutputModeParser.Parse(parseResult.GetValue(invoicesOutputOption))),
                 cancellationToken));
 
+        var invoiceIdArgument = new Argument<Guid>("invoice-id");
+
+        var invoicesGetCommand = new Command("get", "Get an invoice with line items.");
+        var invoicesGetOutputOption = CreateOutputOption(includeNdjson: false);
+        invoicesGetCommand.Add(invoiceIdArgument);
+        invoicesGetCommand.Add(invoicesGetOutputOption);
+        invoicesGetCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.GetInvoiceAsync(
+                parseResult.GetRequiredValue(invoiceIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(invoicesGetOutputOption)),
+                cancellationToken));
+
+        var invoicesCreateCommand = new Command("create", "Create a draft invoice.");
+        var invoiceCustomerIdOption = new Option<Guid>("--customer-id") { Description = "Customer party identifier.", Required = true };
+        var invoiceNumberOption = new Option<string>("--invoice-number") { Description = "Invoice number.", Required = true };
+        var invoiceCurrencyOption = new Option<string>("--currency") { Description = "Invoice currency.", Required = true };
+        var invoiceDueUtcOption = new Option<DateTime>("--due-utc") { Description = "Due date (UTC).", Required = true };
+        var invoiceLinesFileOption = new Option<string?>("--lines-file") { Description = "Path to JSON file with line items: [{ description, quantity, unitPrice }]." };
+        var invoicesCreateOutputOption = CreateOutputOption(includeNdjson: false);
+        invoicesCreateCommand.Add(invoiceCustomerIdOption);
+        invoicesCreateCommand.Add(invoiceNumberOption);
+        invoicesCreateCommand.Add(invoiceCurrencyOption);
+        invoicesCreateCommand.Add(invoiceDueUtcOption);
+        invoicesCreateCommand.Add(invoiceLinesFileOption);
+        invoicesCreateCommand.Add(invoicesCreateOutputOption);
+        invoicesCreateCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.CreateInvoiceAsync(
+                new CreateInvoiceOptions(
+                    parseResult.GetRequiredValue(invoiceCustomerIdOption),
+                    parseResult.GetRequiredValue(invoiceNumberOption),
+                    parseResult.GetRequiredValue(invoiceCurrencyOption),
+                    parseResult.GetRequiredValue(invoiceDueUtcOption),
+                    parseResult.GetValue(invoiceLinesFileOption),
+                    OutputModeParser.Parse(parseResult.GetValue(invoicesCreateOutputOption))),
+                cancellationToken));
+
+        var invoicesIssueCommand = BuildInvoiceMutationCommand(
+            "issue",
+            "Issue a draft invoice.",
+            opsCommandHandler.IssueInvoiceAsync);
+        var invoicesCancelCommand = BuildInvoiceMutationCommand(
+            "cancel",
+            "Cancel a draft or issued invoice.",
+            opsCommandHandler.CancelInvoiceAsync);
+        var invoicesMarkPaidCommand = BuildInvoiceMutationCommand(
+            "mark-paid",
+            "Mark an issued invoice as paid.",
+            opsCommandHandler.MarkInvoicePaidAsync);
+
         invoicesCommand.Add(invoicesListCommand);
+        invoicesCommand.Add(invoicesGetCommand);
+        invoicesCommand.Add(invoicesCreateCommand);
+        invoicesCommand.Add(invoicesIssueCommand);
+        invoicesCommand.Add(invoicesCancelCommand);
+        invoicesCommand.Add(invoicesMarkPaidCommand);
 
         var paymentsCommand = new Command("payments", "Create and manage payment intents.");
         var paymentsCreateCommand = new Command("create-intent", "Create a payment intent.");
@@ -394,12 +491,151 @@ public sealed class CliApplication
         paymentsCommand.Add(paymentsCaptureCommand);
         paymentsCommand.Add(paymentsCancelCommand);
 
+        var ordersCommand = BuildOrdersCommand(opsCommandHandler);
+
         opsCommand.Add(workflowCommand);
         opsCommand.Add(jobsCommand);
         opsCommand.Add(ledgerCommand);
         opsCommand.Add(invoicesCommand);
+        opsCommand.Add(ordersCommand);
         opsCommand.Add(paymentsCommand);
         return opsCommand;
+    }
+
+    private static Command BuildInvoiceMutationCommand(
+        string name,
+        string description,
+        Func<InvoiceMutationOptions, CancellationToken, Task<int>> handler)
+    {
+        var command = new Command(name, description);
+        var invoiceIdArgument = new Argument<Guid>("invoice-id");
+        var confirmOption = new Option<bool>("--confirm") { Description = "Confirm the financially material operation." };
+        var outputOption = CreateOutputOption(includeNdjson: false);
+
+        command.Add(invoiceIdArgument);
+        command.Add(confirmOption);
+        command.Add(outputOption);
+        command.SetAction((parseResult, cancellationToken) =>
+            handler(
+                new InvoiceMutationOptions(
+                    parseResult.GetRequiredValue(invoiceIdArgument),
+                    parseResult.GetValue(confirmOption),
+                    OutputModeParser.Parse(parseResult.GetValue(outputOption))),
+                cancellationToken));
+
+        return command;
+    }
+
+    private static Command BuildOrdersCommand(OpsCommandHandler opsCommandHandler)
+    {
+        var ordersCommand = new Command("orders", "Inspect and manage orders.");
+
+        var ordersListCommand = new Command("list", "List orders.");
+        var ordersStatusOption = new Option<string?>("--status") { Description = "Optional status filter." };
+        var ordersOrderTypeOption = new Option<string?>("--order-type") { Description = "Optional order type filter." };
+        var ordersSearchOption = new Option<string?>("--search") { Description = "Free-text search across orders." };
+        var ordersPayerPartyIdOption = new Option<Guid?>("--payer-party-id") { Description = "Filter by payer party id." };
+        var ordersPageOption = new Option<int>("--page") { Description = "Results page number." };
+        var ordersPageSizeOption = new Option<int>("--page-size") { Description = "Results per page." };
+        var ordersListOutputOption = CreateOutputOption(includeNdjson: false);
+        ordersListCommand.Add(ordersStatusOption);
+        ordersListCommand.Add(ordersOrderTypeOption);
+        ordersListCommand.Add(ordersSearchOption);
+        ordersListCommand.Add(ordersPayerPartyIdOption);
+        ordersListCommand.Add(ordersPageOption);
+        ordersListCommand.Add(ordersPageSizeOption);
+        ordersListCommand.Add(ordersListOutputOption);
+        ordersListCommand.SetAction((parseResult, cancellationToken) =>
+        {
+            var parsedPageSize = parseResult.GetValue(ordersPageSizeOption);
+            return opsCommandHandler.ListOrdersAsync(
+                new ListOrdersOptions(
+                    Page: Math.Max(parseResult.GetValue(ordersPageOption), 1),
+                    PageSize: parsedPageSize is > 0 and <= 100 ? parsedPageSize : 20,
+                    Status: parseResult.GetValue(ordersStatusOption),
+                    OrderType: parseResult.GetValue(ordersOrderTypeOption),
+                    Search: parseResult.GetValue(ordersSearchOption),
+                    PayerPartyId: parseResult.GetValue(ordersPayerPartyIdOption),
+                    OutputMode: OutputModeParser.Parse(parseResult.GetValue(ordersListOutputOption))),
+                cancellationToken);
+        });
+
+        var orderIdArgument = new Argument<Guid>("order-id");
+
+        var ordersGetCommand = new Command("get", "Get an order with line items.");
+        var ordersGetOutputOption = CreateOutputOption(includeNdjson: false);
+        ordersGetCommand.Add(orderIdArgument);
+        ordersGetCommand.Add(ordersGetOutputOption);
+        ordersGetCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.GetOrderAsync(
+                parseResult.GetRequiredValue(orderIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(ordersGetOutputOption)),
+                cancellationToken));
+
+        var ordersCreateBillPaymentCommand = new Command("create-bill-payment", "Create a bill payment order.");
+        var orderPayerPartyIdOption = new Option<Guid>("--payer-party-id") { Description = "Payer party id.", Required = true };
+        var orderOriginCountryOption = new Option<string>("--origin-country") { Description = "Origin country code.", Required = true };
+        var orderOriginCurrencyOption = new Option<string>("--origin-currency") { Description = "Origin currency.", Required = true };
+        var orderPurposeCodeOption = new Option<string?>("--purpose-code") { Description = "Optional purpose code." };
+        var orderNotesOption = new Option<string?>("--notes") { Description = "Optional order notes." };
+        var orderItemsFileOption = new Option<string?>("--items-file") { Description = "Path to JSON file with bill payment items." };
+        var ordersCreateOutputOption = CreateOutputOption(includeNdjson: false);
+        ordersCreateBillPaymentCommand.Add(orderPayerPartyIdOption);
+        ordersCreateBillPaymentCommand.Add(orderOriginCountryOption);
+        ordersCreateBillPaymentCommand.Add(orderOriginCurrencyOption);
+        ordersCreateBillPaymentCommand.Add(orderPurposeCodeOption);
+        ordersCreateBillPaymentCommand.Add(orderNotesOption);
+        ordersCreateBillPaymentCommand.Add(orderItemsFileOption);
+        ordersCreateBillPaymentCommand.Add(ordersCreateOutputOption);
+        ordersCreateBillPaymentCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.CreateBillPaymentOrderAsync(
+                new CreateBillPaymentOrderOptions(
+                    parseResult.GetRequiredValue(orderPayerPartyIdOption),
+                    parseResult.GetRequiredValue(orderOriginCountryOption),
+                    parseResult.GetRequiredValue(orderOriginCurrencyOption),
+                    parseResult.GetValue(orderPurposeCodeOption),
+                    parseResult.GetValue(orderNotesOption),
+                    parseResult.GetValue(orderItemsFileOption),
+                    OutputModeParser.Parse(parseResult.GetValue(ordersCreateOutputOption))),
+                cancellationToken));
+
+        var ordersSubmitCommand = new Command("submit", "Submit an order for processing.");
+        var orderSubmitConfirmOption = new Option<bool>("--confirm") { Description = "Confirm the financially material operation." };
+        var ordersSubmitOutputOption = CreateOutputOption(includeNdjson: false);
+        ordersSubmitCommand.Add(new Argument<Guid>("order-id"));
+        ordersSubmitCommand.Add(orderSubmitConfirmOption);
+        ordersSubmitCommand.Add(ordersSubmitOutputOption);
+        ordersSubmitCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.SubmitOrderAsync(
+                new SubmitOrderOptions(
+                    parseResult.GetRequiredValue<Guid>("order-id"),
+                    parseResult.GetValue(orderSubmitConfirmOption),
+                    OutputModeParser.Parse(parseResult.GetValue(ordersSubmitOutputOption))),
+                cancellationToken));
+
+        var ordersCancelCommand = new Command("cancel", "Cancel an order.");
+        var orderCancelReasonOption = new Option<string?>("--reason") { Description = "Optional cancellation reason." };
+        var orderCancelConfirmOption = new Option<bool>("--confirm") { Description = "Confirm the financially material operation." };
+        var ordersCancelOutputOption = CreateOutputOption(includeNdjson: false);
+        ordersCancelCommand.Add(new Argument<Guid>("order-id"));
+        ordersCancelCommand.Add(orderCancelReasonOption);
+        ordersCancelCommand.Add(orderCancelConfirmOption);
+        ordersCancelCommand.Add(ordersCancelOutputOption);
+        ordersCancelCommand.SetAction((parseResult, cancellationToken) =>
+            opsCommandHandler.CancelOrderAsync(
+                new CancelOrderOptions(
+                    parseResult.GetRequiredValue<Guid>("order-id"),
+                    parseResult.GetValue(orderCancelReasonOption),
+                    parseResult.GetValue(orderCancelConfirmOption),
+                    OutputModeParser.Parse(parseResult.GetValue(ordersCancelOutputOption))),
+                cancellationToken));
+
+        ordersCommand.Add(ordersListCommand);
+        ordersCommand.Add(ordersGetCommand);
+        ordersCommand.Add(ordersCreateBillPaymentCommand);
+        ordersCommand.Add(ordersSubmitCommand);
+        ordersCommand.Add(ordersCancelCommand);
+        return ordersCommand;
     }
 
     private static Command BuildApprovalCommand(ApprovalCommandHandler approvalCommandHandler)
@@ -443,13 +679,6 @@ public sealed class CliApplication
         approvalsCommand.Add(approveCommand);
         approvalsCommand.Add(rejectCommand);
         return approvalsCommand;
-    }
-
-    private static Command BuildShellCommand(ShellCommandHandler shellCommandHandler)
-    {
-        var shellCommand = new Command("shell", "Open the simple interactive AONIK shell.");
-        shellCommand.SetAction((_, cancellationToken) => shellCommandHandler.RunAsync(cancellationToken));
-        return shellCommand;
     }
 
     private static Option<string?> CreateOutputOption(bool includeNdjson)

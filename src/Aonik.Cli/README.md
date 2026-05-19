@@ -2,14 +2,15 @@
 
 The AONIK CLI is a command-line client for interacting with AONIK systems through `src/Aonik.Cli`.
 
+It is designed to be invoked headlessly by agent harnesses and run directly by human operators. It does not embed a chat or interactive shell — harnesses provide their own chat surface, and humans drive the CLI through explicit commands.
+
 It supports:
 
 - authentication
-- agent commands
+- agent commands (one-shot, scriptable)
 - AG-UI streaming
 - approvals
 - explicit operational commands
-- a small interactive shell
 
 ## Build
 

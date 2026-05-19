@@ -305,6 +305,215 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
             cancellationToken);
     }
 
+    public Task<InvoiceResponse> GetInvoiceAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<InvoiceResponse>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/billing/invoices/{invoiceId:D}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<InvoiceResponse> CreateInvoiceAsync(
+        CliSession session,
+        CreateInvoiceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<InvoiceResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            "/billing/invoices",
+            session,
+            request,
+            cancellationToken);
+    }
+
+    public Task<InvoiceResponse> IssueInvoiceAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<InvoiceResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/billing/invoices/{invoiceId:D}/issue",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<InvoiceResponse> CancelInvoiceAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<InvoiceResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/billing/invoices/{invoiceId:D}/cancel",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<InvoiceResponse> MarkInvoicePaidAsync(
+        CliSession session,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<InvoiceResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/billing/invoices/{invoiceId:D}/mark-paid",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<PagedResponse<OrderListItemResponse>> ListOrdersAsync(
+        CliSession session,
+        ListOrdersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={request.PageNumber}",
+            $"pageSize={request.PageSize}"
+        };
+        if (!string.IsNullOrWhiteSpace(request.Status)) query.Add($"status={Uri.EscapeDataString(request.Status)}");
+        if (!string.IsNullOrWhiteSpace(request.OrderType)) query.Add($"orderType={Uri.EscapeDataString(request.OrderType)}");
+        if (!string.IsNullOrWhiteSpace(request.Search)) query.Add($"search={Uri.EscapeDataString(request.Search)}");
+        if (request.PayerPartyId.HasValue) query.Add($"payerPartyId={request.PayerPartyId.Value:D}");
+
+        return SendAsync<PagedResponse<OrderListItemResponse>>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/orders?{string.Join('&', query)}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<BillPaymentOrderResponse> GetOrderAsync(
+        CliSession session,
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<BillPaymentOrderResponse>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/orders/{orderId:D}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<BillPaymentOrderResponse> CreateBillPaymentOrderAsync(
+        CliSession session,
+        CreateBillPaymentOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<BillPaymentOrderResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            "/orders/bill-payments",
+            session,
+            request,
+            cancellationToken);
+    }
+
+    public Task<BillPaymentOrderResponse> SubmitOrderAsync(
+        CliSession session,
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<BillPaymentOrderResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/orders/{orderId:D}/submit",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<BillPaymentOrderResponse> CancelOrderAsync(
+        CliSession session,
+        Guid orderId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<BillPaymentOrderResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/orders/{orderId:D}/cancel",
+            session,
+            new { reason },
+            cancellationToken);
+    }
+
+    public Task<ScheduledJobDetailResponse> GetScheduledJobDetailAsync(
+        CliSession session,
+        string jobName,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<ScheduledJobDetailResponse>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/admin/jobs/scheduled/{Uri.EscapeDataString(jobName)}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<ScheduledJobActionResponse> PauseScheduledJobAsync(
+        CliSession session,
+        string jobName,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<ScheduledJobActionResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/admin/jobs/scheduled/{Uri.EscapeDataString(jobName)}/pause",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<ScheduledJobActionResponse> ResumeScheduledJobAsync(
+        CliSession session,
+        string jobName,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<ScheduledJobActionResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/admin/jobs/scheduled/{Uri.EscapeDataString(jobName)}/resume",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<PagedResponse<ScheduledJobRunSummary>> ListScheduledJobRunsAsync(
+        CliSession session,
+        string jobName,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<PagedResponse<ScheduledJobRunSummary>>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/admin/jobs/scheduled/{Uri.EscapeDataString(jobName)}/runs?pageNumber={pageNumber}&pageSize={pageSize}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
     public Task<PaymentIntentResponse> CreatePaymentIntentAsync(
         CliSession session,
         CreatePaymentIntentRequest request,
