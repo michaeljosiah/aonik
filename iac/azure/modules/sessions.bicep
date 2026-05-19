@@ -35,6 +35,9 @@ param apiPrincipalId string
 @description('User-assigned principal id (from apiPullIdentity.properties.principalId). Granted the same roles to cover identity-selection ambiguity in DefaultAzureCredential / ManagedIdentityCredential.')
 param apiUserAssignedPrincipalId string = ''
 
+@description('User-assigned identity resource id (from apiPullIdentity.id). Bound to the session pool itself so ACA Sessions accepts the caller token. ACA Sessions /code/execute returns HTTP 401 to managed-identity tokens unless the identity is also bound to the pool (mirrors Microsoft\'s dynamic-sessions-custom-container sample).')
+param apiUserAssignedIdentityResourceId string = ''
+
 @description('Maximum concurrent sessions the pool can host. Each session is one Hyper-V Python sandbox.')
 param maxConcurrentSessions int = 50
 
@@ -50,10 +53,28 @@ var sessionPoolName = '${namePrefix}-sessions'
 // Microsoft.App/sessionPools — system code interpreter pool.
 // Container type `PythonLTS` ships with NumPy/pandas/scikit-learn preinstalled
 // (see https://learn.microsoft.com/en-us/azure/container-apps/sessions-code-interpreter).
+//
+// Identity binding:
+//   The session pool itself is assigned the caller's user-assigned identity
+//   (apiPullIdentity). Empirically, ACA Sessions /code/execute rejects MI
+//   tokens with HTTP 401 (no WWW-Authenticate) unless the identity is also
+//   bound to the pool resource, even with Session Executor + Contributor
+//   granted via Azure RBAC. Microsoft's dynamic-sessions-custom-container
+//   sample uses this same binding.
+//   lifecycle='None' means the identity is NOT injected into running
+//   sandbox sessions — we only need it bound to the pool for caller auth.
 resource sessionPool 'Microsoft.App/sessionPools@2024-08-02-preview' = {
   name: sessionPoolName
   location: location
   tags: tags
+  identity: !empty(apiUserAssignedIdentityResourceId) ? {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${apiUserAssignedIdentityResourceId}': {}
+    }
+  } : {
+    type: 'None'
+  }
   properties: {
     // `Dynamic` is the only valid poolManagementType for the system code
     // interpreter pool (the API rejects `System` with
@@ -67,6 +88,12 @@ resource sessionPool 'Microsoft.App/sessionPools@2024-08-02-preview' = {
       executionType: 'Timed'
       cooldownPeriodInSeconds: cooldownSeconds
     }
+    managedIdentitySettings: !empty(apiUserAssignedIdentityResourceId) ? [
+      {
+        identity: apiUserAssignedIdentityResourceId
+        lifecycle: 'None'
+      }
+    ] : []
     sessionNetworkConfiguration: {
       // `EgressEnabled` is required so the Python preamble can POST back to
       // our callback endpoint (`/ai/codeact/call-tool/{nonce}`). The nonce is

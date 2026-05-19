@@ -496,6 +496,7 @@ module sessions '../../modules/sessions.bicep' = {
     tags: tags
     apiPrincipalId: apiApp.identity.principalId
     apiUserAssignedPrincipalId: apiPullIdentity.properties.principalId
+    apiUserAssignedIdentityResourceId: apiPullIdentity.id
   }
 }
 
