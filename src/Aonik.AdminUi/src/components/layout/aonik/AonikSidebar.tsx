@@ -11,7 +11,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Search,
   ChevronRight, ChevronDown, PanelLeftClose, PanelLeft, X, Check,
   Award, UserCog, Info, FileText, Sun, Moon, Monitor, LogOut,
   Layout,
