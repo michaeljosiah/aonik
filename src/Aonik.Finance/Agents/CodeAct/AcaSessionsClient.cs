@@ -47,22 +47,38 @@ public sealed class AcaSessionsClient
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
-        // Prefer ManagedIdentityCredential explicitly over DefaultAzureCredential.
+        // Pick which managed identity hits the ACA Sessions /code/execute endpoint.
         //
-        // In ACA the API container has BOTH a system-assigned identity AND a
-        // user-assigned identity (apiPullIdentity, for ACR pull). When both
-        // are present, DefaultAzureCredential's ManagedIdentityCredential
-        // step may pick the user-assigned one — which only has AcrPull and
-        // does NOT have the Azure ContainerApps Session Executor + Contributor
-        // roles on the session pool. Result: ACA Sessions /executions returns
-        // HTTP 401 even though the token is structurally valid.
+        // Empirically, ACA Sessions rejects *system-assigned* MI tokens with HTTP
+        // 401 (no WWW-Authenticate), even with Session Executor + Contributor
+        // roles granted on the pool. System-assigned MIs share a Microsoft-managed
+        // appid (da659c9c-...), so client_credentials tokens have no resource-
+        // specific scp/roles claim — and the ACA Sessions auth gate appears to
+        // require one of those before checking Azure RBAC. User-assigned MIs each
+        // have their own app registration, so their tokens carry a unique appid
+        // that the gate may treat differently. Microsoft's own dynamic-sessions
+        // samples (Azure-Samples/dynamic-sessions-custom-container) use a
+        // user-assigned MI.
         //
-        // ManagedIdentityCredential() with no client_id hits the ACA IDMS
-        // endpoint without specifying an identity, which defaults to the
-        // system-assigned principal — the one our bicep grants the roles to.
+        // Configuration:
+        //   AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID = <clientId>
+        // makes us use that specific user-assigned identity. Leave it empty to
+        // fall back to the system-assigned identity (legacy behavior; expected
+        // to 401 against ACA Sessions).
         //
-        // For local dev / tests, the caller can pass credentialOverride.
-        _credential = credentialOverride ?? new ManagedIdentityCredential();
+        // For local dev / tests, the caller passes credentialOverride.
+        if (credentialOverride is not null)
+        {
+            _credential = credentialOverride;
+        }
+        else if (!string.IsNullOrWhiteSpace(_options.ManagedIdentityClientId))
+        {
+            _credential = new ManagedIdentityCredential(_options.ManagedIdentityClientId);
+        }
+        else
+        {
+            _credential = new ManagedIdentityCredential();
+        }
     }
 
     /// <summary>

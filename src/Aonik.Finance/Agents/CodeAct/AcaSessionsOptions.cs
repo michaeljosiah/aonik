@@ -42,6 +42,15 @@ public sealed class AcaSessionsOptions
     public int MaxCallbacksPerNonce { get; set; } = 30;
 
     /// <summary>
+    /// Client ID of a user-assigned managed identity to use when acquiring
+    /// the <c>https://dynamicsessions.io/.default</c> token. When empty, falls
+    /// back to the system-assigned identity. See
+    /// <see cref="AcaSessionsClient"/> for why a user-assigned identity is
+    /// required against ACA Sessions today.
+    /// </summary>
+    public string ManagedIdentityClientId { get; set; } = string.Empty;
+
+    /// <summary>
     /// ACA Sessions data-plane API version. Pinned to <c>2024-02-02-preview</c>
     /// because that is the only version we've confirmed accepts BOTH user
     /// tokens AND managed-identity tokens against the <c>/code/execute</c>

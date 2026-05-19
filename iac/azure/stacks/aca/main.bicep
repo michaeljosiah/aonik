@@ -454,6 +454,16 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: codeActCallbackBaseUrl
             }
             {
+              // Pin AcaSessionsClient to the user-assigned identity. ACA Sessions
+              // rejects system-assigned MI tokens with HTTP 401 even when both
+              // Session Executor + Contributor are granted on the pool (see the
+              // comment in AcaSessionsClient ctor for the auth-claim analysis).
+              // Both identities are granted the required roles on the pool in
+              // modules/sessions.bicep.
+              name: 'AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID'
+              value: apiPullIdentity.properties.clientId
+            }
+            {
               name: 'AI__CODEACT__NONCESIGNINGKEY'
               secretRef: 'code-act-nonce-signing-key'
             }
