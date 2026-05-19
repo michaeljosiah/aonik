@@ -95,21 +95,23 @@ public sealed class AcaSessionsClient
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionIdentifier);
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
 
-        // ACA Sessions has TWO data-plane paths:
-        //   • /code/execute (old, api-version 2024-02-02-preview) — accepts BOTH user AND
-        //     managed-identity tokens. This is what LangChain's azure-dynamic-sessions
-        //     uses and is the only combo we've observed accepting MI tokens.
-        //   • /executions   (new, api-version ≥ 2024-10-02-preview) — accepts user
-        //     tokens but currently rejects MI tokens with HTTP 401 (no WWW-Authenticate),
-        //     despite the docs claiming Azure RBAC + dynamicsessions.io audience is
-        //     sufficient. The ACA Sessions SP exposes only oauth2PermissionScopes
-        //     (Sessions.ReadWrite.All) and no appRoles, so client_credentials tokens
-        //     have neither scp nor roles claims — the newer endpoint's auth gate
-        //     appears to require one of them and rejects the token before checking RBAC.
+        // ACA Sessions PythonLTS pool has TWO data-plane paths:
+        //   • /code/execute (api-version 2024-02-02-preview) — accepts BOTH user
+        //     AND managed-identity tokens. This is what LangChain's
+        //     azure-dynamic-sessions uses for the Python interpreter.
+        //   • /executions   (api-version ≥ 2024-10-02-preview) — also accepts
+        //     MI tokens but expects a different body shape (the matrix probe
+        //     returned 400 SessionPropertiesMissing for the codeInputType
+        //     payload above) — would need migration work to enable.
         //
-        // Stick with the old path until Microsoft documents an MI-compatible newer
-        // version. The pool-side execution semantics are identical.
-        var path = $"/code/execute?api-version={Uri.EscapeDataString(_options.DataPlaneApiVersion)}" +
+        // No leading "/" — BaseAddress already contains the per-pool resource
+        // path (registered in FinanceModule with a mandatory trailing "/"),
+        // so a relative path concatenates cleanly. A leading "/" would
+        // discard the /subscriptions/.../sessionPools/<name> segment and
+        // route the call to the bare https://<region>.dynamicsessions.io/
+        // host, which returns 401 because there is no resource context —
+        // exactly the failure mode we hit before this fix.
+        var path = $"code/execute?api-version={Uri.EscapeDataString(_options.DataPlaneApiVersion)}" +
                    $"&identifier={Uri.EscapeDataString(sessionIdentifier)}";
 
         var body = new AcaSessionsExecutionRequest(new AcaSessionsExecutionProperties(
@@ -130,10 +132,10 @@ public sealed class AcaSessionsClient
             var headerSummary = $"WWW-Authenticate={wwwAuth} | mise-correlation-id={miseCorrelation}";
             LastResponseHeadersForDiagnostic = headerSummary;
             _logger.LogWarning(
-                "ACA Sessions /executions returned {Status} for session {Session}: body={Body} headers={Headers}",
+                "ACA Sessions /code/execute returned {Status} for session {Session}: body={Body} headers={Headers}",
                 (int)response.StatusCode, sessionIdentifier, Truncate(raw, 500), headerSummary);
             throw new HttpRequestException(
-                $"ACA Sessions /executions failed: HTTP {(int)response.StatusCode} body=\"{Truncate(raw, 500)}\" {headerSummary}",
+                $"ACA Sessions /code/execute failed: HTTP {(int)response.StatusCode} body=\"{Truncate(raw, 500)}\" {headerSummary}",
                 inner: null,
                 statusCode: response.StatusCode);
         }

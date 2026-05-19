@@ -225,7 +225,14 @@ public sealed class FinanceModule : IModule
         services.AddHttpClient<AcaSessionsClient>((sp, client) =>
         {
             var opts = sp.GetRequiredService<IOptions<AcaSessionsOptions>>().Value;
-            if (Uri.TryCreate(opts.PoolManagementEndpoint, UriKind.Absolute, out var baseUri))
+            // BaseAddress must end with "/" so HttpClient appends our relative
+            // path under the resource scope. Without the trailing "/", .NET
+            // URI resolution silently strips the /subscriptions/.../sessionPools/<name>
+            // segment whenever the request URI starts with "/", routing the call
+            // to the bare https://<region>.dynamicsessions.io/ host — which
+            // returns HTTP 401 because there is no resource context.
+            var endpoint = opts.PoolManagementEndpoint?.TrimEnd('/');
+            if (!string.IsNullOrWhiteSpace(endpoint) && Uri.TryCreate(endpoint + "/", UriKind.Absolute, out var baseUri))
             {
                 client.BaseAddress = baseUri;
             }

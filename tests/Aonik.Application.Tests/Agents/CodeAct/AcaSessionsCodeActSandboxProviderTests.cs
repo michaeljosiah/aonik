@@ -36,7 +36,13 @@ public class AcaSessionsCodeActSandboxProviderTests
         {
             Timeout = TimeSpan.FromSeconds(30),
         };
-        if (Uri.TryCreate(options.PoolManagementEndpoint, UriKind.Absolute, out var baseUri))
+        // Mirror FinanceModule's HttpClient setup: BaseAddress must end with
+        // "/" so a leading-slash-free relative path concatenates under the
+        // resource scope. Otherwise .NET URI resolution silently drops the
+        // pool segment and the assertions below still pass (they only check
+        // substring), but the produced URL is wrong against the real service.
+        var endpoint = options.PoolManagementEndpoint?.TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(endpoint) && Uri.TryCreate(endpoint + "/", UriKind.Absolute, out var baseUri))
         {
             httpClient.BaseAddress = baseUri;
         }
@@ -106,7 +112,12 @@ public class AcaSessionsCodeActSandboxProviderTests
 
         handler.LastRequest.Should().NotBeNull();
         handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
-        handler.LastRequest.RequestUri!.PathAndQuery.Should().Contain("/code/execute");
+        // Critical: the call MUST hit the resource-scoped path
+        // (.../sessionPools/<name>/code/execute). A regression to a leading-
+        // slash relative path or BaseAddress without trailing "/" routes to
+        // .../sessionPools/code/execute (pool name lost), which yields HTTP
+        // 401 from the live service and is invisible to a substring assertion.
+        handler.LastRequest.RequestUri!.AbsolutePath.Should().EndWith("/sessionPools/pool/code/execute");
         handler.LastRequest.RequestUri.Query.Should().Contain("api-version=2024-02-02-preview");
         handler.LastRequest.RequestUri.Query.Should().Contain("identifier=");
         handler.LastRequest.Headers.Authorization!.Scheme.Should().Be("Bearer");
