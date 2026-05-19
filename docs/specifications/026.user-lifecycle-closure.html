@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 026 · User Lifecycle Closure (Invite Email, Hard Delete, Token Revocation)</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.priority-p0 { background: var(--p0-bg); color: #8a2a15; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .status-row td:first-child { font-weight: 600; }
+    .status-ok { color: #2a7f3c; }
+    .status-gap { color: #8a2a15; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 026</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag priority-p0">Priority: P0</span>
+  <span class="meta-tag">Domain: Platform / Identity</span>
+  <h1>User Lifecycle Closure</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Closes the three P0 gaps in the Admin UI user-management lifecycle so we can
+    document and ship a credible user-administration guide:
+    <strong>(1) invite email via the Aonik notification stack</strong>,
+    <strong>(2) GDPR-strict hard delete with audit-log redaction</strong> covering
+    the IdP user record, and <strong>(3) token revocation via a SQL blocklist
+    cached in FusionCache</strong>. After this spec lands, the Admin UI can take
+    a user from invite to deletion entirely in-product without any out-of-band
+    communication or manual IdP-dashboard work.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#background">Background &amp; current state</a></li>
+    <li><a href="#goals">Goals &amp; non-goals</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#part1-invite">Part 1 · Invite email</a></li>
+    <li><a href="#part2-delete">Part 2 · Hard delete</a></li>
+    <li><a href="#part3-revoke">Part 3 · Token revocation</a></li>
+    <li><a href="#closed-loop">The closed loop</a></li>
+    <li><a href="#data-model">Data-model changes</a></li>
+    <li><a href="#api-surface">API surface</a></li>
+    <li><a href="#admin-ui">Admin UI changes</a></li>
+    <li><a href="#audit">Audit-log impact</a></li>
+    <li><a href="#rollout">Migration &amp; rollout</a></li>
+    <li><a href="#testing">Testing strategy</a></li>
+    <li><a href="#docs">Documentation deliverable</a></li>
+    <li><a href="#effort">Effort estimate</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  The user-lifecycle audit in May 2026 found the Admin UI at <strong>~75% complete</strong>
+  for user management. Provision, invite-as-placeholder, role assignment, profile edits,
+  deactivation, and audit logging all work end-to-end. <strong>Three P0 gaps</strong> block
+  a credible operator-facing user-management guide:
+</p>
+
+<ol>
+  <li>
+    <strong>Invite email</strong> — <code>InviteUserEndpoint</code> creates a placeholder
+    user but does not send an invitation email. Operators must communicate the login URL
+    out-of-band (Slack, manual email, etc.). The "invite a user" user story has no
+    completion path in-product.
+  </li>
+  <li>
+    <strong>Hard delete</strong> — no <code>DELETE /admin/users/{id}</code> endpoint
+    exists. Operators can only deactivate. GDPR right-to-be-forgotten and contractor
+    offboarding are unsupported.
+  </li>
+  <li>
+    <strong>Token revocation</strong> — no token blocklist or session-revocation
+    endpoint. JWTs remain valid until expiry even after deactivation. Security incident
+    response is broken.
+  </li>
+</ol>
+
+<p>
+  This spec defines the implementation of all three. Each is independently shippable.
+  Total estimate: <strong>~6–9 engineering days</strong> (excluding documentation).
+</p>
+
+<h2 id="background">2. Background &amp; current state</h2>
+
+<p>
+  Today the user-management surface is split across the Admin UI <code>access/</code>
+  pages and a set of <code>/admin/users/*</code> endpoints. The audit captured exactly
+  what exists per lifecycle stage:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Stage</th>
+      <th>Backend</th>
+      <th>Admin UI</th>
+      <th>Notification</th>
+      <th>IdP wiring</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="status-row">
+      <td>Provision</td>
+      <td class="status-ok">✓</td>
+      <td class="status-ok">✓</td>
+      <td class="status-gap">—</td>
+      <td>JIT on first login</td>
+    </tr>
+    <tr class="status-row">
+      <td>Invite (send link)</td>
+      <td class="status-gap">No send-email step</td>
+      <td>Button exists</td>
+      <td class="status-gap">No template</td>
+      <td class="status-gap">No pre-provision</td>
+    </tr>
+    <tr class="status-row">
+      <td>Accept invite (JIT link)</td>
+      <td class="status-ok">✓</td>
+      <td>Transparent</td>
+      <td>—</td>
+      <td class="status-ok">✓ via email claim</td>
+    </tr>
+    <tr class="status-row">
+      <td>First login</td>
+      <td class="status-ok">✓</td>
+      <td>—</td>
+      <td>—</td>
+      <td class="status-ok">✓</td>
+    </tr>
+    <tr class="status-row">
+      <td>Self-recovery (password)</td>
+      <td class="status-ok">✓</td>
+      <td>Self-serve only</td>
+      <td class="status-ok">via IdP</td>
+      <td class="status-ok">✓</td>
+    </tr>
+    <tr class="status-row">
+      <td>Email verification</td>
+      <td class="status-ok">✓</td>
+      <td>Self-serve only</td>
+      <td class="status-ok">✓</td>
+      <td>—</td>
+    </tr>
+    <tr class="status-row">
+      <td>Phone / OTP</td>
+      <td class="status-ok">✓</td>
+      <td>Self-serve only</td>
+      <td class="status-ok">✓</td>
+      <td>—</td>
+    </tr>
+    <tr class="status-row">
+      <td>Profile updates</td>
+      <td class="status-ok">✓</td>
+      <td class="status-ok">✓</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr class="status-row">
+      <td>Role assignment</td>
+      <td class="status-ok">✓</td>
+      <td class="status-ok">✓</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr class="status-row">
+      <td>Permission inspection</td>
+      <td class="status-ok">✓</td>
+      <td>Partial (count only)</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr class="status-row">
+      <td>Deactivate / reactivate</td>
+      <td class="status-ok">✓</td>
+      <td class="status-ok">✓</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr class="status-row">
+      <td><strong>Hard delete</strong></td>
+      <td class="status-gap">✗ P0</td>
+      <td class="status-gap">✗</td>
+      <td class="status-gap">—</td>
+      <td class="status-gap">—</td>
+    </tr>
+    <tr class="status-row">
+      <td><strong>Token revocation</strong></td>
+      <td class="status-gap">✗ P0</td>
+      <td class="status-gap">✗</td>
+      <td>—</td>
+      <td class="status-gap">—</td>
+    </tr>
+    <tr class="status-row">
+      <td>Audit log</td>
+      <td class="status-ok">✓</td>
+      <td class="status-ok">✓</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Full audit findings, including per-file paths and uncertainties, are in the audit
+  report attached to PR/branch tracking spec 026.
+</p>
+
+<h2 id="goals">3. Goals &amp; non-goals</h2>
+
+<h3>Goals</h3>
+<ul>
+  <li>
+    An operator can take a user from invite to deletion entirely from the Admin UI
+    without copying URLs into Slack, opening the Auth0 / Entra dashboard, or running
+    SQL.
+  </li>
+  <li>
+    A user's first sign-in completes the loop the operator started — the invite link
+    in the email lands them in a flow that maps their IdP identity onto the placeholder.
+  </li>
+  <li>
+    On hard delete, no personally identifiable information (PII) remains in
+    <code>AnkUsers</code>, <code>AnkAuditLogs</code>, or the configured IdP's user store
+    for the affected user. Foreign-key integrity for audit history is preserved via
+    tombstoning.
+  </li>
+  <li>
+    On revoke, the affected bearer token stops authenticating within the FusionCache
+    refresh window (≤ 30 s by default, ≤ 5 s on every replica after explicit cache
+    invalidation).
+  </li>
+  <li>
+    Every action above writes a tamper-evident audit log entry with the operator's
+    user-id, action, target user-id (or tombstone reference after delete), and
+    correlation-id.
+  </li>
+</ul>
+
+<h3>Non-goals</h3>
+<ul>
+  <li>
+    Operator-triggered password reset (P1, deferred). Users self-serve via the public
+    forgot-password flow.
+  </li>
+  <li>
+    Effective-permissions computation endpoint (P1, deferred). Today the UI shows a
+    permission count; the rollup is computable client-side from the roles list.
+  </li>
+  <li>
+    Pre-provisioning users in Auth0 / Entra on invite. JIT linking continues to be the
+    canonical flow. Pre-provisioning is tracked in §17 as a future P1.
+  </li>
+  <li>
+    Bulk operations (CSV import, multi-user role updates). P2, deferred.
+  </li>
+  <li>
+    Multi-factor authentication enrolment management. The IdP owns MFA today; surfacing
+    it in the Admin UI is out of scope.
+  </li>
+</ul>
+
+<h2 id="decisions">4. Decisions baked in</h2>
+
+<p>
+  Four decisions were locked in during scoping. The rest of the spec assumes them.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Question</th><th>Decision</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Invite email transport</td>
+      <td>Aonik notification stack (consistent with existing email + phone OTP templates).</td>
+    </tr>
+    <tr>
+      <td>Hard-delete semantics</td>
+      <td>GDPR-strict: hard-delete platform row, redact PII in audit logs to a tombstone, delete the IdP user via the provider's management API.</td>
+    </tr>
+    <tr>
+      <td>Token-revocation mechanism</td>
+      <td>SQL blocklist + FusionCache. UserId-keyed entries, validated in the auth middleware on every request.</td>
+    </tr>
+    <tr>
+      <td>P1 / P2 gaps</td>
+      <td>Documented as roadmap; not built in this spec.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="part1-invite">5. Part 1 · Invite email</h2>
+
+<h3>Outcome</h3>
+<p>
+  When an operator invites a new user from the Admin UI, the invitee receives a branded
+  email from Aonik containing a tenant-specific sign-in link, an expiry time, and the
+  role they have been granted. A "Resend invite" button is available on the user detail
+  page for users still in the <code>Invited</code> status.
+</p>
+
+<h3>Notification template</h3>
+
+<p>Add a new template key in <code>NotificationTemplateNames</code>:</p>
+
+<pre><code>// src/Aonik.Platform/Services/Notifications/NotificationTemplateNames.cs
+public const string AdminUserInvitation = "admin.user-invitation";</code></pre>
+
+<p>
+  Template variables (rendered server-side, identical to the existing
+  <code>registration.email-confirmation</code> contract):
+</p>
+
+<table>
+  <thead><tr><th>Variable</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr><td><code>{{tenantName}}</code></td><td><code>Tenant.DisplayName</code></td></tr>
+    <tr><td><code>{{inviteeDisplayName}}</code></td><td>Operator-supplied at invite time; falls back to the email local-part.</td></tr>
+    <tr><td><code>{{operatorDisplayName}}</code></td><td>The inviting user's <code>DisplayName</code>.</td></tr>
+    <tr><td><code>{{rolesGranted}}</code></td><td>Comma-separated list of role names assigned at invite.</td></tr>
+    <tr><td><code>{{inviteUrl}}</code></td><td>Tenant-scoped sign-in URL with an <code>?invite=&lt;token&gt;</code> query parameter (see below).</td></tr>
+    <tr><td><code>{{expiryUtc}}</code></td><td>ISO-8601 timestamp, default <strong>72 hours</strong> after invite creation.</td></tr>
+  </tbody>
+</table>
+
+<h3>Invite token</h3>
+
+<p>
+  The placeholder user record gains a one-shot invite token. The token is opaque to the
+  IdP — it does not function as a bearer token. Its only purpose is to identify the
+  placeholder when the invitee returns and authenticates.
+</p>
+
+<pre><code>// New columns on AnkUsers (or a new AnkUserInvites table — see §9)
+InviteToken             nvarchar(64)   // ULID, indexed
+InviteExpiresUtc        datetime2
+InviteEmailSentUtc      datetime2
+InviteEmailSendCount    int default 0  // for "Resend" rate-limiting</code></pre>
+
+<p>
+  When the invitee clicks the link, the front-end (Admin UI sign-in or the public
+  registration page) posts the token to <code>POST /identity/invite/accept</code>
+  alongside the IdP token. The platform verifies that:
+</p>
+
+<ol>
+  <li>The invite token exists, is not expired, and is not consumed.</li>
+  <li>The email claim in the IdP token matches the placeholder's email (or the operator allowed mismatched-email accept — see §17).</li>
+  <li>The placeholder is in the <code>Invited</code> status.</li>
+</ol>
+
+<p>
+  On success, the placeholder is transitioned to <code>Active</code>, the IdP identity
+  (<code>ExternalIssuer</code> + <code>ExternalSubject</code>) is linked, and the
+  invite token is marked consumed. The user is now logged in.
+</p>
+
+<h3>Resend invite</h3>
+
+<p>
+  Existing endpoint <code>InviteUserEndpoint</code> is extended to accept a
+  <code>resend: true</code> flag that re-uses the existing placeholder, regenerates the
+  invite token, increments <code>InviteEmailSendCount</code>, and re-sends the email.
+  Rate-limit to a soft cap of <strong>5 sends per user per 24 hours</strong>; harder cap
+  enforced by the existing audit-log rate limiter.
+</p>
+
+<h3>Endpoints</h3>
+
+<table>
+  <thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>POST</td><td><code>/admin/users/invite</code></td><td>Create placeholder + send email. Existing; extend to also send.</td><td><span class="tag existing">existing</span></td></tr>
+    <tr><td>POST</td><td><code>/admin/users/{userId}/resend-invite</code></td><td>Resend the invite email.</td><td><span class="tag new">new</span></td></tr>
+    <tr><td>POST</td><td><code>/identity/invite/accept</code></td><td>Consume invite token + link IdP identity.</td><td><span class="tag new">new</span></td></tr>
+  </tbody>
+</table>
+
+<h3>Admin UI changes</h3>
+
+<ul>
+  <li>"Invite user" dialog gains a confirmation message: <em>"Sent invite to &lt;email&gt;. Expires &lt;expiryUtc&gt;."</em></li>
+  <li><code>UserDetailPage</code> gains a "Resend invite" button visible only when status is <code>Invited</code>; greyed out with tooltip when rate-limited.</li>
+  <li>User list shows the "Invited" status badge in amber until accepted.</li>
+</ul>
+
+<h2 id="part2-delete">6. Part 2 · Hard delete</h2>
+
+<h3>Outcome</h3>
+<p>
+  An operator with the <code>user.delete</code> permission can permanently remove a
+  user. After deletion the user no longer appears in any list, cannot sign in, cannot
+  be reactivated, and their PII is removed from <code>AnkUsers</code>, audit logs, and
+  the IdP user store. A tombstone preserves foreign-key integrity for historical
+  references.
+</p>
+
+<h3>Steps performed by the delete service</h3>
+
+<ol>
+  <li>Verify caller has <code>user.delete</code> on this tenant.</li>
+  <li>Reject delete if the user is the last <code>TenantAdmin</code> (prevents lockout).</li>
+  <li>Revoke all active sessions (use the §7 mechanism inline).</li>
+  <li>Call the IdP management API to delete the IdP user record (Auth0 <code>DELETE /api/v2/users/{id}</code> or Microsoft Graph <code>DELETE /users/{id}</code>).</li>
+  <li>Insert a row into <code>AnkUserTombstones</code> with the deleted user-id, deletion UTC, and operator user-id.</li>
+  <li>Update every <code>AnkAuditLogs</code> row where <code>ResourceId</code> or <code>ActorId</code> equals the deleted user-id, setting:
+    <ul>
+      <li><code>ResourceLabel</code> → <code>"(deleted user)"</code></li>
+      <li><code>ActorEmail</code>, <code>ActorDisplayName</code> → <code>NULL</code></li>
+    </ul>
+  </li>
+  <li>Cascade-delete the user's roles, photo blob, profile, and verification records.</li>
+  <li>Delete the row from <code>AnkUsers</code>.</li>
+  <li>Write a <strong>final</strong> audit-log entry: <code>action="user.deleted"</code>, <code>resourceId=&lt;tombstone-id&gt;</code>, <code>actorId=&lt;operator&gt;</code>, with the operator-supplied deletion reason in the data column.</li>
+</ol>
+
+<div class="callout">
+  <span class="callout-label">Note</span>
+  Steps 4 and 6 are <em>both</em> required for true right-to-be-forgotten. The IdP holds
+  the source-of-truth identity; the audit log holds the action history. Either alone is
+  insufficient under GDPR Article 17.
+</div>
+
+<h3>Tombstone table</h3>
+
+<pre><code>// New table
+AnkUserTombstones {
+  Id                 uniqueidentifier PK    // separate from the original UserId
+  OriginalUserId     uniqueidentifier        // for foreign-key remapping
+  TenantId           uniqueidentifier        // tenant scope
+  DeletedUtc         datetime2
+  DeletedByUserId    uniqueidentifier        // operator
+  Reason             nvarchar(500)           // operator-supplied
+}</code></pre>
+
+<h3>Endpoints</h3>
+
+<table>
+  <thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>DELETE</td><td><code>/admin/users/{userId}</code></td><td>Hard-delete with operator-supplied reason.</td><td><span class="tag new">new</span></td></tr>
+    <tr><td>GET</td><td><code>/admin/users/tombstones</code></td><td>List recent deletions (for compliance review).</td><td><span class="tag new">new</span></td></tr>
+  </tbody>
+</table>
+
+<h3>IdP management API access</h3>
+
+<p>
+  Calling the IdP management API requires elevated credentials separate from the
+  tenant-level OAuth client.
+</p>
+
+<table>
+  <thead><tr><th>Provider</th><th>Mechanism</th><th>Configuration</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Auth0</td>
+      <td>Client-credentials grant against <code>https://&lt;tenant&gt;/oauth/token</code> with <code>audience=https://&lt;tenant&gt;/api/v2/</code>. Token cached for ≤ 24h.</td>
+      <td><code>Auth:Auth0:ManagementClientId</code>, <code>Auth:Auth0:ManagementClientSecret</code></td>
+    </tr>
+    <tr>
+      <td>Microsoft Entra ID</td>
+      <td>Client-credentials grant against <code>login.microsoftonline.com/&lt;tenant&gt;/oauth2/v2.0/token</code> with scope <code>https://graph.microsoft.com/.default</code>. Requires <code>User.ReadWrite.All</code> application permission on the app registration.</td>
+      <td><code>Auth:AzureAd:ManagementClientId</code>, <code>Auth:AzureAd:ManagementClientSecret</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  A new <code>IIdentityProviderManagementClient</code> abstraction in
+  <code>Aonik.Platform.Services.Identity.Provisioners</code> hides the per-provider
+  details. Implementations: <code>Auth0ManagementClient</code>,
+  <code>AzureAdManagementClient</code>.
+</p>
+
+<h3>Admin UI changes</h3>
+
+<ul>
+  <li><code>UserDetailPage</code> gains a destructive "Delete user" button at the bottom of the actions panel, red, with a confirm dialog.</li>
+  <li>The confirm dialog requires the operator to type the user's email exactly and supply a deletion reason (≥ 10 characters).</li>
+  <li>Successful delete navigates back to the user list with a green toast: <em>"User permanently deleted. Tombstone &lt;id&gt; created."</em></li>
+  <li>A new "Deleted users" page under Compliance lists tombstones with date, operator, and reason.</li>
+</ul>
+
+<h2 id="part3-revoke">7. Part 3 · Token revocation</h2>
+
+<h3>Outcome</h3>
+<p>
+  An operator can force a user offline within seconds. Internally a UserId-keyed
+  blocklist row is created. The auth middleware checks the blocklist (via FusionCache)
+  on every request; if the requesting user is blocked the request returns
+  <code>401 Unauthorized</code> with <code>WWW-Authenticate: Bearer error="invalid_token"</code>.
+</p>
+
+<h3>Blocklist table</h3>
+
+<pre><code>// New table
+AnkUserSessionBlocklist {
+  Id                 uniqueidentifier PK
+  TenantId           uniqueidentifier
+  UserId             uniqueidentifier         // indexed
+  RevokedUtc         datetime2
+  RevokedByUserId    uniqueidentifier         // operator (NULL if system-initiated)
+  Reason             nvarchar(200)            // free-form
+  // A row exists from RevokedUtc until 14 days later (max JWT lifetime).
+  // After that the auth middleware no longer needs to check; row may be pruned.
+  ExpiresUtc         datetime2
+}</code></pre>
+
+<p>
+  An <code>UNIQUE</code> index on <code>(TenantId, UserId, RevokedUtc)</code> means a
+  user can be revoked multiple times in their lifecycle; only the most recent entry is
+  consulted.
+</p>
+
+<h3>Middleware behaviour</h3>
+
+<p>
+  The existing JWT-bearer authentication middleware in
+  <code>Aonik.Infrastructure.Authentication</code> gains a single hook:
+</p>
+
+<pre><code>// pseudocode
+if (await blocklist.IsRevokedAsync(tenantId, userId, tokenIssuedAt)) {
+  return Forbidden();
+}</code></pre>
+
+<p>
+  The check is implemented as a FusionCache lookup with a <strong>30-second TTL</strong>
+  and a <strong>5-second jitter</strong>. Read-heavy: cache hits are O(1). On
+  <code>POST /admin/users/{userId}/revoke-sessions</code>, the platform writes the row
+  <em>and</em> invokes <code>FusionCache.RemoveAsync</code> across all replicas via the
+  existing backplane so the next request sees the new state within one TTL.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Note</span>
+  The check compares the JWT's <code>iat</code> (issued-at) claim to
+  <code>RevokedUtc</code>. Tokens issued <em>after</em> a revocation are allowed —
+  the operator's intent is "kill the current sessions," not "ban the user permanently."
+  Permanent ban is achieved by deactivation (existing).
+</div>
+
+<h3>Endpoints</h3>
+
+<table>
+  <thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>POST</td><td><code>/admin/users/{userId}/revoke-sessions</code></td><td>Add a blocklist row + invalidate cache.</td><td><span class="tag new">new</span></td></tr>
+    <tr><td>GET</td><td><code>/admin/users/{userId}/sessions</code></td><td>List active sessions (best-effort, based on recent token <code>iat</code>s observed in audit logs).</td><td><span class="tag new">new</span></td></tr>
+  </tbody>
+</table>
+
+<h3>Auto-revoke on deactivate</h3>
+
+<p>
+  <code>DeactivateUserEndpoint</code> calls the revocation pipeline inline. This closes
+  the historical foot-gun where deactivating a user did not invalidate their bearer
+  token.
+</p>
+
+<h3>Admin UI changes</h3>
+
+<ul>
+  <li><code>UserDetailPage</code> gains a "Revoke sessions" button next to "Deactivate." Confirm dialog requires a free-form reason.</li>
+  <li>The new "Sessions" tab on <code>UserDetailPage</code> shows the most recent <code>iat</code> per session (from audit logs) with a per-row revoke button.</li>
+  <li>Status badge changes to "Sessions revoked" for users who have been revoked but not deactivated.</li>
+</ul>
+
+<h2 id="closed-loop">8. The closed loop</h2>
+
+<p>
+  Once all three parts ship, the user-lifecycle diagram looks like this — every arrow
+  is in-product, no out-of-band steps:
+</p>
+
+<div class="ascii-diagram">
+    Operator                            Invitee                          IdP
+
+  ┌─────────┐
+  │  Invite │── POST /admin/users/invite ─────────┐
+  └────┬────┘                                     │
+       │                                          ▼
+       │                              ┌──────────────────────┐
+       │                              │ AnkUsers placeholder │
+       │                              │  status=Invited      │
+       │                              │  InviteToken=ULID    │
+       │                              └──────────┬───────────┘
+       │                                         │
+       │                              email: admin.user-invitation
+       │                                         ▼
+       │                                ┌────────────────────┐
+       │                                │   Email inbox      │
+       │                                │   Click link →     │
+       │                                └────────┬───────────┘
+       │                                         │
+       │                          GET /signin?invite=&lt;token&gt;
+       │                                         ▼
+       │                                ┌────────────────────┐
+       │                                │  Admin UI          │
+       │                                │  redirect to IdP   │
+       │                                └────────┬───────────┘
+       │                                         │
+       │                              IdP login (Auth0 / Entra)
+       │                                         │
+       │                                         ▼
+       │                                ┌────────────────────┐
+       │                                │ POST /identity/    │
+       │                                │   invite/accept    │
+       │                                └────────┬───────────┘
+       │                                         │
+       │                          link IdP identity to placeholder
+       │                          status=Active, token consumed
+       │                                         │
+  Active session ◄─────────────────────────────┘
+
+  ──── later ────
+
+  ┌──────────────┐
+  │ Revoke now   │── POST /admin/users/{id}/revoke-sessions
+  └──────┬───────┘
+         │
+         ▼
+  AnkUserSessionBlocklist row + FusionCache.RemoveAsync
+         │
+         ▼
+  Next request from that bearer token → 401
+
+  ──── eventually ────
+
+  ┌──────────────┐
+  │ Hard delete  │── DELETE /admin/users/{id}  (reason required)
+  └──────┬───────┘
+         │
+  inline revoke → IdP DELETE → tombstone → redact audit log →
+  cascade delete → AnkUsers row gone
+</div>
+
+<h2 id="data-model">9. Data-model changes</h2>
+
+<p>
+  Three new tables, two columns added to <code>AnkUsers</code>. All migrations generated
+  through <code>AonikDbContext</code> per the single-migration-stream rule.
+</p>
+
+<table>
+  <thead><tr><th>Change</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Extend <code>AnkUsers</code></td>
+      <td>Add <code>InviteToken</code>, <code>InviteExpiresUtc</code>, <code>InviteEmailSentUtc</code>, <code>InviteEmailSendCount</code>. Index <code>InviteToken</code> for token-lookup.</td>
+    </tr>
+    <tr>
+      <td>New <code>AnkUserInviteLog</code></td>
+      <td>Per-send audit row (for "Sent 5 minutes ago" timestamp on the UI). Foreign-key to <code>AnkUsers</code>.</td>
+    </tr>
+    <tr>
+      <td>New <code>AnkUserSessionBlocklist</code></td>
+      <td>UserId-keyed blocklist as described in §7.</td>
+    </tr>
+    <tr>
+      <td>New <code>AnkUserTombstones</code></td>
+      <td>Permanent record of deletions as described in §6.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Decision</span>
+  <code>AnkUserInviteLog</code> is a separate table rather than an audit-log
+  specialisation. Audit logs are tamper-evident and append-only; the invite log can be
+  pruned with the user record at deletion time and so deserves its own table with a
+  cascading delete relationship.
+</div>
+
+<h2 id="api-surface">10. API surface</h2>
+
+<p>Summary of new and changed endpoints introduced by this spec.</p>
+
+<table>
+  <thead><tr><th>Method</th><th>Path</th><th>Status</th><th>Permission</th></tr></thead>
+  <tbody>
+    <tr><td>POST</td><td><code>/admin/users/invite</code></td><td><span class="tag existing">existing</span> — extend to send email</td><td><code>user.invite</code></td></tr>
+    <tr><td>POST</td><td><code>/admin/users/{userId}/resend-invite</code></td><td><span class="tag new">new</span></td><td><code>user.invite</code></td></tr>
+    <tr><td>POST</td><td><code>/identity/invite/accept</code></td><td><span class="tag new">new</span></td><td><em>anonymous; verified by invite token + IdP token</em></td></tr>
+    <tr><td>DELETE</td><td><code>/admin/users/{userId}</code></td><td><span class="tag new">new</span></td><td><code>user.delete</code></td></tr>
+    <tr><td>GET</td><td><code>/admin/users/tombstones</code></td><td><span class="tag new">new</span></td><td><code>compliance.read</code></td></tr>
+    <tr><td>POST</td><td><code>/admin/users/{userId}/revoke-sessions</code></td><td><span class="tag new">new</span></td><td><code>user.revoke-sessions</code></td></tr>
+    <tr><td>GET</td><td><code>/admin/users/{userId}/sessions</code></td><td><span class="tag new">new</span></td><td><code>user.read</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+  New permissions <code>user.delete</code> and <code>user.revoke-sessions</code> are
+  added to the seeded permission catalogue and granted by default to
+  <code>TenantAdmin</code> and (for revoke only) <code>Operations</code>.
+</p>
+
+<h2 id="admin-ui">11. Admin UI changes</h2>
+
+<table>
+  <thead><tr><th>Page / Component</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>InviteUserDialog</code></td>
+      <td>Add confirmation message including expiry; show "Sent to &lt;email&gt;" on success.</td>
+    </tr>
+    <tr>
+      <td><code>UserDetailPage</code></td>
+      <td>Add three buttons in the actions panel: "Resend invite" (conditional), "Revoke sessions", "Delete user" (destructive).</td>
+    </tr>
+    <tr>
+      <td><code>UserDetailPage / Sessions tab</code></td>
+      <td>New tab listing recent token <code>iat</code>s with per-session revoke.</td>
+    </tr>
+    <tr>
+      <td><code>UserListPage</code></td>
+      <td>Add status badge variants for <code>Invited</code> (amber), <code>SessionsRevoked</code> (orange).</td>
+    </tr>
+    <tr>
+      <td><code>UserListPage</code></td>
+      <td>Add a "Resend invite" quick-action on the per-row menu when status is <code>Invited</code>.</td>
+    </tr>
+    <tr>
+      <td><code>ConfirmDeleteUserDialog</code></td>
+      <td>New destructive dialog: type email exactly + reason ≥ 10 chars.</td>
+    </tr>
+    <tr>
+      <td><code>ComplianceTombstonesPage</code></td>
+      <td>New page listing recent deletions with operator + reason.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="audit">12. Audit-log impact</h2>
+
+<p>Three new audit-log actions are emitted by this spec:</p>
+
+<table>
+  <thead><tr><th>Action</th><th>Emitted by</th><th>Resource</th></tr></thead>
+  <tbody>
+    <tr><td><code>user.invite-sent</code></td><td>InviteUserEndpoint, ResendInviteEndpoint</td><td>UserId</td></tr>
+    <tr><td><code>user.invite-accepted</code></td><td>AcceptInviteEndpoint</td><td>UserId (now active)</td></tr>
+    <tr><td><code>user.sessions-revoked</code></td><td>RevokeSessionsEndpoint, DeactivateUserEndpoint</td><td>UserId</td></tr>
+    <tr><td><code>user.deleted</code></td><td>DeleteUserEndpoint</td><td>Tombstone id (UserId is gone)</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Audit-log redaction (per §6) writes a single <code>audit.redacted</code> meta-entry
+  alongside the <code>user.deleted</code> row recording how many audit rows were
+  affected and the redaction reason.
+</p>
+
+<h2 id="rollout">13. Migration &amp; rollout</h2>
+
+<ol>
+  <li>
+    Generate migrations against <code>AonikDbContext</code> in
+    <code>src/Aonik.Infrastructure</code> using <code>dotnet ef migrations add
+    UserLifecycleClosure</code>.
+  </li>
+  <li>
+    Seed the new permissions (<code>user.delete</code>, <code>user.revoke-sessions</code>)
+    through the existing permissions seeder in <code>TenantProvisioner</code>. Grant on
+    upgrade for <code>TenantAdmin</code>; do <em>not</em> auto-grant on
+    <code>Operations</code> for <code>user.delete</code>.
+  </li>
+  <li>
+    Roll out part 1 (invite email) first behind a tenant feature flag
+    <code>UserLifecycle.InviteEmail</code>. Migrate template translations as needed.
+  </li>
+  <li>
+    Roll out part 3 (token revocation) second; auto-revoke wiring on deactivate is
+    behind feature flag <code>UserLifecycle.AutoRevokeOnDeactivate</code> until the
+    blocklist is verified at scale.
+  </li>
+  <li>
+    Roll out part 2 (hard delete) last. Requires the IdP management credentials to be
+    provisioned per environment (manual operator step).
+  </li>
+</ol>
+
+<h2 id="testing">14. Testing strategy</h2>
+
+<p>Mandatory test coverage before merge to main:</p>
+
+<ul>
+  <li>
+    <strong>Unit tests</strong> in <code>Aonik.Application.Tests</code> for the invite
+    token lifecycle (create, expire, consume), blocklist cache hits/misses, and the
+    tombstone-creation flow. Follow the existing xUnit + FluentAssertions conventions.
+  </li>
+  <li>
+    <strong>Integration tests</strong> in <code>Aonik.Api.Tests</code> for every new
+    endpoint using <code>CustomWebApplicationFactory</code> with
+    <code>UseInMemoryDatabase=true</code>. Coverage includes: invite + resend + accept
+    round-trip, delete-with-tombstone, revoke-then-immediately-call-secured-endpoint
+    returns 401, deactivate triggers revoke.
+  </li>
+  <li>
+    <strong>End-to-end</strong> test against Auth0 dev tenant (Auth0 only — Entra ID
+    e2e blocked by automation-account constraint). Covers the closed loop from invite
+    through accept.
+  </li>
+  <li>
+    <strong>GDPR delete</strong> test that asserts post-delete: no <code>AnkUsers</code>
+    row, no PII in <code>AnkAuditLogs</code> for the deleted user, IdP user mock was
+    called.
+  </li>
+</ul>
+
+<h2 id="docs">15. Documentation deliverable</h2>
+
+<p>
+  This spec is the design document. The operator-facing guide ships under the
+  <strong>Tenant admin</strong> docs tab as
+  <code>/docs/tenant-admin/users-and-roles</code> once part 1 and part 3 are
+  feature-flagged on in production (part 2 lands as a follow-on section). The doc
+  follows the same deterministic format as the Install &amp; Configure pages: every
+  step has a synopsis, an action, and a verify command or expected UI state.
+</p>
+
+<h2 id="effort">16. Effort estimate</h2>
+
+<table>
+  <thead><tr><th>Task</th><th>Engineer-days</th></tr></thead>
+  <tbody>
+    <tr><td>Part 1 · Invite email + template + accept endpoint + Resend UI</td><td>1.5</td></tr>
+    <tr><td>Part 3 · Blocklist table + middleware + FusionCache wiring + UI</td><td>2</td></tr>
+    <tr><td>Part 2 · IdP management clients + delete + tombstones + redaction + UI</td><td>2.5</td></tr>
+    <tr><td>Tests across all three (unit + integration + GDPR assertion)</td><td>1.5</td></tr>
+    <tr><td>Permission seeding, feature flags, rollout checklists</td><td>0.5</td></tr>
+    <tr><td>Documentation page on <code>/docs/tenant-admin/users-and-roles</code></td><td>1</td></tr>
+    <tr><th>Total</th><th>9</th></tr>
+  </tbody>
+</table>
+
+<h2 id="open">17. Open decisions</h2>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-1</span>
+  <strong>Mismatched-email accept.</strong> If the invitee authenticates with a different
+  email than the placeholder, do we (a) reject the accept (current behaviour, safest), or
+  (b) let the operator pre-flag the placeholder as <em>"accept any IdP identity that
+  uses this invite token"</em>? Option (b) is friendlier for ops teams that pre-provision
+  users by employee ID rather than email but loses email-based verification.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-2</span>
+  <strong>IdP pre-provisioning on invite.</strong> Should
+  <code>InviteUserEndpoint</code> call Auth0 / Entra to create the IdP user record
+  upfront, or wait for JIT linking? Pre-provisioning makes the password-reset flow work
+  before the invitee has ever logged in, but adds a hard dependency on the IdP being
+  reachable at invite time. Recommend keeping JIT in this spec and tracking
+  pre-provisioning as spec 027.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-3</span>
+  <strong>Tombstone retention.</strong> Tombstones contain the deleted user-id and the
+  operator's user-id. How long do we retain them? GDPR requires a finite period — propose
+  <strong>7 years</strong> (typical financial regulator audit horizon) with a scheduled
+  purge job. Open: confirm the legal team's view.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-4</span>
+  <strong>Blocklist max-age.</strong> Blocklist rows are pruned 14 days after creation
+  (matching the longest acceptable JWT lifetime). Confirm 14 days is sufficient — if
+  any deployment issues longer-lived bearer tokens, this needs to extend.
+</div>
+
+<h2 id="refs">18. References</h2>
+
+<ul>
+  <li><a href="https://learn.microsoft.com/graph/api/user-delete">Microsoft Graph · DELETE /users/{id}</a></li>
+  <li><a href="https://auth0.com/docs/api/management/v2/users/delete-users-by-id">Auth0 Management API · Delete User</a></li>
+  <li><a href="https://gdpr.eu/article-17-right-to-be-forgotten/">GDPR Article 17 · Right to erasure ("right to be forgotten")</a></li>
+  <li><a href="https://www.rfc-editor.org/rfc/rfc6749#section-6">RFC 6749 §6 · Refreshing an Access Token</a></li>
+  <li>Spec 001 · Identity &amp; Auth (foundational)</li>
+  <li>Spec 010 · Documentation (audience-tab structure for the resulting user guide)</li>
+  <li>Audit report · "Aonik Admin UI · User-management lifecycle audit" — May 2026</li>
+</ul>
+
+<footer>
+  Spec 026 · User Lifecycle Closure · Draft. Author: Platform team. Last revised 19 May 2026.
+</footer>
+
+</body>
+</html>
