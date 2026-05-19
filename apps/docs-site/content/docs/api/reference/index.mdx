@@ -1,44 +1,50 @@
 ---
 title: API Reference
-description: Auto-generated reference for every Aonik API endpoint, grouped by tag.
+description: Every Aonik API endpoint, grouped by tag. Auto-generated from the OpenAPI spec at build time.
 ---
 
-<Callout type="warn" title="Coming soon">
-  The auto-generated reference is being wired into the Fumadocs build via `fumadocs-openapi` in a follow-up commit. The canonical input is `apps/docs-site/openapi/aonik-api.yaml`.
+This reference is **auto-generated** from [`openapi/aonik-api.yaml`](https://github.com/michaeljosiah/aonik/blob/main/apps/docs-site/openapi/aonik-api.yaml). Every page below corresponds to one operation in the spec. To see the same data live, hit `/openapi/v1.json` on any running Aonik instance.
+
+<Callout type="info">
+  Before calling any endpoint you need a bearer token. See [Authentication](/docs/api/authentication) for the IdP flows. For error envelopes and idempotency keys, see [Errors and idempotency](/docs/api/errors-and-idempotency).
 </Callout>
 
-## In the meantime
+## Browse by tag
 
-A live, browsable reference is served by every running Aonik instance at `/scalar` — open it once you have the platform running locally:
+<Cards>
 
-```
-https://localhost:5001/scalar
-```
+<Card title="Orders" href="/docs/api/reference/orders" description="The canonical record of a requested financial service — bill payment, transfer, invoice, remittance." />
 
-For the raw machine-readable spec:
+<Card title="Payments" href="/docs/api/reference/payments" description="Payment intents and executed payments against orders." />
 
-```
-https://localhost:5001/openapi/v1.json
-```
+<Card title="Billing" href="/docs/api/reference/billing" description="Invoice lifecycle, line items, allocations, dunning." />
 
-The spec is also checked into the repo at [`apps/docs-site/openapi/aonik-api.yaml`](https://github.com/michaeljosiah/aonik/blob/main/apps/docs-site/openapi/aonik-api.yaml).
+<Card title="Ledger" href="/docs/api/reference/ledger" description="Per-tenant double-entry ledger with immutable journal entries." />
 
-## Endpoint catalog (preview)
+<Card title="Catalog" href="/docs/api/reference/catalog" description="Countries, currencies, billers, biller categories, services." />
 
-Once the auto-generated reference lands, every endpoint will appear here grouped by tag:
+<Card title="Pricing" href="/docs/api/reference/pricing" description="FX quotes with expiry, fee policies, pricing quotes." />
 
-- **Identity** — token, current user, profile, password reset, email verification
-- **Registration** — register, onboarding status
-- **Tenants** — CRUD operations, activate / deactivate / provision / bootstrap
-- **Users** — list, invite, activate / deactivate, update roles
-- **Roles** — CRUD + permission management
-- **Compliance** — document management
-- **Orders** — list, create, retrieve, submit, cancel, line-item operations
-- **Payments** — create intent, retrieve, capture, cancel
-- **Billing** — invoices, line items, allocations, dunning
-- **Ledger** — ledgers, accounts, journal entries
-- **Catalog** — countries, currencies, billers, biller categories, services
-- **Pricing** — FX quotes, pricing quotes
-- **Partners** — list, create, get, update, delete
-- **AI** — chat threads, agents, workflows
-- **CMS** — content blocks
+<Card title="Partners" href="/docs/api/reference/partners" description="Correspondent and payout partner registry." />
+
+<Card title="Identity" href="/docs/api/reference/identity" description="Token, current user, profile, password reset, email verification." />
+
+<Card title="Registration" href="/docs/api/reference/registration" description="Self-serve user onboarding, phone OTP." />
+
+<Card title="Tenants" href="/docs/api/reference/tenants" description="Tenant CRUD, activate / deactivate / provision / bootstrap." />
+
+<Card title="Users" href="/docs/api/reference/users" description="List, invite, get, activate, deactivate, update roles." />
+
+<Card title="Roles" href="/docs/api/reference/roles" description="CRUD plus permission management." />
+
+<Card title="Compliance" href="/docs/api/reference/compliance" description="Document tracking and verification." />
+
+<Card title="AI" href="/docs/api/reference/ai" description="Chat threads, agents, workflows." />
+
+<Card title="CMS" href="/docs/api/reference/cms" description="Content blocks." />
+
+</Cards>
+
+## OpenAPI document
+
+If you prefer to consume the raw spec, it is committed at [`openapi/aonik-api.yaml`](https://github.com/michaeljosiah/aonik/blob/main/apps/docs-site/openapi/aonik-api.yaml) and served at runtime from `/openapi/v1.json` on every Aonik instance.

@@ -8,6 +8,12 @@ out/
 # Fumadocs MDX generated source
 .source/
 
+# Auto-generated API reference (regenerated on every build by scripts/generate-api-reference.mjs)
+# Keep the hand-written index.mdx.
+content/docs/api/reference/**
+!content/docs/api/reference/
+!content/docs/api/reference/index.mdx
+
 # Build
 build/
 

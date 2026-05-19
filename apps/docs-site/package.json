@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/generate-api-reference.mjs",
     "build": "next build",
     "start": "next start",
+    "gen:api": "node scripts/generate-api-reference.mjs",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
     "fumadocs-core": "^16.8.11",
     "fumadocs-mdx": "^15.0.6",
+    "fumadocs-openapi": "^10.8.5",
     "fumadocs-ui": "^16.8.11",
     "next": "^16.2.6",
     "react": "^19.0.0",

@@ -8,12 +8,14 @@ import {
 import { notFound } from 'next/navigation';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { APIPage } from '@/lib/openapi';
 import type { Metadata } from 'next';
 
 const mdxComponents = {
   ...defaultMdxComponents,
   Step,
   Steps,
+  APIPage,
 };
 
 export default async function Page(props: {
