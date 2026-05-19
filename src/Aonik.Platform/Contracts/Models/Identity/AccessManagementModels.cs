@@ -21,15 +21,72 @@ public record InviteUserRequest(
 
 /// <summary>
 /// Result of a successful invite. Returned to the admin so they can
-/// confirm the placeholder was created and (later) trigger a notify
-/// flow if email delivery is wired up.
+/// confirm the placeholder was created. After Spec 026 Part 1 the
+/// invite email is sent inline as part of the InviteUser pipeline,
+/// so <c>EmailSent</c> + <c>ExpiresUtc</c> let the UI report when
+/// the message went out and when it stops working.
 /// </summary>
 public record InviteUserResponse(
     Guid UserId,
     Guid TenantId,
     string Email,
     string? DisplayName,
-    List<Guid> AssignedRoleIds);
+    List<Guid> AssignedRoleIds,
+    bool EmailSent = false,
+    DateTime? ExpiresUtc = null,
+    int EmailSendCount = 0);
+
+public record ResendInviteResponse(
+    Guid UserId,
+    string Email,
+    bool EmailSent,
+    DateTime? ExpiresUtc,
+    int EmailSendCount,
+    string? RateLimitReason);
+
+/// <summary>
+/// Posted by the invitee's front-end at <c>/identity/invite/accept</c>.
+/// Anonymous: authentication is the combination of (a) a valid IdP
+/// bearer token in the Authorization header and (b) the one-shot
+/// invite token issued at invite time.
+/// </summary>
+public record AcceptInviteRequest(string InviteToken);
+
+public record AcceptInviteResponse(
+    Guid UserId,
+    Guid TenantId,
+    string Email,
+    bool Accepted,
+    string? FailureReason);
+
+public record RevokeUserSessionsRequest(string? Reason);
+
+public record RevokeUserSessionsResponse(
+    Guid UserId,
+    DateTime RevokedUtc,
+    DateTime ExpiresUtc,
+    string Reason);
+
+public record DeleteUserRequest(
+    string EmailConfirmation,
+    string Reason);
+
+public record DeleteUserResponse(
+    Guid TombstoneId,
+    Guid OriginalUserId,
+    DateTime DeletedUtc,
+    int AuditRowsRedacted,
+    bool IdentityProviderUserDeleted);
+
+public record UserTombstoneSummary(
+    Guid TombstoneId,
+    Guid OriginalUserId,
+    DateTime DeletedUtc,
+    Guid? DeletedByUserId,
+    string? DeletedByEmail,
+    string Reason,
+    string? MaskedEmail,
+    int AuditRowsRedacted);
 
 public record UpdateUserRolesRequest(
     List<Guid> RoleIds

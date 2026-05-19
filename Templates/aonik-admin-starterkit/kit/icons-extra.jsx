@@ -86,6 +86,18 @@ const EXTRA_ICONS = {
   radio:      '<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/>',
   headphones: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><rect x="3" y="14" width="4" height="7" rx="1"/><rect x="17" y="14" width="4" height="7" rx="1"/>',
   flow:       '<rect x="3" y="4" width="6" height="6" rx="1"/><rect x="15" y="4" width="6" height="6" rx="1"/><rect x="3" y="14" width="6" height="6" rx="1"/><rect x="15" y="14" width="6" height="6" rx="1"/><path d="M9 7h6M9 17h6M6 10v4M18 10v4"/>',
+
+  // Devices · sessions
+  monitor:    '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  laptop:     '<rect x="4" y="5" width="16" height="10" rx="1"/><path d="M2 19h20l-2-4H4z"/>',
+  mobile:     '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  mappin:     '<path d="M12 22s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
+  // Lifecycle
+  userplus:   '<circle cx="9" cy="8" r="4"/><path d="M3 21c0-4 3-7 6-7s6 3 6 7"/><path d="M18 8v6M15 11h6"/>',
+  userminus:  '<circle cx="9" cy="8" r="4"/><path d="M3 21c0-4 3-7 6-7s6 3 6 7"/><path d="M15 11h6"/>',
+  userx:      '<circle cx="9" cy="8" r="4"/><path d="M3 21c0-4 3-7 6-7s6 3 6 7"/><path d="M15 8l6 6M21 8l-6 6"/>',
+  tombstone:  '<path d="M6 21V11a6 6 0 0 1 12 0v10"/><path d="M3 21h18"/><path d="M10 15h4M12 15v3"/>',
+  recycle:    '<path d="M7 19H4l3-5 3 5h-3v-4"/><path d="M14 5l-2 3 4 0M16 7l3 5"/><path d="M20 13l-3 5h-3"/>',
 };
 
 // Merge into ICONS map at boot time

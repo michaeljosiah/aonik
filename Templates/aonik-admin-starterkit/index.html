@@ -92,6 +92,7 @@
 <script type="text/babel" src="screens/tenant-signup.jsx"></script>
 <script type="text/babel" src="screens/account.jsx"></script>
 <script type="text/babel" src="screens/speech.jsx"></script>
+<script type="text/babel" src="screens/user-lifecycle.jsx"></script>
 
 <!-- Background Workers (added) -->
 <script src="mock-data.js"></script>
@@ -528,6 +529,24 @@ function App() {
           </DCArtboard>
           <DCArtboard id="tenants" label="Tenants · host admin · provisioning" width={W} height={H}>
             {mkShell('tenants', ['Admin', 'Tenants'], ScreenTenants)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="user-lifecycle" title="User lifecycle · Spec 026" subtitle="Invite · sessions · hard delete · tombstones — every Admin-UI surface required by the spec">
+          <DCArtboard id="ulc-list" label="Users · lifecycle states · row actions · invited + revoked badges" width={W} height={H}>
+            {mkShell('users', ['Finance', 'Access', 'Users'], ScreenUsersLifecycle)}
+          </DCArtboard>
+          <DCArtboard id="ulc-detail" label="User detail · Sessions tab · Resend / Revoke / Delete actions" width={W} height={H}>
+            {mkShell('users', ['Finance', 'Access', 'Users', 'Maria Gomez'], ScreenUserDetail)}
+          </DCArtboard>
+          <DCArtboard id="ulc-invite-sent" label="Dialog · Invite sent · confirmation with expiry + copy-link" width={W} height={H}>
+            {mkShell('users', ['Finance', 'Access', 'Users', 'Invite sent'], ScreenUserInviteSent)}
+          </DCArtboard>
+          <DCArtboard id="ulc-delete" label="Dialog · Delete user · type-email-to-confirm + reason · destructive" width={W} height={H}>
+            {mkShell('users', ['Finance', 'Access', 'Users', 'Maria Gomez', 'Delete'], ScreenUserDeleteDialog)}
+          </DCArtboard>
+          <DCArtboard id="ulc-tombstones" label="Compliance · Deleted users · GDPR tombstones · 7-year retention" width={W} height={H}>
+            {mkShell('compliance', ['Operations', 'Compliance', 'Deleted users'], ScreenComplianceTombstones)}
           </DCArtboard>
         </DCSection>
 

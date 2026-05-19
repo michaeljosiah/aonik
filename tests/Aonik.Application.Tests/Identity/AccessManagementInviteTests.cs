@@ -1,11 +1,16 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Contracts.Services.Messaging;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Persistence;
@@ -133,9 +138,89 @@ public class AccessManagementInviteTests
             auditLogWriter,
             correlationContext,
             new StubProfilePhotoStore(),
-            provisioner);
+            provisioner,
+            new StubNotificationTemplateService(),
+            new StubEmailSender(),
+            Microsoft.Extensions.Options.Options.Create(new UserLifecycleOptions()),
+            new StubUserSessionBlocklist(),
+            new StubIdentityProviderManagementClientFactory(),
+            NullLoggerFactory.Instance);
 
         return (service, dbContext, tenantId, tenantAdminRole);
+    }
+
+    private sealed class StubNotificationTemplateService : INotificationTemplateService
+    {
+        public Task<Aonik.Platform.Contracts.Models.Notifications.RenderNotificationTemplateResult> RenderAsync(
+            Aonik.Platform.Contracts.Models.Notifications.RenderNotificationTemplateRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new Aonik.Platform.Contracts.Models.Notifications.RenderNotificationTemplateResult(
+                "subject", "body", Guid.Empty, null));
+
+        public Task<List<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateSummary>> ListTemplatesAsync(
+            string? channel = null, bool? isActive = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateSummary>());
+
+        public Task<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateResponse?> GetTemplateAsync(
+            Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateResponse?>(null);
+
+        public Task<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateResponse> CreateTemplateAsync(
+            Aonik.Platform.Contracts.Models.Notifications.CreateNotificationTemplateRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateResponse> UpdateTemplateAsync(
+            Guid id,
+            Aonik.Platform.Contracts.Models.Notifications.UpdateNotificationTemplateRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task DeleteTemplateAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<Aonik.Platform.Contracts.Models.Notifications.PreviewNotificationTemplateResponse> PreviewTemplateAsync(
+            Aonik.Platform.Contracts.Models.Notifications.PreviewNotificationTemplateRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<List<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateBindingResponse>> ListBindingsAsync(
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateBindingResponse>());
+
+        public Task<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateBindingResponse> CreateBindingAsync(
+            Aonik.Platform.Contracts.Models.Notifications.CreateNotificationTemplateBindingRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateBindingResponse> UpdateBindingAsync(
+            Guid id,
+            Aonik.Platform.Contracts.Models.Notifications.UpdateNotificationTemplateBindingRequest request,
+            CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task DeleteBindingAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class StubEmailSender : IEmailSender
+    {
+        public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class StubUserSessionBlocklist : IUserSessionBlocklist
+    {
+        public Task<bool> IsRevokedAsync(Guid tenantId, Guid userId, DateTime tokenIssuedUtc, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
+        public Task<UserSessionRevocation> RevokeAsync(Guid tenantId, Guid userId, Guid? revokedByUserId, string reason, CancellationToken cancellationToken = default)
+            => Task.FromResult(new UserSessionRevocation(tenantId, userId, DateTime.UtcNow, DateTime.UtcNow.AddDays(14), revokedByUserId, reason));
+    }
+
+    private sealed class StubIdentityProviderManagementClientFactory : IIdentityProviderManagementClientFactory
+    {
+        public Task<IIdentityProviderManagementClient?> GetClientAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IIdentityProviderManagementClient?>(null);
     }
 
     [Fact]

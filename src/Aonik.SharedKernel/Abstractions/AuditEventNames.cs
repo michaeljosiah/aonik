@@ -35,6 +35,11 @@ public static class AuditEventNames
     public const string UserRoleRemoved = "UserRoleRemoved";
     public const string UserAccessDenied = "UserAccessDenied";
     public const string UserInvited = "UserInvited";
+    public const string UserInviteEmailSent = "UserInviteEmailSent";
+    public const string UserInviteAccepted = "UserInviteAccepted";
+    public const string UserSessionsRevoked = "UserSessionsRevoked";
+    public const string UserDeleted = "UserDeleted";
+    public const string UserAuditRedacted = "UserAuditRedacted";
     public const string PasswordResetRequested = "PasswordResetRequested";
     public const string VerificationConfirmed = "VerificationConfirmed";
     public const string VerificationFailed = "VerificationFailed";

@@ -11,4 +11,11 @@ public static class NotificationTemplateNames
     public const string EmailConfirmation = "registration.email-confirmation";
     public const string EmailOtp = "registration.email-otp";
     public const string SmsOtp = "registration.sms-otp";
+
+    /// <summary>
+    /// Sent by <c>/admin/users/invite</c> and <c>/admin/users/{id}/resend-invite</c>.
+    /// Carries the tenant-scoped sign-in URL with the one-shot invite
+    /// token + expiry + assigned roles.
+    /// </summary>
+    public const string AdminUserInvitation = "admin.user-invitation";
 }

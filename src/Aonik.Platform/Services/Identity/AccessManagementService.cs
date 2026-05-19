@@ -1,6 +1,12 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
 using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Contracts.Services.Messaging;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Identity.AccessManagement;
@@ -27,6 +33,12 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
     private readonly ICorrelationContext _correlationContext;
     private readonly IProfilePhotoStore _profilePhotoStore;
     private readonly IPendingTenantUserProvisioner _pendingUserProvisioner;
+    private readonly INotificationTemplateService _notificationTemplateService;
+    private readonly IEmailSender _emailSender;
+    private readonly IOptions<UserLifecycleOptions> _userLifecycleOptions;
+    private readonly IUserSessionBlocklist _sessionBlocklist;
+    private readonly IIdentityProviderManagementClientFactory _idpManagementClientFactory;
+    private readonly ILoggerFactory _loggerFactory;
 
     public AccessManagementService(
         PlatformDbContext dbContext,
@@ -37,7 +49,13 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         IAuditLogWriter auditLogWriter,
         ICorrelationContext correlationContext,
         IProfilePhotoStore profilePhotoStore,
-        IPendingTenantUserProvisioner pendingUserProvisioner)
+        IPendingTenantUserProvisioner pendingUserProvisioner,
+        INotificationTemplateService notificationTemplateService,
+        IEmailSender emailSender,
+        IOptions<UserLifecycleOptions> userLifecycleOptions,
+        IUserSessionBlocklist sessionBlocklist,
+        IIdentityProviderManagementClientFactory idpManagementClientFactory,
+        ILoggerFactory loggerFactory)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -47,6 +65,12 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         _correlationContext = correlationContext;
         _profilePhotoStore = profilePhotoStore;
         _pendingUserProvisioner = pendingUserProvisioner;
+        _notificationTemplateService = notificationTemplateService;
+        _emailSender = emailSender;
+        _userLifecycleOptions = userLifecycleOptions;
+        _sessionBlocklist = sessionBlocklist;
+        _idpManagementClientFactory = idpManagementClientFactory;
+        _loggerFactory = loggerFactory;
     }
 
     // ─── Helper construction ─────────────────────────────────────
@@ -58,7 +82,9 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         new(_dbContext, PermissionService);
 
     private AccessUserInviteHelper Invites() =>
-        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext, _pendingUserProvisioner);
+        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext,
+            _pendingUserProvisioner, _notificationTemplateService, _emailSender,
+            _userLifecycleOptions, _loggerFactory.CreateLogger<AccessUserInviteHelper>());
 
     private AccessUserRoleHelper UserRoles() =>
         new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext);
@@ -67,7 +93,9 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext, _profilePhotoStore);
 
     private AccessUserLifecycleHelper Lifecycle() =>
-        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext);
+        new(_dbContext, _clock, CurrentUserProvider, _auditLogWriter, _correlationContext,
+            _sessionBlocklist, _idpManagementClientFactory,
+            _loggerFactory.CreateLogger<AccessUserLifecycleHelper>());
 
     private AccessRoleHelper Roles() =>
         new(_dbContext, _clock, CurrentUserProvider);
@@ -97,6 +125,15 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         await EnsurePermissionAsync("Users.Invite", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
         return await Invites().InviteUserAsync(tenantId, request, cancellationToken);
+    }
+
+    public async Task<ResendInviteResponse> ResendInviteAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Users.Invite", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        return await Invites().ResendInviteAsync(tenantId, userId, cancellationToken);
     }
 
     public async Task UpdateUserRolesAsync(
@@ -152,6 +189,38 @@ internal class AccessManagementService : AdminServiceBase, IAccessManagementServ
         await EnsurePermissionAsync("Users.Deactivate", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
         await Lifecycle().DeactivateUserAsync(tenantId, userId, cancellationToken);
+    }
+
+    public async Task<RevokeUserSessionsResponse> RevokeSessionsAsync(
+        Guid userId,
+        RevokeUserSessionsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Users.RevokeSessions", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        return await Lifecycle().RevokeSessionsAsync(tenantId, userId, request, cancellationToken);
+    }
+
+    public async Task<DeleteUserResponse> DeleteUserAsync(
+        Guid userId,
+        DeleteUserRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Users.Delete", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        return await Lifecycle().DeleteUserAsync(tenantId, userId, request, cancellationToken);
+    }
+
+    public async Task<PagedResult<UserTombstoneSummary>> ListTombstonesAsync(
+        ListUsersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        // Tombstones are read-only compliance review; the operator
+        // needs Users.Read on this tenant (delete itself is gated by
+        // Users.Delete elsewhere).
+        await EnsurePermissionAsync("Users.Read", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        return await Lifecycle().ListTombstonesAsync(tenantId, request, cancellationToken);
     }
 
     public async Task<UserDiagnosticResult> DiagnoseUserAsync(

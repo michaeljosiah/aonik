@@ -72,6 +72,9 @@ internal class IdentitySeedService
             new Permission { Key = "Users.Invite", Description = "Invite users to tenant" },
             new Permission { Key = "Users.Manage", Description = "Manage user roles and permissions" },
             new Permission { Key = "Users.Deactivate", Description = "Deactivate users" },
+            // Spec 026 — token revocation + GDPR-strict hard delete
+            new Permission { Key = "Users.RevokeSessions", Description = "Revoke active sessions for a user" },
+            new Permission { Key = "Users.Delete", Description = "Permanently delete users (GDPR-strict)" },
 
             // UserInfo permissions (for user profile endpoints)
             new Permission { Key = "UserInfo.Read", Description = "View user information and profile" },

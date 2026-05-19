@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AlertCircle, Edit, Eye, UserMinus, Users } from 'lucide-react';
+import { AlertCircle, Edit, Eye, Send, ShieldOff, Trash2, UserMinus, Users } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AccessUserSummary, PagedResult } from '@/types';
@@ -166,25 +166,67 @@ export function AccessUsersPage() {
       .slice(0, 2);
   };
 
-  const getRowActions = (user: AccessUserSummary): DataTableAction[] => [
-    {
-      label: 'View Details',
-      icon: <Eye className="w-4 h-4" />,
-      onClick: () => navigate(`/access/users/${user.userId}`),
-    },
-    {
-      label: 'Edit ',
-      icon: <Edit className="w-4 h-4" />,
-      onClick: () => navigate(`/access/users/${user.userId}`),
-    },
-    {
-      label: 'Deactivate',
-      icon: <UserMinus className="w-4 h-4" />,
-      onClick: () => console.log('Deactivate user:', user.userId),
-      variant: 'danger',
-      disabled: user.status === 'Deactivated',
-    },
-  ];
+  const getRowActions = (user: AccessUserSummary): DataTableAction[] => {
+    const actions: DataTableAction[] = [
+      {
+        label: 'View Details',
+        icon: <Eye className="w-4 h-4" />,
+        onClick: () => navigate(`/access/users/${user.userId}`),
+      },
+      {
+        label: 'Edit',
+        icon: <Edit className="w-4 h-4" />,
+        onClick: () => navigate(`/access/users/${user.userId}`),
+      },
+    ];
+
+    // Spec 026 Part 1 — resend invite only meaningful for placeholders.
+    if (user.status === 'Invited') {
+      actions.push({
+        label: 'Resend invite',
+        icon: <Send className="w-4 h-4" />,
+        onClick: async () => {
+          try {
+            await userService.resendInvite(user.userId);
+            await loadUsers();
+          } catch (err) {
+            console.error('Resend invite failed:', err);
+          }
+        },
+      });
+    }
+
+    actions.push(
+      {
+        label: 'Revoke sessions',
+        icon: <ShieldOff className="w-4 h-4" />,
+        onClick: () => navigate(`/access/users/${user.userId}`),
+        disabled: user.status === 'Invited' || user.status === 'Deactivated',
+      },
+      {
+        label: 'Deactivate',
+        icon: <UserMinus className="w-4 h-4" />,
+        onClick: async () => {
+          try {
+            await userService.deactivate(user.userId);
+            await loadUsers();
+          } catch (err) {
+            console.error('Deactivate failed:', err);
+          }
+        },
+        variant: 'danger',
+        disabled: user.status === 'Deactivated',
+      },
+      {
+        label: 'Delete…',
+        icon: <Trash2 className="w-4 h-4" />,
+        onClick: () => navigate(`/access/users/${user.userId}`),
+        variant: 'danger',
+      },
+    );
+
+    return actions;
+  };
 
   // Render user avatar based on photo or initials
   const renderUserIcon = (user: AccessUserSummary) => {

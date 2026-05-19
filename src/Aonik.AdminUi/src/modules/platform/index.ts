@@ -7,6 +7,7 @@ import {
   AccessPermissionsPage,
   UserDetailPage,
 } from '@/pages/access';
+import { TombstonesPage } from '@/pages/compliance/TombstonesPage';
 import {
   TenantsListPage,
   CreateTenantPage,
@@ -80,6 +81,7 @@ const navigation: NavigationSection[] = [
             label: 'Infrastructure',
             items: [
               { id: 'compliance-documents', label: 'Documents', icon: 'FileText', href: '/compliance/documents' },
+              { id: 'compliance-tombstones', label: 'Deleted users', icon: 'Trash2', href: '/compliance/tombstones' },
               { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
               { id: 'platform-alerts', label: 'Platform Alerts', icon: 'Bell', href: '/admin/alerts' },
               { id: 'background-jobs', label: 'Background Jobs', icon: 'Timer', href: '/settings/background-jobs' },
@@ -136,6 +138,7 @@ const routes = [
   { path: '/access/users/:userId', element: UserDetailPage, isDynamic: true },
   { path: '/access/roles', element: AccessRolesPage },
   { path: '/access/permissions', element: AccessPermissionsPage },
+  { path: '/compliance/tombstones', element: TombstonesPage },
   { path: '/tenants', element: TenantsListPage },
   { path: '/tenants/new', element: CreateTenantPage },
   { path: '/tenants/:id', element: TenantDetailPage, isDynamic: true },

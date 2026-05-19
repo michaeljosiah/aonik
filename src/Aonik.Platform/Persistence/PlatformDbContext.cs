@@ -38,6 +38,9 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<UserParty> UserParties { get; set; } = null!;
     public DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
     public DbSet<PreRegistrationChallenge> PreRegistrationChallenges { get; set; } = null!;
+    public DbSet<UserInviteLog> UserInviteLogs { get; set; } = null!;
+    public DbSet<UserSessionBlocklistEntry> UserSessionBlocklist { get; set; } = null!;
+    public DbSet<UserTombstone> UserTombstones { get; set; } = null!;
 
     // Party
     public DbSet<PartyEntity> Parties { get; set; } = null!;
@@ -161,6 +164,9 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<UserParty>(modelBuilder, "UserParties");
         MapTable<VerificationChallenge>(modelBuilder, "VerificationChallenges");
         MapTable<PreRegistrationChallenge>(modelBuilder, "PreRegistrationChallenges");
+        MapTable<UserInviteLog>(modelBuilder, "UserInviteLogs");
+        MapTable<UserSessionBlocklistEntry>(modelBuilder, "UserSessionBlocklist");
+        MapTable<UserTombstone>(modelBuilder, "UserTombstones");
 
         MapTable<PartyEntity>(modelBuilder, "Parties");
         MapTable<PartyAddress>(modelBuilder, "PartyAddresses");

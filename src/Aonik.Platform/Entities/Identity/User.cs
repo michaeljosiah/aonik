@@ -18,6 +18,17 @@ public class User : AuditableEntity, ITenantScoped
     public string PreferencesJson { get; set; } = string.Empty;
     public DateTime? LastLoginAt { get; set; }
 
+    // ── Invite lifecycle (Spec 026 Part 1) ───────────────────────────────
+    // Populated when the user is a placeholder created via the invite
+    // flow. The token is a one-shot identifier — the invitee returns
+    // with ?invite=&lt;token&gt; in the URL and the platform consumes it
+    // via POST /identity/invite/accept. Cleared on accept.
+    public string? InviteToken { get; set; }
+    public DateTime? InviteExpiresUtc { get; set; }
+    public DateTime? InviteEmailSentUtc { get; set; }
+    public int InviteEmailSendCount { get; set; }
+    public DateTime? InviteAcceptedUtc { get; set; }
+
     // Relationships
     public List<UserRole> UserRoles { get; set; } = new();
 }

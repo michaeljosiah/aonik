@@ -302,9 +302,60 @@ public static class AonikAuthenticationSetup
             return;
         }
 
+        // Spec 026 Part 3 — token revocation. Compares the JWT's
+        // iat ("issued at") claim against the most-recent revoke for
+        // this user (FusionCache-backed; default 30 s TTL). Tokens
+        // issued before the last revoke are rejected with 401; tokens
+        // issued after a revoke are honoured (operator's "kill the
+        // current sessions" intent, not a permanent ban — use
+        // deactivate for ban semantics).
+        var blocklist = context.HttpContext.RequestServices.GetRequiredService<IUserSessionBlocklist>();
+        var tokenIssuedUtc = ResolveTokenIssuedAt(jwtToken, jsonToken, claims);
+        if (await blocklist.IsRevokedAsync(tenantId.Value, user.Id, tokenIssuedUtc, context.HttpContext.RequestAborted))
+        {
+            logger.LogWarning(
+                "User {UserId} attempted login with a revoked-session token (iat={IssuedAt})",
+                user.Id,
+                tokenIssuedUtc);
+            context.HttpContext.Items[AuthFailureReasonItemKey] = "Sessions revoked";
+            context.Fail("User session has been revoked");
+            return;
+        }
+
         // Intentionally not persisting last-login during token validation.
         // Token validation runs before tenant context middleware, and DB writes here can fail
         // for tenant-scoped entities.
+    }
+
+    /// <summary>
+    /// Reads the JWT's <c>iat</c> ("issued at") claim and converts it
+    /// to UTC. Used by the blocklist check (Spec 026 Part 3). Falls
+    /// back to <c>nbf</c> when <c>iat</c> is missing, and to "now" as
+    /// a last resort so a malformed token is treated as freshly issued
+    /// (i.e. the blocklist won't trip on it — the regular validation
+    /// pipeline will reject malformed claims separately).
+    /// </summary>
+    private static DateTime ResolveTokenIssuedAt(JwtSecurityToken? jwt, JsonWebToken? json, IEnumerable<Claim> claims)
+    {
+        if (jwt != null && jwt.IssuedAt != default)
+        {
+            return jwt.IssuedAt.ToUniversalTime();
+        }
+
+        if (json != null)
+        {
+            try { return json.IssuedAt.ToUniversalTime(); }
+            catch { /* fall through */ }
+        }
+
+        var iatStr = claims.FirstOrDefault(c => c.Type == "iat")?.Value
+                     ?? claims.FirstOrDefault(c => c.Type == "nbf")?.Value;
+        if (!string.IsNullOrWhiteSpace(iatStr) && long.TryParse(iatStr, out var iatSeconds))
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(iatSeconds).UtcDateTime;
+        }
+
+        return DateTime.UtcNow;
     }
 
     private static async Task<Guid?> ResolveFromUserAssociationAsync(

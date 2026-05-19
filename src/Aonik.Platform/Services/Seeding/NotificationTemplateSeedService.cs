@@ -127,6 +127,24 @@ internal class NotificationTemplateSeedService
             Description = "Sent to deliver a one-time password via SMS",
             SubjectTemplate = "",
             BodyTemplate = "{{ tenant_name }}: Your verification code is {{ otp_code }}. It expires in {{ expiry_minutes }} minutes. Do not share this code."
+        },
+        new NotificationTemplate
+        {
+            Name = NotificationTemplateNames.AdminUserInvitation,
+            Channel = "Email",
+            IsShared = true,
+            IsActive = true,
+            Description = "Sent to an invited user with a tenant-scoped sign-in link",
+            SubjectTemplate = "You've been invited to join {{ tenant_name }}",
+            BodyTemplate = """
+                <h1>You're invited to join {{ tenant_name }}</h1>
+                <p>Hi {{ invitee_display_name }},</p>
+                <p><strong>{{ operator_display_name }}</strong> has invited you to access <strong>{{ tenant_name }}</strong>{{ roles_granted_suffix }}.</p>
+                <p>Click the link below to accept the invitation and sign in:</p>
+                <p><a href="{{ invite_url }}">Accept invitation</a></p>
+                <p>The invitation expires on <strong>{{ expiry_utc }}</strong>. If you did not expect this invitation, you can safely ignore this email.</p>
+                <p>Best regards,<br/>The {{ tenant_name }} Team</p>
+                """
         }
     ];
 }

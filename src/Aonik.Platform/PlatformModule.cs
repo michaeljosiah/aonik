@@ -74,6 +74,7 @@ public sealed class PlatformModule : IModule
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
+        services.Configure<UserLifecycleOptions>(configuration.GetSection("UserLifecycle"));
         services.Configure<AzureMonitorAlertOptions>(configuration.GetSection("Operations:Alerts:AzureMonitor"));
 
         // ── Platform Services ────────────────────────────────────────
@@ -119,6 +120,8 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ICustomerDataService, CustomerDataService>();
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
         services.AddScoped<IAccessManagementService, AccessManagementService>();
+        services.AddScoped<IInviteAcceptanceService, InviteAcceptanceService>();
+        services.AddScoped<IUserSessionBlocklist, UserSessionBlocklist>();
         services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
         services.AddScoped<IPartyAccountService, PartyAccountService>();
         services.AddScoped<IScheduledJobAdminService, ScheduledJobAdminService>();

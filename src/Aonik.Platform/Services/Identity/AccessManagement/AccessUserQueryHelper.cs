@@ -33,7 +33,21 @@ internal sealed class AccessUserQueryHelper
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             var status = request.Status.Trim();
-            query = query.Where(user => user.Status == status);
+            // Spec 026 Part 1: "Invited" is a virtual stage represented
+            // by the bootstrap-issuer marker on the placeholder row.
+            // The Status column stays "Active" so the auth pipeline
+            // can keep its single status guard, but operators see the
+            // user as "Invited" in lists and detail until first login.
+            if (string.Equals(status, "Invited", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(user => user.ExternalIssuer == "aonik-bootstrap");
+            }
+            else
+            {
+                query = query.Where(user =>
+                    user.Status == status &&
+                    user.ExternalIssuer != "aonik-bootstrap");
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(request.Search))
@@ -52,7 +66,7 @@ internal sealed class AccessUserQueryHelper
             {
                 user.Id,
                 Email = user.Email ?? string.Empty,
-                user.Status,
+                Status = user.ExternalIssuer == "aonik-bootstrap" ? "Invited" : user.Status,
                 user.LastLoginAt,
                 RoleCount = _dbContext.UserRoles.Count(ur => ur.UserId == user.Id),
                 PartyInfo = _dbContext.UserParties
@@ -223,11 +237,15 @@ internal sealed class AccessUserQueryHelper
             }
         }
 
+        var status = string.Equals(user.ExternalIssuer, "aonik-bootstrap", StringComparison.Ordinal)
+            ? "Invited"
+            : user.Status;
+
         return new AccessUserDetail(
             user.Id,
             user.Email ?? string.Empty,
             null,
-            user.Status,
+            status,
             user.CreatedAt,
             user.LastLoginAt,
             roles,

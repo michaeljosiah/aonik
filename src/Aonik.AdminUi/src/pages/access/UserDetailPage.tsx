@@ -15,7 +15,8 @@ import {
   Pencil,
   Download,
   Clock,
-  Shield,
+  ShieldOff,
+  Send,
   Mail,
   Phone,
   MapPin,
@@ -27,6 +28,8 @@ import {
 } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { EditUserProfileDialog } from '@/components/dialogs/EditUserProfileDialog';
+import { ConfirmDeleteUserDialog } from '@/components/dialogs/ConfirmDeleteUserDialog';
+import { RevokeSessionsDialog } from '@/components/dialogs/RevokeSessionsDialog';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import type { AccessUserDetail, UpdateUserProfileRequest, UserDiagnosticResult } from '@/types';
 
@@ -66,6 +69,11 @@ export function UserDetailPage() {
   const [diagnostic, setDiagnostic] = useState<UserDiagnosticResult | null>(null);
   const [repairing, setRepairing] = useState(false);
   const [repairSuccess, setRepairSuccess] = useState<string[] | null>(null);
+  // Spec 026 lifecycle actions (Part 1 resend, Part 2 delete, Part 3 revoke).
+  const [resendBusy, setResendBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const loadDiagnostic = useCallback(async (uid: string) => {
     try {
@@ -90,6 +98,57 @@ export function UserDetailPage() {
     } finally {
       setRepairing(false);
     }
+  };
+
+  // Spec 026 Part 1 — re-fire the invite email.
+  const handleResendInvite = async () => {
+    if (!userId) return;
+    setResendBusy(true);
+    setActionMessage(null);
+    try {
+      const result = await userService.resendInvite(userId);
+      if (result.rateLimitReason) {
+        setActionMessage(`Resend blocked: ${result.rateLimitReason}`);
+      } else if (result.emailSent) {
+        setActionMessage(
+          `Resent invitation to ${result.email}. Expires ${result.expiresUtc ?? 'unknown'}.`,
+        );
+      } else {
+        setActionMessage(
+          'Invitation token rotated but the email did not send. Check notification template / mail provider.',
+        );
+      }
+      await loadUser();
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
+      setActionMessage(message || 'Failed to resend invite. Please try again.');
+    } finally {
+      setResendBusy(false);
+    }
+  };
+
+  // Spec 026 Part 3 — revoke active sessions.
+  const handleRevokeConfirm = async (reason: string) => {
+    if (!userId) throw new Error('userId missing');
+    const result = await userService.revokeSessions(userId, { reason });
+    setActionMessage(
+      `Sessions revoked at ${new Date(result.revokedUtc).toLocaleString()}. Reason: ${result.reason}`,
+    );
+    await loadUser();
+    return result;
+  };
+
+  // Spec 026 Part 2 — hard delete.
+  const handleDeleteConfirm = async (reason: string) => {
+    if (!userId || !user) throw new Error('user missing');
+    const result = await userService.delete(userId, {
+      emailConfirmation: user.email,
+      reason,
+    });
+    return result;
   };
 
   const loadUser = useCallback(async () => {
@@ -280,15 +339,60 @@ export function UserDetailPage() {
           <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">User Details</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Shield className="w-4 h-4 mr-2" />
-            Filter
+          {/* Spec 026 Part 1 — only meaningful for placeholders that haven't accepted yet. */}
+          {user.status === 'Invited' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResendInvite}
+              disabled={resendBusy}
+            >
+              {resendBusy ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              {resendBusy ? 'Sending…' : 'Resend invite'}
+            </Button>
+          )}
+          {/* Spec 026 Part 3 — revoke active sessions. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRevokeDialogOpen(true)}
+            disabled={user.status === 'Invited'}
+            title={user.status === 'Invited' ? 'User has not signed in yet — nothing to revoke.' : undefined}
+          >
+            <ShieldOff className="w-4 h-4 mr-2" />
+            Revoke sessions
           </Button>
-          <Button size="sm">
-            Create
+          {/* Spec 026 Part 2 — hard delete (destructive). */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDeleteDialogOpen(true)}
+            className="border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error-light)]"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete user
           </Button>
         </div>
       </div>
+
+      {/* Action message banner */}
+      {actionMessage && (
+        <div className="px-6 pt-4">
+          <Card className="border-[var(--color-info)] bg-[var(--color-info-light)]">
+            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-text-primary)]">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-[var(--color-info)]" />
+              <span className="flex-1 text-sm">{actionMessage}</span>
+              <Button variant="ghost" size="sm" onClick={() => setActionMessage(null)}>
+                Dismiss
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -817,6 +921,31 @@ export function UserDetailPage() {
         onOpenChange={setEditDialogOpen}
         profile={user?.personProfile}
         onSave={handleSaveProfile}
+      />
+
+      {/* Spec 026 Part 3 — revoke sessions */}
+      <RevokeSessionsDialog
+        open={revokeDialogOpen}
+        onOpenChange={setRevokeDialogOpen}
+        userEmail={user?.email ?? ''}
+        onConfirm={handleRevokeConfirm}
+      />
+
+      {/* Spec 026 Part 2 — destructive delete */}
+      <ConfirmDeleteUserDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        userEmail={user?.email ?? ''}
+        userDisplayName={user?.displayName}
+        onConfirm={handleDeleteConfirm}
+        onDeleted={(result) => {
+          setActionMessage(
+            `User permanently deleted. Tombstone ${result.tombstoneId.slice(0, 8)} created; ${result.auditRowsRedacted} audit row${result.auditRowsRedacted === 1 ? '' : 's'} redacted.`,
+          );
+          // Navigate back to the user list after a brief delay so the
+          // operator sees confirmation.
+          setTimeout(() => navigate('/access/users'), 600);
+        }}
       />
     </div>
   );

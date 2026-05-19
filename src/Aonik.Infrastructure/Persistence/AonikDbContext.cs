@@ -46,6 +46,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<UserParty> UserParties { get; set; } = null!;
     public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
     public virtual DbSet<PreRegistrationChallenge> PreRegistrationChallenges { get; set; } = null!;
+    public virtual DbSet<UserInviteLog> UserInviteLogs { get; set; } = null!;
+    public virtual DbSet<UserSessionBlocklistEntry> UserSessionBlocklist { get; set; } = null!;
+    public virtual DbSet<UserTombstone> UserTombstones { get; set; } = null!;
 
     // Autonumbering
     public virtual DbSet<AutonumberProfile> AutonumberProfiles { get; set; } = null!;
@@ -251,6 +254,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<UserParty>(modelBuilder, "UserParties");
         MapPlatformTable<VerificationChallenge>(modelBuilder, "VerificationChallenges");
         MapPlatformTable<PreRegistrationChallenge>(modelBuilder, "PreRegistrationChallenges");
+        MapPlatformTable<UserInviteLog>(modelBuilder, "UserInviteLogs");
+        MapPlatformTable<UserSessionBlocklistEntry>(modelBuilder, "UserSessionBlocklist");
+        MapPlatformTable<UserTombstone>(modelBuilder, "UserTombstones");
 
         MapPlatformTable<AutonumberProfile>(modelBuilder, "AutonumberProfiles");
         MapPlatformTable<AutonumberReservation>(modelBuilder, "AutonumberReservations");

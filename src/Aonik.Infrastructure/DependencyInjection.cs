@@ -183,6 +183,12 @@ public static class DependencyInjection
         });
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
+        // Spec 026 Part 2 — IdP management clients used by the hard-
+        // delete pipeline. Same HTTP client lifecycle as the existing
+        // provisioners; the underlying API endpoint differs (delete vs
+        // create) but the token-acquisition flow is identical.
+        services.AddHttpClient<Auth0ManagementClient>();
+        services.AddHttpClient<AzureAdManagementClient>();
         services.AddHttpClient<Auth0AuthTokenService>();
         services.AddHttpClient<AzureAdAuthTokenService>();
         services.AddHttpClient<Auth0PasswordResetService>();
@@ -190,6 +196,7 @@ public static class DependencyInjection
         services.AddHttpClient<Auth0AccountService>();
         services.AddHttpClient<AzureAdAccountService>();
         services.AddScoped<IIdpUserProvisionerFactory, IdpUserProvisionerFactory>();
+        services.AddScoped<IIdentityProviderManagementClientFactory, IdentityProviderManagementClientFactory>();
         services.AddScoped<IAuthTokenServiceFactory, AuthTokenServiceFactory>();
         services.AddScoped<IIdpPasswordResetServiceFactory, IdpPasswordResetServiceFactory>();
         services.AddScoped<IIdpAccountServiceFactory, IdpAccountServiceFactory>();

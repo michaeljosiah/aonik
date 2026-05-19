@@ -1237,6 +1237,69 @@ export interface UpdateRoleRequest {
 export interface InviteUserRequest {
   email: string;
   roleIds?: string[] | null;
+  displayName?: string | null;
+}
+
+// ── Spec 026 · User lifecycle closure ────────────────────────────────────
+
+/// Response from /admin/users/invite and /admin/users/{id}/resend-invite.
+/// `emailSent` reports whether the platform notification stack accepted
+/// the message — when false, the placeholder + token still exist but
+/// the operator should investigate (template missing, mail provider
+/// outage, etc.).
+export interface InviteUserResponse {
+  userId: string;
+  tenantId: string;
+  email: string;
+  displayName?: string | null;
+  assignedRoleIds: string[];
+  emailSent: boolean;
+  expiresUtc?: string | null;
+  emailSendCount: number;
+}
+
+export interface ResendInviteResponse {
+  userId: string;
+  email: string;
+  emailSent: boolean;
+  expiresUtc?: string | null;
+  emailSendCount: number;
+  rateLimitReason?: string | null;
+}
+
+export interface RevokeUserSessionsRequest {
+  reason?: string | null;
+}
+
+export interface RevokeUserSessionsResponse {
+  userId: string;
+  revokedUtc: string;
+  expiresUtc: string;
+  reason: string;
+}
+
+export interface DeleteUserRequest {
+  emailConfirmation: string;
+  reason: string;
+}
+
+export interface DeleteUserResponse {
+  tombstoneId: string;
+  originalUserId: string;
+  deletedUtc: string;
+  auditRowsRedacted: number;
+  identityProviderUserDeleted: boolean;
+}
+
+export interface UserTombstoneSummary {
+  tombstoneId: string;
+  originalUserId: string;
+  deletedUtc: string;
+  deletedByUserId?: string | null;
+  deletedByEmail?: string | null;
+  reason: string;
+  maskedEmail?: string | null;
+  auditRowsRedacted: number;
 }
 
 export interface UpdateUserRolesRequest {

@@ -51,6 +51,9 @@ using UpdateRoleRequest = Aonik.Platform.Contracts.Models.Identity.UpdateRoleReq
 using UpdateTenantRequest = Aonik.Platform.Contracts.Models.Identity.UpdateTenantRequest;
 using UpdateUserProfileRequest = Aonik.Platform.Contracts.Models.Identity.UpdateUserProfileRequest;
 using UpdateUserRolesRequest = Aonik.Platform.Contracts.Models.Identity.UpdateUserRolesRequest;
+using AcceptInviteRequest = Aonik.Platform.Contracts.Models.Identity.AcceptInviteRequest;
+using DeleteUserRequest = Aonik.Platform.Contracts.Models.Identity.DeleteUserRequest;
+using RevokeUserSessionsRequest = Aonik.Platform.Contracts.Models.Identity.RevokeUserSessionsRequest;
 
 namespace Aonik.Platform.Endpoints;
 
@@ -413,6 +416,37 @@ public sealed class InviteUserRequestValidator : Validator<InviteUserRequest>
             .Must(r => r == null || r.Count <= 50).WithMessage("RoleIds may include at most 50 entries.");
         RuleForEach(x => x.RoleIds).RequiredId();
     }
+}
+
+// Spec 026 Part 1 — accept invite (anonymous-but-authenticated)
+public sealed class AcceptInviteRequestValidator : Validator<AcceptInviteRequest>
+{
+    public AcceptInviteRequestValidator()
+    {
+        RuleFor(x => x.InviteToken)
+            .NotEmpty().WithMessage("Invite token is required.")
+            .MaximumLength(64);
+    }
+}
+
+// Spec 026 Part 2 — destructive delete
+public sealed class DeleteUserRequestValidator : Validator<DeleteUserRequest>
+{
+    public DeleteUserRequestValidator()
+    {
+        RuleFor(x => x.EmailConfirmation).Email();
+        RuleFor(x => x.Reason)
+            .NotEmpty().WithMessage("Reason is required.")
+            .MinimumLength(10).WithMessage("Reason must be at least 10 characters.")
+            .MaximumLength(500);
+    }
+}
+
+// Spec 026 Part 3 — revoke active sessions
+public sealed class RevokeUserSessionsRequestValidator : Validator<RevokeUserSessionsRequest>
+{
+    public RevokeUserSessionsRequestValidator()
+        => RuleFor(x => x.Reason).MaximumLength(200);
 }
 
 public sealed class UpdateUserRolesRequestValidator : Validator<UpdateUserRolesRequest>

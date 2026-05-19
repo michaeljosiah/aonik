@@ -194,6 +194,8 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
                 "Users.Invite",
                 "Users.Manage",
                 "Users.Deactivate",
+                "Users.RevokeSessions",
+                "Users.Delete",
                 "UserInfo.Read",
                 "UserInfo.Update",
                 "Roles.Read",
@@ -223,6 +225,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             ],
             ["Operations"] =
             [
+                "Users.RevokeSessions",
                 "Ledger.Read",
                 "Ledger.Write",
                 "Ledger.Reconcile",
@@ -361,6 +364,8 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             "Users.Invite",
             "Users.Manage",
             "Users.Deactivate",
+            "Users.RevokeSessions",
+            "Users.Delete",
             "UserInfo.Read",
             "UserInfo.Update",
             "Settings.Read",
