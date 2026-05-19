@@ -27,7 +27,7 @@ public class AcaSessionsCodeActSandboxProviderTests
             CallbackBaseUrl = CallbackBaseUrl,
             NonceTtlSeconds = 600,
             MaxCallbacksPerNonce = 30,
-            DataPlaneApiVersion = "2025-10-02-preview",
+            DataPlaneApiVersion = "2024-02-02-preview",
         };
         configure?.Invoke(options);
 
@@ -106,8 +106,8 @@ public class AcaSessionsCodeActSandboxProviderTests
 
         handler.LastRequest.Should().NotBeNull();
         handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
-        handler.LastRequest.RequestUri!.PathAndQuery.Should().Contain("/executions");
-        handler.LastRequest.RequestUri.Query.Should().Contain("api-version=2025-10-02-preview");
+        handler.LastRequest.RequestUri!.PathAndQuery.Should().Contain("/code/execute");
+        handler.LastRequest.RequestUri.Query.Should().Contain("api-version=2024-02-02-preview");
         handler.LastRequest.RequestUri.Query.Should().Contain("identifier=");
         handler.LastRequest.Headers.Authorization!.Scheme.Should().Be("Bearer");
         handler.LastRequest.Headers.Authorization.Parameter.Should().Be("fake-access-token");

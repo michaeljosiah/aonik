@@ -79,7 +79,21 @@ public sealed class AcaSessionsClient
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionIdentifier);
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
 
-        var path = $"/executions?api-version={Uri.EscapeDataString(_options.DataPlaneApiVersion)}" +
+        // ACA Sessions has TWO data-plane paths:
+        //   • /code/execute (old, api-version 2024-02-02-preview) — accepts BOTH user AND
+        //     managed-identity tokens. This is what LangChain's azure-dynamic-sessions
+        //     uses and is the only combo we've observed accepting MI tokens.
+        //   • /executions   (new, api-version ≥ 2024-10-02-preview) — accepts user
+        //     tokens but currently rejects MI tokens with HTTP 401 (no WWW-Authenticate),
+        //     despite the docs claiming Azure RBAC + dynamicsessions.io audience is
+        //     sufficient. The ACA Sessions SP exposes only oauth2PermissionScopes
+        //     (Sessions.ReadWrite.All) and no appRoles, so client_credentials tokens
+        //     have neither scp nor roles claims — the newer endpoint's auth gate
+        //     appears to require one of them and rejects the token before checking RBAC.
+        //
+        // Stick with the old path until Microsoft documents an MI-compatible newer
+        // version. The pool-side execution semantics are identical.
+        var path = $"/code/execute?api-version={Uri.EscapeDataString(_options.DataPlaneApiVersion)}" +
                    $"&identifier={Uri.EscapeDataString(sessionIdentifier)}";
 
         var body = new AcaSessionsExecutionRequest(new AcaSessionsExecutionProperties(

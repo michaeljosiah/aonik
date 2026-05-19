@@ -68,7 +68,7 @@ token bound to one sub-agent run.
         "SessionCooldownSeconds": 300,
         "NonceTtlSeconds": 600,
         "MaxCallbacksPerNonce": 30,
-        "DataPlaneApiVersion": "2025-10-02-preview"
+        "DataPlaneApiVersion": "2024-02-02-preview"
       }
     }
   }

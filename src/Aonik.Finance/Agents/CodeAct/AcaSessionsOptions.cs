@@ -42,8 +42,12 @@ public sealed class AcaSessionsOptions
     public int MaxCallbacksPerNonce { get; set; } = 30;
 
     /// <summary>
-    /// ACA Sessions data-plane API version. Pinned here so we can bump
-    /// without redeploying when Microsoft GA's a new version.
+    /// ACA Sessions data-plane API version. Pinned to <c>2024-02-02-preview</c>
+    /// because that is the only version we've confirmed accepts BOTH user
+    /// tokens AND managed-identity tokens against the <c>/code/execute</c>
+    /// endpoint (see <see cref="AcaSessionsClient.ExecuteAsync"/> for the
+    /// path/version compatibility matrix and why newer versions fail with
+    /// HTTP 401 for MI tokens).
     /// </summary>
-    public string DataPlaneApiVersion { get; set; } = "2025-10-02-preview";
+    public string DataPlaneApiVersion { get; set; } = "2024-02-02-preview";
 }
