@@ -125,6 +125,10 @@ export const catalogService = {
     return api.get<CatalogBillerDetailResponse>(`/host/catalog/billers/${billerId}`);
   },
 
+  getTenantBillerDetail: async (billerId: string): Promise<CatalogBillerDetailResponse> => {
+    return api.get<CatalogBillerDetailResponse>(`/catalog/billers/${billerId}`);
+  },
+
   getBillerServices: async (billerId: string): Promise<CatalogBillerServiceResponse> => {
     return api.get<CatalogBillerServiceResponse>(`/host/catalog/billers/${billerId}/services`);
   },

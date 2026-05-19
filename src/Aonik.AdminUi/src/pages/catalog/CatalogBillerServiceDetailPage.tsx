@@ -28,7 +28,7 @@ export function CatalogBillerServiceDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await catalogService.getBillerServiceDetail(billerId, serviceId);
+      const response = await catalogService.getTenantBillerServiceDetail(billerId, serviceId);
       setService(response);
     } catch (err: unknown) {
       console.error('Failed to load service:', err);

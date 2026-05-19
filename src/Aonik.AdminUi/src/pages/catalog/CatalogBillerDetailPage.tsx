@@ -38,7 +38,7 @@ export function CatalogBillerDetailPage() {
     setError(null);
     try {
       const [billerResponse, countriesResponse, categoriesResponse] = await Promise.all([
-        catalogService.getBillerDetail(billerId),
+        catalogService.getTenantBillerDetail(billerId),
         catalogService.getCountries(false),
         catalogService.getCategories(),
       ]);
