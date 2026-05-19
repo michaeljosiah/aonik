@@ -168,7 +168,7 @@ public sealed class AcaSessionsClient
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             var root = doc.RootElement;
             string Get(string name) => root.TryGetProperty(name, out var v) ? v.ToString() : "(missing)";
-            return $"aud={Get("aud")} | iss={Get("iss")} | oid={Get("oid")} | appid={Get("appid")} | exp={Get("exp")}";
+            return $"aud={Get("aud")} | iss={Get("iss")} | oid={Get("oid")} | appid={Get("appid")} | exp={Get("exp")} | idtyp={Get("idtyp")} | ver={Get("ver")} | scp={Get("scp")} | roles={Get("roles")} | appidacr={Get("appidacr")} | tid={Get("tid")}";
         }
         catch (Exception ex)
         {
