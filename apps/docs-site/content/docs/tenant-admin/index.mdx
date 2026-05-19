@@ -1,0 +1,56 @@
+---
+title: Tenant admin
+description: Configure your Aonik tenant from the Admin UI — workspace tour, settings, catalogue, users, compliance, billing.
+---
+
+This tab is for **tenant admins** — the people who manage a single Aonik tenant from the Admin UI without writing code. You sign in to the Admin UI, you change settings, you manage users and roles, you review compliance queues, and you keep your tenant healthy.
+
+If you are the engineer who *deployed* the platform itself, switch to [Operate](/docs/operate). If you are integrating against the API from your own code, switch to [Build with the API](/docs/api).
+
+## What the Admin UI gives you
+
+The Aonik Admin UI is a React 19 workspace built on [Dockview](https://dockview.dev). Once your operator has wired identity and you have an account with the right roles, you can:
+
+- See every page side-by-side in a draggable layout that persists between sessions
+- Configure tenant settings (currencies, supported countries, feature flags, voice profile)
+- Manage your catalogue (billers, services, biller categories)
+- Invite users, assign roles, manage permissions
+- Review compliance documents and triage cases
+- Watch scheduled jobs run, replay failed ones, audit who did what
+- Open the Agent Playground to QA an AI agent end-to-end
+- Browse the Financial Life Graph for a tenant user
+
+## What's documented here so far
+
+| Page                                                                  | Status         |
+| --------------------------------------------------------------------- | -------------- |
+| [Workspace tour](/docs/tenant-admin/workspace-tour)                   | Coming soon    |
+| [Settings](/docs/tenant-admin/settings)                               | Coming soon    |
+| [Catalogue](/docs/tenant-admin/catalog)                               | Coming soon    |
+| [Users and roles](/docs/tenant-admin/users-and-roles)                 | Coming soon    |
+| [Compliance](/docs/tenant-admin/compliance)                           | Coming soon    |
+| [Billing](/docs/tenant-admin/billing)                                 | Coming soon    |
+
+Every page is being written in a "click here, see this, then click that" style so a tenant admin can follow along without referring back to the operator docs.
+
+## What roles do I need?
+
+Tenant admin work generally requires one of these roles on your user:
+
+- **TenantAdmin** — full control of a single tenant. Most pages here assume you have this.
+- **Operations** — read/write on the tenant's day-to-day operational state but not on identity.
+- **Compliance** — read/write on the compliance queue and document review only.
+
+If you do not yet have the right role, find your platform operator. Permissions are described in the operator-side [Identity & Access](/docs/operate/identity-access).
+
+## Getting into the Admin UI
+
+Your operator publishes the Admin UI URL. In local development that's `http://localhost:5173`. In a hosted environment it's a per-deployment URL such as `https://admin.<your-deployment>.aonik.io`. You sign in with the same credentials you use for any other Aonik surface.
+
+If sign-in fails, the most common causes are:
+
+- The identity provider has not been wired yet (operator's job).
+- Your user has not been invited to the tenant yet.
+- Your bearer token has expired — sign out and back in.
+
+For everything else, ping your operator.

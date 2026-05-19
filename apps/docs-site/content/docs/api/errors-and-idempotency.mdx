@@ -1,0 +1,97 @@
+---
+title: Errors and idempotency
+description: The error envelope every Aonik API endpoint returns on failure, retry semantics, and the idempotency-key contract.
+---
+
+This page covers two cross-cutting concerns every API integrator needs to handle correctly: error shapes and safe retries.
+
+## The error envelope
+
+Every non-2xx response from the Aonik API uses the same JSON envelope. There is one shape for every endpoint; you should never have to special-case error parsing per route.
+
+```json
+{
+  "type":        "https://aonik.io/errors/validation",
+  "title":       "Validation failed",
+  "status":      400,
+  "detail":      "One or more inputs failed validation.",
+  "instance":    "/billing/invoices",
+  "traceId":     "00-2a14b09f9c1f4a..-7e3b8d3b71a8e0..-00",
+  "errors": {
+    "currency": ["Currency must be a 3-letter ISO 4217 code."]
+  }
+}
+```
+
+The envelope follows [RFC 7807 (Problem Details for HTTP APIs)](https://www.rfc-editor.org/rfc/rfc7807) with two Aonik extensions:
+
+| Field      | Always present? | Notes                                                                                |
+| ---------- | --------------- | ------------------------------------------------------------------------------------ |
+| `type`     | Yes             | Stable URL identifying the error category. Match on this, not on `title`.            |
+| `title`    | Yes             | Short human-readable label. Subject to copy edits — do not match on it.              |
+| `status`   | Yes             | HTTP status code repeated in the body for log forwarding convenience.                |
+| `detail`   | Yes             | Free-form prose explanation.                                                         |
+| `instance` | Sometimes       | The request path that produced the error.                                            |
+| `traceId`  | Yes             | OpenTelemetry trace ID — quote this when filing an incident.                         |
+| `errors`   | On `400` only   | Per-field validation errors. Keys are property paths; values are arrays of strings.  |
+
+## Error categories
+
+`type` is the field you switch on programmatically. The catalogue:
+
+| `type`                                   | HTTP | Meaning                                                                  |
+| ---------------------------------------- | ---- | ------------------------------------------------------------------------ |
+| `https://aonik.io/errors/validation`     | 400  | Request body or query parameters failed validation. See `errors` for the per-field detail. |
+| `https://aonik.io/errors/unauthorized`   | 401  | Missing or invalid bearer token. Re-acquire from your IdP.               |
+| `https://aonik.io/errors/forbidden`      | 403  | Token is valid but the principal lacks the required permission.          |
+| `https://aonik.io/errors/not-found`      | 404  | Resource does not exist or is not visible to the caller's tenant.        |
+| `https://aonik.io/errors/conflict`       | 409  | A precondition failed (e.g. trying to capture an already-cancelled intent). |
+| `https://aonik.io/errors/rate-limited`   | 429  | Rate limit hit. Honour the `Retry-After` header.                         |
+| `https://aonik.io/errors/server`         | 5xx  | An internal error. Always safe to retry idempotent calls.                |
+
+## Retry semantics
+
+Aonik is explicit about which requests are safe to retry without an idempotency key:
+
+| Method          | Safe to retry without an idempotency key?                           |
+| --------------- | -------------------------------------------------------------------- |
+| `GET`           | Yes. Reads are always safe.                                          |
+| `DELETE`        | Yes. Deletes are idempotent by design.                               |
+| `PUT`           | Yes. Replaces are idempotent.                                        |
+| `PATCH`         | No. Use an idempotency key (see below) for any retry.                |
+| `POST`          | No. Use an idempotency key for any retry.                            |
+
+For 5xx responses, retry with exponential backoff (e.g. 1s, 2s, 4s, 8s, capped at 30s). For 429, sleep at least `Retry-After` seconds before retrying.
+
+## Idempotency keys
+
+To safely retry a `POST` or `PATCH`, pass an `Idempotency-Key` header on the first request and re-use the same key on every retry. The platform stores the result of the first successful response and replays it for the next 24 hours.
+
+```bash
+curl -sS -X POST "$BASE/billing/invoices" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 01J39M5P3FB6Z7Q4N8K3GR1Q2T" \
+  -d '{
+    "customerId": "9a93b8a5-...-1c5d3b7e9d22",
+    "currency":   "GBP",
+    "lineItems":  [ { "description": "Platform fee — May", "quantity": 1, "unitPrice": 1240.50 } ]
+  }'
+```
+
+Rules:
+
+- **Key format:** any string up to 64 characters. We recommend a [ULID](https://github.com/ulid/spec) so keys are time-ordered.
+- **Scope:** keys are scoped per tenant and per endpoint. The same key on a different endpoint will not collide.
+- **Replay window:** 24 hours. After that the key is forgotten and a fresh request runs as new.
+- **Mismatched bodies:** if you re-use a key with a *different* request body, the API rejects with `409 Conflict` and `type=https://aonik.io/errors/idempotency-mismatch`. Generate a new key for the new body.
+
+## Long-running operations
+
+Some endpoints (workflow runs, bulk imports) return `202 Accepted` with a body that contains a `commandId`. Poll `GET /commands/{commandId}` to observe progress; the response evolves from `Pending` → `Running` → `Completed`/`Failed`. The same `Idempotency-Key` rules apply on the initiating request — the command result is replayed if the initiating request is retried.
+
+## What's next
+
+- [Authentication](/docs/api/authentication)
+- [Webhooks](/docs/api/webhooks)
+- [API Reference](/docs/api/reference)

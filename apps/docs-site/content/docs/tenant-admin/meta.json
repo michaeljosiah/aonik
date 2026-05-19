@@ -1,0 +1,14 @@
+{
+  "title": "Tenant admin",
+  "description": "Configure your tenant using the Admin UI.",
+  "root": true,
+  "pages": [
+    "index",
+    "workspace-tour",
+    "settings",
+    "catalog",
+    "users-and-roles",
+    "compliance",
+    "billing"
+  ]
+}

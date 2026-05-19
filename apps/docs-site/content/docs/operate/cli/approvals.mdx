@@ -1,0 +1,193 @@
+---
+title: Approvals
+description: List pending agent proposals from the CLI; approve or reject them by ID.
+---
+
+The Aonik approval contract is simple and absolute: **agents propose, systems apply.** Any mutating action an agent suggests becomes a [Proposal](/docs/operate/getting-started/glossary#ai-platform) that sits pending until a human (or an upstream automation policy) approves or rejects it.
+
+The `aonik approvals` group is the terminal surface for that workflow. The same actions are available in the Admin UI and via the API.
+
+## `aonik approvals list`
+
+List proposals that are currently pending for the active user.
+
+**Synopsis:**
+
+```bash
+aonik approvals list [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik approvals list --output json
+```
+
+**Output (json):**
+
+```json
+[
+  {
+    "proposalId": "01J39K3A7XJQ5W8R3M8GJZQX9Y",
+    "graphNodeId": "9a1b...-...-...-c2d3e4f5",
+    "graphEdgeId": null,
+    "nodeType": "Subscription",
+    "displayName": "Netflix",
+    "predicate": "recurring-merchant-detected",
+    "status": "pending",
+    "aiRunId": "01J39K3A7XJQ5W8R3M8GJZQAA",
+    "metadataJson": "{\"merchant\":\"Netflix\",\"monthly\":12.99}"
+  },
+  {
+    "proposalId": "01J39K3A7XJQ5W8R3M8GJZQX9Z",
+    "graphNodeId": null,
+    "graphEdgeId": "8c1d...-...-...-d3e4f5a6",
+    "nodeType": "Bill",
+    "displayName": "Electricity (Octopus Energy)",
+    "predicate": "bill-due-soon",
+    "status": "pending",
+    "aiRunId": "01J39K3A7XJQ5W8R3M8GJZQAB",
+    "metadataJson": "{\"dueDate\":\"2026-05-25\",\"amount\":78.40}"
+  }
+]
+```
+
+**Fields:**
+
+| Field           | Type    | Description                                                                                  |
+| --------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `proposalId`    | string  | Stable identifier. Pass this to `approvals approve` or `approvals reject`.                   |
+| `graphNodeId`   | guid?   | Target [Financial Life Graph](/docs/operate/getting-started/glossary#personal-finance) node, if any. |
+| `graphEdgeId`   | guid?   | Target graph edge, if the proposal mutates a relationship.                                   |
+| `nodeType`      | string  | Domain category — `Subscription`, `Bill`, `Goal`, `Account`, etc.                            |
+| `displayName`   | string  | Human-readable summary the agent generated.                                                  |
+| `predicate`     | string  | Why the agent thinks the proposal should be approved.                                        |
+| `status`        | string  | Always `pending` when returned by `list`.                                                    |
+| `aiRunId`       | string  | The [AiRun](/docs/operate/getting-started/glossary#ai-platform) that produced this proposal.         |
+| `metadataJson`  | string  | Free-form, predicate-specific JSON payload. Inspect before approving.                        |
+
+`approvals list` returns only the calling user's own proposals. Platform-admin oversight of all proposals across all users lives in the Admin UI (Phase 5 of the docs rewrite).
+
+<Callout type="warn">
+  **Inspect `metadataJson` before approving.** This is the diff the platform will apply if the proposal is accepted. Reviewing it is the entire point of human-in-the-loop.
+</Callout>
+
+## `aonik approvals approve <proposal-id>`
+
+Approve a single proposal and trigger the underlying action.
+
+**Synopsis:**
+
+```bash
+aonik approvals approve <proposal-id> [--output text|json]
+```
+
+**Arguments:**
+
+| Argument        | Type | Required | Description                                       |
+| --------------- | ---- | -------- | ------------------------------------------------- |
+| `<proposal-id>` | guid | Yes      | The proposal to approve. From `approvals list`.   |
+
+**Behaviour:** the API atomically marks the proposal `approved` and executes the side effect (e.g. adds a Subscription node, posts a journal entry, sends a notification). Once approved a proposal cannot be reversed via the CLI — undo policies are configured per predicate in the Admin UI.
+
+**Example:**
+
+```bash
+aonik approvals approve 01J39K3A7XJQ5W8R3M8GJZQX9Y --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "proposalId": "01J39K3A7XJQ5W8R3M8GJZQX9Y",
+  "status": "approved"
+}
+```
+
+**Failure modes:**
+
+- `Error: HTTP 404` — the proposal ID is wrong or the proposal has already been resolved (approved or rejected).
+- `Error: HTTP 403` — the calling user does not own the proposal or lacks the `proposal.approve` permission.
+- `Error: HTTP 409` — predicate-specific guard rejected the approval (e.g. the target node has been deleted since the proposal was raised).
+
+## `aonik approvals reject <proposal-id>`
+
+Reject a proposal with an optional reason.
+
+**Synopsis:**
+
+```bash
+aonik approvals reject <proposal-id> [--reason "<reason>"] [--output text|json]
+```
+
+**Arguments + flags:**
+
+| Argument / Flag | Type   | Required | Description                                                                |
+| --------------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `<proposal-id>` | guid   | Yes      | The proposal to reject.                                                    |
+| `--reason`      | string | No       | Free-text reason. Stored on the proposal record for audit and AI feedback. |
+| `--output`      | enum   | No       | `text` (default) or `json`.                                                |
+
+**Why supply `--reason`:** the platform feeds rejection reasons back into the agent's prompt history for the next run, so good reasons reduce future false positives.
+
+**Example:**
+
+```bash
+aonik approvals reject 01J39K3A7XJQ5W8R3M8GJZQX9Y \
+  --reason "Netflix subscription already tracked under household account." \
+  --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "proposalId": "01J39K3A7XJQ5W8R3M8GJZQX9Y",
+  "status": "rejected",
+  "reason": "Netflix subscription already tracked under household account."
+}
+```
+
+## Common scripting patterns
+
+### Approve every proposal of a specific type
+
+A harness might auto-approve `Subscription` proposals where the metadata matches an existing known subscription. For everything else, surface to the user.
+
+```powershell
+aonik approvals list --output json |
+  ConvertFrom-Json |
+  Where-Object { $_.nodeType -eq 'Subscription' } |
+  ForEach-Object {
+    $meta = $_.metadataJson | ConvertFrom-Json
+    if ($meta.merchant -in @('Netflix','Spotify','Apple Music')) {
+      aonik approvals approve $_.proposalId --output json
+    } else {
+      Write-Host "Skipping $($_.proposalId) — manual review for $($meta.merchant)"
+    }
+  }
+```
+
+### Reject everything older than 14 days
+
+A maintenance script that closes stale proposals so the queue does not grow unbounded.
+
+```powershell
+$cutoff = (Get-Date).AddDays(-14)
+aonik approvals list --output json |
+  ConvertFrom-Json |
+  Where-Object {
+    # metadataJson has a createdUtc per predicate; not every predicate emits it
+    $m = $_.metadataJson | ConvertFrom-Json
+    $m.createdUtc -and ([datetime]$m.createdUtc -lt $cutoff)
+  } |
+  ForEach-Object {
+    aonik approvals reject $_.proposalId --reason "Auto-closed: older than 14 days." --output json
+  }
+```
+
+## What's next
+
+- [Ops](/docs/operate/cli/ops) — jobs, ledger, invoices, payments, workflows
+- [Agents](/docs/operate/cli/agents) — produce more proposals via `agent run` or `agent stream`

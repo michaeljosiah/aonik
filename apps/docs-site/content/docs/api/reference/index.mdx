@@ -1,0 +1,44 @@
+---
+title: API Reference
+description: Auto-generated reference for every Aonik API endpoint, grouped by tag.
+---
+
+<Callout type="warn" title="Coming soon">
+  The auto-generated reference is being wired into the Fumadocs build via `fumadocs-openapi` in a follow-up commit. The canonical input is `apps/docs-site/openapi/aonik-api.yaml`.
+</Callout>
+
+## In the meantime
+
+A live, browsable reference is served by every running Aonik instance at `/scalar` — open it once you have the platform running locally:
+
+```
+https://localhost:5001/scalar
+```
+
+For the raw machine-readable spec:
+
+```
+https://localhost:5001/openapi/v1.json
+```
+
+The spec is also checked into the repo at [`apps/docs-site/openapi/aonik-api.yaml`](https://github.com/michaeljosiah/aonik/blob/main/apps/docs-site/openapi/aonik-api.yaml).
+
+## Endpoint catalog (preview)
+
+Once the auto-generated reference lands, every endpoint will appear here grouped by tag:
+
+- **Identity** — token, current user, profile, password reset, email verification
+- **Registration** — register, onboarding status
+- **Tenants** — CRUD operations, activate / deactivate / provision / bootstrap
+- **Users** — list, invite, activate / deactivate, update roles
+- **Roles** — CRUD + permission management
+- **Compliance** — document management
+- **Orders** — list, create, retrieve, submit, cancel, line-item operations
+- **Payments** — create intent, retrieve, capture, cancel
+- **Billing** — invoices, line items, allocations, dunning
+- **Ledger** — ledgers, accounts, journal entries
+- **Catalog** — countries, currencies, billers, biller categories, services
+- **Pricing** — FX quotes, pricing quotes
+- **Partners** — list, create, get, update, delete
+- **AI** — chat threads, agents, workflows
+- **CMS** — content blocks

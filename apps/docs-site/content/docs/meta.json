@@ -1,22 +1,4 @@
 {
-  "title": "Aonik",
-  "pages": [
-    "index",
-    "---Getting started---",
-    "getting-started",
-    "---Operate---",
-    "install-configure",
-    "identity-access",
-    "integrations",
-    "---Reference---",
-    "core-concepts",
-    "platform-capabilities",
-    "ai-platform",
-    "operations",
-    "admin-ui",
-    "cli",
-    "api-reference",
-    "---Build---",
-    "for-contributors"
-  ]
+  "title": "Aonik Docs",
+  "pages": ["index", "operate", "api", "tenant-admin"]
 }

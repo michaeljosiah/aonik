@@ -1,0 +1,56 @@
+---
+title: Build with the API
+description: Integrate against the Aonik HTTP API. Auth flows, webhooks, error envelopes, idempotency, the full OpenAPI reference.
+---
+
+This tab is for **developers integrating with a hosted Aonik tenant** from another application. You are not running Aonik yourself — someone else is — and you want to make HTTP calls against their API on behalf of a tenant.
+
+If you are running an Aonik deployment, switch to [Operate](/docs/operate). If you are administering one tenant through the Admin UI without writing code, switch to [Tenant admin](/docs/tenant-admin).
+
+## What you'll find here
+
+| Topic                                                                  | What it covers                                                            |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Authentication](/docs/api/authentication)                             | Acquiring a bearer token, scopes, token lifetime, refreshing.             |
+| [Webhooks](/docs/api/webhooks)                                         | Inbound webhook configuration, signing, retries, replay.                  |
+| [Errors and idempotency](/docs/api/errors-and-idempotency)             | Error envelope schema, retry behaviour, idempotency keys.                 |
+| [API Reference](/docs/api/reference)                                   | Auto-generated reference for every endpoint, grouped by tag.              |
+
+## The shape of the API
+
+- **Base URL:** the tenant's deployed API (typically `https://api.<your-deployment>.aonik.io`). The default for local development is `https://localhost:5001`.
+- **Format:** REST + JSON. Every endpoint accepts and returns `application/json`. There is no GraphQL surface.
+- **Versioning:** every endpoint is unversioned today. A versioning policy ships before the first stable release.
+- **OpenAPI:** the canonical machine-readable spec is at `<base-url>/openapi/v1.json`. A live Scalar reference is served at `<base-url>/scalar` in development.
+- **Multi-tenancy:** every call is scoped to a tenant. The active tenant is resolved from the bearer token (or, for cross-tenant platform admin calls, from an `X-Tenant-Id` header).
+
+## A minimal example
+
+The shortest path from "I have a bearer token" to "I have data back":
+
+```bash
+TOKEN="<your-bearer-token>"
+BASE="https://api.your-deployment.aonik.io"
+
+curl -sS "$BASE/identity/userinfo" \
+  -H "Authorization: Bearer $TOKEN" |
+  jq
+```
+
+**Response shape:**
+
+```json
+{
+  "userId": "9a93b8a5-...-1c5d3b7e9d22",
+  "email": "you@example.com",
+  "tenantId": "5c2a1d4f-...-7e8f9a0b1c2d",
+  "partyId": "8b7c6d5e-...-4f3e2d1c0b9a",
+  "roles": ["TenantAdmin"]
+}
+```
+
+If you get `401 Unauthorized`, head to [Authentication](/docs/api/authentication). If you get `200` but unexpected data, the bearer token is probably scoped to a different tenant.
+
+## SDKs
+
+There is no first-party SDK today — every endpoint is callable via HTTP. The [Aonik CLI](/docs/operate/cli) wraps a useful subset for terminal use, and its source code (`src/Aonik.Cli/`) is a working example of how to call the API from .NET. Community SDKs are welcome; we will list them here when they exist.

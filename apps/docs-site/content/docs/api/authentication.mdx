@@ -1,0 +1,119 @@
+---
+title: Authentication
+description: Acquire a bearer token from Auth0 or Microsoft Entra ID, present it on every API call, and refresh it before it expires.
+---
+
+Every request to the Aonik API must carry an `Authorization: Bearer <token>` header. Tokens are issued by the deployment's configured identity provider — either **Auth0** or **Microsoft Entra ID**. Aonik validates the token at the edge and uses its claims to resolve the user, the tenant, and the user's permissions.
+
+## What you need from the deployment
+
+Before you can call any API endpoint you need three values from whoever operates the deployment:
+
+| Value             | Where it comes from                                                  | Example                                            |
+| ----------------- | -------------------------------------------------------------------- | -------------------------------------------------- |
+| **API base URL**  | The operator publishes this.                                         | `https://api.your-deployment.aonik.io`             |
+| **IdP type**      | Either `Auth0` or `AzureAd`.                                         | `Auth0`                                            |
+| **IdP authority** | The OAuth issuer URL.                                                | `https://aonik.uk.auth0.com/` (Auth0)              |
+| **Audience**      | The OAuth audience identifier the API expects.                       | `https://api.aonik.com` (Auth0) or `api://<id>`    |
+| **Client ID**     | The OAuth client (machine-to-machine or interactive) the IdP issues. | depends on your integration                        |
+
+The operator can also point you at a public discovery endpoint that returns the IdP type and authority in one call:
+
+```bash
+curl -sS "$BASE/v1/settings/auth-provider" | jq
+```
+
+```json
+{
+  "provider": "Auth0",
+  "authority": "https://aonik.uk.auth0.com/",
+  "audience": "https://api.aonik.com",
+  "clientId": "<public-spa-client-id>"
+}
+```
+
+## Picking a flow
+
+| Use case                                          | Recommended flow                                                                             |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Server-to-server integration                      | OAuth 2.0 **client credentials** with a machine-to-machine client.                           |
+| Mobile or single-page app on behalf of a user     | OAuth 2.0 **authorization code + PKCE**.                                                     |
+| Internal scripts and CI runners                   | Client credentials (preferred) or a long-lived service account password grant if available.  |
+| Local development against a dev tenant            | Password grant or pre-issued token, via the [CLI](/docs/operate/cli/install-and-auth).       |
+
+## Example: Auth0 client-credentials
+
+A typical machine-to-machine flow against an Auth0 tenant:
+
+```bash
+TOKEN=$(curl -sS -X POST "https://aonik.uk.auth0.com/oauth/token" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_id":     "<your-m2m-client-id>",
+    "client_secret": "<your-m2m-client-secret>",
+    "audience":      "https://api.aonik.com",
+    "grant_type":    "client_credentials"
+  }' | jq -r '.access_token')
+
+curl -sS "$BASE/identity/userinfo" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+The response is your machine identity. For machine-to-machine clients the response will contain the `clientId` rather than a `userId`; the API resolves the matching service principal in the tenant.
+
+## Example: Microsoft Entra ID client-credentials
+
+```bash
+TOKEN=$(curl -sS -X POST "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" \
+  -d "client_id=<your-client-id>" \
+  -d "client_secret=<your-client-secret>" \
+  -d "scope=api://<your-api-app-id>/.default" \
+  -d "grant_type=client_credentials" | jq -r '.access_token')
+```
+
+For Entra ID, the `scope` is the API's app ID URI followed by `/.default`. Aonik validates the `aud` claim and rejects tokens where the audience does not match the configured `Auth:AzureAd:Audience`.
+
+## Required claims
+
+Aonik does not impose extra claim requirements beyond the standard OAuth claims. What it *does* read:
+
+| Claim       | Used for                                                                                       |
+| ----------- | ---------------------------------------------------------------------------------------------- |
+| `sub`       | Maps to `User.ExternalSubject`. Identifies the user (or service principal).                    |
+| `iss`       | Validated against the configured authority.                                                    |
+| `aud`       | Validated against the configured audience.                                                     |
+| `exp`       | Token expiry. Aonik allows a 5-minute clock skew by default.                                   |
+| `tenant_id` | Optional. If set on a custom claim, used to pick the active tenant. Default behaviour is JIT.  |
+| `email`     | Read to populate `User.Email` for new users (just-in-time provisioning).                       |
+
+## Tenant resolution
+
+A bearer token can carry zero, one, or many tenant memberships. Aonik resolves the active tenant in this order:
+
+1. Explicit `X-Tenant-Id` header (only honoured for `PlatformAdmin` callers).
+2. The `tenant_id` custom claim on the token.
+3. The user's single tenant membership, if exactly one exists.
+
+If none of the three resolve, the API returns `400 Bad Request` with `tenantId could not be resolved`.
+
+## Refreshing a token
+
+Aonik does not issue refresh tokens — the IdP owns the token lifecycle. When the bearer token approaches expiry, your client should request a new one from the IdP using the same flow that issued the original.
+
+The Aonik API responds with `401 Unauthorized` (and `WWW-Authenticate: Bearer error="invalid_token"`) when an expired or revoked token is presented. Use this as your refresh trigger.
+
+## Common errors
+
+| HTTP                 | Likely cause                                                                                       |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `401 Unauthorized`   | Missing, expired, revoked, or malformed token. Re-acquire from the IdP.                            |
+| `401` + `audience`   | Token was issued for a different `aud` than the deployment expects. Check the IdP configuration.   |
+| `403 Forbidden`      | Token is valid but the principal lacks the permission required for that endpoint.                  |
+| `400` + `tenantId`   | Active tenant cannot be resolved. Add `X-Tenant-Id` (admin only) or fix token claims.              |
+| `404 Not Found`      | Endpoint does not exist — typo, or you are on the wrong base URL.                                  |
+
+## What's next
+
+- [Webhooks](/docs/api/webhooks) — receive events from the Aonik platform
+- [Errors and idempotency](/docs/api/errors-and-idempotency) — error envelope, retry semantics
+- [API Reference](/docs/api/reference) — every endpoint, grouped by tag

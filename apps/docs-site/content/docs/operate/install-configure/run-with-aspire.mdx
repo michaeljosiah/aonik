@@ -1,0 +1,240 @@
+---
+title: Run with Aspire
+description: Clone the repository, start the Aspire orchestrator, and confirm every resource is healthy. Includes the exact commands to run, what each one launches, and how to verify the result.
+---
+
+Aspire is the .NET Aspire orchestrator (`Aonik.AppHost`). It starts the API, the Worker, the Admin UI Vite dev server, and a Qdrant container in one step — and exposes a dashboard where you can see every resource's state.
+
+This page is written for **deterministic execution**. Run every command verbatim and use the verification output to decide whether to continue.
+
+<Callout type="info">
+  Make sure [Prerequisites](/docs/operate/install-configure/prerequisites) all pass before starting. The single most common failure on this page is **Docker Desktop not running**.
+</Callout>
+
+## What Aspire actually launches
+
+The AppHost (`src/Aonik.AppHost/AppHost.cs`) wires the following resources:
+
+| Resource           | Type                       | URL (default)               | Notes                                          |
+| ------------------ | -------------------------- | --------------------------- | ---------------------------------------------- |
+| `api`              | .NET project               | https://localhost:5001      | The Aonik REST API + Scalar reference          |
+| `worker`           | .NET project               | (no HTTP endpoint)          | Quartz background jobs                         |
+| `adminui`          | Vite dev server (Node)     | http://localhost:5173       | React 19 admin UI                              |
+| `qdrant`           | Docker container           | http://localhost:6333       | Vector store (`qdrant/qdrant:v1.13.2`)         |
+| `aspire-dashboard` | Aspire's own observability | https://localhost:21183     | Resource list, logs, traces, metrics           |
+
+Aspire calls the local **Docker Desktop** API to pull and start the Qdrant image. SQL Server is **not** containerised — it uses your local **SQL Server LocalDB** instance directly.
+
+## Step 1 — Clone the repository
+
+**Run** (in the directory where you keep your source repos):
+
+```powershell
+git clone https://github.com/michaeljosiah/aonik.git
+Set-Location aonik
+```
+
+**Verify:**
+
+```powershell
+Test-Path .\Aonik.sln
+```
+
+**Expected:** `True`.
+
+If `Test-Path` returns `False`, the clone failed or your working directory is wrong.
+
+## Step 2 — Configure the bootstrap secret
+
+The `/bootstrap` endpoint is **disabled by default**. The next page ([Bootstrap your first tenant](/docs/operate/install-configure/bootstrap-tenant)) needs both `Bootstrap:Enabled` and `Bootstrap:SetupSecret` set. Configure them now so the API picks them up at startup.
+
+**Run:**
+
+```powershell
+dotnet user-secrets --project src/Aonik.Api set Bootstrap:Enabled true
+$secret = [guid]::NewGuid().ToString()
+dotnet user-secrets --project src/Aonik.Api set Bootstrap:SetupSecret $secret
+Write-Host "Bootstrap secret: $secret"
+```
+
+**Expected:** the final line prints a GUID. Save it — you will need it on the next page.
+
+**Verify:**
+
+```powershell
+dotnet user-secrets --project src/Aonik.Api list
+```
+
+**Expected:** at least these two entries appear in the output:
+
+```
+Bootstrap:Enabled = true
+Bootstrap:SetupSecret = <your-guid>
+```
+
+## Step 3 — Confirm Docker Desktop is running
+
+Aspire will refuse to start the Qdrant container if the Docker daemon is unreachable.
+
+**Verify:**
+
+```powershell
+docker info --format '{{.ServerVersion}}'
+```
+
+**Expected:** a version number (for example `27.3.1`). If you instead see `error during connect`, start Docker Desktop:
+
+```powershell
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+```
+
+Wait for the tray icon to report **Docker Desktop is running**, then retry the verify command above.
+
+## Step 4 — Start the Aspire orchestrator
+
+**Run:**
+
+```powershell
+dotnet run --project src/Aonik.AppHost
+```
+
+This is a **long-running** process — do not close the terminal. The shell will print log lines for every resource as Aspire brings them up. After ~15–30 seconds you will see lines like:
+
+```
+[api] Now listening on: https://localhost:5001
+[adminui] VITE v6.x  ready in N ms
+[qdrant] Service started
+```
+
+The Aspire dashboard opens in your default browser at `https://localhost:21183`. If it does not open automatically, navigate there manually. Every row should turn green within a minute.
+
+<Callout type="warn">
+**Do not stop the AppHost between steps.** Open a *second* PowerShell tab to run the verification commands in steps 5–7. Closing the AppHost stops every resource it manages.
+</Callout>
+
+## Step 5 — Verify the API is up
+
+**In a second terminal**, run:
+
+```powershell
+curl.exe --insecure https://localhost:5001/health
+```
+
+**Expected:** an HTTP 200 with a JSON body like:
+
+```json
+{"Status":"Healthy","Timestamp":"2026-05-19T06:30:00.000Z"}
+```
+
+If you instead get `Connection refused` or a TLS error:
+
+- Check the Aspire dashboard. The `api` row may still be **Starting** — wait 5 seconds and retry.
+- If the `api` row is **Failed**, click its name in the dashboard and read the **Console logs** tab. The most common cause is a LocalDB connection failure — see [LocalDB issues](#localdb-connection-fails-at-startup) below.
+
+## Step 6 — Verify the Admin UI is up
+
+```powershell
+curl.exe --silent --output $null --write-out '%{http_code}' http://localhost:5173/
+```
+
+**Expected:** `200`.
+
+You can also open `http://localhost:5173/` in a browser — the login screen renders. Login will not succeed yet because no identity provider is wired — that's expected and is fixed in [Identity & Access](/docs/operate/identity-access).
+
+## Step 7 — Verify Qdrant is up
+
+```powershell
+curl.exe --silent http://localhost:6333/readyz
+```
+
+**Expected:** body is `all shards are ready`.
+
+You can also list the container directly:
+
+```powershell
+docker ps --filter "ancestor=qdrant/qdrant" --format "table {{.Names}}\t{{.Status}}"
+```
+
+**Expected:** a single row with status `Up <N> seconds (healthy)`.
+
+## All-in-one verification
+
+The block below runs steps 5–7 in sequence and exits non-zero on the first failure.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+
+# API health
+$api = curl.exe --insecure --silent --max-time 5 https://localhost:5001/health | ConvertFrom-Json
+if ($api.Status -ne 'Healthy') { throw "API not healthy: $($api | ConvertTo-Json -Compress)" }
+Write-Host '✅ API healthy' -ForegroundColor Green
+
+# Admin UI
+$adminStatus = curl.exe --silent --output $null --write-out '%{http_code}' http://localhost:5173/
+if ($adminStatus -ne '200') { throw "Admin UI returned $adminStatus" }
+Write-Host '✅ Admin UI reachable' -ForegroundColor Green
+
+# Qdrant
+$qdrant = curl.exe --silent --max-time 5 http://localhost:6333/readyz
+if ($qdrant -notmatch 'all shards are ready') { throw "Qdrant not ready: $qdrant" }
+Write-Host '✅ Qdrant ready' -ForegroundColor Green
+
+Write-Host ''
+Write-Host 'Aspire stack healthy. Proceed to Bootstrap your first tenant.' -ForegroundColor Green
+```
+
+## Troubleshooting
+
+### Docker not running
+
+**Symptom.** The Aspire dashboard shows `qdrant` as **Failed**, and the AppHost console logs include `error during connect: this error may indicate that the docker daemon is not running`.
+
+**Fix.** Start Docker Desktop and wait for the tray icon to report **running**. Then click the **Restart** button on the `qdrant` row in the Aspire dashboard.
+
+### LocalDB connection fails at startup
+
+**Symptom.** The `api` row stays in **Starting** for more than 30 seconds, or transitions to **Failed**. The API console logs include `A network-related or instance-specific error occurred while establishing a connection to SQL Server`.
+
+**Cause.** The `MSSQLLocalDB` instance is not running.
+
+**Fix.**
+
+```powershell
+sqllocaldb start MSSQLLocalDB
+sqllocaldb info MSSQLLocalDB
+```
+
+The second command must report `State: Running`. Then click **Restart** on the `api` row.
+
+### Port already in use
+
+**Symptom.** A resource's console log includes `Failed to bind to address ... address already in use`.
+
+**Cause.** Another process is using the port (5001 for the API, 5173 for the Admin UI, 6333/6334 for Qdrant, 21183 for the Aspire dashboard).
+
+**Fix.** Identify the offending process:
+
+```powershell
+Get-NetTCPConnection -LocalPort 5001 | Select-Object -First 1 OwningProcess |
+  ForEach-Object { Get-Process -Id $_.OwningProcess }
+```
+
+Stop the process or change Aonik's port (advanced — see [Environment variables reference, coming soon](/docs/operate/install-configure)).
+
+### Aspire dashboard never opens
+
+**Symptom.** The AppHost runs cleanly but the browser does not navigate to `https://localhost:21183`.
+
+**Fix.** Open it manually:
+
+```powershell
+Start-Process https://localhost:21183
+```
+
+If the URL itself returns nothing, the dashboard is disabled via env vars. The AppHost expects `ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL` to be set in the launch environment. The repo's `launchSettings.json` sets it by default — confirm with `Get-Content src/Aonik.AppHost/Properties/launchSettings.json`.
+
+## What's next
+
+- [Bootstrap your first tenant](/docs/operate/install-configure/bootstrap-tenant) — create the initial tenant + platform admin
+- [Verify the install](/docs/operate/install-configure/verify) — end-to-end smoke test
+- [Identity & Access](/docs/operate/identity-access) — wire Auth0 or Microsoft Entra ID so the Admin UI login works

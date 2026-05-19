@@ -1,0 +1,18 @@
+{
+  "title": "Operate",
+  "description": "Run, configure, and operate the Aonik platform.",
+  "root": true,
+  "pages": [
+    "index",
+    "getting-started",
+    "install-configure",
+    "identity-access",
+    "integrations",
+    "core-concepts",
+    "platform-capabilities",
+    "ai-platform",
+    "operations",
+    "cli",
+    "for-contributors"
+  ]
+}

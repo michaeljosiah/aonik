@@ -1,0 +1,6 @@
+{
+  "title": "Build with the API",
+  "description": "Integrate against the Aonik HTTP API.",
+  "root": true,
+  "pages": ["index", "authentication", "webhooks", "errors-and-idempotency", "reference"]
+}

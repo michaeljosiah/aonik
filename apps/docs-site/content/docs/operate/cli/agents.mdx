@@ -1,0 +1,279 @@
+---
+title: Agents
+description: List the agents registered in your tenant, run one-shot prompts, stream AG-UI events, and inspect chat threads from the CLI.
+---
+
+The `aonik agent` group is how an agent harness drives the Aonik AI runtime from a terminal. Every command requires an active session (see [Install & Auth](/docs/operate/cli/install-and-auth)).
+
+## `aonik agent list`
+
+List the agents currently registered for the active tenant.
+
+**Synopsis:**
+
+```bash
+aonik agent list [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik agent list --output json
+```
+
+**Output (json):**
+
+```json
+[
+  { "name": "PersonalFinance",       "description": "Reasons about a user's accounts, transactions, budgets, goals." },
+  { "name": "ObligationPlanning",    "description": "Plans upcoming bills, subscriptions, recurring obligations." },
+  { "name": "SpendingIntelligence",  "description": "Generates narrative insights from transaction history." },
+  { "name": "Finance",               "description": "Issues invoices, captures payments, posts ledger entries." },
+  { "name": "Platform",              "description": "Tenant administration, users, roles, settings." }
+]
+```
+
+The list is filtered server-side to the agents the calling user is authorised to invoke.
+
+## `aonik agent run`
+
+Send a single message to the orchestrator (or a specific agent) and wait for the final response.
+
+**Synopsis:**
+
+```bash
+aonik agent run --message "<prompt>" [--session-id <id>] [--thread-id <id>] [--output text|json]
+```
+
+**Flags:**
+
+| Flag           | Type    | Required | Description                                                                                          |
+| -------------- | ------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `--message`    | string  | Yes      | The user message to send.                                                                            |
+| `--session-id` | string  | No       | Continue an existing CLI session. Defaults to `lastSessionId` from the local session file.           |
+| `--thread-id`  | string  | No       | Continue an existing thread. Defaults to `lastThreadId` from the local session file.                 |
+| `--output`     | enum    | No       | `text` (default) or `json`.                                                                          |
+
+After a successful run, the CLI **writes** the resulting `sessionId` and `threadId` back to `cli-session.json` so the next call defaults to the same conversation.
+
+<Callout type="warn">
+  **Concurrency note for agent harnesses.** The "last-used" defaults are convenient for a human at a terminal but unsafe when two CLI invocations run concurrently — they will fight over the same thread. If you are wiring this into an agent harness, always pass `--thread-id` and `--session-id` explicitly.
+</Callout>
+
+**Example: one-shot prompt:**
+
+```bash
+aonik agent run \
+  --message "How much did I spend on groceries in April?" \
+  --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "message": "In April you spent £312.40 across 17 grocery transactions, down 8% from March.",
+  "sessionId": "01J39K2A5VVH3M3R3M8GJZQX9Y",
+  "agentName": "PersonalFinance",
+  "threadId": "01J39K2A5VVH3M3R3M8GJZQX9Y",
+  "threadTitle": "April spending"
+}
+```
+
+**Example: continue a known thread (safe for concurrent harnesses):**
+
+```bash
+aonik agent run \
+  --message "And what about restaurants?" \
+  --thread-id 01J39K2A5VVH3M3R3M8GJZQX9Y \
+  --output json
+```
+
+`agent run` is **blocking** — the API holds the connection open until the agent finishes. For long-running agents, prefer `agent stream`.
+
+## `aonik agent stream`
+
+Open a streaming connection to the orchestrator and emit [AG-UI](https://github.com/anthropic-experimental/ag-ui) events as they arrive. This is the primary surface for any harness that wants to render tokens, tool calls, or speech as they happen.
+
+**Synopsis:**
+
+```bash
+aonik agent stream --message "<prompt>" [--thread-id <id>] [--run-id <id>] [--agent-id <name>] [--output text|json|ndjson]
+```
+
+**Flags:**
+
+| Flag          | Type    | Required | Description                                                                                |
+| ------------- | ------- | -------- | ------------------------------------------------------------------------------------------ |
+| `--message`   | string  | Yes      | The user message to send.                                                                  |
+| `--thread-id` | string  | No       | Continue a thread.                                                                         |
+| `--run-id`    | string  | No       | Caller-supplied run identifier. Useful to correlate the stream with your harness's logs.   |
+| `--agent-id`  | string  | No       | Bypass the orchestrator and address a specific agent directly (e.g. `PersonalFinance`).    |
+| `--output`    | enum    | No       | `text` (default), `json`, or `ndjson`. **`ndjson` is the only mode you should pipe.**      |
+
+**`text` mode** renders each event type to a human-readable line:
+
+| Event                              | Text output                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| `TEXT_MESSAGE_CONTENT`             | The `delta` field, printed inline (no newline) so tokens stream naturally.        |
+| `CUSTOM/speech.render`             | `[speech.render] <speechText>`                                                    |
+| `CUSTOM/speech.audio`              | `[speech.audio] chunk=X seq=Y bytes=Z provider=... cached=... final=...`          |
+| `CUSTOM/speech.audio.error`        | `[speech.audio.error] chunk=X code=... message=<text>`                            |
+| any other                          | `[<EVENT_TYPE>] <raw JSON>`                                                       |
+
+**`ndjson` mode** emits one JSON object per event per line — the harness-friendly format:
+
+```
+{"type":"RUN_STARTED","json":"{\"threadId\":\"...\",\"runId\":\"...\"}"}
+{"type":"TEXT_MESSAGE_START","json":"{...}"}
+{"type":"TEXT_MESSAGE_CONTENT","json":"{\"delta\":\"In April \"}"}
+{"type":"TEXT_MESSAGE_CONTENT","json":"{\"delta\":\"you spent \"}"}
+...
+{"type":"RUN_FINISHED","json":"{...}"}
+```
+
+Each line has at least `type` and `json` (the original event payload, stringified). `name` appears for `CUSTOM` events.
+
+**Stream termination:** the CLI exits with code `0` when the API closes the stream cleanly. There is no explicit end-of-stream marker beyond the `RUN_FINISHED` event.
+
+**Side effect:** as `threadId` and `runId` are observed in events, the CLI updates `cli-session.json` with the latest values, just like `agent run`.
+
+**Example: render tokens to a terminal:**
+
+```bash
+aonik agent stream \
+  --message "Summarise my last three transactions." \
+  --output text
+```
+
+(prints natural text as tokens arrive)
+
+**Example: pipe NDJSON to a harness consumer:**
+
+```bash
+aonik agent stream \
+  --message "Summarise my last three transactions." \
+  --agent-id PersonalFinance \
+  --output ndjson \
+  | while IFS= read -r line; do
+      echo "$line" | jq -c '{type, delta: (.json | fromjson? | .delta // empty)}'
+    done
+```
+
+**PowerShell equivalent:**
+
+```powershell
+aonik agent stream `
+  --message "Summarise my last three transactions." `
+  --agent-id PersonalFinance `
+  --output ndjson |
+  ForEach-Object {
+    $evt = $_ | ConvertFrom-Json
+    $payload = $evt.json | ConvertFrom-Json
+    if ($evt.type -eq 'TEXT_MESSAGE_CONTENT' -and $payload.delta) {
+      Write-Host -NoNewline $payload.delta
+    }
+  }
+```
+
+## `aonik agent threads`
+
+List recent chat threads for the active user.
+
+**Synopsis:**
+
+```bash
+aonik agent threads [--page <n>] [--page-size <n>] [--output text|json]
+```
+
+**Flags:**
+
+| Flag          | Type | Default | Description                                                          |
+| ------------- | ---- | ------- | -------------------------------------------------------------------- |
+| `--page`      | int  | `1`     | Page number. Clamped to ≥ 1.                                         |
+| `--page-size` | int  | `20`    | Results per page. Clamped to the range 1–100.                        |
+| `--output`    | enum | `text`  | `text` or `json`.                                                    |
+
+**Example:**
+
+```bash
+aonik agent threads --page 1 --page-size 5 --output json
+```
+
+**Output (json):**
+
+```json
+[
+  {
+    "id": "01J39K2A5VVH3M3R3M8GJZQX9Y",
+    "title": "April spending",
+    "status": "active",
+    "agentName": "PersonalFinance",
+    "lastMessageAt": "2026-05-19T07:42:11Z",
+    "messageCount": 4,
+    "createdAt": "2026-05-19T07:40:02Z"
+  },
+  {
+    "id": "01J39K2A5VVH3M3R3M8GJZQYAB",
+    "title": "Quarterly invoice draft",
+    "status": "archived",
+    "agentName": "Finance",
+    "lastMessageAt": "2026-05-18T22:01:00Z",
+    "messageCount": 12,
+    "createdAt": "2026-05-18T21:30:14Z"
+  }
+]
+```
+
+## `aonik agent thread <thread-id>`
+
+Fetch one thread by ID, including every message exchanged.
+
+**Synopsis:**
+
+```bash
+aonik agent thread <thread-id> [--output text|json]
+```
+
+**Arguments:**
+
+| Argument       | Type | Required | Description                              |
+| -------------- | ---- | -------- | ---------------------------------------- |
+| `<thread-id>`  | guid | Yes      | The thread to retrieve.                  |
+
+**Example:**
+
+```bash
+aonik agent thread 01J39K2A5VVH3M3R3M8GJZQX9Y --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "id": "01J39K2A5VVH3M3R3M8GJZQX9Y",
+  "title": "April spending",
+  "status": "active",
+  "agentName": "PersonalFinance",
+  "messageCount": 4,
+  "messages": [
+    {
+      "role": "user",
+      "content": "How much did I spend on groceries in April?",
+      "createdAt": "2026-05-19T07:40:02Z"
+    },
+    {
+      "role": "assistant",
+      "content": "In April you spent £312.40 across 17 grocery transactions, down 8% from March.",
+      "createdAt": "2026-05-19T07:40:09Z"
+    }
+  ]
+}
+```
+
+Messages are returned in chronological order, oldest first.
+
+## What's next
+
+- [Approvals](/docs/operate/cli/approvals) — accept or reject proposals the agent generated
+- [Output formats](/docs/operate/cli/output-formats) — common harness patterns for parsing stream output

@@ -1,0 +1,30 @@
+---
+title: Webhooks
+description: Receive events from an Aonik tenant — invoice issued, payment captured, proposal raised, and more.
+---
+
+<Callout type="warn" title="Coming soon">
+  This page is being written. Webhook delivery and signing exist in the platform; documenting them deterministically is queued behind the API reference auto-generation.
+</Callout>
+
+## What this page will cover
+
+When complete, this page will document the full inbound webhook contract:
+
+- The event catalog (`invoice.issued`, `payment.captured`, `proposal.raised`, `tenant.provisioned`, `ai.run.completed`, etc.)
+- The envelope shape (id, type, occurredUtc, tenantId, data)
+- How to register a destination URL via the API or the Admin UI
+- The signing scheme — header name, algorithm, payload, time-window verification
+- The retry policy and dead-letter behaviour
+- How to replay an individual event from the Admin UI
+- Local development with `webhook.site` and ngrok
+
+## What works today
+
+The platform supports outbound webhooks for the events listed in `Aonik.Platform.Services.Notifications`. The Admin UI exposes destination registration on the **Notifications → Webhooks** panel. Until this page is finished, browse the Admin UI directly to see the live schemas.
+
+## What's next
+
+- [Authentication](/docs/api/authentication) — get a token first
+- [Errors and idempotency](/docs/api/errors-and-idempotency)
+- [API Reference](/docs/api/reference)

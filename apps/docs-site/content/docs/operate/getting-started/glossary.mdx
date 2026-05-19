@@ -1,0 +1,86 @@
+---
+title: Glossary
+description: The canonical platform vocabulary. Skim this once before reading any deep page.
+---
+
+Twenty-eight terms that appear throughout these docs and the codebase. Read them once; the rest of the documentation assumes you know them.
+
+## Identity, tenancy, people
+
+**Tenant.** An isolated workspace. Every business-domain entity is scoped to a tenant by `TenantId`. Modules enforce isolation through global query filters on `ITenantScoped` entities.
+
+**User.** An authenticated principal scoped to a tenant. Linked to an external IdP (Auth0 or Microsoft Entra ID) by `ExternalSubject` + `ExternalIssuer`.
+
+**Role.** A named set of permissions inside a tenant. Seeded roles include `TenantAdmin`, `Operations`, `ReadOnly`, `Compliance`, and `PersonalUser`. `PlatformAdmin` is global (tenant `Guid.Empty`).
+
+**Permission.** A granular capability such as `ledger.read` or `invoice.approve`. Granted to roles, never to users directly.
+
+**Party.** A unified record for people and businesses. Carries KYC/KYB status, tier, addresses, and contacts. Both individuals and businesses are parties.
+
+**Household.** A multi-member group used by the platform's personal finance primitives for shared budgets, goals, and account visibility.
+
+## Money: orders, payments, ledger
+
+**Order.** The canonical record of a *requested* financial service — bill payment, transfer, invoice issuance, remittance, etc. Orders capture *why* money should move. An order can have many payments and many ledger entries.
+
+**Payment Intent.** A pre-authorised request to fund or execute an order. Tracks amount, currency, provider, and status. One order can have multiple intents over time.
+
+**Payment.** An executed financial transaction against a payment intent. Records provider response, captured amount, and outcome.
+
+**Invoice.** A billing document issued to a payer. Has line items, optional discounts, due date, and a lifecycle (Draft → Issued → Paid / Cancelled).
+
+**Line item.** A row in an invoice or order. Carries description, quantity, unit price, and resulting amount.
+
+**Ledger.** The double-entry accounting record. Per-tenant, immutable, and the source of financial truth.
+
+**Ledger Account.** A chart-of-accounts entry — asset, liability, equity, revenue, or expense — held inside a Ledger.
+
+**Journal Entry.** An immutable double-entry transaction with balanced debit and credit lines, linked to its source order/payment/invoice.
+
+## Personal finance
+
+**Personal Account.** An external account (chequing, savings, card) linked through Plaid. Transactions are imported and reconciled against this account.
+
+**Transaction.** A single posted line item against a personal account, with merchant, amount, and categorisation.
+
+**Categorisation Rule.** A user-defined rule that automatically classifies matching transactions.
+
+**Financial Life Graph.** A node-edge graph modelling a user's financial world: accounts, merchants, goals, subscriptions, recurring obligations. Agents read from it for context; AI proposes new edges (e.g. "Netflix subscription detected") that the user approves or rejects.
+
+## AI platform
+
+**Agent.** A domain-specific reasoner (Finance, Personal Finance, Obligation Planning, Spending Intelligence, Platform). Configured with instructions, a prompt, a tool set, a risk tier, and approval rules. **Agents propose; systems apply.**
+
+**Tool.** A registered function exposed to an agent. Read tools execute directly; mutating tools (`CreateInvoice`, `CapturePayment`, etc.) are wrapped with `ApprovalRequiredAIFunction` and require explicit human approval.
+
+**Prompt.** A versioned, immutable system or user template with declared input and output schema. Prompts are referenced by agents, not inlined.
+
+**AiRun.** An immutable record of one AI invocation. Captures model, prompt version, tokens, cost, latency, and outcome. Every AI action is auditable through `AiRun`.
+
+**Proposal.** An agent-generated suggestion to mutate state (create an invoice, adjust a budget, send a notification). Holds the impact summary and risk tier; sits pending until approved or rejected.
+
+**Approval.** The act of accepting (or rejecting) a proposal. Only an approval converts a proposal into an executed action. There is no agent path that bypasses approval for mutating tools.
+
+**Workflow.** A multi-step orchestration of agents, tools, and approvals — defined in the Admin UI workflow editor and executed by the Worker.
+
+**MCP Server.** A Model Context Protocol process that exposes a set of tools. Aonik ships `Aonik.Finance.Mcp` and `Aonik.Platform.Mcp` as in-process MCP servers.
+
+## Reference & operations
+
+**Catalog.** Reference data describing payable services — billers, biller categories, service fields. Per-tenant.
+
+**Partner.** A correspondent or payout provider used to fulfil money-movement orders that cross networks or borders.
+
+**FX Quote.** A captured exchange rate with an expiry, used to price a multi-currency order.
+
+**Autonumber.** A reservation-based sequence for invoice numbers, receipt numbers, and similar identifiers.
+
+**Scheduled Job.** A Quartz-managed background task — AI cost guard, snapshot jobs, stale session cleanup, etc. Managed in the Admin UI.
+
+**Audit Log.** An immutable record of significant operator and user actions, written automatically by the platform's base DbContext.
+
+## What's next
+
+- [Architecture at a glance](/docs/operate/getting-started/architecture-at-a-glance) — see these terms in their natural shape
+- [What you get out of the box](/docs/operate/getting-started/what-you-get) — the module list
+- [Quickstart](/docs/operate/getting-started/quickstart) — try it
