@@ -1,0 +1,168 @@
+---
+title: Manage users
+description: Search the user list, edit profiles, change role assignments, inspect effective permissions, and review user activity in the audit log.
+---
+
+This page covers the day-to-day operations against an existing user: finding them, editing their profile, changing their roles, and reviewing what they've actually been doing.
+
+<Callout type="info">
+  Most actions on this page require the `user.write` permission. `TenantAdmin` and `Operations` have it by default.
+</Callout>
+
+## Find a user
+
+Open **People → Users**. The user list shows every user in your tenant.
+
+### Search
+
+The search bar in the top-left accepts:
+
+- Email — full or partial
+- Display name — full or partial
+- User ID — paste the GUID if you have it
+
+### Filter
+
+The filter chips above the table let you narrow by:
+
+| Filter         | Values                                                         |
+| -------------- | -------------------------------------------------------------- |
+| **Status**     | Active, Invited, Pending, Sessions revoked, Deactivated.       |
+| **Role**       | Any seeded or custom role.                                     |
+| **Invited by** | The operator who sent the original invitation.                 |
+| **Joined**     | Last 7 / 30 / 90 days, or a custom range.                      |
+
+Filters combine with AND. Save a frequently used combination as a view from the **Save filter** menu.
+
+### Sort
+
+Click any column header to sort. By default the list sorts by most recently active.
+
+## Open the user detail page
+
+Click any row. The user detail page opens with five tabs:
+
+| Tab           | What you'll see                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| **Profile**   | Email, display name, title, photo, signup date, last sign-in.                            |
+| **Roles**     | All roles assigned to the user, with grants visible per role.                            |
+| **Permissions** | The effective permission list (rolled up across all roles). Read-only.                  |
+| **Sessions**  | Recent active sessions and the option to revoke any of them.                             |
+| **Activity**  | Every audit-log entry where this user was the target or the actor.                       |
+
+## Edit profile
+
+Open the **Profile** tab, then click **Edit profile** in the top-right of the panel.
+
+A dialog opens with the editable fields:
+
+| Field            | Notes                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| **Display name** | Shown in the UI and in audit log entries.                                            |
+| **Title**        | Optional. Useful for ops queues that filter by role/title.                           |
+| **Email**        | Read-only after the IdP identity is linked — change it from the identity provider instead. |
+| **Phone**        | Triggers a fresh phone-OTP verification on the user's next sign-in if changed.      |
+| **Photo**        | Upload a JPEG or PNG ≤ 5 MB. Drag-and-drop or click to browse.                       |
+
+Click **Save**. A green toast confirms; an audit-log entry is written.
+
+## Change role assignments
+
+Open the **Roles** tab.
+
+### Add a role
+
+Click **Assign role**. Pick from the list of seeded and custom roles. You can multi-select. Click **Apply**.
+
+The role appears immediately in the user's roles list and in their permission rollup (Permissions tab).
+
+### Remove a role
+
+Find the role row and click the **×** icon. Confirm. The role is removed immediately.
+
+<Callout type="warn">
+  You cannot remove the last `TenantAdmin` role from your tenant. The platform rejects the action with an inline error to prevent lockout. Always assign another `TenantAdmin` first.
+</Callout>
+
+### Custom roles
+
+If a seeded role doesn't fit, [build a custom role](/docs/tenant-admin/users-and-roles/roles-and-permissions#create-a-custom-role) and assign it the same way.
+
+## Inspect effective permissions
+
+Role assignments are easy to read; permissions are what actually gates access. Open the **Permissions** tab to see the **rolled-up** list of permissions this user holds — every permission granted by every one of their roles, deduplicated.
+
+The list groups permissions by domain:
+
+- `user.*` — user management
+- `role.*` — role / permission management
+- `tenant.*` — tenant configuration
+- `billing.*` — invoicing, payments
+- `ledger.*` — ledger and journal entries
+- `compliance.*` — case review, documents, audit log
+- `ai.*` — AI agent invocation and approval workflows
+- `personal-finance.*` — Plaid-linked accounts and transactions
+- (...and a few smaller domains)
+
+The Permissions tab is read-only — to change what a user can do, change their roles or the role definitions.
+
+## Review user activity
+
+Open the **Activity** tab. You'll see every audit-log entry that mentions this user either as the **resource** (something happened to them) or the **actor** (they performed an action).
+
+Each entry shows:
+
+| Column          | Notes                                                                              |
+| --------------- | ---------------------------------------------------------------------------------- |
+| **Timestamp**   | UTC, with hover-tooltip showing your local time.                                   |
+| **Action**      | Canonical action code (e.g. `user.invite-sent`, `user.sessions-revoked`).          |
+| **Actor**       | Who performed the action — operator name + email, or "(system)" for automated jobs. |
+| **Resource**    | The target — usually the user themselves, but could be a role, a document, etc.    |
+| **Correlation** | An ID that links related entries (e.g. invite + accept).                           |
+
+Click any row to expand the full event payload (JSON view).
+
+### Filter activity
+
+The activity tab has its own filters: by action prefix (`user.*`, `role.*`, etc.), by date range, and by correlation ID.
+
+## Self-service password recovery
+
+Aonik does not store passwords — your identity provider does. So password recovery is also owned by the IdP:
+
+| Provider                  | How the user resets                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Auth0**                 | At the Admin UI sign-in screen, click **Forgot password**. Auth0 sends a reset email.             |
+| **Microsoft Entra ID**    | Same button. Entra hosts the reset flow (subject to your tenant's password reset configuration).  |
+
+If you're a `TenantAdmin` and a user is locked out, the supported workflow is:
+
+1. Confirm the user's email is correct from the **Profile** tab.
+2. Ask them to use **Forgot password** on the sign-in screen.
+3. If the IdP isn't sending the reset email, check the IdP's own user dashboard.
+
+Operator-initiated password reset (one-click "send reset email" from the user detail page) is on the roadmap.
+
+## What gets audit-logged
+
+The actions on this page emit:
+
+| Action                  | When emitted                                                  |
+| ----------------------- | ------------------------------------------------------------- |
+| `user.profile-updated`  | Any profile field change.                                     |
+| `user.role-assigned`    | A role added to the user.                                     |
+| `user.role-removed`     | A role removed from the user.                                 |
+| `user.photo-uploaded`   | New profile photo uploaded.                                   |
+| `user.photo-deleted`    | Profile photo removed.                                        |
+
+The audit log is tamper-evident. You cannot edit or remove entries — only redact PII during a [hard delete](/docs/tenant-admin/users-and-roles/deactivate-and-delete#hard-delete-a-user).
+
+## Audit log
+
+For a fuller view across all users, open the audit log directly from **Compliance → Audit log**. It uses the same column shape as the Activity tab but lets you filter across every user and every action type.
+
+## What's next
+
+- [Roles and permissions](/docs/tenant-admin/users-and-roles/roles-and-permissions) — build a custom role for a non-standard team
+- [Deactivate or delete a user](/docs/tenant-admin/users-and-roles/deactivate-and-delete) — end a user's access cleanly
+- [Revoke sessions](/docs/tenant-admin/users-and-roles/revoke-sessions) — for incident response

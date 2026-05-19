@@ -1,0 +1,11 @@
+{
+  "title": "Users and roles",
+  "pages": [
+    "index",
+    "invite-a-user",
+    "manage-users",
+    "deactivate-and-delete",
+    "revoke-sessions",
+    "roles-and-permissions"
+  ]
+}

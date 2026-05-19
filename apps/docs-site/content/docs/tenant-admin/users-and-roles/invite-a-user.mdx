@@ -1,0 +1,140 @@
+---
+title: Invite a user
+description: Send an invitation email from the Admin UI; the invitee accepts via your identity provider and lands inside the Admin UI ready to work.
+---
+
+This is the most common user-creation flow. You start it; the invitee finishes it; the platform links their identity provider account to the placeholder you created, and they sign in to a fully provisioned user record.
+
+<Callout type="info">
+  You need the `user.invite` permission. `TenantAdmin` and `Operations` have it by default.
+</Callout>
+
+## What happens end-to-end
+
+```
+You                                            Invitee
+─────                                            ───────
+1. Open People → Users → Invite user
+2. Fill in email, name, roles
+3. Click "Send invite"      ──►   email arrives in invitee's inbox
+                                  4. Click "Accept invitation"
+                                  5. Sign in via Auth0 / Microsoft Entra ID
+                                  6. Land in Admin UI as an active user
+```
+
+The full design is in [Spec 026](https://github.com/michaeljosiah/aonik/blob/main/docs/specifications/026.user-lifecycle-closure.html) if you want the internals.
+
+## Steps
+
+### 1. Open the user list
+
+From the left navigation, choose **People → Users**. You'll see the list of every user in your tenant.
+
+### 2. Open the invite dialog
+
+Click **Invite user** at the top right. A dialog opens.
+
+### 3. Fill in the invite
+
+| Field             | Required | Notes                                                                            |
+| ----------------- | -------- | -------------------------------------------------------------------------------- |
+| **Email**         | Yes      | The invitee will receive the invitation here. Used to match the IdP account on accept. |
+| **Display name**  | No       | Falls back to the email's local-part if you leave it blank.                      |
+| **Roles**         | Yes      | At least one role must be assigned. Pick from the [seeded roles](/docs/tenant-admin/users-and-roles/#seeded-roles) or any custom role you've created. |
+| **Personal note** | No       | A short message included in the invite email (e.g. "Welcome to the team — Sarah"). |
+
+You can change roles later from the user detail page.
+
+### 4. Send the invite
+
+Click **Send invite**. The dialog closes; a green toast confirms the send:
+
+> Invite sent to `jamie@example.com`. Expires in 72 hours.
+
+The user appears in the list with an amber **Invited** badge.
+
+### 5. The invitee accepts
+
+The invitee receives an email from your tenant (subject: *"You've been invited to &lt;tenant name&gt;"*). The email includes:
+
+- Their personal note, if you set one
+- The roles they've been granted
+- An **Accept invitation** button — this is a tenant-specific sign-in URL with a one-shot invite token
+- The expiry time (72 hours from when you sent it)
+
+Clicking **Accept invitation** opens the Admin UI sign-in page. The invitee is redirected to your configured identity provider (Auth0 or Microsoft Entra ID) where they:
+
+- Sign in with an existing account if they already have one with the same email, or
+- Sign up for a new account.
+
+When the IdP returns them to the Admin UI, the platform automatically:
+
+- Verifies the invite token is valid and not expired
+- Confirms the email on the IdP token matches the placeholder
+- Links the IdP identity (`ExternalIssuer` + `ExternalSubject`) to the placeholder user
+- Marks the placeholder as **Active**
+- Consumes the invite token (it cannot be reused)
+
+The invitee lands in the Admin UI with full access to whatever their assigned roles allow.
+
+## Resending an invite
+
+If the invite expired, the email got lost, or the invitee never received it, you can resend.
+
+### 1. Open the user detail page
+
+Click the **Invited** user from the user list. The user detail page opens on the **Profile** tab.
+
+### 2. Click **Resend invite**
+
+The button sits in the actions panel on the right. If it's greyed out, you've hit the rate limit (see below). Hover for the tooltip explaining when you can resend.
+
+### 3. Confirm
+
+A small dialog asks you to confirm. Click **Resend**.
+
+A green toast confirms: *"Invite re-sent to &lt;email&gt;. Expires in 72 hours."* The invite token is regenerated; any previously sent link is invalidated.
+
+### Rate limits
+
+You can resend the invite up to **5 times per user per 24 hours**. After that the button is disabled until the window passes. If you're consistently hitting the limit, the invitee likely needs help with the identity provider rather than another email — point them at [Self-service password recovery](/docs/tenant-admin/users-and-roles/manage-users#self-service-password-recovery) or the IdP's own support.
+
+## Troubleshooting
+
+### The invitee never received the email
+
+1. Check the invite was actually sent: open the user detail page, look at the **Activity** tab for a `user.invite-sent` entry.
+2. Confirm the email address is correct — typos here are silent.
+3. Ask the invitee to check spam.
+4. Verify your tenant's email provider is configured: [Settings → Notifications](/docs/tenant-admin/settings).
+5. If everything looks right, resend (see above).
+
+### The invitee clicked the link but got "Invitation expired"
+
+The invite token is good for 72 hours. Resend it — a new one will arrive immediately.
+
+### The invitee signed in with a different email than the invite
+
+By default the platform rejects this with *"Email mismatch."* The invitee will see an error on the Admin UI sign-in page. Either:
+
+- Ask the invitee to sign in with the original email (most common — they accidentally used a personal account), or
+- Cancel the invite (open user detail, choose **More actions → Cancel invitation**) and re-invite with the email they actually use.
+
+### The invitee says "I never received an invitation token" / link is missing
+
+This usually means an email filter or HR-style "links rewritten by security gateway" tool mangled the URL. Check with the invitee and, if needed, copy the invite URL from the **Activity** tab's `user.invite-sent` entry and send it through a different channel.
+
+## What gets audit-logged
+
+Every step above writes to the [Audit log](/docs/tenant-admin/users-and-roles/manage-users#audit-log) with the following actions:
+
+| Action                  | When emitted                                              |
+| ----------------------- | --------------------------------------------------------- |
+| `user.invite-sent`      | Initial invite or resend.                                 |
+| `user.invite-accepted`  | The invitee successfully linked their IdP identity.       |
+| `user.invite-expired`   | An automated cleanup detected an expired, unused invite.  |
+
+## What's next
+
+- [Manage users](/docs/tenant-admin/users-and-roles/manage-users) — now that the user is active, edit their profile or change their roles
+- [Roles and permissions](/docs/tenant-admin/users-and-roles/roles-and-permissions) — pick the right roles before you invite

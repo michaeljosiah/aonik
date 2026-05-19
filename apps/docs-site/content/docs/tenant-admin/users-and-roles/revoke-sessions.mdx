@@ -1,0 +1,137 @@
+---
+title: Revoke sessions
+description: Force a compromised or departing user offline immediately, without deactivating or deleting their account. Lasts as long as their bearer token would otherwise be valid.
+---
+
+Revoking sessions is the **incident-response** action. You use it when a user's bearer token might be in the wrong hands — a stolen laptop, a phishing-compromised contractor, an offboarded employee who hasn't yet cleared their device — and you need them logged out **now**.
+
+It's not the same as deactivation:
+
+| Action                  | Sessions killed? | Future sign-in allowed? | Reversible?               |
+| ----------------------- | ---------------- | ----------------------- | ------------------------- |
+| **Revoke sessions**     | Yes              | Yes (with valid creds)  | They just sign in again.  |
+| **Deactivate**          | Yes              | No                      | Yes — reactivate.         |
+| **Hard delete**         | Yes              | No                      | No.                       |
+
+Use **Revoke sessions** when you want them out *right now* but don't want to block them permanently. Use **Deactivate** when you also want to stop them from coming back.
+
+<Callout type="info">
+  You need the `user.revoke-sessions` permission. `TenantAdmin` and `Operations` have it by default.
+</Callout>
+
+## Revoke all sessions for a user
+
+### 1. Open the user detail page
+
+From **People → Users**, click the affected user.
+
+### 2. Click **Revoke sessions**
+
+The button sits in the actions panel on the right of the user detail page. A confirm dialog opens.
+
+### 3. Provide a reason
+
+The dialog requires a free-form reason (≥ 10 characters). Examples that work well:
+
+- "Suspected phishing — investigating, ticket SEC-2026-117"
+- "Lost laptop reported"
+- "Offboarded contractor — sessions cleared as part of access removal"
+
+Click **Revoke**.
+
+### 4. Verify
+
+A green toast confirms: *"Sessions revoked for &lt;email&gt;. Bearer tokens stop authenticating within 30 seconds."*
+
+On the user detail page the status badge changes to **Sessions revoked** (orange). The Sessions tab now shows zero active sessions.
+
+The user's existing bearer token is rejected by the auth middleware on the very next request — typically within seconds, certainly within the 30-second cache TTL.
+
+## Revoke a single session
+
+If you only want to kill one device (e.g. a stolen laptop while leaving the user's phone session intact), use the per-session revoke instead.
+
+### 1. Open the user detail page
+
+Same as before. Click the affected user.
+
+### 2. Open the Sessions tab
+
+You'll see a table of recent active sessions:
+
+| Column           | Notes                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Started**      | UTC timestamp from the JWT `iat` claim.                                                                         |
+| **Last seen**    | UTC timestamp of the most recent API call observed in the audit log.                                            |
+| **IP**           | The IP address observed most recently for this session.                                                         |
+| **User agent**   | Best-effort device fingerprint (browser / app / OS).                                                            |
+| **Status**       | `Active` or `Revoked`.                                                                                          |
+
+<Callout type="info">
+  The Sessions tab is **best-effort**. It reconstructs sessions from observed API requests in the audit log; if a session has been silent for a while it might not appear. The single source of truth is the blocklist itself — if a session is on the blocklist, it cannot authenticate, full stop.
+</Callout>
+
+### 3. Click **Revoke** next to the session
+
+A small confirm dialog appears. Provide a reason; click **Revoke**.
+
+The session row updates to **Revoked**. Other sessions for the same user continue to work.
+
+## What happens behind the scenes
+
+The platform doesn't try to "invalidate" the JWT — JWTs are stateless and signed by the IdP; there's no way to retract one. Instead Aonik maintains a **blocklist**:
+
+```
+AnkUserSessionBlocklist
+  UserId         GUID
+  RevokedUtc     datetime — every JWT issued before this fails
+  RevokedByUserId GUID — operator who triggered the revoke
+  Reason         text
+```
+
+The auth middleware checks the blocklist on every API request. The check is cached in FusionCache with a 30-second TTL, so:
+
+- Revoking causes a backplane invalidation that propagates to every replica within ~1 second.
+- A token presented immediately after revoke is rejected on the next request the middleware processes.
+- In the worst case (cache replication lag), it takes up to ~30 seconds for every replica to converge.
+
+Tokens issued **after** the revoke timestamp continue to work — the revoke is a "kill the current sessions" action, not a permanent ban. If you want to ban the user permanently, [deactivate them](/docs/tenant-admin/users-and-roles/deactivate-and-delete#deactivate-a-user) (which also revokes inline).
+
+## Auto-revoke when deactivating
+
+Deactivation automatically revokes all sessions. You don't need to revoke first and then deactivate — one **Deactivate** click does both. The auto-revoke is controlled by the `UserLifecycle.AutoRevokeOnDeactivate` feature flag, which is on by default in every tenant.
+
+If for some reason you've turned auto-revoke off, the **Deactivate** button shows a warning callout in its confirm dialog: *"Auto-revoke is off in this tenant. Existing bearer tokens stay valid until expiry."*
+
+## Recovery — the user wants back in
+
+A revoke does not block future sign-ins. As long as the user still has working credentials at the IdP, they can sign in again immediately and a new session will start.
+
+If they don't (their credentials are also compromised), point them at the IdP's password-reset flow. See [Self-service password recovery](/docs/tenant-admin/users-and-roles/manage-users#self-service-password-recovery).
+
+## What gets audit-logged
+
+| Action                  | When emitted                                                                                  |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| `user.sessions-revoked` | All-sessions revoke or single-session revoke. The data column records the operator's reason. |
+
+If multiple sessions are revoked in one request (e.g. via auto-revoke during deactivation), a single audit-log entry covers them with a count.
+
+## Troubleshooting
+
+### "Revoked but user is still active in Admin UI"
+
+Wait up to 30 seconds for the FusionCache TTL to expire on the user's serving replica. If the user is still active a minute after revoke, check the auth middleware logs in the API service for `[BlocklistCheck]` entries — the check should be firing on every request.
+
+### "Sessions tab is empty but I know the user is signed in"
+
+The Sessions tab reconstructs from audit-log activity. A user that signed in but hasn't made any API call since (or whose calls predate the audit-log retention horizon) won't appear. The revoke action still works — clicking **Revoke sessions** in the actions panel kills every token regardless of what the Sessions tab shows.
+
+### "I revoked but new tokens keep appearing"
+
+The revoke kills *existing* tokens. If the user keeps signing in via the IdP, new tokens are issued each time. To stop them from signing in at all, [deactivate](/docs/tenant-admin/users-and-roles/deactivate-and-delete#deactivate-a-user) or [delete](/docs/tenant-admin/users-and-roles/deactivate-and-delete#hard-delete-a-user) the user.
+
+## What's next
+
+- [Deactivate or delete a user](/docs/tenant-admin/users-and-roles/deactivate-and-delete) — when revoke alone isn't enough
+- [Manage users](/docs/tenant-admin/users-and-roles/manage-users) — review the audit log for what the affected user was doing

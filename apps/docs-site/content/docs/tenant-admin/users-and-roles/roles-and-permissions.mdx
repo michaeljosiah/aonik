@@ -1,0 +1,182 @@
+---
+title: Roles and permissions
+description: The seeded role catalogue, the permission model, how to inspect what a user actually has access to, and how to build custom roles for your tenant.
+---
+
+Permissions are what actually gate access. Roles are named bundles of permissions. Users are assigned roles. That's the whole model.
+
+This page tells you which roles ship with your tenant, what each one grants, how to inspect permissions, and how to build a custom role when the seeded ones don't fit.
+
+## The permission model
+
+```
+User ────► Role ────► Permission
+       (one or many)   (many in each role)
+```
+
+- A **permission** is a single capability — a string like `invoice.write` or `compliance.read`. The platform exposes ~60 of them, grouped by domain.
+- A **role** is a named collection of permissions. Roles are tenant-scoped (with one exception: `PlatformAdmin`, which is global).
+- A **user** holds one or more role assignments. Their **effective permissions** are the union of every permission across every role they hold.
+
+The platform checks a user's effective permissions on every API call. The Admin UI hides buttons for actions the current user can't perform.
+
+## Seeded roles
+
+When a tenant is provisioned (via [bootstrap](/docs/operate/install-configure/bootstrap-tenant) or the tenant-admin endpoint), the platform creates the following roles. You can assign them but you can't edit their permission grants — they're managed by the platform.
+
+| Role             | Scope          | Default grants                                                                                  |
+| ---------------- | -------------- | ----------------------------------------------------------------------------------------------- |
+| `PlatformAdmin`  | Global         | Cross-tenant administration. Granted only via bootstrap or by another `PlatformAdmin`.          |
+| `TenantAdmin`    | Your tenant    | Everything within the tenant. Includes destructive actions (`user.delete`, custom-role editing). |
+| `Operations`     | Your tenant    | Day-to-day operational state. Cannot delete users or change tenant settings.                   |
+| `ReadOnly`       | Your tenant    | Read every page; cannot modify anything. Good for auditors.                                    |
+| `Compliance`     | Your tenant    | Compliance queue, document review, audit log. Read-only on everything else.                    |
+| `PersonalUser`   | Your tenant    | The default role for end-users of consumer-facing applications built on the platform.          |
+
+### What each seeded role can do
+
+This is the rollup. For the per-permission detail, browse **People → Roles** and click into any role.
+
+| Capability                              | PlatformAdmin | TenantAdmin | Operations | ReadOnly | Compliance | PersonalUser |
+| --------------------------------------- | :----------:  | :---------: | :--------: | :------: | :--------: | :----------: |
+| Manage tenants (provision / deactivate) | ✓             | ·           | ·          | ·        | ·          | ·            |
+| Configure tenant settings               | ✓             | ✓           | ·          | ·        | ·          | ·            |
+| Invite users                            | ✓             | ✓           | ✓          | ·        | ·          | ·            |
+| Edit profiles / assign roles            | ✓             | ✓           | ✓          | ·        | ·          | ·            |
+| Deactivate / reactivate                 | ✓             | ✓           | ✓          | ·        | ·          | ·            |
+| Revoke sessions                         | ✓             | ✓           | ✓          | ·        | ·          | ·            |
+| Hard delete users                       | ✓             | ✓           | ·          | ·        | ·          | ·            |
+| Create / edit custom roles              | ✓             | ✓           | ·          | ·        | ·          | ·            |
+| Issue invoices / capture payments       | ✓             | ✓           | ✓          | ·        | ·          | ·            |
+| Post ledger entries                     | ✓             | ✓           | ✓          | ·        | ·          | ·            |
+| Read all data (reports, lists)          | ✓             | ✓           | ✓          | ✓        | ✓          | ·            |
+| Review compliance cases                 | ✓             | ✓           | ·          | ·        | ✓          | ·            |
+| Read audit log                          | ✓             | ✓           | ·          | ✓        | ✓          | ·            |
+| Manage their own personal finance data  | ·             | ·           | ·          | ·        | ·          | ✓            |
+
+`✓` granted by default · `·` not granted.
+
+## Browse the role catalogue
+
+Open **People → Roles**. You'll see a table:
+
+| Column           | Notes                                                              |
+| ---------------- | ------------------------------------------------------------------ |
+| **Name**         | The canonical role identifier (`TenantAdmin`, etc.).                |
+| **Type**         | `Seeded` or `Custom`.                                               |
+| **Permissions**  | Count of permissions granted by the role.                           |
+| **Users**        | Count of users in your tenant holding this role.                    |
+
+Click any row to open the role detail page. Seeded roles are read-only — you can see the permission list but not change it. Custom roles are editable.
+
+## Browse the permission catalogue
+
+Open **People → Permissions**. This is a reference table — you can't change anything here, but it's the canonical list of every permission the platform exposes.
+
+Permissions group by domain prefix:
+
+| Prefix              | What it controls                                                |
+| ------------------- | --------------------------------------------------------------- |
+| `user.*`            | User management (invite, write, delete, revoke-sessions).       |
+| `role.*`            | Role + permission management.                                   |
+| `tenant.*`          | Tenant configuration (settings, features, identity).            |
+| `billing.*`         | Invoice lifecycle, line items, payments.                        |
+| `ledger.*`          | Ledger creation, journal entries.                               |
+| `compliance.*`      | Compliance queue, documents, audit log.                         |
+| `catalog.*`         | Catalogue management (billers, services).                       |
+| `pricing.*`         | FX quotes, pricing policies.                                    |
+| `partners.*`        | Partner registry.                                               |
+| `personal-finance.*` | Plaid-linked accounts, transactions, household.                |
+| `ai.*`              | AI provider config, agent invocation, approval workflows.       |
+| `audit.*`           | Audit-log read / export.                                         |
+
+Search at the top of the page filters across both the permission name and its description.
+
+## Create a custom role
+
+When the seeded roles don't fit — for example, you want a "Billing analyst" who can read invoices and approve payments but not change tenant settings — build a custom role.
+
+<Callout type="info">
+  You need the `role.write` permission. Only `TenantAdmin` has it by default.
+</Callout>
+
+### Steps
+
+#### 1. Open People → Roles
+
+Click **Create role** in the top right.
+
+#### 2. Name and describe
+
+| Field           | Notes                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| **Name**        | A short identifier (e.g. `BillingAnalyst`). Letters, numbers, hyphens. Must be unique in your tenant. |
+| **Display name** | Human-readable label shown in lists and confirm dialogs.                                   |
+| **Description** | Free-form. Shown on the Roles page as the tooltip.                                          |
+
+#### 3. Pick permissions
+
+A two-column dialog opens. The left column is the catalogue (grouped by domain); the right column is the role's grants.
+
+- Drag permissions from left to right, or click the **+** on any permission card.
+- Use the search bar to narrow.
+- The role total at the top updates as you add.
+
+Start narrow — it's easier to grant more later than to revoke an over-broad role.
+
+#### 4. Save
+
+Click **Create role**. The new role appears in the catalogue with the `Custom` type badge.
+
+You can now assign the role to users from the [user detail Roles tab](/docs/tenant-admin/users-and-roles/manage-users#change-role-assignments).
+
+## Edit a custom role
+
+Open **People → Roles**, click the custom role row, then click **Edit role** in the top right. The same dialog opens with the current grants populated. Add or remove permissions; click **Save**.
+
+Changes apply **immediately** — every user holding the role sees the change on their next request. There's no propagation delay.
+
+<Callout type="warn">
+  Editing a custom role affects every user who holds it. Before tightening a custom role (removing permissions), review the **Users** count on the role detail page so you know who will be impacted.
+</Callout>
+
+## Delete a custom role
+
+You can only delete custom roles. Seeded roles cannot be deleted.
+
+### Steps
+
+#### 1. Open the custom role detail page
+
+Click the role row in **People → Roles**.
+
+#### 2. Click **Delete role**
+
+The red **Delete role** button sits at the bottom of the actions panel. If users are still assigned the role, the button is disabled until you remove them or pre-assign an alternative.
+
+#### 3. Confirm
+
+A confirm dialog asks you to type the role's name exactly. Click **Delete permanently**.
+
+The role is removed. Any historical audit-log entries that reference it remain — they'll show the role name as it was at the time.
+
+## Inspect what a user actually can do
+
+Open the user detail page; switch to the **Permissions** tab. This shows the **rolled-up effective permission list** — every permission granted by every one of the user's roles, deduplicated. It's the same list the platform checks when the user makes a request.
+
+This is the single best view to answer "can this user do X?" — search for the permission you care about; if it appears, they can; if not, they can't.
+
+## What gets audit-logged
+
+| Action                      | When emitted                                                  |
+| --------------------------- | ------------------------------------------------------------- |
+| `role.created`              | A custom role was created.                                    |
+| `role.updated`              | A custom role's permissions or metadata changed.              |
+| `role.deleted`              | A custom role was deleted.                                    |
+| `user.role-assigned`        | A user was given a role.                                      |
+| `user.role-removed`         | A role was removed from a user.                               |
+
+## What's next
+
+- [Manage users](/docs/tenant-admin/users-and-roles/manage-users) — assign your new custom role to a user
+- [Invite a user](/docs/tenant-admin/users-and-roles/invite-a-user) — invite with the right roles from the start

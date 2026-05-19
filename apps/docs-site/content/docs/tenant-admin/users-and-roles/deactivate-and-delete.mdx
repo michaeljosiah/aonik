@@ -1,0 +1,214 @@
+---
+title: Deactivate or delete a user
+description: Two ways to end a user's access — reversible deactivation when someone leaves the team, or GDPR-strict permanent deletion with audit-log redaction when a record must disappear entirely.
+---
+
+There are two ways to take a user out of service. Pick the one that matches the situation.
+
+## Deactivate vs delete
+
+| If you need to…                                                          | Use          |
+| ------------------------------------------------------------------------ | ------------ |
+| Stop someone from signing in temporarily                                  | **Deactivate** |
+| Offboard a contractor whose access should end at a known date             | **Deactivate** |
+| Keep the user's history visible for audit                                 | **Deactivate** |
+| Allow yourself to reverse the action later                                | **Deactivate** |
+| Remove all PII per GDPR right-to-be-forgotten request                     | **Delete**   |
+| Permanently close an account on a user's request                          | **Delete**   |
+| Clean up test accounts                                                    | **Delete**   |
+| Hide identity from operators while preserving foreign-key integrity       | **Delete**   |
+
+Deactivate is reversible. Delete is not.
+
+<Callout type="warn">
+  Both actions auto-revoke the user's active sessions. Even a deactivated user holding a still-valid bearer token cannot continue to call the API after the action.
+</Callout>
+
+## Deactivate a user
+
+Removes the user's ability to sign in without removing their record. Their history stays in the audit log under their name; their roles are preserved; their profile is preserved. You can reactivate any time.
+
+### Required permission
+
+`user.lifecycle`. `TenantAdmin` and `Operations` have it by default.
+
+### Steps
+
+#### 1. Open the user detail page
+
+From **People → Users**, click the user you want to deactivate.
+
+#### 2. Click **Deactivate**
+
+The **Deactivate** button is in the actions panel on the right of the user detail page. A confirm dialog opens.
+
+#### 3. Provide a reason
+
+The dialog requires a free-form reason (≥ 10 characters). Examples that work well:
+
+- "Contractor end-of-engagement — 2026-05-19"
+- "Long-term leave — to be reactivated on return"
+- "Account compromise — under investigation"
+
+Click **Deactivate**.
+
+#### 4. Verify
+
+A green toast confirms: *"User deactivated and sessions revoked."*
+
+On the user detail page the status badge changes to **Deactivated** (grey). The user's bearer token, if any was active, stops authenticating within ~30 seconds (the platform's session-blocklist cache TTL).
+
+### What happens behind the scenes
+
+1. The platform writes a blocklist entry that invalidates all sessions older than this moment (see [Revoke sessions](/docs/tenant-admin/users-and-roles/revoke-sessions) for the mechanism).
+2. The user's status changes to **Deactivated**.
+3. The reason and operator are written to the audit log as `user.deactivated`.
+4. Subsequent sign-in attempts via the IdP fail with *"Account is deactivated. Contact your administrator."*
+
+The user's IdP account (in Auth0 or Entra) is **not** disabled. If you want to also block sign-in at the IdP, disable them there separately.
+
+## Reactivate a user
+
+### Steps
+
+#### 1. Find the deactivated user
+
+In **People → Users**, filter by **Status: Deactivated**.
+
+#### 2. Open the user detail page
+
+Click the user.
+
+#### 3. Click **Reactivate**
+
+The same button slot that held **Deactivate** now reads **Reactivate**. A confirm dialog appears.
+
+#### 4. Confirm
+
+Click **Reactivate**. A green toast confirms: *"User reactivated."*
+
+The status badge returns to **Active**. The user can now sign in again, with the same roles they held before deactivation. They will need to re-authenticate at the IdP because their previous sessions were revoked.
+
+### What gets audit-logged
+
+| Action               | When emitted                                                       |
+| -------------------- | ------------------------------------------------------------------ |
+| `user.deactivated`   | The deactivation, with the operator's reason in the data column.    |
+| `user.sessions-revoked` | Emitted as part of the deactivation (auto-revoke).               |
+| `user.reactivated`   | Reactivation, with the operator and timestamp.                      |
+
+## Hard delete a user
+
+Permanently removes the user record, scrubs their PII from the audit log, and deletes their IdP user account. **This action cannot be undone.**
+
+<Callout type="warn">
+  Use deactivation by default. Reach for hard delete only when the user record must legally or contractually disappear (GDPR Article 17 request, account closure, regulatory cleanup). Deleting is destructive and irreversible.
+</Callout>
+
+### Required permission
+
+`user.delete`. By default only `TenantAdmin` holds it. The platform does not auto-grant `user.delete` to `Operations` because of the action's destructiveness.
+
+### Steps
+
+#### 1. Open the user detail page
+
+From **People → Users**, click the user you intend to delete.
+
+#### 2. Click **Delete user**
+
+The red **Delete user** button sits at the bottom of the actions panel. Clicking opens a destructive confirm dialog.
+
+#### 3. Confirm the deletion
+
+The confirm dialog requires three things, in order:
+
+1. **Type the user's email exactly.** Anti-fat-finger protection — copy-paste from the panel above if needed.
+2. **Provide a deletion reason (≥ 10 characters).** Stored on the tombstone record. Examples:
+   - "GDPR right-to-be-forgotten — case 2026-04-127"
+   - "Test account cleanup"
+   - "Account closure requested by user, ref ticket #4821"
+3. **Acknowledge the irreversibility.** A checkbox: *"I understand this user record cannot be restored."*
+
+The **Delete permanently** button stays disabled until all three are satisfied.
+
+#### 4. Click **Delete permanently**
+
+The platform executes the deletion (this can take 2-5 seconds). When done, a green toast confirms:
+
+> User permanently deleted. Tombstone `01J3MPK4ZJ8…` created.
+
+The Admin UI navigates back to the user list. The deleted user no longer appears.
+
+### What gets deleted
+
+The hard delete is GDPR-strict. The following data is removed or redacted:
+
+| Where                          | What happens                                                                                  |
+| ------------------------------ | --------------------------------------------------------------------------------------------- |
+| `AnkUsers`                     | Row deleted entirely.                                                                          |
+| User profile (photo, title)    | Deleted.                                                                                       |
+| Role assignments               | Cascade-deleted.                                                                               |
+| Email / phone verification rows | Deleted.                                                                                      |
+| Active sessions                | Revoked inline (blocklist row, cache invalidated).                                              |
+| `AnkAuditLogs`                 | Rows referencing the user are **redacted** — `ResourceLabel` becomes `(deleted user)`, `ActorEmail` and `ActorDisplayName` are set to `NULL`. Action codes and timestamps are preserved. |
+| **IdP user account**           | The user record at Auth0 (`DELETE /api/v2/users/{id}`) or Entra (`DELETE /users/{id}`) is also deleted. |
+| **Tombstone**                  | A row in `AnkUserTombstones` records the deletion: operator, timestamp, reason, deleted-user-id. |
+
+The tombstone exists so that any foreign-key references in historical data (e.g. an old invoice's "issued by" field) can resolve to "(deleted user)" rather than orphan.
+
+### What does NOT get deleted
+
+- The user's domain artefacts — invoices they issued, payments they captured, ledger entries — remain intact. Removing them would corrupt the platform's financial truth.
+- The audit-log rows themselves remain. Only the PII columns are redacted.
+- Cross-tenant artefacts referencing the same person (if they existed in multiple tenants) are tenant-scoped — deleting in this tenant does not affect other tenants.
+
+## Review past deletions
+
+Hard deletions are visible in the tombstones page under **Compliance**.
+
+### Steps
+
+#### 1. Open Compliance → Deleted users
+
+You'll see a table of every hard delete in your tenant, sorted by most recent.
+
+#### 2. Inspect a tombstone
+
+Each row shows:
+
+| Column                 | Notes                                                                  |
+| ---------------------- | ---------------------------------------------------------------------- |
+| **Tombstone ID**       | Use this when responding to a GDPR audit.                              |
+| **Deleted on**         | UTC timestamp.                                                          |
+| **Deleted by**         | Operator who performed the action.                                      |
+| **Reason**             | The free-form reason the operator provided.                             |
+| **Original user ID**   | The GUID of the user record that no longer exists. Use this to find redacted audit-log entries. |
+
+Click any row to see the full tombstone payload.
+
+### Required permission
+
+`compliance.read` is enough to view tombstones. The full audit-log surface is similarly gated.
+
+## Troubleshooting
+
+### "Cannot deactivate the last TenantAdmin"
+
+You're trying to deactivate or delete the only remaining `TenantAdmin` user in your tenant. The platform blocks this to prevent a lockout. Assign `TenantAdmin` to another user first, then retry.
+
+### "IdP user deletion failed"
+
+The platform deleted the local row and revoked sessions but couldn't reach the IdP management API to delete the IdP user. The tombstone is still created with a flag. Resolve by:
+
+1. Opening the IdP dashboard (Auth0 or Entra ID) and deleting the user manually.
+2. Calling `POST /admin/users/tombstones/{id}/retry-idp-delete` to retry from the platform side once the IdP is reachable.
+
+### "Sessions revoked but user is still active in Admin UI"
+
+The blocklist cache TTL is up to 30 seconds. Wait, then retry — the user's next request should be rejected. If the user is still authenticated after a minute, check that auto-revoke-on-deactivate is enabled (it's on by default; the operator-facing feature flag is `UserLifecycle.AutoRevokeOnDeactivate`).
+
+## What's next
+
+- [Revoke sessions](/docs/tenant-admin/users-and-roles/revoke-sessions) — for incident response without deactivating
+- [Manage users](/docs/tenant-admin/users-and-roles/manage-users) — non-destructive day-to-day work

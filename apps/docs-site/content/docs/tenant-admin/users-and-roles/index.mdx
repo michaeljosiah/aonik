@@ -1,0 +1,75 @@
+---
+title: Users and roles
+description: Manage every user in your tenant — invite, configure, lock down, remove. Plus the role catalogue and the permission model.
+---
+
+This section covers the full user lifecycle in the Aonik Admin UI, from invitation through deletion. Every action you'll take lives under **People** in the sidebar.
+
+<Callout type="info">
+  All actions in this section are tenant-scoped. You can only see and modify users who belong to the tenant you are currently signed in to. To work across tenants you need the platform-wide `PlatformAdmin` role; switch tenants from the avatar menu in the top right.
+</Callout>
+
+## Where to find things
+
+Open **People** from the left navigation. You'll see four pages:
+
+| Page          | What it is                                                                          |
+| ------------- | ----------------------------------------------------------------------------------- |
+| **Users**     | The user list. Click any row to open that user's detail page.                       |
+| **Roles**     | The role catalogue — seeded roles, plus any custom roles you create.                |
+| **Permissions** | The full catalogue of permission strings the platform exposes. Reference-only.    |
+| **Deleted users** | Tombstones from hard-delete actions. Under **Compliance** in the navigation.    |
+
+The user detail page itself has five tabs: **Profile**, **Roles**, **Permissions**, **Sessions**, **Activity**.
+
+## Status badges you'll see
+
+Every user row shows a coloured status badge. The same badge appears in the top-left of the user detail page.
+
+| Badge                | Meaning                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| **Active**           | The user has accepted their invite and can sign in.                                              |
+| **Invited** (amber)  | A placeholder user exists but no IdP identity has been linked yet. The invite email is pending acceptance. |
+| **Pending**          | The user finished IdP sign-up but is awaiting an additional step (KYC, email verification, etc.).|
+| **Sessions revoked** (orange) | The user has been kicked out of all current sessions. They can sign in again if they still have valid credentials. |
+| **Deactivated**      | The user account is disabled. They cannot sign in. Reversible.                                   |
+
+## Seeded roles
+
+Aonik seeds the following roles when a tenant is provisioned. You can assign any combination to any user.
+
+| Role             | Scope              | What it grants                                                                                |
+| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| `PlatformAdmin`  | Platform-wide      | Cross-tenant administration. Granted only via [bootstrap](/docs/operate/install-configure/bootstrap-tenant). |
+| `TenantAdmin`    | Your tenant        | Everything within the tenant — invites, deletes, role changes, settings.                       |
+| `Operations`     | Your tenant        | Day-to-day operational state. Cannot delete users or change tenant settings.                   |
+| `ReadOnly`       | Your tenant        | Read every page; cannot modify anything. Good for auditors.                                    |
+| `Compliance`     | Your tenant        | Compliance queue, document review, audit log. Read-only on everything else.                    |
+| `PersonalUser`   | Your tenant        | The default role for end-users of consumer-facing applications built on the platform.          |
+
+You can also create custom roles — see [Roles and permissions](/docs/tenant-admin/users-and-roles/roles-and-permissions).
+
+## What this section covers
+
+- [Invite a user](/docs/tenant-admin/users-and-roles/invite-a-user) — send an invitation email; the invitee accepts via your identity provider and lands inside the Admin UI ready to work.
+- [Manage users](/docs/tenant-admin/users-and-roles/manage-users) — search, filter, edit profiles, change role assignments, inspect what permissions a user has.
+- [Deactivate or delete a user](/docs/tenant-admin/users-and-roles/deactivate-and-delete) — reversible deactivation or GDPR-strict hard delete with audit-log redaction.
+- [Revoke sessions](/docs/tenant-admin/users-and-roles/revoke-sessions) — force a compromised or departing user offline immediately without deactivating their account.
+- [Roles and permissions](/docs/tenant-admin/users-and-roles/roles-and-permissions) — the seeded role catalogue, the permission model, and how to build custom roles.
+
+## What permissions you need
+
+Every action below requires a permission on your current user. The seeded roles cover most needs.
+
+| Action                          | Permission                  | Default role grants                          |
+| ------------------------------- | --------------------------- | -------------------------------------------- |
+| View the user list              | `user.read`                 | Every role except `PersonalUser`.            |
+| Invite a new user               | `user.invite`               | `TenantAdmin`, `Operations`.                 |
+| Edit profile / assign roles     | `user.write`                | `TenantAdmin`, `Operations`.                 |
+| Deactivate / reactivate         | `user.lifecycle`            | `TenantAdmin`, `Operations`.                 |
+| Revoke sessions                 | `user.revoke-sessions`      | `TenantAdmin`, `Operations`.                 |
+| Hard delete + tombstones        | `user.delete`               | `TenantAdmin` only.                          |
+| Create / edit custom roles      | `role.write`                | `TenantAdmin` only.                          |
+| Browse audit log entries        | `audit.read`                | `TenantAdmin`, `Compliance`.                 |
+
+If a button is greyed out, you do not hold the required permission. Ask a `TenantAdmin` to grant it on your account.
