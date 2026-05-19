@@ -32,6 +32,9 @@ param tags object = {}
 @description('System principal id (from apiApp.identity.principalId) to grant the Azure ContainerApps Session Executor role to.')
 param apiPrincipalId string
 
+@description('User-assigned principal id (from apiPullIdentity.properties.principalId). Granted the same roles to cover identity-selection ambiguity in DefaultAzureCredential / ManagedIdentityCredential.')
+param apiUserAssignedPrincipalId string = ''
+
 @description('Maximum concurrent sessions the pool can host. Each session is one Hyper-V Python sandbox.')
 param maxConcurrentSessions int = 50
 
@@ -103,6 +106,32 @@ resource contributorRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', contributorRoleDefinitionId)
     principalId: apiPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Also grant the same roles to the user-assigned identity (apiPullIdentity).
+// In an ACA container with both system-assigned and user-assigned identities,
+// the IDMS endpoint MAY return tokens for either, depending on the client_id
+// query param. We've been getting 401s even with the system-assigned identity
+// granted the role — possibly because the actual token comes from the
+// user-assigned identity. Granting roles to both eliminates the ambiguity.
+resource sessionExecutorRoleForApiPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(apiUserAssignedPrincipalId)) {
+  scope: sessionPool
+  name: guid(sessionPool.id, apiUserAssignedPrincipalId, sessionExecutorRoleDefinitionId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', sessionExecutorRoleDefinitionId)
+    principalId: apiUserAssignedPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource contributorRoleForApiPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(apiUserAssignedPrincipalId)) {
+  scope: sessionPool
+  name: guid(sessionPool.id, apiUserAssignedPrincipalId, contributorRoleDefinitionId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', contributorRoleDefinitionId)
+    principalId: apiUserAssignedPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
