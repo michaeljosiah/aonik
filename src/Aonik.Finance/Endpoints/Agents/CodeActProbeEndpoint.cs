@@ -1,28 +1,38 @@
 using Aonik.Finance.Agents.CodeAct;
+using Azure.Core;
+using Azure.Identity;
 using FastEndpoints;
+using Microsoft.Extensions.Options;
 
 namespace Aonik.Finance.Endpoints.Agents;
 
 /// <summary>
-/// Self-contained probe of the AcaSessions stack: invokes
-/// <see cref="AcaSessionsClient.ExecuteAsync"/> with a trivial Python script
-/// (<c>print("hello")</c>) and returns the result + the token claims in the
-/// SAME response. Sidesteps the multi-replica problem with /debug-tail —
-/// because the call happens INSIDE this request, the static
-/// <c>LastTokenClaimsForDiagnostic</c> we read is guaranteed to be the one
-/// the call just populated.
+/// Self-contained probe of the AcaSessions stack. Invokes ACA Sessions
+/// directly across a MATRIX of (endpoint path × api-version) so a single
+/// request shows which combos accept the managed-identity token. Sidesteps
+/// the multi-replica problem with /debug-tail because the call happens inside
+/// this request — the token claims we report are guaranteed to be the ones
+/// the call just used.
 /// </summary>
 /// <remarks>
-/// Admin-only. Diagnostic-only — does NOT mint a nonce or call back, so
-/// nothing in the API state changes besides the static diagnostic slots.
+/// Admin-only. Diagnostic-only — does not mint a nonce or call back.
 /// </remarks>
 internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbeResponse>
 {
-    private readonly AcaSessionsClient _client;
+    private static readonly string[] TokenScopes = ["https://dynamicsessions.io/.default"];
 
-    public CodeActProbeEndpoint(AcaSessionsClient client)
+    private readonly AcaSessionsClient _client;
+    private readonly IOptions<AcaSessionsOptions> _options;
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public CodeActProbeEndpoint(
+        AcaSessionsClient client,
+        IOptions<AcaSessionsOptions> options,
+        IHttpClientFactory httpClientFactory)
     {
         _client = client;
+        _options = options;
+        _httpClientFactory = httpClientFactory;
     }
 
     public override void Configure()
@@ -31,14 +41,18 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
         Policies("AdminPolicy");
         Summary(s =>
         {
-            s.Summary = "Self-contained probe of the AcaSessions stack";
-            s.Description = "Invokes ACA Sessions /executions with a trivial Python script and returns the response inline alongside the token claims — so the developer doesn't have to deal with the multi-replica problem that /debug-tail hits.";
+            s.Summary = "Probe ACA Sessions across (path × api-version) matrix";
+            s.Description = "Acquires the dynamicsessions.io managed-identity token and POSTs print('probe ok') against every (endpoint path, api-version) combo. Returns each combo's HTTP status + body + headers so a developer can see exactly which combo accepts MI tokens without needing several deploys.";
         });
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        var opts = _options.Value;
         var sessionId = "codeact-probe-" + Guid.NewGuid().ToString("N");
+
+        // Run the original "build a tool + execute" path first so the static
+        // diagnostic slots get populated as a baseline.
         string? execError = null;
         AcaSessionsExecutionResult? result = null;
         try
@@ -53,8 +67,82 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
             execError = $"{ex.GetType().Name}: {ex.Message}";
         }
 
-        // Capture ACA / identity-related env vars so we can see whether
-        // AZURE_CLIENT_ID is set (which would override ManagedIdentityCredential).
+        // Direct matrix probe — bypass AcaSessionsClient so we can vary the
+        // path + api-version per request. Re-acquires the token here to make
+        // sure the matrix uses the same identity that the production path would.
+        TokenCredential credential = !string.IsNullOrWhiteSpace(opts.ManagedIdentityClientId)
+            ? new ManagedIdentityCredential(opts.ManagedIdentityClientId)
+            : new ManagedIdentityCredential();
+
+        string? matrixToken = null;
+        string? matrixTokenError = null;
+        try
+        {
+            var token = await credential.GetTokenAsync(new TokenRequestContext(TokenScopes), ct).ConfigureAwait(false);
+            matrixToken = token.Token;
+        }
+        catch (Exception ex)
+        {
+            matrixTokenError = $"{ex.GetType().Name}: {ex.Message}";
+        }
+
+        var matrix = new List<CodeActProbeMatrixEntry>();
+        if (matrixToken is not null && !string.IsNullOrWhiteSpace(opts.PoolManagementEndpoint))
+        {
+            var paths = new[] { "/code/execute", "/executions" };
+            var versions = new[]
+            {
+                "2024-02-02-preview",
+                "2024-08-02-preview",
+                "2024-10-02-preview",
+                "2025-02-02-preview",
+                "2025-10-02-preview",
+            };
+            var httpClient = _httpClientFactory.CreateClient("acaSessionsProbe");
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
+            foreach (var path in paths)
+            {
+                foreach (var version in versions)
+                {
+                    var url = $"{opts.PoolManagementEndpoint.TrimEnd('/')}{path}?api-version={Uri.EscapeDataString(version)}&identifier=matrix-{Guid.NewGuid():N}";
+                    try
+                    {
+                        using var req = new HttpRequestMessage(System.Net.Http.HttpMethod.Post, url)
+                        {
+                            Content = new StringContent(
+                                "{\"properties\":{\"codeInputType\":\"inline\",\"executionType\":\"synchronous\",\"code\":\"print('hi')\"}}",
+                                System.Text.Encoding.UTF8,
+                                "application/json"),
+                        };
+                        req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", matrixToken);
+                        using var resp = await httpClient.SendAsync(req, ct).ConfigureAwait(false);
+                        var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                        var wwwAuth = resp.Headers.TryGetValues("WWW-Authenticate", out var w) ? string.Join(" | ", w) : null;
+                        var correlation = resp.Headers.TryGetValues("mise-correlation-id", out var m) ? string.Join(",", m) : null;
+                        matrix.Add(new CodeActProbeMatrixEntry(
+                            Path: path,
+                            ApiVersion: version,
+                            StatusCode: (int)resp.StatusCode,
+                            BodySnippet: body.Length <= 300 ? body : body.Substring(0, 300) + "…",
+                            WwwAuthenticate: wwwAuth,
+                            MiseCorrelationId: correlation,
+                            Error: null));
+                    }
+                    catch (Exception ex)
+                    {
+                        matrix.Add(new CodeActProbeMatrixEntry(
+                            Path: path,
+                            ApiVersion: version,
+                            StatusCode: 0,
+                            BodySnippet: null,
+                            WwwAuthenticate: null,
+                            MiseCorrelationId: null,
+                            Error: $"{ex.GetType().Name}: {ex.Message}"));
+                    }
+                }
+            }
+        }
+
         var envSnapshot = new Dictionary<string, string?>
         {
             ["AZURE_CLIENT_ID"] = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID"),
@@ -64,6 +152,7 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
             ["IDENTITY_HEADER_SET"] = Environment.GetEnvironmentVariable("IDENTITY_HEADER") is not null ? "[set]" : null,
             ["CONTAINER_APP_NAME"] = Environment.GetEnvironmentVariable("CONTAINER_APP_NAME"),
             ["CONTAINER_APP_REVISION"] = Environment.GetEnvironmentVariable("CONTAINER_APP_REVISION"),
+            ["AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID"] = opts.ManagedIdentityClientId is { Length: > 0 } ? "[set]" : null,
         };
 
         await Send.OkAsync(new CodeActProbeResponse(
@@ -72,6 +161,8 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
             ExceptionMessage: execError,
             LastTokenClaims: AcaSessionsClient.LastTokenClaimsForDiagnostic,
             LastResponseHeaders: AcaSessionsClient.LastResponseHeadersForDiagnostic,
+            MatrixTokenError: matrixTokenError,
+            Matrix: matrix,
             EnvSnapshot: envSnapshot), ct);
     }
 }
@@ -82,4 +173,15 @@ public sealed record CodeActProbeResponse(
     string? ExceptionMessage,
     string? LastTokenClaims,
     string? LastResponseHeaders,
+    string? MatrixTokenError,
+    IReadOnlyList<CodeActProbeMatrixEntry> Matrix,
     Dictionary<string, string?> EnvSnapshot);
+
+public sealed record CodeActProbeMatrixEntry(
+    string Path,
+    string ApiVersion,
+    int StatusCode,
+    string? BodySnippet,
+    string? WwwAuthenticate,
+    string? MiseCorrelationId,
+    string? Error);
