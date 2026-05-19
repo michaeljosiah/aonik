@@ -1,0 +1,204 @@
+---
+title: Install & Auth
+description: Sign in to an Aonik tenant from the CLI, inspect the active session, refresh user info, and sign out.
+---
+
+This page covers four commands under `aonik auth`. Together they form the complete authentication lifecycle.
+
+<Callout type="info">
+  Aonik supports Auth0 and Microsoft Entra ID as identity providers. You must have a [bootstrapped tenant](/docs/install-configure/bootstrap-tenant) and an [identity provider configured](/docs/identity-access) before any of these commands will succeed.
+</Callout>
+
+## `aonik auth login`
+
+Establish a session with an Aonik API endpoint and persist it to disk.
+
+**Synopsis:**
+
+```bash
+aonik auth login --base-url <url> [ --access-token <token> | --username <email> --password <password> ] [flags]
+```
+
+**Flags:**
+
+| Flag             | Type    | Required                | Description                                                                                |
+| ---------------- | ------- | ----------------------- | ------------------------------------------------------------------------------------------ |
+| `--base-url`     | string  | Yes                     | Aonik API base URL, e.g. `https://localhost:5001` or `https://api.your-tenant.aonik.io`.   |
+| `--access-token` | string  | One-of: token *or* user | Use an existing bearer token (skips the OAuth password grant).                             |
+| `--username`     | string  | One-of: token *or* user | Username / email. Must be paired with `--password`.                                        |
+| `--password`     | string  | If `--username` is set  | Password for the password grant.                                                           |
+| `--client-id`    | string  | No                      | OAuth client ID. Defaults to the public auth-provider setting fetched from the API.        |
+| `--scope`        | string  | No                      | OAuth scope override.                                                                      |
+| `--tenant-id`    | guid    | No                      | Tenant override. Defaults to the tenant resolved from the bearer token.                    |
+| `--output`       | enum    | No                      | `text` (default) or `json`.                                                                |
+
+You must supply **either** `--access-token` **or** both `--username` and `--password`. Mixing them is a validation error.
+
+**What login does, in order:**
+
+1. Fetches public auth settings from `GET /v1/settings/auth-provider`.
+2. Either uses the supplied `--access-token`, or performs an OAuth password grant against `POST /auth/token`.
+3. Calls `GET /identity/userinfo` to populate `userId`, `email`, `tenantId`, and the active provider.
+4. Persists the session to `cli-session.json` (see [Session storage](/docs/cli/#session-storage)).
+
+**Example: password grant against local dev:**
+
+```bash
+aonik auth login \
+  --base-url https://localhost:5001 \
+  --username you@example.com \
+  --password 'Sup3r-Secret!' \
+  --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "baseUrl": "https://localhost:5001",
+  "activeProvider": "Auth0",
+  "email": "you@example.com",
+  "userId": "9a93b8a5-...-...-...-1c5d3b7e9d22",
+  "tenantId": "5c2a1d4f-...-...-...-7e8f9a0b1c2d",
+  "expiresAt": "2026-05-19T08:11:42Z"
+}
+```
+
+**Example: hand off an existing token from another tool:**
+
+```bash
+aonik auth login \
+  --base-url https://api.your-tenant.aonik.io \
+  --access-token "$ACCESS_TOKEN"
+```
+
+**Common failures:**
+
+- `Error: --base-url is required.` — supply it.
+- `Error: provide either --access-token, or both --username and --password.` — pick one path.
+- `Error: HTTP 401 from POST /auth/token` — credentials are wrong, the user is disabled, or the IdP audience does not match. Re-check the identity provider configuration.
+
+## `aonik auth status`
+
+Print the active session without contacting the API.
+
+**Synopsis:**
+
+```bash
+aonik auth status [--output text|json]
+```
+
+**Behaviour:**
+
+- Returns exit code `0` and prints session details if a session file exists.
+- Returns exit code `1` if no session file is present.
+
+**Example:**
+
+```bash
+aonik auth status --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "baseUrl": "https://localhost:5001",
+  "activeProvider": "Auth0",
+  "email": "you@example.com",
+  "userId": "9a93b8a5-...-1c5d3b7e9d22",
+  "tenantId": "5c2a1d4f-...-7e8f9a0b1c2d",
+  "expiresAt": "2026-05-19T08:11:42Z",
+  "lastSessionId": "01J39K2A5VVH3M3R3M8GJZQX9Y",
+  "lastThreadId": "01J39K2A5VVH3M3R3M8GJZQX9Y"
+}
+```
+
+`lastSessionId` and `lastThreadId` are populated by previous `aonik agent` calls so subsequent runs can default to the same conversation. Clear them by signing out and back in.
+
+## `aonik auth whoami`
+
+Round-trips to `GET /identity/userinfo` to confirm the bearer token still works **and** refresh the cached user info in the session file. Use this if you suspect a stale session.
+
+**Synopsis:**
+
+```bash
+aonik auth whoami [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik auth whoami --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "userId": "9a93b8a5-...-1c5d3b7e9d22",
+  "email": "you@example.com",
+  "tenantId": "5c2a1d4f-...-7e8f9a0b1c2d",
+  "partyId": "8b7c6d5e-...-4f3e2d1c0b9a",
+  "roles": ["PlatformAdmin", "TenantAdmin"]
+}
+```
+
+**If the API returns `401`:** the bearer token has expired or been revoked. Re-run `aonik auth login`.
+
+## `aonik auth logout`
+
+Delete the local session file. Does not contact the API.
+
+**Synopsis:**
+
+```bash
+aonik auth logout
+```
+
+**Example:**
+
+```bash
+aonik auth logout
+```
+
+**Output (text):**
+
+```
+AONIK CLI session cleared.
+```
+
+After logout, every other command exits with `Error: no active session. Run 'aonik auth login' first.` until you sign in again.
+
+## End-to-end smoke test
+
+A single block that proves the auth lifecycle works against a local stack. Exits non-zero on the first failure.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+
+# 1. Sign in
+aonik auth login `
+  --base-url https://localhost:5001 `
+  --username 'you@example.com' `
+  --password '<your-password>' `
+  --output json | Out-Null
+
+# 2. Confirm a session is on disk
+$status = aonik auth status --output json | ConvertFrom-Json
+if (-not $status.userId) { throw "auth status returned no userId" }
+
+# 3. Round-trip to /identity/userinfo
+$me = aonik auth whoami --output json | ConvertFrom-Json
+if ($me.email -ne $status.email) { throw "whoami email mismatch" }
+
+# 4. Sign out
+aonik auth logout | Out-Null
+
+Write-Host '✅ Auth lifecycle OK' -ForegroundColor Green
+```
+
+## What's next
+
+- [Agents](/docs/cli/agents) — list, run, and stream agents now that you are signed in
+- [Output formats](/docs/cli/output-formats) — text vs JSON vs NDJSON for scripting

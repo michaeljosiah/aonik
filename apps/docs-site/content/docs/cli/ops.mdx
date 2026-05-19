@@ -1,0 +1,418 @@
+---
+title: Ops
+description: Trigger workflows, manage scheduled jobs, inspect the ledger, work with invoices and payment intents — all from the CLI.
+---
+
+The `aonik ops` group is for explicit operational tasks an operator (or agent harness) performs against the platform. Every command requires an active session (see [Install & Auth](/docs/cli/install-and-auth)).
+
+The group has four sub-areas: **workflow**, **jobs**, **ledger**, **invoices**, and **payments**.
+
+## `aonik ops workflow`
+
+Run a named workflow from the orchestrator with a string input. Workflows are defined in the Admin UI workflow editor and executed by the Worker.
+
+**Synopsis:**
+
+```bash
+aonik ops workflow --workflow-name <name> --input "<input>" [--output text|json]
+```
+
+**Flags:**
+
+| Flag              | Type   | Required | Description                                                                  |
+| ----------------- | ------ | -------- | ---------------------------------------------------------------------------- |
+| `--workflow-name` | string | Yes      | Workflow identifier as defined in the Admin UI.                              |
+| `--input`         | string | Yes      | Workflow input passed through to the API verbatim. Often JSON-encoded.       |
+| `--output`        | enum   | No       | `text` (default) or `json`.                                                  |
+
+**Example:**
+
+```bash
+aonik ops workflow \
+  --workflow-name MonthlyStatementGeneration \
+  --input '{"tenantId":"5c2a1d4f-...","month":"2026-04"}' \
+  --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "workflowName": "MonthlyStatementGeneration",
+  "output": "Generated 412 statements.",
+  "success": true,
+  "error": null
+}
+```
+
+On failure `success` is `false` and `error` carries the message. The CLI also exits with code `1`.
+
+## Jobs
+
+`aonik ops jobs` covers Quartz-scheduled background work.
+
+### `aonik ops jobs list`
+
+List every job the Worker has registered, with cron schedule and last-run outcome.
+
+**Synopsis:**
+
+```bash
+aonik ops jobs list [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik ops jobs list --output json
+```
+
+**Output (json, truncated):**
+
+```json
+{
+  "jobs": [
+    {
+      "jobName": "CostGuardJob",
+      "groupName": "ai",
+      "description": "Enforces per-tenant AI cost caps every 5 minutes.",
+      "cronExpression": "0 */5 * * * ?",
+      "status": "Normal",
+      "nextFireTimeUtc": "2026-05-19T07:50:00Z",
+      "previousFireTimeUtc": "2026-05-19T07:45:00Z",
+      "displayName": "AI cost guard",
+      "lastOutcome": "Success",
+      "lastOutcomeSummary": "Checked 4 tenants. No caps tripped.",
+      "lastDurationMs": 318
+    },
+    {
+      "jobName": "SnapshotJob",
+      "groupName": "finance",
+      "description": "Captures end-of-day balance snapshots.",
+      "cronExpression": "0 0 1 * * ?",
+      "status": "Normal",
+      "nextFireTimeUtc": "2026-05-20T01:00:00Z",
+      "previousFireTimeUtc": "2026-05-19T01:00:00Z",
+      "displayName": "Daily snapshot",
+      "lastOutcome": "Success",
+      "lastOutcomeSummary": "Snapshotted 27 ledgers.",
+      "lastDurationMs": 14702
+    }
+  ]
+}
+```
+
+### `aonik ops jobs health`
+
+Report Quartz scheduler health metrics.
+
+**Synopsis:**
+
+```bash
+aonik ops jobs health [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik ops jobs health --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "schedulerName": "AonikQuartz",
+  "schedulerInstanceId": "WORKER-1_2026-05-19T06:00:01Z",
+  "isStarted": true,
+  "inStandbyMode": false,
+  "threadPoolSize": 10,
+  "activeJobCount": 0,
+  "totalJobCount": 14,
+  "totalTriggerCount": 18,
+  "recordedAtUtc": "2026-05-19T07:46:13Z"
+}
+```
+
+Use this from an external monitor to alert if `isStarted` is `false`, `inStandbyMode` is `true`, or `recordedAtUtc` is stale.
+
+### `aonik ops jobs trigger`
+
+Immediately fire a job out-of-schedule.
+
+**Synopsis:**
+
+```bash
+aonik ops jobs trigger --job-name <name> [--output text|json]
+```
+
+**Flags:**
+
+| Flag         | Type   | Required | Description                                                       |
+| ------------ | ------ | -------- | ----------------------------------------------------------------- |
+| `--job-name` | string | Yes      | Exact `jobName` from `aonik ops jobs list`.                       |
+| `--output`   | enum   | No       | `text` (default) or `json`.                                       |
+
+**Example:**
+
+```bash
+aonik ops jobs trigger --job-name CostGuardJob --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "jobName": "CostGuardJob",
+  "action": "trigger",
+  "success": true,
+  "message": "Job triggered.",
+  "commandId": "01J39K4B8YJR6X9S4N9HKAQY0Z",
+  "commandStatus": "Accepted"
+}
+```
+
+`commandId` lets you correlate the trigger with the eventual run record in the Admin UI job history.
+
+## Ledger
+
+### `aonik ops ledger list`
+
+List ledgers in the active tenant.
+
+**Synopsis:**
+
+```bash
+aonik ops ledger list [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik ops ledger list --output json
+```
+
+**Output (json):**
+
+```json
+[
+  {
+    "id": "f1e2d3c4-...-...-...-b5a69788c0a1",
+    "baseCurrency": "GBP",
+    "createdUtc": "2026-04-01T10:00:00Z"
+  }
+]
+```
+
+### `aonik ops ledger create`
+
+Create a new ledger in the active tenant.
+
+**Synopsis:**
+
+```bash
+aonik ops ledger create --base-currency <ISO-code> [--output text|json]
+```
+
+**Flags:**
+
+| Flag               | Type   | Required | Description                                                  |
+| ------------------ | ------ | -------- | ------------------------------------------------------------ |
+| `--base-currency`  | string | Yes      | ISO 4217 currency code (e.g. `GBP`, `USD`, `NGN`).           |
+| `--output`         | enum   | No       | `text` (default) or `json`.                                  |
+
+**Example:**
+
+```bash
+aonik ops ledger create --base-currency USD --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "id": "a4b5c6d7-...-...-...-1e2d3c4b5a69",
+  "baseCurrency": "USD",
+  "createdUtc": "2026-05-19T07:46:30Z"
+}
+```
+
+<Callout type="warn">
+  Most tenants only need one ledger. Creating multiple ledgers is an advanced pattern — discuss with the platform owner before doing this in production.
+</Callout>
+
+## Invoices
+
+### `aonik ops invoices list`
+
+List invoices for the active tenant, optionally filtered by status.
+
+**Synopsis:**
+
+```bash
+aonik ops invoices list [--status <status>] [--output text|json]
+```
+
+**Flags:**
+
+| Flag       | Type   | Required | Description                                                                 |
+| ---------- | ------ | -------- | --------------------------------------------------------------------------- |
+| `--status` | string | No       | Filter — typically `Draft`, `Issued`, `Paid`, or `Cancelled`.               |
+| `--output` | enum   | No       | `text` (default) or `json`.                                                 |
+
+**Example:**
+
+```bash
+aonik ops invoices list --status Issued --output json
+```
+
+**Output (json, truncated):**
+
+```json
+[
+  {
+    "id": "c3d4e5f6-...-...-...-7a8b9c0d1e2f",
+    "customerId": "9a93b8a5-...-...-...-1c5d3b7e9d22",
+    "invoiceNumber": "INV-2026-00417",
+    "currency": "GBP",
+    "totalAmount": 1240.50,
+    "status": "Issued",
+    "issuedUtc": "2026-05-12T09:14:02Z",
+    "dueUtc": "2026-05-26T23:59:59Z",
+    "lineItems": [
+      {
+        "id": "ee11ff22-...-...-...-3344aabb",
+        "description": "Platform subscription — May",
+        "quantity": 1,
+        "unitPrice": 1240.50,
+        "lineTotal": 1240.50
+      }
+    ]
+  }
+]
+```
+
+`ops invoices` does not yet support paging or richer filtering from the CLI. For drill-down queries use the [API Reference](/docs/api-reference) directly.
+
+## Payments
+
+Payment intents track the lifecycle of a single funding attempt against an order.
+
+### `aonik ops payments create-intent`
+
+Create a new payment intent against an order.
+
+**Synopsis:**
+
+```bash
+aonik ops payments create-intent \
+  --amount <decimal> --currency <ISO> --reference <string> --order-id <guid> \
+  [--invoice-id <guid>] [--output text|json]
+```
+
+**Flags:**
+
+| Flag           | Type    | Required | Description                                                                |
+| -------------- | ------- | -------- | -------------------------------------------------------------------------- |
+| `--amount`     | decimal | Yes      | Amount in the order's settlement currency.                                 |
+| `--currency`   | string  | Yes      | ISO 4217 code.                                                             |
+| `--reference`  | string  | Yes      | Idempotency reference. Reusing a value with different inputs is rejected.  |
+| `--order-id`   | guid    | Yes      | The order this intent funds.                                               |
+| `--invoice-id` | guid    | No       | If the order represents an invoice, the invoice ID for cross-referencing.  |
+| `--output`     | enum    | No       | `text` (default) or `json`.                                                |
+
+**Example:**
+
+```bash
+aonik ops payments create-intent \
+  --amount 1240.50 \
+  --currency GBP \
+  --reference "INV-2026-00417/attempt-1" \
+  --order-id ff112233-...-...-...-aabbccdd \
+  --invoice-id c3d4e5f6-...-...-...-7a8b9c0d1e2f \
+  --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "id": "01J39K5C9ZJS7Y0T5O0IJZRA1B",
+  "orderId": "ff112233-...-aabbccdd",
+  "invoiceId": "c3d4e5f6-...-7a8b9c0d1e2f",
+  "amount": 1240.50,
+  "currency": "GBP",
+  "status": "PendingCapture",
+  "reference": "INV-2026-00417/attempt-1",
+  "createdUtc": "2026-05-19T07:47:01Z"
+}
+```
+
+### `aonik ops payments get <payment-intent-id>`
+
+Fetch a payment intent by ID.
+
+**Synopsis:**
+
+```bash
+aonik ops payments get <payment-intent-id> [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik ops payments get 01J39K5C9ZJS7Y0T5O0IJZRA1B --output json
+```
+
+### `aonik ops payments capture <payment-intent-id>`
+
+Capture a pending payment intent. Idempotent — calling capture twice on the same intent is safe.
+
+**Synopsis:**
+
+```bash
+aonik ops payments capture <payment-intent-id> [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik ops payments capture 01J39K5C9ZJS7Y0T5O0IJZRA1B --output json
+```
+
+**Output (json):**
+
+```json
+{
+  "id": "01J39K5C9ZJS7Y0T5O0IJZRA1B",
+  "orderId": "ff112233-...-aabbccdd",
+  "invoiceId": "c3d4e5f6-...-7a8b9c0d1e2f",
+  "amount": 1240.50,
+  "currency": "GBP",
+  "status": "Captured",
+  "reference": "INV-2026-00417/attempt-1",
+  "createdUtc": "2026-05-19T07:47:01Z"
+}
+```
+
+### `aonik ops payments cancel <payment-intent-id>`
+
+Cancel a pending intent. Fails if the intent is already `Captured` or `Cancelled`.
+
+**Synopsis:**
+
+```bash
+aonik ops payments cancel <payment-intent-id> [--output text|json]
+```
+
+**Example:**
+
+```bash
+aonik ops payments cancel 01J39K5C9ZJS7Y0T5O0IJZRA1B --output json
+```
+
+## What's next
+
+- [Output formats](/docs/cli/output-formats) — text vs JSON vs NDJSON for scripting
+- [Approvals](/docs/cli/approvals) — accept or reject proposals raised by `ops workflow` or agent runs
+- [API Reference](/docs/api-reference) — the underlying endpoints, with full schemas

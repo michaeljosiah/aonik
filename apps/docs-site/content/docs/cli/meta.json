@@ -1,0 +1,11 @@
+{
+  "title": "CLI",
+  "pages": [
+    "index",
+    "install-and-auth",
+    "agents",
+    "approvals",
+    "ops",
+    "output-formats"
+  ]
+}

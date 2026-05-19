@@ -1,26 +1,108 @@
 ---
 title: CLI
-description: The Aonik CLI — a scriptable command surface for agent harnesses and human operators.
+description: The Aonik CLI is a headless, scriptable command surface. Built for agent harnesses and human operators to run explicit operational tasks against the platform.
 ---
 
-<Callout type="warn" title="Coming soon">
-  This section is being written in a later phase of the docs rewrite. Until then, browse the CLI source at `src/Aonik.Cli/`.
+The Aonik CLI is a headless command surface — no built-in chat, no interactive shell. It is invoked by **agent harnesses** (which bring their own conversational UI) and by **human operators** for explicit operational tasks. Every command is scriptable; every output is parseable.
+
+<Callout type="info">
+  This section assumes you already have a [bootstrapped tenant](/docs/install-configure/bootstrap-tenant) and an [identity provider](/docs/identity-access) wired so the CLI can authenticate.
 </Callout>
 
-The Aonik CLI is a headless command surface. It is invoked by agent harnesses (which bring their own chat interface) and run directly by human operators for explicit operational tasks. There is no built-in chat or interactive shell.
+## Install
 
-## What this section will cover
+The CLI lives at `src/Aonik.Cli/` in the [aonik repository](https://github.com/michaeljosiah/aonik). Today it ships as a .NET project; a standalone packaged binary is on the roadmap.
 
-A page per command surface:
+**Build:**
 
-- **Install** — building or installing `Aonik.Cli`
-- **Authenticate** — `auth login` and `auth logout`
-- **Agents** — `agent list`, `agent run <prompt>` for one-shot orchestrator calls, `agent stream` for AG-UI events, `agent threads` / `agent thread <id>` for thread inspection
-- **Approvals** — `approvals list`, `approvals approve <id>`, `approvals reject <id>`
-- **Operations** — `ops jobs`, `ops ledger`, `ops invoices`, `ops payments`, `ops workflow`
-- **Output modes** — JSON, NDJSON, Text
+```powershell
+dotnet build src/Aonik.Cli/Aonik.Cli.csproj -c Release
+```
 
-## In the meantime
+**Run during development (from the repo root):**
 
-- `src/Aonik.Cli/Commands/` (in the repo) — the canonical command source
-- [Glossary](/docs/getting-started/glossary#ai-platform) — Proposal, Approval, AiRun
+```powershell
+dotnet run --project src/Aonik.Cli -- <command> [flags]
+```
+
+**Run from a release build:**
+
+```powershell
+src/Aonik.Cli/bin/Release/net10.0/Aonik.Cli.exe <command> [flags]
+```
+
+For brevity, every example on the remaining pages uses `aonik <command>` — read it as either `dotnet run --project src/Aonik.Cli --` (during development) or the packaged `Aonik.Cli.exe` (once you've built a release).
+
+## Command surface
+
+| Command group  | What it does                                                       | Docs                                                  |
+| -------------- | ------------------------------------------------------------------ | ----------------------------------------------------- |
+| `aonik auth`   | Establish a session, refresh user info, sign out.                  | [Install & Auth](/docs/cli/install-and-auth)          |
+| `aonik agent`  | List, run, stream, and inspect agents and threads.                 | [Agents](/docs/cli/agents)                            |
+| `aonik approvals` | List pending proposals; approve or reject them by ID.           | [Approvals](/docs/cli/approvals)                      |
+| `aonik ops`    | Run workflows; manage scheduled jobs, ledger, invoices, payments.  | [Ops](/docs/cli/ops)                                  |
+
+Every group is non-interactive: each command takes its inputs from flags and prints results to stdout. Errors go to stderr with a non-zero exit code.
+
+## Global behaviour
+
+### Session storage
+
+After `aonik auth login`, the CLI writes a single session file to:
+
+- **Windows:** `%APPDATA%\Aonik\cli-session.json`
+- **macOS / Linux:** `~/.config/Aonik/cli-session.json`
+
+Override the location with the `AONIK_CLI_SESSION_PATH` environment variable. Every subsequent command reads from this file to pick up the API base URL, the bearer token, the tenant, and the last-used session and thread IDs.
+
+The CLI **does not** auto-refresh expired tokens today. When a request fails with `401 Unauthorized`, re-run `aonik auth login`.
+
+### Output formats
+
+Every command accepts `--output` with one of three values:
+
+| Value    | Default? | When to use                                                    |
+| -------- | -------- | -------------------------------------------------------------- |
+| `text`   | Yes      | Human readers. Multi-line, command-specific formatting.        |
+| `json`   | No       | Scripts and agents. One JSON object (or array) per invocation. |
+| `ndjson` | No       | `aonik agent stream` only. One JSON object per event line.     |
+
+For the precise schema each command emits and recipes for piping JSON into `jq` / `ConvertFrom-Json`, see [Output formats](/docs/cli/output-formats).
+
+### Exit codes
+
+Today the CLI uses a binary exit-code model:
+
+| Code | Meaning                                                                                  |
+| ---- | ---------------------------------------------------------------------------------------- |
+| `0`  | Success.                                                                                 |
+| `1`  | Any failure — validation error, missing session, API error, unhandled exception.         |
+
+A more granular scheme (e.g. distinguishing auth vs server errors) is on the roadmap but not implemented yet.
+
+### Error output
+
+All errors are written to **stderr**:
+
+- `Error: <message>` — expected CLI errors (bad flags, missing session, validation failures from the API)
+- `Unexpected error: <message>` — unhandled exceptions; treat as a bug worth reporting
+
+stdout in JSON / NDJSON mode contains only the successful payload — never an error envelope. If your script consumes stdout, an empty stdout combined with a non-zero exit code means "check stderr".
+
+## Patterns for AI agent harnesses
+
+If you are wiring the CLI into an AI agent harness, three rules will save you a lot of grief:
+
+1. **Always pin `--output json` (or `--output ndjson` for `agent stream`).** Text mode is for humans; the formatting is not stable.
+2. **Treat exit code 1 as final.** Read stderr for the error, surface it to the user, do not retry blindly.
+3. **Pass session and thread IDs explicitly when you have them.** The CLI defaults to the "last used" IDs from session storage, which is convenient for a human at a terminal but unsafe for concurrent agent runs.
+
+The [Output formats](/docs/cli/output-formats) page has worked examples for the most common harness patterns.
+
+## What's next
+
+- [Install & Auth](/docs/cli/install-and-auth) — get a session and confirm the API can see you
+- [Agents](/docs/cli/agents) — list, run, and stream agents
+- [Approvals](/docs/cli/approvals) — approve or reject pending proposals
+- [Ops](/docs/cli/ops) — jobs, ledger, invoices, payments, workflows
+- [Output formats](/docs/cli/output-formats) — text, JSON, NDJSON, and scripting recipes

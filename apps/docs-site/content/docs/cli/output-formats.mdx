@@ -1,0 +1,196 @@
+---
+title: Output formats
+description: How to choose between text, JSON, and NDJSON output, what shape each one takes, and recipes for the most common scripting patterns.
+---
+
+The CLI is built to be both human-readable and machine-parseable. Every command supports a `--output` flag with at least two values; one command (`agent stream`) supports a third for event streaming.
+
+This page covers when to use each format, what the output looks like, and the recipes you'll reach for most often.
+
+## The three formats
+
+| Format     | Default for       | Shape                                                                        | Use for                                                            |
+| ---------- | ----------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `text`     | Every command     | Multi-line, command-specific. Not stable across releases.                    | A human at a terminal.                                             |
+| `json`     | None              | One JSON value per invocation (object or array). camelCase, indented.        | Scripts, tests, agent harnesses, log shipping.                     |
+| `ndjson`   | None              | One JSON object per line. Only supported on `aonik agent stream`.            | Streaming AG-UI events into a harness.                             |
+
+Pick the format with `--output`:
+
+```bash
+aonik agent list                       # text (default)
+aonik agent list --output json         # JSON array
+aonik agent stream --message "Hi" \
+  --output ndjson                      # NDJSON event stream
+```
+
+<Callout type="warn">
+  Do not parse `text` mode. It changes whenever the human-readable rendering gets a polish pass. Pin `--output json` (or `ndjson`) in every script and harness.
+</Callout>
+
+## Where output goes
+
+| Stream      | Contents                                                                                          |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| **stdout**  | The successful payload (text, JSON, or NDJSON). Empty on failure.                                 |
+| **stderr**  | Errors. `Error: <message>` for expected failures, `Unexpected error: <message>` for unhandled.    |
+
+Combined with [the exit-code model](/docs/cli/#exit-codes) — `0` for success, `1` for any failure — that gives any consumer a clean four-way decision:
+
+```
+exit code == 0 AND stdout non-empty  → success, parse stdout
+exit code == 0 AND stdout empty      → success, no payload (rare; e.g. logout)
+exit code != 0                       → failure, read stderr
+```
+
+## JSON output: schema notes
+
+Every command listed in this section emits its own schema. The shapes are documented on each command's page ([Install & Auth](/docs/cli/install-and-auth), [Agents](/docs/cli/agents), [Approvals](/docs/cli/approvals), [Ops](/docs/cli/ops)). Two cross-cutting conventions:
+
+- **camelCase fields.** Every field uses `lowerCamelCase` regardless of the underlying C# property casing.
+- **`null` over missing.** Optional fields appear as `null` rather than being omitted. Scripts can assume keys exist.
+
+Errors are **not** serialised as JSON today. A failed command writes to stderr in plain text and exits with code `1`. If you need a structured error, capture stderr alongside the exit code.
+
+## NDJSON output (`agent stream` only)
+
+`aonik agent stream --output ndjson` emits one event per line. Each line is a small envelope:
+
+```json
+{"type":"<EVENT_TYPE>","json":"<original-event-json-stringified>"}
+{"type":"CUSTOM","name":"<custom-event-name>","json":"<...>"}
+```
+
+The `json` field is the **original AG-UI event payload**, serialised as a string. Decode it once to access fields like `delta`, `threadId`, `runId`, `speechText`, etc.
+
+You can rely on:
+
+- **Line-boundary framing.** Each event is exactly one line. Newlines inside the payload are escaped.
+- **Ordered delivery.** Events appear in the order the orchestrator emitted them.
+- **`RUN_STARTED` and `RUN_FINISHED` envelopes.** Every successful run begins with `RUN_STARTED` and ends with `RUN_FINISHED`. The stream then closes; the CLI exits `0`.
+
+You cannot rely on:
+
+- **A specific event subset being present.** Custom events (`speech.*`, tool calls, etc.) only appear when the agent emits them.
+- **A heartbeat / keep-alive.** If a stream is silent for more than 30 seconds, your harness should treat it as healthy unless the connection drops.
+
+## Common scripting patterns
+
+### Bash + jq: extract one field
+
+```bash
+aonik auth status --output json | jq -r '.email'
+```
+
+### PowerShell: extract one field
+
+```powershell
+(aonik auth status --output json | ConvertFrom-Json).email
+```
+
+### Bash + jq: iterate a list
+
+```bash
+aonik approvals list --output json |
+  jq -c '.[]' |
+  while IFS= read -r p; do
+    id=$(echo "$p" | jq -r '.proposalId')
+    type=$(echo "$p" | jq -r '.nodeType')
+    echo "proposal=$id type=$type"
+  done
+```
+
+### PowerShell: iterate a list
+
+```powershell
+aonik approvals list --output json |
+  ConvertFrom-Json |
+  ForEach-Object {
+    "proposal=$($_.proposalId) type=$($_.nodeType)"
+  }
+```
+
+### Bash: capture exit code and stderr separately
+
+```bash
+out=$(aonik auth whoami --output json 2>err.log)
+code=$?
+if [ "$code" -ne 0 ]; then
+  echo "CLI failed: $(cat err.log)" >&2
+  exit "$code"
+fi
+echo "$out" | jq -r '.email'
+```
+
+### PowerShell: capture exit code and stderr separately
+
+```powershell
+$stderr = $null
+$stdout = & aonik auth whoami --output json 2>&1 | Tee-Object -Variable raw
+$exit = $LASTEXITCODE
+if ($exit -ne 0) {
+  $errMsg = ($raw | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) -join "`n"
+  Write-Error "CLI failed: $errMsg"
+  exit $exit
+}
+($stdout | ConvertFrom-Json).email
+```
+
+### Stream tokens to stdout, print metadata to stderr
+
+A harness that wants to render the assistant's reply inline while logging structural events to a side channel.
+
+```powershell
+aonik agent stream `
+  --message "Tell me about my March spending" `
+  --output ndjson |
+  ForEach-Object {
+    $evt = $_ | ConvertFrom-Json
+    $payload = $evt.json | ConvertFrom-Json
+    switch ($evt.type) {
+      'TEXT_MESSAGE_CONTENT' { if ($payload.delta) { Write-Host -NoNewline $payload.delta } }
+      'RUN_STARTED'          { Write-Information "run-started threadId=$($payload.threadId) runId=$($payload.runId)" -InformationAction Continue }
+      'RUN_FINISHED'         { Write-Information "run-finished" -InformationAction Continue }
+      'CUSTOM'               { Write-Information "custom $($evt.name)" -InformationAction Continue }
+    }
+  }
+Write-Host ''  # newline after the streamed reply
+```
+
+### Bash equivalent
+
+```bash
+aonik agent stream --message "Tell me about my March spending" --output ndjson |
+  while IFS= read -r line; do
+    type=$(echo "$line" | jq -r '.type')
+    payload=$(echo "$line" | jq -r '.json | fromjson')
+    case "$type" in
+      TEXT_MESSAGE_CONTENT)
+        delta=$(echo "$payload" | jq -r '.delta // empty')
+        [ -n "$delta" ] && printf '%s' "$delta"
+        ;;
+      RUN_STARTED|RUN_FINISHED|CUSTOM)
+        echo "[meta] $type $payload" >&2
+        ;;
+    esac
+  done
+echo
+```
+
+## Patterns that don't work yet
+
+A few things you might expect but the CLI does not (yet) support:
+
+- **Structured error envelopes in JSON mode.** Errors are still text-only on stderr.
+- **Profiles.** There is one session file per machine, not one per `--profile`.
+- **`--silent` / `--quiet`.** Use shell redirection (`> $null` / `> /dev/null`) instead.
+- **Wide-output / table formatting for `text` mode.** Tabular humans-readable output is per-command and not configurable.
+
+These are tracked for a later phase of the CLI rewrite.
+
+## What's next
+
+- [Install & Auth](/docs/cli/install-and-auth) — get a session
+- [Agents](/docs/cli/agents) — run and stream agents
+- [Approvals](/docs/cli/approvals) — approve or reject proposals
+- [Ops](/docs/cli/ops) — jobs, ledger, invoices, payments, workflows
