@@ -1,0 +1,10 @@
+{
+  "title": "Install & Configure",
+  "pages": [
+    "index",
+    "prerequisites",
+    "run-with-aspire",
+    "bootstrap-tenant",
+    "verify"
+  ]
+}

@@ -1,0 +1,214 @@
+---
+title: Bootstrap your first tenant
+description: Call the one-time bootstrap endpoint to create the initial tenant, the owner user, and the PlatformAdmin + TenantAdmin role assignments.
+---
+
+The bootstrap endpoint is the **only** way to create the very first tenant on a fresh Aonik deployment. It is anonymous, single-use, and gated by a setup secret you configured on the [Run with Aspire](/docs/install-configure/run-with-aspire) page.
+
+<Callout type="info">
+This page is written for **deterministic execution**. Every step lists an exact command, the expected response, and a verify command.
+</Callout>
+
+## What bootstrap creates
+
+A single successful call to `POST /bootstrap` creates:
+
+1. One **tenant** (`Default`), with provisioning-time defaults (currency, supported countries, etc. — configurable later via the Admin UI).
+2. One **owner user** with the email you supply.
+3. The **PlatformAdmin** role assignment (global, tenant `Guid.Empty`) on that user.
+4. The **TenantAdmin** role assignment (tenant-scoped) on the same user.
+5. Seed data for the new tenant: built-in roles (`Operations`, `ReadOnly`, `Compliance`, `PersonalUser`), seeded permissions, an empty ledger, default AI policies.
+
+Calling `/bootstrap` again returns **409 Conflict**. To provision additional tenants after the first, use the regular tenant administration endpoints — see [Tenant administration (coming soon)](/docs/platform-capabilities).
+
+## Before you start
+
+- The [Aspire stack](/docs/install-configure/run-with-aspire) is running. The `api` row in the Aspire dashboard reads **Running** and `curl.exe --insecure https://localhost:5001/health` returns `{"Status":"Healthy"...}`.
+- `Bootstrap:Enabled` is `true` and `Bootstrap:SetupSecret` is set in user-secrets for `src/Aonik.Api`. Verify with `dotnet user-secrets --project src/Aonik.Api list`.
+
+## Step 1 — Pre-flight check (`/bootstrap/status`)
+
+The status endpoint reports whether bootstrap is ready, disabled, misconfigured, or already completed. Always run it first — the response tells an agent exactly what to do.
+
+**Run:**
+
+```powershell
+curl.exe --insecure --silent https://localhost:5001/bootstrap/status | ConvertFrom-Json
+```
+
+**Expected (ready to bootstrap):**
+
+```
+state                : ready
+bootstrapEnabled     : True
+setupSecretConfigured: True
+tenantCount          : 0
+canBootstrap         : True
+message              : Bootstrap is ready.
+```
+
+**Other states and what to do:**
+
+| `state`        | Meaning                                       | Action                                                                                                       |
+| -------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `ready`        | Proceed to step 2.                            | —                                                                                                            |
+| `disabled`     | `Bootstrap:Enabled` is `false` or absent.     | Re-run the configure step in [Run with Aspire → step 2](/docs/install-configure/run-with-aspire). Restart the API resource. |
+| `misconfigured`| Bootstrap is on but `SetupSecret` is missing. | Set the secret: `dotnet user-secrets --project src/Aonik.Api set Bootstrap:SetupSecret <guid>`. Restart the API. |
+| `completed`    | A tenant already exists.                      | Stop. Use tenant administration endpoints instead. (Or [reset the dev database](#reset-the-dev-database) below.) |
+
+## Step 2 — Retrieve the bootstrap secret
+
+The secret lives in user-secrets on `src/Aonik.Api`. Pull it back out so you can pass it to `/bootstrap`.
+
+**Run:**
+
+```powershell
+$secretLine = dotnet user-secrets --project src/Aonik.Api list |
+  Select-String -Pattern '^Bootstrap:SetupSecret = '
+$secret = ($secretLine -split ' = ', 2)[1]
+"Bootstrap secret: $secret"
+```
+
+**Expected:** `Bootstrap secret: <a-guid>`. If `$secret` is empty, the user-secrets entry is missing — set it via:
+
+```powershell
+dotnet user-secrets --project src/Aonik.Api set Bootstrap:SetupSecret ([guid]::NewGuid().ToString())
+```
+
+and restart the API resource from the Aspire dashboard before continuing.
+
+## Step 3 — Call `POST /bootstrap`
+
+**Run** (replace `you@example.com` with your real email):
+
+```powershell
+$payload = @{
+  setupSecret      = $secret
+  ownerEmail       = 'you@example.com'
+  ownerDisplayName = 'Platform Admin'
+} | ConvertTo-Json
+
+$response = curl.exe --insecure --silent --show-error `
+  -X POST https://localhost:5001/bootstrap `
+  -H 'Content-Type: application/json' `
+  -d $payload
+$response | ConvertFrom-Json | Format-List
+```
+
+**Expected:**
+
+```
+tenantId               : 00000000-0000-0000-0000-000000000000
+tenantName             : Default
+tenantCreated          : True
+userId                 : 00000000-0000-0000-0000-000000000000
+userCreated            : True
+platformAdminAssigned  : True
+tenantAdminAssigned    : True
+ownerEmail             : you@example.com
+success                : True
+```
+
+`tenantId` and `userId` are the IDs Aonik just created. Note them — you will reference them when wiring identity claims later.
+
+## Step 4 — Verify post-bootstrap state
+
+The status endpoint now reports `completed`:
+
+```powershell
+curl.exe --insecure --silent https://localhost:5001/bootstrap/status | ConvertFrom-Json
+```
+
+**Expected `state`:** `completed`.
+
+**Tenant count is exactly one:**
+
+```powershell
+sqlcmd -S "(localdb)\MSSQLLocalDB" -d AonikDb -Q "SELECT COUNT(*) AS TenantCount FROM AnkTenants" -h -1
+```
+
+**Expected:** `1`.
+
+**Owner user exists with PlatformAdmin:**
+
+```powershell
+sqlcmd -S "(localdb)\MSSQLLocalDB" -d AonikDb -h -1 -Q @"
+SELECT u.Email, u.DisplayName, r.Name AS Role
+FROM AnkUserRoles ur
+JOIN AnkUsers u ON u.Id = ur.UserId
+JOIN AnkRoles r ON r.Id = ur.RoleId
+WHERE u.Email = 'you@example.com'
+ORDER BY r.Name;
+"@
+```
+
+**Expected:** two rows — one for `PlatformAdmin` and one for `TenantAdmin`.
+
+## Failure modes
+
+### 503 Service Unavailable
+
+**Body:** `Bootstrap is enabled but Bootstrap:SetupSecret is not configured.`
+
+**Fix.** Configure the secret and restart the API resource from the Aspire dashboard.
+
+```powershell
+dotnet user-secrets --project src/Aonik.Api set Bootstrap:SetupSecret ([guid]::NewGuid().ToString())
+```
+
+### 403 Forbidden
+
+**Body:** `The provided install code is invalid.`
+
+**Cause.** Your `setupSecret` payload does not match `Bootstrap:SetupSecret`. Comparison is constant-time and case-sensitive.
+
+**Fix.** Re-run step 2 to fetch the actual stored secret and retry.
+
+### 409 Conflict
+
+**Body:** `Bootstrap has already completed. Use the tenant administration endpoints for additional tenant setup.`
+
+**Cause.** A tenant already exists. Bootstrap is one-time per database.
+
+**Fix (production / shared DB).** Use the tenant administration endpoints. **Bootstrap is not the right tool for the second tenant.**
+
+**Fix (local dev only).** [Reset the dev database](#reset-the-dev-database).
+
+### 422 Unprocessable Entity
+
+**Body lists** `errors` per field, for example `ownerEmail must be a valid email address`.
+
+**Cause.** Request body validation failed.
+
+**Fix.** Correct the payload and retry. The email must be syntactically valid and the secret must be non-empty.
+
+### Network errors (`Connection refused`, TLS handshake failure)
+
+**Cause.** The API is not running, or the AppHost was stopped between steps.
+
+**Fix.** Return to [Run with Aspire → step 4](/docs/install-configure/run-with-aspire) and start the AppHost. Wait until `/health` returns `Healthy` before retrying.
+
+## Reset the dev database
+
+Local development only. **Never** run this against shared or production data.
+
+```powershell
+# Stop the AppHost first (Ctrl+C in the AppHost terminal).
+
+# Drop the LocalDB database.
+sqlcmd -S "(localdb)\MSSQLLocalDB" -Q "DROP DATABASE IF EXISTS AonikDb"
+
+# Re-apply migrations against an empty database.
+dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+
+# Start the AppHost again and retry the bootstrap flow from step 1.
+dotnet run --project src/Aonik.AppHost
+```
+
+After this completes, the bootstrap state should report `ready` again.
+
+## What's next
+
+- [Verify the install](/docs/install-configure/verify) — end-to-end smoke test of the running stack
+- [Identity & Access](/docs/identity-access) — wire Auth0 or Microsoft Entra ID so the owner can actually sign in
+- [API Reference](/docs/api-reference) — every endpoint the API exposes

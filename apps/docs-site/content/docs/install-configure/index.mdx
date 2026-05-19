@@ -1,23 +1,127 @@
 ---
 title: Install & Configure
-description: Every supported way to install Aonik, the connection-string knobs, and the bootstrap flow.
+description: The supported ways to install Aonik, what the orchestrator launches, and where each piece of state lives. Designed to be read top-to-bottom or executed step-by-step by an AI agent.
 ---
 
-<Callout type="warn" title="Coming soon">
-  This section is being written in a later phase of the docs rewrite. Until then, the [Quickstart](/docs/getting-started/quickstart) covers the recommended local path.
-</Callout>
+This is the operator's onboarding flow. Read the overview here, then work through the pages below in order.
 
-## What this section will cover
+## The path
 
-- Run with Aspire (recommended)
-- Run with Docker Compose
-- Run without Docker (LocalDB + `dotnet run`)
-- Environment variables reference (every `Database__*`, `Qdrant__*`, `Auth__*`, etc.)
-- Connect to SQL Server (LocalDB, Azure SQL)
-- Connect to Qdrant (local, cloud, multi-tenant prefixes)
-- Bootstrap your first tenant + admin
+<Steps>
 
-## In the meantime
+<Step>
 
-- [Quickstart](/docs/getting-started/quickstart) — the recommended local-dev install path
-- `apps/docs-site/docs.old/deployment/` (in the repo) — pre-rewrite deployment guides
+### [Prerequisites](/docs/install-configure/prerequisites)
+
+Install **Docker Desktop**, the **.NET 10 SDK**, **SQL Server LocalDB**, **Node.js 18+**, **PowerShell 7**, and **Git**. Every item has a check command, an install command, and a verify command. The page ends with a one-shot script that asserts the lot.
+
+</Step>
+
+<Step>
+
+### [Run with Aspire](/docs/install-configure/run-with-aspire)
+
+`Aonik.AppHost` is the .NET Aspire orchestrator. Running `dotnet run --project src/Aonik.AppHost` starts five resources at once:
+
+- the **API** (`Aonik.Api`) at `https://localhost:5001`
+- the **Worker** (`Aonik.Worker`, headless)
+- the **Admin UI** Vite dev server at `http://localhost:5173`
+- the **Qdrant** vector store container (Aspire calls Docker Desktop to pull and start it)
+- the **Aspire dashboard** at `https://localhost:21183` for live resource state, logs, and traces
+
+SQL Server is **not** containerised — it uses your local SQL Server LocalDB instance directly.
+
+</Step>
+
+<Step>
+
+### [Bootstrap your first tenant](/docs/install-configure/bootstrap-tenant)
+
+The `/bootstrap` endpoint is the only way to create the first tenant on a fresh deployment. It is anonymous, single-use, and gated by a setup secret you put in user-secrets. A single call creates a tenant, an owner user, and the `PlatformAdmin` + `TenantAdmin` role assignments on that user.
+
+</Step>
+
+<Step>
+
+### [Verify the install](/docs/install-configure/verify)
+
+A single PowerShell script runs nine assertions: API healthy, Scalar reference served, bootstrap completed, one tenant present, owner user has both admin roles, Admin UI reachable, Qdrant ready and healthy, OpenAPI document served. Exit code `0` on full pass, `1` on any failure.
+
+</Step>
+
+</Steps>
+
+## Topology
+
+```
+                            ┌──────────────────────────┐
+                            │  dotnet run --project    │
+                            │  src/Aonik.AppHost       │
+                            │  (.NET Aspire host)      │
+                            └────────────┬─────────────┘
+                                         │ orchestrates
+              ┌──────────────────────────┼─────────────────────────┐
+              │                          │                          │
+       ┌──────▼──────┐           ┌───────▼───────┐         ┌────────▼────────┐
+       │  Aonik.Api  │           │ Aonik.Worker  │         │  Aonik.AdminUi  │
+       │  net10.0    │           │  net10.0      │         │  Vite (Node)    │
+       │  :5001      │           │ (Quartz jobs) │         │  :5173          │
+       └──────┬──────┘           └───────┬───────┘         └─────────────────┘
+              │                          │
+              │                          │
+              └──────────┬───────────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+ ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
+ │ SQL Server  │  │   Qdrant    │  │  Aspire     │
+ │  LocalDB    │  │  (Docker)   │  │  Dashboard  │
+ │  AonikDb    │  │  :6333      │  │  :21183     │
+ └─────────────┘  └─────────────┘  └─────────────┘
+        ▲                ▲
+        │                │
+   migrations       Docker Desktop
+   (single stream)  pulls + runs the
+   via              container
+   AonikDbContext
+```
+
+## What lives where
+
+| Concern                                     | Where it lives                                                   |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| Source of financial truth (ledger, orders)  | SQL Server LocalDB → `AonikDb`                                   |
+| Vectors for RAG + user memory               | Qdrant container                                                 |
+| Background jobs and cost guards             | `Aonik.Worker` (in-process Quartz)                               |
+| Operator UI                                 | `Aonik.AdminUi` (React 19 + Vite, served by Aspire in dev)       |
+| HTTP + AI + agent runtime                   | `Aonik.Api`                                                      |
+| Local developer secrets                     | `dotnet user-secrets` on each project (`src/Aonik.Api`, etc.)    |
+| Schema migrations                           | `Aonik.Infrastructure` migrations, run against `AonikDbContext`  |
+
+## Conventions used in this section
+
+The Install & Configure pages are written for **deterministic execution**. Every step uses the same shape:
+
+> **Run:** the exact command (PowerShell). \
+> **Expected:** the exact output that proves success. \
+> **Verify:** a follow-up command that asserts the post-condition. \
+> If the verify fails, the page lists the most likely cause and the fix.
+
+An AI agent can execute every step verbatim. A human can copy-paste. Either reader gets the same outcome.
+
+## Roadmap for this section
+
+The pages currently published are the local-dev onboarding path. The following pages land in later phases of the docs rewrite:
+
+- **Run with Docker Compose** — for environments without LocalDB and without Aspire
+- **Run without Docker** — for hosts where the Qdrant container is unavailable
+- **Environment variables reference** — every `Database__*`, `Qdrant__*`, `Auth__*`, `Bootstrap__*`, `Ai:*`, `Finance:*`, etc. with default, type, and effect
+- **Connect to SQL Server** — LocalDB, Azure SQL, containerised SQL Server, with per-environment connection strings
+- **Connect to Qdrant** — self-hosted, Qdrant Cloud, multi-tenant collection prefixes
+
+## What's next
+
+- [Prerequisites](/docs/install-configure/prerequisites) — start here
+- [Run with Aspire](/docs/install-configure/run-with-aspire) — what the orchestrator does
+- [Bootstrap your first tenant](/docs/install-configure/bootstrap-tenant) — create the first tenant + owner
+- [Verify the install](/docs/install-configure/verify) — assert the result end-to-end

@@ -21,7 +21,7 @@ Aonik is a **modular monolith**. One solution, one shared SQL Server database, b
 | `Aonik.Worker`     | Quartz-scheduled background jobs: AI cost guard, snapshots, stale sessions, reconciliation. |
 | `Aonik.AppHost`    | Aspire orchestrator. Launches API + Worker + Admin UI + Qdrant locally.                     |
 | `Aonik.AdminUi`    | React 19 + Vite + Dockview workspace UI for operators.                                      |
-| `Aonik.Cli`        | .NET CLI for terminal-driven agent chat and approvals.                                      |
+| `Aonik.Cli`        | Headless .NET CLI for operators and agent harnesses — auth, agent run/stream, approvals, ops. |
 
 The application(s) you build on top of Aonik talk to the same API.
 

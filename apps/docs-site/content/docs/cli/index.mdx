@@ -1,11 +1,13 @@
 ---
 title: CLI
-description: The Aonik CLI — terminal-driven agent chat, approval workflows, and operational commands.
+description: The Aonik CLI — a scriptable command surface for agent harnesses and human operators.
 ---
 
 <Callout type="warn" title="Coming soon">
   This section is being written in a later phase of the docs rewrite. Until then, browse the CLI source at `src/Aonik.Cli/`.
 </Callout>
+
+The Aonik CLI is a headless command surface. It is invoked by agent harnesses (which bring their own chat interface) and run directly by human operators for explicit operational tasks. There is no built-in chat or interactive shell.
 
 ## What this section will cover
 
@@ -13,11 +15,10 @@ A page per command surface:
 
 - **Install** — building or installing `Aonik.Cli`
 - **Authenticate** — `auth login` and `auth logout`
-- **Chat** — `agent chat` for multi-turn conversations, `agent run <prompt>` for one-shots
+- **Agents** — `agent list`, `agent run <prompt>` for one-shot orchestrator calls, `agent stream` for AG-UI events, `agent threads` / `agent thread <id>` for thread inspection
 - **Approvals** — `approvals list`, `approvals approve <id>`, `approvals reject <id>`
-- **Operations** — `ops health`, `ops list-jobs`
-- **Shell** — `shell` interactive mode
-- **Output modes** — JSON, NDJSON, Table, Text
+- **Operations** — `ops jobs`, `ops ledger`, `ops invoices`, `ops payments`, `ops workflow`
+- **Output modes** — JSON, NDJSON, Text
 
 ## In the meantime
 

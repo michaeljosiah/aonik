@@ -18,7 +18,12 @@ export const metadata = {
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.className} dark`}
+      data-theme="dark"
+      suppressHydrationWarning
+    >
       <body className="flex min-h-screen flex-col">
         <RootProvider
           theme={{
