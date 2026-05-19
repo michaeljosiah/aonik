@@ -5,6 +5,7 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Caching;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,46 @@ namespace Aonik.Application.Tests.PersonalFinance;
 
 public class FinancialLifeGraphTraversalServiceTests
 {
+    private sealed class TestPartyReader : IPartyReader
+    {
+        private readonly FinanceDbContext _db;
+        public TestPartyReader(FinanceDbContext db) => _db = db;
+
+        public async Task<IReadOnlyList<PartyHistoryItem>> GetByIdsAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> partyIds, CancellationToken ct = default)
+            => partyIds.Count == 0
+                ? []
+                : await _db.Parties.AsNoTracking()
+                    .Where(p => p.TenantId == tenantId && partyIds.Contains(p.Id))
+                    .Select(p => new PartyHistoryItem(p.Id, p.DisplayName, p.Status, p.CustomerTierCode))
+                    .ToListAsync(ct);
+
+        public async Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(
+            Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => await _db.PartyRelationships.AsNoTracking()
+                .Where(r => r.TenantId == tenantId && r.IsActive
+                    && (r.FromPartyId == partyId || r.ToPartyId == partyId))
+                .OrderBy(r => r.RelationshipTypeCode)
+                .Select(r => new PartyRelationshipHistoryItem(
+                    r.Id, r.FromPartyId, r.ToPartyId, r.RelationshipTypeCode, r.IsActive, r.Notes))
+                .ToListAsync(ct);
+    }
+
+    private sealed class TestUserDirectoryReader : IUserDirectoryReader
+    {
+        private readonly FinanceDbContext _db;
+        public TestUserDirectoryReader(FinanceDbContext db) => _db = db;
+
+        public async Task<IReadOnlyList<UserDirectoryItem>> GetByIdsAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
+            => userIds.Count == 0
+                ? []
+                : await _db.Users.AsNoTracking()
+                    .Where(u => u.TenantId == tenantId && userIds.Contains(u.Id))
+                    .Select(u => new UserDirectoryItem(u.Id, u.Email, u.Status))
+                    .ToListAsync(ct);
+    }
+
     private sealed class TestCacheStore : ICacheStore
     {
         private readonly Dictionary<string, object?> _items = new(StringComparer.Ordinal);
@@ -60,12 +101,24 @@ public class FinancialLifeGraphTraversalServiceTests
         }
     }
 
+    private static string _lastDbName = string.Empty;
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
+        _lastDbName = $"GraphTraversal_{Guid.NewGuid()}";
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
-            .UseInMemoryDatabase($"GraphTraversal_{Guid.NewGuid()}")
+            .UseInMemoryDatabase(_lastDbName)
             .Options;
         return new FinanceDbContext(options, new TestTenantProvider(tenantId));
+    }
+
+    private static Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext CreatePersonalFinanceDbContext(Guid tenantId)
+    {
+        var options = new DbContextOptionsBuilder<Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext>()
+            .UseInMemoryDatabase(_lastDbName)
+            .Options;
+        return new Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext(
+            options, new TestTenantProvider(tenantId));
     }
 
     private static FinancialLifeGraphTraversalService CreateTraversalService(
@@ -76,7 +129,15 @@ public class FinancialLifeGraphTraversalServiceTests
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
         var cacheStore = new TestCacheStore();
-        var loader = new FinancialLifeGraphLoader(context);
+        var pfContext = CreatePersonalFinanceDbContext(tenantId);
+        var loader = new FinancialLifeGraphLoader(
+            pfContext,
+            new Aonik.Finance.Services.Finance.Readers.CustomerOrderHistoryReader(context),
+            new Aonik.Finance.Services.Finance.Readers.CustomerInvoiceHistoryReader(context),
+            new Aonik.Finance.Services.Finance.Readers.CustomerPaymentHistoryReader(context),
+            new Aonik.Finance.Services.Finance.Readers.FxQuoteReader(context),
+            new TestPartyReader(context),
+            new TestUserDirectoryReader(context));
         var metrics = new FinancialLifeGraphSnapshotMetrics(NullLogger<FinancialLifeGraphSnapshotMetrics>.Instance);
         var hydrationService = new FinancialLifeGraphHydrationService(
             tenantProvider, currentUserProvider, cacheStore, loader, metrics);

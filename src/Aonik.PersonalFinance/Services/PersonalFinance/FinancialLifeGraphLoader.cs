@@ -1,20 +1,37 @@
-using Aonik.Finance.Entities;
-using Aonik.Finance.Entities.Billing;
-using Aonik.Finance.Entities.Orders;
-using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
+using Aonik.SharedKernel.Abstractions.Finance;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialLifeGraphLoader
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
+    private readonly ICustomerOrderHistoryReader _orderReader;
+    private readonly ICustomerInvoiceHistoryReader _invoiceReader;
+    private readonly ICustomerPaymentHistoryReader _paymentReader;
+    private readonly IFxQuoteReader _fxQuoteReader;
+    private readonly IPartyReader _partyReader;
+    private readonly IUserDirectoryReader _userDirectoryReader;
 
-    public FinancialLifeGraphLoader(FinanceDbContext financeDbContext)
+    public FinancialLifeGraphLoader(
+        PersonalFinanceDbContext financeDbContext,
+        ICustomerOrderHistoryReader orderReader,
+        ICustomerInvoiceHistoryReader invoiceReader,
+        ICustomerPaymentHistoryReader paymentReader,
+        IFxQuoteReader fxQuoteReader,
+        IPartyReader partyReader,
+        IUserDirectoryReader userDirectoryReader)
     {
         _financeDbContext = financeDbContext;
+        _orderReader = orderReader;
+        _invoiceReader = invoiceReader;
+        _paymentReader = paymentReader;
+        _fxQuoteReader = fxQuoteReader;
+        _partyReader = partyReader;
+        _userDirectoryReader = userDirectoryReader;
     }
 
     public async Task<FinancialLifeGraphSnapshot> LoadCoreSnapshotAsync(
@@ -118,40 +135,21 @@ internal sealed class FinancialLifeGraphLoader
             .Distinct()
             .ToList();
 
-        var orders = linkedOrderIds.Count == 0
-            ? []
-            : await _financeDbContext.Orders
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId && linkedOrderIds.Contains(item.Id))
-                .ToListAsync(cancellationToken);
-
-        var invoices = linkedInvoiceIds.Count == 0
-            ? []
-            : await _financeDbContext.Invoices
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId && linkedInvoiceIds.Contains(item.Id))
-                .ToListAsync(cancellationToken);
-
-        var paymentIntents = await _financeDbContext.PaymentIntents
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId
-                && (linkedOrderIds.Contains(item.OrderId)
-                    || (item.InvoiceId.HasValue && linkedInvoiceIds.Contains(item.InvoiceId.Value))))
-            .ToListAsync(cancellationToken);
+        // Spec 027 Phase 3: orders / invoices / payments served via SharedKernel
+        // readers so the snapshot record stays free of Aonik.Finance.Entities.
+        var orders = await _orderReader.GetByIdsAsync(tenantId, linkedOrderIds, cancellationToken);
+        var invoices = await _invoiceReader.GetByIdsAsync(tenantId, linkedInvoiceIds, cancellationToken);
+        var paymentIntents = await _paymentReader.GetForOrderOrInvoiceAsync(
+            tenantId, linkedOrderIds, linkedInvoiceIds, cancellationToken);
 
         var selfPartyId = personalProfile?.PartyId;
-        var relatedParties = new List<PartyReadModel>();
-        var partyRelationships = new List<PartyRelationshipReadModel>();
+        IReadOnlyList<PartyHistoryItem> relatedParties = [];
+        IReadOnlyList<PartyRelationshipHistoryItem> partyRelationships = [];
 
         if (selfPartyId.HasValue)
         {
-            partyRelationships = await _financeDbContext.PartyRelationships
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId
-                    && item.IsActive
-                    && (item.FromPartyId == selfPartyId.Value || item.ToPartyId == selfPartyId.Value))
-                .OrderBy(item => item.RelationshipTypeCode)
-                .ToListAsync(cancellationToken);
+            partyRelationships = await _partyReader.GetRelationshipsForPartyAsync(
+                tenantId, selfPartyId.Value, cancellationToken);
 
             var relatedPartyIds = partyRelationships
                 .Select(item => item.FromPartyId == selfPartyId.Value ? item.ToPartyId : item.FromPartyId)
@@ -160,11 +158,8 @@ internal sealed class FinancialLifeGraphLoader
 
             if (relatedPartyIds.Count > 0)
             {
-                relatedParties = await _financeDbContext.Parties
-                    .AsNoTracking()
-                    .Where(item => item.TenantId == tenantId && relatedPartyIds.Contains(item.Id))
-                    .OrderBy(item => item.DisplayName)
-                    .ToListAsync(cancellationToken);
+                var loaded = await _partyReader.GetByIdsAsync(tenantId, relatedPartyIds, cancellationToken);
+                relatedParties = [.. loaded.OrderBy(item => item.DisplayName)];
             }
         }
 
@@ -205,27 +200,11 @@ internal sealed class FinancialLifeGraphLoader
             nativeEdges);
     }
 
-    public async Task<IReadOnlyList<Entities.Pricing.FxQuote>> LoadFxQuotesAsync(
+    public Task<IReadOnlyList<FxQuoteHistoryItem>> LoadFxQuotesAsync(
         Guid tenantId,
         IReadOnlyList<string> relevantAccountCurrencies,
         CancellationToken cancellationToken = default)
-    {
-        if (relevantAccountCurrencies.Count < 2)
-        {
-            return [];
-        }
-
-        return await _financeDbContext.FxQuotes
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId
-                && item.BaseCurrency != item.TargetCurrency
-                && relevantAccountCurrencies.Contains(item.BaseCurrency)
-                && relevantAccountCurrencies.Contains(item.TargetCurrency))
-            .OrderByDescending(item => item.ExpiresAt)
-            .ThenByDescending(item => item.UpdatedAt ?? item.CreatedAt)
-            .Take(10)
-            .ToListAsync(cancellationToken);
-    }
+        => _fxQuoteReader.GetRecentForCurrenciesAsync(tenantId, relevantAccountCurrencies, 10, cancellationToken);
 
     public static List<string> GetRelevantAccountCurrencies(
         IReadOnlyList<PersonalAccount> accounts,
@@ -263,15 +242,11 @@ internal sealed class FinancialLifeGraphLoader
 
         var partyLookup = partyIds.Count == 0
             ? new Dictionary<Guid, string>()
-            : await _financeDbContext.Parties
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId && partyIds.Contains(item.Id))
-                .ToDictionaryAsync(item => item.Id, item => item.DisplayName, cancellationToken);
+            : (await _partyReader.GetByIdsAsync(tenantId, partyIds, cancellationToken))
+                .ToDictionary(item => item.PartyId, item => item.DisplayName);
 
-        var userLookup = await _financeDbContext.Users
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && memberUserIds.Contains(item.Id))
-            .ToDictionaryAsync(item => item.Id, item => item.Email, cancellationToken);
+        var userLookup = (await _userDirectoryReader.GetByIdsAsync(tenantId, memberUserIds, cancellationToken))
+            .ToDictionary(item => item.UserId, item => item.Email);
 
         var profileLookup = memberProfiles.ToDictionary(item => item.UserId, item => item.PartyId);
         var result = new Dictionary<Guid, string>();

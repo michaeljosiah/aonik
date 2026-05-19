@@ -72,7 +72,22 @@ src/Aonik.Finance/
 2. **Everything else is `internal`** by default
 3. **`Aonik.Api` and test projects** use `[InternalsVisibleTo]` to access internals
 4. **Modules reference each other only through Contracts** — no direct entity access across modules
-5. **Cross-module data access** uses integration events or contract service interfaces
+5. **Cross-module data access** uses integration events, contract service interfaces, or **SharedKernel read contracts** (see below)
+
+### SharedKernel read contracts
+
+When one module needs to read data owned by another but the read is too thin to justify a full service interface, define a focused reader in `Aonik.SharedKernel/Abstractions/{OwnerModule}/`. The reader returns DTOs that carry only the fields the consumer needs — never entity types. The owning module implements the reader and registers it in DI; the consumer depends on the contract alone.
+
+Examples currently in use (introduced by [ADR-006](../decisions/006-extract-personal-finance-module.md) to let `Aonik.PersonalFinance` stop depending on `Aonik.Finance`):
+
+| Reader | Owner | Consumed by |
+|---|---|---|
+| `ICustomerOrderHistoryReader` | Finance | PersonalFinance (financial life graph, customer insights) |
+| `ICustomerInvoiceHistoryReader` | Finance | PersonalFinance (bill-to-invoice linkage in the life graph) |
+| `ICustomerPaymentHistoryReader` | Finance | PersonalFinance (bill-to-payment linkage in the life graph) |
+| `IFxQuoteReader` | Finance | PersonalFinance (multi-currency FX context) |
+| `IPartyReader` | Platform | PersonalFinance, Finance (related-party context, household member display names) |
+| `IUserDirectoryReader` | Platform | PersonalFinance (household member email fallback, audit redaction) |
 
 ## Module-Scoped DbContexts
 
@@ -93,10 +108,11 @@ All module DbContexts share the same physical SQL Server database. Table schemas
 |--------|-----------|
 | Platform | `PlatformDbContext` |
 | Finance | `FinanceDbContext` |
+| PersonalFinance | `PersonalFinanceDbContext` |
 | AI | `AiDbContext` |
 | Agents | `AgentsDbContext` |
 
-The legacy `AonikDbContext` still exists in Infrastructure for EF migrations compatibility.
+`AonikDbContext` in `Aonik.Infrastructure` is the canonical migration stream — every EF Core migration is generated against it. Module-scoped DbContexts exist for DI scoping at runtime; they do **not** have their own migration histories. See [ADR-005](../decisions/005-adopt-module-first-modular-monolith.md) and [ADR-006](../decisions/006-extract-personal-finance-module.md).
 
 ## Multi-Tenancy
 
@@ -149,6 +165,7 @@ Each module exposes a public `Add{Module}Module()` extension method called from 
 // In Program.cs (composition root)
 builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
+builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
 ```

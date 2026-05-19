@@ -27,6 +27,7 @@ public class RequestDtoValidatorCoverageTests
     [
         typeof(PlatformModule).Assembly,
         typeof(FinanceModule).Assembly,
+        typeof(Aonik.PersonalFinance.PersonalFinanceModule).Assembly,
         typeof(AiModule).Assembly,
         typeof(AgentsModule).Assembly,
     ];

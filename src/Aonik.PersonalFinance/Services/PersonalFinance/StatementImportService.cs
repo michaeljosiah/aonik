@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
@@ -49,13 +49,13 @@ internal sealed class StatementImportService : IStatementImportService
         "dd-MM-yyyy HH:mm:ss", "MM-dd-yyyy HH:mm:ss"
     ];
 
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public StatementImportService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator)

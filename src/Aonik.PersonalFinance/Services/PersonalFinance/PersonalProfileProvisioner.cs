@@ -1,5 +1,5 @@
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -8,11 +8,11 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class PersonalProfileProvisioner : IPersonalProfileProvisioner
 {
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
     private readonly ILogger<PersonalProfileProvisioner> _logger;
 
     public PersonalProfileProvisioner(
-        FinanceDbContext dbContext,
+        PersonalFinanceDbContext dbContext,
         ILogger<PersonalProfileProvisioner> logger)
     {
         _dbContext = dbContext;

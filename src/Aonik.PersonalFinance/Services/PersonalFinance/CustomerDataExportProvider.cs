@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -17,9 +17,9 @@ internal class CustomerDataExportProvider : ICustomerDataExportProvider
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
 
-    public CustomerDataExportProvider(FinanceDbContext db)
+    public CustomerDataExportProvider(PersonalFinanceDbContext db)
     {
         _db = db;
     }

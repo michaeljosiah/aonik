@@ -17,7 +17,8 @@ See [ADR-005](../decisions/005-adopt-module-first-modular-monolith.md) for the f
 | Module | Project | DbContext | Purpose |
 |--------|---------|-----------|---------|
 | Platform | `Aonik.Platform` | `PlatformDbContext` | Identity, tenancy, party/profile, compliance, notifications, operations |
-| Finance | `Aonik.Finance` | `FinanceDbContext` | Ledger, payments, billing, orders, pricing, partner network |
+| Finance | `Aonik.Finance` | `FinanceDbContext` | Ledger, payments, billing, orders, pricing, partner network (B2B / cross-border core) |
+| PersonalFinance | `Aonik.PersonalFinance` | `PersonalFinanceDbContext` | Households, transactions, bills, budgets, goals, financial life graph, customer insights (B2C / Payabo). Sibling to Finance — see [ADR-006](../decisions/006-extract-personal-finance-module.md). |
 | AI | `Aonik.Ai` | `AiDbContext` | AI routing, prompts, model management, execution records |
 | Agents | `Aonik.Agents` | `AgentsDbContext` | Agent definitions, orchestration, proposals, workflows |
 
@@ -53,3 +54,4 @@ See [ADR-005](../decisions/005-adopt-module-first-modular-monolith.md) for the f
 - [Data Flow](data-flow.md) — request/response patterns
 - [Technology Stack](technology-stack.md) — frameworks and tools
 - [ADR-005: Modular Monolith](../decisions/005-adopt-module-first-modular-monolith.md) — architectural decision record
+- [ADR-006: Extract PersonalFinance](../decisions/006-extract-personal-finance-module.md) — splitting PersonalFinance from Finance, SharedKernel read contracts

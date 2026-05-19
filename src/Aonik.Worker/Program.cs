@@ -3,6 +3,7 @@ using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.Platform;
 using Aonik.Finance;
+using Aonik.PersonalFinance;
 using Aonik.Ai;
 using Aonik.Agents;
 using Aonik.Agents.Framework;
@@ -20,6 +21,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 // Register domain modules
 builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
+builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
 

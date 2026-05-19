@@ -1,5 +1,4 @@
 using Aonik.Finance.Agents;
-using Aonik.Finance.Agents.CodeAct;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
@@ -78,9 +77,18 @@ public sealed class FinanceModule : IModule
         services.AddScoped<SharedKernel.Abstractions.ICustomerFinanceStatsProvider, Services.Orders.CustomerFinanceStatsProvider>();
         services.AddScoped<SharedKernel.Abstractions.ICustomerActivityProvider, Services.Orders.CustomerActivityProvider>();
 
-        // Cross-module customer data export/import
-        services.AddScoped<SharedKernel.Abstractions.ICustomerDataExportProvider, Services.PersonalFinance.CustomerDataExportProvider>();
-        services.AddScoped<SharedKernel.Abstractions.ICustomerDataImportConsumer, Services.PersonalFinance.CustomerDataImportConsumer>();
+        // ── Cross-Module Read Contracts (Spec 027 boundary) ─────────
+        // These thin readers let PersonalFinance (and other consumers)
+        // read Order / Invoice / Payment data without taking a project
+        // reference on Aonik.Finance.Entities.*. They are the load-bearing
+        // contract that lets the PF extraction land cleanly.
+        services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerOrderHistoryReader, Services.Finance.Readers.CustomerOrderHistoryReader>();
+        services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerInvoiceHistoryReader, Services.Finance.Readers.CustomerInvoiceHistoryReader>();
+        services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerPaymentHistoryReader, Services.Finance.Readers.CustomerPaymentHistoryReader>();
+        services.AddScoped<SharedKernel.Abstractions.Finance.IFxQuoteReader, Services.Finance.Readers.FxQuoteReader>();
+
+        // ICustomerDataExportProvider and ICustomerDataImportConsumer
+        // relocated to PersonalFinanceModule (Spec 027 Phase 3).
 
         // Cross-module provisioning contributor
         services.AddScoped<SharedKernel.Abstractions.ITenantProvisioningContributor, Services.Provisioning.FinanceTenantProvisioningContributor>();
@@ -100,8 +108,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Seeding.Phases.OrderActivitySeedPhase>();
         services.AddScoped<Services.Seeding.Phases.PersonalFinanceActivitySeedPhase>();
 
-        // Playground User Brief party→user fallback (demo personas with no UserParty link).
-        services.AddScoped<SharedKernel.Abstractions.UserBrief.IPersonalFinancePartyResolver, Services.PersonalFinance.PersonalFinancePartyResolver>();
+        // IPersonalFinancePartyResolver relocated to PersonalFinanceModule (Spec 027 Phase 3).
         services.AddScoped<SharedKernel.Abstractions.IDemoSeedContributor, Services.Seeding.FinanceDemoSeedContributor>();
 
         // Pricing
@@ -119,7 +126,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Catalog.IPublicCatalogService, Services.Catalog.PublicCatalogService>();
 
         // PersonalFinance
-        services.AddScoped<Contracts.Services.PersonalFinance.IBillService, Services.PersonalFinance.BillService>();
+        // IBillService relocated to PersonalFinanceModule (Spec 027 Phase 3).
         services.AddScoped<Contracts.Services.PersonalFinance.IDashboardService, Services.PersonalFinance.DashboardService>();
         services.Configure<Services.PersonalFinance.PlaidAccountLinkOptions>(
             configuration.GetSection("Finance:PersonalFinance:Plaid"));
@@ -135,14 +142,11 @@ public sealed class FinanceModule : IModule
         });
 
         services.AddScoped<Contracts.Services.PersonalFinance.IHouseholdService, Services.PersonalFinance.HouseholdService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalAccountService, Services.PersonalFinance.PersonalAccountService>();
-        services.AddScoped<Services.PersonalFinance.FinancialConnectionTransactionSyncOrchestrator>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalAccountLinkService, Services.PersonalFinance.PersonalAccountLinkService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalTransactionService, Services.PersonalFinance.PersonalTransactionService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IStatementImportService, Services.PersonalFinance.StatementImportService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.ITransactionClassificationService, Services.PersonalFinance.TransactionClassificationService>();
+        // IPersonalAccountService, IPersonalAccountLinkService, IPersonalTransactionService,
+        // IStatementImportService, ITransactionClassificationService, IPersonalFinanceInsightsService,
+        // and FinancialConnectionTransactionSyncOrchestrator relocated to PersonalFinanceModule
+        // (Spec 027 Phase 3).
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAiClassifier, Services.PersonalFinance.TransactionAiClassifier>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceInsightsService, Services.PersonalFinance.PersonalFinanceInsightsService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceNarrativeInsightsService, Services.PersonalFinance.PersonalFinanceNarrativeInsightsService>();
         services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotGenerator, Services.PersonalFinance.CustomerInsightSnapshotGenerator>();
         services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotService, Services.PersonalFinance.CustomerInsightSnapshotService>();
@@ -150,29 +154,22 @@ public sealed class FinanceModule : IModule
         // SharedKernel-shaped wrapper consumed by Aonik.Ai's CustomerInsightAiSummaryService
         // — keeps Ai free of a back-pointing reference on Finance.
         services.AddScoped<SharedKernel.Abstractions.PersonalFinance.ICustomerInsightSnapshotForAi, Services.PersonalFinance.CustomerInsightSnapshotForAiAdapter>();
-        services.AddSingleton<Services.PersonalFinance.FinancialLifeGraphSchema>();
-        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphLoader>();
-        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphSnapshotMetrics>();
-        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphHydrationService>();
-        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IFinancialLifeGraphService>(sp => sp.GetRequiredService<Services.PersonalFinance.FinancialLifeGraphService>());
-        services.AddScoped<Services.PersonalFinance.IFinancialLifeGraphCacheInvalidator, Services.PersonalFinance.FinancialLifeGraphCacheInvalidator>();
+        // FinancialLifeGraphSchema / Loader / SnapshotMetrics / HydrationService /
+        // Service / SchemaService / TraversalService / CacheInvalidator relocated
+        // to PersonalFinanceModule (Spec 027 Phase 3). ValidationService,
+        // WriteService, InferenceService, RetrievalService remain here pending
+        // a follow-up refactor that swaps their Invoices/PaymentIntents/Parties
+        // queries for SharedKernel readers.
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphValidationService>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphWriteService>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphInferenceService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IFinancialLifeGraphSchemaService, Services.PersonalFinance.FinancialLifeGraphSchemaService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IFinancialLifeGraphTraversalService, Services.PersonalFinance.FinancialLifeGraphTraversalService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IFinancialLifeGraphRetrievalService, Services.PersonalFinance.FinancialLifeGraphRetrievalService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAttachmentService, Services.PersonalFinance.TransactionAttachmentService>();
+        // IBudgetService, ICommitmentService, ITransactionAttachmentService
+        // relocated to PersonalFinanceModule (Spec 027 Phase 3).
         services.AddScoped<Contracts.Services.PersonalFinance.IFinancialContextService, Services.PersonalFinance.FinancialContextService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IBudgetService, Services.PersonalFinance.BudgetService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.ICommitmentService, Services.PersonalFinance.CommitmentService>();
 
-        // Cross-module personal profile provisioner (used by Platform registration flow)
-        services.AddScoped<SharedKernel.Abstractions.PersonalFinance.IPersonalProfileProvisioner, Services.PersonalFinance.PersonalProfileProvisioner>();
-
-        // Cross-module data provider for the UserBriefProjector (Agents module)
-        services.AddScoped<SharedKernel.Abstractions.PersonalFinance.IUserBriefDataProvider, Services.PersonalFinance.UserBriefDataProvider>();
+        // Cross-module IPersonalProfileProvisioner and IUserBriefDataProvider
+        // relocated to PersonalFinanceModule (Spec 027 Phase 3).
 
         services.AddTransient<Contracts.Services.PersonalFinance.IPersonalAccountLinkProviderGateway>(sp =>
         {
@@ -212,47 +209,8 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<IDomainAgentDescriptor, PfForecastAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PfClassifyAgentDescriptor>();
 
-        // ── CodeAct Sandbox Providers ────────────────────────────────
-        // Backs the wrapping `execute_code` AIFunction the three sub-agents
-        // surface to the LLM. The provider selector reads Ai:CodeAct:Provider
-        // and returns Hyperlight (local Linux dev), AcaSessions (cloud), or
-        // Null (forces tool-loop fallback for diagnostics / kill-switch).
-        services.AddOptions<AcaSessionsOptions>().BindConfiguration(AcaSessionsOptions.SectionName);
-        services.AddSingleton<CodeActCallbackNonceService>(sp =>
-            new CodeActCallbackNonceService(
-                sp.GetRequiredService<IConfiguration>(),
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CodeActCallbackNonceService>>()));
-        services.AddHttpClient<AcaSessionsClient>((sp, client) =>
-        {
-            var opts = sp.GetRequiredService<IOptions<AcaSessionsOptions>>().Value;
-            // BaseAddress must end with "/" so HttpClient appends our relative
-            // path under the resource scope. Without the trailing "/", .NET
-            // URI resolution silently strips the /subscriptions/.../sessionPools/<name>
-            // segment whenever the request URI starts with "/", routing the call
-            // to the bare https://<region>.dynamicsessions.io/ host — which
-            // returns HTTP 401 because there is no resource context.
-            var endpoint = opts.PoolManagementEndpoint?.TrimEnd('/');
-            if (!string.IsNullOrWhiteSpace(endpoint) && Uri.TryCreate(endpoint + "/", UriKind.Absolute, out var baseUri))
-            {
-                client.BaseAddress = baseUri;
-            }
-            // 240 s > ACA's 220 s per-execution cap, so the upstream timeout
-            // surfaces as the user-facing error rather than ours.
-            client.Timeout = TimeSpan.FromSeconds(240);
-        });
-        services.AddSingleton<HyperlightCodeActSandboxProvider>();
-        services.AddSingleton<AcaSessionsCodeActSandboxProvider>();
-        services.AddSingleton<NullCodeActSandboxProvider>();
-        services.AddSingleton<ICodeActSandboxProvider>(sp =>
-        {
-            var providerName = sp.GetRequiredService<IConfiguration>()["Ai:CodeAct:Provider"];
-            return providerName switch
-            {
-                "AcaSessions" => sp.GetRequiredService<AcaSessionsCodeActSandboxProvider>(),
-                "Hyperlight"  => sp.GetRequiredService<HyperlightCodeActSandboxProvider>(),
-                _             => sp.GetRequiredService<NullCodeActSandboxProvider>(),
-            };
-        });
+        // CodeAct sandbox providers and selector relocated to PersonalFinanceModule
+        // (Spec 027 Phase 5) along with the CodeAct/* file tree.
 
         // ── Global Seed Contributors ────────────────────────────────────
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.PersonalFinanceSeedContributor>();

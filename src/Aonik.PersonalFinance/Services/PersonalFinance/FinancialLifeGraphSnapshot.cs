@@ -1,11 +1,17 @@
-using Aonik.Finance.Entities;
-using Aonik.Finance.Entities.Billing;
-using Aonik.Finance.Entities.Orders;
-using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.SharedKernel.Abstractions.Finance;
+using Aonik.SharedKernel.Abstractions.Platform;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
+/// <summary>
+/// Read-model snapshot consumed by the FinancialLifeGraph builder.
+///
+/// Spec 027 Phase 3: Orders / Invoices / Payments / FxQuotes / Parties /
+/// Relationships are exposed as SharedKernel DTOs so this record can travel
+/// with the PersonalFinance module without dragging Aonik.Finance.Entities
+/// or Aonik.Platform.Entities along.
+/// </summary>
 internal sealed record FinancialLifeGraphSnapshot(
     Guid TenantId,
     Guid UserId,
@@ -20,12 +26,12 @@ internal sealed record FinancialLifeGraphSnapshot(
     IReadOnlyList<Bill> Bills,
     IReadOnlyList<Goal> Goals,
     IReadOnlyList<Subscription> Subscriptions,
-    IReadOnlyList<Entities.Pricing.FxQuote> FxQuotes,
-    IReadOnlyList<Order> Orders,
-    IReadOnlyList<Invoice> Invoices,
-    IReadOnlyList<PaymentIntent> PaymentIntents,
+    IReadOnlyList<FxQuoteHistoryItem> FxQuotes,
+    IReadOnlyList<OrderHistoryItem> Orders,
+    IReadOnlyList<InvoiceHistoryItem> Invoices,
+    IReadOnlyList<PaymentHistoryItem> PaymentIntents,
     Guid? SelfPartyId,
-    IReadOnlyList<PartyReadModel> RelatedParties,
-    IReadOnlyList<PartyRelationshipReadModel> PartyRelationships,
+    IReadOnlyList<PartyHistoryItem> RelatedParties,
+    IReadOnlyList<PartyRelationshipHistoryItem> PartyRelationships,
     IReadOnlyList<FinancialLifeGraphNode> NativeNodes,
     IReadOnlyList<FinancialLifeGraphEdge> NativeEdges);

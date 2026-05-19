@@ -22,6 +22,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+    <!--
+      TRANSITIONAL (Spec 027 Phase 2): Finance services still query
+      PersonalFinance entities until Phase 3 moves those services into
+      Aonik.PersonalFinance. Drop this ProjectReference at the end of
+      Phase 3 once Finance owns nothing in the PF namespace.
+    -->
+    <ProjectReference Include="..\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,31 +40,12 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
-    <!--
-      AcaSessionsCodeActSandboxProvider — invokes Azure Container Apps Dynamic
-      Sessions over REST with Microsoft Entra tokens minted via
-      DefaultAzureCredential. Versions matched to Aonik.Infrastructure.csproj
-      so the resolver picks the same SDK across modules.
-    -->
-    <PackageReference Include="Azure.Core" Version="1.47.1" />
-    <PackageReference Include="Azure.Identity" Version="1.14.2" />
   </ItemGroup>
 
-  <!--
-    Spec 025 Phase 1 — Hyperlight sandbox for CodeAct-style sub-agent
-    execution. Bundled Python WASM guest in `Guest.Python` solves the §11.5
-    sourcing blocker; `Extensions.AI` ships a MAF-shaped CodeExecutionTool
-    whose `.AsAIFunction()` drops into `ChatOptions.Tools`. The native
-    runtime is Linux-only at v0.4.0 (Windows support in flight upstream),
-    so each sub-agent descriptor's Build() picks the CodeAct path only when
-    HyperlightHostAvailability.IsAvailable; Windows local dev falls back to
-    the conventional tool-loop ChatClientAgent path.
-  -->
-  <ItemGroup>
-    <PackageReference Include="Hyperlight.HyperlightSandbox.Api" Version="0.4.0" />
-    <PackageReference Include="Hyperlight.HyperlightSandbox.Extensions.AI" Version="0.4.0" />
-    <PackageReference Include="Hyperlight.HyperlightSandbox.Guest.Python" Version="0.4.0" />
-  </ItemGroup>
+  <!-- Azure.Core / Azure.Identity / Hyperlight package refs relocated to
+       Aonik.PersonalFinance.csproj with the CodeAct sandbox tree
+       (Spec 027 Phase 5). -->
+
 
   <ItemGroup>
     <EmbeddedResource Include="Services\Seeding\Data\*.json" />

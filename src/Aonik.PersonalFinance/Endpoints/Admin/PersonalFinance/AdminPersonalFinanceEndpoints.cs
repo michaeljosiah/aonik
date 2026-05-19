@@ -1,6 +1,6 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
@@ -20,10 +20,10 @@ internal sealed class AdminListAccountsRequest
 internal sealed class AdminListPersonalAccountsEndpoint
     : Endpoint<AdminListAccountsRequest, IReadOnlyList<PersonalAccountResponse>>
 {
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
     private readonly ITenantProvider _tenantProvider;
 
-    public AdminListPersonalAccountsEndpoint(FinanceDbContext db, ITenantProvider tenantProvider)
+    public AdminListPersonalAccountsEndpoint(PersonalFinanceDbContext db, ITenantProvider tenantProvider)
     {
         _db = db;
         _tenantProvider = tenantProvider;
@@ -90,10 +90,10 @@ internal sealed class AdminListTransactionsRequest
 internal sealed class AdminListPersonalTransactionsEndpoint
     : Endpoint<AdminListTransactionsRequest, IReadOnlyList<PersonalTransactionResponse>>
 {
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
     private readonly ITenantProvider _tenantProvider;
 
-    public AdminListPersonalTransactionsEndpoint(FinanceDbContext db, ITenantProvider tenantProvider)
+    public AdminListPersonalTransactionsEndpoint(PersonalFinanceDbContext db, ITenantProvider tenantProvider)
     {
         _db = db;
         _tenantProvider = tenantProvider;
@@ -186,10 +186,10 @@ internal sealed class AdminBudgetResponse
 internal sealed class AdminListBudgetsEndpoint
     : Endpoint<AdminListBudgetsRequest, IReadOnlyList<AdminBudgetResponse>>
 {
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
     private readonly ITenantProvider _tenantProvider;
 
-    public AdminListBudgetsEndpoint(FinanceDbContext db, ITenantProvider tenantProvider)
+    public AdminListBudgetsEndpoint(PersonalFinanceDbContext db, ITenantProvider tenantProvider)
     {
         _db = db;
         _tenantProvider = tenantProvider;
@@ -244,10 +244,10 @@ internal sealed class AdminListCommitmentsRequest
 internal sealed class AdminListCommitmentsEndpoint
     : Endpoint<AdminListCommitmentsRequest, CommitmentListResponse>
 {
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
     private readonly ITenantProvider _tenantProvider;
 
-    public AdminListCommitmentsEndpoint(FinanceDbContext db, ITenantProvider tenantProvider)
+    public AdminListCommitmentsEndpoint(PersonalFinanceDbContext db, ITenantProvider tenantProvider)
     {
         _db = db;
         _tenantProvider = tenantProvider;
@@ -378,12 +378,12 @@ internal sealed record AdminBindPersonalFinancePartyToUserResponse(
 internal sealed class AdminBindPersonalFinancePartyToUserEndpoint
     : Endpoint<AdminBindPersonalFinancePartyToUserRequest, AdminBindPersonalFinancePartyToUserResponse>
 {
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
     private readonly ITenantProvider _tenantProvider;
     private readonly Aonik.SharedKernel.Abstractions.ICurrentUserContext _currentUserContext;
 
     public AdminBindPersonalFinancePartyToUserEndpoint(
-        FinanceDbContext db,
+        PersonalFinanceDbContext db,
         ITenantProvider tenantProvider,
         Aonik.SharedKernel.Abstractions.ICurrentUserContext currentUserContext)
     {

@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 027 · Extract PersonalFinance into its own module (Aonik.PersonalFinance)</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2784; }
+    .meta-tag.priority-p1 { background: #fff0d6; color: #8a5510; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.move { background: #f3e8fb; color: #5a2784; }
+    .status-row td:first-child { font-weight: 600; }
+    .status-ok { color: #2a7f3c; }
+    .status-gap { color: #8a2a15; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 {
+      margin: 0 0 6px;
+      color: var(--accent);
+    }
+    .phase-card .phase-summary {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 027</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Architecture / Finance</span>
+  <h1>Extract PersonalFinance into its own module (Aonik.PersonalFinance)</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Promotes the PersonalFinance subdomain &mdash; today a folder hierarchy inside
+    <code>Aonik.Finance</code> &mdash; into a sibling module
+    <code>Aonik.PersonalFinance</code>, so the B2C Payabo product evolves independently of
+    Aonik's core money plumbing (Ledger, Orders, Payments, Billing, Pricing, Partners,
+    Catalog). Database physical layout, table names, migration ownership, and the
+    <code>/personal-finance/*</code> HTTP contract all stay unchanged.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#current-state">Current-state inventory</a></li>
+    <li><a href="#outbound-coupling">Outbound coupling on Orders / Billing / Payments</a></li>
+    <li><a href="#target-layout">Target module layout</a></li>
+    <li><a href="#dep-graph">Dependency graph (before / after)</a></li>
+    <li><a href="#read-contracts">SharedKernel read contracts</a></li>
+    <li><a href="#code-csproj">Project file (csproj)</a></li>
+    <li><a href="#code-module">Module class</a></li>
+    <li><a href="#code-dbcontext">PersonalFinanceDbContext</a></li>
+    <li><a href="#code-compose">Composition root updates</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  <code>Aonik.Finance</code> has accreted seven distinct subdomains. <code>FinanceModule.cs</code>
+  is ~280 lines of registrations, with PersonalFinance making up roughly half the surface
+  area. PersonalFinance is the strongest candidate for a clean module split:
+</p>
+
+<ul>
+  <li>It is the entire substrate of one product (Payabo).</li>
+  <li>It owns its own bounded vocabulary (Household, PersonalAccount, PersonalTransaction, Bill, Subscription, DebtRepayment, Budget, Goal, FinancialContext, FinancialLifeGraph, CustomerInsightSnapshot, StatementImport, FinancialConnection).</li>
+  <li>It owns its own AI surface &mdash; five agent descriptors plus the CodeAct sandbox plumbing.</li>
+  <li>Its cross-module integration already passes through six
+    <code>SharedKernel.Abstractions.*</code> adapters &mdash; it is already pretending to live elsewhere.</li>
+  <li>Its release cadence (Payabo) decouples cleanly from the slower-changing Ledger / Orders / Billing core that powers MyBillAfrica and RemitExchange.</li>
+</ul>
+
+<p>
+  This spec is scoped narrowly: it moves project structure and DI ownership, not database
+  physical layout. PersonalFinance keeps writing to the same physical SQL database with
+  <code>Ank</code>-prefixed tables, migrations continue to flow through
+  <code>AonikDbContext</code> per
+  <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>, and
+  the public <code>/personal-finance/*</code> HTTP contract is preserved unchanged so
+  the Payabo mobile / web clients are unaffected.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  <code>dotnet build Aonik.sln</code> succeeds with <code>Aonik.Finance</code> containing no
+  <code>using Aonik.*.PersonalFinance</code> references; the API exposes a byte-identical
+  OpenAPI surface in the <code>/personal-finance/*</code> region;
+  <code>dotnet test Aonik.sln</code> stays green; the Payabo mobile app continues to function
+  against an unchanged base URL.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> anticipated this:
+  <em>&ldquo;module boundaries make selective service extraction feasible if scale requires
+  it.&rdquo;</em> The architecture is now at that point for one specific subdomain.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Evidence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>FinanceModule.cs is becoming a god-registration</td>
+      <td>~280 lines, 7 subdomains, ~25 PersonalFinance services registered (lines 122&ndash;213 of <a href="../../src/Aonik.Finance/FinanceModule.cs">FinanceModule.cs</a>).</td>
+    </tr>
+    <tr>
+      <td>Two release cadences live in one csproj</td>
+      <td>Payabo product churn (FinancialLifeGraph, CustomerInsight, household, commitments) keeps recompiling Ledger and Billing.</td>
+    </tr>
+    <tr>
+      <td>Module already half-extracted at the contract layer</td>
+      <td>6 <code>SharedKernel.Abstractions.*</code> adapters already broker PF&rsquo;s outbound dependencies on Platform / Ai / Agents.</td>
+    </tr>
+    <tr>
+      <td>Distinct AI agent surface</td>
+      <td>5 agent descriptors are PF-specific: <code>PersonalFinanceAgentDescriptor</code>, <code>FinancialLifeGraphAgentDescriptor</code>, <code>PfInsightsAgentDescriptor</code>, <code>PfForecastAgentDescriptor</code>, <code>PfClassifyAgentDescriptor</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+
+<ul>
+  <li><span class="tag new">New</span> <code>src/Aonik.PersonalFinance/Aonik.PersonalFinance.csproj</code> (net10.0) with the standard module anatomy.</li>
+  <li><span class="tag move">Move</span> all 26 PersonalFinance entities, 24 EF configurations, ~48 services / builders, 24 service contracts, ~10 model contracts.</li>
+  <li><span class="tag move">Move</span> 57 user endpoints and 5 admin endpoints under <code>/personal-finance/*</code>.</li>
+  <li><span class="tag move">Move</span> 5 agent descriptors, agent tool files, structured-output schemas, and the CodeAct sandbox provider tree.</li>
+  <li><span class="tag new">New</span> <code>PersonalFinanceDbContext</code> (sibling to <code>FinanceDbContext</code>) with the 26 PersonalFinance DbSets and the <code>CategorisationRule.Scope == "System"</code> global-entity carve-out.</li>
+  <li><span class="tag new">New</span> SharedKernel read contracts (<code>ICustomerOrderHistoryReader</code>, <code>ICustomerInvoiceHistoryReader</code>, <code>ICustomerPaymentHistoryReader</code>) implemented in <code>Aonik.Finance</code> and consumed in <code>Aonik.PersonalFinance</code>.</li>
+  <li><span class="tag move">Move</span> PersonalFinance-specific seed phases and the global seed contributor.</li>
+  <li><span class="tag new">New</span> <code>tests/Aonik.PersonalFinance.Tests/</code> project, populated by moving the PF subtree out of <code>Aonik.Application.Tests</code>.</li>
+  <li><span class="tag mutate">Edit</span> <code>Aonik.Api/Program.cs</code>, <code>Aonik.Worker/Program.cs</code>, and <code>Aonik.AppHost</code> to reference the new module.</li>
+  <li><span class="tag mutate">Edit</span> <code>CLAUDE.md</code>, <code>docs/architecture/module-organization.md</code>, and write <strong>ADR-006</strong> documenting the split.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+
+<ul>
+  <li>No database schema change. Tables keep their names and <code>Ank</code> prefix; no data migration.</li>
+  <li>No EF migration shifted out of <code>AonikDbContext</code>. Canonical migration stream stays.</li>
+  <li>No change to <code>/personal-finance/*</code> URL contract or DTOs visible to mobile / web.</li>
+  <li>No splitting of Ledger, Orders, Payments, Billing, Pricing, Partners, or Catalog.</li>
+  <li>No new microservice or process boundary. The deployable unit is still a single monolith.</li>
+  <li>No renaming of <code>ModuleTablePrefixes</code> or introduction of an <code>AnkPf</code> prefix &mdash; all module prefixes resolve to <code>"Ank"</code> today and that stays.</li>
+</ul>
+
+<h2 id="guardrails">4. Constraints &amp; guardrails</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Must&nbsp;not&nbsp;change</th>
+      <th>Must&nbsp;follow</th>
+      <th>Ask&nbsp;before</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li><code>/personal-finance/*</code> HTTP contract (URLs, DTOs, error shapes)</li>
+          <li>SQL table names</li>
+          <li><code>AonikDbContext</code> as the single migration stream</li>
+          <li>The <code>IModule</code> contract</li>
+          <li>Quartz <code>JobKey</code> identifiers</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Module anatomy from <a href="../architecture/module-organization.md">module-organization.md</a></li>
+          <li>Anemic entities; logic in services</li>
+          <li><code>Send.OkAsync</code> / <code>Send.CreatedAtAsync&lt;T&gt;</code> conventions</li>
+          <li><code>Contracts/</code> is the only <code>public</code> surface; everything else <code>internal</code></li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Introducing a new physical database</li>
+          <li>Changing <code>ModuleTablePrefixes</code></li>
+          <li>Hand-writing a migration (CLAUDE.md absolute prohibition)</li>
+          <li>Breaking the <code>/personal-finance/*</code> URL contract for clean-up</li>
+          <li>Renaming any <code>Ank*</code> table</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="current-state">5. Current-state inventory</h2>
+
+<p>
+  Numbers below reflect a sweep on 2026-05-19. They are the evidence base for the
+  extraction.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Count</th>
+      <th>Root path</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Entities</td><td>26</td><td><code>src/Aonik.Finance/Entities/PersonalFinance/</code></td></tr>
+    <tr><td>EF configurations</td><td>24</td><td><code>src/Aonik.Finance/Persistence/Configurations/PersonalFinance/</code></td></tr>
+    <tr><td>Services / builders</td><td>~48</td><td><code>src/Aonik.Finance/Services/PersonalFinance/</code> + nested <code>CustomerInsight/</code></td></tr>
+    <tr><td>Service contracts</td><td>24</td><td><code>src/Aonik.Finance/Contracts/Services/PersonalFinance/</code></td></tr>
+    <tr><td>Model contracts</td><td>~10</td><td><code>src/Aonik.Finance/Contracts/Models/PersonalFinance/</code></td></tr>
+    <tr><td>User endpoints</td><td>57</td><td><code>src/Aonik.Finance/Endpoints/PersonalFinance/</code></td></tr>
+    <tr><td>Admin endpoints</td><td>5</td><td><code>src/Aonik.Finance/Endpoints/Admin/PersonalFinance/</code></td></tr>
+    <tr><td>Agent descriptors</td><td>5</td><td><code>src/Aonik.Finance/Agents/</code></td></tr>
+    <tr><td>Agent tool files</td><td>~5 PF-relevant</td><td><code>src/Aonik.Finance/Agents/Tools/</code></td></tr>
+    <tr><td>CodeAct sandbox</td><td>3 providers + client</td><td><code>src/Aonik.Finance/Agents/CodeAct/</code></td></tr>
+    <tr><td>Seed phases</td><td>2 PF + 1 global</td><td><code>src/Aonik.Finance/Services/Seeding/Phases/</code></td></tr>
+    <tr><td>Worker jobs</td><td>3</td><td><code>src/Aonik.Worker/Jobs/</code> &mdash; <code>CustomerInsightSnapshotJob</code>, <code>CustomerInsightAiSummaryJob</code>, <code>FinancialConnectionRecurringSyncJob</code></td></tr>
+    <tr><td>Tests</td><td>~19 + 3 API</td><td><code>tests/Aonik.Application.Tests/PersonalFinance/</code>, <code>tests/Aonik.Api.Tests/</code></td></tr>
+  </tbody>
+</table>
+
+<h3>5.1 Inbound dependencies on PersonalFinance from outside Finance</h3>
+
+<table>
+  <thead><tr><th>Module</th><th>File</th><th>Uses</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Aonik.Platform</code></td>
+      <td><code>Endpoints/Admin/Customers/ListCustomerInsightsEndpoint.cs</code></td>
+      <td><code>ICustomerInsightSnapshotService</code> via PF contracts</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Worker</code></td>
+      <td><code>Jobs/CustomerInsightSnapshotJob.cs</code></td>
+      <td>PF contracts and models</td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Worker</code></td>
+      <td><code>Jobs/CustomerInsightAiSummaryJobSnapshotEnumerator.cs</code></td>
+      <td><code>Aonik.Finance.Contracts.Models.PersonalFinance</code></td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Worker</code></td>
+      <td><code>Jobs/FinancialConnectionRecurringSyncJob.cs</code></td>
+      <td><code>FinanceDbContext</code> + <code>FinancialConnectionTransactionSyncOrchestrator</code></td>
+    </tr>
+    <tr>
+      <td><code>Aonik.Infrastructure</code></td>
+      <td><code>Persistence/AonikDbContext.cs</code></td>
+      <td>PF entity types (DbSets &mdash; must stay; migration stream stays)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The Ai module is <strong>already decoupled</strong> via
+  <code>SharedKernel.Abstractions.PersonalFinance.ICustomerInsightSnapshotForAi</code>.
+  No direct Ai &rarr; PersonalFinance code dependencies.
+</p>
+
+<h3>5.2 SharedKernel adapters PersonalFinance already implements</h3>
+
+<table>
+  <thead><tr><th>Interface</th><th>Defined in</th><th>Implemented today by</th></tr></thead>
+  <tbody>
+    <tr><td><code>ICustomerInsightSnapshotForAi</code></td><td><code>SharedKernel.Abstractions.PersonalFinance</code></td><td><code>CustomerInsightSnapshotForAiAdapter</code></td></tr>
+    <tr><td><code>IPersonalProfileProvisioner</code></td><td><code>SharedKernel.Abstractions.PersonalFinance</code></td><td><code>PersonalProfileProvisioner</code></td></tr>
+    <tr><td><code>IUserBriefDataProvider</code></td><td><code>SharedKernel.Abstractions.PersonalFinance</code></td><td><code>UserBriefDataProvider</code></td></tr>
+    <tr><td><code>IPersonalFinancePartyResolver</code></td><td><code>SharedKernel.Abstractions.UserBrief</code></td><td><code>PersonalFinancePartyResolver</code></td></tr>
+    <tr><td><code>ICustomerDataExportProvider</code></td><td><code>SharedKernel.Abstractions</code></td><td><code>CustomerDataExportProvider</code></td></tr>
+    <tr><td><code>ICustomerDataImportConsumer</code></td><td><code>SharedKernel.Abstractions</code></td><td><code>CustomerDataImportConsumer</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+  All six already live in SharedKernel &mdash; the extraction does not introduce them,
+  only relocates their implementations into the new module.
+</p>
+
+<h3>5.3 Tables and naming</h3>
+
+<p>
+  <code>ModuleTablePrefixes.Finance</code> evaluates to <code>"Ank"</code> (see
+  <a href="../../src/Aonik.SharedKernel/Persistence/ModuleTablePrefixes.cs">ModuleTablePrefixes.cs</a>).
+  All PersonalFinance tables are therefore <code>Ank&lt;Plural&gt;</code>:
+</p>
+
+<pre><code>AnkBills                       AnkBudgets                  AnkBudgetLines
+AnkPersonalAccounts            AnkPersonalLinkedAccounts   AnkPersonalTransactions
+AnkPersonalRecurringBills      AnkSubscriptions            AnkDebtRepayments
+AnkGoals                       AnkHouseholds               AnkHouseholdMembers
+AnkPersonalProfiles            AnkTransactionCategories    AnkCategorisationRules
+AnkTransactionAttachments      AnkCustomerInsightSnapshots
+AnkStatementImports            AnkStatementImportRows
+AnkFinancialConnections        AnkFinancialConnectionSessions
+AnkFinancialWebhookEvents
+AnkFinancialContexts           AnkFinancialContextFundingSources
+AnkFinancialLifeGraphNodes     AnkFinancialLifeGraphEdges</code></pre>
+
+<p>
+  No <code>AnkPf*</code> prefix today; none will be introduced. All module prefixes
+  resolve to <code>Ank</code> and that stays.
+</p>
+
+<h2 id="outbound-coupling">6. Outbound coupling on Orders / Billing / Payments</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Critical finding</span>
+  An initial sweep claimed &ldquo;zero outbound dependencies&rdquo; from PersonalFinance.
+  That was wrong. Seven PersonalFinance files reach into
+  <code>Aonik.Finance.Entities.{Orders, Billing, Payments}</code>, and at least one of
+  them queries <code>_dbContext.Orders</code> directly. These reach-ins
+  <strong>must</strong> be resolved via SharedKernel read contracts before the project
+  reference from <code>Aonik.PersonalFinance</code> to <code>Aonik.Finance</code> can be
+  dropped. This is the load-bearing risk of the whole extraction.
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>PersonalFinance file</th>
+      <th>Reads from</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Services/PersonalFinance/CustomerInsightSnapshotGenerator.cs</code></td>
+      <td><code>Entities.Orders</code></td>
+      <td>Pulls historic orders to compute insights</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/CustomerInsight/CustomerInsightSourceDataLoader.cs</code></td>
+      <td><code>Entities.Orders</code> (queries <code>_dbContext.Orders</code> directly)</td>
+      <td>Loads order history for the insight pipeline</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/CustomerInsight/CustomerInsightOrderHistoryBuilder.cs</code></td>
+      <td><code>Entities.Orders</code></td>
+      <td>Builds the order-history slice of the snapshot</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/DashboardService.cs</code></td>
+      <td><code>Entities.Orders</code></td>
+      <td>Surfaces order-derived signals on the dashboard</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/FinancialLifeGraphLoader.cs</code></td>
+      <td><code>Entities.{Billing, Orders, Payments}</code></td>
+      <td>Hydrates graph nodes / edges from billing, order, payment history</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/FinancialLifeGraphService.cs</code></td>
+      <td><code>Entities.{Billing, Orders, Payments}</code></td>
+      <td>Composes graph snapshots</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/FinancialLifeGraphSnapshot.cs</code></td>
+      <td><code>Entities.{Billing, Orders, Payments}</code></td>
+      <td>Snapshot DTO / state holder</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="target-layout">7. Target module layout</h2>
+
+<div class="ascii-diagram">src/
+├── Aonik.SharedKernel/
+│   ├── Abstractions/
+│   │   ├── Finance/                            # NEW — read contracts for the boundary
+│   │   │   ├── ICustomerOrderHistoryReader.cs
+│   │   │   ├── ICustomerInvoiceHistoryReader.cs
+│   │   │   ├── ICustomerPaymentHistoryReader.cs
+│   │   │   └── Models/{OrderHistoryItem,InvoiceHistoryItem,PaymentHistoryItem}.cs
+│   │   └── PersonalFinance/                    # existing — unchanged
+│   └── …
+├── Aonik.Finance/                              # PF subtree removed
+│   ├── FinanceModule.cs                        # shrunk; PF registrations gone
+│   ├── Entities/{Billing,Ledger,Orders,Payments,Pricing,Partners,Catalog}/
+│   ├── Services/Finance/Readers/               # NEW — impls of SharedKernel.Finance readers
+│   │   ├── CustomerOrderHistoryReader.cs
+│   │   ├── CustomerInvoiceHistoryReader.cs
+│   │   └── CustomerPaymentHistoryReader.cs
+│   └── …
+├── Aonik.PersonalFinance/                      # NEW
+│   ├── Aonik.PersonalFinance.csproj
+│   ├── PersonalFinanceModule.cs
+│   ├── Contracts/{Events,Services,Models}/PersonalFinance/
+│   ├── Entities/PersonalFinance/
+│   ├── Services/PersonalFinance/
+│   ├── Endpoints/{,Admin/}PersonalFinance/
+│   ├── Persistence/
+│   │   ├── PersonalFinanceDbContext.cs
+│   │   └── Configurations/PersonalFinance/
+│   ├── Agents/
+│   │   ├── PersonalFinanceAgentDescriptor.cs
+│   │   ├── FinancialLifeGraphAgentDescriptor.cs
+│   │   ├── PfInsightsAgentDescriptor.cs
+│   │   ├── PfForecastAgentDescriptor.cs
+│   │   ├── PfClassifyAgentDescriptor.cs
+│   │   ├── Tools/
+│   │   ├── CodeAct/{Hyperlight,AcaSessions,Null}/
+│   │   └── Structured/{Insights,Forecast,Classify}Models.cs
+│   └── Services/Seeding/Phases/{Households,PersonalFinanceActivity}SeedPhase.cs
+├── Aonik.Infrastructure/
+│   └── Persistence/AonikDbContext.cs           # keeps PF DbSets — migration stream unchanged
+└── …</div>
+
+<h2 id="dep-graph">8. Dependency graph (before / after)</h2>
+
+<h3>Before</h3>
+
+<div class="ascii-diagram">                 ┌──────────────────────────┐
+                 │     Aonik.SharedKernel   │
+                 └──────────────────────────┘
+                              ▲
+        ┌────────────┬────────┴─────────┬────────────┬───────────┐
+        │            │                  │            │           │
+   ┌────┴─────┐ ┌────┴─────┐ ┌──────────┴─────────┐ ┌─┴──────┐ ┌──┴──────────┐
+   │ Platform │ │   Ai     │ │      Finance       │ │ Agents │ │ Infrastructure│
+   └──────────┘ └──────────┘ │  Ledger·Orders     │ └────────┘ └───────────────┘
+        ▲           ▲        │  Payments·Billing  │
+        │           │        │  Pricing·Partners  │
+        │           │        │  Catalog           │
+        │           │        │  PersonalFinance   │ ◀── “half the surface area”
+        │           │        └──────────┬─────────┘
+        │           │                   │
+        │           └──── via SharedKernel adapters
+        └── reaches into PF contracts (admin endpoint, worker jobs)
+
+   Api  →  Finance·Platform·Ai·Agents·Infrastructure
+   Worker → Finance·Platform·Ai·Infrastructure</div>
+
+<h3>After</h3>
+
+<div class="ascii-diagram">                 ┌────────────────────────────────────────┐
+                 │            Aonik.SharedKernel          │
+                 │  + Abstractions/Finance/Read*Readers   │
+                 └────────────────────────────────────────┘
+                              ▲          ▲
+        ┌────────────┬────────┴───┐  ┌───┴─────────┬────────────┐
+        │            │            │  │             │            │
+   ┌────┴─────┐ ┌────┴─────┐ ┌────┴──┴───┐ ┌───────┴──────────┐ ┌┴────────────┐
+   │ Platform │ │   Ai     │ │  Finance  │ │ PersonalFinance  │ │ Agents      │
+   └──────────┘ └──────────┘ │  Ledger·  │ │ Households       │ └─────────────┘
+        ▲           ▲        │  Orders·  │ │ Accounts·Tx      │
+        │           │        │  Payments·│ │ Bills·Budgets    │
+        │           │        │  Billing· │ │ Goals·Graph      │
+        │           │        │  Pricing· │ │ Insights·Agents  │
+        │           │        │  Partners·│ └────────┬─────────┘
+        │           │        │  Catalog  │          │
+        │           │        └─────┬─────┘          │
+        │           │              │                │
+        │           └─── via SharedKernel adapters ─┘
+        └── reaches into PF contracts directly ─────┐
+                                                    │
+                                                    ▼
+                                    (new sibling project reference)
+
+   Finance → impls of SharedKernel.Finance.Read*Reader
+   PersonalFinance →  reads order/invoice/payment history via SharedKernel
+
+   Api    → Finance·PersonalFinance·Platform·Ai·Agents·Infrastructure
+   Worker → Finance·PersonalFinance·Platform·Ai·Infrastructure</div>
+
+<p>
+  <code>Aonik.Finance</code> no longer appears as a dependency of
+  <code>Aonik.PersonalFinance</code>. The two modules are siblings whose only shared
+  surface is <code>Aonik.SharedKernel</code>.
+</p>
+
+<h2 id="read-contracts">9. SharedKernel read contracts</h2>
+
+<p>
+  The PersonalFinance insight pipeline and the FinancialLifeGraph loader read Orders,
+  Invoices, and Payments directly today. After extraction they cannot &mdash;
+  <code>Aonik.PersonalFinance</code> will not reference <code>Aonik.Finance</code>.
+  Three thin read contracts in SharedKernel resolve this:
+</p>
+
+<pre><code>// src/Aonik.SharedKernel/Abstractions/Finance/ICustomerOrderHistoryReader.cs
+namespace Aonik.SharedKernel.Abstractions.Finance;
+
+public interface ICustomerOrderHistoryReader
+{
+    Task&lt;IReadOnlyList&lt;OrderHistoryItem&gt;&gt; GetForCustomerAsync(
+        Guid customerId,
+        DateOnly fromUtc,
+        DateOnly toUtc,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record OrderHistoryItem(
+    Guid OrderId,
+    string OrderType,
+    string Status,
+    decimal Amount,
+    string Currency,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? FulfilledAt,
+    string? CounterpartyName,
+    string? CategoryHint);
+</code></pre>
+
+<p>
+  Equivalent shapes for <code>ICustomerInvoiceHistoryReader</code> (returning
+  <code>InvoiceHistoryItem</code>) and <code>ICustomerPaymentHistoryReader</code>
+  (returning <code>PaymentHistoryItem</code>). DTOs carry only what PersonalFinance
+  actually consumes &mdash; they are <strong>not</strong> entity projections.
+</p>
+
+<p>
+  Implementations live in <code>Aonik.Finance</code> and are registered in
+  <code>FinanceModule.ConfigureServices</code>:
+</p>
+
+<pre><code>// src/Aonik.Finance/Services/Finance/Readers/CustomerOrderHistoryReader.cs
+namespace Aonik.Finance.Services.Finance.Readers;
+
+internal sealed class CustomerOrderHistoryReader : ICustomerOrderHistoryReader
+{
+    private readonly FinanceDbContext _dbContext;
+
+    public CustomerOrderHistoryReader(FinanceDbContext dbContext) =&gt; _dbContext = dbContext;
+
+    public async Task&lt;IReadOnlyList&lt;OrderHistoryItem&gt;&gt; GetForCustomerAsync(
+        Guid customerId,
+        DateOnly fromUtc,
+        DateOnly toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var fromTs = fromUtc.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var toTs   = toUtc.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+
+        return await _dbContext.Orders
+            .AsNoTracking()
+            .Where(o =&gt; o.CustomerId == customerId
+                     &amp;&amp; o.CreatedAt &gt;= fromTs
+                     &amp;&amp; o.CreatedAt &lt;= toTs)
+            .OrderBy(o =&gt; o.CreatedAt)
+            .Select(o =&gt; new OrderHistoryItem(
+                o.Id,
+                o.OrderType.ToString(),
+                o.Status.ToString(),
+                o.TotalAmount,
+                o.Currency,
+                o.CreatedAt,
+                o.FulfilledAt,
+                o.CounterpartyName,
+                o.CategoryHint))
+            .ToListAsync(cancellationToken);
+    }
+}
+</code></pre>
+
+<p>PersonalFinance switches its callers:</p>
+
+<pre><code>// before — src/Aonik.Finance/Services/PersonalFinance/CustomerInsight/CustomerInsightSourceDataLoader.cs
+using Aonik.Finance.Entities.Orders;
+…
+return await _dbContext.Orders
+    .Where(o =&gt; o.CustomerId == customerId &amp;&amp; o.CreatedAt &gt;= from)
+    .ToListAsync(cancellationToken);
+
+// after — src/Aonik.PersonalFinance/Services/PersonalFinance/CustomerInsight/CustomerInsightSourceDataLoader.cs
+using Aonik.SharedKernel.Abstractions.Finance;
+…
+return await _orderHistoryReader
+    .GetForCustomerAsync(customerId, from, to, cancellationToken);
+</code></pre>
+
+<p>
+  Same pattern for invoice and payment reads. Once all three readers are in place,
+  <code>Aonik.PersonalFinance</code> can ship without a reference to
+  <code>Aonik.Finance</code>.
+</p>
+
+<h2 id="code-csproj">10. Project file (csproj)</h2>
+
+<pre><code>&lt;!-- src/Aonik.PersonalFinance/Aonik.PersonalFinance.csproj --&gt;
+&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;RootNamespace&gt;Aonik.PersonalFinance&lt;/RootNamespace&gt;
+  &lt;/PropertyGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;InternalsVisibleTo Include="Aonik.Api" /&gt;
+    &lt;InternalsVisibleTo Include="Aonik.Infrastructure" /&gt;
+    &lt;InternalsVisibleTo Include="Aonik.Worker" /&gt;
+    &lt;InternalsVisibleTo Include="Aonik.Migrator" /&gt;
+    &lt;InternalsVisibleTo Include="Aonik.PersonalFinance.Tests" /&gt;
+    &lt;InternalsVisibleTo Include="Aonik.Application.Tests" /&gt;
+    &lt;InternalsVisibleTo Include="Aonik.Api.Tests" /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;FrameworkReference Include="Microsoft.AspNetCore.App" /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include="FastEndpoints" Version="7.1.1" /&gt;
+    &lt;PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" /&gt;
+    &lt;PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" /&gt;
+    &lt;PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" /&gt;
+    &lt;!-- CodeAct sandbox dependencies, migrated from Aonik.Finance --&gt;
+    &lt;PackageReference Include="Azure.Core" Version="1.47.1" /&gt;
+    &lt;PackageReference Include="Azure.Identity" Version="1.14.2" /&gt;
+    &lt;PackageReference Include="Hyperlight.HyperlightSandbox.Api" Version="0.4.0" /&gt;
+    &lt;PackageReference Include="Hyperlight.HyperlightSandbox.Extensions.AI" Version="0.4.0" /&gt;
+    &lt;PackageReference Include="Hyperlight.HyperlightSandbox.Guest.Python" Version="0.4.0" /&gt;
+  &lt;/ItemGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;EmbeddedResource Include="Services\Seeding\Data\*.json" /&gt;
+  &lt;/ItemGroup&gt;
+
+&lt;/Project&gt;
+</code></pre>
+
+<p>
+  Notice the load-bearing absence: <strong>no
+  <code>ProjectReference</code> to <code>Aonik.Finance</code></strong>.
+</p>
+
+<h2 id="code-module">11. Module class</h2>
+
+<pre><code>// src/Aonik.PersonalFinance/PersonalFinanceModule.cs
+namespace Aonik.PersonalFinance;
+
+public sealed class PersonalFinanceModule : IModule
+{
+    public static string Name =&gt; "PersonalFinance";
+
+    public static IServiceCollection ConfigureServices(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddDbContext&lt;PersonalFinanceDbContext&gt;((sp, options) =&gt;
+        {
+            if (configuration.GetValue&lt;bool&gt;("UseInMemoryDatabase"))
+            {
+                var dbName = configuration.GetValue&lt;string&gt;("InMemoryDatabaseName")
+                    ?? $"PersonalFinanceDb_{Guid.NewGuid()}";
+                options.UseInMemoryDatabase(dbName);
+            }
+            else
+            {
+                var connectionString = configuration.GetConnectionString("DefaultConnection")
+                    ?? configuration.GetConnectionString("AonikDb");
+                options.UseSqlServer(connectionString, o =&gt; o.EnableRetryOnFailure());
+            }
+        });
+
+        services.AddEventBus(typeof(PersonalFinanceModule).Assembly);
+
+        // ── PersonalFinance Services (relocated from FinanceModule) ──
+        services.AddScoped&lt;IBillService, BillService&gt;();
+        services.AddScoped&lt;IDashboardService, DashboardService&gt;();
+        services.AddScoped&lt;IHouseholdService, HouseholdService&gt;();
+        services.AddScoped&lt;IPersonalAccountService, PersonalAccountService&gt;();
+        services.AddScoped&lt;IPersonalAccountLinkService, PersonalAccountLinkService&gt;();
+        services.AddScoped&lt;IPersonalTransactionService, PersonalTransactionService&gt;();
+        services.AddScoped&lt;IStatementImportService, StatementImportService&gt;();
+        services.AddScoped&lt;ITransactionClassificationService, TransactionClassificationService&gt;();
+        services.AddScoped&lt;ITransactionAiClassifier, TransactionAiClassifier&gt;();
+        services.AddScoped&lt;IPersonalFinanceInsightsService, PersonalFinanceInsightsService&gt;();
+        services.AddScoped&lt;IPersonalFinanceNarrativeInsightsService, PersonalFinanceNarrativeInsightsService&gt;();
+        services.AddScoped&lt;ICustomerInsightSnapshotGenerator, CustomerInsightSnapshotGenerator&gt;();
+        services.AddScoped&lt;ICustomerInsightSnapshotService, CustomerInsightSnapshotService&gt;();
+        services.AddScoped&lt;ICustomerInsightSnapshotReader, CustomerInsightSnapshotReader&gt;();
+        services.AddScoped&lt;ITransactionAttachmentService, TransactionAttachmentService&gt;();
+        services.AddScoped&lt;IFinancialContextService, FinancialContextService&gt;();
+        services.AddScoped&lt;IBudgetService, BudgetService&gt;();
+        services.AddScoped&lt;ICommitmentService, CommitmentService&gt;();
+
+        // ── Financial Life Graph ───────────────────────────────────
+        services.AddSingleton&lt;FinancialLifeGraphSchema&gt;();
+        services.AddScoped&lt;FinancialLifeGraphLoader&gt;();
+        services.AddScoped&lt;FinancialLifeGraphHydrationService&gt;();
+        services.AddScoped&lt;FinancialLifeGraphValidationService&gt;();
+        services.AddScoped&lt;FinancialLifeGraphWriteService&gt;();
+        services.AddScoped&lt;FinancialLifeGraphInferenceService&gt;();
+        services.AddScoped&lt;FinancialLifeGraphService&gt;();
+        services.AddScoped&lt;IFinancialLifeGraphService&gt;(sp =&gt; sp.GetRequiredService&lt;FinancialLifeGraphService&gt;());
+        services.AddScoped&lt;IFinancialLifeGraphCacheInvalidator, FinancialLifeGraphCacheInvalidator&gt;();
+        services.AddScoped&lt;IFinancialLifeGraphSchemaService, FinancialLifeGraphSchemaService&gt;();
+        services.AddScoped&lt;IFinancialLifeGraphTraversalService, FinancialLifeGraphTraversalService&gt;();
+        services.AddScoped&lt;IFinancialLifeGraphRetrievalService, FinancialLifeGraphRetrievalService&gt;();
+        services.AddScoped&lt;FinancialLifeGraphSnapshotMetrics&gt;();
+
+        // ── Plaid integration ──────────────────────────────────────
+        services.Configure&lt;PlaidAccountLinkOptions&gt;(
+            configuration.GetSection("PersonalFinance:Plaid"));
+        services.Configure&lt;FinancialConnectionSyncOptions&gt;(
+            configuration.GetSection("PersonalFinance:LinkedAccountSync"));
+        services.AddHttpClient&lt;PlaidAccountLinkProviderGateway&gt;((sp, client) =&gt;
+        {
+            var options = sp.GetRequiredService&lt;IOptions&lt;PlaidAccountLinkOptions&gt;&gt;().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+                client.BaseAddress = baseUri;
+        });
+        services.AddTransient&lt;IPersonalAccountLinkProviderGateway&gt;(sp =&gt;
+        {
+            var options = sp.GetRequiredService&lt;IOptions&lt;PlaidAccountLinkOptions&gt;&gt;().Value;
+            return options.IsConfigured()
+                ? sp.GetRequiredService&lt;PlaidAccountLinkProviderGateway&gt;()
+                : new PlaidSimulatedAccountLinkProviderGateway();
+        });
+        services.AddScoped&lt;FinancialConnectionTransactionSyncOrchestrator&gt;();
+
+        // ── SharedKernel adapter implementations (relocated) ──────
+        services.AddScoped&lt;SharedKernel.Abstractions.PersonalFinance.ICustomerInsightSnapshotForAi,
+            Services.PersonalFinance.CustomerInsightSnapshotForAiAdapter&gt;();
+        services.AddScoped&lt;SharedKernel.Abstractions.PersonalFinance.IPersonalProfileProvisioner,
+            Services.PersonalFinance.PersonalProfileProvisioner&gt;();
+        services.AddScoped&lt;SharedKernel.Abstractions.PersonalFinance.IUserBriefDataProvider,
+            Services.PersonalFinance.UserBriefDataProvider&gt;();
+        services.AddScoped&lt;SharedKernel.Abstractions.UserBrief.IPersonalFinancePartyResolver,
+            Services.PersonalFinance.PersonalFinancePartyResolver&gt;();
+        services.AddScoped&lt;SharedKernel.Abstractions.ICustomerDataExportProvider,
+            Services.PersonalFinance.CustomerDataExportProvider&gt;();
+        services.AddScoped&lt;SharedKernel.Abstractions.ICustomerDataImportConsumer,
+            Services.PersonalFinance.CustomerDataImportConsumer&gt;();
+
+        // ── Domain Agents ─────────────────────────────────────────
+        services.AddSingleton&lt;IDomainAgentDescriptor, PersonalFinanceAgentDescriptor&gt;();
+        services.AddSingleton&lt;IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor&gt;();
+        services.AddSingleton&lt;IDomainAgentDescriptor, PfInsightsAgentDescriptor&gt;();
+        services.AddSingleton&lt;IDomainAgentDescriptor, PfForecastAgentDescriptor&gt;();
+        services.AddSingleton&lt;IDomainAgentDescriptor, PfClassifyAgentDescriptor&gt;();
+
+        // ── CodeAct Sandbox Providers (relocated) ─────────────────
+        services.AddOptions&lt;AcaSessionsOptions&gt;().BindConfiguration(AcaSessionsOptions.SectionName);
+        services.AddSingleton&lt;CodeActCallbackNonceService&gt;();
+        services.AddHttpClient&lt;AcaSessionsClient&gt;(/* config relocated verbatim */);
+        services.AddSingleton&lt;HyperlightCodeActSandboxProvider&gt;();
+        services.AddSingleton&lt;AcaSessionsCodeActSandboxProvider&gt;();
+        services.AddSingleton&lt;NullCodeActSandboxProvider&gt;();
+        services.AddSingleton&lt;ICodeActSandboxProvider&gt;(sp =&gt;
+        {
+            var providerName = sp.GetRequiredService&lt;IConfiguration&gt;()["Ai:CodeAct:Provider"];
+            return providerName switch
+            {
+                "AcaSessions" =&gt; sp.GetRequiredService&lt;AcaSessionsCodeActSandboxProvider&gt;(),
+                "Hyperlight"  =&gt; sp.GetRequiredService&lt;HyperlightCodeActSandboxProvider&gt;(),
+                _             =&gt; sp.GetRequiredService&lt;NullCodeActSandboxProvider&gt;(),
+            };
+        });
+
+        // ── Seed Contributors (relocated) ─────────────────────────
+        services.AddScoped&lt;HouseholdsSeedPhase&gt;();
+        services.AddScoped&lt;PersonalFinanceActivitySeedPhase&gt;();
+        services.AddScoped&lt;IGlobalSeedContributor, PersonalFinanceSeedContributor&gt;();
+
+        return services;
+    }
+}
+
+public static class PersonalFinanceModuleExtensions
+{
+    public static IServiceCollection AddPersonalFinanceModule(
+        this IServiceCollection services,
+        IConfiguration configuration)
+        =&gt; PersonalFinanceModule.ConfigureServices(services, configuration);
+}
+</code></pre>
+
+<h2 id="code-dbcontext">12. PersonalFinanceDbContext</h2>
+
+<pre><code>// src/Aonik.PersonalFinance/Persistence/PersonalFinanceDbContext.cs
+namespace Aonik.PersonalFinance.Persistence;
+
+internal sealed class PersonalFinanceDbContext : AonikDbContextBase
+{
+    public PersonalFinanceDbContext(
+        DbContextOptions&lt;PersonalFinanceDbContext&gt; options,
+        ITenantProvider tenantProvider,
+        ICurrentUserProvider currentUserProvider)
+        : base(options, tenantProvider, currentUserProvider) { }
+
+    public DbSet&lt;PersonalProfile&gt;        PersonalProfiles        =&gt; Set&lt;PersonalProfile&gt;();
+    public DbSet&lt;Household&gt;              Households              =&gt; Set&lt;Household&gt;();
+    public DbSet&lt;HouseholdMember&gt;        HouseholdMembers        =&gt; Set&lt;HouseholdMember&gt;();
+    public DbSet&lt;PersonalAccount&gt;        PersonalAccounts        =&gt; Set&lt;PersonalAccount&gt;();
+    public DbSet&lt;PersonalLinkedAccount&gt;  PersonalLinkedAccounts  =&gt; Set&lt;PersonalLinkedAccount&gt;();
+    public DbSet&lt;PersonalTransaction&gt;    PersonalTransactions    =&gt; Set&lt;PersonalTransaction&gt;();
+    public DbSet&lt;TransactionCategory&gt;    TransactionCategories   =&gt; Set&lt;TransactionCategory&gt;();
+    public DbSet&lt;CategorisationRule&gt;     CategorisationRules     =&gt; Set&lt;CategorisationRule&gt;();
+    public DbSet&lt;TransactionAttachment&gt;  TransactionAttachments  =&gt; Set&lt;TransactionAttachment&gt;();
+    public DbSet&lt;Bill&gt;                   Bills                   =&gt; Set&lt;Bill&gt;();
+    public DbSet&lt;Subscription&gt;           Subscriptions           =&gt; Set&lt;Subscription&gt;();
+    public DbSet&lt;PersonalRecurringBill&gt;  PersonalRecurringBills  =&gt; Set&lt;PersonalRecurringBill&gt;();
+    public DbSet&lt;DebtRepayment&gt;          DebtRepayments          =&gt; Set&lt;DebtRepayment&gt;();
+    public DbSet&lt;Budget&gt;                 Budgets                 =&gt; Set&lt;Budget&gt;();
+    public DbSet&lt;BudgetLine&gt;             BudgetLines             =&gt; Set&lt;BudgetLine&gt;();
+    public DbSet&lt;Goal&gt;                   Goals                   =&gt; Set&lt;Goal&gt;();
+    public DbSet&lt;FinancialConnection&gt;    FinancialConnections    =&gt; Set&lt;FinancialConnection&gt;();
+    public DbSet&lt;FinancialConnectionSession&gt; FinancialConnectionSessions =&gt; Set&lt;FinancialConnectionSession&gt;();
+    public DbSet&lt;FinancialWebhookEvent&gt;  FinancialWebhookEvents  =&gt; Set&lt;FinancialWebhookEvent&gt;();
+    public DbSet&lt;FinancialContext&gt;       FinancialContexts       =&gt; Set&lt;FinancialContext&gt;();
+    public DbSet&lt;FinancialContextFundingSource&gt; FinancialContextFundingSources =&gt; Set&lt;FinancialContextFundingSource&gt;();
+    public DbSet&lt;FinancialLifeGraphNode&gt; FinancialLifeGraphNodes =&gt; Set&lt;FinancialLifeGraphNode&gt;();
+    public DbSet&lt;FinancialLifeGraphEdge&gt; FinancialLifeGraphEdges =&gt; Set&lt;FinancialLifeGraphEdge&gt;();
+    public DbSet&lt;CustomerInsightSnapshot&gt; CustomerInsightSnapshots =&gt; Set&lt;CustomerInsightSnapshot&gt;();
+    public DbSet&lt;StatementImport&gt;        StatementImports        =&gt; Set&lt;StatementImport&gt;();
+    public DbSet&lt;StatementImportRow&gt;     StatementImportRows     =&gt; Set&lt;StatementImportRow&gt;();
+
+    // Platform read models (read-only) — keep available for joins.
+    public DbSet&lt;PartyReadModel&gt; Parties =&gt; Set&lt;PartyReadModel&gt;();
+    public DbSet&lt;UserReadModel&gt;  Users   =&gt; Set&lt;UserReadModel&gt;();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(PersonalFinanceDbContext).Assembly);
+
+        MapTable&lt;PersonalProfile&gt;       (modelBuilder, "PersonalProfiles");
+        MapTable&lt;Household&gt;             (modelBuilder, "Households");
+        MapTable&lt;HouseholdMember&gt;       (modelBuilder, "HouseholdMembers");
+        MapTable&lt;PersonalAccount&gt;       (modelBuilder, "PersonalAccounts");
+        MapTable&lt;PersonalLinkedAccount&gt; (modelBuilder, "PersonalLinkedAccounts");
+        MapTable&lt;PersonalTransaction&gt;   (modelBuilder, "PersonalTransactions");
+        MapTable&lt;TransactionCategory&gt;   (modelBuilder, "TransactionCategories");
+        MapTable&lt;CategorisationRule&gt;    (modelBuilder, "CategorisationRules");
+        MapTable&lt;TransactionAttachment&gt; (modelBuilder, "TransactionAttachments");
+        MapTable&lt;Bill&gt;                  (modelBuilder, "Bills");
+        MapTable&lt;Subscription&gt;          (modelBuilder, "Subscriptions");
+        MapTable&lt;PersonalRecurringBill&gt; (modelBuilder, "PersonalRecurringBills");
+        MapTable&lt;DebtRepayment&gt;         (modelBuilder, "DebtRepayments");
+        MapTable&lt;Budget&gt;                (modelBuilder, "Budgets");
+        MapTable&lt;BudgetLine&gt;            (modelBuilder, "BudgetLines");
+        MapTable&lt;Goal&gt;                  (modelBuilder, "Goals");
+        MapTable&lt;FinancialConnection&gt;   (modelBuilder, "FinancialConnections");
+        MapTable&lt;FinancialConnectionSession&gt;(modelBuilder, "FinancialConnectionSessions");
+        MapTable&lt;FinancialWebhookEvent&gt; (modelBuilder, "FinancialWebhookEvents");
+        MapTable&lt;FinancialContext&gt;      (modelBuilder, "FinancialContexts");
+        MapTable&lt;FinancialContextFundingSource&gt;(modelBuilder, "FinancialContextFundingSources");
+        MapTable&lt;FinancialLifeGraphNode&gt;(modelBuilder, "FinancialLifeGraphNodes");
+        MapTable&lt;FinancialLifeGraphEdge&gt;(modelBuilder, "FinancialLifeGraphEdges");
+        MapTable&lt;CustomerInsightSnapshot&gt;(modelBuilder, "CustomerInsightSnapshots");
+        MapTable&lt;StatementImport&gt;       (modelBuilder, "StatementImports");
+        MapTable&lt;StatementImportRow&gt;    (modelBuilder, "StatementImportRows");
+
+        MapPlatformTable&lt;PartyReadModel&gt;(modelBuilder, "Parties");
+        MapPlatformTable&lt;UserReadModel&gt; (modelBuilder, "Users");
+    }
+
+    // CategorisationRule with Scope == "System" must remain global —
+    // identical logic to FinanceDbContext.IsGlobalEntity.
+    protected override bool IsGlobalEntity(object entity)
+    {
+        if (base.IsGlobalEntity(entity)) return true;
+        return entity is CategorisationRule rule
+            &amp;&amp; string.Equals(rule.Scope, "System", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void MapTable&lt;TEntity&gt;(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+        =&gt; modelBuilder.Entity&lt;TEntity&gt;()
+            .ToTable($"{ModuleTablePrefixes.Default}{tableName}", SchemaNames.Default);
+
+    private static void MapPlatformTable&lt;TEntity&gt;(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+        =&gt; modelBuilder.Entity&lt;TEntity&gt;()
+            .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
+}
+</code></pre>
+
+<p>
+  <code>AonikDbContext</code> keeps the same DbSets and configuration registrations for
+  these entities &mdash; migrations continue to be generated against the canonical
+  context.
+</p>
+
+<h2 id="code-compose">13. Composition root updates</h2>
+
+<pre><code>// src/Aonik.Api/Program.cs (excerpt)
+builder.Services.AddPlatformModule(builder.Configuration);
+builder.Services.AddFinanceModule(builder.Configuration);
+builder.Services.AddPersonalFinanceModule(builder.Configuration);   // NEW
+builder.Services.AddAiModule(builder.Configuration);
+builder.Services.AddAgentsModule(builder.Configuration);
+
+// FastEndpoints discovery must include the new assembly:
+app.UseFastEndpoints(c =&gt; c.Assemblies =
+[
+    typeof(PlatformModule).Assembly,
+    typeof(FinanceModule).Assembly,
+    typeof(PersonalFinanceModule).Assembly,                          // NEW
+    typeof(AiModule).Assembly,
+    typeof(AgentsModule).Assembly,
+]);
+</code></pre>
+
+<pre><code>// src/Aonik.Worker/Program.cs (excerpt) — jobs continue to consume
+//   Aonik.PersonalFinance.Contracts.* instead of Aonik.Finance.Contracts.*
+builder.Services.AddPersonalFinanceModule(builder.Configuration);
+</code></pre>
+
+<p>
+  <strong>Quartz job keys must not change.</strong>
+  <code>JobKey("CustomerInsightSnapshotJob", "ScheduledJobs")</code>,
+  <code>JobKey("CustomerInsightAiSummaryJob", "ScheduledJobs")</code>, and
+  <code>JobKey("FinancialConnectionRecurringSyncJob", "ScheduledJobs")</code> remain
+  exactly as-is so persisted Quartz triggers keep firing across the deployment.
+</p>
+
+<h2 id="phases">14. Phased rollout</h2>
+
+<div class="ascii-diagram">P0 ── SharedKernel read contracts (interfaces + DTOs)
+ │
+P1 ── Empty PersonalFinance project + DbContext skeleton
+ │
+P2 ── Move 26 entities + 24 EF configurations
+ │
+P3 ── Move ~48 services + 24 contracts; swap direct reads for SharedKernel readers
+ │
+P4 ── Move 62 endpoints; verify Swagger diff is empty
+ │
+P5 ── Move 5 agents + CodeAct sandbox; relocate NuGet refs
+ │
+P6 ── Move tests + seed phases; new tests/Aonik.PersonalFinance.Tests/
+ │
+P7 ── Wire Api + Worker + AppHost; remove FinanceModule PF registrations
+ │
+P8 ── Docs: CLAUDE.md, module-organization.md, ADR-006</div>
+
+<p>
+  Each phase ends with <code>dotnet build Aonik.sln &amp;&amp; dotnet test Aonik.sln</code>
+  green. The system stays shippable between phases.
+</p>
+
+<div class="phase-card">
+  <h4>Phase 0 &mdash; SharedKernel read contracts</h4>
+  <div class="phase-summary">
+    Define the three reader interfaces and DTO records in
+    <code>SharedKernel/Abstractions/Finance/</code>. Implement them in
+    <code>Aonik.Finance</code>. No PersonalFinance code moves yet.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 1 &mdash; Module skeleton</h4>
+  <div class="phase-summary">
+    Add <code>Aonik.PersonalFinance.csproj</code> and an empty
+    <code>PersonalFinanceModule.ConfigureServices</code>. Add the project to
+    <code>Aonik.sln</code>. Confirm the solution still builds.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 &mdash; Entities &amp; EF configurations</h4>
+  <div class="phase-summary">
+    <code>git mv</code> 26 entities and 24 EF configurations into the new project.
+    Create <code>PersonalFinanceDbContext</code>. Carry over the
+    <code>CategorisationRule</code> global-entity override.
+    Confirm <code>AonikDbContext</code> still generates the same migrations against a
+    fresh database.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 &mdash; Services &amp; contracts</h4>
+  <div class="phase-summary">
+    <code>git mv</code> ~48 services, 24 service contracts, and ~10 model contracts.
+    Replace every <code>using Aonik.Finance.Entities.{Orders,Billing,Payments}</code> in
+    PersonalFinance with the SharedKernel readers. Relocate the six SharedKernel adapter
+    implementations.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 4 &mdash; Endpoints</h4>
+  <div class="phase-summary">
+    <code>git mv</code> 57 user endpoints and 5 admin endpoints. Update namespaces. Update
+    FastEndpoints assembly discovery in
+    <code>Aonik.Api/Program.cs</code>. Diff <code>/swagger/v1/swagger.json</code>
+    pre- and post-move &mdash; diff must be empty in the
+    <code>/personal-finance/*</code> region.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 5 &mdash; Agents &amp; CodeAct</h4>
+  <div class="phase-summary">
+    <code>git mv</code> 5 agent descriptors, agent tool files, structured-output
+    schemas, and the entire <code>Agents/CodeAct/</code> tree. Move Hyperlight /
+    Azure.Identity / Azure.Core package references from <code>Aonik.Finance.csproj</code>
+    to <code>Aonik.PersonalFinance.csproj</code>. Remove the now-orphaned DI
+    registrations from <code>FinanceModule.ConfigureServices</code>.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 6 &mdash; Tests &amp; seeding</h4>
+  <div class="phase-summary">
+    Create <code>tests/Aonik.PersonalFinance.Tests/</code>. Move PF tests across. Move
+    <code>HouseholdsSeedPhase</code>, <code>PersonalFinanceActivitySeedPhase</code>, and
+    <code>PersonalFinanceSeedContributor</code>. Confirm
+    <code>dotnet test Aonik.sln</code> stays green.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 7 &mdash; Composition wiring</h4>
+  <div class="phase-summary">
+    Update <code>Aonik.Api/Program.cs</code> and <code>Aonik.Worker/Program.cs</code> to
+    call <code>AddPersonalFinanceModule(...)</code>. Confirm all 3 Quartz jobs schedule
+    and execute. Confirm AppHost spin-up still works.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase 8 &mdash; Documentation</h4>
+  <div class="phase-summary">
+    Update <code>CLAUDE.md</code> and <code>docs/architecture/module-organization.md</code>.
+    Write <code>docs/decisions/006-extract-personal-finance-module.md</code> referencing
+    ADR-005. Add a note in <code>docs/architecture/overview.md</code>.
+  </div>
+</div>
+
+<h2 id="requirements">15. Requirements</h2>
+
+<table>
+  <thead>
+    <tr><th>ID</th><th>Requirement</th><th>Verify</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>RQ1</code></td>
+      <td><code>Aonik.PersonalFinance.csproj</code> targets net10.0 and references only <code>Aonik.SharedKernel</code> + the framework. No project reference to <code>Aonik.Finance</code>.</td>
+      <td><code>dotnet build src/Aonik.PersonalFinance/Aonik.PersonalFinance.csproj</code>; visual csproj review.</td>
+    </tr>
+    <tr>
+      <td><code>RQ2</code></td>
+      <td><code>Aonik.Finance.csproj</code> contains no <code>PersonalFinance</code> namespace, type, or DI registration.</td>
+      <td><code>grep -r "PersonalFinance" src/Aonik.Finance/</code> is empty.</td>
+    </tr>
+    <tr>
+      <td><code>RQ3</code></td>
+      <td>SharedKernel exposes <code>ICustomerOrderHistoryReader</code>, <code>ICustomerInvoiceHistoryReader</code>, <code>ICustomerPaymentHistoryReader</code>. PersonalFinance consumes these instead of <code>Aonik.Finance.Entities.{Orders, Billing, Payments}</code>.</td>
+      <td><code>grep -r "Aonik.Finance.Entities" src/Aonik.PersonalFinance/</code> is empty.</td>
+    </tr>
+    <tr>
+      <td><code>RQ4</code></td>
+      <td><code>PersonalFinanceDbContext</code> owns all 26 PersonalFinance DbSets and preserves the <code>CategorisationRule.Scope == "System"</code> global-entity carve-out. <code>AonikDbContext</code> retains the same DbSets, so migrations are unaffected.</td>
+      <td><code>dotnet ef migrations list</code> diff is empty; CategorisationRule integration tests pass.</td>
+    </tr>
+    <tr>
+      <td><code>RQ5</code></td>
+      <td>All <code>/personal-finance/*</code> endpoints respond with identical OpenAPI shapes pre- and post-extraction. The Payabo mobile app passes its existing integration suite unchanged.</td>
+      <td>Diff the Swagger JSON at <code>/swagger/v1/swagger.json</code>. Run mobile contract tests.</td>
+    </tr>
+    <tr>
+      <td><code>RQ6</code></td>
+      <td>Three Quartz jobs run end-to-end against the new module. Job keys are unchanged.</td>
+      <td><code>dotnet test tests/Aonik.Application.Tests/PersonalFinance/CustomerInsightSnapshotJobTests.cs</code> + manual trigger.</td>
+    </tr>
+    <tr>
+      <td><code>RQ7</code></td>
+      <td>Five domain agent descriptors register correctly and the <code>pf_run_insights</code> / <code>pf_run_forecast</code> / <code>pf_run_classify_review</code> sub-agent flows execute. The CodeAct sandbox selector still resolves <code>AcaSessions</code> / <code>Hyperlight</code> / <code>Null</code> from <code>Ai:CodeAct:Provider</code>.</td>
+      <td><code>dotnet test --filter "FullyQualifiedName~Pf"</code> plus a live <code>personal-finance-agent</code> invocation against a seeded tenant.</td>
+    </tr>
+    <tr>
+      <td><code>RQ8</code></td>
+      <td><code>tests/Aonik.PersonalFinance.Tests/</code> contains all PF-specific tests previously in <code>tests/Aonik.Application.Tests/PersonalFinance/</code>. Total test count is preserved.</td>
+      <td><code>dotnet test --list-tests</code> diff for the relocated tests.</td>
+    </tr>
+    <tr>
+      <td><code>RQ9</code></td>
+      <td>CLAUDE.md updated; ADR-006 written and references ADR-005.</td>
+      <td>Visual inspection.</td>
+    </tr>
+    <tr>
+      <td><code>RQ10</code></td>
+      <td>Compile-time enforcement: <code>Aonik.Finance.csproj</code> has no project reference to <code>Aonik.PersonalFinance</code>. The two are siblings.</td>
+      <td><code>dotnet list reference</code> on both projects.</td>
+    </tr>
+    <tr>
+      <td><code>RQ11</code></td>
+      <td>No measurable regression in <code>/personal-finance/*</code> p95 latency. The SharedKernel reader indirection must not regress hot-path query plans.</td>
+      <td>Benchmark the three readers in <code>tests/Aonik.PersonalFinance.Tests/</code> against the pre-extraction direct-DbContext query plan.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">16. Tasks</h2>
+
+<p>Status legend: <code>[ ]</code> not started · <code>[-]</code> in progress · <code>[x]</code> done · <code>[!]</code> blocked.</p>
+
+<ul>
+  <li><code>[ ]</code> <strong>T1</strong> &mdash; Create <code>src/Aonik.SharedKernel/Abstractions/Finance/</code> with the three reader interfaces and their <code>*HistoryItem</code> DTO records.</li>
+  <li><code>[ ]</code> <strong>T2</strong> &mdash; Implement the three readers in <code>Aonik.Finance/Services/Finance/Readers/</code> against <code>FinanceDbContext</code>. Register them in <code>FinanceModule.ConfigureServices</code>. Add unit tests for tenant scoping and date-range filtering.</li>
+  <li><code>[ ]</code> <strong>T3</strong> &mdash; Create <code>Aonik.PersonalFinance.csproj</code> and an empty <code>PersonalFinanceModule</code>. Add to <code>Aonik.sln</code>. (after T1, T2)</li>
+  <li><code>[ ]</code> <strong>T4</strong> &mdash; <code>git mv</code> 26 entities + 24 EF configurations. Create <code>PersonalFinanceDbContext</code>. Verify <code>AonikDbContext</code> migrations still apply cleanly. (after T3)</li>
+  <li><code>[ ]</code> <strong>T5</strong> &mdash; <code>git mv</code> ~48 services + 24 service contracts + ~10 model contracts. Swap direct entity reads for SharedKernel readers. Move SharedKernel adapter implementations. (after T4)</li>
+  <li><code>[ ]</code> <strong>T6</strong> &mdash; <code>git mv</code> 57 user endpoints + 5 admin endpoints. Update FastEndpoints assembly discovery. Diff Swagger JSON. (after T5)</li>
+  <li><code>[ ]</code> <strong>T7</strong> &mdash; <code>git mv</code> 5 agent descriptors, agent tool files, structured-output schemas, <code>Agents/CodeAct/</code>. Move Hyperlight / Azure NuGet refs. Remove orphaned DI registrations from <code>FinanceModule</code>. (after T6)</li>
+  <li><code>[ ]</code> <strong>T8</strong> &mdash; Create <code>tests/Aonik.PersonalFinance.Tests/</code>. Move PF test files and seed phases. (after T7)</li>
+  <li><code>[ ]</code> <strong>T9</strong> &mdash; Update <code>Aonik.Api/Program.cs</code>, <code>Aonik.Worker/Program.cs</code>, and <code>AppHost</code>. Confirm Quartz jobs run. (after T8)</li>
+  <li><code>[ ]</code> <strong>T10</strong> &mdash; Update <code>CLAUDE.md</code>, <code>docs/architecture/module-organization.md</code>; write <code>docs/decisions/006-extract-personal-finance-module.md</code>. (after T9)</li>
+</ul>
+
+<h2 id="verification">17. Verification</h2>
+
+<ul>
+  <li><strong>Build:</strong> <code>dotnet build Aonik.sln</code></li>
+  <li><strong>Per-project build:</strong> <code>dotnet build src/Aonik.PersonalFinance/Aonik.PersonalFinance.csproj</code></li>
+  <li><strong>Tests:</strong> <code>dotnet test Aonik.sln</code></li>
+  <li><strong>PF tests only:</strong> <code>dotnet test tests/Aonik.PersonalFinance.Tests/</code></li>
+  <li><strong>Migrations:</strong> <code>dotnet ef migrations list --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code> &mdash; list unchanged.</li>
+  <li><strong>API:</strong> <code>dotnet run --project src/Aonik.Api</code>, then capture <code>https://localhost:5001/swagger/v1/swagger.json</code> and diff against the pre-extraction snapshot. The <code>/personal-finance/*</code> region must be byte-identical.</li>
+  <li><strong>AppHost:</strong> <code>dotnet run --project src/Aonik.AppHost</code> starts API + Admin UI + Payabo + Worker without DI errors.</li>
+  <li><strong>Worker:</strong> trigger <code>CustomerInsightSnapshotJob</code> manually; confirm a snapshot row is written; confirm <code>CustomerInsightAiSummaryJob</code> then writes its summary columns.</li>
+  <li><strong>Mobile:</strong> run the Payabo mobile app against local API; smoke-test dashboard, spending, commitments, household.</li>
+  <li><strong>Edge cases:</strong>
+    <ul>
+      <li><code>CategorisationRule</code> with <code>Scope = "System"</code> is correctly treated as global (no tenant stamping) by both <code>AonikDbContext</code> and <code>PersonalFinanceDbContext</code>.</li>
+      <li><code>PlaidSimulatedAccountLinkProviderGateway</code> fallback fires when <code>PersonalFinance:Plaid</code> is unconfigured.</li>
+      <li><code>Ai:CodeAct:Provider = "Null"</code> is honoured by the relocated sub-agents.</li>
+      <li>Quartz triggers persisted under the old code continue firing post-deployment (job keys unchanged).</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="risks">18. Risk register</h2>
+
+<table>
+  <thead><tr><th>ID</th><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>R1</code></td>
+      <td>Hidden cross-domain reads beyond the seven files identified &mdash; a PF service silently queries <code>Aonik.Finance.Entities</code> via an injected <code>FinanceDbContext</code>.</td>
+      <td>Grep <code>_dbContext.(Orders|Invoices|Payments|JournalEntries|LedgerAccounts|PaymentIntents)</code> across the PF tree at the start of phase 3. Treat every hit as a new SharedKernel reader.</td>
+    </tr>
+    <tr>
+      <td><code>R2</code></td>
+      <td>The single-migration-stream rule is misread as a reason to keep PF inside <code>Aonik.Finance</code>.</td>
+      <td>The migration stream stays in <code>AonikDbContext</code>. Module DbContexts are runtime-only DI scoping &mdash; the same pattern Finance and Platform already use.</td>
+    </tr>
+    <tr>
+      <td><code>R3</code></td>
+      <td>Quartz job keys change accidentally during the move, invalidating persisted triggers.</td>
+      <td>Before / after check: <code>SELECT * FROM AnkQuartzJobDetails WHERE JOB_NAME LIKE 'Customer%'</code>. Job key strings pinned in code review.</td>
+    </tr>
+    <tr>
+      <td><code>R4</code></td>
+      <td>FastEndpoints assembly discovery misses the new assembly, silently 404-ing PF routes.</td>
+      <td>Phase 4 ends with an empty Swagger diff. Mandatory.</td>
+    </tr>
+    <tr>
+      <td><code>R5</code></td>
+      <td>Stale <code>InternalsVisibleTo</code> on <code>Aonik.Finance.csproj</code> masks an internals leak.</td>
+      <td>Audit <code>InternalsVisibleTo</code> entries on both csprojs. <code>Aonik.PersonalFinance.Tests</code> belongs only on the PF csproj.</td>
+    </tr>
+    <tr>
+      <td><code>R6</code></td>
+      <td>Hyperlight / Azure.Identity package versions drift between Finance and PF, causing assembly-load conflicts.</td>
+      <td>Pin identical versions across both csprojs; consider a <code>Directory.Packages.props</code> CPM entry.</td>
+    </tr>
+    <tr>
+      <td><code>R7</code></td>
+      <td>A PF service depends transitively on a FinanceModule registration that is missed during DI re-wiring.</td>
+      <td>Phase 3 ends with <code>dotnet run --project src/Aonik.Api</code>; any DI exception surfaces immediately.</td>
+    </tr>
+    <tr>
+      <td><code>R8</code></td>
+      <td><code>AonikDbContext</code> keeps PF DbSets but entity types now live in <code>Aonik.PersonalFinance</code> &mdash; <code>Aonik.Infrastructure</code> must reference <code>Aonik.PersonalFinance</code>.</td>
+      <td>This adds a one-way reference <code>Aonik.Infrastructure &rarr; Aonik.PersonalFinance</code>. Acceptable; Infrastructure is the migration composition root. Document in ADR-006.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">19. Decisions baked in</h2>
+
+<div class="callout">
+  <span class="callout-label">DEC-1</span>
+  <strong>Single migration stream stays in <code>AonikDbContext</code>.</strong>
+  ADR-005 and CLAUDE.md mandate it; splitting streams would invite snapshot drift and
+  forfeit the &ldquo;tool-generated only&rdquo; guarantee. The cost is a one-way reference
+  <code>Aonik.Infrastructure &rarr; Aonik.PersonalFinance</code>, which is acceptable since
+  Infrastructure already references all modules.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-2</span>
+  <strong>Read contracts live under <code>SharedKernel/Abstractions/Finance/</code>,
+  not <code>/PersonalFinance/</code>.</strong>
+  Read direction is PF &rarr; Finance. Contracts are named for the bounded context they
+  expose, not the consumer.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-3</span>
+  <strong>No <code>AnkPf*</code> table prefix.</strong>
+  <code>ModuleTablePrefixes.*</code> already collapses to <code>"Ank"</code> for every
+  module; the prefix is a database-physical concern unrelated to project layout. Keeping
+  tables on <code>Ank</code> avoids data migration and preserves existing query and
+  indexing plans.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-4</span>
+  <strong>No <code>/personal-finance/*</code> URL change.</strong>
+  The Payabo mobile app and web app depend on the path. Extraction is a project-structure
+  refactor, not an API redesign.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-5</span>
+  <strong>CodeAct sandbox providers move with PersonalFinance.</strong>
+  The three providers exist today to back PF analytical sub-agents specifically. If a
+  future module (e.g. an extracted Pricing) needs CodeAct, the providers can be lifted
+  into a dedicated <code>Aonik.CodeAct</code> runtime module then. Premature extraction
+  would create churn for hypothetical reuse.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-6</span>
+  <strong>Defer splitting Pricing and Billing.</strong>
+  The order / payment / ledger triangle is too tightly coupled inside
+  <code>Aonik.Finance</code> for a low-risk split today. PersonalFinance is the
+  highest-payoff, lowest-coupling-cost extraction. Reassess Pricing after this lands.
+</div>
+
+<h2 id="open">20. Open design decisions</h2>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-1</span>
+  <strong>CodeAct ownership long term.</strong> The CodeAct sandbox plumbing
+  (Hyperlight, ACA Sessions, Null providers) backs PF sub-agents today, but is generic
+  runtime infrastructure that any future analytical agent could reuse. We keep it inside
+  <code>Aonik.PersonalFinance</code> for now (DEC-5), but should revisit if a second
+  consumer appears.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-2</span>
+  <strong>NuGet pinning strategy.</strong> Five PF-specific package references currently
+  live on <code>Aonik.Finance.csproj</code> (Hyperlight ×3, Azure.Identity, Azure.Core).
+  Move them with the module, but should we also introduce Central Package Management
+  (<code>Directory.Packages.props</code>) at the repo root to prevent drift between
+  <code>Aonik.Finance</code> and <code>Aonik.PersonalFinance</code>? Recommend yes, but
+  out of scope for this spec.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-3</span>
+  <strong>Cutover strategy for downstream consumers.</strong>
+  <code>Aonik.Platform.Endpoints.Admin.Customers.ListCustomerInsightsEndpoint</code>
+  references the PF contract by namespace today. Do we change the using statement at the
+  same time the contract moves (single commit), or introduce a transitional re-export
+  from <code>Aonik.Finance</code>? Recommend single-commit cutover &mdash; the diff is small,
+  and a transitional shim adds dead weight.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-4</span>
+  <strong>Test project consolidation.</strong> Should <code>Aonik.Application.Tests</code>
+  retain shared base classes / fixtures that PF tests use today, or should those move
+  into <code>Aonik.PersonalFinance.Tests</code> too? Bias: copy what is genuinely
+  PF-only; share what is generic (e.g. <code>TestTenantProvider</code>) via a common
+  test-utilities project (out of scope here, but track as follow-up).
+</div>
+
+<h2 id="refs">21. References</h2>
+
+<ul>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005 &middot; Adopt Module-First Modular Monolith</a></li>
+  <li><a href="../architecture/module-organization.md">Architecture &middot; Module Organization</a></li>
+  <li><a href="013.financial-life-graph.md">Spec 013 &middot; Financial Life Graph</a></li>
+  <li><a href="015.personal-finance-customer-insight-pipeline.md">Spec 015 &middot; Personal-Finance Customer Insight Pipeline</a></li>
+  <li><a href="019.personal-finance-commitments.md">Spec 019 &middot; Personal-Finance Commitments</a></li>
+  <li><a href="020.payabo-household.md">Spec 020 &middot; Payabo Household</a></li>
+  <li><a href="../../src/Aonik.Finance/FinanceModule.cs">src/Aonik.Finance/FinanceModule.cs</a> &mdash; current PF registrations (lines 122&ndash;213)</li>
+  <li><a href="../../src/Aonik.SharedKernel/Persistence/ModuleTablePrefixes.cs">src/Aonik.SharedKernel/Persistence/ModuleTablePrefixes.cs</a> &mdash; <code>Default = "Ank"</code></li>
+</ul>
+
+<footer>
+  Spec 027 &middot; Extract PersonalFinance into its own module &middot; Draft.
+  Author: Architecture WG. Last revised 19 May 2026.
+</footer>
+
+</body>
+</html>

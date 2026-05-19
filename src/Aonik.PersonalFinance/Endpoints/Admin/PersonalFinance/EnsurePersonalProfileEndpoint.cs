@@ -1,5 +1,5 @@
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -22,9 +22,9 @@ internal sealed class EnsurePersonalProfileResponse
 internal sealed class EnsurePersonalProfileEndpoint
     : Endpoint<EnsurePersonalProfileRequest, EnsurePersonalProfileResponse>
 {
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
 
-    public EnsurePersonalProfileEndpoint(FinanceDbContext dbContext)
+    public EnsurePersonalProfileEndpoint(PersonalFinanceDbContext dbContext)
     {
         _dbContext = dbContext;
     }

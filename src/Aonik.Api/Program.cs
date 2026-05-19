@@ -7,6 +7,7 @@ using Aonik.Application;
 using Aonik.Finance;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.VectorStore;
+using Aonik.PersonalFinance;
 using Aonik.Platform;
 using Aonik.Platform.Endpoints.Admin.Notifications;
 using Aonik.Voice;
@@ -26,6 +27,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
+builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
 builder.Services.AddAonikVoiceModule(builder.Configuration);
@@ -43,6 +45,7 @@ builder.Services.AddFastEndpoints(o =>
     [
         typeof(PlatformModule).Assembly,
         typeof(FinanceModule).Assembly,
+        typeof(PersonalFinanceModule).Assembly,
         typeof(AiModule).Assembly,
         typeof(AgentsModule).Assembly,
         typeof(AonikVoiceModule).Assembly,

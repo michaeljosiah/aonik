@@ -1,7 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +10,12 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class BudgetService : IBudgetService
 {
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
 
     public BudgetService(
-        FinanceDbContext dbContext,
+        PersonalFinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider)
     {

@@ -85,12 +85,14 @@ All tables live in the `dbo` schema and use the `Ank` prefix (via `ModuleTablePr
 **Where the code lives:**
 - Job: `src/Aonik.Worker/Jobs/CustomerInsightSnapshotJob.cs`
 - User enumerator: `src/Aonik.Worker/Jobs/CustomerInsightSnapshotJobUserEnumerator.cs`
+Service / Generator / Reader currently still live in `Aonik.Finance` (they touch Orders / Parties directly and are blocked on a SharedKernel write-contract refactor — see [ADR-006](../decisions/006-extract-personal-finance-module.md)). The entities + contracts have already moved to `Aonik.PersonalFinance`.
+
 - Service: `src/Aonik.Finance/Services/PersonalFinance/CustomerInsightSnapshotService.cs`
 - Generator: `src/Aonik.Finance/Services/PersonalFinance/CustomerInsightSnapshotGenerator.cs`
 - Reader: `src/Aonik.Finance/Services/PersonalFinance/CustomerInsightSnapshotReader.cs`
-- Entity: `src/Aonik.Finance/Entities/PersonalFinance/CustomerInsightSnapshot.cs`
-- Models: `src/Aonik.Finance/Contracts/Models/PersonalFinance/CustomerInsightSnapshotModels.cs`
-- Configuration: `src/Aonik.Finance/Persistence/Configurations/PersonalFinance/CustomerInsightSnapshotConfiguration.cs`
+- Entity: `src/Aonik.PersonalFinance/Entities/PersonalFinance/CustomerInsightSnapshot.cs`
+- Models: `src/Aonik.PersonalFinance/Contracts/Models/PersonalFinance/CustomerInsightSnapshotModels.cs`
+- Configuration: `src/Aonik.PersonalFinance/Persistence/Configurations/PersonalFinance/CustomerInsightSnapshotConfiguration.cs`
 
 ### Batch processing and checkpoints
 
@@ -440,7 +442,7 @@ All array fields are `IReadOnlyList<string>`. All fields are required by the JSO
 - Projector: `src/Aonik.Agents/Services/UserBriefProjector.cs`
 - Endpoints: `src/Aonik.Agents/Endpoints/GetUserBriefEndpoint.cs`, `src/Aonik.Agents/Endpoints/ProjectUserBriefEndpoint.cs`
 - Models: `src/Aonik.Agents/Contracts/Models/UserBriefModels.cs`
-- Finance data provider: `src/Aonik.Finance/Services/PersonalFinance/UserBriefDataProvider.cs`
+- Personal-finance data provider: `src/Aonik.PersonalFinance/Services/PersonalFinance/UserBriefDataProvider.cs`
 - AI data provider: `src/Aonik.Ai/Services/UserBriefAiDataProvider.cs`
 - Context data provider: `src/Aonik.Platform/Services/UserBrief/UserBriefContextDataProvider.cs`
 
@@ -469,7 +471,7 @@ flowchart TD
 
 | Source | Module | Tables read | What it provides |
 |--------|--------|-------------|-----------------|
-| Finance data | `Aonik.Finance` | `AnkPersonalAccounts`, `AnkPersonalTransactions`, `AnkBills`, `AnkSubscriptions`, `AnkGoals`, `AnkBudgets`, `AnkBudgetLines`, `AnkCustomerInsightSnapshots`, `AnkPersonalProfiles` | Accounts, balances, bills, subscriptions, spend summaries, budget pressure, goals, support obligations, corridor countries, **customer insight snapshot projection** |
+| Personal-finance data | `Aonik.PersonalFinance` | `AnkPersonalAccounts`, `AnkPersonalTransactions`, `AnkBills`, `AnkSubscriptions`, `AnkGoals`, `AnkBudgets`, `AnkBudgetLines`, `AnkCustomerInsightSnapshots`, `AnkPersonalProfiles` | Accounts, balances, bills, subscriptions, spend summaries, budget pressure, goals, support obligations, corridor countries, **customer insight snapshot projection** |
 | AI data | `Aonik.Ai` | `AnkUserMemoryEntries`, `AnkCustomerInsightAiSummaries` | Memory entries (identity, communication style, household) with confidence decay, **customer insight AI summary** |
 | User context | `Aonik.Platform` | `AnkUsers`, `AnkUserParties`, `AnkPersonProfiles`, `AnkParties`, `AnkSettings` | Profile (name, email, phone), setup profile (onboarding use cases, goals, responsibilities) |
 | Conversation history | `Aonik.Agents` | `AnkConversationSummaries` | Recent conversation summaries (configurable depth, default 3), open loops, recommendation outcomes |

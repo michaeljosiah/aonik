@@ -73,7 +73,7 @@ Agents produce structured outputs and use tools scoped to their domain. The orch
 
 ## Finance Module
 
-The Finance module (`Aonik.Finance`) provides production-grade financial primitives:
+The Finance module (`Aonik.Finance`) provides production-grade financial primitives. It is the B2B / cross-border money plumbing — Ledger, Orders, Payments, Billing, Pricing, Partners, Catalog. The B2C personal-finance substrate now lives in its own sibling module (see below).
 
 - **Ledger** &mdash; Double-entry, immutable. The source of financial truth. Journal entries, chart of accounts, balance snapshots.
 - **Payments** &mdash; Payment intents, processing, payouts, refunds, chargebacks. Provider-abstracted.
@@ -81,10 +81,22 @@ The Finance module (`Aonik.Finance`) provides production-grade financial primiti
 - **Billing** &mdash; Invoices, line items, allocations, customer accounts, dunning plans.
 - **Pricing** &mdash; Fee policies, FX rate sources, spread policies, limits, pricing quotes.
 - **Partners** &mdash; Correspondent network with connectors, routing rules, payout schemas, transmissions.
-- **Personal Finance** &mdash; Budgets, goals, bills, subscriptions, categorisation, spending intelligence, household management.
-- **Accounts** &mdash; External account linking (Plaid), connection syncing, transaction import and reconciliation.
+- **Accounts** &mdash; External account linking, connection syncing, transaction import and reconciliation at the tenant level.
 - **Catalog** &mdash; Product and service catalogue for pricing and order creation.
-- **Insights** &mdash; AI-generated customer insights, financial life graph, and snapshot-based trend analysis.
+
+## Personal Finance Module
+
+The PersonalFinance module (`Aonik.PersonalFinance`) is a sibling of Finance and the entire substrate of the **Payabo** product. Extracted from `Aonik.Finance` per [ADR-006](docs/decisions/006-extract-personal-finance-module.md) so the B2C cadence (households, life-graph, customer insights) evolves independently of the Ledger/Orders/Payments core that powers MyBillAfrica and RemitExchange.
+
+- **Households** &mdash; Multi-member groups, invitations, roles, shared accounts and budgets.
+- **Personal Accounts &amp; Transactions** &mdash; Plaid-linked accounts, manual accounts, transaction import, categorisation, attachments.
+- **Bills, Subscriptions, Debt Repayments** &mdash; Recurring commitments with verification status, next-due tracking, and AI-detected proposals.
+- **Budgets &amp; Goals** &mdash; Per-category budget lines tied to transaction taxonomy; savings goals with funding-account links.
+- **Financial Life Graph** &mdash; Node-edge graph stitching accounts, merchants, obligations, parties; agents read from it for context and propose new edges for approval.
+- **Customer Insight Snapshots** &mdash; Deterministic snapshots of a user's financial position with AI-generated narrative summaries.
+- **Financial Connections** &mdash; Plaid link/sync flow, webhook ingestion, account reconciliation.
+
+PersonalFinance does **not** reference `Aonik.Finance` directly. Cross-module reads (Orders, Invoices, Payment Intents, FxQuotes, Parties, Users) go through `SharedKernel.Abstractions.{Finance,Platform}` reader contracts &mdash; the same pattern used by other inter-module boundaries.
 
 ---
 
@@ -104,9 +116,10 @@ AONIK is a **module-first modular monolith**. Each domain module owns its vertic
 
 ```
 src/
-  Aonik.SharedKernel/       Cross-cutting primitives, interfaces, integration events
+  Aonik.SharedKernel/       Cross-cutting primitives, interfaces, integration events, cross-module read contracts
   Aonik.Platform/           Identity, tenancy, party/profile, compliance, notifications
-  Aonik.Finance/            Ledger, payments, orders, billing, pricing, partners, personal finance
+  Aonik.Finance/            Ledger, payments, orders, billing, pricing, partners (B2B / cross-border core)
+  Aonik.PersonalFinance/    Households, transactions, bills, budgets, goals, life-graph, customer insights (B2C / Payabo)
   Aonik.Ai/                 Model routing, prompts, user memory, AI execution records
   Aonik.Agents/             Domain agents, orchestration, proposal workflows
   Aonik.Application/        Shared application abstractions
@@ -143,6 +156,7 @@ tests/
 Modules depend on `SharedKernel` for primitives, contracts, and integration events. They do not reference each other directly. Cross-module communication uses:
 
 - **SharedKernel contracts** &mdash; Interfaces like `IPartyService`, `IComplianceService` that one module implements and another consumes via DI.
+- **SharedKernel read contracts** &mdash; Thin readers like `ICustomerOrderHistoryReader`, `ICustomerInvoiceHistoryReader`, `ICustomerPaymentHistoryReader`, `IFxQuoteReader` (in `SharedKernel.Abstractions.Finance/`) and `IPartyReader`, `IUserDirectoryReader` (in `SharedKernel.Abstractions.Platform/`). Implementations live in the owning module; consumers depend on the contract, not the entity.
 - **Integration events** &mdash; `TenantProvisionedEvent`, `OrderCreatedEvent`, `PaymentCompletedEvent`, etc. Published by one module, subscribed to by others.
 - **Read models** &mdash; Lightweight projections for cross-module queries where eventual consistency is acceptable.
 
@@ -151,6 +165,7 @@ Each module registers itself in the API composition root:
 ```csharp
 services.AddPlatformModule(configuration);
 services.AddFinanceModule(configuration);
+services.AddPersonalFinanceModule(configuration);
 services.AddAiModule(configuration);
 services.AddAgentsModule(configuration);
 ```
@@ -299,16 +314,16 @@ GitHub Actions workflows handle the full lifecycle:
 | [Architecture Overview](docs/architecture/overview.md) | System design and module boundaries |
 | [Module Organization](docs/architecture/module-organization.md) | How code is structured within modules |
 | [Technology Stack](docs/architecture/technology-stack.md) | Detailed technology choices and rationale |
-| [Vector Store Guide](docs/features/vector-store.md) | Qdrant integration, RAG context retrieval, and document indexing |
-| [Agent Framework](docs/features/agents.md) | Domain agents, MCP tools, and proposal workflows |
-| [Personal Finance](docs/features/personal-finance.md) | Budgets, goals, bills, spending intelligence |
-| [Financial Life Graph](docs/features/financial-life-graph.md) | Visualisation of financial relationships |
+| [ADR-005: Modular Monolith](docs/decisions/005-adopt-module-first-modular-monolith.md) | Why and how AONIK is module-first |
+| [ADR-006: Extract PersonalFinance](docs/decisions/006-extract-personal-finance-module.md) | Splitting PersonalFinance out of Finance as a sibling module |
+| [Financial Life Graph](docs/features/financial-life-graph.md) | Personal-finance node-edge graph and inferred proposals |
+| [Insight Generation Pipeline](docs/features/insight-generation-pipeline.md) | Customer-insight snapshots and AI summaries |
+| [Transaction Classification](docs/features/transaction-classification.md) | Categorisation rules and AI-assisted classification |
 | [Authentication](docs/features/authentication-authorization.md) | Auth0/Entra ID setup, endpoint security |
-| [Testing Guide](docs/Testing.md) | Testing patterns, conventions, and examples |
-| [Troubleshooting](docs/Troubleshooting.md) | Common issues and solutions |
+| [Ledger](docs/features/ledger.md) / [Billing](docs/features/billing.md) / [Payments](docs/features/payments.md) / [Pricing](docs/features/pricing.md) | Finance domain feature guides |
 | [CHANGELOG](CHANGELOG.md) | Version history |
 
-Full documentation is available at `docs/` with 96 documents across architecture, features, guides, runbooks, and specifications.
+End-user / operator documentation lives in the docs site (`apps/docs-site/`) under `content/docs/{operate,tenant-admin,api}`. Architecture-level documents (ADRs, contributor guides, specifications) live under `docs/` in this repo.
 
 ---
 

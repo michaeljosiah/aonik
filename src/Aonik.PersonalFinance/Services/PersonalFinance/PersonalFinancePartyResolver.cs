@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.UserBrief;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -14,9 +14,9 @@ namespace Aonik.Finance.Services.PersonalFinance;
 /// </summary>
 internal sealed class PersonalFinancePartyResolver : IPersonalFinancePartyResolver
 {
-    private readonly FinanceDbContext _db;
+    private readonly PersonalFinanceDbContext _db;
 
-    public PersonalFinancePartyResolver(FinanceDbContext db)
+    public PersonalFinancePartyResolver(PersonalFinanceDbContext db)
     {
         _db = db;
     }

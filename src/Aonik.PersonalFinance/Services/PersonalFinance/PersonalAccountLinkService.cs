@@ -5,7 +5,7 @@ using System.Text;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +15,7 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -26,7 +26,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private readonly ILogger<PersonalAccountLinkService> _logger;
 
     public PersonalAccountLinkService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ITenantContext tenantContext,
         ICurrentUserProvider currentUserProvider,

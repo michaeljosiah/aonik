@@ -4,6 +4,8 @@ using Aonik.Finance.Entities;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
+using Aonik.Platform.Persistence;
+using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
@@ -408,24 +410,29 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
             Status = "Active",
             DetectedBy = "manual"
         });
-        financeDbContext.Parties.Add(new PartyReadModel
+        // Spec 027 Phase 3: PartyReader now queries Aonik.Platform's Party entity,
+        // not the FinanceDbContext.PartyReadModel projection. Seed Party + PartyRelationship
+        // through PlatformDbContext (same in-memory store, separate EF type identity).
+        var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var dadParty = new Party
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
+            PartyType = "Person",
             DisplayName = "Dad",
             Status = "Active"
-        });
+        };
+        platformDbContext.Parties.Add(dadParty);
 
-        var relatedParty = financeDbContext.Parties.Local.Last();
-
-        financeDbContext.PartyRelationships.Add(new PartyRelationshipReadModel
+        platformDbContext.PartyRelationships.Add(new PartyRelationship
         {
             TenantId = tenantId,
             FromPartyId = partyId,
-            ToPartyId = relatedParty.Id,
+            ToPartyId = dadParty.Id,
             RelationshipTypeCode = "Father",
             IsActive = true
         });
+        await platformDbContext.SaveChangesAsync();
 
         await financeDbContext.SaveChangesAsync();
     }

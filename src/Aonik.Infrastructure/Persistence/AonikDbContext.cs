@@ -184,6 +184,12 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Apply Finance configurations from Finance assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LedgerEntity).Assembly);
 
+        // Apply PersonalFinance configurations from Aonik.PersonalFinance assembly.
+        // Spec 027 Phase 2: PF entity types + EF configs now live in their own
+        // assembly. The canonical migration stream stays in AonikDbContext, so
+        // this scan keeps the model in sync with the configs.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.PersonalFinance.PersonalFinanceModule).Assembly);
+
         // Apply AI configurations from Ai assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Ai.Entities.AiProvider).Assembly);
 

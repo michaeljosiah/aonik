@@ -3,14 +3,9 @@ using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
-internal interface IFinancialLifeGraphCacheInvalidator
-{
-    void InvalidateCurrentUserGraph();
-    Task InvalidateCurrentUserGraphAsync(CancellationToken cancellationToken = default);
-    Task InvalidateUserGraphAsync(Guid userId, CancellationToken cancellationToken = default);
-    Task InvalidateUserGraphsAsync(IEnumerable<Guid> userIds, CancellationToken cancellationToken = default);
-    Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default);
-}
+// Interface IFinancialLifeGraphCacheInvalidator moved to Aonik.PersonalFinance
+// so PersonalFinance services can reference it (Spec 027 Phase 3).
+// This impl follows once FinancialLifeGraphHydrationService migrates here.
 
 internal sealed class FinancialLifeGraphCacheInvalidator : IFinancialLifeGraphCacheInvalidator
 {

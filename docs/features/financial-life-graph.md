@@ -6,10 +6,12 @@ It is the implementation companion to `docs/specifications/013.financial-life-gr
 
 ## What It Is
 
-- A graph-shaped read model built inside `Aonik.Finance`
+- A graph-shaped read model built inside `Aonik.PersonalFinance` (extracted from `Aonik.Finance` per [ADR-006](../decisions/006-extract-personal-finance-module.md))
 - A projection over existing Personal Finance and Platform data
 - A place for graph-native annotations and inferred relationships that do not belong in canonical source tables
 - A context layer for reasoning, not a replacement for ledger, orders, payments, bills, goals, or subscriptions as systems of record
+
+Cross-module data (Orders, Invoices, Payment Intents, FxQuotes, Parties, Users) is read through `SharedKernel.Abstractions.{Finance,Platform}` reader contracts so this module no longer depends on `Aonik.Finance.Entities`.
 
 ## What It Is Not
 
@@ -54,50 +56,57 @@ flowchart LR
 
 ## Main Code Locations
 
-### Core Services
+### Core Services (relocated to `Aonik.PersonalFinance` per ADR-006)
 
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphHydrationService.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphLoader.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphSnapshotMetrics.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphService.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphHydrationService.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphLoader.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphSnapshotMetrics.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphService.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphSchema.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphSchemaService.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphTraversalService.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphInferenceService.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphCacheInvalidator.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphFormatting.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphNodeKeys.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphNodeKey.cs`
+- `src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphMetadata.cs`
+
+### Services still in `Aonik.Finance` (write paths that touch Invoices/PaymentIntents directly)
+
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphWriteService.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphValidationService.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphSchema.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphInferenceService.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphFormatting.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphNodeKeys.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphNodeKey.cs`
-- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphMetadata.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphRetrievalService.cs`
 
 ### Persistence
 
-- `src/Aonik.Finance/Entities/PersonalFinance/FinancialLifeGraphNode.cs`
-- `src/Aonik.Finance/Entities/PersonalFinance/FinancialLifeGraphEdge.cs`
-- `src/Aonik.Finance/Persistence/Configurations/PersonalFinance/FinancialLifeGraphNodeConfiguration.cs`
-- `src/Aonik.Finance/Persistence/Configurations/PersonalFinance/FinancialLifeGraphEdgeConfiguration.cs`
+- `src/Aonik.PersonalFinance/Entities/PersonalFinance/FinancialLifeGraphNode.cs`
+- `src/Aonik.PersonalFinance/Entities/PersonalFinance/FinancialLifeGraphEdge.cs`
+- `src/Aonik.PersonalFinance/Persistence/Configurations/PersonalFinance/FinancialLifeGraphNodeConfiguration.cs`
+- `src/Aonik.PersonalFinance/Persistence/Configurations/PersonalFinance/FinancialLifeGraphEdgeConfiguration.cs`
+
+The canonical migration stream remains in `AonikDbContext` (`Aonik.Infrastructure`); `PersonalFinanceDbContext` is the runtime-only DI scope.
 
 ### Contracts
 
-- `src/Aonik.Finance/Contracts/Models/PersonalFinance/PersonalFinanceModels.cs`
-- `src/Aonik.Finance/Contracts/Models/PersonalFinance/FinancialLifeGraphStatuses.cs`
-- `src/Aonik.Finance/Contracts/Models/PersonalFinance/FinancialLifeGraphNodeTypes.cs`
-- `src/Aonik.Finance/Contracts/Models/PersonalFinance/FinancialLifeGraphPredicates.cs`
-- `src/Aonik.Finance/Contracts/Services/PersonalFinance/IFinancialLifeGraphService.cs`
+- `src/Aonik.PersonalFinance/Contracts/Models/PersonalFinance/PersonalFinanceModels.cs`
+- `src/Aonik.PersonalFinance/Contracts/Models/PersonalFinance/FinancialLifeGraphStatuses.cs`
+- `src/Aonik.PersonalFinance/Contracts/Models/PersonalFinance/FinancialLifeGraphNodeTypes.cs`
+- `src/Aonik.PersonalFinance/Contracts/Models/PersonalFinance/FinancialLifeGraphPredicates.cs`
+- `src/Aonik.PersonalFinance/Contracts/Services/PersonalFinance/IFinancialLifeGraphService.cs`
+
+### SharedKernel read contracts (consumed by the loader for cross-module reads)
+
+- `src/Aonik.SharedKernel/Abstractions/Finance/ICustomerOrderHistoryReader.cs`
+- `src/Aonik.SharedKernel/Abstractions/Finance/ICustomerInvoiceHistoryReader.cs`
+- `src/Aonik.SharedKernel/Abstractions/Finance/ICustomerPaymentHistoryReader.cs`
+- `src/Aonik.SharedKernel/Abstractions/Finance/IFxQuoteReader.cs`
+- `src/Aonik.SharedKernel/Abstractions/Platform/IPartyReader.cs`
+- `src/Aonik.SharedKernel/Abstractions/Platform/IUserDirectoryReader.cs`
 
 ### API Endpoints
 
-- `src/Aonik.Finance/Endpoints/PersonalFinance/GetFinancialLifeGraphEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/GetFinancialLifeGraphSummaryEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/GetFinancialLifeUpcomingObligationsEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/GetHouseholdFinanceContextEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/GetRelatedPartyFinanceContextEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/CreateFinancialLifeGraphNodeEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/CreateFinancialLifeGraphEdgeEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/DeleteFinancialLifeGraphNodeEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/DeleteFinancialLifeGraphEdgeEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/ProposeRecurringMerchantGraphAnnotationsEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/GetPendingFinancialLifeGraphProposalsEndpoint.cs`
-- `src/Aonik.Finance/Endpoints/PersonalFinance/ApproveFinancialLifeGraphProposalEndpoint.cs`
+Most endpoints now live under `Aonik.PersonalFinance/Endpoints/PersonalFinance/`. A subset stayed in `Aonik.Finance/Endpoints/PersonalFinance/` because they take a concrete dependency on the `WriteService` / `ValidationService` / `RetrievalService` that haven't migrated yet — they will move once those three services switch to SharedKernel write contracts (deferred work).
 
 ### Agent / MCP Integration
 

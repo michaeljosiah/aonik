@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -18,14 +18,14 @@ internal sealed class FinancialLifeGraphInferenceService
     /// </summary>
     private const string FlgProposalType = "FinancialLifeGraphAnnotation";
 
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly IAgentProposalStore _proposalStore;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialLifeGraphInferenceService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         IAgentProposalStore proposalStore,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,

@@ -1,7 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -76,13 +76,13 @@ public class TransactionClassificationServiceTests
             => Task.FromResult(0);
     }
 
-    private static FinanceDbContext CreateDbContext(Guid tenantId)
+    private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     [Fact]

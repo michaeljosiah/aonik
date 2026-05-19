@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aonik.PersonalFinance</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Boundary enforcement: only the composition roots, Infrastructure (which
+    owns the canonical migration stream for PersonalFinance entities), and
+    test projects may access internals. There is deliberately NO
+    InternalsVisibleTo for Aonik.Finance — the whole point of Spec 027 is
+    that Finance and PersonalFinance are siblings, not parent / child.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Api" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Worker" />
+    <InternalsVisibleTo Include="Aonik.Migrator" />
+    <InternalsVisibleTo Include="Aonik.PersonalFinance.Tests" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Api.Tests" />
+    <!--
+      TRANSITIONAL (Spec 027 Phase 2): Finance services still query
+      PersonalFinance internals (entities, EF configs, seed helpers) until
+      Phase 3 moves those services into this module. Drop this entry at
+      the end of Phase 3 — it directly contradicts the sibling-module
+      boundary the spec is establishing.
+    -->
+    <InternalsVisibleTo Include="Aonik.Finance" />
+  </ItemGroup>
+
+  <!--
+    Spec 027 §10 — the load-bearing absence: NO ProjectReference to
+    Aonik.Finance. PersonalFinance reads Orders / Invoices / Payments via
+    the SharedKernel.Abstractions.Finance read contracts.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FastEndpoints" Version="7.1.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
+    <!--
+      CodeAct sandbox dependencies. Originate in Aonik.Finance.csproj and
+      will be removed from there in Phase 5 of Spec 027 once the providers
+      relocate here. Pinned to the same versions to keep the resolver
+      picking one SDK across modules.
+    -->
+    <PackageReference Include="Azure.Core" Version="1.47.1" />
+    <PackageReference Include="Azure.Identity" Version="1.14.2" />
+    <PackageReference Include="Hyperlight.HyperlightSandbox.Api" Version="0.4.0" />
+    <PackageReference Include="Hyperlight.HyperlightSandbox.Extensions.AI" Version="0.4.0" />
+    <PackageReference Include="Hyperlight.HyperlightSandbox.Guest.Python" Version="0.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Services\Seeding\Data\*.json" />
+  </ItemGroup>
+
+</Project>

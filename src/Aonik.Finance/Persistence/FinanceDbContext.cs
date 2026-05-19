@@ -156,6 +156,12 @@ internal class FinanceDbContext : AonikDbContextBase
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FinanceDbContext).Assembly);
 
+        // Apply PersonalFinance configurations from the sibling assembly.
+        // Spec 027 Phase 2: PF entity types and their configs moved out, but
+        // FinanceDbContext still owns PF DbSets (transitionally) so PF services
+        // can continue to query through it until Phase 3 migrates them.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.PersonalFinance.PersonalFinanceModule).Assembly);
+
         ApplyDboPrefixedTableNames(modelBuilder);
 
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types

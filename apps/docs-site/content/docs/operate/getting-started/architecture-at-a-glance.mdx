@@ -29,20 +29,21 @@ The application(s) you build on top of Aonik talk to the same API.
 
 Each module owns a vertical slice — entities, services, endpoints, persistence configurations:
 
-- **`SharedKernel`** — cross-cutting primitives, contracts, integration events
+- **`SharedKernel`** — cross-cutting primitives, contracts, integration events, **cross-module read contracts** (`ICustomerOrderHistoryReader`, `IPartyReader`, etc.)
 - **`Platform`** — identity, tenancy, party/profile, compliance, notifications, settings, reference data, registration
-- **`Finance`** — ledger, orders, payment intents, billing, personal finance primitives, catalog, pricing & FX, partners
+- **`Finance`** — ledger, orders, payment intents, billing, catalog, pricing & FX, partners (B2B / cross-border money plumbing)
+- **`PersonalFinance`** — households, personal accounts, transactions, bills, subscriptions, budgets, goals, financial life graph, customer insights (B2C / Payabo substrate; sibling to Finance)
 - **`Ai`** — providers, route policies, prompts, AiRuns, user memory
 - **`Agents`** — domain agents, tool wiring, approval and proposal workflows, voice
 - **`Infrastructure`** — EF Core migrations, external adapters, plumbing
 - **`Api`** — HTTP composition root
 - **`Worker`** — background jobs
 
-Modules never reference each other directly. Cross-module needs go through `SharedKernel` contracts (interfaces like `IPartyService`, integration events like `TenantProvisionedEvent`).
+Modules never reference each other directly. Cross-module needs go through `SharedKernel` contracts — service interfaces (e.g. `IPartyService`), integration events (e.g. `TenantProvisionedEvent`), or thin **read contracts** (e.g. `ICustomerOrderHistoryReader`, `IPartyReader`) that return DTOs the consumer can use without knowing the owning entity.
 
 ## Data
 
-**Single SQL Server database** (`AonikDb`). All migrations are generated against the canonical `AonikDbContext`. Module-scoped contexts (`PlatformDbContext`, `FinanceDbContext`, `AiDbContext`, `AgentsDbContext`) exist for DI scoping at runtime but do **not** have their own migration streams. This rule is non-negotiable — see [the contributor deep dive](/docs/operate/for-contributors) for why.
+**Single SQL Server database** (`AonikDb`). All migrations are generated against the canonical `AonikDbContext`. Module-scoped contexts (`PlatformDbContext`, `FinanceDbContext`, `PersonalFinanceDbContext`, `AiDbContext`, `AgentsDbContext`) exist for DI scoping at runtime but do **not** have their own migration streams. This rule is non-negotiable — see [the contributor deep dive](/docs/operate/for-contributors) for why.
 
 **Qdrant** holds vectors for RAG, user memory, and AI search. One collection per tenant, prefixed by tenant ID.
 

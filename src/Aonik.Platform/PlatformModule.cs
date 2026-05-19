@@ -114,6 +114,12 @@ public sealed class PlatformModule : IModule
         services.AddSingleton<NotificationRealtimePublisher>();
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
         services.AddScoped<IPartyService, PartyService>();
+        // ── Cross-Module Read Contracts (Spec 027 boundary) ─────────
+        // Thin readers letting PersonalFinance (and other modules) read
+        // Platform's Party / User aggregates via SharedKernel without
+        // a direct project reference on Aonik.Platform.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
         services.AddScoped<IComplianceService, ComplianceService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();

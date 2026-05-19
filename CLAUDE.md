@@ -43,7 +43,8 @@ cd apps/Payabo && npm install && npm run dev          # port 5174
 Key modules:
 - **SharedKernel** — Cross-cutting primitives, interfaces, integration events
 - **Platform** — Identity, tenancy, party/profile, compliance, notifications
-- **Finance** — Ledger, payments, orders, billing, pricing, partners, personal finance
+- **Finance** — Ledger, payments, orders, billing, pricing, partners (B2B / cross-border money plumbing)
+- **PersonalFinance** — Households, personal accounts, transactions, bills, subscriptions, budgets, goals, financial life graph, customer insights (B2C / Payabo substrate). Sibling to Finance per [ADR-006](docs/decisions/006-extract-personal-finance-module.md). Reads Order/Invoice/Payment data exclusively through `SharedKernel.Abstractions.Finance` read contracts; no direct ProjectReference to `Aonik.Finance`.
 - **Ai** — LLM routing, prompts, AI execution records
 - **Agents** — Domain agents (MAF-based), orchestration, proposals
 - **Infrastructure** — EF Core migrations, external adapters

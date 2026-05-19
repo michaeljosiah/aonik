@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Microsoft.EntityFrameworkCore;
@@ -25,12 +25,12 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
     private readonly IBudgetService _budgetService;
     private readonly ILogger<UserBriefDataProvider> _logger;
 
     public UserBriefDataProvider(
-        FinanceDbContext dbContext,
+        PersonalFinanceDbContext dbContext,
         IBudgetService budgetService,
         ILogger<UserBriefDataProvider> logger)
     {

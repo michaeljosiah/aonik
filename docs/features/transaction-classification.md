@@ -201,14 +201,16 @@ Subcategories display as contextual detail alongside the parent category:
 
 ### Backend
 
-- **Taxonomy**: `src/Aonik.Finance/Services/PersonalFinance/TransactionCategoryReference.cs`
-- **Pipeline**: `src/Aonik.Finance/Services/PersonalFinance/TransactionClassificationService.cs`
-- **AI Classifier**: `src/Aonik.Finance/Services/PersonalFinance/TransactionAiClassifier.cs`
-- **Seed Rules**: `src/Aonik.Finance/Services/PersonalFinance/SystemCategorisationRuleSeed.cs`
-- **Entities**: `src/Aonik.Finance/Entities/PersonalFinance/CategorisationRule.cs`, `PersonalTransaction.cs`
-- **DTOs**: `src/Aonik.Finance/Contracts/Models/PersonalFinance/PersonalFinanceModels.cs`
-- **Endpoints**: `src/Aonik.Finance/Endpoints/PersonalFinance/`
-- **EF Config**: `src/Aonik.Finance/Persistence/Configurations/PersonalFinance/`
+Files moved to `Aonik.PersonalFinance` per [ADR-006](../decisions/006-extract-personal-finance-module.md):
+
+- **Taxonomy**: `src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs`
+- **Pipeline**: `src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionClassificationService.cs`
+- **AI Classifier**: `src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionAiClassifier.cs`
+- **Seed Rules**: `src/Aonik.PersonalFinance/Services/PersonalFinance/SystemCategorisationRuleSeed.cs`
+- **Entities**: `src/Aonik.PersonalFinance/Entities/PersonalFinance/CategorisationRule.cs`, `PersonalTransaction.cs`
+- **DTOs**: `src/Aonik.PersonalFinance/Contracts/Models/PersonalFinance/PersonalFinanceModels.cs`
+- **Endpoints**: `src/Aonik.PersonalFinance/Endpoints/PersonalFinance/`
+- **EF Config**: `src/Aonik.PersonalFinance/Persistence/Configurations/PersonalFinance/`
 - **Prompts**: `src/Aonik.Ai/Prompting/Templates/transaction_classification.v1.*.md`
 - **Migration**: `src/Aonik.Infrastructure/Persistence/Migrations/20260320185808_AddTransactionClassificationSystemEnhancements.cs`
 

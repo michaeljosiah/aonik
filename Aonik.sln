@@ -55,6 +55,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Voice", "src\Aonik.Vo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Voice.Tests", "tests\Aonik.Voice.Tests\Aonik.Voice.Tests.csproj", "{C0EEEDF3-8270-4301-AD0B-B3E320C372EF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.PersonalFinance", "src\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj", "{E133691B-1F8B-4729-973F-96ADD989614C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -353,6 +355,18 @@ Global
 		{C0EEEDF3-8270-4301-AD0B-B3E320C372EF}.Release|x64.Build.0 = Release|Any CPU
 		{C0EEEDF3-8270-4301-AD0B-B3E320C372EF}.Release|x86.ActiveCfg = Release|Any CPU
 		{C0EEEDF3-8270-4301-AD0B-B3E320C372EF}.Release|x86.Build.0 = Release|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Debug|x64.Build.0 = Debug|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Debug|x86.Build.0 = Debug|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Release|x64.ActiveCfg = Release|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Release|x64.Build.0 = Release|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Release|x86.ActiveCfg = Release|Any CPU
+		{E133691B-1F8B-4729-973F-96ADD989614C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -382,5 +396,6 @@ Global
 		{17671CE0-0DF5-4080-8443-A87A16C561B5} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{2074E870-82A3-46DF-BCBF-ED3ADDF87ACD} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C0EEEDF3-8270-4301-AD0B-B3E320C372EF} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{E133691B-1F8B-4729-973F-96ADD989614C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

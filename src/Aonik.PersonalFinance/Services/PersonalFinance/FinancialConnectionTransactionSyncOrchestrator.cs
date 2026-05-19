@@ -1,7 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -13,7 +13,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
 {
     private const string LinkedAccountSyncSourceType = "linked_account_sync";
 
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantContext _tenantContext;
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
     private readonly FinancialConnectionSyncOptions _options;
@@ -21,7 +21,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialConnectionTransactionSyncOrchestrator(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantContext tenantContext,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
         IOptions<FinancialConnectionSyncOptions> options,

@@ -7,6 +7,7 @@ using Aonik.Agents.Services;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Caching;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,50 @@ namespace Aonik.Application.Tests.PersonalFinance;
 
 public class FinancialLifeGraphServiceTests
 {
+    // Spec 027: PartyReader / UserDirectoryReader live in Aonik.Platform but
+    // tests still use FinanceDbContext, which carries the legacy read-model
+    // projections for these aggregates. These adapters bridge the two so the
+    // test fixture doesn't need a separate PlatformDbContext.
+    private sealed class TestPartyReader : IPartyReader
+    {
+        private readonly FinanceDbContext _db;
+        public TestPartyReader(FinanceDbContext db) => _db = db;
+
+        public async Task<IReadOnlyList<PartyHistoryItem>> GetByIdsAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> partyIds, CancellationToken ct = default)
+            => partyIds.Count == 0
+                ? []
+                : await _db.Parties.AsNoTracking()
+                    .Where(p => p.TenantId == tenantId && partyIds.Contains(p.Id))
+                    .Select(p => new PartyHistoryItem(p.Id, p.DisplayName, p.Status, p.CustomerTierCode))
+                    .ToListAsync(ct);
+
+        public async Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(
+            Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => await _db.PartyRelationships.AsNoTracking()
+                .Where(r => r.TenantId == tenantId && r.IsActive
+                    && (r.FromPartyId == partyId || r.ToPartyId == partyId))
+                .OrderBy(r => r.RelationshipTypeCode)
+                .Select(r => new PartyRelationshipHistoryItem(
+                    r.Id, r.FromPartyId, r.ToPartyId, r.RelationshipTypeCode, r.IsActive, r.Notes))
+                .ToListAsync(ct);
+    }
+
+    private sealed class TestUserDirectoryReader : IUserDirectoryReader
+    {
+        private readonly FinanceDbContext _db;
+        public TestUserDirectoryReader(FinanceDbContext db) => _db = db;
+
+        public async Task<IReadOnlyList<UserDirectoryItem>> GetByIdsAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
+            => userIds.Count == 0
+                ? []
+                : await _db.Users.AsNoTracking()
+                    .Where(u => u.TenantId == tenantId && userIds.Contains(u.Id))
+                    .Select(u => new UserDirectoryItem(u.Id, u.Email, u.Status))
+                    .ToListAsync(ct);
+    }
+
     private sealed class TestCacheStore : ICacheStore
     {
         private readonly Dictionary<string, object?> _items = new(StringComparer.Ordinal);
@@ -103,10 +148,13 @@ public class FinancialLifeGraphServiceTests
         }
     }
 
+    private static string _lastDbName = string.Empty;
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
+        _lastDbName = $"FinancialLifeGraph_{Guid.NewGuid()}";
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
-            .UseInMemoryDatabase($"FinancialLifeGraph_{Guid.NewGuid()}")
+            .UseInMemoryDatabase(_lastDbName)
             .Options;
 
         return new FinanceDbContext(options, new TestTenantProvider(tenantId));
@@ -121,6 +169,19 @@ public class FinancialLifeGraphServiceTests
         return new AgentsDbContext(options, new TestTenantProvider(tenantId));
     }
 
+    private static Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext CreatePersonalFinanceDbContext(
+        string sharedDbName, Guid tenantId)
+    {
+        // Spec 027 Phase 3: FinancialLifeGraphLoader was relocated to
+        // Aonik.PersonalFinance and now depends on PersonalFinanceDbContext.
+        // Both contexts share the same in-memory store keyed by `sharedDbName`.
+        var options = new DbContextOptionsBuilder<Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext>()
+            .UseInMemoryDatabase(sharedDbName)
+            .Options;
+        return new Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext(
+            options, new TestTenantProvider(tenantId));
+    }
+
     private static FinancialLifeGraphService CreateGraphService(
         FinanceDbContext context,
         Guid tenantId,
@@ -129,7 +190,15 @@ public class FinancialLifeGraphServiceTests
     {
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
-        var loader = new FinancialLifeGraphLoader(context);
+        var pfContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        var loader = new FinancialLifeGraphLoader(
+            pfContext,
+            new Aonik.Finance.Services.Finance.Readers.CustomerOrderHistoryReader(context),
+            new Aonik.Finance.Services.Finance.Readers.CustomerInvoiceHistoryReader(context),
+            new Aonik.Finance.Services.Finance.Readers.CustomerPaymentHistoryReader(context),
+            new Aonik.Finance.Services.Finance.Readers.FxQuoteReader(context),
+            new TestPartyReader(context),
+            new TestUserDirectoryReader(context));
         var metrics = new FinancialLifeGraphSnapshotMetrics(NullLogger<FinancialLifeGraphSnapshotMetrics>.Instance);
         var hydrationService = new FinancialLifeGraphHydrationService(
             tenantProvider,
@@ -751,7 +820,7 @@ public class FinancialLifeGraphServiceTests
         var cacheStore = new TestCacheStore();
         var invalidationPublisher = new TestCacheInvalidationPublisher();
         var service = new FinancialLifeGraphInferenceService(
-            context,
+            CreatePersonalFinanceDbContext(_lastDbName, tenantId),
             new AgentProposalStore(agentsContext, currentUserProvider),
             tenantProvider,
             currentUserProvider,
@@ -879,7 +948,7 @@ public class FinancialLifeGraphServiceTests
         var currentUserProvider = new TestCurrentUserProvider(userId);
         var graphService = CreateGraphService(context, tenantId, userId, cacheStore);
         var inferenceService = new FinancialLifeGraphInferenceService(
-            context,
+            CreatePersonalFinanceDbContext(_lastDbName, tenantId),
             new AgentProposalStore(agentsContext, currentUserProvider),
             tenantProvider,
             currentUserProvider,

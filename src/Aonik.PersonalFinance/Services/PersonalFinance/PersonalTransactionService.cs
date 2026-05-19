@@ -3,7 +3,7 @@ using System.Text.Json;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -17,13 +17,13 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public PersonalTransactionService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator)
