@@ -92,11 +92,18 @@ public sealed class AcaSessionsClient
         var raw = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
+            // Capture WWW-Authenticate + other auth-relevant headers — ACA's
+            // 401 body is empty so the only signal about WHY the token was
+            // rejected lives in the headers.
+            var wwwAuth = response.Headers.TryGetValues("WWW-Authenticate", out var w) ? string.Join(" | ", w) : "(none)";
+            var miseCorrelation = response.Headers.TryGetValues("mise-correlation-id", out var m) ? string.Join(",", m) : "(none)";
+            var headerSummary = $"WWW-Authenticate={wwwAuth} | mise-correlation-id={miseCorrelation}";
+            LastResponseHeadersForDiagnostic = headerSummary;
             _logger.LogWarning(
-                "ACA Sessions /executions returned {Status} for session {Session}: {Body}",
-                (int)response.StatusCode, sessionIdentifier, Truncate(raw, 500));
+                "ACA Sessions /executions returned {Status} for session {Session}: body={Body} headers={Headers}",
+                (int)response.StatusCode, sessionIdentifier, Truncate(raw, 500), headerSummary);
             throw new HttpRequestException(
-                $"ACA Sessions /executions failed: HTTP {(int)response.StatusCode} {Truncate(raw, 500)}",
+                $"ACA Sessions /executions failed: HTTP {(int)response.StatusCode} body=\"{Truncate(raw, 500)}\" {headerSummary}",
                 inner: null,
                 statusCode: response.StatusCode);
         }
@@ -140,6 +147,13 @@ public sealed class AcaSessionsClient
     /// Never includes the signature — safe to expose to admin callers.
     /// </summary>
     public static string? LastTokenClaimsForDiagnostic { get; private set; }
+
+    /// <summary>
+    /// Last response's auth-relevant headers (WWW-Authenticate, correlation-id)
+    /// captured on non-success status codes. ACA's 401 body is empty so
+    /// headers are the only signal about WHY the token was rejected.
+    /// </summary>
+    public static string? LastResponseHeadersForDiagnostic { get; private set; }
 
     private static string DecodeJwtClaimsSafe(string jwt)
     {

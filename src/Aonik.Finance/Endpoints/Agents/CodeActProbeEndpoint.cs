@@ -71,6 +71,7 @@ internal sealed class CodeActProbeEndpoint : EndpointWithoutRequest<CodeActProbe
             ExecuteResult: result,
             ExceptionMessage: execError,
             LastTokenClaims: AcaSessionsClient.LastTokenClaimsForDiagnostic,
+            LastResponseHeaders: AcaSessionsClient.LastResponseHeadersForDiagnostic,
             EnvSnapshot: envSnapshot), ct);
     }
 }
@@ -80,4 +81,5 @@ public sealed record CodeActProbeResponse(
     AcaSessionsExecutionResult? ExecuteResult,
     string? ExceptionMessage,
     string? LastTokenClaims,
+    string? LastResponseHeaders,
     Dictionary<string, string?> EnvSnapshot);
