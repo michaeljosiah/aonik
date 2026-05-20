@@ -39,11 +39,9 @@ dependencies:
   # Audio I/O for the WSS voice pipeline.
   # `record` exposes raw 16-bit PCM mic frames via .startStream so we don't have to
   # post-process device-specific encoded audio formats. iOS / Android / desktop.
-  # `flutter_soloud` plays streaming PCM with proper backpressure — replaces
-  # mp_audio_stream which silently dropped samples when its ring buffer filled
-  # (truncating the tail of every long sentence). SoLoud's stream API has a
-  # bounded queue but signals back-pressure rather than dropping, and supports
-  # the gapless "scheduler" semantics our web client uses via Web Audio.
+  # Non-Android fallback for streaming PCM playback. Android uses a small
+  # in-house AudioTrack bridge because SoLoud/miniaudio's AAudio stream can
+  # wedge during continuous multi-turn voice sessions.
   record: ^6.0.0
   flutter_soloud: ^3.1.13
   youtube_player_iframe: ^5.2.0
