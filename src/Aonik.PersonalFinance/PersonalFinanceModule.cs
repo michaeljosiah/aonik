@@ -90,6 +90,13 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.ICustomerDataExportProvider, CustomerDataExportProvider>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.ICustomerDataImportConsumer, CustomerDataImportConsumer>();
 
+        // Spec 028 §15 — Chronicle taxonomy mapper, consumed by Finance's
+        // AccountTransactionCategorizer through SharedKernel so neither module
+        // needs a project reference on the other once Spec 027 Phase 3 lands.
+        // Singleton: the implementation is a pure function over static data.
+        services.AddSingleton<Aonik.SharedKernel.Abstractions.Finance.Categorization.IChronicleCategoryMapper,
+            Aonik.PersonalFinance.Services.PersonalFinance.ChronicleCategoryMapper>();
+
         // ── CodeAct Sandbox Providers (Spec 027 Phase 5) ────────────
         // Backs the wrapping `execute_code` AIFunction the three PF sub-agents
         // (pf-insights, pf-forecast, pf-classify) surface to the LLM. The provider

@@ -109,6 +109,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Account> Accounts { get; set; } = null!;
     public DbSet<AccountTransaction> AccountTransactions { get; set; } = null!;
     public DbSet<AccountTransactionAttachment> AccountTransactionAttachments { get; set; } = null!;
+    public DbSet<AccountTransactionMerchantCategory> AccountTransactionMerchantCategories { get; set; } = null!;
 
     // ── PersonalFinance ─────────────────────────────────────────────
     public DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;

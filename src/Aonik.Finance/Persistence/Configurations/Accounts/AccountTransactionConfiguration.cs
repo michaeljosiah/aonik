@@ -36,6 +36,15 @@ internal class AccountTransactionConfiguration : IEntityTypeConfiguration<Accoun
         builder.Property(x => x.Category)
             .HasMaxLength(100);
 
+        builder.Property(x => x.SubCategory)
+            .HasMaxLength(100);
+
+        builder.Property(x => x.CategoryMethod)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.CategoryConfidence)
+            .HasPrecision(5, 4);
+
         builder.Property(x => x.ReconciliationStatus)
             .IsRequired()
             .HasMaxLength(50);

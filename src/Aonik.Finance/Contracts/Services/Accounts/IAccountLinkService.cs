@@ -68,4 +68,27 @@ public interface IAccountLinkService
     Task DeleteTransactionAttachmentAsync(
         Guid attachmentId,
         CancellationToken cancellationToken = default);
+
+    // ── Auto-categorization (spec 028) ───────────────────────────
+
+    Task<AccountTransactionCategoryResult?> SetTransactionCategoryAsync(
+        Guid transactionId,
+        SetAccountTransactionCategoryRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> UnlockTransactionCategoryAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<MerchantCategoryResult>> ListMerchantCategoriesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteMerchantCategoryAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<RecategorizeAccountTransactionsResult?> RecategorizeTransactionsAsync(
+        Guid connectionId,
+        RecategorizeAccountTransactionsRequest request,
+        CancellationToken cancellationToken = default);
 }

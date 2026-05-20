@@ -117,24 +117,7 @@ internal sealed class ManualAccountManager
         _financeDbContext.AccountTransactions.Add(transaction);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
-        return new AccountTransactionResponse(
-            transaction.Id,
-            transaction.AccountId,
-            transaction.AccountConnectionId,
-            transaction.OccurredAt,
-            transaction.Amount,
-            transaction.Currency,
-            transaction.Counterparty,
-            transaction.Description,
-            transaction.Reference,
-            transaction.Category,
-            transaction.Pending,
-            transaction.ReconciliationStatus,
-            transaction.MatchedLedgerEntryId,
-            transaction.MatchedPayoutId,
-            transaction.ReconciledAt,
-            transaction.CreatedAt,
-            transaction.UpdatedAt);
+        return AccountConnectionResponseMapper.MapTransaction(transaction);
     }
 
     public async Task<PagedResult<AccountTransactionResponse>> ListTransactionsAsync(
@@ -192,6 +175,10 @@ internal sealed class ManualAccountManager
                 item.Description,
                 item.Reference,
                 item.Category,
+                item.SubCategory,
+                item.CategoryMethod,
+                item.CategoryConfidence,
+                item.CategoryLockedAt,
                 item.Pending,
                 item.ReconciliationStatus,
                 item.MatchedLedgerEntryId,

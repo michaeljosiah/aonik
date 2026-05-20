@@ -4,6 +4,7 @@ using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Accounts.Linking;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Finance.Categorization;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,7 @@ internal sealed class AccountLinkService : IAccountLinkService
     private readonly PlaidAccountWebhookProcessor _plaidWebhookProcessor;
     private readonly ManualAccountManager _manualAccountManager;
     private readonly TransactionAttachmentHandler _attachmentHandler;
+    private readonly AccountTransactionCategoryManager _categoryManager;
 
     public AccountLinkService(
         FinanceDbContext financeDbContext,
@@ -43,6 +45,8 @@ internal sealed class AccountLinkService : IAccountLinkService
         ICurrentUserProvider currentUserProvider,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
         AccountTransactionSyncOrchestrator transactionSyncOrchestrator,
+        IAccountTransactionCategorizer categorizer,
+        IChronicleCategoryMapper categoryMapper,
         IPartyAccountService partyAccountService,
         IFileStore fileStore,
         IOptions<AccountConnectionSyncOptions> syncOptions,
@@ -89,6 +93,13 @@ internal sealed class AccountLinkService : IAccountLinkService
             financeDbContext,
             tenantProvider,
             fileStore);
+
+        _categoryManager = new AccountTransactionCategoryManager(
+            financeDbContext,
+            tenantProvider,
+            currentUserProvider,
+            categorizer,
+            categoryMapper);
     }
 
     public Task<AccountLinkSessionResponse> CreateSessionAsync(
@@ -175,4 +186,32 @@ internal sealed class AccountLinkService : IAccountLinkService
         Guid attachmentId,
         CancellationToken cancellationToken = default)
         => _attachmentHandler.DeleteAsync(attachmentId, cancellationToken);
+
+    // ── Auto-categorization (spec 028) ───────────────────────────
+
+    public Task<AccountTransactionCategoryResult?> SetTransactionCategoryAsync(
+        Guid transactionId,
+        SetAccountTransactionCategoryRequest request,
+        CancellationToken cancellationToken = default)
+        => _categoryManager.SetCategoryAsync(transactionId, request, cancellationToken);
+
+    public Task<bool> UnlockTransactionCategoryAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+        => _categoryManager.UnlockCategoryAsync(transactionId, cancellationToken);
+
+    public Task<IReadOnlyList<MerchantCategoryResult>> ListMerchantCategoriesAsync(
+        CancellationToken cancellationToken = default)
+        => _categoryManager.ListMerchantCategoriesAsync(cancellationToken);
+
+    public Task<bool> DeleteMerchantCategoryAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+        => _categoryManager.DeleteMerchantCategoryAsync(id, cancellationToken);
+
+    public Task<RecategorizeAccountTransactionsResult?> RecategorizeTransactionsAsync(
+        Guid connectionId,
+        RecategorizeAccountTransactionsRequest request,
+        CancellationToken cancellationToken = default)
+        => _categoryManager.RecategorizeAsync(connectionId, request, cancellationToken);
 }

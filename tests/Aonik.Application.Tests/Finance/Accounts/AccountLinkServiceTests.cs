@@ -256,10 +256,13 @@ public class AccountLinkServiceTests
             FailureRetryDelayMinutes = 5
         });
 
+        var categoryMapper = new Aonik.PersonalFinance.Services.PersonalFinance.ChronicleCategoryMapper();
+        var categorizer = new AccountTransactionCategorizer(categoryMapper);
         var orchestrator = new AccountTransactionSyncOrchestrator(
             context,
             tenantContext,
             new[] { gateway },
+            categorizer,
             syncOptions,
             NullLogger<AccountTransactionSyncOrchestrator>.Instance);
 
@@ -270,6 +273,8 @@ public class AccountLinkServiceTests
             new TestCurrentUserProvider(userId),
             new[] { gateway },
             orchestrator,
+            categorizer,
+            categoryMapper,
             new FakePartyAccountService(TestPartyId),
             new FakeFileStore(),
             syncOptions,

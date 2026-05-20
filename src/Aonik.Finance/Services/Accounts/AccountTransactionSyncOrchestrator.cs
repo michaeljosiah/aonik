@@ -17,6 +17,7 @@ internal sealed class AccountTransactionSyncOrchestrator
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantContext _tenantContext;
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
+    private readonly IAccountTransactionCategorizer _categorizer;
     private readonly AccountConnectionSyncOptions _options;
     private readonly ILogger<AccountTransactionSyncOrchestrator> _logger;
 
@@ -24,12 +25,14 @@ internal sealed class AccountTransactionSyncOrchestrator
         FinanceDbContext financeDbContext,
         ITenantContext tenantContext,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
+        IAccountTransactionCategorizer categorizer,
         IOptions<AccountConnectionSyncOptions> options,
         ILogger<AccountTransactionSyncOrchestrator> logger)
     {
         _financeDbContext = financeDbContext;
         _tenantContext = tenantContext;
         _providerGateways = providerGateways;
+        _categorizer = categorizer;
         _options = options.Value;
         _logger = logger;
     }
@@ -144,6 +147,15 @@ internal sealed class AccountTransactionSyncOrchestrator
                         && providerTransactionRefs.Contains(item.ProviderTransactionReference))
                     .ToDictionaryAsync(item => item.ProviderTransactionReference, cancellationToken);
 
+            // Pre-fetch the tenant's merchant-category rules once. Classification
+            // happens per-transaction below but must not hit the DB inside the loop.
+            var merchantRules = await _financeDbContext.AccountTransactionMerchantCategories
+                .Where(rule => rule.TenantId == tenantId)
+                .ToDictionaryAsync(
+                    rule => rule.MerchantKey,
+                    StringComparer.OrdinalIgnoreCase,
+                    cancellationToken);
+
             var added = 0;
             var updated = 0;
             var skipped = 0;
@@ -155,6 +167,8 @@ internal sealed class AccountTransactionSyncOrchestrator
                     skipped += 1;
                     continue;
                 }
+
+                var merchantRule = ResolveMerchantRule(providerTransaction, merchantRules);
 
                 if (!existingTransactionsByRef.TryGetValue(providerTransaction.ProviderTransactionReference, out var transaction))
                 {
@@ -168,6 +182,7 @@ internal sealed class AccountTransactionSyncOrchestrator
                     };
 
                     ApplyProviderTransaction(transaction, providerTransaction);
+                    _categorizer.Classify(transaction, providerTransaction, merchantRule);
                     _financeDbContext.AccountTransactions.Add(transaction);
                     existingTransactionsByRef[providerTransaction.ProviderTransactionReference] = transaction;
                     added += 1;
@@ -176,6 +191,7 @@ internal sealed class AccountTransactionSyncOrchestrator
 
                 transaction.AccountId = linkedAccount.Id;
                 ApplyProviderTransaction(transaction, providerTransaction);
+                _categorizer.Classify(transaction, providerTransaction, merchantRule);
                 updated += 1;
             }
 
@@ -239,8 +255,26 @@ internal sealed class AccountTransactionSyncOrchestrator
         transaction.Currency = providerTransaction.Currency.Trim().ToUpperInvariant();
         transaction.Counterparty = TrimNullable(providerTransaction.Merchant);
         transaction.Description = TrimNullable(providerTransaction.Description);
-        transaction.Category = TrimNullable(providerTransaction.Category);
         transaction.Pending = providerTransaction.Pending;
+        // Category, SubCategory, CategoryMethod, and CategoryConfidence are owned by
+        // IAccountTransactionCategorizer (called immediately after this method).
+    }
+
+    private static AccountTransactionMerchantCategory? ResolveMerchantRule(
+        AccountLinkProviderTransactionResult providerTransaction,
+        IReadOnlyDictionary<string, AccountTransactionMerchantCategory> merchantRules)
+    {
+        if (merchantRules.Count == 0)
+        {
+            return null;
+        }
+
+        var merchantKey = MerchantKeyNormalizer.Normalize(providerTransaction.Merchant)
+            ?? MerchantKeyNormalizer.Normalize(providerTransaction.Description);
+
+        return merchantKey is not null && merchantRules.TryGetValue(merchantKey, out var rule)
+            ? rule
+            : null;
     }
 
     private static void ApplyActionRequiredState(

@@ -86,6 +86,10 @@ public record AccountTransactionResponse(
     string? Description,
     string? Reference,
     string? Category,
+    string? SubCategory,
+    string? CategoryMethod,
+    decimal? CategoryConfidence,
+    DateTime? CategoryLockedAt,
     bool Pending,
     string ReconciliationStatus,
     Guid? MatchedLedgerEntryId,
@@ -195,3 +199,36 @@ public record AccountTransactionAttachmentResponse(
     string Url,
     long FileSizeBytes,
     DateTime CreatedAt);
+
+// ── Auto-categorization (spec 028) ───────────────────────────────
+
+public record SetAccountTransactionCategoryRequest(
+    string Category,
+    string? SubCategory,
+    bool RememberForMerchant);
+
+public record AccountTransactionCategoryResult(
+    Guid TransactionId,
+    string Category,
+    string? SubCategory,
+    string CategoryMethod,
+    decimal? CategoryConfidence,
+    DateTime? CategoryLockedAt,
+    bool MerchantRuleCreated);
+
+public record MerchantCategoryResult(
+    Guid Id,
+    string MerchantKey,
+    string Category,
+    string? SubCategory,
+    DateTime CreatedAt);
+
+public record RecategorizeAccountTransactionsRequest(
+    bool IncludeLocked = false,
+    bool UnresolvedOnly = true);
+
+public record RecategorizeAccountTransactionsResult(
+    Guid ConnectionId,
+    int Processed,
+    int Updated,
+    int Skipped);

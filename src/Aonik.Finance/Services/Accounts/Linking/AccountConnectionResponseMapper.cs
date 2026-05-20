@@ -87,4 +87,30 @@ internal static class AccountConnectionResponseMapper
             result.CreatedAt,
             result.UpdatedAt);
     }
+
+    public static AccountTransactionResponse MapTransaction(AccountTransaction tx)
+    {
+        return new AccountTransactionResponse(
+            tx.Id,
+            tx.AccountId,
+            tx.AccountConnectionId,
+            tx.OccurredAt,
+            tx.Amount,
+            tx.Currency,
+            tx.Counterparty,
+            tx.Description,
+            tx.Reference,
+            tx.Category,
+            tx.SubCategory,
+            tx.CategoryMethod,
+            tx.CategoryConfidence,
+            tx.CategoryLockedAt,
+            tx.Pending,
+            tx.ReconciliationStatus,
+            tx.MatchedLedgerEntryId,
+            tx.MatchedPayoutId,
+            tx.ReconciledAt,
+            tx.CreatedAt,
+            tx.UpdatedAt);
+    }
 }

@@ -185,6 +185,8 @@ public sealed class FinanceModule : IModule
         // Accounts (Tenant-Scoped Bank Linking)
         services.Configure<Services.Accounts.AccountConnectionSyncOptions>(
             configuration.GetSection("Finance:Accounts:LinkedAccountSync"));
+        services.AddScoped<Services.Accounts.IAccountTransactionCategorizer,
+            Services.Accounts.AccountTransactionCategorizer>();
         services.AddScoped<Services.Accounts.AccountTransactionSyncOrchestrator>();
         services.AddScoped<Contracts.Services.Accounts.IAccountLinkService,
             Services.Accounts.AccountLinkService>();

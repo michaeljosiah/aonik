@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 028 · AccountTransaction auto-categorization in Aonik.Finance</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e0f0ff; color: #144d7a; }
+    .meta-tag.priority-p2 { background: #efe6f6; color: #5a2784; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.move { background: #f3e8fb; color: #5a2784; }
+    .status-row td:first-child { font-weight: 600; }
+    .status-ok { color: #2a7f3c; }
+    .status-gap { color: #8a2a15; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 {
+      margin: 0 0 6px;
+      color: var(--accent);
+    }
+    .phase-card .phase-summary {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 028</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p2">Priority: P2</span>
+  <span class="meta-tag">Domain: Finance / Accounts</span>
+  <h1>AccountTransaction auto-categorization in Aonik.Finance</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Replaces the current pass-through of raw Plaid category strings on
+    <code>AccountTransaction</code> with a deterministic four-step classification pipeline
+    (lock check &rarr; provider mapping &rarr; merchant memory &rarr; fallback) that runs
+    during every sync, assigns a Chronicle canonical category and optional sub-category,
+    and records the method and confidence so manual overrides survive subsequent syncs.
+    Mirrors the Midday auto-categorization model against Aonik's African-consumer taxonomy
+    without introducing AI/LLM classification.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#current-state">Current-state inventory</a></li>
+    <li><a href="#taxonomy">Chronicle taxonomy</a></li>
+    <li><a href="#plaid-mapping">Plaid &rarr; Chronicle mapping</a></li>
+    <li><a href="#schema">Schema changes</a></li>
+    <li><a href="#pipeline">Classification pipeline</a></li>
+    <li><a href="#service">Categorizer service</a></li>
+    <li><a href="#merchant-memory">Merchant memory</a></li>
+    <li><a href="#sync-integration">Sync integration</a></li>
+    <li><a href="#endpoints">API endpoints</a></li>
+    <li><a href="#recategorize">Re-categorization</a></li>
+    <li><a href="#boundary">Module-boundary strategy</a></li>
+    <li><a href="#migrations">Migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification &amp; testing</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  Today <code>AccountTransactionSyncOrchestrator.ApplyProviderTransaction</code> copies
+  the raw provider category string onto <code>AccountTransaction.Category</code>
+  (<code>transaction.Category = TrimNullable(providerTransaction.Category)</code>,
+  <a href="../../src/Aonik.Finance/Services/Accounts/AccountTransactionSyncOrchestrator.cs">AccountTransactionSyncOrchestrator.cs:242</a>).
+  That string is the unmapped Plaid <code>personal_finance_category.primary</code>
+  (e.g. <code>"FOOD_AND_DRINK"</code>) and is unusable for reporting, budgeting, or
+  agent reasoning.
+</p>
+
+<p>
+  This spec wires the existing
+  <a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs">TransactionCategoryReference</a>
+  taxonomy into the sync orchestrator, adds three persisted fields on
+  <code>AccountTransaction</code> (<code>SubCategory</code>, <code>CategoryMethod</code>,
+  <code>CategoryConfidence</code>, <code>CategoryLockedAt</code>), introduces a per-tenant
+  merchant memory table, and exposes endpoints for manual overrides and bulk
+  re-classification. Migration ownership stays in <code>AonikDbContext</code> per
+  <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  After deployment, no row inserted by <code>AccountTransactionSyncOrchestrator</code>
+  carries a non-Chronicle value in <code>Category</code>; every new row has a
+  non-null <code>CategoryMethod</code>; manually-overridden transactions survive
+  three consecutive syncs; the bulk re-categorization endpoint maps existing legacy
+  rows from raw Plaid strings to canonical codes with zero hand-written migrations.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  Midday's auto-categorization (see <em>midday.ai/docs/auto-categorization/</em>) runs a
+  four-step process &mdash; analyse merchant, check history, consider patterns, assign
+  category &mdash; and feeds manual corrections into per-merchant memory. Their taxonomy
+  is 14 B2B categories (Revenue, COGS, Operations). Aonik's Chronicle taxonomy is 26
+  purpose-driven categories built for African consumer and cross-border money contexts.
+  The pipeline logic translates directly; the taxonomy does not.
+</p>
+
+<p>Specific problems this spec solves:</p>
+
+<table>
+  <thead>
+    <tr><th>Problem</th><th>Evidence</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>AccountTransaction.Category</code> stores the raw Plaid primary, not a Chronicle code.</td>
+      <td><a href="../../src/Aonik.Finance/Services/Accounts/AccountTransactionSyncOrchestrator.cs">AccountTransactionSyncOrchestrator.cs:242</a> &mdash; pass-through assignment with no mapping.</td>
+    </tr>
+    <tr>
+      <td>No <code>SubCategory</code>, so the Plaid <em>detailed</em> field is dropped on the floor.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Accounts/AccountTransaction.cs">AccountTransaction.cs</a> &mdash; entity has neither <code>SubCategory</code> nor any of the new fields.</td>
+    </tr>
+    <tr>
+      <td>No record of <em>how</em> a category was assigned, so manual overrides are silently overwritten on the next sync.</td>
+      <td>Every sync runs <code>ApplyProviderTransaction</code> on existing rows; no lock or method field gates the assignment.</td>
+    </tr>
+    <tr>
+      <td>No per-tenant merchant memory, so corrections are not learnt.</td>
+      <td>No <code>AccountTransactionMerchantCategory</code> table exists; corrections live only on the corrected row.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-label">Reuse opportunity</span>
+  <a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs">TransactionCategoryReference</a>
+  already ships the full 26-category taxonomy, sub-category metadata, and the
+  <code>PlaidPrimaryCategoryMap</code> / <code>PlaidDetailedCategoryMap</code> dictionaries
+  with a single entry point <code>MapPlaidCategoryWithSubCategory(primary, detailed)</code>.
+  No taxonomy work is needed &mdash; only wiring and a small set of new persisted fields.
+</div>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+
+<ul>
+  <li><span class="tag mutate">Edit</span> <code>AccountTransaction</code> to add <code>SubCategory</code>, <code>CategoryMethod</code>, <code>CategoryConfidence</code>, <code>CategoryLockedAt</code>.</li>
+  <li><span class="tag new">New</span> <code>AccountTransactionMerchantCategory</code> entity + EF configuration + DbSet on <code>AonikDbContext</code> and <code>FinanceDbContext</code>.</li>
+  <li><span class="tag new">New</span> <code>IAccountTransactionCategorizer</code> service and <code>MerchantKeyNormalizer</code> helper.</li>
+  <li><span class="tag mutate">Edit</span> <code>AccountTransactionSyncOrchestrator</code> to call the categorizer during sync, pre-fetch merchant rules, and stop pass-through assignment.</li>
+  <li><span class="tag new">New</span> EF migration <code>AddAccountTransactionCategorization</code> against <code>AonikDbContext</code>.</li>
+  <li><span class="tag new">New</span> admin endpoints: <code>PATCH /admin/accounts/transactions/{id}/category</code>, <code>DELETE /admin/accounts/transactions/{id}/category/lock</code>, <code>GET /admin/accounts/merchant-categories</code>, <code>DELETE /admin/accounts/merchant-categories/{id}</code>.</li>
+  <li><span class="tag new">New</span> bulk re-categorization endpoint: <code>POST /admin/accounts/connections/{connectionId}/transactions/recategorize</code>.</li>
+  <li><span class="tag new">New</span> unit tests for the categorizer and integration tests for the endpoints + orchestrator extension.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+
+<ul>
+  <li>AI / LLM-based classification (Midday's Step 3). Deferred to Phase&nbsp;2; would slot between merchant memory and fallback and report <code>CategoryMethod = "ai_classifier"</code>.</li>
+  <li>Cross-tenant merchant signals. Aonik stays strictly tenant-scoped in Phase&nbsp;1 &mdash; no shared global merchant dictionary.</li>
+  <li>The PersonalFinance <code>PersonalTransaction</code> entity, which has its own richer classification model (<code>ConfidenceScore</code>, <code>CategorisedBy</code>, <code>ClassificationMethod</code>, <code>ReviewStatus</code>). A future unification spec will align both modules.</li>
+  <li>Category-management UI / CRUD. Chronicle categories stay code-defined.</li>
+  <li>Reporting and burn-rate analytics. Downstream consumers; their spec lives elsewhere.</li>
+  <li>Webhook-triggered re-categorization on Plaid correction events. The current <a href="../../src/Aonik.Finance/Services/Accounts/Linking/PlaidAccountWebhookProcessor.cs">PlaidAccountWebhookProcessor</a> already triggers transaction syncs &mdash; the categorizer runs on every sync, so corrected categories propagate naturally. Bespoke webhook handling is unnecessary in Phase&nbsp;1.</li>
+</ul>
+
+<h2 id="guardrails">4. Constraints &amp; guardrails</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Must&nbsp;not&nbsp;change</th>
+      <th>Must&nbsp;follow</th>
+      <th>Ask&nbsp;before</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>The <code>TransactionCategoryReference</code> taxonomy or Plaid maps</li>
+          <li>The <code>/accounts/*</code> non-admin HTTP contract</li>
+          <li><code>AonikDbContext</code> as the single migration stream</li>
+          <li>The <code>Ank</code>-prefixed table naming</li>
+          <li>Existing Plaid gateway interface (<code>IPersonalAccountLinkProviderGateway</code>) shape</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Anemic entities; all logic in services</li>
+          <li><code>Send.OkAsync</code> / <code>Send.NotFoundAsync</code> / <code>Send.CreatedAtAsync&lt;T&gt;</code> conventions</li>
+          <li>EF migrations generated only by <code>dotnet ef migrations add ...</code></li>
+          <li>Tests: xUnit + FluentAssertions, AAA naming, InMemory DB with unique <code>$"TestDb_{Guid.NewGuid()}"</code></li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Promoting <code>TransactionCategoryReference</code> to <code>public</code> or relocating it to SharedKernel</li>
+          <li>Hand-writing any migration (CLAUDE.md absolute prohibition)</li>
+          <li>Splitting categorizer state across multiple tables</li>
+          <li>Renaming any <code>Ank*</code> table</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Critical finding</span>
+  <code>TransactionCategoryReference</code> lives in
+  <code>src/Aonik.PersonalFinance/</code> and is declared <code>internal static</code>
+  with namespace <code>Aonik.Finance.Services.PersonalFinance</code> (a transitional
+  namespace under Spec&nbsp;027). <code>Aonik.Finance</code> can call it today only because
+  <a href="../../src/Aonik.PersonalFinance/Aonik.PersonalFinance.csproj">Aonik.PersonalFinance.csproj</a>
+  grants <code>InternalsVisibleTo Aonik.Finance</code> and
+  <a href="../../src/Aonik.Finance/Aonik.Finance.csproj">Aonik.Finance.csproj</a> still
+  carries a transitional <code>ProjectReference</code> to <code>Aonik.PersonalFinance</code>.
+  Both are explicitly tagged <strong>TRANSITIONAL, drop at the end of Spec&nbsp;027 Phase&nbsp;3</strong>.
+  &sect;<a href="#boundary">15. Module-boundary strategy</a> resolves this.
+</div>
+
+<h2 id="current-state">5. Current-state inventory</h2>
+
+<table>
+  <thead>
+    <tr><th>Artefact</th><th>Path</th><th>Relevant detail</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>AccountTransaction</code></td>
+      <td><a href="../../src/Aonik.Finance/Entities/Accounts/AccountTransaction.cs">src/Aonik.Finance/Entities/Accounts/AccountTransaction.cs</a></td>
+      <td>Has <code>Category</code> (nullable string), <code>Counterparty</code>, <code>Description</code>, <code>ReconciliationStatus</code>. No <code>SubCategory</code>, <code>CategoryMethod</code>, <code>CategoryConfidence</code>, or <code>CategoryLockedAt</code>.</td>
+    </tr>
+    <tr>
+      <td><code>AccountTransactionConfiguration</code></td>
+      <td><a href="../../src/Aonik.Finance/Persistence/Configurations/Accounts/AccountTransactionConfiguration.cs">src/Aonik.Finance/Persistence/Configurations/Accounts/AccountTransactionConfiguration.cs</a></td>
+      <td>Existing EF config &mdash; gets four new column configurations.</td>
+    </tr>
+    <tr>
+      <td><code>AccountTransactionSyncOrchestrator</code></td>
+      <td><a href="../../src/Aonik.Finance/Services/Accounts/AccountTransactionSyncOrchestrator.cs">src/Aonik.Finance/Services/Accounts/AccountTransactionSyncOrchestrator.cs</a></td>
+      <td>Owns the sync loop. Line 242 is the pass-through assignment to remove. Already injects <code>IEnumerable&lt;IPersonalAccountLinkProviderGateway&gt;</code> and <code>FinanceDbContext</code>.</td>
+    </tr>
+    <tr>
+      <td><code>AccountLinkProviderTransactionResult</code></td>
+      <td><a href="../../src/Aonik.PersonalFinance/Contracts/Services/PersonalFinance/IPersonalAccountLinkProviderGateway.cs">src/Aonik.PersonalFinance/Contracts/Services/PersonalFinance/IPersonalAccountLinkProviderGateway.cs:101</a></td>
+      <td>Already carries <code>Category</code> (Plaid primary), <code>SubCategory</code> (Plaid detailed), <code>Merchant</code>, <code>Description</code>. No DTO change needed.</td>
+    </tr>
+    <tr>
+      <td><code>TransactionCategoryReference</code></td>
+      <td><a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs">src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs</a></td>
+      <td><code>internal static class</code>; exposes <code>MapPlaidCategoryWithSubCategory</code>, <code>IsValidCategory</code>, <code>IsValidSubCategory</code>, <code>ResolveTransactionType</code>, <code>Other</code>, <code>Uncategorized</code>. Namespace is <code>Aonik.Finance.Services.PersonalFinance</code>.</td>
+    </tr>
+    <tr>
+      <td><code>PlaidAccountLinkProviderGateway</code></td>
+      <td><a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/PlaidAccountLinkProviderGateway.cs">src/Aonik.PersonalFinance/Services/PersonalFinance/PlaidAccountLinkProviderGateway.cs</a></td>
+      <td>Thin HTTP adapter. Passes raw Plaid <code>personal_finance_category.{primary,detailed}</code> through unchanged on <code>AccountLinkProviderTransactionResult</code>. This spec does <em>not</em> change the gateway.</td>
+    </tr>
+    <tr>
+      <td><code>PlaidAccountWebhookProcessor</code></td>
+      <td><a href="../../src/Aonik.Finance/Services/Accounts/Linking/PlaidAccountWebhookProcessor.cs">src/Aonik.Finance/Services/Accounts/Linking/PlaidAccountWebhookProcessor.cs</a></td>
+      <td>Already triggers transaction syncs on Plaid webhook events &mdash; the new categorizer therefore runs against corrected categories automatically.</td>
+    </tr>
+    <tr>
+      <td><code>FinanceDbContext</code></td>
+      <td><a href="../../src/Aonik.Finance/Persistence/FinanceDbContext.cs">src/Aonik.Finance/Persistence/FinanceDbContext.cs</a></td>
+      <td>Module-scoped read/write context. Gains a new <code>DbSet&lt;AccountTransactionMerchantCategory&gt;</code>. No migrations.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="taxonomy">6. Chronicle taxonomy</h2>
+
+<p>
+  The canonical taxonomy is defined in
+  <a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs">TransactionCategoryReference</a>
+  and must not be modified by this spec. The 26 top-level categories:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Group</th><th>Categories</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Income</td><td><code>income</code></td></tr>
+    <tr><td>Transfers</td><td><code>transfer_in</code>, <code>transfer_out</code>, <code>family_support</code></td></tr>
+    <tr><td>Essentials</td><td><code>housing</code>, <code>groceries</code>, <code>eating_out</code>, <code>transport</code>, <code>bills</code>, <code>health</code>, <code>education</code></td></tr>
+    <tr><td>Shopping</td><td><code>shopping</code>, <code>personal_care</code>, <code>gifts</code></td></tr>
+    <tr><td>Lifestyle</td><td><code>entertainment</code>, <code>subscriptions</code>, <code>travel</code>, <code>fitness</code>, <code>pets</code></td></tr>
+    <tr><td>Financial</td><td><code>savings</code>, <code>investments</code>, <code>loan_payments</code>, <code>bank_fees</code></td></tr>
+    <tr><td>Services</td><td><code>charity</code></td></tr>
+    <tr><td>Other</td><td><code>other</code>, <code>uncategorized</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>Transaction type</strong> is derived from the category code via
+  <code>TransactionCategoryReference.ResolveTransactionType(categoryCode, amount)</code>:
+  <code>Income</code>, <code>Expense</code>, or <code>Transfer</code>. Transfer
+  categories: <code>transfer_in</code>, <code>transfer_out</code>,
+  <code>family_support</code>. Income categories: <code>income</code>,
+  <code>transfer_in</code>. All others resolve by sign of amount.
+</p>
+
+<p>
+  Sub-categories: defined in <code>SubCategoryMetadata</code> within the same reference
+  class. Each entry keys on <code>{category}:{subCategoryCode}</code>; codes use
+  <code>snake_case</code>. Validation goes through
+  <code>TransactionCategoryReference.IsValidSubCategory(category, sub)</code>.
+</p>
+
+<h2 id="plaid-mapping">7. Plaid &rarr; Chronicle mapping</h2>
+
+<p>
+  <code>TransactionCategoryReference</code> ships two dictionaries:
+</p>
+
+<ul>
+  <li><strong><code>PlaidPrimaryCategoryMap</code></strong> &mdash; 18 Plaid primary values &rarr; Chronicle top-level codes. Used as fallback when no detailed match exists.</li>
+  <li><strong><code>PlaidDetailedCategoryMap</code></strong> &mdash; composite <code>"PRIMARY.DETAILED"</code> keys &rarr; <code>(category, subCategory?)</code> tuples. Provides both category and optional sub-category in a single lookup.</li>
+</ul>
+
+<p>
+  The entry point is
+  <code>TransactionCategoryReference.MapPlaidCategoryWithSubCategory(primary, detailed)</code>.
+  Behaviour:
+</p>
+
+<ul>
+  <li>Both inputs null/empty &rarr; <code>(null, null)</code>.</li>
+  <li>Detailed key matches <code>PlaidDetailedCategoryMap</code> &rarr; that entry's <code>(category, sub)</code>.</li>
+  <li>Detailed key absent but primary present in <code>PlaidPrimaryCategoryMap</code> &rarr; <code>(canonical, null)</code>.</li>
+  <li>Primary unrecognised &rarr; <code>("other", null)</code>.</li>
+</ul>
+
+<table>
+  <thead>
+    <tr><th>Plaid primary</th><th>Plaid detailed</th><th>Chronicle category</th><th>Chronicle sub-category</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>FOOD_AND_DRINK</code></td><td><code>RESTAURANT</code></td><td><code>eating_out</code></td><td><code>restaurant</code></td></tr>
+    <tr><td><code>FOOD_AND_DRINK</code></td><td><code>GROCERIES</code></td><td><code>groceries</code></td><td><code>supermarket</code></td></tr>
+    <tr><td><code>FOOD_AND_DRINK</code></td><td><code>COFFEE</code></td><td><code>eating_out</code></td><td><code>cafe</code></td></tr>
+    <tr><td><code>FOOD_AND_DRINK</code></td><td><em>(none)</em></td><td><code>groceries</code></td><td>&mdash;</td></tr>
+    <tr><td><code>RENT_AND_UTILITIES</code></td><td><code>RENT</code></td><td><code>housing</code></td><td><code>rent</code></td></tr>
+    <tr><td><code>RENT_AND_UTILITIES</code></td><td><code>MORTGAGE</code></td><td><code>housing</code></td><td><code>mortgage</code></td></tr>
+    <tr><td><code>RENT_AND_UTILITIES</code></td><td><code>INTERNET</code></td><td><code>subscriptions</code></td><td><code>software</code></td></tr>
+    <tr><td><code>RENT_AND_UTILITIES</code></td><td><code>TELEPHONE</code></td><td><code>bills</code></td><td><code>phone</code></td></tr>
+    <tr><td><code>ENTERTAINMENT</code></td><td><code>MUSIC_AND_AUDIO</code></td><td><code>subscriptions</code></td><td><code>music</code></td></tr>
+    <tr><td><code>ENTERTAINMENT</code></td><td><code>TV_AND_MOVIES</code></td><td><code>subscriptions</code></td><td><code>streaming</code></td></tr>
+    <tr><td><code>TRANSPORTATION</code></td><td><code>GAS</code></td><td><code>transport</code></td><td><code>fuel</code></td></tr>
+    <tr><td><code>TRANSPORTATION</code></td><td><code>PUBLIC_TRANSIT</code></td><td><code>transport</code></td><td><code>public_transit</code></td></tr>
+    <tr><td><code>TRANSFER_OUT</code></td><td><code>SAVINGS</code></td><td><code>savings</code></td><td>&mdash;</td></tr>
+    <tr><td><code>TRANSFER_OUT</code></td><td><code>INVESTMENT</code></td><td><code>investments</code></td><td>&mdash;</td></tr>
+    <tr><td><code>GENERAL_SERVICES</code></td><td><code>INSURANCE</code></td><td><code>bills</code></td><td><code>insurance</code></td></tr>
+    <tr><td><code>GENERAL_SERVICES</code></td><td><code>VETERINARY_SERVICES</code></td><td><code>pets</code></td><td><code>vet</code></td></tr>
+    <tr><td><code>INCOME</code></td><td><em>(any)</em></td><td><code>income</code></td><td>&mdash;</td></tr>
+    <tr><td><code>BANK_FEES</code></td><td><em>(any)</em></td><td><code>bank_fees</code></td><td>&mdash;</td></tr>
+    <tr><td><code>MEDICAL</code></td><td><em>(any)</em></td><td><code>health</code></td><td>&mdash;</td></tr>
+    <tr><td><code>LOAN_PAYMENTS</code></td><td><em>(any)</em></td><td><code>loan_payments</code></td><td>&mdash;</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Note</span>
+  The Plaid gateway is a thin HTTP adapter and stays that way. The categorizer calls
+  <code>MapPlaidCategoryWithSubCategory</code> using the raw provider strings
+  <em>after</em> they arrive in <code>AccountLinkProviderTransactionResult</code>, not
+  inside the gateway. This keeps mapping concerns out of the provider abstraction so
+  alternative providers (Mono, Okra, etc.) can ship their own gateway without
+  re-implementing taxonomy translation.
+</div>
+
+<h2 id="schema">8. Schema changes</h2>
+
+<h3>8.1 <code>AccountTransaction</code> &mdash; four new columns</h3>
+
+<table>
+  <thead>
+    <tr><th>Column</th><th>Type</th><th>Nullable</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SubCategory</code></td>
+      <td><code>nvarchar(100)</code></td>
+      <td>Yes</td>
+      <td>Chronicle sub-category code; must be valid for the assigned <code>Category</code>. Null when no sub-category applies.</td>
+    </tr>
+    <tr>
+      <td><code>CategoryMethod</code></td>
+      <td><code>nvarchar(50)</code></td>
+      <td>Yes</td>
+      <td>One of <code>provider_mapped</code>, <code>merchant_rule</code>, <code>manual</code>, <code>fallback</code>. Null on legacy rows that pre-date this spec.</td>
+    </tr>
+    <tr>
+      <td><code>CategoryConfidence</code></td>
+      <td><code>decimal(5,4)</code></td>
+      <td>Yes</td>
+      <td>0.0&ndash;1.0. Used to sort uncertain transactions for manual review. Null on legacy rows.</td>
+    </tr>
+    <tr>
+      <td><code>CategoryLockedAt</code></td>
+      <td><code>datetime2</code></td>
+      <td>Yes</td>
+      <td>When a user manually set the category. Non-null locks the category against future sync overwrites.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The existing <code>Category</code> column stays in place but its semantics change: it
+  must henceforth hold a Chronicle canonical code or be null. The raw provider string
+  is consumed transiently inside the categorizer and not persisted.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Legacy rows</span>
+  Existing rows that hold raw Plaid strings in <code>Category</code> (e.g.
+  <code>"FOOD_AND_DRINK"</code>) are left untouched by the migration. The bulk
+  re-categorization endpoint (&sect;<a href="#recategorize">14</a>) is run once per
+  connection after deployment to normalise them. <strong>Run once, not repeatedly</strong>
+  &mdash; see the re-categorization callout.
+</div>
+
+<h3>8.2 New table: <code>AnkAccountTransactionMerchantCategories</code></h3>
+
+<p>
+  Per-tenant merchant &rarr; Chronicle category rules. Populated when a user manually
+  overrides a transaction category with <code>RememberForMerchant = true</code>. The
+  categorizer consults this table as Step 3 of the pipeline.
+</p>
+
+<pre><code>// Illustrative DDL (generated by EF migration; not hand-written)
+CREATE TABLE dbo.AnkAccountTransactionMerchantCategories (
+    Id               uniqueidentifier  NOT NULL  PRIMARY KEY,
+    TenantId         uniqueidentifier  NOT NULL,
+    MerchantKey      nvarchar(200)     NOT NULL,
+    Category         nvarchar(100)     NOT NULL,
+    SubCategory      nvarchar(100)         NULL,
+    CreatedAt        datetime2         NOT NULL,
+    CreatedByUserId  uniqueidentifier      NULL,
+    UpdatedAt        datetime2             NULL,
+    UpdatedByUserId  uniqueidentifier      NULL,
+    CONSTRAINT UX_AnkAccountTransactionMerchantCategories_Tenant_Merchant
+        UNIQUE (TenantId, MerchantKey)
+);
+</code></pre>
+
+<h4>Entity class</h4>
+
+<pre><code>namespace Aonik.Finance.Entities.Accounts;
+
+public class AccountTransactionMerchantCategory : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+
+    /// Normalised merchant name (lowercased, punctuation stripped, whitespace collapsed).
+    public string MerchantKey { get; set; } = string.Empty;
+
+    public string Category { get; set; } = string.Empty;
+    public string? SubCategory { get; set; }
+}
+</code></pre>
+
+<h2 id="pipeline">9. Classification pipeline</h2>
+
+<p>
+  Four ordered steps. The first step that yields a confident result wins; subsequent
+  steps are skipped.
+</p>
+
+<div class="ascii-diagram">┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│ Step 1       │ → │ Step 2       │ → │ Step 3       │ → │ Step 4       │
+│ Lock check   │   │ Provider map │   │ Merchant     │   │ Fallback     │
+│ (CategoryLocked│ │ Plaid →      │   │ memory       │   │ "other" or   │
+│  At not null)│   │ Chronicle    │   │ tenant rule  │   │ "uncategorized"│
+└──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘</div>
+
+<h3>Step 1 &mdash; Lock check</h3>
+
+<p>
+  If <code>AccountTransaction.CategoryLockedAt</code> is not null, the transaction was
+  manually categorized. Return unchanged. This guarantees a sync never overwrites a
+  deliberate user decision.
+</p>
+
+<h3>Step 2 &mdash; Provider mapping</h3>
+
+<pre><code>var (category, subCategory) =
+    TransactionCategoryReference.MapPlaidCategoryWithSubCategory(
+        providerTransaction.Category,      // Plaid primary
+        providerTransaction.SubCategory);  // Plaid detailed
+</code></pre>
+
+<ul>
+  <li><code>category</code> non-null and not <code>"other"</code> &rarr; apply with <code>method = "provider_mapped"</code>, <code>confidence = 0.85</code>. Stop.</li>
+  <li><code>category == "other"</code> &rarr; continue to Step 3 with <code>"other"</code> held as a candidate.</li>
+  <li><code>category == null</code> (no provider data) &rarr; continue to Step 3.</li>
+</ul>
+
+<h3>Step 3 &mdash; Merchant memory</h3>
+
+<p>
+  Normalise <code>providerTransaction.Merchant</code> (falling back to
+  <code>providerTransaction.Description</code> if <code>Merchant</code> is null) into a
+  merchant key. Look it up in the per-tenant rule dictionary the orchestrator pre-fetched
+  for the sync run.
+</p>
+
+<ul>
+  <li>Match found &rarr; apply rule's <code>Category</code> + <code>SubCategory</code> with <code>method = "merchant_rule"</code>, <code>confidence = 0.90</code>. Stop.</li>
+  <li>No match &rarr; continue to Step 4.</li>
+</ul>
+
+<p>
+  Merchant-rule confidence is higher than provider mapping because the tenant explicitly
+  set this rule &mdash; it reflects human intent rather than a probabilistic Plaid signal.
+</p>
+
+<h3>Step 4 &mdash; Fallback</h3>
+
+<ul>
+  <li>Step 2 returned <code>"other"</code> &rarr; <code>category = "other"</code>, <code>method = "provider_mapped"</code>, <code>confidence = 0.40</code>.</li>
+  <li>Step 2 returned null (no provider data at all) &rarr; <code>category = "uncategorized"</code>, <code>method = "fallback"</code>, <code>confidence = 0.00</code>.</li>
+</ul>
+
+<h3>Confidence and method summary</h3>
+
+<table>
+  <thead>
+    <tr><th>Method</th><th>Confidence</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>manual</code></td><td>1.00</td><td>User explicitly set; locked against future sync.</td></tr>
+    <tr><td><code>merchant_rule</code></td><td>0.90</td><td>Tenant merchant memory match.</td></tr>
+    <tr><td><code>provider_mapped</code> (specific)</td><td>0.85</td><td>Plaid detailed yielded a specific Chronicle code.</td></tr>
+    <tr><td><code>provider_mapped</code> (other)</td><td>0.40</td><td>Plaid primary mapped to <code>"other"</code>; no merchant rule.</td></tr>
+    <tr><td><code>fallback</code></td><td>0.00</td><td>No provider data; requires manual review.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="service">10. Categorizer service</h2>
+
+<h3>Interface</h3>
+
+<pre><code>namespace Aonik.Finance.Services.Accounts;
+
+internal interface IAccountTransactionCategorizer
+{
+    /// Classifies a single transaction in place. No-ops if CategoryLockedAt is set.
+    void Classify(
+        AccountTransaction transaction,
+        AccountLinkProviderTransactionResult providerTransaction,
+        AccountTransactionMerchantCategory? merchantRule);
+}
+</code></pre>
+
+<h3>Implementation</h3>
+
+<pre><code>internal sealed class AccountTransactionCategorizer : IAccountTransactionCategorizer
+{
+    public void Classify(
+        AccountTransaction transaction,
+        AccountLinkProviderTransactionResult providerTransaction,
+        AccountTransactionMerchantCategory? merchantRule)
+    {
+        // Step 1 — respect manual locks
+        if (transaction.CategoryLockedAt is not null)
+            return;
+
+        // Step 2 — provider mapping
+        if (!string.IsNullOrWhiteSpace(providerTransaction.Category))
+        {
+            var (cat, sub) = TransactionCategoryReference
+                .MapPlaidCategoryWithSubCategory(
+                    providerTransaction.Category,
+                    providerTransaction.SubCategory);
+
+            if (cat is not null && cat != TransactionCategoryReference.Other)
+            {
+                Apply(transaction, cat, sub, "provider_mapped", 0.85m);
+                return;
+            }
+        }
+
+        // Step 3 — merchant memory
+        if (merchantRule is not null)
+        {
+            Apply(transaction, merchantRule.Category, merchantRule.SubCategory,
+                  "merchant_rule", 0.90m);
+            return;
+        }
+
+        // Step 4 — fallback (carry "other" from Step 2 if we had provider data)
+        var hadProviderData = !string.IsNullOrWhiteSpace(providerTransaction.Category);
+        if (hadProviderData)
+            Apply(transaction, TransactionCategoryReference.Other, null,
+                  "provider_mapped", 0.40m);
+        else
+            Apply(transaction, TransactionCategoryReference.Uncategorized, null,
+                  "fallback", 0.00m);
+    }
+
+    private static void Apply(
+        AccountTransaction tx,
+        string category,
+        string? subCategory,
+        string method,
+        decimal confidence)
+    {
+        tx.Category           = category;
+        tx.SubCategory        = subCategory;
+        tx.CategoryMethod     = method;
+        tx.CategoryConfidence = confidence;
+    }
+}
+</code></pre>
+
+<h3>DI registration</h3>
+
+<p>
+  Register as scoped in <a href="../../src/Aonik.Finance/FinanceModule.cs">FinanceModule.ConfigureServices</a>:
+</p>
+
+<pre><code>services.AddScoped&lt;IAccountTransactionCategorizer, AccountTransactionCategorizer&gt;();
+</code></pre>
+
+<h2 id="merchant-memory">11. Merchant memory</h2>
+
+<h3><code>MerchantKeyNormalizer</code> &mdash; static helper</h3>
+
+<p>
+  Centralises key normalisation so the same key is produced at classification time and
+  at override time. Lives at
+  <code>src/Aonik.Finance/Services/Accounts/MerchantKeyNormalizer.cs</code>.
+</p>
+
+<pre><code>internal static class MerchantKeyNormalizer
+{
+    private static readonly Regex WhitespaceRun = new(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex NoiseSuffix   = new(
+        @"\b(ltd|limited|inc|plc|llc|corp|corporation)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex NonAlpha      = new(@"[^a-z0-9 \-]", RegexOptions.Compiled);
+
+    public static string? Normalize(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+
+        var s = raw.ToLowerInvariant().Trim();
+        s = NoiseSuffix.Replace(s, "");
+        s = NonAlpha.Replace(s, " ");
+        s = WhitespaceRun.Replace(s, " ").Trim();
+
+        if (s.Length == 0) return null;
+        return s.Length <= 200 ? s : s[..200];
+    }
+}
+</code></pre>
+
+<p>Examples (verify in unit tests):</p>
+
+<ul>
+  <li><code>"SPOTIFY AB"</code> &rarr; <code>"spotify ab"</code></li>
+  <li><code>"NETFLIX.COM"</code> &rarr; <code>"netflix com"</code> (dot becomes space via <code>NonAlpha</code>, whitespace then collapsed)</li>
+  <li><code>"Acme Coffee Ltd  "</code> &rarr; <code>"acme coffee"</code> (noise suffix stripped, whitespace collapsed)</li>
+  <li><code>"  &amp;&amp;&amp; "</code> &rarr; <code>null</code> (nothing left after stripping)</li>
+</ul>
+
+<h3>Lookup in the orchestrator</h3>
+
+<p>
+  Pre-fetch all merchant rules for the tenant <em>once</em> before iterating transactions
+  &mdash; the per-transaction loop only does dictionary lookups:
+</p>
+
+<pre><code>var merchantRules = await _financeDbContext.AccountTransactionMerchantCategories
+    .Where(r =&gt; r.TenantId == tenantId)
+    .ToDictionaryAsync(
+        r =&gt; r.MerchantKey,
+        StringComparer.OrdinalIgnoreCase,
+        cancellationToken);
+
+// Inside the per-transaction loop:
+var merchantKey =
+    MerchantKeyNormalizer.Normalize(providerTransaction.Merchant)
+    ?? MerchantKeyNormalizer.Normalize(providerTransaction.Description);
+
+merchantRules.TryGetValue(merchantKey ?? "", out var merchantRule);
+_categorizer.Classify(transaction, providerTransaction, merchantRule);
+</code></pre>
+
+<h2 id="sync-integration">12. Sync integration</h2>
+
+<p>
+  Edits to
+  <a href="../../src/Aonik.Finance/Services/Accounts/AccountTransactionSyncOrchestrator.cs">AccountTransactionSyncOrchestrator</a>
+  are surgical:
+</p>
+
+<ol>
+  <li>Constructor-inject <code>IAccountTransactionCategorizer</code> as <code>_categorizer</code>.</li>
+  <li>After fetching <code>existingTransactionsByRef</code> and before the per-transaction loop, pre-fetch merchant rules for the tenant into the dictionary shown above.</li>
+  <li>Compute <code>merchantKey</code> and look up <code>merchantRule</code> inside the loop (once per provider transaction).</li>
+  <li>Call <code>_categorizer.Classify(transaction, providerTransaction, merchantRule)</code> immediately after <code>ApplyProviderTransaction</code>.</li>
+  <li>Remove <code>transaction.Category = TrimNullable(providerTransaction.Category)</code> from <code>ApplyProviderTransaction</code> (line 242). Category assignment is owned solely by the categorizer.</li>
+</ol>
+
+<div class="callout">
+  <span class="callout-label">Updated paths</span>
+  When a sync updates an existing transaction, the categorizer still runs. If
+  <code>CategoryLockedAt</code> is non-null, Step 1 returns and the manual category is
+  preserved. If the row is unlocked, the category may be updated &mdash; intentional,
+  because Plaid often refines its categorization on subsequent syncs.
+</div>
+
+<h2 id="endpoints">13. API endpoints</h2>
+
+<h3><code>PATCH /admin/accounts/transactions/{id}/category</code></h3>
+
+<p>Manually override a single transaction's category.</p>
+
+<h4>Request</h4>
+
+<pre><code>public record SetAccountTransactionCategoryRequest(
+    Guid Id,
+    string Category,
+    string? SubCategory,
+
+    /// When true, upsert an AccountTransactionMerchantCategory rule
+    /// so future transactions from this merchant categorize the same way.
+    bool RememberForMerchant
+);
+</code></pre>
+
+<h4>Validation</h4>
+
+<ul>
+  <li><code>Category</code> &rarr; <code>TransactionCategoryReference.IsValidCategory(...)</code> must return true.</li>
+  <li><code>SubCategory</code> non-null &rarr; <code>TransactionCategoryReference.IsValidSubCategory(Category, SubCategory)</code> must return true.</li>
+  <li>Transaction must belong to the caller's tenant.</li>
+</ul>
+
+<h4>Behaviour</h4>
+
+<ol>
+  <li>Load <code>AccountTransaction</code> by <code>Id</code> + tenant. 404 if missing.</li>
+  <li>Set <code>Category</code>, <code>SubCategory</code>, <code>CategoryMethod = "manual"</code>, <code>CategoryConfidence = 1.00m</code>, <code>CategoryLockedAt = DateTime.UtcNow</code>.</li>
+  <li>If <code>RememberForMerchant = true</code> and the transaction has a non-null <code>Counterparty</code> (falling back to <code>Description</code>):
+    <ul>
+      <li>Compute <code>merchantKey</code> via <code>MerchantKeyNormalizer.Normalize</code>.</li>
+      <li>Upsert <code>AccountTransactionMerchantCategory</code> by <code>(TenantId, MerchantKey)</code>.</li>
+    </ul>
+  </li>
+  <li>Save and return 200 OK with the updated transaction.</li>
+</ol>
+
+<h4>Response</h4>
+
+<pre><code>public record AccountTransactionCategoryResult(
+    Guid Id,
+    string Category,
+    string? SubCategory,
+    string CategoryMethod,
+    decimal CategoryConfidence,
+    DateTime? CategoryLockedAt,
+    bool MerchantRuleCreated
+);
+</code></pre>
+
+<h3><code>DELETE /admin/accounts/transactions/{id}/category/lock</code></h3>
+
+<p>
+  Clears <code>CategoryLockedAt</code>. Future syncs may re-categorize this row. Does
+  not clear the current category value. Returns <strong>204 No Content</strong>.
+</p>
+
+<h3><code>GET /admin/accounts/merchant-categories</code></h3>
+
+<p>Lists all merchant rules for the caller's tenant.</p>
+
+<pre><code>public record MerchantCategoryResult(
+    Guid Id,
+    string MerchantKey,
+    string Category,
+    string? SubCategory,
+    DateTime CreatedAt
+);
+</code></pre>
+
+<h3><code>DELETE /admin/accounts/merchant-categories/{id}</code></h3>
+
+<p>Removes a merchant rule. Returns <strong>204 No Content</strong>.</p>
+
+<h2 id="recategorize">14. Re-categorization</h2>
+
+<p>
+  Bulk endpoint to normalize legacy transactions (raw Plaid strings in
+  <code>Category</code>) and replay the pipeline against the current merchant memory.
+</p>
+
+<h3><code>POST /admin/accounts/connections/{connectionId}/transactions/recategorize</code></h3>
+
+<h4>Request</h4>
+
+<pre><code>public record RecategorizeAccountTransactionsRequest(
+    Guid ConnectionId,
+
+    /// When true, re-classify even transactions with CategoryLockedAt set.
+    /// Requires explicit opt-in to prevent accidental unlock of manual overrides.
+    bool IncludeLocked = false,
+
+    /// Limit to transactions whose CategoryMethod is null, "fallback", or whose
+    /// Category is null. Excludes already-categorised provider-mapped rows.
+    bool UnresolvedOnly = true
+);
+</code></pre>
+
+<h4>Behaviour</h4>
+
+<ol>
+  <li>Load <code>AccountTransaction</code> rows for the connection, filtered by <code>IncludeLocked</code> and <code>UnresolvedOnly</code>.</li>
+  <li>Pre-fetch merchant rules for the tenant.</li>
+  <li>For each transaction, construct a synthetic <code>AccountLinkProviderTransactionResult</code> using the row's existing <code>Category</code> as the raw Plaid primary and <code>null</code> for detailed (legacy rows did not preserve the detailed value). Run <code>_categorizer.Classify(...)</code>.</li>
+  <li>Save in a single <code>SaveChangesAsync</code> call.</li>
+  <li>Return <code>{ Processed, Updated, Skipped }</code>.</li>
+</ol>
+
+<div class="callout p0">
+  <span class="callout-label">Footgun</span>
+  <strong>Idempotent but lossy on stale data.</strong> Re-categorization on legacy rows
+  uses the row's old raw Plaid string as provider input. After the first run the
+  transaction carries a canonical code and the raw string is gone. A second run will
+  feed the canonical code into <code>MapPlaidCategoryWithSubCategory</code>, which does
+  not recognise it (canonical codes are not Plaid keys) and will fall back to
+  <code>uncategorized</code> unless a merchant rule matches.
+  <strong>Run once per connection immediately after deployment, not repeatedly.</strong>
+  Endpoint should guard with <code>UnresolvedOnly = true</code> by default and reject if
+  <code>IncludeLocked = true</code> without a confirmation flag.
+</div>
+
+<h2 id="boundary">15. Module-boundary strategy</h2>
+
+<p>
+  <code>TransactionCategoryReference</code> lives in <code>Aonik.PersonalFinance</code>,
+  not <code>Aonik.Finance</code>. The new categorizer needs to call it from inside
+  <code>Aonik.Finance</code>. Three options were considered:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Option</th><th>Cost</th><th>Verdict</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>A &mdash; Ride the Spec&nbsp;027 transitional shim.</strong> Use the existing transitional <code>ProjectReference</code> (<code>Aonik.Finance &rarr; Aonik.PersonalFinance</code>) and the existing transitional <code>InternalsVisibleTo Aonik.Finance</code>.</td>
+      <td>Builds today, no new surface area. Couples Spec&nbsp;028 to Spec&nbsp;027 Phase&nbsp;3 sequencing.</td>
+      <td><strong>Chosen for Phase&nbsp;1</strong>. Both transitional grants already exist; both are tagged for removal at the end of Spec&nbsp;027 Phase&nbsp;3. Spec&nbsp;028 Phase&nbsp;2 below removes the dependency cleanly.</td>
+    </tr>
+    <tr>
+      <td><strong>B &mdash; Promote <code>TransactionCategoryReference</code> to <code>public</code> and rely on the transitional <code>ProjectReference</code>.</strong></td>
+      <td>Widens the public surface of <code>Aonik.PersonalFinance</code>. Locks in a cross-module coupling that Spec&nbsp;027 wants to remove.</td>
+      <td>Rejected. The grant is explicitly transitional.</td>
+    </tr>
+    <tr>
+      <td><strong>C &mdash; Move the Plaid map and category constants to <code>SharedKernel</code> immediately.</strong></td>
+      <td>Pre-empts a Spec&nbsp;027 Phase&nbsp;3 decision and forces a refactor of every existing PF consumer of <code>TransactionCategoryReference</code>.</td>
+      <td>Rejected for now; revisit if Spec&nbsp;027 Phase&nbsp;3 decides the taxonomy belongs in SharedKernel.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Resolved: Option (2) — promote the slice to SharedKernel</h3>
+
+<div class="callout ok">
+  <span class="callout-label">Decision · resolved</span>
+  Option&nbsp;(1) was rejected because <code>AccountTransaction</code> stays in
+  <code>Aonik.Finance</code> (it's a Finance-domain entity supporting tenant-scoped
+  bank linking, not exclusive to PersonalFinance). The categorizer therefore stays
+  next to its entity. Option&nbsp;(2) — promoting the cross-boundary slice of
+  <code>TransactionCategoryReference</code> to SharedKernel &mdash; was chosen and
+  pre-positioned <strong>during Spec&nbsp;028 implementation</strong>, ahead of
+  Spec&nbsp;027 Phase&nbsp;3.
+</div>
+
+<p>
+  The promoted slice lives at
+  <a href="../../src/Aonik.SharedKernel/Abstractions/Finance/Categorization/IChronicleCategoryMapper.cs"><code>SharedKernel/Abstractions/Finance/Categorization/</code></a>:
+</p>
+
+<ul>
+  <li><code>IChronicleCategoryMapper</code> &mdash; <code>MapPlaidCategory</code>, <code>IsValidCategory</code>, <code>IsValidSubCategory</code>.</li>
+  <li><code>PlaidCategoryMapping</code> &mdash; <code>(Category, SubCategory)</code> result record.</li>
+  <li><code>ChronicleCategoryCodes</code> &mdash; the <code>Other</code> + <code>Uncategorized</code> string constants the pipeline branches on.</li>
+</ul>
+
+<p>
+  PersonalFinance registers a singleton implementation
+  (<a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/ChronicleCategoryMapper.cs"><code>ChronicleCategoryMapper</code></a>)
+  that delegates to the existing <code>TransactionCategoryReference</code>. The
+  Finance categorizer and category manager inject
+  <code>IChronicleCategoryMapper</code>; neither references
+  <code>Aonik.PersonalFinance</code> namespaces or the internal
+  <code>TransactionCategoryReference</code> any more.
+</p>
+
+<p>
+  Net effect on Spec&nbsp;027 Phase&nbsp;3: when the transitional
+  <code>InternalsVisibleTo Aonik.Finance</code> and the
+  <code>Aonik.Finance &rarr; Aonik.PersonalFinance</code> ProjectReference are dropped,
+  the Spec&nbsp;028 categorizer keeps compiling. The taxonomy display metadata,
+  sub-category dictionary, and PF-internal helpers stay in PersonalFinance.
+</p>
+
+<h2 id="migrations">16. Migrations</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Absolute rule</span>
+  <strong>Do not hand-write migrations.</strong> Per CLAUDE.md, all migrations are
+  generated exclusively by EF Core CLI. No <code>migrationBuilder.AddColumn(...)</code>
+  authored by hand.
+</div>
+
+<h3>Required entity / configuration changes <em>before</em> generating the migration</h3>
+
+<ol>
+  <li>Add the four new properties on <code>AccountTransaction</code> in <a href="../../src/Aonik.Finance/Entities/Accounts/AccountTransaction.cs">AccountTransaction.cs</a>.</li>
+  <li>Create <code>AccountTransactionMerchantCategory</code> at <code>src/Aonik.Finance/Entities/Accounts/AccountTransactionMerchantCategory.cs</code>.</li>
+  <li>Add <code>DbSet&lt;AccountTransactionMerchantCategory&gt; AccountTransactionMerchantCategories</code> to both <a href="../../src/Aonik.Infrastructure/Persistence/AonikDbContext.cs">AonikDbContext</a> (canonical) and <a href="../../src/Aonik.Finance/Persistence/FinanceDbContext.cs">FinanceDbContext</a> (module read/write).</li>
+  <li>Create <code>src/Aonik.Finance/Persistence/Configurations/Accounts/AccountTransactionMerchantCategoryConfiguration.cs</code> implementing <code>IEntityTypeConfiguration&lt;AccountTransactionMerchantCategory&gt;</code>:
+    <ul>
+      <li>Table: <code>AnkAccountTransactionMerchantCategories</code></li>
+      <li>Unique index on <code>(TenantId, MerchantKey)</code></li>
+      <li><code>MerchantKey</code> max length 200, required</li>
+      <li><code>Category</code> max length 100, required</li>
+      <li><code>SubCategory</code> max length 100, nullable</li>
+    </ul>
+  </li>
+  <li>Update <a href="../../src/Aonik.Finance/Persistence/Configurations/Accounts/AccountTransactionConfiguration.cs">AccountTransactionConfiguration</a> with the four new columns: <code>Category</code> max length 100, <code>SubCategory</code> max length 100, <code>CategoryMethod</code> max length 50, <code>CategoryConfidence</code> precision <code>(5,4)</code>.</li>
+</ol>
+
+<h3>Generate</h3>
+
+<pre><code>dotnet ef migrations add AddAccountTransactionCategorization \
+  --project src/Aonik.Infrastructure \
+  --startup-project src/Aonik.Api
+</code></pre>
+
+<h3>Verify before committing</h3>
+
+<ul>
+  <li>Inspect the generated <code>.cs</code>: only four <code>AddColumn</code> calls on <code>AnkAccountTransactions</code> plus one <code>CreateTable</code> for <code>AnkAccountTransactionMerchantCategories</code>.</li>
+  <li>Inspect the <code>.Designer.cs</code> snapshot for both changes.</li>
+  <li><code>dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code> applies cleanly against a fresh DB.</li>
+  <li>Commit both files in the same change.</li>
+</ul>
+
+<h2 id="phases">17. Phased rollout</h2>
+
+<div class="phase-card">
+  <h4>Phase&nbsp;1 &mdash; Entities, config, migration</h4>
+  <div class="phase-summary">
+    Add the four columns to <code>AccountTransaction</code>; create
+    <code>AccountTransactionMerchantCategory</code> and its EF configuration; add DbSets
+    to both contexts; generate <code>AddAccountTransactionCategorization</code>; apply
+    locally.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase&nbsp;2 &mdash; Service + helper</h4>
+  <div class="phase-summary">
+    Implement <code>MerchantKeyNormalizer</code> and
+    <code>AccountTransactionCategorizer</code>. Register in <code>FinanceModule</code>.
+    Cover with unit tests for every pipeline branch.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase&nbsp;3 &mdash; Sync integration</h4>
+  <div class="phase-summary">
+    Edit <code>AccountTransactionSyncOrchestrator</code>: inject the categorizer,
+    pre-fetch merchant rules, remove the pass-through assignment, call
+    <code>Classify</code> per transaction. Confirm an end-to-end sync against a sandbox
+    Plaid stub assigns Chronicle codes.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase&nbsp;4 &mdash; Admin endpoints</h4>
+  <div class="phase-summary">
+    Ship the PATCH, DELETE lock, GET merchant-categories, and DELETE merchant-category
+    endpoints. Wire validation through
+    <code>TransactionCategoryReference.IsValidCategory</code> /
+    <code>IsValidSubCategory</code>.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase&nbsp;5 &mdash; Bulk re-categorization</h4>
+  <div class="phase-summary">
+    Ship the POST recategorize endpoint with the &ldquo;run once&rdquo; guard rails.
+    Stage manual rollout: run once per connection during a maintenance window, verify a
+    sample query against the database, then close the runbook entry.
+  </div>
+</div>
+<div class="phase-card">
+  <h4>Phase&nbsp;6 &mdash; Boundary cleanup <span style="color: var(--ok-border); font-size: 13px;">(done)</span></h4>
+  <div class="phase-summary">
+    Resolved Option&nbsp;(2): promoted the cross-boundary slice of
+    <code>TransactionCategoryReference</code> to
+    <code>SharedKernel.Abstractions.Finance.Categorization</code> via
+    <code>IChronicleCategoryMapper</code>, <code>PlaidCategoryMapping</code>, and
+    <code>ChronicleCategoryCodes</code>. PersonalFinance registers a singleton adapter
+    implementation; Finance consumes it through DI. Compiles without the Spec&nbsp;027
+    transitional <code>InternalsVisibleTo</code> + <code>ProjectReference</code> grants.
+  </div>
+</div>
+
+<h2 id="requirements">18. Requirements</h2>
+
+<table>
+  <thead><tr><th>ID</th><th>Requirement</th><th>Verify</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>RQ1</code></td>
+      <td><code>AccountTransaction</code> exposes <code>SubCategory</code>, <code>CategoryMethod</code>, <code>CategoryConfidence</code>, <code>CategoryLockedAt</code> with the types in &sect;8.1.</td>
+      <td>Inspect <code>AccountTransaction.cs</code> + <code>AccountTransactionConfiguration</code>.</td>
+    </tr>
+    <tr>
+      <td><code>RQ2</code></td>
+      <td><code>AnkAccountTransactionMerchantCategories</code> table exists with the schema in &sect;8.2 and a unique index on <code>(TenantId, MerchantKey)</code>.</td>
+      <td><code>dotnet ef migrations list</code>; query <code>sys.indexes</code> for the unique constraint.</td>
+    </tr>
+    <tr>
+      <td><code>RQ3</code></td>
+      <td>Every transaction written by <code>AccountTransactionSyncOrchestrator</code> has a non-null <code>CategoryMethod</code> and a Chronicle-valid <code>Category</code>.</td>
+      <td>Integration test asserting both fields on inserted rows.</td>
+    </tr>
+    <tr>
+      <td><code>RQ4</code></td>
+      <td>A transaction with <code>CategoryLockedAt</code> non-null is not re-categorised by a sync.</td>
+      <td>Orchestrator test.</td>
+    </tr>
+    <tr>
+      <td><code>RQ5</code></td>
+      <td>A merchant rule outranks a Plaid <code>"other"</code> result.</td>
+      <td>Categorizer test.</td>
+    </tr>
+    <tr>
+      <td><code>RQ6</code></td>
+      <td><code>POST .../recategorize</code> is idempotent on its first run and never overwrites locked rows by default.</td>
+      <td>Endpoint test against a seeded mix of locked / unlocked / legacy rows.</td>
+    </tr>
+    <tr>
+      <td><code>RQ7</code></td>
+      <td><code>MerchantKeyNormalizer.Normalize</code> produces a stable, lower-cased, noise-stripped key under the rules in &sect;11.</td>
+      <td>Table-driven unit tests covering the four examples in &sect;11.</td>
+    </tr>
+    <tr>
+      <td><code>RQ8</code></td>
+      <td>Admin endpoints reject invalid category or sub-category codes with 400 and return 404 for cross-tenant lookups.</td>
+      <td>FastEndpoints integration tests.</td>
+    </tr>
+    <tr>
+      <td><code>RQ9</code></td>
+      <td>No new <code>using Aonik.PersonalFinance.*</code> directive lands in <code>Aonik.Finance</code> beyond what already exists for the Spec&nbsp;027 transitional grants.</td>
+      <td><code>grep -r "using Aonik.PersonalFinance" src/Aonik.Finance/</code> diff is empty against the pre-change baseline.</td>
+    </tr>
+    <tr>
+      <td><code>RQ10</code></td>
+      <td>The transitional dependency between Finance and PersonalFinance does not widen. No new entry in <code>InternalsVisibleTo</code>, no new <code>ProjectReference</code>.</td>
+      <td>csproj diff review.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">19. Tasks</h2>
+
+<p>Status legend: <code>[ ]</code> not started · <code>[-]</code> in progress · <code>[x]</code> done · <code>[!]</code> blocked.</p>
+
+<ul>
+  <li><code>[ ]</code> <strong>T1</strong> &mdash; Add four columns to <code>AccountTransaction</code>; update <code>AccountTransactionConfiguration</code>.</li>
+  <li><code>[ ]</code> <strong>T2</strong> &mdash; Create <code>AccountTransactionMerchantCategory</code> entity + <code>AccountTransactionMerchantCategoryConfiguration</code>; add DbSets to <code>AonikDbContext</code> and <code>FinanceDbContext</code>. (after T1)</li>
+  <li><code>[ ]</code> <strong>T3</strong> &mdash; Generate <code>AddAccountTransactionCategorization</code> via <code>dotnet ef migrations add ...</code>; verify diff is exactly four <code>AddColumn</code> + one <code>CreateTable</code> + one <code>CreateIndex</code>; apply locally. (after T2)</li>
+  <li><code>[ ]</code> <strong>T4</strong> &mdash; Implement <code>MerchantKeyNormalizer</code> with unit tests covering the &sect;11 examples. (parallel to T3)</li>
+  <li><code>[ ]</code> <strong>T5</strong> &mdash; Implement <code>IAccountTransactionCategorizer</code> + <code>AccountTransactionCategorizer</code>; register in <code>FinanceModule</code>; cover with categorizer unit tests for every pipeline branch. (after T4)</li>
+  <li><code>[ ]</code> <strong>T6</strong> &mdash; Wire categorizer into <code>AccountTransactionSyncOrchestrator</code>: inject, pre-fetch merchant rules, remove pass-through assignment, call <code>Classify</code>. Extend orchestrator tests. (after T5)</li>
+  <li><code>[ ]</code> <strong>T7</strong> &mdash; Ship admin endpoints: PATCH category, DELETE lock, GET merchant-categories, DELETE merchant-category. Validation via <code>TransactionCategoryReference.IsValidCategory</code> / <code>IsValidSubCategory</code>. (after T6)</li>
+  <li><code>[ ]</code> <strong>T8</strong> &mdash; Ship POST recategorize with footgun guard rails (<code>UnresolvedOnly = true</code> default; confirmation flag for <code>IncludeLocked</code>). (after T7)</li>
+  <li><code>[ ]</code> <strong>T9</strong> &mdash; Runbook entry for one-shot bulk re-categorization per connection. (after T8)</li>
+  <li><code>[x]</code> <strong>T10</strong> &mdash; Boundary cleanup landed during Spec&nbsp;028 implementation. Promoted <code>IChronicleCategoryMapper</code> + <code>PlaidCategoryMapping</code> + <code>ChronicleCategoryCodes</code> to <code>SharedKernel.Abstractions.Finance.Categorization</code>; PersonalFinance registers the singleton adapter. Spec&nbsp;028 no longer depends on the Spec&nbsp;027 transitional grants.</li>
+</ul>
+
+<h2 id="verification">20. Verification &amp; testing</h2>
+
+<h3>Build &amp; test commands</h3>
+
+<ul>
+  <li><strong>Build:</strong> <code>dotnet build Aonik.sln</code></li>
+  <li><strong>Tests:</strong> <code>dotnet test Aonik.sln</code></li>
+  <li><strong>Targeted:</strong> <code>dotnet test --filter "FullyQualifiedName~AccountTransactionCategorizer"</code></li>
+  <li><strong>Migration apply:</strong> <code>dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></li>
+</ul>
+
+<h3>Categorizer unit tests (<code>AccountTransactionCategorizerTests</code>)</h3>
+
+<table>
+  <thead>
+    <tr><th>Test name</th><th>Input</th><th>Expected</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Classify_Should_NoOp_When_CategoryLockedAt_IsSet</code></td>
+      <td><code>CategoryLockedAt = utcNow</code>; any provider data</td>
+      <td>All four fields unchanged.</td>
+    </tr>
+    <tr>
+      <td><code>Classify_Should_MapPlaid_When_DetailedCategoryKnown</code></td>
+      <td>Primary <code>FOOD_AND_DRINK</code>, detailed <code>RESTAURANT</code></td>
+      <td><code>Category = eating_out</code>, <code>SubCategory = restaurant</code>, <code>Method = provider_mapped</code>, <code>Confidence = 0.85</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Classify_Should_MapPlaid_PrimaryOnly_When_DetailedUnknown</code></td>
+      <td>Primary <code>MEDICAL</code>, detailed null</td>
+      <td><code>Category = health</code>, <code>SubCategory = null</code>, <code>Method = provider_mapped</code>, <code>Confidence = 0.85</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Classify_Should_UseMerchantRule_When_PlaidReturnsOther</code></td>
+      <td>Primary <code>OTHER</code>; merchant rule &rarr; <code>subscriptions</code></td>
+      <td><code>Category = subscriptions</code>, <code>Method = merchant_rule</code>, <code>Confidence = 0.90</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Classify_Should_PreferMerchantRule_Over_ProviderOther</code></td>
+      <td>Primary <code>GENERAL_SERVICES</code> (&rarr; <code>other</code>); merchant rule &rarr; <code>bills</code></td>
+      <td><code>Category = bills</code>, <code>Method = merchant_rule</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Classify_Should_FallbackToOther_When_PlaidOther_NoMerchantRule</code></td>
+      <td>Primary <code>OTHER</code>; no merchant rule</td>
+      <td><code>Category = other</code>, <code>Method = provider_mapped</code>, <code>Confidence = 0.40</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Classify_Should_FallbackToUncategorized_When_NoProviderData</code></td>
+      <td>Primary null; no merchant rule</td>
+      <td><code>Category = uncategorized</code>, <code>Method = fallback</code>, <code>Confidence = 0.00</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>MerchantKeyNormalizer tests</h3>
+
+<ul>
+  <li><code>Normalize_Should_LowerAndTrim</code></li>
+  <li><code>Normalize_Should_StripNoiseSuffixes_LtdLimitedIncPlcLlcCorpCorporation</code></li>
+  <li><code>Normalize_Should_ReplaceNonAlphanumericWithSpace_AndCollapseWhitespace</code></li>
+  <li><code>Normalize_Should_ReturnNull_When_Empty_Or_OnlyPunctuation</code></li>
+  <li><code>Normalize_Should_Truncate_When_LongerThan200Chars</code></li>
+</ul>
+
+<h3>Endpoint tests (<code>SetAccountTransactionCategoryEndpointTests</code>)</h3>
+
+<ul>
+  <li>Valid category; <code>RememberForMerchant = false</code> &rarr; transaction updated, no rule row.</li>
+  <li>Valid category; <code>RememberForMerchant = true</code> &rarr; rule row upserted.</li>
+  <li>Invalid category code &rarr; <strong>400</strong>.</li>
+  <li>Invalid sub-category for given category &rarr; <strong>400</strong>.</li>
+  <li>Cross-tenant transaction id &rarr; <strong>404</strong>.</li>
+  <li>Second override with <code>RememberForMerchant = true</code> &rarr; existing rule row updated (upsert, not duplicate; verified by row count).</li>
+</ul>
+
+<h3>Sync orchestrator integration tests</h3>
+
+<ul>
+  <li>Sync with a Plaid detailed category assigns the correct Chronicle code.</li>
+  <li>Sync with a tenant merchant rule overrides a Plaid <code>"other"</code> mapping.</li>
+  <li>Sync does not overwrite a locked transaction's category.</li>
+  <li>Sync of an existing unlocked transaction updates the category when provider data improved on the next pull.</li>
+</ul>
+
+<h3>Bulk recategorize endpoint tests</h3>
+
+<ul>
+  <li>Run against a connection with mixed legacy / categorised / locked rows &mdash; only the unresolved set is updated by default.</li>
+  <li>With <code>IncludeLocked = true</code> and confirmation flag &mdash; locked rows are re-classified.</li>
+  <li>Second consecutive run &mdash; no rows updated (idempotent on already-canonical rows because <code>UnresolvedOnly = true</code> filters them out).</li>
+</ul>
+
+<h2 id="risks">21. Risk register</h2>
+
+<table>
+  <thead><tr><th>ID</th><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>R1</code></td>
+      <td>Spec&nbsp;027 Phase&nbsp;3 drops the transitional <code>InternalsVisibleTo Aonik.Finance</code> before this spec's Phase&nbsp;6 lands &mdash; Finance no longer compiles.</td>
+      <td>Track T10 as a hard dependency on Spec&nbsp;027 Phase&nbsp;3. Coordinate the cutover in a single PR that resolves Option&nbsp;A &rarr; (1) or (2).</td>
+    </tr>
+    <tr>
+      <td><code>R2</code></td>
+      <td>Bulk re-categorization is run twice; the second run flips canonical codes to <code>uncategorized</code>.</td>
+      <td>Default <code>UnresolvedOnly = true</code> excludes already-canonical rows. Endpoint logs every run with row counts. Runbook entry explicitly says &ldquo;once per connection&rdquo;.</td>
+    </tr>
+    <tr>
+      <td><code>R3</code></td>
+      <td>Existing tests rely on <code>AccountTransaction.Category</code> holding raw Plaid strings.</td>
+      <td>Grep tests for hard-coded Plaid primaries (<code>FOOD_AND_DRINK</code>, etc.) before T6 lands; update test fixtures to canonical codes.</td>
+    </tr>
+    <tr>
+      <td><code>R4</code></td>
+      <td>Merchant key collisions across distinct merchants (e.g. <code>"acme"</code> matching both <code>"Acme Coffee Ltd"</code> and <code>"Acme Auto Ltd"</code> after suffix stripping).</td>
+      <td>Tenant scope is the first column of the unique index, so collisions are within-tenant only. Document that <code>RememberForMerchant</code> requires the user accept that future transactions from any merchant normalising to the same key will be classified the same way. Surface the normalised key in the override response so users can see what they are committing to.</td>
+    </tr>
+    <tr>
+      <td><code>R5</code></td>
+      <td>Provider mapping accuracy drift &mdash; Plaid changes its taxonomy.</td>
+      <td>Plaid map changes are a code edit, tracked in version control. Spec&nbsp;028 does not introduce any silent learning loop that would mask drift.</td>
+    </tr>
+    <tr>
+      <td><code>R6</code></td>
+      <td>N+1 query in the orchestrator if merchant rule lookup is moved into the loop.</td>
+      <td>Pre-fetch into a dictionary is mandatory; orchestrator integration test asserts query count stays at the pre-extension baseline plus one (the rule pre-fetch).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">22. Decisions baked in</h2>
+
+<div class="callout">
+  <span class="callout-label">DEC-1</span>
+  <strong>The categorizer is rule-based, not AI.</strong>
+  Midday's full process includes an AI step. Aonik defers it. The four-step rule pipeline
+  reaches feature parity with Plaid mapping plus tenant memory, and any AI step slots in
+  as Step&nbsp;3.5 without re-shaping the entity.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-2</span>
+  <strong>Category assignment is the categorizer's exclusive responsibility.</strong>
+  <code>ApplyProviderTransaction</code> stops writing <code>Category</code>. No other
+  service writes <code>Category</code>, <code>CategoryMethod</code>, or
+  <code>CategoryConfidence</code>. Locking flows only through the admin override endpoint.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-3</span>
+  <strong>Manual override sets <code>CategoryLockedAt</code>.</strong>
+  Without locking, the next sync would silently overwrite the user's choice. Unlock is a
+  separate explicit action (<code>DELETE .../category/lock</code>).
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-4</span>
+  <strong>Single Plaid map.</strong> The categorizer consumes <code>TransactionCategoryReference</code> directly. We do not duplicate the dictionaries in <code>Aonik.Finance</code>.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-5</span>
+  <strong>The Plaid gateway stays a thin HTTP adapter.</strong> Mapping happens
+  <em>after</em> the gateway returns. Alternative providers (Mono, Okra, etc.) plug in
+  by emitting raw <code>(primary, detailed)</code> in
+  <code>AccountLinkProviderTransactionResult</code>; the categorizer handles translation.
+</div>
+
+<div class="callout">
+  <span class="callout-label">DEC-6</span>
+  <strong>Bulk re-categorization is opt-in and single-shot per connection.</strong>
+  No automatic backfill at startup; no scheduled job. The runbook calls it explicitly
+  once per connection during the migration window.
+</div>
+
+<h2 id="open">23. Open design decisions</h2>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved · O-1</span>
+  <strong>Phase&nbsp;6 boundary direction.</strong> Chose Option&nbsp;(2): promote the slice to
+  <code>SharedKernel.Abstractions.Finance.Categorization</code>. See &sect;<a href="#boundary">15</a>
+  for the implementation. Pre-positioned during Spec&nbsp;028 itself rather than waiting on
+  Spec&nbsp;027 Phase&nbsp;3.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-2</span>
+  <strong>Confidence schema.</strong> 0.40 for <code>"other"</code> may be too high.
+  Observed distribution after Phase&nbsp;3 will tell us whether the value should drop to
+  0.20 or 0.10. Out of scope to tune in Phase&nbsp;1; record actuals once enough syncs
+  have run.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-3</span>
+  <strong>Sub-category coverage for the long-tail Plaid detailed entries.</strong>
+  Several <code>GENERAL_SERVICES.*</code> entries currently map to <code>other</code>
+  with no sub-category. As real transaction volumes flow through, candidate sub-category
+  additions should be tracked. Out of scope for Phase&nbsp;1.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open · O-4</span>
+  <strong>Should the override response surface the normalised merchant key?</strong>
+  Yes by recommendation (so users see what they are committing <code>RememberForMerchant</code>
+  to). Confirm with product before T7 lands.
+</div>
+
+<h2 id="refs">24. References</h2>
+
+<ul>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005 &middot; Adopt Module-First Modular Monolith</a></li>
+  <li><a href="027.extract-personal-finance-module.html">Spec 027 &middot; Extract PersonalFinance into its own module</a> &mdash; Phase&nbsp;3 closes the transitional cross-module dependency Spec&nbsp;028 rides on.</li>
+  <li><a href="linked-accounts-plaid.spec.md">Spec &middot; Linked Accounts (Plaid)</a> &mdash; provider integration this spec sits on top of.</li>
+  <li><a href="../../src/Aonik.Finance/Services/Accounts/AccountTransactionSyncOrchestrator.cs">src/Aonik.Finance/Services/Accounts/AccountTransactionSyncOrchestrator.cs</a> &mdash; orchestrator that gains the categorizer call.</li>
+  <li><a href="../../src/Aonik.Finance/Entities/Accounts/AccountTransaction.cs">src/Aonik.Finance/Entities/Accounts/AccountTransaction.cs</a> &mdash; entity getting four new columns.</li>
+  <li><a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs">src/Aonik.PersonalFinance/Services/PersonalFinance/TransactionCategoryReference.cs</a> &mdash; taxonomy + Plaid maps.</li>
+  <li><a href="../../src/Aonik.PersonalFinance/Contracts/Services/PersonalFinance/IPersonalAccountLinkProviderGateway.cs">src/Aonik.PersonalFinance/Contracts/Services/PersonalFinance/IPersonalAccountLinkProviderGateway.cs</a> &mdash; <code>AccountLinkProviderTransactionResult</code> DTO.</li>
+  <li>Midday auto-categorization model &mdash; <em>midday.ai/docs/auto-categorization/</em>. Pipeline shape borrowed; taxonomy not.</li>
+</ul>
+
+<footer>
+  Spec 028 &middot; AccountTransaction auto-categorization &middot; Draft.
+  Author: Michael Josiah. Last revised 20 May 2026.
+</footer>
+
+</body>
+</html>

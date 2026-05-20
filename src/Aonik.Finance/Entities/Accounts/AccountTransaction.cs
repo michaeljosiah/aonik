@@ -15,6 +15,10 @@ public class AccountTransaction : AuditableEntity, ITenantScoped
     public string? Description { get; set; }
     public string? Reference { get; set; }
     public string? Category { get; set; }
+    public string? SubCategory { get; set; }
+    public string? CategoryMethod { get; set; }
+    public decimal? CategoryConfidence { get; set; }
+    public DateTime? CategoryLockedAt { get; set; }
     public bool Pending { get; set; }
     public string ReconciliationStatus { get; set; } = string.Empty;
     public Guid? MatchedLedgerEntryId { get; set; }
