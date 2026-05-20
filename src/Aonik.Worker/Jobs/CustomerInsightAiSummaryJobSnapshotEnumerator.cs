@@ -1,5 +1,5 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +16,11 @@ internal interface ICustomerInsightAiSummaryJobSnapshotEnumerator
 
 internal sealed class CustomerInsightAiSummaryJobSnapshotEnumerator : ICustomerInsightAiSummaryJobSnapshotEnumerator
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ICustomerInsightAiSummaryReader _summaryReader;
 
     public CustomerInsightAiSummaryJobSnapshotEnumerator(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext financeDbContext,
         ICustomerInsightAiSummaryReader summaryReader)
     {
         _financeDbContext = financeDbContext;

@@ -62,4 +62,29 @@ internal sealed class PartyReader : IPartyReader
                 r.Notes))
             .ToListAsync(cancellationToken);
     }
+
+    public Task<bool> ExistsAsync(
+        Guid tenantId,
+        Guid partyId,
+        CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Parties
+            .AsNoTracking()
+            .AnyAsync(p => p.TenantId == tenantId && p.Id == partyId, cancellationToken);
+    }
+
+    public Task<bool> HasActiveRelationshipBetweenAsync(
+        Guid tenantId,
+        Guid partyAId,
+        Guid partyBId,
+        CancellationToken cancellationToken = default)
+    {
+        return _dbContext.PartyRelationships
+            .AsNoTracking()
+            .AnyAsync(r => r.TenantId == tenantId
+                && r.IsActive
+                && ((r.FromPartyId == partyAId && r.ToPartyId == partyBId)
+                    || (r.ToPartyId == partyAId && r.FromPartyId == partyBId)),
+                cancellationToken);
+    }
 }

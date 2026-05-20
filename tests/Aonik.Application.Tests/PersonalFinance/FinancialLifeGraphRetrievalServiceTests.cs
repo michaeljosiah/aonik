@@ -1,10 +1,10 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,21 +37,56 @@ public class FinancialLifeGraphRetrievalServiceTests
         }
     }
 
-    private static FinanceDbContext CreateDbContext(Guid tenantId)
+    private sealed class StubPartyReader : IPartyReader
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        private readonly Dictionary<Guid, PartyHistoryItem> _parties;
+        private readonly List<PartyRelationshipHistoryItem> _relationships;
+
+        public StubPartyReader(
+            IEnumerable<PartyHistoryItem>? parties = null,
+            IEnumerable<PartyRelationshipHistoryItem>? relationships = null)
+        {
+            _parties = (parties ?? []).ToDictionary(p => p.PartyId);
+            _relationships = (relationships ?? []).ToList();
+        }
+
+        public Task<IReadOnlyList<PartyHistoryItem>> GetByIdsAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> partyIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyHistoryItem>>(
+                partyIds.Where(_parties.ContainsKey).Select(id => _parties[id]).ToList());
+
+        public Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(
+            Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyRelationshipHistoryItem>>(
+                _relationships.Where(r => r.FromPartyId == partyId || r.ToPartyId == partyId).ToList());
+
+        public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => Task.FromResult(_parties.ContainsKey(partyId));
+
+        public Task<bool> HasActiveRelationshipBetweenAsync(
+            Guid tenantId, Guid partyAId, Guid partyBId, CancellationToken ct = default)
+            => Task.FromResult(_relationships.Any(r => r.IsActive
+                && ((r.FromPartyId == partyAId && r.ToPartyId == partyBId)
+                    || (r.ToPartyId == partyAId && r.FromPartyId == partyBId))));
+    }
+
+    private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)
+    {
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"GraphRetrieval_{Guid.NewGuid()}")
             .Options;
-        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     private static FinancialLifeGraphRetrievalService CreateService(
-        FinanceDbContext context,
+        PersonalFinanceDbContext context,
         Guid tenantId,
-        Guid userId)
+        Guid userId,
+        IPartyReader? partyReader = null)
     {
         return new FinancialLifeGraphRetrievalService(
             context,
+            partyReader ?? new StubPartyReader(),
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
             NullLogger<FinancialLifeGraphRetrievalService>.Instance);
@@ -508,11 +543,8 @@ public class FinancialLifeGraphRetrievalServiceTests
         var partyId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
 
-        context.Parties.Add(new PartyReadModel
-        {
-            Id = partyId, TenantId = tenantId,
-            DisplayName = "Electric Co", Status = "Active"
-        });
+        var partyReader = new StubPartyReader(
+            parties: [new PartyHistoryItem(partyId, "Electric Co", "Active", null)]);
 
         context.Bills.Add(new Bill
         {
@@ -532,7 +564,7 @@ public class FinancialLifeGraphRetrievalServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, userId);
+        var service = CreateService(context, tenantId, userId, partyReader);
         var nodeKey = FinancialLifeGraphNodeKeys.Build(FinancialLifeGraphNodeKeys.Party, partyId);
 
         // Act
@@ -577,11 +609,8 @@ public class FinancialLifeGraphRetrievalServiceTests
         var partyId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
 
-        context.Parties.Add(new PartyReadModel
-        {
-            Id = partyId, TenantId = tenantId,
-            DisplayName = "Cable Co", Status = "Active"
-        });
+        var partyReader = new StubPartyReader(
+            parties: [new PartyHistoryItem(partyId, "Cable Co", "Active", null)]);
 
         context.Bills.AddRange(
             new Bill
@@ -602,7 +631,7 @@ public class FinancialLifeGraphRetrievalServiceTests
             });
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, userId);
+        var service = CreateService(context, tenantId, userId, partyReader);
         var nodeKey = FinancialLifeGraphNodeKeys.Build(FinancialLifeGraphNodeKeys.Party, partyId);
 
         // Act

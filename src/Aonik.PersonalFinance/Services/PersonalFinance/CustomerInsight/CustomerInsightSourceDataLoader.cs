@@ -1,24 +1,32 @@
-using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
+using Aonik.SharedKernel.Abstractions.Finance;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
 
 /// <summary>
-/// Encapsulates every read against <see cref="FinanceDbContext"/> the snapshot generator
-/// needs (accounts, transactions, bills, subscriptions, recurring bills, debt repayments,
-/// budgets, goals, profile, orders, household). Each loader records availability or
-/// failure on the supplied <see cref="CustomerInsightCoverageAccumulator"/> so the
-/// snapshot can correctly report partial coverage.
+/// Encapsulates every read against <see cref="PersonalFinanceDbContext"/> the snapshot
+/// generator needs (accounts, transactions, bills, subscriptions, recurring bills,
+/// debt repayments, budgets, goals, profile, orders, household). Each loader records
+/// availability or failure on the supplied <see cref="CustomerInsightCoverageAccumulator"/>
+/// so the snapshot can correctly report partial coverage.
+///
+/// Order history is consumed via <see cref="ICustomerOrderHistoryReader"/> (SharedKernel
+/// contract) rather than direct <c>Finance.Entities.Orders</c> access so this loader
+/// lives in PersonalFinance.
 /// </summary>
 internal sealed class CustomerInsightSourceDataLoader
 {
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
+    private readonly ICustomerOrderHistoryReader _orderHistoryReader;
 
-    public CustomerInsightSourceDataLoader(FinanceDbContext dbContext)
+    public CustomerInsightSourceDataLoader(
+        PersonalFinanceDbContext dbContext,
+        ICustomerOrderHistoryReader orderHistoryReader)
     {
         _dbContext = dbContext;
+        _orderHistoryReader = orderHistoryReader;
     }
 
     public async Task<List<PersonalAccount>> LoadAccountsAsync(
@@ -243,33 +251,19 @@ internal sealed class CustomerInsightSourceDataLoader
         }
     }
 
-    public async Task<List<Order>> LoadOrdersAsync(
+    public async Task<IReadOnlyList<OrderHistoryItem>> LoadOrdersAsync(
         Guid tenantId,
         Guid partyId,
         DateTime windowStartUtc,
         DateTime windowEndUtc,
         CancellationToken cancellationToken)
     {
-        var orderIds = await _dbContext.OrderPartyRoles
-            .AsNoTracking()
-            .Where(x => x.TenantId == tenantId && x.PartyId == partyId)
-            .Select(x => x.OrderId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        if (orderIds.Count == 0)
-        {
-            return [];
-        }
-
-        return await _dbContext.Orders
-            .AsNoTracking()
-            .Where(x => x.TenantId == tenantId
-                && orderIds.Contains(x.Id)
-                && x.CreatedAt >= windowStartUtc
-                && x.CreatedAt <= windowEndUtc)
-            .OrderByDescending(x => x.CreatedAt)
-            .ToListAsync(cancellationToken);
+        return await _orderHistoryReader.GetForPartyAsync(
+            tenantId,
+            partyId,
+            windowStartUtc,
+            windowEndUtc,
+            cancellationToken);
     }
 
     public async Task<(Household? household, List<HouseholdMember> members)> LoadHouseholdAsync(
@@ -313,6 +307,26 @@ internal sealed class CustomerInsightSourceDataLoader
 
     public async Task<List<T>> LoadOptionalDomainAsync<T>(
         Func<CancellationToken, Task<List<T>>> loader,
+        string domainName,
+        string sectionName,
+        CustomerInsightCoverageAccumulator coverageAccumulator,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var results = await loader(cancellationToken);
+            coverageAccumulator.MarkAvailable(domainName);
+            return results;
+        }
+        catch (Exception ex)
+        {
+            coverageAccumulator.MarkMissing(domainName, sectionName, ex.Message);
+            return [];
+        }
+    }
+
+    public async Task<IReadOnlyList<OrderHistoryItem>> LoadOptionalDomainAsync(
+        Func<CancellationToken, Task<IReadOnlyList<OrderHistoryItem>>> loader,
         string domainName,
         string sectionName,
         CustomerInsightCoverageAccumulator coverageAccumulator,

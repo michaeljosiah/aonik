@@ -1,8 +1,11 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Finance.Readers;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Finance;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
@@ -40,20 +43,33 @@ public class CustomerInsightSnapshotServiceTests
         public DateTime UtcNow { get; set; }
     }
 
+    private static string _lastDbName = string.Empty;
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
+        _lastDbName = $"CustomerInsightSnapshot_{Guid.NewGuid()}";
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
-            .UseInMemoryDatabase($"CustomerInsightSnapshot_{Guid.NewGuid()}")
+            .UseInMemoryDatabase(_lastDbName)
             .Options;
 
         return new FinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
+    private static PersonalFinanceDbContext CreatePersonalFinanceDbContext(string sharedDbName, Guid tenantId)
+    {
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
+            .UseInMemoryDatabase(sharedDbName)
+            .Options;
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
+    }
+
     private static CustomerInsightSnapshotService CreateService(FinanceDbContext context, Guid tenantId, TestClock clock)
     {
-        var generator = new CustomerInsightSnapshotGenerator(context, new TestTenantProvider(tenantId), clock);
-        var reader = new CustomerInsightSnapshotReader(context);
-        return new CustomerInsightSnapshotService(context, generator, reader, clock);
+        var pfContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        var orderReader = new CustomerOrderHistoryReader(context);
+        var generator = new CustomerInsightSnapshotGenerator(pfContext, orderReader, new TestTenantProvider(tenantId), clock);
+        var reader = new CustomerInsightSnapshotReader(pfContext);
+        return new CustomerInsightSnapshotService(pfContext, generator, reader, clock);
     }
 
     [Fact]

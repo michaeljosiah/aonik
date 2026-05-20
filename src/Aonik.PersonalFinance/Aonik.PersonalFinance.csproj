@@ -23,11 +23,10 @@
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
     <!--
-      TRANSITIONAL (Spec 027 Phase 2): Finance services still query
-      PersonalFinance internals (entities, EF configs, seed helpers) until
-      Phase 3 moves those services into this module. Drop this entry at
-      the end of Phase 3 — it directly contradicts the sibling-module
-      boundary the spec is establishing.
+      TRANSITIONAL (Spec 027): paired with the
+      Aonik.Finance → Aonik.PersonalFinance ProjectReference in
+      Aonik.Finance.csproj. Drop alongside that ProjectReference once the
+      remaining Finance-side PF call sites listed there relocate here.
     -->
     <InternalsVisibleTo Include="Aonik.Finance" />
   </ItemGroup>

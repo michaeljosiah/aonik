@@ -16,4 +16,13 @@ public interface ICustomerPaymentHistoryReader
         IReadOnlyCollection<Guid> orderIds,
         IReadOnlyCollection<Guid> invoiceIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns whether a payment intent exists in the given tenant. Used by graph
+    /// node-type resolution where only existence (not the full record) matters.
+    /// </summary>
+    Task<bool> ExistsAsync(
+        Guid tenantId,
+        Guid paymentIntentId,
+        CancellationToken cancellationToken = default);
 }

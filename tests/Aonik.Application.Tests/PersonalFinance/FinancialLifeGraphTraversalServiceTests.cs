@@ -38,6 +38,17 @@ public class FinancialLifeGraphTraversalServiceTests
                 .Select(r => new PartyRelationshipHistoryItem(
                     r.Id, r.FromPartyId, r.ToPartyId, r.RelationshipTypeCode, r.IsActive, r.Notes))
                 .ToListAsync(ct);
+
+        public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => _db.Parties.AsNoTracking()
+                .AnyAsync(p => p.TenantId == tenantId && p.Id == partyId, ct);
+
+        public Task<bool> HasActiveRelationshipBetweenAsync(
+            Guid tenantId, Guid partyAId, Guid partyBId, CancellationToken ct = default)
+            => _db.PartyRelationships.AsNoTracking()
+                .AnyAsync(r => r.TenantId == tenantId && r.IsActive
+                    && ((r.FromPartyId == partyAId && r.ToPartyId == partyBId)
+                        || (r.ToPartyId == partyAId && r.FromPartyId == partyBId)), ct);
     }
 
     private sealed class TestUserDirectoryReader : IUserDirectoryReader

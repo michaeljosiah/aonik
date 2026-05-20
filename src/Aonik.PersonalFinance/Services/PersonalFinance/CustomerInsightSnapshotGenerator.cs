@@ -3,11 +3,11 @@ using System.Text.Json.Serialization;
 
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.Finance.Services.PersonalFinance.CustomerInsight;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Finance;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -18,6 +18,9 @@ namespace Aonik.Finance.Services.PersonalFinance;
 /// section builders under <c>CustomerInsight/</c>, then assembles and serialises
 /// the final <see cref="CustomerInsightSnapshotDocument"/> alongside its
 /// deterministic source hash.
+///
+/// Consumes order history through <see cref="ICustomerOrderHistoryReader"/> so this
+/// generator can move into PersonalFinance once the cluster is relocated (Spec 027).
 /// </summary>
 internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapshotGenerator
 {
@@ -26,16 +29,19 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
+    private readonly ICustomerOrderHistoryReader _orderHistoryReader;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
 
     public CustomerInsightSnapshotGenerator(
-        FinanceDbContext dbContext,
+        PersonalFinanceDbContext dbContext,
+        ICustomerOrderHistoryReader orderHistoryReader,
         ITenantProvider tenantProvider,
         IClock clock)
     {
         _dbContext = dbContext;
+        _orderHistoryReader = orderHistoryReader;
         _tenantProvider = tenantProvider;
         _clock = clock;
     }
@@ -53,7 +59,7 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         var lookaheadEndUtc = CustomerInsightWindows.ResolveLookaheadEnd(asOfUtc);
 
         var coverageAccumulator = new CustomerInsightCoverageAccumulator();
-        var loader = new CustomerInsightSourceDataLoader(_dbContext);
+        var loader = new CustomerInsightSourceDataLoader(_dbContext, _orderHistoryReader);
 
         var accounts = await loader.LoadAccountsAsync(tenantId, userId, coverageAccumulator, cancellationToken);
         var transactions = await loader.LoadTransactionsAsync(
@@ -194,14 +200,14 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
 
         var profile = await loader.LoadPersonalProfileAsync(tenantId, userId, cancellationToken);
 
-        var orderHistory = profile is not null
+        IReadOnlyList<OrderHistoryItem> orderHistory = profile is not null
             ? await loader.LoadOptionalDomainAsync(
                 ct => loader.LoadOrdersAsync(tenantId, profile.PartyId, behaviourWindowStartUtc, windowEndUtc, ct),
                 "orders",
                 "orderHistory",
                 coverageAccumulator,
                 cancellationToken)
-            : new List<Order>();
+            : [];
 
         var (household, householdMembers) = profile?.HouseholdId.HasValue == true
             ? await loader.LoadHouseholdAsync(tenantId, profile.HouseholdId.Value, coverageAccumulator, cancellationToken)

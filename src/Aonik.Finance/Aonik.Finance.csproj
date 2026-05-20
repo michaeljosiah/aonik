@@ -23,10 +23,17 @@
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
     <!--
-      TRANSITIONAL (Spec 027 Phase 2): Finance services still query
-      PersonalFinance entities until Phase 3 moves those services into
-      Aonik.PersonalFinance. Drop this ProjectReference at the end of
-      Phase 3 once Finance owns nothing in the PF namespace.
+      TRANSITIONAL (Spec 027): Several Finance-side files still reach into
+      PersonalFinance — agent tools (Agents/Tools/PersonalFinance*, FLG*),
+      sub-agent registrations (Agents/Pf*AgentRegistration, PersonalFinanceAgentRegistration),
+      CodeAct endpoint shims (Endpoints/Agents/CodeAct*), seed contributors
+      (Services/Seeding/PersonalFinance*), the AccountLinking subtree, and the
+      legacy PersonalFinance DbSets on FinanceDbContext.
+
+      Spec 027 Phase 7 deferred-refactor wrap-up moved the 9 services + 15
+      endpoints out of Finance, but these remaining call sites are out of
+      scope here and tracked separately. Drop this ProjectReference once
+      they relocate.
     -->
     <ProjectReference Include="..\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />
   </ItemGroup>

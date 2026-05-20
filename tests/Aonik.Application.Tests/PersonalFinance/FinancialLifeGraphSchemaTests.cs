@@ -1,8 +1,10 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Finance;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -46,14 +48,57 @@ public class FinancialLifeGraphSchemaTests
         }
     }
 
-    private static FinanceDbContext CreateDbContext(Guid tenantId)
+    private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"FinancialLifeGraphSchema_{Guid.NewGuid()}")
             .Options;
 
-        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
+
+    private sealed class StubPartyReader : IPartyReader
+    {
+        public HashSet<(Guid a, Guid b)> ActiveRelationships { get; } = [];
+        public Task<IReadOnlyList<PartyHistoryItem>> GetByIdsAsync(Guid tenantId, IReadOnlyCollection<Guid> partyIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyHistoryItem>>([]);
+        public Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyRelationshipHistoryItem>>([]);
+        public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<bool> HasActiveRelationshipBetweenAsync(Guid tenantId, Guid a, Guid b, CancellationToken ct = default)
+            => Task.FromResult(ActiveRelationships.Contains((a, b)) || ActiveRelationships.Contains((b, a)));
+    }
+
+    private sealed class StubOrderReader : ICustomerOrderHistoryReader
+    {
+        public Task<IReadOnlyList<OrderHistoryItem>> GetForPartyAsync(Guid t, Guid p, DateTime f, DateTime to, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<OrderHistoryItem>>([]);
+        public Task<IReadOnlyList<OrderHistoryItem>> GetByIdsAsync(Guid t, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<OrderHistoryItem>>([]);
+        public Task<IReadOnlyList<OrderWithPartyRolesItem>> GetRecentForPayerAsync(Guid t, Guid p, int take, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<OrderWithPartyRolesItem>>([]);
+        public Task<bool> ExistsAsync(Guid t, Guid id, CancellationToken ct = default) => Task.FromResult(false);
+    }
+
+    private sealed class StubInvoiceReader : ICustomerInvoiceHistoryReader
+    {
+        public Task<IReadOnlyList<InvoiceHistoryItem>> GetByIdsAsync(Guid t, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<InvoiceHistoryItem>>([]);
+        public Task<bool> ExistsAsync(Guid t, Guid id, CancellationToken ct = default) => Task.FromResult(false);
+    }
+
+    private sealed class StubPaymentReader : ICustomerPaymentHistoryReader
+    {
+        public Task<IReadOnlyList<PaymentHistoryItem>> GetForOrderOrInvoiceAsync(Guid t, IReadOnlyCollection<Guid> o, IReadOnlyCollection<Guid> i, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<PaymentHistoryItem>>([]);
+        public Task<bool> ExistsAsync(Guid t, Guid id, CancellationToken ct = default) => Task.FromResult(false);
+    }
+
+    private static FinancialLifeGraphValidationService CreateValidationService(
+        PersonalFinanceDbContext context, Guid tenantId, Guid userId, StubPartyReader? partyReader = null)
+        => new(context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new FinancialLifeGraphSchema(),
+            partyReader ?? new StubPartyReader(),
+            new StubOrderReader(),
+            new StubInvoiceReader(),
+            new StubPaymentReader());
 
     [Fact]
     public void Schema_Should_Define_Spec_NodeTypes_And_Predicates()
@@ -120,11 +165,7 @@ public class FinancialLifeGraphSchemaTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         await using var context = CreateDbContext(tenantId);
-        var service = new FinancialLifeGraphValidationService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId),
-            new FinancialLifeGraphSchema());
+        var service = CreateValidationService(context, tenantId, userId);
 
         // Act
         Func<Task> action = () => service.ValidateNodeCreateAsync(new CreateFinancialLifeGraphNodeRequest(
@@ -150,11 +191,7 @@ public class FinancialLifeGraphSchemaTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         await using var context = CreateDbContext(tenantId);
-        var service = new FinancialLifeGraphValidationService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId),
-            new FinancialLifeGraphSchema());
+        var service = CreateValidationService(context, tenantId, userId);
 
         var nodeTypesByKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -187,11 +224,7 @@ public class FinancialLifeGraphSchemaTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         await using var context = CreateDbContext(tenantId);
-        var service = new FinancialLifeGraphValidationService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId),
-            new FinancialLifeGraphSchema());
+        var service = CreateValidationService(context, tenantId, userId);
 
         var nodeTypesByKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -231,21 +264,11 @@ public class FinancialLifeGraphSchemaTests
             UserId = userId,
             PartyId = selfPartyId
         });
-        context.PartyRelationships.Add(new Aonik.Finance.Entities.PartyRelationshipReadModel
-        {
-            TenantId = tenantId,
-            FromPartyId = selfPartyId,
-            ToPartyId = relatedPartyId,
-            RelationshipTypeCode = "Sibling",
-            IsActive = true
-        });
         await context.SaveChangesAsync();
 
-        var service = new FinancialLifeGraphValidationService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId),
-            new FinancialLifeGraphSchema());
+        var partyReader = new StubPartyReader();
+        partyReader.ActiveRelationships.Add((selfPartyId, relatedPartyId));
+        var service = CreateValidationService(context, tenantId, userId, partyReader);
 
         var nodeTypesByKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {

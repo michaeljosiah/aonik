@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -16,9 +16,9 @@ internal sealed class CustomerInsightSnapshotReader : ICustomerInsightSnapshotRe
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
 
-    public CustomerInsightSnapshotReader(FinanceDbContext dbContext)
+    public CustomerInsightSnapshotReader(PersonalFinanceDbContext dbContext)
     {
         _dbContext = dbContext;
     }

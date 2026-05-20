@@ -1,8 +1,9 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,18 +14,21 @@ internal sealed class FinancialLifeGraphRetrievalService : IFinancialLifeGraphRe
     private const int MaxStatementWindowDays = 365;
     private const int MaxBillHistoryWindowDays = 730;
 
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
+    private readonly IPartyReader _partyReader;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ILogger<FinancialLifeGraphRetrievalService> _logger;
 
     public FinancialLifeGraphRetrievalService(
-        FinanceDbContext dbContext,
+        PersonalFinanceDbContext dbContext,
+        IPartyReader partyReader,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         ILogger<FinancialLifeGraphRetrievalService> logger)
     {
         _dbContext = dbContext;
+        _partyReader = partyReader;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _logger = logger;
@@ -289,12 +293,8 @@ internal sealed class FinancialLifeGraphRetrievalService : IFinancialLifeGraphRe
 
         var (tenantId, userId) = GetScopingIds();
 
-        var party = await _dbContext.Parties
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item =>
-                item.TenantId == tenantId
-                && item.Id == entityId,
-                cancellationToken);
+        var parties = await _partyReader.GetByIdsAsync(tenantId, [entityId], cancellationToken);
+        var party = parties.FirstOrDefault();
 
         if (party == null)
         {
@@ -303,12 +303,8 @@ internal sealed class FinancialLifeGraphRetrievalService : IFinancialLifeGraphRe
                 $"Party not found for node key '{nodeKey}'.");
         }
 
-        var relationship = await _dbContext.PartyRelationships
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item =>
-                item.TenantId == tenantId
-                && (item.FromPartyId == entityId || item.ToPartyId == entityId),
-                cancellationToken);
+        var relationships = await _partyReader.GetRelationshipsForPartyAsync(tenantId, entityId, cancellationToken);
+        var relationship = relationships.FirstOrDefault();
 
         // Find bills that match the party's display name as payee
         var bills = await _dbContext.Bills
@@ -360,7 +356,7 @@ internal sealed class FinancialLifeGraphRetrievalService : IFinancialLifeGraphRe
         }
 
         var result = new PartyObligationSummaryResponse(
-            party.Id,
+            party.PartyId,
             party.DisplayName,
             relationship?.RelationshipTypeCode,
             obligations.Count,

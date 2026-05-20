@@ -139,13 +139,13 @@ public class CustomerInsightSnapshotJobTests
         }
     }
 
-    private static FinanceDbContext CreateDbContext(ITenantProvider tenantProvider)
+    private static Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext CreateDbContext(ITenantProvider tenantProvider)
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        var options = new DbContextOptionsBuilder<Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"CustomerInsightSnapshotJob_{Guid.NewGuid()}")
             .Options;
 
-        return new FinanceDbContext(options, tenantProvider);
+        return new Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext(options, tenantProvider);
     }
 
     [Fact]
@@ -258,7 +258,8 @@ public class CustomerInsightSnapshotJobTests
         SeedMinimalSnapshotUser(dbContext, tenantId, userId);
 
         var reader = new CustomerInsightSnapshotReader(dbContext);
-        var generator = new CustomerInsightSnapshotGenerator(dbContext, tenantProvider, clock);
+        var orderHistoryReader = new EmptyOrderHistoryReader();
+        var generator = new CustomerInsightSnapshotGenerator(dbContext, orderHistoryReader, tenantProvider, clock);
         var service = new CustomerInsightSnapshotService(dbContext, generator, reader, clock);
         var enumerator = new CustomerInsightSnapshotJobUserEnumerator(dbContext);
         var job = new CustomerInsightSnapshotJob(
@@ -292,7 +293,25 @@ public class CustomerInsightSnapshotJobTests
         snapshots[0].Status.Should().Be(CustomerInsightSnapshotContract.StatusCurrent);
     }
 
-    private static void SeedMinimalSnapshotUser(FinanceDbContext dbContext, Guid tenantId, Guid userId)
+    private sealed class EmptyOrderHistoryReader : Aonik.SharedKernel.Abstractions.Finance.ICustomerOrderHistoryReader
+    {
+        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>> GetForPartyAsync(
+            Guid tenantId, Guid partyId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>>([]);
+
+        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>> GetByIdsAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> orderIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>>([]);
+
+        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderWithPartyRolesItem>> GetRecentForPayerAsync(
+            Guid tenantId, Guid payerPartyId, int take, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderWithPartyRolesItem>>([]);
+
+        public Task<bool> ExistsAsync(Guid tenantId, Guid orderId, CancellationToken ct = default)
+            => Task.FromResult(false);
+    }
+
+    private static void SeedMinimalSnapshotUser(Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext dbContext, Guid tenantId, Guid userId)
     {
         var accountId = Guid.Parse("40000000-0000-0000-0000-000000000001");
 

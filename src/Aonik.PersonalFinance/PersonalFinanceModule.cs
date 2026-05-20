@@ -82,6 +82,25 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<IFinancialLifeGraphCacheInvalidator, FinancialLifeGraphCacheInvalidator>();
         services.AddScoped<IFinancialLifeGraphSchemaService, FinancialLifeGraphSchemaService>();
         services.AddScoped<IFinancialLifeGraphTraversalService, FinancialLifeGraphTraversalService>();
+        // Validation + Write services depend on SharedKernel readers
+        // (IPartyReader / ICustomerOrderHistoryReader / ICustomerInvoiceHistoryReader /
+        // ICustomerPaymentHistoryReader) registered by Finance + Platform.
+        services.AddScoped<FinancialLifeGraphValidationService>();
+        services.AddScoped<FinancialLifeGraphWriteService>();
+        services.AddScoped<FinancialLifeGraphInferenceService>();
+        services.AddScoped<IFinancialLifeGraphRetrievalService, FinancialLifeGraphRetrievalService>();
+
+        // ── Household + CustomerInsight + Dashboard + FinancialContext clusters
+        //    (Spec 027 Phase 7 deferred-refactor wrap-up) ────────────
+        services.AddScoped<IHouseholdService, HouseholdService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IFinancialContextService, FinancialContextService>();
+        services.AddScoped<ICustomerInsightSnapshotGenerator, CustomerInsightSnapshotGenerator>();
+        services.AddScoped<ICustomerInsightSnapshotService, CustomerInsightSnapshotService>();
+        services.AddScoped<ICustomerInsightSnapshotReader, CustomerInsightSnapshotReader>();
+        // SharedKernel-shaped wrapper consumed by Aonik.Ai's CustomerInsightAiSummaryService
+        // — keeps Ai free of a back-pointing reference on PersonalFinance.
+        services.AddScoped<SharedKernel.Abstractions.PersonalFinance.ICustomerInsightSnapshotForAi, CustomerInsightSnapshotForAiAdapter>();
 
         // ── Cross-module adapter implementations (relocated) ────────
         services.AddScoped<IPersonalProfileProvisioner, PersonalProfileProvisioner>();

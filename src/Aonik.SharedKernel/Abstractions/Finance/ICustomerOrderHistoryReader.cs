@@ -30,4 +30,25 @@ public interface ICustomerOrderHistoryReader
         Guid tenantId,
         IReadOnlyCollection<Guid> orderIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the most recent orders where the given party is the payer, along
+    /// with each order's full party-role mapping so callers can resolve
+    /// beneficiary parties without taking a dependency on
+    /// <c>Aonik.Finance.Entities.Orders.OrderPartyRole</c>.
+    /// </summary>
+    Task<IReadOnlyList<OrderWithPartyRolesItem>> GetRecentForPayerAsync(
+        Guid tenantId,
+        Guid payerPartyId,
+        int take,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns whether an order exists in the given tenant. Used by graph node-type
+    /// resolution where only existence (not the full record) matters.
+    /// </summary>
+    Task<bool> ExistsAsync(
+        Guid tenantId,
+        Guid orderId,
+        CancellationToken cancellationToken = default);
 }

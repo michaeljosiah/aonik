@@ -1,11 +1,12 @@
 using System.Globalization;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Finance;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -51,16 +52,22 @@ internal sealed class DashboardService : IDashboardService
         "Investment", "Brokerage", "Retirement", "CD"
     };
 
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
+    private readonly ICustomerOrderHistoryReader _orderHistoryReader;
+    private readonly IPartyReader _partyReader;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
 
     public DashboardService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext dbContext,
+        ICustomerOrderHistoryReader orderHistoryReader,
+        IPartyReader partyReader,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider)
     {
-        _financeDbContext = financeDbContext;
+        _dbContext = dbContext;
+        _orderHistoryReader = orderHistoryReader;
+        _partyReader = partyReader;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
     }
@@ -294,7 +301,7 @@ internal sealed class DashboardService : IDashboardService
     private async Task<List<PersonalAccount>> GetActiveAccountsAsync(
         Guid tenantId, Guid userId, CancellationToken ct)
     {
-        return await _financeDbContext.PersonalAccounts
+        return await _dbContext.PersonalAccounts
             .AsNoTracking()
             .Where(a => a.TenantId == tenantId && a.UserId == userId && !a.IsArchived)
             .ToListAsync(ct);
@@ -305,7 +312,7 @@ internal sealed class DashboardService : IDashboardService
     {
         var cutoff = now.Date.AddDays(UpcomingBillsDaysAhead);
 
-        return await _financeDbContext.Bills
+        return await _dbContext.Bills
             .AsNoTracking()
             .Where(b =>
                 b.TenantId == tenantId
@@ -322,7 +329,7 @@ internal sealed class DashboardService : IDashboardService
     {
         var cutoff = now.Date.AddDays(UpcomingBillsDaysAhead);
 
-        return await _financeDbContext.PersonalRecurringBills
+        return await _dbContext.PersonalRecurringBills
             .AsNoTracking()
             .Where(b =>
                 b.TenantId == tenantId
@@ -340,7 +347,7 @@ internal sealed class DashboardService : IDashboardService
     {
         var cutoff = now.Date.AddDays(UpcomingBillsDaysAhead);
 
-        return await _financeDbContext.DebtRepayments
+        return await _dbContext.DebtRepayments
             .AsNoTracking()
             .Where(d =>
                 d.TenantId == tenantId
@@ -356,7 +363,7 @@ internal sealed class DashboardService : IDashboardService
     private async Task<List<PersonalTransaction>> GetMonthTransactionsAsync(
         Guid tenantId, Guid userId, DateTime monthStart, DateTime monthEnd, CancellationToken ct)
     {
-        return await _financeDbContext.PersonalTransactions
+        return await _dbContext.PersonalTransactions
             .AsNoTracking()
             .Where(t =>
                 t.TenantId == tenantId
@@ -369,8 +376,8 @@ internal sealed class DashboardService : IDashboardService
     private async Task<List<DashboardOrderDto>> GetRecentOrdersAsync(
         Guid tenantId, Guid userId, CancellationToken ct)
     {
-        // Resolve the user's PartyId so we can find their orders
-        var profile = await _financeDbContext.PersonalProfiles
+        // Resolve the user's PartyId so we can find their orders.
+        var profile = await _dbContext.PersonalProfiles
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 p => p.TenantId == tenantId && p.UserId == userId, ct);
@@ -378,50 +385,32 @@ internal sealed class DashboardService : IDashboardService
         if (profile == null)
             return [];
 
-        var partyId = profile.PartyId;
+        // Recent orders where the user is the Payer, along with each order's
+        // party-role mapping so we can resolve beneficiary names below.
+        var orders = await _orderHistoryReader.GetRecentForPayerAsync(
+            tenantId, profile.PartyId, RecentOrdersLimit, ct);
 
-        // Find orders where the user is the Payer
-        var orderIds = await _financeDbContext.Set<OrderPartyRole>()
-            .AsNoTracking()
-            .Where(pr =>
-                pr.TenantId == tenantId
-                && pr.PartyId == partyId
-                && pr.Role == Entities.Orders.OrderPartyRoles.Payer)
-            .Select(pr => pr.OrderId)
-            .Distinct()
-            .ToListAsync(ct);
-
-        if (orderIds.Count == 0)
+        if (orders.Count == 0)
             return [];
 
-        // Load the orders with their party roles to resolve beneficiary names
-        var orders = await _financeDbContext.Orders
-            .AsNoTracking()
-            .Include(o => o.PartyRoles)
-            .Where(o => orderIds.Contains(o.Id))
-            .OrderByDescending(o => o.CreatedAt)
-            .Take(RecentOrdersLimit)
-            .ToListAsync(ct);
-
-        // Resolve party names for receivers/payees
+        // Resolve party display names for receivers / payees through the
+        // SharedKernel reader so Dashboard never touches Platform entities.
         var receiverPartyIds = orders
             .SelectMany(o => o.PartyRoles)
-            .Where(pr => pr.Role is Entities.Orders.OrderPartyRoles.Receiver or Entities.Orders.OrderPartyRoles.Payee)
+            .Where(pr => pr.Role is OrderPartyRoleCodes.Receiver or OrderPartyRoleCodes.Payee)
             .Select(pr => pr.PartyId)
             .Distinct()
             .ToList();
 
         var partyNames = receiverPartyIds.Count > 0
-            ? await _financeDbContext.Parties
-                .AsNoTracking()
-                .Where(p => receiverPartyIds.Contains(p.Id))
-                .ToDictionaryAsync(p => p.Id, p => p.DisplayName, ct)
+            ? (await _partyReader.GetByIdsAsync(tenantId, receiverPartyIds, ct))
+                .ToDictionary(p => p.PartyId, p => p.DisplayName)
             : new Dictionary<Guid, string>();
 
-        return orders.Select(order =>
+        return orders.Select(item =>
         {
-            var receiverRole = order.PartyRoles
-                .FirstOrDefault(pr => pr.Role is Entities.Orders.OrderPartyRoles.Receiver or Entities.Orders.OrderPartyRoles.Payee);
+            var receiverRole = item.PartyRoles
+                .FirstOrDefault(pr => pr.Role is OrderPartyRoleCodes.Receiver or OrderPartyRoleCodes.Payee);
 
             var beneficiaryName = "Unknown";
             if (receiverRole != null && partyNames.TryGetValue(receiverRole.PartyId, out var name))
@@ -429,8 +418,9 @@ internal sealed class DashboardService : IDashboardService
                 beneficiaryName = name;
             }
 
+            var order = item.Order;
             return new DashboardOrderDto(
-                order.Id,
+                order.OrderId,
                 beneficiaryName,
                 BeneficiaryPhotoUrl: null, // Photo resolution deferred to V2
                 order.AmountIn,

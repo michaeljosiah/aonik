@@ -1,4 +1,4 @@
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,9 +14,9 @@ internal interface ICustomerInsightSnapshotJobUserEnumerator
 
 internal sealed class CustomerInsightSnapshotJobUserEnumerator : ICustomerInsightSnapshotJobUserEnumerator
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _financeDbContext;
 
-    public CustomerInsightSnapshotJobUserEnumerator(FinanceDbContext financeDbContext)
+    public CustomerInsightSnapshotJobUserEnumerator(PersonalFinanceDbContext financeDbContext)
     {
         _financeDbContext = financeDbContext;
     }

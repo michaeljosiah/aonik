@@ -44,4 +44,14 @@ internal sealed class CustomerPaymentHistoryReader : ICustomerPaymentHistoryRead
                 p.PurposeId))
             .ToListAsync(cancellationToken);
     }
+
+    public Task<bool> ExistsAsync(
+        Guid tenantId,
+        Guid paymentIntentId,
+        CancellationToken cancellationToken = default)
+    {
+        return _dbContext.PaymentIntents
+            .AsNoTracking()
+            .AnyAsync(p => p.TenantId == tenantId && p.Id == paymentIntentId, cancellationToken);
+    }
 }

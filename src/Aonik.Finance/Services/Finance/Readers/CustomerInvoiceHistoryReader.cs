@@ -40,4 +40,14 @@ internal sealed class CustomerInvoiceHistoryReader : ICustomerInvoiceHistoryRead
                 i.DueDate))
             .ToListAsync(cancellationToken);
     }
+
+    public Task<bool> ExistsAsync(
+        Guid tenantId,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        return _dbContext.Invoices
+            .AsNoTracking()
+            .AnyAsync(i => i.TenantId == tenantId && i.Id == invoiceId, cancellationToken);
+    }
 }

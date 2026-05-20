@@ -2,6 +2,7 @@ using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
@@ -50,17 +51,17 @@ public class FinancialContextServiceTests
         public Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private (FinancialContextService service, FinanceDbContext context) CreateService(
+    private (FinancialContextService service, PersonalFinanceDbContext context) CreateService(
         Guid? tenantId = null, Guid? userId = null)
     {
         var tid = tenantId ?? Guid.NewGuid();
         var uid = userId ?? Guid.NewGuid();
 
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        var context = new FinanceDbContext(options, new TestTenantProvider(tid));
+        var context = new PersonalFinanceDbContext(options, new TestTenantProvider(tid));
         var service = new FinancialContextService(
             context,
             new TestTenantProvider(tid),

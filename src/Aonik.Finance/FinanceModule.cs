@@ -126,8 +126,13 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Catalog.IPublicCatalogService, Services.Catalog.PublicCatalogService>();
 
         // PersonalFinance
-        // IBillService relocated to PersonalFinanceModule (Spec 027 Phase 3).
-        services.AddScoped<Contracts.Services.PersonalFinance.IDashboardService, Services.PersonalFinance.DashboardService>();
+        // IBillService, IDashboardService, IHouseholdService, IPersonalAccountService,
+        // IPersonalAccountLinkService, IPersonalTransactionService, IStatementImportService,
+        // ITransactionClassificationService, IPersonalFinanceInsightsService,
+        // FinancialConnectionTransactionSyncOrchestrator, ICustomerInsightSnapshotGenerator,
+        // ICustomerInsightSnapshotService, ICustomerInsightSnapshotReader, and
+        // ICustomerInsightSnapshotForAi all relocated to PersonalFinanceModule
+        // (Spec 027 Phase 3 + Phase 7 deferred-refactor wrap-up).
         services.Configure<Services.PersonalFinance.PlaidAccountLinkOptions>(
             configuration.GetSection("Finance:PersonalFinance:Plaid"));
         services.Configure<Services.PersonalFinance.FinancialConnectionSyncOptions>(
@@ -141,32 +146,14 @@ public sealed class FinanceModule : IModule
             }
         });
 
-        services.AddScoped<Contracts.Services.PersonalFinance.IHouseholdService, Services.PersonalFinance.HouseholdService>();
-        // IPersonalAccountService, IPersonalAccountLinkService, IPersonalTransactionService,
-        // IStatementImportService, ITransactionClassificationService, IPersonalFinanceInsightsService,
-        // and FinancialConnectionTransactionSyncOrchestrator relocated to PersonalFinanceModule
-        // (Spec 027 Phase 3).
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAiClassifier, Services.PersonalFinance.TransactionAiClassifier>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceNarrativeInsightsService, Services.PersonalFinance.PersonalFinanceNarrativeInsightsService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotGenerator, Services.PersonalFinance.CustomerInsightSnapshotGenerator>();
-        services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotService, Services.PersonalFinance.CustomerInsightSnapshotService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotReader, Services.PersonalFinance.CustomerInsightSnapshotReader>();
-        // SharedKernel-shaped wrapper consumed by Aonik.Ai's CustomerInsightAiSummaryService
-        // — keeps Ai free of a back-pointing reference on Finance.
-        services.AddScoped<SharedKernel.Abstractions.PersonalFinance.ICustomerInsightSnapshotForAi, Services.PersonalFinance.CustomerInsightSnapshotForAiAdapter>();
-        // FinancialLifeGraphSchema / Loader / SnapshotMetrics / HydrationService /
-        // Service / SchemaService / TraversalService / CacheInvalidator relocated
-        // to PersonalFinanceModule (Spec 027 Phase 3). ValidationService,
-        // WriteService, InferenceService, RetrievalService remain here pending
-        // a follow-up refactor that swaps their Invoices/PaymentIntents/Parties
-        // queries for SharedKernel readers.
-        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphValidationService>();
-        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphWriteService>();
-        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphInferenceService>();
-        services.AddScoped<Contracts.Services.PersonalFinance.IFinancialLifeGraphRetrievalService, Services.PersonalFinance.FinancialLifeGraphRetrievalService>();
-        // IBudgetService, ICommitmentService, ITransactionAttachmentService
-        // relocated to PersonalFinanceModule (Spec 027 Phase 3).
-        services.AddScoped<Contracts.Services.PersonalFinance.IFinancialContextService, Services.PersonalFinance.FinancialContextService>();
+        // The entire FinancialLifeGraph cluster (Schema, Loader, SnapshotMetrics,
+        // HydrationService, Service, SchemaService, TraversalService,
+        // CacheInvalidator, ValidationService, WriteService, InferenceService,
+        // RetrievalService) has been relocated to PersonalFinanceModule
+        // (Spec 027 Phase 3 + Phase 7 deferred-refactor wrap-up).
+        // IFinancialContextService likewise relocated to PersonalFinanceModule.
 
         // Cross-module IPersonalProfileProvisioner and IUserBriefDataProvider
         // relocated to PersonalFinanceModule (Spec 027 Phase 3).

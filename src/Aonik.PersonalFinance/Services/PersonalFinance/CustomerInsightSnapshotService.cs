@@ -3,7 +3,7 @@ using System.Diagnostics;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,13 +11,13 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class CustomerInsightSnapshotService : ICustomerInsightSnapshotService
 {
-    private readonly FinanceDbContext _dbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
     private readonly ICustomerInsightSnapshotGenerator _generator;
     private readonly ICustomerInsightSnapshotReader _reader;
     private readonly IClock _clock;
 
     public CustomerInsightSnapshotService(
-        FinanceDbContext dbContext,
+        PersonalFinanceDbContext dbContext,
         ICustomerInsightSnapshotGenerator generator,
         ICustomerInsightSnapshotReader reader,
         IClock clock)

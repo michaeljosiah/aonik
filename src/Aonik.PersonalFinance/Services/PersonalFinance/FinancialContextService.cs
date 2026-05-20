@@ -1,7 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -10,18 +10,18 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialContextService : IFinancialContextService
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialContextService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
-        _financeDbContext = financeDbContext;
+        _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
@@ -49,8 +49,8 @@ internal sealed class FinancialContextService : IFinancialContextService
             MetadataJson = request.MetadataJson ?? "{}"
         };
 
-        _financeDbContext.FinancialContexts.Add(context);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.FinancialContexts.Add(context);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapToResponse(context);
@@ -63,7 +63,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var query = _financeDbContext.FinancialContexts
+        var query = _dbContext.FinancialContexts
             .AsNoTracking()
             .Include(c => c.FundingSources)
             .Where(c => c.TenantId == tenantId && c.UserId == userId);
@@ -105,7 +105,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         context.Notes = TrimNullable(request.Notes);
         context.MetadataJson = request.MetadataJson ?? "{}";
 
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapToResponse(context);
@@ -120,7 +120,7 @@ internal sealed class FinancialContextService : IFinancialContextService
 
         context.Status = "Archived";
 
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
@@ -136,7 +136,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var accountExists = await _financeDbContext.PersonalAccounts
+        var accountExists = await _dbContext.PersonalAccounts
             .AnyAsync(a => a.Id == request.PersonalAccountId
                 && a.TenantId == tenantId
                 && a.UserId == userId,
@@ -148,7 +148,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         }
 
         // Check for duplicate
-        var alreadyLinked = await _financeDbContext.FinancialContextFundingSources
+        var alreadyLinked = await _dbContext.FinancialContextFundingSources
             .AnyAsync(fs => fs.FinancialContextId == contextId
                 && fs.PersonalAccountId == request.PersonalAccountId,
                 cancellationToken);
@@ -161,7 +161,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         // If marking as primary, unset existing primary
         if (request.IsPrimary)
         {
-            var existingPrimary = await _financeDbContext.FinancialContextFundingSources
+            var existingPrimary = await _dbContext.FinancialContextFundingSources
                 .Where(fs => fs.FinancialContextId == contextId && fs.IsPrimary)
                 .ToListAsync(cancellationToken);
 
@@ -179,8 +179,8 @@ internal sealed class FinancialContextService : IFinancialContextService
             IsPrimary = request.IsPrimary
         };
 
-        _financeDbContext.FinancialContextFundingSources.Add(fundingSource);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.FinancialContextFundingSources.Add(fundingSource);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapFundingSourceToResponse(fundingSource);
     }
@@ -193,13 +193,13 @@ internal sealed class FinancialContextService : IFinancialContextService
         _ = await GetOwnedContextAsync(contextId, cancellationToken)
             ?? throw new InvalidOperationException("Financial context not found.");
 
-        var fundingSource = await _financeDbContext.FinancialContextFundingSources
+        var fundingSource = await _dbContext.FinancialContextFundingSources
             .FirstOrDefaultAsync(fs => fs.Id == fundingSourceId && fs.FinancialContextId == contextId,
                 cancellationToken)
             ?? throw new InvalidOperationException("Funding source not found.");
 
-        _financeDbContext.FinancialContextFundingSources.Remove(fundingSource);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.FinancialContextFundingSources.Remove(fundingSource);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task AssignTransactionContextAsync(
@@ -210,7 +210,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var transaction = await _financeDbContext.PersonalTransactions
+        var transaction = await _dbContext.PersonalTransactions
             .FirstOrDefaultAsync(t => t.Id == transactionId
                 && t.TenantId == tenantId
                 && t.UserId == userId,
@@ -220,7 +220,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         // If assigning (not unassigning), verify the context belongs to same user
         if (request.FinancialContextId.HasValue)
         {
-            var contextExists = await _financeDbContext.FinancialContexts
+            var contextExists = await _dbContext.FinancialContexts
                 .AnyAsync(c => c.Id == request.FinancialContextId.Value
                     && c.TenantId == tenantId
                     && c.UserId == userId,
@@ -233,7 +233,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         }
 
         transaction.FinancialContextId = request.FinancialContextId;
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<FinancialContextSummaryResponse> GetContextSummaryAsync(
@@ -251,7 +251,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         var periodStart = from ?? DateTime.UtcNow.AddDays(-30);
         var periodEnd = to ?? DateTime.UtcNow;
 
-        var query = _financeDbContext.PersonalTransactions
+        var query = _dbContext.PersonalTransactions
             .AsNoTracking()
             .Where(t => t.TenantId == tenantId
                 && t.UserId == userId
@@ -298,7 +298,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        return await _financeDbContext.FinancialContexts
+        return await _dbContext.FinancialContexts
             .FirstOrDefaultAsync(
                 c => c.Id == contextId && c.TenantId == tenantId && c.UserId == userId,
                 cancellationToken);
@@ -311,7 +311,7 @@ internal sealed class FinancialContextService : IFinancialContextService
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        return await _financeDbContext.FinancialContexts
+        return await _dbContext.FinancialContexts
             .Include(c => c.FundingSources)
             .FirstOrDefaultAsync(
                 c => c.Id == contextId && c.TenantId == tenantId && c.UserId == userId,

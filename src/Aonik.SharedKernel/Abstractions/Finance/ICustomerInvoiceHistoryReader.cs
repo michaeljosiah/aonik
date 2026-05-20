@@ -14,4 +14,13 @@ public interface ICustomerInvoiceHistoryReader
         Guid tenantId,
         IReadOnlyCollection<Guid> invoiceIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns whether an invoice exists in the given tenant. Used by graph
+    /// node-type resolution where only existence (not the full record) matters.
+    /// </summary>
+    Task<bool> ExistsAsync(
+        Guid tenantId,
+        Guid invoiceId,
+        CancellationToken cancellationToken = default);
 }

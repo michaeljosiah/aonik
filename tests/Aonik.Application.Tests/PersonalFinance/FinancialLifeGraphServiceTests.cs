@@ -45,6 +45,17 @@ public class FinancialLifeGraphServiceTests
                 .Select(r => new PartyRelationshipHistoryItem(
                     r.Id, r.FromPartyId, r.ToPartyId, r.RelationshipTypeCode, r.IsActive, r.Notes))
                 .ToListAsync(ct);
+
+        public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => _db.Parties.AsNoTracking()
+                .AnyAsync(p => p.TenantId == tenantId && p.Id == partyId, ct);
+
+        public Task<bool> HasActiveRelationshipBetweenAsync(
+            Guid tenantId, Guid partyAId, Guid partyBId, CancellationToken ct = default)
+            => _db.PartyRelationships.AsNoTracking()
+                .AnyAsync(r => r.TenantId == tenantId && r.IsActive
+                    && ((r.FromPartyId == partyAId && r.ToPartyId == partyBId)
+                        || (r.ToPartyId == partyAId && r.FromPartyId == partyBId)), ct);
     }
 
     private sealed class TestUserDirectoryReader : IUserDirectoryReader
@@ -180,6 +191,37 @@ public class FinancialLifeGraphServiceTests
             .Options;
         return new Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext(
             options, new TestTenantProvider(tenantId));
+    }
+
+    private static FinancialLifeGraphValidationService CreateValidationService(
+        FinanceDbContext financeContext, Guid tenantId, Guid userId)
+    {
+        var pfContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        return new FinancialLifeGraphValidationService(
+            pfContext,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new FinancialLifeGraphSchema(),
+            new TestPartyReader(financeContext),
+            new Aonik.Finance.Services.Finance.Readers.CustomerOrderHistoryReader(financeContext),
+            new Aonik.Finance.Services.Finance.Readers.CustomerInvoiceHistoryReader(financeContext),
+            new Aonik.Finance.Services.Finance.Readers.CustomerPaymentHistoryReader(financeContext));
+    }
+
+    private static FinancialLifeGraphWriteService CreateWriteService(
+        FinanceDbContext financeContext,
+        Guid tenantId,
+        Guid userId,
+        FinancialLifeGraphValidationService validationService,
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
+    {
+        var pfContext = CreatePersonalFinanceDbContext(_lastDbName, tenantId);
+        return new FinancialLifeGraphWriteService(
+            pfContext,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            validationService,
+            cacheInvalidator);
     }
 
     private static FinancialLifeGraphService CreateGraphService(
@@ -679,11 +721,11 @@ public class FinancialLifeGraphServiceTests
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
         var graphService = CreateGraphService(context, tenantId, userId, cacheStore);
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
-        var writeService = new FinancialLifeGraphWriteService(
+        var validationService = CreateValidationService(context, tenantId, userId);
+        var writeService = CreateWriteService(
             context,
-            tenantProvider,
-            currentUserProvider,
+            tenantId,
+            userId,
             validationService,
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
 
@@ -748,11 +790,11 @@ public class FinancialLifeGraphServiceTests
         };
 
         var graphService = CreateGraphService(context, tenantId, userId, cacheStore);
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
-        var writeService = new FinancialLifeGraphWriteService(
+        var validationService = CreateValidationService(context, tenantId, userId);
+        var writeService = CreateWriteService(
             context,
-            tenantProvider,
-            currentUserProvider,
+            tenantId,
+            userId,
             validationService,
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
 
@@ -878,8 +920,8 @@ public class FinancialLifeGraphServiceTests
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
         var graphService = CreateGraphService(context, tenantId, userId, new TestCacheStore());
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
-        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, new NoOpGraphCacheInvalidator());
+        var validationService = CreateValidationService(context, tenantId, userId);
+        var writeService = CreateWriteService(context, tenantId, userId, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
         Func<Task> action = () => writeService.CreateNodeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphNodeRequest(
@@ -1016,8 +1058,8 @@ public class FinancialLifeGraphServiceTests
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
         var graphService = CreateGraphService(context, tenantId, userId, new TestCacheStore());
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
-        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, new NoOpGraphCacheInvalidator());
+        var validationService = CreateValidationService(context, tenantId, userId);
+        var writeService = CreateWriteService(context, tenantId, userId, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
         Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(
@@ -1076,8 +1118,8 @@ public class FinancialLifeGraphServiceTests
         node.Status = FinancialLifeGraphEntityStatus.Rejected;
         await context.SaveChangesAsync();
 
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
-        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, new NoOpGraphCacheInvalidator());
+        var validationService = CreateValidationService(context, tenantId, userId);
+        var writeService = CreateWriteService(context, tenantId, userId, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
         Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(

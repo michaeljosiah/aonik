@@ -26,6 +26,26 @@ public interface IPartyReader
         Guid tenantId,
         Guid partyId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns whether a party exists in the given tenant. Used by graph
+    /// node-type resolution where only existence (not the full record) matters.
+    /// </summary>
+    Task<bool> ExistsAsync(
+        Guid tenantId,
+        Guid partyId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns whether an active relationship exists between two parties in either
+    /// direction. Used by the FinancialLifeGraph canonical-relationship conflict
+    /// guard and by node-type resolution for related-party lookups.
+    /// </summary>
+    Task<bool> HasActiveRelationshipBetweenAsync(
+        Guid tenantId,
+        Guid partyAId,
+        Guid partyBId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

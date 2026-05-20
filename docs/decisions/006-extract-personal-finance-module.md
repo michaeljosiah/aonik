@@ -52,22 +52,35 @@ The extraction is staged so the system stays shippable between phases:
 | 1 | ✅ Landed | `Aonik.PersonalFinance.csproj` skeleton + empty `PersonalFinanceModule` + solution entry. |
 | 2 | ✅ Landed | 62 files moved (26 entities, 24 EF configs, 10 model contracts, 2 seed helpers) with C# namespaces deliberately preserved to keep Designer.cs FQN strings intact. `PersonalFinanceDbContext` created with the `CategorisationRule.Scope == "System"` global carve-out. Transitional refs added (Finance ↔ PersonalFinance) plus the permanent `Infrastructure → PersonalFinance` per R8. |
 | 3 | ✅ Landed | 24 service contracts moved. 39 services moved (22 stateless / pure-PF, 17 with `FinanceDbContext` → `PersonalFinanceDbContext` swap). DI registrations relocated to `PersonalFinanceModule`. `FinancialLifeGraphSnapshot` refactored to use SharedKernel DTOs (`OrderHistoryItem`, `InvoiceHistoryItem`, `PaymentHistoryItem`) instead of entity types — first concrete payoff of the Phase 0 reader contracts. |
-| 4 | ✅ Landed (partial) | 45 user endpoints + 4 admin endpoints + `PersonalFinanceValidators.cs` moved. 18 endpoints reverted because they take concrete dependencies on services still in `Aonik.Finance` (`FinancialLifeGraphWriteService`, `FinancialLifeGraphInferenceService`, `CustomerInsightSnapshotService`, `HouseholdService`). |
+| 4 | ✅ Landed | All 63 user + admin endpoints + `PersonalFinanceValidators.cs` moved. The Phase 4 reverts were unblocked by the Phase 7 wrap-up: with `FinancialLifeGraphWriteService` / `FinancialLifeGraphValidationService` / `FinancialLifeGraphRetrievalService` / `CustomerInsightSnapshot*` / `HouseholdService` / `DashboardService` / `FinancialContextService` now living in PersonalFinance, their endpoints follow. |
 | 5 | ✅ Landed | 3 `StructuredOutputs/*.cs` (Insights/Forecast/Classify) + 8 CodeAct sandbox files (`AcaSessions*`, `Hyperlight*`, `Null*`, `CodeActCallbackNonceService`, `CodeActSandboxContextFactory`) moved with their DI registrations. `Azure.Core`, `Azure.Identity`, and the three `Hyperlight.HyperlightSandbox.*` NuGet refs dropped from `Aonik.Finance.csproj`. |
 | 6 | ⏳ Pending | `tests/Aonik.PersonalFinance.Tests/` + move PF tests + seed phases. |
-| 7 | ⏳ Pending | Drop transitional `Aonik.Finance → Aonik.PersonalFinance` ProjectReference + `InternalsVisibleTo`; remove the remaining PF registrations from `FinanceModule`. Blocked by the Phase 4 reverts and the FinancialLifeGraph services that still need a Party/User/FxQuote SharedKernel reader contract. |
+| 7 | ✅ Landed (partial) | **Deferred-refactor wrap-up.** Extended SharedKernel readers with `ExistsAsync` / `HasActiveRelationshipBetweenAsync` / `GetRecentForPayerAsync` + published `OrderStatusCodes` / `OrderPartyRoleCodes` constants. Moved 9 services (FinancialLifeGraph Write / Validation / Retrieval, Household, Dashboard, FinancialContext, CustomerInsightSnapshot Service / Reader / Generator) + the `CustomerInsight/` subfolder + 15 endpoints (6 FLG + 8 Household + 1 CustomerInsight + 1 admin FLG). Refactored `CustomerInsightOrderHistoryBuilder` to consume `OrderHistoryItem` DTOs and `DashboardService` to use the new `GetRecentForPayerAsync` + `IPartyReader`. Two transitional refs still ship — they're now blocked by a smaller, well-scoped remainder (see "Transitional References" below). |
 | 8 | ✅ Landed | This ADR + `CLAUDE.md`. `docs/architecture/module-organization.md` update pending. |
 
 ### Why Namespaces Were Preserved in Phase 2
 
 The spec's draft showed updated namespaces under `Aonik.PersonalFinance.*`. In practice, ~15 Designer.cs migration snapshot files contain FQN strings that resolve types reflectively at runtime, and CLAUDE.md forbids hand-editing those snapshots. Updating namespaces would have forced a regenerated EF migration (a no-op schema-wise but an additive snapshot revision). Preserving the `Aonik.Finance.*` namespaces while physically relocating the files achieves the spec's primary intent — separate compilation and release cadence — without touching the migration stream. Namespace renaming, if desired, can land later as an isolated change.
 
-### Transitional References (to be dropped at end of Phase 3)
+### Transitional References (still in place after Phase 7 wrap-up)
 
-- `Aonik.Finance → Aonik.PersonalFinance` ProjectReference (added because Finance services still query PF entities until they migrate out in Phase 3-remainder).
-- `Aonik.PersonalFinance` exposes `InternalsVisibleTo("Aonik.Finance")` so Finance services can still call into PF seed helpers (`TransactionCategoryReference`, `SystemCategorisationRuleSeed`).
+Two transitional references still ship after Phase 7. The Phase 7 audit narrowed their blocker set significantly — they're now held in place by a small, well-defined remainder:
 
-Both are annotated in the csproj with the removal trigger so future readers know they're temporary.
+- `Aonik.Finance → Aonik.PersonalFinance` ProjectReference
+- `Aonik.PersonalFinance` exposes `InternalsVisibleTo("Aonik.Finance")`
+
+**Remaining blockers (out of scope for this wrap-up):**
+
+- **`src/Aonik.Finance/Agents/Tools/*`** — `PersonalFinanceTools`, `FinancialLifeGraphTools`, `FinancialLifeGraphRetrievalTools`, `FinancialLifeGraphSchemaTools`, `FinancialLifeGraphTraversalTools`, `AccountLinkingTools` — agent-tool catalogues that consume PersonalFinance contracts and StructuredOutputs.
+- **`src/Aonik.Finance/Agents/Pf*AgentRegistration.cs` + `PersonalFinanceAgentRegistration.cs`** — sub-agent descriptors referencing the moved CodeAct sandbox types.
+- **`src/Aonik.Finance/Endpoints/Agents/CodeAct*.cs`** — endpoint shims around the moved CodeAct services.
+- **`src/Aonik.Finance/Contracts/PersonalFinance/CommitmentEnums.cs`** — last PF-namespaced contract still in Finance.
+- **`src/Aonik.Finance/Endpoints/PersonalFinanceEndpointsValidators.cs`** — validator file for PF endpoints.
+- **`src/Aonik.Finance/Services/Seeding/PersonalFinanceSeedContributor.cs` + `Services/Seeding/Phases/PersonalFinanceActivitySeedPhase.cs`** — seed phases targeting PF entities.
+- **`src/Aonik.Finance/Services/Accounts/Linking/*`** + `AccountTransactionCategorizer.cs` + `AccountLinkService.cs` — the legacy Account-linking subtree consumes `Aonik.Finance.Contracts.Services.PersonalFinance` interfaces.
+- **`src/Aonik.Finance/Persistence/FinanceDbContext.cs`** — still exposes PF DbSets (for legacy queries above). Removing these alongside the AccountLinking subtree.
+
+Each is annotated in the `csproj` with the removal trigger. Drop both transitional refs once the above relocate to `Aonik.PersonalFinance` (or invert their dependencies via SharedKernel).
 
 ## Consequences
 

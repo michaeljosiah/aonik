@@ -220,13 +220,13 @@ public class CustomerInsightAiSummaryJobTests
             => Task.FromResult(new AiTaskProfile("model-a", "system", "{{SNAPSHOT_JSON}}"));
     }
 
-    private static FinanceDbContext CreateFinanceDbContext(ITenantProvider tenantProvider)
+    private static Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext CreateFinanceDbContext(ITenantProvider tenantProvider)
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        var options = new DbContextOptionsBuilder<Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"CustomerInsightAiSummaryJob_Finance_{Guid.NewGuid()}")
             .Options;
 
-        return new FinanceDbContext(options, tenantProvider);
+        return new Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext(options, tenantProvider);
     }
 
     private static AiDbContext CreateAiDbContext(
@@ -428,7 +428,7 @@ public class CustomerInsightAiSummaryJobTests
         summaries[0].Status.Should().Be(CustomerInsightAiSummaryContract.StatusCurrent);
     }
 
-    private static void SeedSnapshot(FinanceDbContext dbContext, Guid tenantId, Guid userId, Guid snapshotId)
+    private static void SeedSnapshot(Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext dbContext, Guid tenantId, Guid userId, Guid snapshotId)
     {
         var asOfUtc = new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc);
         var snapshot = new CustomerInsightSnapshotDocument(

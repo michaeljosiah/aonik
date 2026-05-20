@@ -1,10 +1,10 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Events.Integration;
 using FluentAssertions;
@@ -121,29 +121,51 @@ public class HouseholdServiceTests
         }
     }
 
-    private static FinanceDbContext CreateDbContext(Guid tenantId)
+    private sealed class StubPartyReader : IPartyReader
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        public Dictionary<Guid, PartyHistoryItem> Parties { get; } = [];
+        public Task<IReadOnlyList<PartyHistoryItem>> GetByIdsAsync(Guid tenantId, IReadOnlyCollection<Guid> partyIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyHistoryItem>>(partyIds.Where(Parties.ContainsKey).Select(id => Parties[id]).ToList());
+        public Task<IReadOnlyList<PartyRelationshipHistoryItem>> GetRelationshipsForPartyAsync(Guid tenantId, Guid partyId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<PartyRelationshipHistoryItem>>([]);
+        public Task<bool> ExistsAsync(Guid tenantId, Guid partyId, CancellationToken ct = default) => Task.FromResult(Parties.ContainsKey(partyId));
+        public Task<bool> HasActiveRelationshipBetweenAsync(Guid tenantId, Guid a, Guid b, CancellationToken ct = default) => Task.FromResult(false);
+    }
+
+    private sealed class StubUserDirectoryReader : IUserDirectoryReader
+    {
+        public Dictionary<Guid, UserDirectoryItem> Users { get; } = [];
+        public Task<IReadOnlyList<UserDirectoryItem>> GetByIdsAsync(Guid tenantId, IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<UserDirectoryItem>>(userIds.Where(Users.ContainsKey).Select(id => Users[id]).ToList());
+    }
+
+    private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)
+    {
+        var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     private static HouseholdService CreateService(
-        FinanceDbContext context,
+        PersonalFinanceDbContext context,
         Guid tenantId,
         Guid userId,
         TestClock clock,
         RecordingGraphCacheInvalidator cacheInvalidator,
         RecordingEventBus eventBus,
-        RecordingNotificationWriter notificationWriter)
+        RecordingNotificationWriter notificationWriter,
+        IPartyReader partyReader,
+        IUserDirectoryReader userDirectoryReader)
     {
         return new HouseholdService(
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
             cacheInvalidator,
+            partyReader,
+            userDirectoryReader,
             clock,
             eventBus,
             notificationWriter);
@@ -160,11 +182,13 @@ public class HouseholdServiceTests
         var cacheInvalidator = new RecordingGraphCacheInvalidator();
         var eventBus = new RecordingEventBus();
         var notificationWriter = new RecordingNotificationWriter();
+        var partyReader = new StubPartyReader();
+        var userDirectoryReader = new StubUserDirectoryReader();
 
         using var context = CreateDbContext(tenantId);
 
-        await SeedUserAsync(context, tenantId, ownerUserId, "owner@example.com", "Alice Owner");
-        await SeedUserAsync(context, tenantId, inviteeUserId, "invitee@example.com", "Bob Invitee");
+        await SeedUserAsync(context, partyReader, userDirectoryReader, tenantId, ownerUserId, "owner@example.com", "Alice Owner");
+        await SeedUserAsync(context, partyReader, userDirectoryReader, tenantId, inviteeUserId, "invitee@example.com", "Bob Invitee");
 
         var household = new Household
         {
@@ -189,7 +213,7 @@ public class HouseholdServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, eventBus, notificationWriter);
+        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, eventBus, notificationWriter, partyReader, userDirectoryReader);
 
         // Act
         var result = await service.InviteMemberAsync(
@@ -241,12 +265,14 @@ public class HouseholdServiceTests
         var cacheInvalidator = new RecordingGraphCacheInvalidator();
         var eventBus = new RecordingEventBus();
         var notificationWriter = new RecordingNotificationWriter();
+        var partyReader = new StubPartyReader();
+        var userDirectoryReader = new StubUserDirectoryReader();
 
         using var context = CreateDbContext(tenantId);
 
-        await SeedUserAsync(context, tenantId, targetOwnerUserId, "target-owner@example.com", "Target Owner");
-        await SeedUserAsync(context, tenantId, otherOwnerUserId, "other-owner@example.com", "Other Owner");
-        await SeedUserAsync(context, tenantId, inviteeUserId, "invitee@example.com", "Invitee User");
+        await SeedUserAsync(context, partyReader, userDirectoryReader, tenantId, targetOwnerUserId, "target-owner@example.com", "Target Owner");
+        await SeedUserAsync(context, partyReader, userDirectoryReader, tenantId, otherOwnerUserId, "other-owner@example.com", "Other Owner");
+        await SeedUserAsync(context, partyReader, userDirectoryReader, tenantId, inviteeUserId, "invitee@example.com", "Invitee User");
 
         var targetHousehold = new Household
         {
@@ -311,7 +337,7 @@ public class HouseholdServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, inviteeUserId, clock, cacheInvalidator, eventBus, notificationWriter);
+        var service = CreateService(context, tenantId, inviteeUserId, clock, cacheInvalidator, eventBus, notificationWriter, partyReader, userDirectoryReader);
 
         // Act
         var result = await service.AcceptInvitationAsync(targetHousehold.Id);
@@ -354,11 +380,13 @@ public class HouseholdServiceTests
         var cacheInvalidator = new RecordingGraphCacheInvalidator();
         var eventBus = new RecordingEventBus();
         var notificationWriter = new RecordingNotificationWriter();
+        var partyReader = new StubPartyReader();
+        var userDirectoryReader = new StubUserDirectoryReader();
 
         using var context = CreateDbContext(tenantId);
 
-        await SeedUserAsync(context, tenantId, ownerUserId, "owner@example.com", "Owner User");
-        await SeedUserAsync(context, tenantId, memberUserId, "member@example.com", "Member User");
+        await SeedUserAsync(context, partyReader, userDirectoryReader, tenantId, ownerUserId, "owner@example.com", "Owner User");
+        await SeedUserAsync(context, partyReader, userDirectoryReader, tenantId, memberUserId, "member@example.com", "Member User");
 
         var household = new Household
         {
@@ -412,7 +440,7 @@ public class HouseholdServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, eventBus, notificationWriter);
+        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, eventBus, notificationWriter, partyReader, userDirectoryReader);
 
         // Act
         await service.RemoveMemberAsync(household.Id, memberUserId);
@@ -441,7 +469,9 @@ public class HouseholdServiceTests
     }
 
     private static async Task SeedUserAsync(
-        FinanceDbContext context,
+        PersonalFinanceDbContext context,
+        StubPartyReader partyReader,
+        StubUserDirectoryReader userDirectoryReader,
         Guid tenantId,
         Guid userId,
         string email,
@@ -449,21 +479,8 @@ public class HouseholdServiceTests
     {
         var partyId = Guid.NewGuid();
 
-        context.Users.Add(new UserReadModel
-        {
-            Id = userId,
-            TenantId = tenantId,
-            Email = email,
-            Status = "Active"
-        });
-
-        context.Parties.Add(new PartyReadModel
-        {
-            Id = partyId,
-            TenantId = tenantId,
-            DisplayName = displayName,
-            Status = "Active"
-        });
+        userDirectoryReader.Users[userId] = new UserDirectoryItem(userId, email, "Active");
+        partyReader.Parties[partyId] = new PartyHistoryItem(partyId, displayName, "Active", null);
 
         context.PersonalProfiles.Add(new PersonalProfile
         {

@@ -1,7 +1,7 @@
 using System.Data;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -10,20 +10,20 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialLifeGraphWriteService
 {
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly FinancialLifeGraphValidationService _validationService;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialLifeGraphWriteService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         FinancialLifeGraphValidationService validationService,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
-        _financeDbContext = financeDbContext;
+        _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _validationService = validationService;
@@ -51,8 +51,8 @@ internal sealed class FinancialLifeGraphWriteService
             AiRunId = request.AiRunId
         };
 
-        _financeDbContext.FinancialLifeGraphNodes.Add(node);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.FinancialLifeGraphNodes.Add(node);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return new FinancialLifeGraphNodeWriteResponse(node.Id, $"native-node:{node.Id:D}");
@@ -62,10 +62,10 @@ internal sealed class FinancialLifeGraphWriteService
         CreateFinancialLifeGraphEdgeRequest request,
         CancellationToken cancellationToken = default)
     {
-        var useTransaction = _financeDbContext.Database.IsRelational();
+        var useTransaction = _dbContext.Database.IsRelational();
         var committed = false;
         await using var transaction = useTransaction
-            ? await _financeDbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             : null;
 
         try
@@ -89,8 +89,8 @@ internal sealed class FinancialLifeGraphWriteService
                 AiRunId = request.AiRunId
             };
 
-            _financeDbContext.FinancialLifeGraphEdges.Add(edge);
-            await _financeDbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.FinancialLifeGraphEdges.Add(edge);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             var revalidatedNodeTypes = await _validationService.ResolveAccessibleNodeTypesAsync(requestedNodeKeys, cancellationToken);
             if (!revalidatedNodeTypes.ContainsKey(request.FromNodeKey.Trim())
@@ -98,8 +98,8 @@ internal sealed class FinancialLifeGraphWriteService
             {
                 if (!useTransaction)
                 {
-                    _financeDbContext.FinancialLifeGraphEdges.Remove(edge);
-                    await _financeDbContext.SaveChangesAsync(cancellationToken);
+                    _dbContext.FinancialLifeGraphEdges.Remove(edge);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
                 }
 
                 if (transaction != null)
@@ -135,21 +135,21 @@ internal sealed class FinancialLifeGraphWriteService
     {
         await _validationService.ValidateNodeOwnershipAsync(nodeId, cancellationToken);
 
-        var node = await _financeDbContext.FinancialLifeGraphNodes
+        var node = await _dbContext.FinancialLifeGraphNodes
             .FirstOrDefaultAsync(item => item.Id == nodeId, cancellationToken)
             ?? throw new InvalidOperationException("Financial life graph node not found.");
 
-        var edges = await _financeDbContext.FinancialLifeGraphEdges
+        var edges = await _dbContext.FinancialLifeGraphEdges
             .Where(item => item.FromNodeKey == $"native-node:{node.Id:D}" || item.ToNodeKey == $"native-node:{node.Id:D}")
             .ToListAsync(cancellationToken);
 
         if (edges.Count > 0)
         {
-            _financeDbContext.FinancialLifeGraphEdges.RemoveRange(edges);
+            _dbContext.FinancialLifeGraphEdges.RemoveRange(edges);
         }
 
-        _financeDbContext.FinancialLifeGraphNodes.Remove(node);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.FinancialLifeGraphNodes.Remove(node);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
@@ -157,12 +157,12 @@ internal sealed class FinancialLifeGraphWriteService
     {
         await _validationService.ValidateEdgeOwnershipAsync(edgeId, cancellationToken);
 
-        var edge = await _financeDbContext.FinancialLifeGraphEdges
+        var edge = await _dbContext.FinancialLifeGraphEdges
             .FirstOrDefaultAsync(item => item.Id == edgeId, cancellationToken)
             ?? throw new InvalidOperationException("Financial life graph edge not found.");
 
-        _financeDbContext.FinancialLifeGraphEdges.Remove(edge);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.FinancialLifeGraphEdges.Remove(edge);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 

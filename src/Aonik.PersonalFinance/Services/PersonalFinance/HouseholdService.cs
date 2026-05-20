@@ -5,11 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
+using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Events.Integration;
 
@@ -20,27 +20,33 @@ internal sealed class HouseholdService : IHouseholdService
     private const string NotificationSource = "Finance.Household";
     private const int InvitationExpiryDays = 7;
 
-    private readonly FinanceDbContext _financeDbContext;
+    private readonly PersonalFinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
+    private readonly IPartyReader _partyReader;
+    private readonly IUserDirectoryReader _userDirectoryReader;
     private readonly IClock _clock;
     private readonly IEventBus _eventBus;
     private readonly IUserNotificationWriter _notificationWriter;
 
     public HouseholdService(
-        FinanceDbContext financeDbContext,
+        PersonalFinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator,
+        IPartyReader partyReader,
+        IUserDirectoryReader userDirectoryReader,
         IClock clock,
         IEventBus eventBus,
         IUserNotificationWriter notificationWriter)
     {
-        _financeDbContext = financeDbContext;
+        _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
+        _partyReader = partyReader;
+        _userDirectoryReader = userDirectoryReader;
         _clock = clock;
         _eventBus = eventBus;
         _notificationWriter = notificationWriter;
@@ -59,7 +65,7 @@ internal sealed class HouseholdService : IHouseholdService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var profile = await GetRequiredPersonalProfileAsync(userId, tenantId, cancellationToken);
 
-        var memberships = await _financeDbContext.HouseholdMembers
+        var memberships = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.UserId == userId)
             .ToListAsync(cancellationToken);
@@ -95,12 +101,12 @@ internal sealed class HouseholdService : IHouseholdService
             InvitedAt = _clock.UtcNow
         };
 
-        _financeDbContext.Households.Add(household);
-        _financeDbContext.HouseholdMembers.Add(member);
+        _dbContext.Households.Add(household);
+        _dbContext.HouseholdMembers.Add(member);
 
         profile.HouseholdId = household.Id;
 
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _eventBus.PublishAsync(new HouseholdCreatedEvent(tenantId, household.Id, userId), cancellationToken);
         await _cacheInvalidator.InvalidateUserGraphAsync(userId, cancellationToken);
@@ -140,7 +146,7 @@ internal sealed class HouseholdService : IHouseholdService
 
         await EnsureUserExistsWithPersonalProfileAsync(request.UserId, tenantId, cancellationToken);
 
-        var acceptedMembershipElsewhere = await _financeDbContext.HouseholdMembers
+        var acceptedMembershipElsewhere = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.UserId == request.UserId)
             .ToListAsync(cancellationToken);
@@ -154,7 +160,7 @@ internal sealed class HouseholdService : IHouseholdService
             }
         }
 
-        var existingMembership = await _financeDbContext.HouseholdMembers
+        var existingMembership = await _dbContext.HouseholdMembers
             .FirstOrDefaultAsync(
                 member => member.TenantId == tenantId && member.HouseholdId == household.Id && member.UserId == request.UserId,
                 cancellationToken);
@@ -183,7 +189,7 @@ internal sealed class HouseholdService : IHouseholdService
             existingMembership.ExpiresAt = now.AddDays(InvitationExpiryDays);
             existingMembership.RespondedAt = null;
 
-            await _financeDbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             var invitationResponse = await BuildInvitationResponseAsync(existingMembership, household.Name, inviterUserId, cancellationToken);
             await PublishInvitationSideEffectsAsync(tenantId, household, existingMembership, inviterUserId, cancellationToken);
@@ -203,8 +209,8 @@ internal sealed class HouseholdService : IHouseholdService
             ExpiresAt = now.AddDays(InvitationExpiryDays)
         };
 
-        _financeDbContext.HouseholdMembers.Add(member);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.HouseholdMembers.Add(member);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var createdInvitation = await BuildInvitationResponseAsync(member, household.Name, inviterUserId, cancellationToken);
         await PublishInvitationSideEffectsAsync(tenantId, household, member, inviterUserId, cancellationToken);
@@ -223,15 +229,15 @@ internal sealed class HouseholdService : IHouseholdService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
         var now = _clock.UtcNow;
-        var useTransaction = _financeDbContext.Database.IsRelational();
+        var useTransaction = _dbContext.Database.IsRelational();
         var committed = false;
         await using var transaction = useTransaction
-            ? await _financeDbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             : null;
 
         try
         {
-            var invitation = await _financeDbContext.HouseholdMembers
+            var invitation = await _dbContext.HouseholdMembers
                 .FirstOrDefaultAsync(
                     member => member.TenantId == tenantId
                         && member.HouseholdId == householdId
@@ -251,7 +257,7 @@ internal sealed class HouseholdService : IHouseholdService
                 throw new InvalidOperationException("Household invitation has expired.");
             }
 
-            var competingMemberships = await _financeDbContext.HouseholdMembers
+            var competingMemberships = await _dbContext.HouseholdMembers
                 .AsNoTracking()
                 .Where(member => member.TenantId == tenantId
                     && member.UserId == userId
@@ -281,7 +287,7 @@ internal sealed class HouseholdService : IHouseholdService
 
             profile.HouseholdId = householdId;
 
-            var otherPendingInvitations = await _financeDbContext.HouseholdMembers
+            var otherPendingInvitations = await _dbContext.HouseholdMembers
                 .Where(member => member.TenantId == tenantId
                     && member.UserId == userId
                     && member.Id != invitation.Id
@@ -295,7 +301,7 @@ internal sealed class HouseholdService : IHouseholdService
                 otherInvitation.RespondedAt = now;
             }
 
-            await _financeDbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             if (transaction != null)
             {
@@ -344,7 +350,7 @@ internal sealed class HouseholdService : IHouseholdService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var invitation = await _financeDbContext.HouseholdMembers
+        var invitation = await _dbContext.HouseholdMembers
             .FirstOrDefaultAsync(
                 member => member.TenantId == tenantId
                     && member.HouseholdId == householdId
@@ -362,7 +368,7 @@ internal sealed class HouseholdService : IHouseholdService
         invitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
         invitation.RespondedAt = _clock.UtcNow;
 
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
         await _eventBus.PublishAsync(new HouseholdInvitationDeclinedEvent(tenantId, householdId, userId), cancellationToken);
     }
 
@@ -480,7 +486,7 @@ internal sealed class HouseholdService : IHouseholdService
         currentOwnerMembership.Role = HouseholdRoles.Manager;
         targetMembership.Role = HouseholdRoles.Owner;
 
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _eventBus.PublishAsync(
             new HouseholdOwnershipTransferredEvent(tenantId, householdId, currentUserId, newOwnerUserId),
@@ -497,7 +503,7 @@ internal sealed class HouseholdService : IHouseholdService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var memberships = await _financeDbContext.HouseholdMembers
+        var memberships = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.UserId == userId)
             .OrderByDescending(member => member.CreatedAt)
@@ -528,7 +534,7 @@ internal sealed class HouseholdService : IHouseholdService
         var userId = GetCurrentUserId();
         var now = _clock.UtcNow;
 
-        var invitations = await _financeDbContext.HouseholdMembers
+        var invitations = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId
                 && member.UserId == userId
@@ -555,7 +561,7 @@ internal sealed class HouseholdService : IHouseholdService
             return [];
         }
 
-        var householdNames = await _financeDbContext.Households
+        var householdNames = await _dbContext.Households
             .AsNoTracking()
             .Where(household => household.TenantId == tenantId && invitations.Select(member => member.HouseholdId).Contains(household.Id))
             .ToDictionaryAsync(household => household.Id, household => household.Name, cancellationToken);
@@ -631,7 +637,7 @@ internal sealed class HouseholdService : IHouseholdService
         membership.InvitationStatus = HouseholdInvitationStatuses.Removed;
         membership.RespondedAt = _clock.UtcNow;
 
-        var profile = await _financeDbContext.PersonalProfiles
+        var profile = await _dbContext.PersonalProfiles
             .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == membership.UserId, cancellationToken);
 
         if (profile != null && profile.HouseholdId == householdId)
@@ -639,7 +645,7 @@ internal sealed class HouseholdService : IHouseholdService
             profile.HouseholdId = null;
         }
 
-        var ownedHouseholdAccounts = await _financeDbContext.PersonalAccounts
+        var ownedHouseholdAccounts = await _dbContext.PersonalAccounts
             .Where(account => account.TenantId == tenantId && account.UserId == membership.UserId && account.HouseholdId == householdId)
             .ToListAsync(cancellationToken);
 
@@ -648,7 +654,7 @@ internal sealed class HouseholdService : IHouseholdService
             account.HouseholdId = null;
         }
 
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var affectedUsers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
         var affectedUserIds = affectedUsers.Select(item => item.UserId)
@@ -686,7 +692,7 @@ internal sealed class HouseholdService : IHouseholdService
         CancellationToken cancellationToken)
     {
         var household = await GetRequiredHouseholdAsync(householdId, tenantId, cancellationToken);
-        var members = await _financeDbContext.HouseholdMembers
+        var members = await _dbContext.HouseholdMembers
             .AsNoTracking()
             .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId)
             .OrderBy(member => member.CreatedAt)
@@ -777,7 +783,7 @@ internal sealed class HouseholdService : IHouseholdService
             return new Dictionary<Guid, string>();
         }
 
-        var profiles = await _financeDbContext.PersonalProfiles
+        var profiles = await _dbContext.PersonalProfiles
             .AsNoTracking()
             .Where(profile => profile.TenantId == tenantId && distinctUserIds.Contains(profile.UserId))
             .ToListAsync(cancellationToken);
@@ -785,19 +791,14 @@ internal sealed class HouseholdService : IHouseholdService
         var partyIds = profiles.Select(profile => profile.PartyId).Distinct().ToList();
         var partyLookup = partyIds.Count == 0
             ? new Dictionary<Guid, string>()
-            : await _financeDbContext.Parties
-                .AsNoTracking()
-                .Where(party => party.TenantId == tenantId && partyIds.Contains(party.Id))
-                .ToDictionaryAsync(party => party.Id, party => party.DisplayName, cancellationToken);
+            : (await _partyReader.GetByIdsAsync(tenantId, partyIds, cancellationToken))
+                .ToDictionary(party => party.PartyId, party => party.DisplayName);
 
-        var users = await _financeDbContext.Users
-            .AsNoTracking()
-            .Where(user => user.TenantId == tenantId && distinctUserIds.Contains(user.Id))
-            .ToListAsync(cancellationToken);
+        var users = await _userDirectoryReader.GetByIdsAsync(tenantId, distinctUserIds, cancellationToken);
 
         var result = new Dictionary<Guid, string>();
         var profileLookup = profiles.ToDictionary(profile => profile.UserId, profile => profile.PartyId);
-        var userLookup = users.ToDictionary(user => user.Id, user => user.Email);
+        var userLookup = users.ToDictionary(user => user.UserId, user => user.Email);
 
         foreach (var userId in distinctUserIds)
         {
@@ -829,24 +830,23 @@ internal sealed class HouseholdService : IHouseholdService
 
     private async Task<Household> GetRequiredHouseholdAsync(Guid householdId, Guid tenantId, CancellationToken cancellationToken)
     {
-        return await _financeDbContext.Households
+        return await _dbContext.Households
             .FirstOrDefaultAsync(household => household.Id == householdId && household.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Household not found.");
     }
 
     private async Task<PersonalProfile> GetRequiredPersonalProfileAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
     {
-        return await _financeDbContext.PersonalProfiles
+        return await _dbContext.PersonalProfiles
             .FirstOrDefaultAsync(item => item.UserId == userId && item.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Personal profile is required to manage household membership.");
     }
 
     private async Task EnsureUserExistsWithPersonalProfileAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
     {
-        var userExists = await _financeDbContext.Users
-            .AnyAsync(user => user.Id == userId && user.TenantId == tenantId, cancellationToken);
+        var users = await _userDirectoryReader.GetByIdsAsync(tenantId, [userId], cancellationToken);
 
-        if (!userExists)
+        if (users.Count == 0)
         {
             throw new InvalidOperationException("User not found.");
         }
@@ -860,7 +860,7 @@ internal sealed class HouseholdService : IHouseholdService
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var membership = await _financeDbContext.HouseholdMembers
+        var membership = await _dbContext.HouseholdMembers
             .FirstOrDefaultAsync(
                 member => member.TenantId == tenantId && member.HouseholdId == householdId && member.UserId == userId,
                 cancellationToken)
@@ -878,7 +878,7 @@ internal sealed class HouseholdService : IHouseholdService
 
     private async Task<List<HouseholdMember>> GetAcceptedMembershipsAsync(Guid tenantId, Guid householdId, CancellationToken cancellationToken)
     {
-        var members = await _financeDbContext.HouseholdMembers
+        var members = await _dbContext.HouseholdMembers
             .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId)
             .ToListAsync(cancellationToken);
 

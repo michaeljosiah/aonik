@@ -146,13 +146,13 @@ public class CustomerInsightAiSummaryServiceTests
         }
     }
 
-    private static FinanceDbContext CreateFinanceDbContext(ITenantProvider tenantProvider)
+    private static Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext CreateFinanceDbContext(ITenantProvider tenantProvider)
     {
-        var options = new DbContextOptionsBuilder<FinanceDbContext>()
+        var options = new DbContextOptionsBuilder<Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"CustomerInsightAiSummary_Finance_{Guid.NewGuid()}")
             .Options;
 
-        return new FinanceDbContext(options, tenantProvider);
+        return new Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext(options, tenantProvider);
     }
 
     private static AiDbContext CreateAiDbContext(
@@ -403,7 +403,7 @@ public class CustomerInsightAiSummaryServiceTests
         aiRun.Outcome.Should().Be("Failed");
     }
 
-    private static Guid SeedCurrentSnapshot(FinanceDbContext dbContext, Guid tenantId, Guid userId, DateTime asOfUtc)
+    private static Guid SeedCurrentSnapshot(Aonik.PersonalFinance.Persistence.PersonalFinanceDbContext dbContext, Guid tenantId, Guid userId, DateTime asOfUtc)
     {
         var snapshotId = Guid.NewGuid();
         var document = new CustomerInsightSnapshotDocument(
