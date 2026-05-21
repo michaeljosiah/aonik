@@ -21,7 +21,7 @@ internal class GetAuthProviderSettingsEndpoint : EndpointWithoutRequest<AuthProv
         Summary(s =>
         {
             s.Summary = "Get auth provider settings";
-            s.Description = "Retrieves the current authentication provider configuration including Auth0 and Azure AD settings.";
+            s.Description = "Retrieves the current authentication provider configuration including Auth0, Azure AD, and Keycloak settings.";
             s.Response(200, "Auth provider settings");
             s.Response(401, "Not authenticated");
         });
@@ -52,6 +52,14 @@ internal class GetAuthProviderSettingsEndpoint : EndpointWithoutRequest<AuthProv
                 snapshot.AzureAd.ClientId,
                 snapshot.AzureAd.HasClientSecret,
                 snapshot.AzureAd.TenantId,
-                snapshot.AzureAd.UserPrincipalNameDomain));
+                snapshot.AzureAd.UserPrincipalNameDomain),
+            new KeycloakSettingsResponse(
+                snapshot.Keycloak.Authority,
+                snapshot.Keycloak.Audience,
+                snapshot.Keycloak.ClientId,
+                snapshot.Keycloak.HasClientSecret,
+                snapshot.Keycloak.Realm,
+                snapshot.Keycloak.AdminClientId,
+                snapshot.Keycloak.HasAdminClientSecret));
     }
 }

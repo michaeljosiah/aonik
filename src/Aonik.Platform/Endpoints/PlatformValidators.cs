@@ -691,7 +691,8 @@ public sealed class DemoSeedRequestValidator : Validator<DemoSeedRequest>
 
 public sealed class AuthProviderSettingsUpdateRequestValidator : Validator<AuthProviderSettingsUpdateRequest>
 {
-    private static readonly string[] ActiveProviders = ["Auth0", "AzureAd"];
+    // Spec 029 — added "Keycloak" as a third operator-choice provider.
+    private static readonly string[] ActiveProviders = ["Auth0", "AzureAd", "Keycloak"];
 
     public AuthProviderSettingsUpdateRequestValidator()
     {

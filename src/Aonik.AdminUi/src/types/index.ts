@@ -1394,7 +1394,8 @@ export interface DataSeedResponse {
   results: DataSeedResultItem[];
 }
 
-export type AuthProviderType = 'AzureAd' | 'Auth0';
+// Spec 029 — Keycloak added as a third operator-choice provider.
+export type AuthProviderType = 'AzureAd' | 'Auth0' | 'Keycloak';
 
 export interface Auth0SettingsResponse {
   domain?: string | null;
@@ -1415,10 +1416,21 @@ export interface AzureAdSettingsResponse {
   userPrincipalNameDomain?: string | null;
 }
 
+export interface KeycloakSettingsResponse {
+  authority?: string | null;
+  audience?: string | null;
+  clientId?: string | null;
+  hasClientSecret: boolean;
+  realm?: string | null;
+  adminClientId?: string | null;
+  hasAdminClientSecret: boolean;
+}
+
 export interface AuthProviderSettingsResponse {
   activeProvider: AuthProviderType;
   auth0: Auth0SettingsResponse;
   azureAd: AzureAdSettingsResponse;
+  keycloak: KeycloakSettingsResponse;
 }
 
 export interface Auth0SettingsUpdateRequest {
@@ -1440,10 +1452,21 @@ export interface AzureAdSettingsUpdateRequest {
   userPrincipalNameDomain?: string | null;
 }
 
+export interface KeycloakSettingsUpdateRequest {
+  authority?: string | null;
+  audience?: string | null;
+  clientId?: string | null;
+  clientSecret?: string | null;
+  realm?: string | null;
+  adminClientId?: string | null;
+  adminClientSecret?: string | null;
+}
+
 export interface AuthProviderSettingsUpdateRequest {
   activeProvider: AuthProviderType;
   auth0?: Auth0SettingsUpdateRequest | null;
   azureAd?: AzureAdSettingsUpdateRequest | null;
+  keycloak?: KeycloakSettingsUpdateRequest | null;
 }
 
 export interface TextToSpeechCredentialResponse {

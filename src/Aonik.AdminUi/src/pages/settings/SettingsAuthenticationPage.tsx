@@ -35,6 +35,18 @@ interface AuthProviderFormState {
   azureAdUpnDomain: string;
   azureAdClientSecret: string;
   hasAzureAdClientSecret: boolean;
+  // Spec 029 — Keycloak operator-choice fields. Mirrors the Auth0 and AzureAd
+  // sections exactly: cleartext form fields for non-secrets, write-only secret
+  // fields paired with a hasXxx boolean indicating whether one is already set.
+  keycloakAuthority: string;
+  keycloakAudience: string;
+  keycloakClientId: string;
+  keycloakClientSecret: string;
+  hasKeycloakClientSecret: boolean;
+  keycloakRealm: string;
+  keycloakAdminClientId: string;
+  keycloakAdminClientSecret: string;
+  hasKeycloakAdminClientSecret: boolean;
 }
 
 function toInputValue(value?: string | null) {
@@ -71,6 +83,15 @@ function buildFormState(snapshot: AuthProviderSettingsResponse): AuthProviderFor
     azureAdUpnDomain: toInputValue(snapshot.azureAd.userPrincipalNameDomain),
     azureAdClientSecret: '',
     hasAzureAdClientSecret: snapshot.azureAd.hasClientSecret,
+    keycloakAuthority: toInputValue(snapshot.keycloak.authority),
+    keycloakAudience: toInputValue(snapshot.keycloak.audience),
+    keycloakClientId: toInputValue(snapshot.keycloak.clientId),
+    keycloakClientSecret: '',
+    hasKeycloakClientSecret: snapshot.keycloak.hasClientSecret,
+    keycloakRealm: toInputValue(snapshot.keycloak.realm),
+    keycloakAdminClientId: toInputValue(snapshot.keycloak.adminClientId),
+    keycloakAdminClientSecret: '',
+    hasKeycloakAdminClientSecret: snapshot.keycloak.hasAdminClientSecret,
   };
 }
 
@@ -179,6 +200,8 @@ export function SettingsAuthenticationPage() {
 
     const auth0ManagementSecret = toTrimmed(formState.auth0ManagementClientSecret);
     const azureAdSecret = toTrimmed(formState.azureAdClientSecret);
+    const keycloakSecret = toTrimmed(formState.keycloakClientSecret);
+    const keycloakAdminSecret = toTrimmed(formState.keycloakAdminClientSecret);
 
     const request: AuthProviderSettingsUpdateRequest = {
       activeProvider: formState.activeProvider,
@@ -198,6 +221,15 @@ export function SettingsAuthenticationPage() {
         tenantId: toTrimmed(formState.azureAdTenantId),
         userPrincipalNameDomain: toTrimmed(formState.azureAdUpnDomain),
         clientSecret: azureAdSecret.length > 0 ? azureAdSecret : null,
+      },
+      keycloak: {
+        authority: toTrimmed(formState.keycloakAuthority),
+        audience: toTrimmed(formState.keycloakAudience),
+        clientId: toTrimmed(formState.keycloakClientId),
+        clientSecret: keycloakSecret.length > 0 ? keycloakSecret : null,
+        realm: toTrimmed(formState.keycloakRealm),
+        adminClientId: toTrimmed(formState.keycloakAdminClientId),
+        adminClientSecret: keycloakAdminSecret.length > 0 ? keycloakAdminSecret : null,
       },
     };
 
@@ -278,6 +310,11 @@ export function SettingsAuthenticationPage() {
                   title: 'Auth0',
                   description: 'Tenant domain, management client, callback connection, and audience configuration.',
                 },
+                {
+                  value: 'Keycloak' as AuthProviderType,
+                  title: 'Keycloak',
+                  description: 'Self-hostable OIDC realm with optional federation to upstream Okta / AD FS / SAML / social IdPs.',
+                },
               ].map((provider) => {
                 const active = formState.activeProvider === provider.value;
                 return (
@@ -313,6 +350,7 @@ export function SettingsAuthenticationPage() {
                 <SelectContent>
                   <SelectItem value="AzureAd">Azure AD</SelectItem>
                   <SelectItem value="Auth0">Auth0</SelectItem>
+                  <SelectItem value="Keycloak">Keycloak</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -438,6 +476,79 @@ export function SettingsAuthenticationPage() {
                   value={formState.azureAdClientSecret}
                   placeholder="Leave empty to keep existing secret"
                   onChange={(value) => updateField('azureAdClientSecret', value)}
+                  type="password"
+                />
+            </SettingsSection>
+
+            {/* Spec 029 — Keycloak section mirrors Auth0 / Azure AD exactly. */}
+            <SettingsSection
+              title="Keycloak Configuration"
+              description="Provider settings stored under `Auth.Keycloak.*` keys. Authority is the full realm URL (e.g. https://keycloak.example.com/realms/aonik). The admin client must have realm-management roles manage-users + view-users + view-realm."
+              action={
+                <div className="flex items-center gap-2">
+                  {formState.activeProvider === 'Keycloak' ? <Badge variant="success">Active</Badge> : null}
+                  <Badge variant={formState.hasKeycloakAdminClientSecret ? 'success' : 'outline'}>
+                    {formState.hasKeycloakAdminClientSecret ? 'Admin secret configured' : 'Admin secret missing'}
+                  </Badge>
+                </div>
+              }
+            >
+                <SettingField
+                  htmlFor="keycloak-authority"
+                  label="Authority (realm URL)"
+                  keyName="Auth.Keycloak.Authority"
+                  value={formState.keycloakAuthority}
+                  placeholder="https://keycloak.example.com/realms/aonik"
+                  onChange={(value) => updateField('keycloakAuthority', value)}
+                />
+                <SettingField
+                  htmlFor="keycloak-audience"
+                  label="Audience"
+                  keyName="Auth.Keycloak.Audience"
+                  value={formState.keycloakAudience}
+                  placeholder="aonik-api"
+                  onChange={(value) => updateField('keycloakAudience', value)}
+                />
+                <SettingField
+                  htmlFor="keycloak-realm"
+                  label="Realm name"
+                  keyName="Auth.Keycloak.Realm"
+                  value={formState.keycloakRealm}
+                  placeholder="aonik"
+                  onChange={(value) => updateField('keycloakRealm', value)}
+                />
+                <SettingField
+                  htmlFor="keycloak-client-id"
+                  label="SPA Client ID"
+                  keyName="Auth.Keycloak.ClientId"
+                  value={formState.keycloakClientId}
+                  placeholder="aonik-spa"
+                  onChange={(value) => updateField('keycloakClientId', value)}
+                />
+                <SettingField
+                  htmlFor="keycloak-client-secret"
+                  label="SPA Client Secret (update only)"
+                  keyName="Auth.Keycloak.ClientSecret"
+                  value={formState.keycloakClientSecret}
+                  placeholder="Leave empty to keep existing secret"
+                  onChange={(value) => updateField('keycloakClientSecret', value)}
+                  type="password"
+                />
+                <SettingField
+                  htmlFor="keycloak-admin-client-id"
+                  label="Admin Client ID (service account)"
+                  keyName="Auth.Keycloak.AdminClientId"
+                  value={formState.keycloakAdminClientId}
+                  placeholder="aonik-admin"
+                  onChange={(value) => updateField('keycloakAdminClientId', value)}
+                />
+                <SettingField
+                  htmlFor="keycloak-admin-client-secret"
+                  label="Admin Client Secret (update only)"
+                  keyName="Auth.Keycloak.AdminClientSecret"
+                  value={formState.keycloakAdminClientSecret}
+                  placeholder="Leave empty to keep existing secret"
+                  onChange={(value) => updateField('keycloakAdminClientSecret', value)}
                   type="password"
                 />
             </SettingsSection>

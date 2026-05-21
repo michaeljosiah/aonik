@@ -54,7 +54,17 @@ internal class UpdateAuthProviderSettingsEndpoint : Endpoint<AuthProviderSetting
                         req.AzureAd.ClientId,
                         req.AzureAd.ClientSecret,
                         req.AzureAd.TenantId,
-                        req.AzureAd.UserPrincipalNameDomain));
+                        req.AzureAd.UserPrincipalNameDomain),
+                req.Keycloak == null
+                    ? null
+                    : new KeycloakSettingsUpdate(
+                        req.Keycloak.Authority,
+                        req.Keycloak.Audience,
+                        req.Keycloak.ClientId,
+                        req.Keycloak.ClientSecret,
+                        req.Keycloak.Realm,
+                        req.Keycloak.AdminClientId,
+                        req.Keycloak.AdminClientSecret));
 
             var snapshot = await _service.UpdateAsync(update, ct);
             await Send.OkAsync(GetAuthProviderSettingsEndpoint.MapResponse(snapshot), ct);

@@ -21,7 +21,7 @@ public class GetPublicAuthProviderSettingsEndpoint : EndpointWithoutRequest<Publ
         Summary(s =>
         {
             s.Summary = "Get public auth provider settings";
-            s.Description = "Returns the active authentication provider configuration (Auth0 or Azure AD) for client-side use. No authentication required.";
+            s.Description = "Returns the active authentication provider configuration (Auth0, Azure AD, or Keycloak) for client-side use. No authentication required.";
             s.Response(200, "Success");
         });
         Options(x => x.WithTags("Settings"));
@@ -46,6 +46,11 @@ public class GetPublicAuthProviderSettingsEndpoint : EndpointWithoutRequest<Publ
                 snapshot.AzureAd.Authority,
                 snapshot.AzureAd.Audience,
                 snapshot.AzureAd.ClientId,
-                snapshot.AzureAd.TenantId));
+                snapshot.AzureAd.TenantId),
+            new PublicKeycloakSettingsResponse(
+                snapshot.Keycloak.Authority,
+                snapshot.Keycloak.Audience,
+                snapshot.Keycloak.ClientId,
+                snapshot.Keycloak.Realm));
     }
 }

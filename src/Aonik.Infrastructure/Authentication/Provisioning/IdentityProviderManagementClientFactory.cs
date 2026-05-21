@@ -17,15 +17,18 @@ public sealed class IdentityProviderManagementClientFactory : IIdentityProviderM
     private readonly ISettingProvider _settingProvider;
     private readonly Auth0ManagementClient _auth0Client;
     private readonly AzureAdManagementClient _azureAdClient;
+    private readonly KeycloakManagementClient _keycloakClient;
 
     public IdentityProviderManagementClientFactory(
         ISettingProvider settingProvider,
         Auth0ManagementClient auth0Client,
-        AzureAdManagementClient azureAdClient)
+        AzureAdManagementClient azureAdClient,
+        KeycloakManagementClient keycloakClient)
     {
         _settingProvider = settingProvider;
         _auth0Client = auth0Client;
         _azureAdClient = azureAdClient;
+        _keycloakClient = keycloakClient;
     }
 
     public async Task<IIdentityProviderManagementClient?> GetClientAsync(CancellationToken cancellationToken = default)
@@ -40,6 +43,7 @@ public sealed class IdentityProviderManagementClientFactory : IIdentityProviderM
         {
             "Auth0" => _auth0Client,
             "AzureAd" => _azureAdClient,
+            "Keycloak" => _keycloakClient,
             _ => null,
         };
     }

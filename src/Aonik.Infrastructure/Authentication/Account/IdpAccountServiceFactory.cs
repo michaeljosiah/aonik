@@ -6,11 +6,16 @@ public class IdpAccountServiceFactory : IIdpAccountServiceFactory
 {
     private readonly Auth0AccountService _auth0Service;
     private readonly AzureAdAccountService _azureAdService;
+    private readonly KeycloakAccountService _keycloakService;
 
-    public IdpAccountServiceFactory(Auth0AccountService auth0Service, AzureAdAccountService azureAdService)
+    public IdpAccountServiceFactory(
+        Auth0AccountService auth0Service,
+        AzureAdAccountService azureAdService,
+        KeycloakAccountService keycloakService)
     {
         _auth0Service = auth0Service;
         _azureAdService = azureAdService;
+        _keycloakService = keycloakService;
     }
 
     public IIdpAccountService GetService(string provider)
@@ -19,6 +24,7 @@ public class IdpAccountServiceFactory : IIdpAccountServiceFactory
         {
             "Auth0" => _auth0Service,
             "AzureAd" => _azureAdService,
+            "Keycloak" => _keycloakService,
             _ => throw new InvalidOperationException($"Unsupported auth provider: {provider}")
         };
     }

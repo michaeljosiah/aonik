@@ -1,0 +1,123 @@
+{
+  "realm": "aonik",
+  "enabled": true,
+  "displayName": "Aonik Dev",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": false,
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "_doc": "Spec 029 — pre-seeded local-dev realm. NEVER use in production. See docs/operations/keycloak-setup.md for the production realm runbook.",
+  "roles": {
+    "realm": [
+      { "name": "Aonik.PlatformAdmin", "description": "Platform-wide admin (spec 026 / dev parity with Auth0 namespace claim 'aonik_platform_admin')." },
+      { "name": "TenantAdmin", "description": "Tenant administrator." },
+      { "name": "PersonalUser", "description": "End-user role (Payabo personal finance)." },
+      { "name": "Operations", "description": "Operations team." },
+      { "name": "ReadOnly", "description": "Read-only access." },
+      { "name": "Compliance", "description": "Compliance reviewer." }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "aonik-spa",
+      "name": "Aonik SPA (Admin UI / Payabo)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:5174/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:5174"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-aonik-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "aonik-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "roles-flatten",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "aonik-admin",
+      "name": "Aonik Admin API client (service-account)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "aonik-admin-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "_doc": "Grants manage-users + view-users + view-realm on the realm-management client. Replace the secret in production — this is checked-in dev placeholder.",
+      "attributes": {
+        "use.refresh.tokens": "false"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@aonik.local",
+      "enabled": true,
+      "email": "admin@aonik.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "Aonik!Dev2026", "temporary": false }
+      ],
+      "realmRoles": ["Aonik.PlatformAdmin", "TenantAdmin"]
+    },
+    {
+      "username": "user@aonik.local",
+      "enabled": true,
+      "email": "user@aonik.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "Aonik!Dev2026", "temporary": false }
+      ],
+      "realmRoles": ["PersonalUser"]
+    },
+    {
+      "username": "service-account-aonik-admin",
+      "enabled": true,
+      "email": "service-account-aonik-admin@aonik.local",
+      "emailVerified": true,
+      "serviceAccountClientId": "aonik-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users", "view-realm"]
+      }
+    }
+  ]
+}

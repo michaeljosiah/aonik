@@ -73,6 +73,15 @@ public static class AonikAuthenticationSetup
             {
                 ConfigureJwtBearerOptions(options, authOptions, "Auth0");
                 ConfigureTokenValidationEvents(options, authOptions);
+            })
+            // Spec 029 — third occupant of the existing multi-provider pattern.
+            // Operator selects via Auth.Provider = "Keycloak"; SelectScheme below
+            // routes incoming bearer tokens to this scheme when the issuer prefix
+            // matches the configured realm authority.
+            .AddJwtBearer("Keycloak", options =>
+            {
+                ConfigureJwtBearerOptions(options, authOptions, "Keycloak");
+                ConfigureTokenValidationEvents(options, authOptions);
             });
 
         return services;
@@ -106,6 +115,21 @@ public static class AonikAuthenticationSetup
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
                 ClockSkew = TimeSpan.FromSeconds(authOptions.Auth0.ClockSkewSeconds),
+                RequireExpirationTime = true,
+                RequireSignedTokens = true
+            };
+        }
+        else if (provider == "Keycloak")
+        {
+            options.Authority = authOptions.Keycloak.Authority;
+            options.Audience = authOptions.Keycloak.Audience;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = authOptions.Keycloak.ValidateIssuer,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ClockSkew = TimeSpan.FromSeconds(authOptions.Keycloak.ClockSkewSeconds),
                 RequireExpirationTime = true,
                 RequireSignedTokens = true
             };
@@ -433,6 +457,16 @@ public static class AonikAuthenticationSetup
             && issuer.StartsWith(authOptions.Auth0.Authority.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
         {
             return "Auth0";
+        }
+
+        // Spec 029 — Keycloak realm issuer is the full realm URL
+        // (e.g. https://keycloak.example.com/realms/aonik). Stable prefix
+        // suitable for StartsWith routing; matches the Auth0 pattern (TrimEnd('/'))
+        // for tolerance of trailing-slash variants.
+        if (!string.IsNullOrWhiteSpace(authOptions.Keycloak.Authority)
+            && issuer.StartsWith(authOptions.Keycloak.Authority.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return "Keycloak";
         }
 
         return authOptions.Provider;

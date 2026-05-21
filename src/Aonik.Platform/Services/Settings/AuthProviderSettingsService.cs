@@ -21,6 +21,8 @@ internal class AuthProviderSettingsService : IAuthProviderSettingsService
 
         var auth0ManagementClientSecret = await _settingProvider.GetAsync(AuthSettingNames.Auth0ManagementClientSecret, cancellationToken);
         var azureClientSecret = await _settingProvider.GetAsync(AuthSettingNames.AzureAdClientSecret, cancellationToken);
+        var keycloakClientSecret = await _settingProvider.GetAsync(AuthSettingNames.KeycloakClientSecret, cancellationToken);
+        var keycloakAdminClientSecret = await _settingProvider.GetAsync(AuthSettingNames.KeycloakAdminClientSecret, cancellationToken);
 
         return new AuthProviderSettingsSnapshot(
             activeProvider,
@@ -38,7 +40,15 @@ internal class AuthProviderSettingsService : IAuthProviderSettingsService
                 await _settingProvider.GetAsync(AuthSettingNames.AzureAdClientId, cancellationToken),
                 !string.IsNullOrWhiteSpace(azureClientSecret),
                 await _settingProvider.GetAsync(AuthSettingNames.AzureAdTenantId, cancellationToken),
-                await _settingProvider.GetAsync(AuthSettingNames.AzureAdUpnDomain, cancellationToken)));
+                await _settingProvider.GetAsync(AuthSettingNames.AzureAdUpnDomain, cancellationToken)),
+            new KeycloakSettingsSnapshot(
+                await _settingProvider.GetAsync(AuthSettingNames.KeycloakAuthority, cancellationToken),
+                await _settingProvider.GetAsync(AuthSettingNames.KeycloakAudience, cancellationToken),
+                await _settingProvider.GetAsync(AuthSettingNames.KeycloakClientId, cancellationToken),
+                !string.IsNullOrWhiteSpace(keycloakClientSecret),
+                await _settingProvider.GetAsync(AuthSettingNames.KeycloakRealm, cancellationToken),
+                await _settingProvider.GetAsync(AuthSettingNames.KeycloakAdminClientId, cancellationToken),
+                !string.IsNullOrWhiteSpace(keycloakAdminClientSecret)));
     }
 
     public async Task<AuthProviderSettingsSnapshot> UpdateAsync(

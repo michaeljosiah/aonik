@@ -195,6 +195,16 @@ public static class DependencyInjection
         services.AddHttpClient<AzureAdB2cPasswordResetService>();
         services.AddHttpClient<Auth0AccountService>();
         services.AddHttpClient<AzureAdAccountService>();
+        // Spec 029 — Keycloak occupies the same shape as Auth0/AzureAd. Five
+        // typed HttpClients backing the five capability surfaces, registered
+        // here so the factories above can be constructed with all three
+        // provider instances. Operator selects between them at runtime via
+        // the Auth.Provider setting; the factories dispatch by string match.
+        services.AddHttpClient<KeycloakUserProvisioner>();
+        services.AddHttpClient<KeycloakManagementClient>();
+        services.AddHttpClient<KeycloakAuthTokenService>();
+        services.AddHttpClient<KeycloakPasswordResetService>();
+        services.AddHttpClient<KeycloakAccountService>();
         services.AddScoped<IIdpUserProvisionerFactory, IdpUserProvisionerFactory>();
         services.AddScoped<IIdentityProviderManagementClientFactory, IdentityProviderManagementClientFactory>();
         services.AddScoped<IAuthTokenServiceFactory, AuthTokenServiceFactory>();

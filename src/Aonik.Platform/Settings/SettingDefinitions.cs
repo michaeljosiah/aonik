@@ -27,6 +27,18 @@ public static class SettingDefinitions
             [AuthSettingNames.AzureAdTenantId] = new SettingDefinition(AuthSettingNames.AzureAdTenantId, IsVisibleToClients: true),
             [AuthSettingNames.AzureAdUpnDomain] = new SettingDefinition(AuthSettingNames.AzureAdUpnDomain),
 
+            // Spec 029 — Keycloak. Authority, Audience, ClientId, and Realm are
+            // visible to clients (the admin UI needs them to construct the OIDC
+            // client). The two secrets stay server-side and are flagged IsEncrypted
+            // so the settings store persists them through ISettingValueProtector.
+            [AuthSettingNames.KeycloakAuthority] = new SettingDefinition(AuthSettingNames.KeycloakAuthority, IsVisibleToClients: true),
+            [AuthSettingNames.KeycloakAudience] = new SettingDefinition(AuthSettingNames.KeycloakAudience, IsVisibleToClients: true),
+            [AuthSettingNames.KeycloakClientId] = new SettingDefinition(AuthSettingNames.KeycloakClientId, IsVisibleToClients: true),
+            [AuthSettingNames.KeycloakClientSecret] = new SettingDefinition(AuthSettingNames.KeycloakClientSecret, IsEncrypted: true),
+            [AuthSettingNames.KeycloakRealm] = new SettingDefinition(AuthSettingNames.KeycloakRealm, IsVisibleToClients: true),
+            [AuthSettingNames.KeycloakAdminClientId] = new SettingDefinition(AuthSettingNames.KeycloakAdminClientId, IsVisibleToClients: true),
+            [AuthSettingNames.KeycloakAdminClientSecret] = new SettingDefinition(AuthSettingNames.KeycloakAdminClientSecret, IsEncrypted: true),
+
             // ── Communication ─────────────────────────────────────────────
             [CommunicationSettingNames.AzureEmailFromAddress] = new SettingDefinition(CommunicationSettingNames.AzureEmailFromAddress),
             [CommunicationSettingNames.AzureSmsFromPhoneNumber] = new SettingDefinition(CommunicationSettingNames.AzureSmsFromPhoneNumber),
