@@ -5,16 +5,18 @@ description: Pick an identity provider, wire users and roles, troubleshoot authe
 
 Aonik authenticates users against one of three identity providers, chosen per deployment via the `Auth.Provider` setting:
 
-| Provider             | Best for                                                            | External account needed?                   |
-| -------------------- | ------------------------------------------------------------------- | ------------------------------------------ |
-| **Keycloak**         | Local development, self-hosting, data-residency-regulated markets   | No — runs in a container on your laptop    |
-| **Auth0**            | Teams already on Auth0; SaaS-style hosted identity                  | Yes — free tier covers most dev scenarios  |
-| **Microsoft Entra ID** | Microsoft-365 organisations; native SSO with corporate identity   | Yes — your org's Entra tenant              |
+| Provider             | Best for                                                          | Status in Aonik today                        |
+| -------------------- | ----------------------------------------------------------------- | -------------------------------------------- |
+| **Keycloak**         | Local development (zero external accounts)                        | Local-dev recommended; production parked     |
+| **Auth0**            | Production deployments; SaaS-style hosted identity                | Production supported                         |
+| **Microsoft Entra ID** | Production deployments on Microsoft 365 / Entra                 | Production supported                         |
 
-The capability surfaces (JWT validation, user provisioning, password reset, account service, token exchange, IdP management) are identical across all three. Switching providers is a single setting flip plus per-provider credentials — no Aonik code changes.
+The backend capability surfaces (JWT validation, user provisioning, password reset, account service, token exchange, IdP management) are identical across all three. Switching providers is a single setting flip plus per-provider credentials — no Aonik code changes.
 
-<Callout type="info" title="Recommended path: Keycloak for local dev">
-  If you're getting Aonik up and running for the first time, use Keycloak. It's the only option that needs no external account, no manual realm configuration, and no `appsettings` edits. [Run with Aspire → step 2.5](/docs/operate/install-configure/run-with-aspire#step-25-optional-enable-keycloak-for-zero-account-login) shows the one-env-var setup. Switching to Auth0 or Entra later is a settings change, not a re-deploy.
+<Callout type="info" title="Recommended path: Keycloak for local dev, Auth0 / Entra for production">
+  **Local dev** — Keycloak is the zero-friction option. It needs no external account, no manual realm configuration, no `appsettings` edits. [Run with Aspire → step 2.5](/docs/operate/install-configure/run-with-aspire#step-25-optional-enable-keycloak-for-zero-account-login) shows the one-env-var setup, or just run `pwsh .\scripts\onboard.ps1`.
+
+  **Production / staging** — use **Auth0** or **Microsoft Entra ID**. Hosting Keycloak in Azure is intentionally parked while Aonik is in alpha (it adds real Azure spend and operational surface for no validated value). See [hosting Keycloak in production](https://github.com/michaeljosiah/aonik/blob/master/docs/deployment/keycloak-hosting.md) for the reasoning and the path to unfreezing.
 </Callout>
 
 ## How identity flows through Aonik
@@ -46,21 +48,13 @@ This pipeline is provider-agnostic. The differences live entirely in the three `
                                           ┌─────┴──────┐
                                        Yes│            │ No
                                           ▼            ▼
-                                ┌──────────────┐  ┌──────────────────┐
-                                │ Use Entra ID │  │ Need self-hosted │
-                                │              │  │ + federation?    │
-                                └──────────────┘  └─────┬─────────────┘
-                                                        │
-                                                  ┌─────┴──────┐
-                                               Yes│            │ No
-                                                  ▼            ▼
-                                       ┌──────────────┐  ┌──────────────┐
-                                       │ Use Keycloak │  │ Use Auth0    │
-                                       │ (production) │  │              │
-                                       └──────────────┘  └──────────────┘
+                                ┌──────────────┐  ┌──────────────┐
+                                │ Use Entra ID │  │ Use Auth0    │
+                                │              │  │              │
+                                └──────────────┘  └──────────────┘
 ```
 
-The most common path is **Keycloak in dev** (zero setup) plus **whatever the customer's organisation uses in production** (federated to Keycloak if they want zero-trust Aonik) — see [Federation playbook](/docs/operate/identity-access/keycloak#federation-playbook).
+Production Keycloak is parked while Aonik is in alpha — see [hosting Keycloak in production](https://github.com/michaeljosiah/aonik/blob/master/docs/deployment/keycloak-hosting.md). The supported production identity providers today are **Auth0** and **Microsoft Entra ID**; Keycloak remains the local-dev fast path.
 
 ## Provider guides
 

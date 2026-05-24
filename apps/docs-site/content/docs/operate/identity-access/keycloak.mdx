@@ -1,16 +1,18 @@
 ---
 title: Keycloak
-description: Local-dev quickstart (zero config when run via Aspire), production realm setup, and federation playbook for upstream IdPs.
+description: Zero-config local-dev quickstart via Aspire. Production hosting is parked for the alpha phase; reference material for self-hosted realm setup is at the bottom of the page if you choose to wire it up yourself.
 ---
 
-Keycloak is Aonik's recommended identity provider for local development and for any deployment that needs self-hosting, data residency, or upstream federation. The Aonik backend treats it identically to Auth0 and Microsoft Entra ID — the same six capability surfaces, the same `Auth.Provider=Keycloak` setting flip.
+Keycloak is Aonik's recommended identity provider **for local development**. The Aonik backend treats it identically to Auth0 and Microsoft Entra ID — the same six capability surfaces, the same `Auth.Provider=Keycloak` setting flip — so what you exercise locally is exactly what would run in production if you wire your own Keycloak instance up.
+
+<Callout type="warn" title="Production Keycloak hosting is parked">
+  Aonik is in alpha with no production users. Hosting Keycloak in Azure adds real Azure spend (~$50–$400/month) and operational surface — backup/restore, version upgrades, secret rotation, federation policies — that aren't worth taking on without a concrete operator commitment. **Use Auth0 or Microsoft Entra ID for current production deployments.** See [hosting Keycloak in production](https://github.com/michaeljosiah/aonik/blob/master/docs/deployment/keycloak-hosting.md) for the reasoning and the path to unfreezing.
+</Callout>
 
 This page has two parts:
 
-1. **[Local dev — zero config](#local-dev-zero-config)** — the fastest path; everything in the repo
-2. **[Production realm setup](#production-realm-setup)** — the operator runbook for a real Keycloak instance
-
-If you only want to get Aonik running on your laptop, follow the first part and stop. The production realm setup is the same shape, just against your own Keycloak.
+1. **[Local dev — zero config](#local-dev-zero-config)** — the supported path today; everything in the repo
+2. **[Production realm setup](#production-realm-setup)** — reference material if you choose to wire your own Keycloak up to an Aonik deployment, but Aonik does not currently provide IaC for it
 
 ## Local dev — zero config
 
@@ -85,6 +87,10 @@ Stop the AppHost (Ctrl+C), then start it again — the Keycloak container is omi
 ---
 
 ## Production realm setup
+
+<Callout type="warn">
+  **Read [hosting Keycloak in production](https://github.com/michaeljosiah/aonik/blob/master/docs/deployment/keycloak-hosting.md) first.** Production Keycloak hosting is parked for Aonik's alpha phase — there is no Aonik IaC for it, and Auth0 / Entra ID are the supported production identity providers today. The content below is **reference material** for operators who choose to wire their own Keycloak up to Aonik anyway. Aonik's backend supports it fully; Aonik's deploy infrastructure does not provision it.
+</Callout>
 
 The production runbook is a detailed step-by-step at [`docs/operations/keycloak-setup.md`](https://github.com/michaeljosiah/aonik/blob/master/docs/operations/keycloak-setup.md). What follows is the abbreviated, decision-flow version. Use the runbook for the exact click-paths.
 

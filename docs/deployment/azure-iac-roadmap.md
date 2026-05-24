@@ -24,4 +24,6 @@ Establish repeatable Azure infrastructure provisioning for AONIK with an ACA-fir
 - SLOs and autoscaling tuning for API and Worker.
 - Cost management dashboards and budget alerts.
 - Progressive delivery strategy (canary/revisions) for API updates.
-- **Opt-in bundled Keycloak module** (candidate) — symmetric with the Aspire-bundled local-dev Keycloak from spec 029. Gated by an `enableBundledKeycloak` parameter, default off. Pre-conditions: an ADR-007 amendment, a spec-level review of Postgres tier / realm-import strategy / secret-rotation policy, and at least one operator commitment to actually use it. See [`docs/deployment/keycloak-hosting.md`](./keycloak-hosting.md) for the deferred-decision write-up and the three current paths (managed SaaS, self-hosted in a separate RG, or this future module).
+## Parked
+
+- **Keycloak hosting in Azure** — Aonik is in alpha with no production users and no operator demand for hosted Keycloak. Production deployments today should use Auth0 or Microsoft Entra ID. Keycloak remains the recommended *local-dev* identity provider (one-command via Aspire). Unfreezing this requires a concrete operator commitment plus a spec-031 design pass — see [`docs/deployment/keycloak-hosting.md`](./keycloak-hosting.md) for the reasoning and the design space.

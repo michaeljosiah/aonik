@@ -151,6 +151,8 @@ Auth0 example (individual variables):
 
 Keycloak example (individual variables; spec 029):
 
+> **Production Keycloak is parked for the alpha phase** — see [`docs/deployment/keycloak-hosting.md`](./keycloak-hosting.md). The variables below stay documented because the CI/CD plumbing is in place (zero cost when unused) — they only activate when an operator deliberately sets `VITE_AUTH_PROVIDER=keycloak` and provides a Keycloak instance themselves. **Use Auth0 or Microsoft Entra ID for current production deployments.**
+
 | Variable | Value |
 |----------|-------|
 | `SETTINGS__AUTH_PROVIDER` | `Keycloak` |
@@ -160,8 +162,6 @@ Keycloak example (individual variables; spec 029):
 | `SETTINGS__AUTH_KEYCLOAK_REALM` | `aonik` |
 | `SETTINGS__AUTH_KEYCLOAK_ADMINCLIENTID` | `aonik-admin` |
 | `SETTINGS__AUTH_KEYCLOAK_ADMINCLIENTSECRET` (secret) | `<service-account-secret>` |
-
-Production Keycloak is **operator-owned** — Aonik does not bundle a Keycloak instance in its IaC by default. See [`docs/deployment/keycloak-hosting.md`](./keycloak-hosting.md) for the hosting options (managed Keycloak SaaS, self-hosted in another resource group, or the future opt-in Aonik IaC module).
 
 See `docs/runbooks/deploy-runtime.md` for the full list of supported variables.
 
