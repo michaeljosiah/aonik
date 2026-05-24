@@ -66,6 +66,13 @@ jobs:
       VITE_AUTH0_CLIENT_ID: ${{ vars.VITE_AUTH0_CLIENT_ID }}
       VITE_AUTH0_REDIRECT_URI: ${{ vars.VITE_AUTH0_REDIRECT_URI }}
       VITE_AUTH0_AUDIENCE: ${{ vars.VITE_AUTH0_AUDIENCE }}
+      # Spec 029 — Keycloak repo vars are optional; only consulted when
+      # VITE_AUTH_PROVIDER=keycloak. Forwarded unconditionally so the build
+      # step's --build-arg line stays static.
+      VITE_KEYCLOAK_AUTHORITY: ${{ vars.VITE_KEYCLOAK_AUTHORITY }}
+      VITE_KEYCLOAK_CLIENT_ID: ${{ vars.VITE_KEYCLOAK_CLIENT_ID }}
+      VITE_KEYCLOAK_REDIRECT_URI: ${{ vars.VITE_KEYCLOAK_REDIRECT_URI }}
+      VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI: ${{ vars.VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI }}
       VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
 
     steps:
@@ -94,10 +101,17 @@ jobs:
               test -n "${VITE_AUTH0_DOMAIN:-}" || (echo "Missing repository variable: VITE_AUTH0_DOMAIN" >&2 && exit 1)
               test -n "${VITE_AUTH0_CLIENT_ID:-}" || (echo "Missing repository variable: VITE_AUTH0_CLIENT_ID" >&2 && exit 1)
               ;;
+            keycloak)
+              # Spec 029 — the SPA needs the realm authority + client id at
+              # build time so the bundled OIDC client knows where to send users.
+              # Discovery happens at runtime from the authority URL.
+              test -n "${VITE_KEYCLOAK_AUTHORITY:-}" || (echo "Missing repository variable: VITE_KEYCLOAK_AUTHORITY" >&2 && exit 1)
+              test -n "${VITE_KEYCLOAK_CLIENT_ID:-}" || (echo "Missing repository variable: VITE_KEYCLOAK_CLIENT_ID" >&2 && exit 1)
+              ;;
             mock)
               ;;
             *)
-              echo "Invalid VITE_AUTH_PROVIDER='$auth_provider'. Use azure-ad, auth0, or mock." >&2
+              echo "Invalid VITE_AUTH_PROVIDER='$auth_provider'. Use azure-ad, auth0, keycloak, or mock." >&2
               exit 1
               ;;
           esac
@@ -182,6 +196,10 @@ jobs:
             --build-arg "VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID}" \
             --build-arg "VITE_AUTH0_REDIRECT_URI=${VITE_AUTH0_REDIRECT_URI}" \
             --build-arg "VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}" \
+            --build-arg "VITE_KEYCLOAK_AUTHORITY=${VITE_KEYCLOAK_AUTHORITY:-}" \
+            --build-arg "VITE_KEYCLOAK_CLIENT_ID=${VITE_KEYCLOAK_CLIENT_ID:-}" \
+            --build-arg "VITE_KEYCLOAK_REDIRECT_URI=${VITE_KEYCLOAK_REDIRECT_URI:-}" \
+            --build-arg "VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI=${VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI:-}" \
             --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL}"
 
       - name: Scan images for vulnerabilities

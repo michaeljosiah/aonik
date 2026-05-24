@@ -119,13 +119,14 @@ Environment variables used by deployment workflows:
 
 Repository variables used by the Admin UI image build:
 
-- `VITE_AUTH_PROVIDER` (`azure-ad`, `auth0`, or `mock`)
+- `VITE_AUTH_PROVIDER` (`azure-ad`, `auth0`, `keycloak`, or `mock`)
 - `VITE_API_BASE_URL`
 
 If `VITE_AUTH_PROVIDER` is omitted, CI/manual image release defaults it to `azure-ad` during the Admin UI build.
 - If provider is `azure-ad`: `VITE_AZURE_AD_CLIENT_ID`, `VITE_AZURE_AD_TENANT_ID`
 - If provider is `auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
-- Optional overrides: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`
+- If provider is `keycloak`: `VITE_KEYCLOAK_AUTHORITY`, `VITE_KEYCLOAK_CLIENT_ID`
+- Optional overrides: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`, `VITE_KEYCLOAK_REDIRECT_URI`, `VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI`
 
 Bootstrap install code is injected with a dedicated GitHub Environment secret:
 
@@ -147,6 +148,20 @@ Auth0 example (individual variables):
 | `SETTINGS__AUTH_AUTH0_CONNECTION` | `Username-Password-Authentication` |
 | `SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE` | `https://aonik.uk.auth0.com/api/v2/` |
 | `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET` (secret) | `<m2m-client-secret>` |
+
+Keycloak example (individual variables; spec 029):
+
+| Variable | Value |
+|----------|-------|
+| `SETTINGS__AUTH_PROVIDER` | `Keycloak` |
+| `SETTINGS__AUTH_KEYCLOAK_AUTHORITY` | `https://keycloak.example.com/realms/aonik` |
+| `SETTINGS__AUTH_KEYCLOAK_AUDIENCE` | `aonik-api` |
+| `SETTINGS__AUTH_KEYCLOAK_CLIENTID` | `aonik-spa` |
+| `SETTINGS__AUTH_KEYCLOAK_REALM` | `aonik` |
+| `SETTINGS__AUTH_KEYCLOAK_ADMINCLIENTID` | `aonik-admin` |
+| `SETTINGS__AUTH_KEYCLOAK_ADMINCLIENTSECRET` (secret) | `<service-account-secret>` |
+
+Production Keycloak is **operator-owned** — Aonik does not bundle a Keycloak instance in its IaC by default. See [`docs/deployment/keycloak-hosting.md`](./keycloak-hosting.md) for the hosting options (managed Keycloak SaaS, self-hosted in another resource group, or the future opt-in Aonik IaC module).
 
 See `docs/runbooks/deploy-runtime.md` for the full list of supported variables.
 

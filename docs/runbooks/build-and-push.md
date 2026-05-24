@@ -24,7 +24,8 @@ Build and push `aonik-api`, `aonik-worker`, and `aonik-adminui` images to ACR us
 - Repository vars: `VITE_AUTH_PROVIDER`, `VITE_API_BASE_URL`
 - Repository vars when `VITE_AUTH_PROVIDER=azure-ad`: `VITE_AZURE_AD_CLIENT_ID`, `VITE_AZURE_AD_TENANT_ID`
 - Repository vars when `VITE_AUTH_PROVIDER=auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
-- Optional repo vars: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`
+- Repository vars when `VITE_AUTH_PROVIDER=keycloak` (spec 029): `VITE_KEYCLOAK_AUTHORITY`, `VITE_KEYCLOAK_CLIENT_ID`
+- Optional repo vars: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`, `VITE_KEYCLOAK_REDIRECT_URI`, `VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI`
 - Optional secret fallback for manual image builds: `AZURE_CLIENT_SECRET`
 
 If `VITE_AUTH_PROVIDER` is not set, the workflow defaults it to `azure-ad` for the Admin UI build.

@@ -169,6 +169,16 @@ jobs:
       AUTH__AUTH0__MANAGEMENTCLIENTSECRET: ${{ secrets.AUTH__AUTH0__MANAGEMENTCLIENTSECRET }}
       AUTH__AUTH0__CONNECTION: ${{ vars.AUTH__AUTH0__CONNECTION }}
       AUTH__AUTH0__MANAGEMENTAUDIENCE: ${{ vars.AUTH__AUTH0__MANAGEMENTAUDIENCE }}
+      # Spec 029 — Keycloak provider config. Only consulted when AUTH__PROVIDER=Keycloak;
+      # otherwise these forward empty values which the backend ignores (Auth__Keycloak
+      # config object is initialised with defaults). Admin client secret stays in
+      # GitHub Secrets, not Variables.
+      AUTH__KEYCLOAK__AUTHORITY: ${{ vars.AUTH__KEYCLOAK__AUTHORITY }}
+      AUTH__KEYCLOAK__AUDIENCE: ${{ vars.AUTH__KEYCLOAK__AUDIENCE }}
+      AUTH__KEYCLOAK__CLIENTID: ${{ vars.AUTH__KEYCLOAK__CLIENTID }}
+      AUTH__KEYCLOAK__REALM: ${{ vars.AUTH__KEYCLOAK__REALM }}
+      AUTH__KEYCLOAK__ADMINCLIENTID: ${{ vars.AUTH__KEYCLOAK__ADMINCLIENTID }}
+      AUTH__KEYCLOAK__ADMINCLIENTSECRET: ${{ secrets.AUTH__KEYCLOAK__ADMINCLIENTSECRET }}
       # Plaid (Personal Finance linked accounts)
       FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI }}
       FINANCE__PERSONALFINANCE__PLAID__BASEURL: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__BASEURL }}
