@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero-banner.png" alt="AONIK" width="100%">
+  <img src="docs/images/hero-banner4.png" alt="AONIK" width="100%">
 </p>
 
 <h1 align="center">AONIK</h1>
@@ -21,13 +21,13 @@
 
 ## What is AONIK?
 
-AONIK is a modular AI intelligence platform designed to power intelligent systems, agents, and products across multiple domains of human life.
+AONIK is a modular AI intelligence platform designed to power intelligent systems, agents, and applications across multiple domains of human life.
 
-It is not simply a fintech platform, a remittance application, or a personal finance tool. Those are products and domain experiences built on top of the platform. AONIK itself is the foundational intelligence substrate: the shared architecture, orchestration, memory, workflows, governance, and reasoning layer required to build AI-native systems that understand context, coordinate actions, and help people move forward with clarity and control.
+It is not simply a fintech platform, a remittance application, or a personal finance tool. Those are application experiences that can be built on top of the platform. AONIK itself is the foundational intelligence substrate: the shared architecture, orchestration, memory, workflows, governance, and reasoning layer required to build AI-native systems that understand context, coordinate actions, and help people move forward with clarity and control.
 
 The initial focus is finance because finance is structurally rich, operationally important, and deeply connected to everyday life. The long-term vision extends beyond finance into domains such as health, household coordination, education, wellbeing, productivity, and community systems.
 
-In one sentence: **AONIK enables intelligent systems, agents, and products to reason, coordinate, and assist across multiple domains of life through shared orchestration, memory, governance, and trustworthy automation.**
+In one sentence: **AONIK enables intelligent systems, agents, and applications to reason, coordinate, and assist across multiple domains of life through shared orchestration, memory, governance, and trustworthy automation.**
 
 ---
 
@@ -39,17 +39,17 @@ AONIK is structured into three layers:
 |---|---|
 | **AONIK Core** | Domain-agnostic intelligence and orchestration substrate: identity, memory, workflows, governance, AI routing, agents, approvals, and shared human primitives. |
 | **Domain Modules** | Specialised systems that own domain truth, operations, policies, workflows, and agents. Finance and Personal Finance are the first shipped modules. |
-| **Product Experiences** | Curated end-user or operator experiences that package Core and one or more domain modules for a market, brand, or workflow. |
+| **Application Experiences** | Curated end-user or operator experiences that package Core and one or more domain modules for a market, brand, or workflow. |
 
 The ambition is not to build isolated applications. It is to create a trusted intelligence substrate capable of coordinating complex areas of life through shared context, adaptive workflows, explainable AI assistance, and explicit human control.
 
-AONIK is **modular by design**. Each capability is a self-contained module with its own entities, services, endpoints, and persistence. Modules communicate through contracts and integration events, not direct coupling. New domains and product experiences plug in without collapsing into the core.
+AONIK is **modular by design**. Each capability is a self-contained module with its own entities, services, endpoints, and persistence. Modules communicate through contracts and integration events, not direct coupling. New domains and application experiences plug in without collapsing into the core.
 
 ---
 
 ## Platform Core
 
-AONIK Core provides horizontal capabilities that every domain module and product experience can consume:
+AONIK Core provides horizontal capabilities that every domain module and application experience can consume:
 
 **Identity and Access** &mdash; Multi-tenant identity with users, roles, permissions, and tenant isolation. Auth0 for external authentication, with Azure Entra ID as an alternative provider. Every request is scoped to a tenant. Every entity is tenant-aware.
 
@@ -112,7 +112,7 @@ AONIK Finance (`Aonik.Finance`) is the foundational financial operating domain. 
 
 The PersonalFinance module (`Aonik.PersonalFinance`) is distinct from the Finance infrastructure layer. It focuses on personal financial assistance: budgeting, subscriptions, bills, financial guidance, goals, household coordination, insights, planning, and financial wellbeing.
 
-PersonalFinance is a sibling of Finance and the substrate of the **Payabo** product. Extracted from `Aonik.Finance` per [ADR-006](docs/decisions/006-extract-personal-finance-module.md) so the B2C cadence (households, life-graph, customer insights) evolves independently of the Ledger/Orders/Payments core that powers MyBillAfrica and RemitExchange.
+PersonalFinance is a sibling of Finance. Extracted from `Aonik.Finance` per [ADR-006](docs/decisions/006-extract-personal-finance-module.md) so the B2C cadence (households, life-graph, customer insights) evolves independently of the Ledger/Orders/Payments core that can power billing, collections, and remittance applications.
 
 - **Households** &mdash; Multi-member groups, invitations, roles, shared accounts and budgets.
 - **Personal Accounts &amp; Transactions** &mdash; Plaid-linked accounts, manual accounts, transaction import, categorisation, attachments.
@@ -139,15 +139,18 @@ Each module contributes specialised intelligence while benefiting from shared Co
 
 ---
 
-## Products
+## Example Applications
 
-Products are curated experiences built on top of AONIK Core and one or more domain modules. They package user experience, workflows, branding, customer segmentation, and market-specific capabilities without rebuilding foundational intelligence.
+Applications are curated experiences built on top of AONIK Core and one or more domain modules. They package user experience, workflows, branding, customer segmentation, and market-specific capabilities without rebuilding foundational intelligence.
 
-| Product | Domain | Stack |
+Commercial applications built with AONIK should live outside the core platform and carry their own product identity, licensing, and documentation.
+
+| Application Type | Domain | Example Capabilities |
 |---|---|---|
-| **Payabo** | B2C personal finance &mdash; budgets, bills, subscriptions, goals | React (web) + Flutter (mobile) |
-| **MyBillAfrica** | B2B billing and collections | React (web) |
-| **RemitExchange** | Cross-border remittance | React (web) |
+| **Personal finance application** | B2C financial wellbeing | Budgets, bills, subscriptions, goals, account insights, household coordination |
+| **Billing and collections application** | B2B finance operations | Invoices, customer accounts, allocations, dunning, payment tracking |
+| **Remittance application** | Cross-border money movement | Orders, FX quotes, payout routing, partner transmissions, compliance workflows |
+| **Productivity application** | Workflow and coordination | Tasks, reminders, approvals, documents, notifications, agent-assisted planning |
 
 ---
 
@@ -160,7 +163,7 @@ src/
   Aonik.SharedKernel/       Cross-cutting primitives, interfaces, integration events, cross-module read contracts
   Aonik.Platform/           Identity, tenancy, party/profile, compliance, notifications
   Aonik.Finance/            Ledger, payments, orders, billing, pricing, partners (B2B / cross-border core)
-  Aonik.PersonalFinance/    Households, transactions, bills, budgets, goals, life-graph, customer insights (B2C / Payabo)
+  Aonik.PersonalFinance/    Households, transactions, bills, budgets, goals, life-graph, customer insights (B2C)
   Aonik.Ai/                 Model routing, prompts, user memory, AI execution records
   Aonik.Agents/             Domain agents, orchestration, proposal workflows
   Aonik.Application/        Shared application abstractions
@@ -178,8 +181,7 @@ src/
   Aonik.Platform.Mcp/       Platform MCP server
 
 apps/
-  Payabo/                   B2C personal finance web app (React, Vite)
-  payabo_mobile/            Payabo mobile app (Flutter, Firebase, Plaid)
+  <application folders>/    Optional application frontends built on the platform
   website/                  Marketing website (React, Vite, Framer Motion)
   docs-site/                Documentation site (Fumadocs, OpenAPI)
 
@@ -244,7 +246,7 @@ The fastest way to run the full stack locally:
 git clone https://github.com/michaeljosiah/aonik.git
 cd aonik
 
-# Start everything (API + Worker + Qdrant + Admin UI + Payabo)
+# Start the core platform (API + Worker + Qdrant + Admin UI)
 dotnet run --project src/Aonik.AppHost
 ```
 
@@ -254,7 +256,6 @@ This starts:
 |---|---|
 | API (HTTPS) | `https://localhost:5001` |
 | Admin UI | `http://localhost:5173` |
-| Payabo | `http://localhost:5174` |
 | Qdrant REST | `http://localhost:6333` |
 | Swagger | `https://localhost:5001/swagger` |
 
@@ -275,8 +276,8 @@ dotnet run --project src/Aonik.Api
 # Run the Admin UI
 cd src/Aonik.AdminUi && npm install && npm run dev
 
-# Run Payabo
-cd apps/Payabo && npm install && npm run dev
+# Run application frontends as needed
+# See the relevant README under apps/<application-folder>
 ```
 
 ### Run Tests
@@ -387,7 +388,7 @@ See [Contributing Guide](docs/contributing/) for more detail.
 
 ## License
 
-Apache License, Version 2.0. See [LICENSE](LICENSE).
+AONIK is source-available for non-commercial use under the [AONIK Non-Commercial Source License](LICENSE). Commercial use requires a separate written commercial license from the AONIK maintainers.
 
 ---
 
