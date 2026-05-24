@@ -113,6 +113,16 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         ],
       },
       {
+        id: 'content',
+        label: 'Content',
+        icon: 'book',
+        children: [
+          { id: 'content-blocks', label: 'Content Blocks', icon: 'book2', href: '/cms/content-blocks' },
+          { id: 'content-wizard', label: 'Content Wizard', icon: 'sparkles', href: '/cms/content-wizard' },
+          { id: 'media-library', label: 'Media Library', icon: 'inbox', href: '/cms/media' },
+        ],
+      },
+      {
         id: 'compliance',
         label: 'Compliance',
         icon: 'clipcheck',
@@ -167,6 +177,7 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         children: [
           { id: 'settings-platform', label: 'Platform', icon: 'settings', href: '/settings/global' },
           { id: 'settings-communication', label: 'Communication', icon: 'bell', href: '/settings/communication' },
+          { id: 'settings-notification-templates', label: 'Notification Templates', icon: 'list', href: '/settings/notification-templates' },
           { id: 'settings-finance', label: 'Finance', icon: 'bank', href: '/settings/payment-gateways' },
           { id: 'settings-ai', label: 'AI & Agents', icon: 'sparkles', href: '/settings/speech' },
         ],
