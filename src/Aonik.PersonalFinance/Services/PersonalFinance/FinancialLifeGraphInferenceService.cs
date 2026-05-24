@@ -221,73 +221,12 @@ internal sealed class FinancialLifeGraphInferenceService
         }).ToList();
     }
 
-    public async Task ApproveProposalAsync(Guid proposalId, CancellationToken cancellationToken = default)
-    {
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-        var userId = GetCurrentUserId();
-
-        var proposal = await _proposalStore.GetByIdAsync(proposalId, cancellationToken)
-            ?? throw new InvalidOperationException("Financial life graph proposal record not found.");
-
-        if (!string.Equals(proposal.Status, "Proposed", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Only proposed graph annotations can be approved.");
-        }
-
-        using var payload = JsonDocument.Parse(proposal.PayloadJson);
-        var graphNodeId = payload.RootElement.GetProperty("GraphNodeId").GetGuid();
-
-        var node = await _financeDbContext.FinancialLifeGraphNodes
-            .FirstOrDefaultAsync(item => item.Id == graphNodeId && item.TenantId == tenantId && item.UserId == userId, cancellationToken)
-            ?? throw new InvalidOperationException("Financial life graph proposal not found.");
-
-        var edge = await _financeDbContext.FinancialLifeGraphEdges
-            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == userId && item.ToNodeKey == $"native-node:{node.Id:D}", cancellationToken)
-            ?? throw new InvalidOperationException("Financial life graph proposal edge not found.");
-
-        node.Status = FinancialLifeGraphEntityStatus.Active;
-        edge.Status = FinancialLifeGraphEntityStatus.Active;
-
-        // Save the FLG-side activations first; only on success do we promote
-        // the proposal to Approved on the agent side.
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
-        await _proposalStore.ApproveAsync(proposalId, cancellationToken);
-        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
-    }
-
-    public async Task RejectProposalAsync(Guid proposalId, string? reason = null, CancellationToken cancellationToken = default)
-    {
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var proposal = await _proposalStore.GetByIdAsync(proposalId, cancellationToken)
-            ?? throw new InvalidOperationException("Financial life graph proposal record not found.");
-
-        if (!string.Equals(proposal.Status, "Proposed", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Only proposed graph annotations can be rejected.");
-        }
-
-        using var payload = JsonDocument.Parse(proposal.PayloadJson);
-        var graphNodeId = payload.RootElement.GetProperty("GraphNodeId").GetGuid();
-        var graphEdgeId = payload.RootElement.GetProperty("GraphEdgeId").GetGuid();
-
-        var node = await _financeDbContext.FinancialLifeGraphNodes
-            .FirstOrDefaultAsync(item => item.Id == graphNodeId && item.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException("Financial life graph proposal node not found.");
-
-        var edge = await _financeDbContext.FinancialLifeGraphEdges
-            .FirstOrDefaultAsync(item => item.Id == graphEdgeId && item.TenantId == tenantId, cancellationToken)
-            ?? throw new InvalidOperationException("Financial life graph proposal edge not found.");
-
-        node.Status = FinancialLifeGraphEntityStatus.Rejected;
-        edge.Status = FinancialLifeGraphEntityStatus.Rejected;
-
-        // Save the FLG-side rejections first; only on success do we mark the
-        // proposal Rejected on the agent side.
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
-        await _proposalStore.RejectAsync(proposalId, reason, cancellationToken);
-        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
-    }
+    // Approval / rejection of FLG proposals is owned by the generic
+    // /ai/proposals/{id}/approve|dismiss pipeline as of spec 030. The
+    // domain-side behaviour previously inlined here now lives in
+    // FinancialLifeGraphAnnotationProposalHandler and
+    // FinancialLifeGraphAnnotationProposalRejectionHandler, resolved by
+    // IProposalDispatcher when the user acts on the proposal.
 
     private Guid GetCurrentUserId()
     {

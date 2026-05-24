@@ -72,6 +72,14 @@ public sealed class AgentsModule : IModule
         // Proposal approval pipeline — wires the dashboard's Apply / Dismiss / Review actions.
         services.AddScoped<IProposalApprovalService, Services.ProposalApprovalService>();
 
+        // Spec 030 — generic execution dispatcher for approved / dismissed proposals.
+        // Resolves the IProposalHandler / IProposalRejectionHandler that each owning
+        // module registers under its ProposalType key (e.g. PersonalFinance registers
+        // a handler for "FinancialLifeGraphAnnotation"). No knowledge of the concrete
+        // proposal types lives in this module.
+        services.AddScoped<IProposalDispatcher, Services.ProposalDispatcher>();
+        services.AddScoped<IProposalRejectionDispatcher, Services.ProposalRejectionDispatcher>();
+
         // Seed global default agent configurations on startup
         services.AddHostedService<AgentConfigurationSeedingService>();
 

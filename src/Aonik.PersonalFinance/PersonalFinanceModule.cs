@@ -90,6 +90,16 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<FinancialLifeGraphInferenceService>();
         services.AddScoped<IFinancialLifeGraphRetrievalService, FinancialLifeGraphRetrievalService>();
 
+        // Spec 030 — generic proposal-dispatcher handlers for FLG annotations.
+        // Registered keyed by the ProposalType string so IProposalDispatcher /
+        // IProposalRejectionDispatcher in Aonik.Agents can resolve them when
+        // /ai/proposals/{id}/approve|dismiss fires on a FinancialLifeGraphAnnotation
+        // proposal. No PF endpoint executes these directly any more.
+        services.AddKeyedScoped<IProposalHandler, FinancialLifeGraphAnnotationProposalHandler>(
+            FinancialLifeGraphAnnotationProposalHandler.ProposalTypeKey);
+        services.AddKeyedScoped<IProposalRejectionHandler, FinancialLifeGraphAnnotationProposalRejectionHandler>(
+            FinancialLifeGraphAnnotationProposalHandler.ProposalTypeKey);
+
         // ── Household + CustomerInsight + Dashboard + FinancialContext clusters
         //    (Spec 027 Phase 7 deferred-refactor wrap-up) ────────────
         services.AddScoped<IHouseholdService, HouseholdService>();

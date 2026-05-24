@@ -1001,11 +1001,27 @@ public class FinancialLifeGraphServiceTests
 
         var graphBeforeApproval = await graphService.GetGraphAsync();
 
+        // Spec 030: FLG approvals now flow through the generic dispatcher.
+        // Simulate the dispatcher path: the agent-side ProposalApprovalService
+        // would flip the row to Approved first, then invoke the handler.
+        var agentProposalStore = new AgentProposalStore(agentsContext, currentUserProvider);
+        await agentProposalStore.ApproveAsync(proposals[0].ProposalId);
+        var detail = await agentProposalStore.GetByIdAsync(proposals[0].ProposalId);
+        detail.Should().NotBeNull();
+
+        var handler = new FinancialLifeGraphAnnotationProposalHandler(
+            CreatePersonalFinanceDbContext(_lastDbName, tenantId),
+            tenantProvider,
+            new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
+
         // Act
-        await inferenceService.ApproveProposalAsync(proposals[0].ProposalId);
+        var result = await handler.HandleAsync(detail!, CancellationToken.None);
         var graphAfterApproval = await graphService.GetGraphAsync();
 
         // Assert
+        result.Applied.Should().BeTrue();
+        result.AppliedResourceType.Should().Be("FinancialLifeGraphNode");
+        result.AppliedResourceId.Should().Be(proposals[0].GraphNodeId);
         graphBeforeApproval.Nodes.Should().NotContain(item => item.DisplayName == proposals[0].DisplayName);
         graphAfterApproval.Nodes.Should().Contain(item => item.DisplayName == proposals[0].DisplayName);
         graphAfterApproval.Summary.InferredAnnotationCount.Should().BeGreaterThan(0);

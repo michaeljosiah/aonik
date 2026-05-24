@@ -588,10 +588,13 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         Guid proposalId,
         CancellationToken cancellationToken = default)
     {
+        // Spec 030: FLG proposals now flow through the generic dispatcher.
+        // The endpoint returns 200 with a ProposalDetailResponse body; the CLI
+        // discards the body since the existing API surface returned NoContent.
         await SendNoContentAsync(
             session.BaseUrl,
             HttpMethod.Post,
-            $"/personal-finance/graph/proposals/{proposalId:D}/approve",
+            $"/ai/proposals/{proposalId:D}/approve",
             session,
             body: new { },
             cancellationToken);
@@ -603,12 +606,17 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         RejectFinancialLifeGraphProposalRequest request,
         CancellationToken cancellationToken = default)
     {
+        // Spec 030: the generic dismiss endpoint does not accept a structured
+        // reason in v1 (the schema only carries Approve/Dismiss). The legacy
+        // `request.Reason` is dropped — a future schema change will reinstate
+        // structured rejection metadata (see spec 030 §5.6 / §6.4).
+        _ = request;
         await SendNoContentAsync(
             session.BaseUrl,
             HttpMethod.Post,
-            $"/personal-finance/graph/proposals/{proposalId:D}/reject",
+            $"/ai/proposals/{proposalId:D}/dismiss",
             session,
-            request,
+            body: new { },
             cancellationToken);
     }
 

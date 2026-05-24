@@ -5,7 +5,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Agents;
 
 namespace Aonik.Agents.Services;
 
@@ -14,15 +14,21 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     private readonly AgentsDbContext _dbContext;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IClock _clock;
+    private readonly IProposalDispatcher _dispatcher;
+    private readonly IProposalRejectionDispatcher _rejectionDispatcher;
 
     public ProposalApprovalService(
         AgentsDbContext dbContext,
         ICurrentUserProvider currentUserProvider,
-        IClock clock)
+        IClock clock,
+        IProposalDispatcher dispatcher,
+        IProposalRejectionDispatcher rejectionDispatcher)
     {
         _dbContext = dbContext;
         _currentUserProvider = currentUserProvider;
         _clock = clock;
+        _dispatcher = dispatcher;
+        _rejectionDispatcher = rejectionDispatcher;
     }
 
     public async Task<ProposalDetailResponse?> GetByIdAsync(Guid proposalId, CancellationToken ct = default)
@@ -82,14 +88,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         return new ListProposalsResponse(items, total);
     }
 
-    public Task<ProposalDetailResponse> ApproveAsync(Guid proposalId, CancellationToken ct = default) =>
-        TransitionAsync(proposalId, ProposalStatus.Approved, ct);
-
-    public Task<ProposalDetailResponse> DismissAsync(Guid proposalId, CancellationToken ct = default) =>
-        TransitionAsync(proposalId, ProposalStatus.Rejected, ct);
-
-    private async Task<ProposalDetailResponse> TransitionAsync(
-        Guid proposalId, ProposalStatus next, CancellationToken ct)
+    public async Task<ProposalDetailResponse> ApproveAsync(Guid proposalId, CancellationToken ct = default)
     {
         var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
             ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
@@ -97,17 +96,89 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         if (proposal.Status != ProposalStatus.Proposed)
         {
             throw new InvalidOperationException(
-                $"Proposal {proposalId} is already {proposal.Status} and cannot be transitioned to {next}.");
+                $"Proposal {proposalId} is already {proposal.Status} and cannot be approved.");
         }
 
-        proposal.Status = next;
+        proposal.Status = ProposalStatus.Approved;
         proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
         proposal.ApprovedAt = _clock.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
 
+        ProposalHandlerResult result;
+        try
+        {
+            result = await _dispatcher.DispatchAsync(ToDetail(proposal), ct);
+        }
+        catch
+        {
+            // Revert is best-effort — the proposal row and the handler's domain
+            // mutations live in different DbContexts; this is not a true
+            // distributed transaction. Handlers must be idempotent so the
+            // user can simply click Approve again on retry (spec 030 §6.1).
+            await RevertToProposedAsync(proposal);
+            throw;
+        }
+
+        if (!result.Applied)
+        {
+            // Handler signalled an expected business failure (e.g. payload
+            // references a deleted entity). Revert and surface as 422 to
+            // distinguish from the 500-class path above.
+            await RevertToProposedAsync(proposal);
+            throw new ProposalExecutionFailedException(proposal.Id, result.Message);
+        }
+
+        var row = await JoinedQuery().FirstAsync(p => p.Proposal.Id == proposalId, ct);
+        return Map(row, result);
+    }
+
+    public async Task<ProposalDetailResponse> DismissAsync(Guid proposalId, CancellationToken ct = default)
+    {
+        var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
+            ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
+
+        if (proposal.Status != ProposalStatus.Proposed)
+        {
+            throw new InvalidOperationException(
+                $"Proposal {proposalId} is already {proposal.Status} and cannot be dismissed.");
+        }
+
+        proposal.Status = ProposalStatus.Rejected;
+        // V1 reuses ApprovedByUserId / ApprovedAt to record the dismisser and
+        // dismissal time (spec 030 §5.6 — schema deliberately unchanged in v1).
+        // Anyone reading a Rejected row should interpret these as "the user who
+        // made the Approve-or-Dismiss decision."
+        proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
+        proposal.ApprovedAt = _clock.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+
+        // Rejection dispatch is fire-and-surface: if cleanup fails, the proposal
+        // stays Rejected (we don't un-dismiss the user's explicit intent) but
+        // the exception bubbles so the caller knows manual cleanup is required.
+        await _rejectionDispatcher.DispatchAsync(ToDetail(proposal), ct);
+
         var row = await JoinedQuery().FirstAsync(p => p.Proposal.Id == proposalId, ct);
         return Map(row);
     }
+
+    private async Task RevertToProposedAsync(Proposal proposal)
+    {
+        proposal.Status = ProposalStatus.Proposed;
+        proposal.ApprovedByUserId = null;
+        proposal.ApprovedAt = null;
+        // CancellationToken.None — the caller's token may already be cancelled
+        // but we still need to roll back the row we just committed.
+        await _dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
+    private static AgentProposalDetail ToDetail(Proposal proposal) =>
+        new(
+            Id: proposal.Id,
+            TenantId: proposal.TenantId,
+            ProposalType: proposal.ProposalType,
+            Status: proposal.Status.ToString(),
+            PayloadJson: proposal.PayloadJson,
+            ImpactSummary: proposal.ImpactSummary);
 
     // Single-source-of-truth join used by both the read and the post-mutation
     // re-read so the response shape is identical across endpoints.
@@ -123,7 +194,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
             AgentIconUrl = agent != null ? agent.IconUrl : null,
         };
 
-    private static ProposalDetailResponse Map(JoinedRow row) => new(
+    private static ProposalDetailResponse Map(JoinedRow row, ProposalHandlerResult? result = null) => new(
         Id: row.Proposal.Id,
         ProposalType: row.Proposal.ProposalType,
         ProposedByAgentId: row.Proposal.ProposedByAgentId,
@@ -138,7 +209,10 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         ApprovedByUserId: row.Proposal.ApprovedByUserId,
         ApprovedAt: row.Proposal.ApprovedAt,
         PayloadJson: row.Proposal.PayloadJson,
-        CreatedAt: row.Proposal.CreatedAt);
+        CreatedAt: row.Proposal.CreatedAt,
+        AppliedResourceType: result?.AppliedResourceType,
+        AppliedResourceId: result?.AppliedResourceId,
+        AppliedMessage: result?.Message);
 
     private sealed class JoinedRow
     {

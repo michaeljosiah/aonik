@@ -5,6 +5,16 @@ namespace Aonik.Agents.Contracts.Models;
 /// display metadata and the JSON payload for inspection in the Review
 /// dialog. Status is serialised as a string so the wire shape is stable
 /// even if the enum is reordered.
+///
+/// <para>
+/// Spec 030: when the response is returned by <c>POST /ai/proposals/{id}/approve</c>
+/// after a successful handler dispatch, <see cref="AppliedResourceType"/>,
+/// <see cref="AppliedResourceId"/>, and <see cref="AppliedMessage"/> carry the
+/// outcome of the handler so the caller can describe what changed without
+/// re-querying the domain. These fields are <strong>response-only</strong> in v1 —
+/// they are not persisted on the <c>Proposal</c> row, so a subsequent
+/// <c>GET /ai/proposals/{id}</c> returns <c>null</c> for all three.
+/// </para>
 /// </summary>
 public sealed record ProposalDetailResponse(
     Guid Id,
@@ -21,7 +31,10 @@ public sealed record ProposalDetailResponse(
     Guid? ApprovedByUserId,
     DateTime? ApprovedAt,
     string PayloadJson,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? AppliedResourceType = null,
+    Guid? AppliedResourceId = null,
+    string? AppliedMessage = null);
 
 /// <summary>
 /// Compact list-row view of a pending agent proposal, returned by the

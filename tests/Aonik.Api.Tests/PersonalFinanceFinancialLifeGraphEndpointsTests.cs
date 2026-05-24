@@ -234,8 +234,16 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         pending.Should().NotBeNull();
         pending!.Should().ContainSingle();
 
-        var approveResponse = await client.PostAsync($"/personal-finance/graph/proposals/{pending[0].ProposalId}/approve", null);
-        approveResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        // Spec 030: FLG proposals are approved via the generic
+        // /ai/proposals/{id}/approve endpoint, which dispatches to the
+        // registered IProposalHandler and returns 200 with a ProposalDetailResponse.
+        var approveResponse = await client.PostAsJsonAsync($"/ai/proposals/{pending[0].ProposalId}/approve", new { });
+        approveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var approveBody = await approveResponse.Content.ReadFromJsonAsync<ProposalDetailPayload>();
+        approveBody.Should().NotBeNull();
+        approveBody!.Status.Should().Be("Approved");
+        approveBody.AppliedResourceType.Should().Be("FinancialLifeGraphNode");
+        approveBody.AppliedResourceId.Should().Be(pending[0].GraphNodeId);
 
         var graphResponse = await client.GetAsync("/personal-finance/graph");
         graphResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -293,13 +301,15 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         proposals.Should().NotBeNull();
         proposals!.Should().ContainSingle();
 
-        // Act
+        // Act — spec 030: dismissal flows through the generic endpoint.
+        // The previous structured reason is not part of the v1 schema;
+        // see spec 030 §5.6 / §6.4 for the planned schema split.
         var rejectResponse = await client.PostAsJsonAsync(
-            $"/personal-finance/graph/proposals/{proposals[0].ProposalId}/reject",
-            new RejectFinancialLifeGraphProposalRequest("User declined suggestion"));
+            $"/ai/proposals/{proposals[0].ProposalId}/dismiss",
+            new { });
 
         // Assert
-        rejectResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        rejectResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var pendingResponse = await client.GetAsync("/personal-finance/graph/proposals/pending");
         var pending = await pendingResponse.Content.ReadFromJsonAsync<List<PendingProposalPayload>>();
@@ -499,6 +509,14 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         string Status,
         Guid AiRunId,
         string MetadataJson);
+
+    private sealed record ProposalDetailPayload(
+        Guid Id,
+        string ProposalType,
+        string Status,
+        string? AppliedResourceType,
+        Guid? AppliedResourceId,
+        string? AppliedMessage);
 
     private sealed record HouseholdContextPayload(
         bool HasHousehold,

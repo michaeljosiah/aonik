@@ -2,6 +2,7 @@ using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
 using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,21 @@ public class ProposalApprovalServiceTests
         public DateTime UtcNow { get; } = utcNow;
     }
 
+    // Default dispatcher returns Applied = true with no resource metadata so
+    // these tests stay focused on the agent-side flip-status logic. Tests that
+    // need to exercise revert paths (handler throws, handler returns
+    // Applied = false) live in the dispatcher-focused test class.
+    private sealed class StubProposalDispatcher : IProposalDispatcher
+    {
+        public Task<ProposalHandlerResult> DispatchAsync(AgentProposalDetail proposal, CancellationToken ct)
+            => Task.FromResult(new ProposalHandlerResult(Applied: true));
+    }
+
+    private sealed class StubProposalRejectionDispatcher : IProposalRejectionDispatcher
+    {
+        public Task DispatchAsync(AgentProposalDetail proposal, CancellationToken ct) => Task.CompletedTask;
+    }
+
     private static AgentsDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<AgentsDbContext>()
@@ -40,6 +56,16 @@ public class ProposalApprovalServiceTests
             .Options;
         return new AgentsDbContext(options, new TestTenantProvider(tenantId));
     }
+
+    private static ProposalApprovalService CreateService(
+        AgentsDbContext db,
+        Guid userId,
+        DateTime now) =>
+        new(db,
+            new TestCurrentUserProvider(userId),
+            new FixedClock(now),
+            new StubProposalDispatcher(),
+            new StubProposalRejectionDispatcher());
 
     private static (Agent agent, Proposal proposal) Seed(AgentsDbContext db, Guid tenantId, ProposalStatus status = ProposalStatus.Proposed)
     {
@@ -86,8 +112,7 @@ public class ProposalApprovalServiceTests
         await using var db = CreateDbContext(tenantId);
         var (_, proposal) = Seed(db, tenantId);
 
-        var service = new ProposalApprovalService(db, new TestCurrentUserProvider(Guid.NewGuid()),
-            new FixedClock(DateTime.UtcNow));
+        var service = CreateService(db, Guid.NewGuid(), DateTime.UtcNow);
 
         var detail = await service.GetByIdAsync(proposal.Id);
 
@@ -105,8 +130,7 @@ public class ProposalApprovalServiceTests
     {
         var tenantId = Guid.NewGuid();
         await using var db = CreateDbContext(tenantId);
-        var service = new ProposalApprovalService(db, new TestCurrentUserProvider(Guid.NewGuid()),
-            new FixedClock(DateTime.UtcNow));
+        var service = CreateService(db, Guid.NewGuid(), DateTime.UtcNow);
 
         var detail = await service.GetByIdAsync(Guid.NewGuid());
 
@@ -122,7 +146,7 @@ public class ProposalApprovalServiceTests
         await using var db = CreateDbContext(tenantId);
         var (_, proposal) = Seed(db, tenantId);
 
-        var service = new ProposalApprovalService(db, new TestCurrentUserProvider(userId), new FixedClock(now));
+        var service = CreateService(db, userId, now);
 
         var detail = await service.ApproveAsync(proposal.Id);
 
@@ -143,7 +167,7 @@ public class ProposalApprovalServiceTests
         await using var db = CreateDbContext(tenantId);
         var (_, proposal) = Seed(db, tenantId);
 
-        var service = new ProposalApprovalService(db, new TestCurrentUserProvider(userId), new FixedClock(now));
+        var service = CreateService(db, userId, now);
 
         var detail = await service.DismissAsync(proposal.Id);
 
@@ -158,8 +182,7 @@ public class ProposalApprovalServiceTests
         await using var db = CreateDbContext(tenantId);
         var (_, proposal) = Seed(db, tenantId, ProposalStatus.Approved);
 
-        var service = new ProposalApprovalService(db, new TestCurrentUserProvider(Guid.NewGuid()),
-            new FixedClock(DateTime.UtcNow));
+        var service = CreateService(db, Guid.NewGuid(), DateTime.UtcNow);
 
         await FluentActions.Invoking(() => service.ApproveAsync(proposal.Id))
             .Should().ThrowAsync<InvalidOperationException>();
@@ -171,8 +194,7 @@ public class ProposalApprovalServiceTests
         var tenantId = Guid.NewGuid();
         await using var db = CreateDbContext(tenantId);
 
-        var service = new ProposalApprovalService(db, new TestCurrentUserProvider(Guid.NewGuid()),
-            new FixedClock(DateTime.UtcNow));
+        var service = CreateService(db, Guid.NewGuid(), DateTime.UtcNow);
 
         await FluentActions.Invoking(() => service.ApproveAsync(Guid.NewGuid()))
             .Should().ThrowAsync<KeyNotFoundException>();

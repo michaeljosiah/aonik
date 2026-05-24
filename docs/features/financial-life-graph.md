@@ -501,10 +501,12 @@ Current deletion behavior relies on the platform's soft-delete infrastructure in
 
 | Route | Purpose | File |
 | --- | --- | --- |
-| `POST /personal-finance/graph/proposals/recurring-merchants` | create inferred proposals | `src/Aonik.Finance/Endpoints/PersonalFinance/ProposeRecurringMerchantGraphAnnotationsEndpoint.cs` |
-| `GET /personal-finance/graph/proposals/pending` | list pending graph proposals | `src/Aonik.Finance/Endpoints/PersonalFinance/GetPendingFinancialLifeGraphProposalsEndpoint.cs` |
-| `POST /personal-finance/graph/proposals/{proposalId}/approve` | approve a proposal | `src/Aonik.Finance/Endpoints/PersonalFinance/ApproveFinancialLifeGraphProposalEndpoint.cs` |
-| `POST /personal-finance/graph/proposals/{proposalId}/reject` | reject a proposal | `src/Aonik.Finance/Endpoints/PersonalFinance/RejectFinancialLifeGraphProposalEndpoint.cs` |
+| `POST /personal-finance/graph/proposals/recurring-merchants` | create inferred proposals | `src/Aonik.PersonalFinance/Endpoints/PersonalFinance/ProposeRecurringMerchantGraphAnnotationsEndpoint.cs` |
+| `GET /personal-finance/graph/proposals/pending` | list pending graph proposals | `src/Aonik.PersonalFinance/Endpoints/PersonalFinance/GetPendingFinancialLifeGraphProposalsEndpoint.cs` |
+| `POST /ai/proposals/{proposalId}/approve` | approve any proposal (generic dispatcher; spec 030) | `src/Aonik.Agents/Endpoints/ApproveProposalEndpoint.cs` |
+| `POST /ai/proposals/{proposalId}/dismiss` | dismiss any proposal (generic dispatcher; spec 030) | `src/Aonik.Agents/Endpoints/DismissProposalEndpoint.cs` |
+
+Approval and dismissal of FLG proposals flow through the generic dispatcher defined in [spec 030](../specifications/030.proposal-execution-dispatcher.html). The `FinancialLifeGraphAnnotationProposalHandler` and `FinancialLifeGraphAnnotationProposalRejectionHandler` in `src/Aonik.PersonalFinance/Services/PersonalFinance/` own the domain-side state transitions; the previously bespoke `/personal-finance/graph/proposals/{id}/approve|reject` endpoints have been removed.
 
 ## Agent and MCP Tooling
 
