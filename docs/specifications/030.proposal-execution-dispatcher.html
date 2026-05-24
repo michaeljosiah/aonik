@@ -215,11 +215,13 @@
   <h1>Proposal execution dispatcher</h1>
   <p style="margin-top:6px; color: var(--muted);">
     Adds a generic dispatch path that runs domain-side execution logic when an agent
-    <code>Proposal</code> is approved. Today only one proposal type
-    (<code>FinancialLifeGraphAnnotation</code>) executes anything &mdash; via a bespoke
-    endpoint that bypasses the generic approval flow. This spec generalises that pattern
-    so any module can register an <code>IProposalHandler</code>, and a single approval
-    endpoint flips status <em>and</em> applies the change atomically.
+    <code>Proposal</code> is approved, and a symmetric cleanup path when one is
+    dismissed. Today only one proposal type (<code>FinancialLifeGraphAnnotation</code>)
+    has working approval and rejection logic &mdash; both via bespoke endpoints that
+    bypass the generic flow. This spec generalises both sides into
+    <code>IProposalHandler</code> / <code>IProposalRejectionHandler</code> registered
+    per <code>ProposalType</code>, so a single pair of endpoints flips status
+    <em>and</em> runs the right domain logic.
   </p>
 </header>
 
@@ -232,7 +234,7 @@
     <li><a href="#guardrails">Guardrails</a></li>
     <li><a href="#design">Component design</a></li>
     <li><a href="#failure">Failure &amp; idempotency</a></li>
-    <li><a href="#migrate-flg">Migrating the FLG handler</a></li>
+    <li><a href="#migrate-flg">Migrating the FLG handlers</a></li>
     <li><a href="#tasks">Tasks</a></li>
     <li><a href="#acceptance">Acceptance criteria</a></li>
     <li><a href="#open">Open decisions</a></li>
@@ -255,19 +257,25 @@
 </p>
 
 <p>
-  This spec replaces that ad-hoc pattern with a registry: each module that defines a
-  <code>ProposalType</code> also registers an <code>IProposalHandler</code> keyed by that
-  type string. The generic approval endpoint dispatches through the registry inside one
-  unit of work, so the proposal row and the domain action either both happen or both
-  do not.
+  This spec replaces that ad-hoc pattern with a paired registry: each module that
+  defines a <code>ProposalType</code> registers an <code>IProposalHandler</code> for
+  execution on approval, and optionally an <code>IProposalRejectionHandler</code> for
+  cleanup on dismissal. Handlers return a structured <code>ProposalHandlerResult</code>
+  so the approval response can carry the applied-resource identity (the created
+  <code>OrderId</code>, updated <code>BudgetId</code>, etc.) and so handlers can signal
+  "couldn't apply for a business reason" without throwing. The generic approval and
+  dismiss endpoints dispatch through the registry as one logical operation (not
+  cross-module ACID; see &sect;4 guardrails).
 </p>
 
 <div class="callout ok">
   <span class="callout-label">Success signals</span>
   Approving any proposal via <code>POST /ai/proposals/{id}/approve</code> applies the
-  domain action. The FLG-specific approval endpoint is removed. A new proposal type can
-  be added by writing one handler class and registering it &mdash; no new endpoint, no
-  changes to <code>Aonik.Agents</code>.
+  domain action and returns the applied resource. Dismissing via
+  <code>POST /ai/proposals/{id}/dismiss</code> runs the rejection cleanup. Both
+  FLG-specific endpoints are removed. A new proposal type ships as one approval
+  handler class plus one registration line (and optionally a rejection handler) &mdash;
+  no new endpoint, no changes to <code>Aonik.Agents</code>.
 </div>
 
 <h2 id="problem">2. Problem</h2>
@@ -314,16 +322,21 @@
 <h3>3.1 In scope</h3>
 
 <ul>
-  <li><span class="tag new">New</span> <code>IProposalHandler</code> contract in <code>Aonik.SharedKernel.Abstractions.Agents</code> &mdash; one method, <code>HandleAsync(AgentProposalDetail, CancellationToken)</code>, plus a static <code>ProposalType</code> discriminator.</li>
-  <li><span class="tag new">New</span> <code>IProposalDispatcher</code> in <code>Aonik.SharedKernel.Abstractions.Agents</code> &mdash; resolves the handler for a given <code>ProposalType</code> string and invokes it.</li>
-  <li><span class="tag new">New</span> <code>ProposalDispatcher</code> implementation in <code>Aonik.Agents.Services</code> &mdash; backed by a dictionary built from DI-registered handlers, throws a typed exception if no handler is registered for a type.</li>
-  <li><span class="tag mutate">Edit</span> <code>ProposalApprovalService.ApproveAsync</code> &mdash; after the status transition (same transaction / SaveChanges) invoke the dispatcher. On dispatcher failure, roll the proposal back to <code>Proposed</code> and bubble the failure to the caller.</li>
-  <li><span class="tag new">New</span> <code>FinancialLifeGraphAnnotationProposalHandler</code> in <code>Aonik.PersonalFinance.Services.PersonalFinance</code> that wraps the existing <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> body.</li>
-  <li><span class="tag mutate">Edit</span> <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> &mdash; reduce to a thin facade that calls the handler (kept temporarily for the legacy endpoint, removed in the same change as the endpoint).</li>
-  <li><span class="tag mutate">Edit</span> Remove <code>ApproveFinancialLifeGraphProposalEndpoint</code> and the matching reject endpoint. The generic <code>/ai/proposals/{id}/approve</code> is the only path.</li>
-  <li><span class="tag new">New</span> <code>NoProposalHandlerRegisteredException</code> &mdash; thrown by the dispatcher and surfaced as HTTP 409 by the approve endpoint (with a clear error body).</li>
-  <li><span class="tag new">New</span> Unit tests: dispatcher happy path, missing-handler path, handler-throws path, FLG handler parity with the old inline service.</li>
-  <li><span class="tag new">New</span> Integration test: approve an FLG proposal via <code>/ai/proposals/{id}/approve</code> and assert both the proposal row <em>and</em> the FLG node/edge transition to active.</li>
+  <li><span class="tag new">New</span> <code>IProposalHandler</code> contract in <code>Aonik.SharedKernel.Abstractions.Agents</code> &mdash; one method returning <code>ProposalHandlerResult</code>, plus a <code>ProposalType</code> discriminator.</li>
+  <li><span class="tag new">New</span> <code>IProposalRejectionHandler</code> contract in the same namespace &mdash; symmetric counterpart that cleans up domain state when a proposal is dismissed. Optional per type; the dispatcher no-ops if no rejection handler is registered.</li>
+  <li><span class="tag new">New</span> <code>ProposalHandlerResult</code> record &mdash; minimal shape (<code>Applied</code> flag, <code>AppliedResourceType</code>, <code>AppliedResourceId</code>, <code>Message</code>). Handlers signal "couldn't apply for a business reason" via <code>Applied = false</code> instead of throwing for expected failures.</li>
+  <li><span class="tag new">New</span> <code>IProposalDispatcher</code> in <code>Aonik.SharedKernel.Abstractions.Agents</code> &mdash; resolves the approval handler for a given <code>ProposalType</code> string and invokes it. Companion <code>IProposalRejectionDispatcher</code> resolves the optional rejection handler.</li>
+  <li><span class="tag new">New</span> <code>ProposalDispatcher</code> + <code>ProposalRejectionDispatcher</code> implementations in <code>Aonik.Agents.Services</code> &mdash; backed by DI-keyed services, throw a typed exception when no approval handler is registered for a type.</li>
+  <li><span class="tag mutate">Edit</span> <code>ProposalApprovalService.ApproveAsync</code> &mdash; flip status, save, dispatch; revert on exception OR on <code>Applied = false</code> result; return the handler's applied-resource metadata in the response.</li>
+  <li><span class="tag mutate">Edit</span> <code>ProposalApprovalService.DismissAsync</code> &mdash; flip status, save, dispatch via <code>IProposalRejectionDispatcher</code> (no-op if no handler registered); on rejection-handler failure, leave the dismissal in place but surface the failure to the caller.</li>
+  <li><span class="tag new">New</span> <code>FinancialLifeGraphAnnotationProposalHandler</code> + <code>FinancialLifeGraphAnnotationProposalRejectionHandler</code> in <code>Aonik.PersonalFinance.Services.PersonalFinance</code> that wrap the existing <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> / <code>RejectProposalAsync</code> bodies.</li>
+  <li><span class="tag mutate">Edit</span> <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> / <code>RejectProposalAsync</code> &mdash; reduce to thin facades that call the handlers, or remove if no other caller remains.</li>
+  <li><span class="tag mutate">Edit</span> Remove <code>ApproveFinancialLifeGraphProposalEndpoint</code> and its reject counterpart. The generic <code>/ai/proposals/{id}/approve</code> and <code>/ai/proposals/{id}/dismiss</code> are the only paths.</li>
+  <li><span class="tag mutate">Edit</span> Extend <code>ProposalDetailResponse</code> to carry the applied-resource fields populated by the dispatcher (nullable; pre-existing rows return null).</li>
+  <li><span class="tag new">New</span> <code>NoProposalHandlerRegisteredException</code> &mdash; thrown by the approval dispatcher and surfaced as HTTP 409 by the approve endpoint (with a structured error body).</li>
+  <li><span class="tag new">New</span> <code>ProposalExecutionFailedException</code> &mdash; thrown when a handler returns <code>Applied = false</code>; carries the handler's <code>Message</code>; surfaced as HTTP 422.</li>
+  <li><span class="tag new">New</span> Unit tests: dispatcher happy path, missing-handler path, handler-throws path, handler-returns-Applied-false path, rejection-handler dispatch, FLG approval and rejection parity with the old inline service.</li>
+  <li><span class="tag new">New</span> Integration tests: approve and dismiss an FLG proposal via the generic endpoints; assert both the proposal row <em>and</em> the FLG node/edge transition as expected.</li>
 </ul>
 
 <h3>3.2 Out of scope</h3>
@@ -332,9 +345,10 @@
   <li><strong>New proposal types.</strong> This spec ships the dispatcher and migrates the one existing handler. <code>Orders.CreateBillPaymentOrder</code>, <code>PersonalFinance.UpdateBudget</code>, etc. are separate work that becomes possible <em>after</em> this lands.</li>
   <li><strong>Background / async execution.</strong> Handlers run synchronously inside the approval request. If a handler needs to enqueue work (e.g. payment that polls a partner), that's the handler's choice &mdash; the dispatcher does not own scheduling. Background-driven dispatch (retry queues, dead-letter) is a separate decision.</li>
   <li><strong>Multi-handler fan-out.</strong> One <code>ProposalType</code> &rarr; one handler. No middleware chain, no decorators, no policy pipeline.</li>
-  <li><strong>Per-handler authorisation.</strong> The approve endpoint's existing <code>AdminUserPolicy</code> is the gate. Per-handler additional checks (e.g. "only the proposal subject can approve a self-transfer") are deferred to a later spec.</li>
+  <li><strong>Per-handler authorisation rules.</strong> <span class="tag new">Precondition</span> V1 retains the existing <code>AdminUserPolicy</code> gate, which is acceptable <em>only</em> because the FLG migration is the sole live consumer. Before any Payabo-facing proposal type or money-movement proposal type (<code>Orders.CreateBillPaymentOrder</code>, <code>PersonalFinance.UpdateBudget</code>, transfers, payouts) lands, approval authorisation must be moved to policy-based rules that consider actor, subject ownership / delegated permission, tenant, risk tier, and proposal type. That work is a hard precondition for those follow-up specs, not an indefinite deferral.</li>
   <li><strong>Payload schema validation.</strong> The handler is responsible for parsing and validating its own <code>PayloadJson</code>. The dispatcher passes the raw payload and does not enforce shape.</li>
-  <li><strong>Rejection-side dispatch.</strong> <code>DismissAsync</code> stays a pure status flip. Rejection-time cleanup (e.g. removing the proposed-but-not-yet-applied FLG nodes) currently happens inline in the legacy reject endpoint. Moving rejection logic into the dispatcher is a follow-up if a second type ever needs it.</li>
+  <li><strong>Proposal as guidance-only carrier.</strong> <code>Proposal</code> is defined as "something that can be approved and applied." Compass and any future module that wants to surface advisory, review-only, or non-executable content must use <code>Insight</code>, a notification, or a guidance card &mdash; not <code>Proposal</code>. Creating a Proposal without a registered handler is a hard failure (see &sect;6.2), not a soft no-op.</li>
+  <li><strong>New <code>ProposalStatus</code> values.</strong> V1 keeps the existing three-value enum (<code>Proposed</code> / <code>Approved</code> / <code>Rejected</code>). The conceptual limitation this creates is documented in &sect;6.4; a future spec will need to split approval-state from execution-state before payment, refund, transfer, payout, ledger, or externally-integrated proposal types land.</li>
 </ul>
 
 <h2 id="guardrails">4. Guardrails</h2>
@@ -360,9 +374,10 @@
       <td>
         <ul style="margin:0;padding-left:18px;">
           <li>Handler registration via DI keyed-services (<code>services.AddKeyedScoped&lt;IProposalHandler&gt;(proposalType, ...)</code>) so each module owns its own wiring.</li>
-          <li>Status transition and handler execution happen in the same logical unit &mdash; if the handler throws, the proposal stays <code>Proposed</code>.</li>
+          <li>Approval and execution are part of one <em>logical</em> operation, not a guaranteed cross-module ACID transaction. The system must never silently mark a proposal <code>Approved</code> if no handler ran successfully: any known failure (exception OR <code>Applied = false</code>) reverts the proposal to <code>Proposed</code>. Crash recovery mid-handler is explicitly out of scope for v1.</li>
+          <li>Handlers must be idempotent (see &sect;6.1) &mdash; the retry path is "user clicks Approve again."</li>
           <li>Handlers live in the owning domain module, not in <code>Aonik.Agents</code>.</li>
-          <li>The dispatcher emits an OpenTelemetry span (<code>aonik.proposals.dispatch</code>) with <code>proposal.type</code> and <code>proposal.id</code> tags.</li>
+          <li>The approval dispatcher emits an OpenTelemetry span <code>aonik.proposals.dispatch</code> with tags <code>proposal.type</code>, <code>proposal.id</code>, <code>proposal.applied</code>, <code>proposal.applied_resource_type</code>, and <code>proposal.applied_resource_id</code>. The rejection dispatcher emits <code>aonik.proposals.rejection_dispatch</code> with tags <code>proposal.type</code>, <code>proposal.id</code>, and <code>proposal.cleanup_handler_registered</code>.</li>
         </ul>
       </td>
       <td>
@@ -381,7 +396,9 @@
 
 <h3>5.1 Target flow</h3>
 
-<div class="ascii-diagram">User clicks "Approve" in Admin UI
+<div class="ascii-diagram">Approval path
+─────────────
+User clicks "Approve" in Admin UI
   ↓
 POST /ai/proposals/{id}/approve
   ↓
@@ -391,13 +408,34 @@ ProposalApprovalService.ApproveAsync
   ├─ Load Proposal (must be Proposed)
   ├─ Flip Status → Approved, stamp approver + timestamp
   ├─ SaveChanges (proposal row committed)
-  ├─ IProposalDispatcher.DispatchAsync(proposalType, AgentProposalDetail)
+  ├─ result = IProposalDispatcher.DispatchAsync(AgentProposalDetail)
   │     ↓
   │   IProposalHandler resolved from DI by ProposalType key
   │     ↓
-  │   handler.HandleAsync(detail, ct)   ← domain side applies the change
+  │   ProposalHandlerResult = handler.HandleAsync(detail, ct)
+  │     • throws  ⇒ revert Status → Proposed, SaveChanges, rethrow
+  │     • Applied = false ⇒ revert + throw ProposalExecutionFailedException (422)
+  │     • Applied = true  ⇒ response carries AppliedResourceType / AppliedResourceId
   │
-  └─ On handler failure: revert Status → Proposed, SaveChanges, rethrow</div>
+  └─ No registered handler ⇒ NoProposalHandlerRegisteredException (409)
+
+Rejection path
+──────────────
+User clicks "Dismiss" in Admin UI
+  ↓
+POST /ai/proposals/{id}/dismiss
+  ↓
+ProposalApprovalService.DismissAsync
+  ├─ Load Proposal (must be Proposed)
+  ├─ Flip Status → Rejected, SaveChanges
+  ├─ IProposalRejectionDispatcher.DispatchAsync(detail, ct)
+  │     ↓
+  │   IProposalRejectionHandler resolved (optional — no-op if not registered)
+  │     ↓
+  │   handler.HandleRejectionAsync(detail, ct)  ← domain-side cleanup
+  │
+  └─ On handler failure: status stays Rejected, exception bubbles (so the operator
+     knows cleanup did not complete; manual recovery is the fallback for v1).</div>
 
 <h3>5.2 Contracts (SharedKernel)</h3>
 
@@ -415,11 +453,54 @@ public interface IProposalHandler
 
     /// &lt;summary&gt;
     /// Apply the proposal's payload to the owning domain. Called by the dispatcher
-    /// after the Proposal row has been flipped to Approved. If this method throws,
-    /// the dispatcher reverts the proposal to Proposed and rethrows to the caller.
+    /// after the Proposal row has been flipped to Approved.
+    ///
+    /// Failure modes:
+    ///  • Throw for unexpected errors (DB unavailable, partner API failure).
+    ///    Dispatcher reverts the proposal to Proposed and rethrows.
+    ///  • Return Applied = false + Message for expected business reasons
+    ///    (payload references a deleted entity, idempotency conflict that
+    ///    should not retry). Dispatcher reverts and throws
+    ///    ProposalExecutionFailedException, which surfaces as HTTP 422.
+    ///  • Return Applied = true with optional AppliedResourceType /
+    ///    AppliedResourceId on success.
     /// &lt;/summary&gt;
-    Task HandleAsync(AgentProposalDetail proposal, CancellationToken cancellationToken);
+    Task&lt;ProposalHandlerResult&gt; HandleAsync(
+        AgentProposalDetail proposal,
+        CancellationToken cancellationToken);
 }
+
+/// &lt;summary&gt;
+/// Optional symmetric counterpart: cleans up domain state when a proposal is
+/// dismissed (e.g. removes a "Proposed"-status FLG node that was created when
+/// the proposal was raised). If no rejection handler is registered for a
+/// ProposalType, the dispatcher no-ops &mdash; some proposal types have no
+/// cleanup to do.
+/// &lt;/summary&gt;
+public interface IProposalRejectionHandler
+{
+    string ProposalType { get; }
+
+    Task HandleRejectionAsync(
+        AgentProposalDetail proposal,
+        CancellationToken cancellationToken);
+}
+
+/// &lt;summary&gt;
+/// Outcome record returned by an IProposalHandler. Carries enough metadata
+/// for the approval response, audit log, and UI to describe what happened
+/// without forcing the caller to re-query the domain.
+///
+/// Fields are intentionally minimal: ProposalType / ProposalId are not
+/// included because the caller already has them from AgentProposalDetail.
+/// No metadata dictionary &mdash; add one in a future spec only if a real
+/// consumer needs it.
+/// &lt;/summary&gt;
+public sealed record ProposalHandlerResult(
+    bool Applied,
+    string? AppliedResourceType = null,
+    Guid? AppliedResourceId = null,
+    string? Message = null);
 
 /// &lt;summary&gt;
 /// Resolves the IProposalHandler registered for a given ProposalType and invokes it.
@@ -428,7 +509,22 @@ public interface IProposalHandler
 /// &lt;/summary&gt;
 public interface IProposalDispatcher
 {
-    Task DispatchAsync(AgentProposalDetail proposal, CancellationToken cancellationToken);
+    Task&lt;ProposalHandlerResult&gt; DispatchAsync(
+        AgentProposalDetail proposal,
+        CancellationToken cancellationToken);
+}
+
+/// &lt;summary&gt;
+/// Symmetric counterpart for the dismissal path. No-ops (returns successfully)
+/// when no IProposalRejectionHandler is registered for the ProposalType &mdash;
+/// missing rejection handlers are not an error, since not every proposal type
+/// has cleanup to do.
+/// &lt;/summary&gt;
+public interface IProposalRejectionDispatcher
+{
+    Task DispatchAsync(
+        AgentProposalDetail proposal,
+        CancellationToken cancellationToken);
 }
 
 public sealed class NoProposalHandlerRegisteredException : Exception
@@ -440,6 +536,17 @@ public sealed class NoProposalHandlerRegisteredException : Exception
     }
 
     public string ProposalType { get; }
+}
+
+public sealed class ProposalExecutionFailedException : Exception
+{
+    public ProposalExecutionFailedException(Guid proposalId, string? message)
+        : base(message ?? $"Handler returned Applied = false for proposal '{proposalId}'.")
+    {
+        ProposalId = proposalId;
+    }
+
+    public Guid ProposalId { get; }
 }</code></pre>
 
 <h3>5.3 Dispatcher implementation</h3>
@@ -452,13 +559,34 @@ internal sealed class ProposalDispatcher : IProposalDispatcher
 
     public ProposalDispatcher(IServiceProvider services) =&gt; _services = services;
 
-    public Task DispatchAsync(AgentProposalDetail proposal, CancellationToken ct)
+    public Task&lt;ProposalHandlerResult&gt; DispatchAsync(
+        AgentProposalDetail proposal,
+        CancellationToken ct)
     {
         var handler = _services.GetKeyedService&lt;IProposalHandler&gt;(proposal.ProposalType)
             ?? throw new NoProposalHandlerRegisteredException(proposal.ProposalType);
 
-        // OpenTelemetry span around the handler call (aonik.proposals.dispatch).
+        // OpenTelemetry span (aonik.proposals.dispatch) wraps the handler call
+        // and tags proposal.type, proposal.id, proposal.applied,
+        // proposal.applied_resource_type, proposal.applied_resource_id.
         return handler.HandleAsync(proposal, ct);
+    }
+}
+
+internal sealed class ProposalRejectionDispatcher : IProposalRejectionDispatcher
+{
+    private readonly IServiceProvider _services;
+
+    public ProposalRejectionDispatcher(IServiceProvider services) =&gt; _services = services;
+
+    public Task DispatchAsync(AgentProposalDetail proposal, CancellationToken ct)
+    {
+        // Missing rejection handler is NOT an error — many proposal types have
+        // no cleanup to do. Only approval-side dispatch treats missing as fatal.
+        // OpenTelemetry span (aonik.proposals.rejection_dispatch) wraps this and
+        // tags proposal.type, proposal.id, proposal.cleanup_handler_registered.
+        var handler = _services.GetKeyedService&lt;IProposalRejectionHandler&gt;(proposal.ProposalType);
+        return handler is null ? Task.CompletedTask : handler.HandleRejectionAsync(proposal, ct);
     }
 }</code></pre>
 
@@ -471,12 +599,17 @@ internal sealed class ProposalDispatcher : IProposalDispatcher
 
 <pre><code>// In Aonik.PersonalFinance/DependencyInjection.cs
 services.AddKeyedScoped&lt;IProposalHandler, FinancialLifeGraphAnnotationProposalHandler&gt;(
+    "FinancialLifeGraphAnnotation");
+
+// Rejection handler is optional — register only if the type has cleanup to do.
+services.AddKeyedScoped&lt;IProposalRejectionHandler, FinancialLifeGraphAnnotationProposalRejectionHandler&gt;(
     "FinancialLifeGraphAnnotation");</code></pre>
 
 <p>
-  The dispatcher (in <code>Aonik.Agents</code>) registers once with the container and
-  resolves handlers by key. New proposal types ship as one handler class plus one
-  registration line.
+  The dispatchers (in <code>Aonik.Agents</code>) register once with the container and
+  resolve handlers by key. A new proposal type ships as: one approval handler + one
+  registration line; optionally one rejection handler + one registration line if
+  the type needs dismiss-time cleanup.
 </p>
 
 <h3>5.5 Approval service change</h3>
@@ -496,30 +629,116 @@ public async Task&lt;ProposalDetailResponse&gt; ApproveAsync(Guid proposalId, Ca
     proposal.ApprovedAt = _clock.UtcNow;
     await _dbContext.SaveChangesAsync(ct);
 
+    ProposalHandlerResult result;
     try
     {
-        var detail = ToDetail(proposal);
-        await _dispatcher.DispatchAsync(detail, ct);
+        result = await _dispatcher.DispatchAsync(ToDetail(proposal), ct);
     }
     catch
     {
-        // Handler failed. Revert so the user can retry or reject explicitly.
-        proposal.Status = ProposalStatus.Proposed;
-        proposal.ApprovedByUserId = null;
-        proposal.ApprovedAt = null;
+        RevertToProposed(proposal);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
         throw;
     }
 
+    if (!result.Applied)
+    {
+        // Handler signalled an expected business failure (e.g. payload references
+        // a deleted entity). Revert and surface as 422 to distinguish from the
+        // 500-class path above.
+        RevertToProposed(proposal);
+        await _dbContext.SaveChangesAsync(CancellationToken.None);
+        throw new ProposalExecutionFailedException(proposal.Id, result.Message);
+    }
+
     var row = await JoinedQuery().FirstAsync(p =&gt; p.Proposal.Id == proposalId, ct);
-    return Map(row);
+    return Map(row, result);   // response carries AppliedResourceType / AppliedResourceId
+}
+
+private void RevertToProposed(Proposal proposal)
+{
+    proposal.Status = ProposalStatus.Proposed;
+    proposal.ApprovedByUserId = null;
+    proposal.ApprovedAt = null;
 }</code></pre>
 
 <div class="callout">
   <span class="callout-label">Note</span>
   The revert is best-effort &mdash; the proposal row and the domain side live in
   different <code>DbContext</code>s today, so this is not a true distributed transaction.
-  Handlers must therefore be idempotent (see &sect;6).
+  Handlers must therefore be idempotent (see &sect;6.1) and the v1 consistency
+  promise is "logical operation, not cross-module ACID" (see &sect;4 guardrails).
+</div>
+
+<div class="callout">
+  <span class="callout-label">Response fields are transient</span>
+  <code>AppliedResourceType</code> and <code>AppliedResourceId</code> on
+  <code>ProposalDetailResponse</code> are <strong>response-only in v1</strong> &mdash; they
+  come from the in-memory <code>ProposalHandlerResult</code> and are not persisted on
+  the <code>Proposal</code> row. A subsequent <code>GET /ai/proposals/{id}</code> will
+  return <code>null</code> for both. If durable linkage is needed, the owning domain
+  handler must persist it in its own domain records (e.g. the created <code>Order</code>
+  carries a foreign key back to <code>ProposalId</code>), or a future spec must add a
+  <code>ProposalExecution</code> table that records what each approved proposal produced.
+  Compass and Orders consumers must not assume the response fields survive a re-read.
+</div>
+
+<h3>5.6 Dismissal service change</h3>
+
+<pre><code>// Aonik.Agents/Services/ProposalApprovalService.cs (post-change sketch)
+
+public async Task&lt;ProposalDetailResponse&gt; DismissAsync(Guid proposalId, CancellationToken ct)
+{
+    var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p =&gt; p.Id == proposalId, ct)
+        ?? throw new KeyNotFoundException(...);
+
+    if (proposal.Status != ProposalStatus.Proposed)
+        throw new InvalidOperationException(...);
+
+    proposal.Status = ProposalStatus.Rejected;
+    proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();   // stamps the dismisser
+    proposal.ApprovedAt = _clock.UtcNow;
+    await _dbContext.SaveChangesAsync(ct);
+
+    // Rejection dispatch is fire-and-surface: if cleanup fails, the proposal stays
+    // Rejected (we don't un-dismiss the user's intent) but the exception bubbles so
+    // the caller knows manual cleanup is required.
+    await _rejectionDispatcher.DispatchAsync(ToDetail(proposal), ct);
+
+    var row = await JoinedQuery().FirstAsync(p =&gt; p.Proposal.Id == proposalId, ct);
+    return Map(row);
+}</code></pre>
+
+<div class="callout">
+  <span class="callout-label">Asymmetry</span>
+  Approval reverts on handler failure; dismissal does not. Reasoning: the user
+  has explicitly said "I don't want this." Un-dismissing because cleanup hit a
+  DB hiccup would countermand the user's intent. The exception still surfaces
+  so the failure is observable.
+</div>
+
+<div class="callout">
+  <span class="callout-label">Reused fields in v1</span>
+  V1 reuses <code>ApprovedByUserId</code> and <code>ApprovedAt</code> on the
+  <code>Proposal</code> row to record the dismisser and dismissal time, because the
+  schema is intentionally unchanged in this spec. Anyone reading a <code>Rejected</code>
+  proposal row should interpret <code>ApprovedByUserId</code> as "the user who made the
+  Approve-or-Dismiss decision" rather than literally "the user who approved." A future
+  schema change should rename these to <code>DecisionByUserId</code> /
+  <code>DecidedAt</code>, or add explicit rejected-by fields, alongside the
+  approval/execution status split documented in &sect;6.4.
+</div>
+
+<div class="callout">
+  <span class="callout-label">HTTP mapping on cleanup failure</span>
+  When the rejection handler throws, the dismiss endpoint returns
+  <strong>HTTP 500</strong> with a structured body identifying the proposal id, that
+  the row was successfully moved to <code>Rejected</code>, and that domain cleanup
+  failed and requires manual intervention. (The status code is semantically loose
+  &mdash; the dismissal request <em>did</em> achieve its primary effect &mdash; but
+  500 is the most operationally loud option in the existing error-handling pipeline.
+  An alternative is HTTP 200 with a <code>cleanup_warning</code> field; deferred unless
+  the loudness is undesirable in practice.)
 </div>
 
 <h2 id="failure">6. Failure &amp; idempotency</h2>
@@ -567,11 +786,50 @@ public async Task&lt;ProposalDetailResponse&gt; ApproveAsync(Guid proposalId, Ca
   pattern that is out of scope here.
 </p>
 
-<h2 id="migrate-flg">7. Migrating the existing FLG handler</h2>
+<h3>6.4 V1 status-model limitation</h3>
+
+<p>
+  V1 keeps the existing three-value <code>ProposalStatus</code> enum
+  (<code>Proposed</code> / <code>Approved</code> / <code>Rejected</code>). With the
+  revert-on-failure rule, <code>Approved</code> in v1 means
+  <em>approved-and-successfully-handled</em>: if the handler throws or returns
+  <code>Applied = false</code>, the row goes back to <code>Proposed</code>.
+</p>
+
+<p>
+  This is a deliberate simplification. The conceptually correct model splits two
+  distinct facts:
+</p>
+
+<ul>
+  <li>"A human (or policy) approved this proposal."</li>
+  <li>"The system successfully applied it to the owning domain."</li>
+</ul>
+
+<p>
+  V1 collapses both into <code>Approved</code> because the FLG migration does not need
+  them split &mdash; the handler is synchronous, in-process, and fast. Before any
+  proposal type that does <em>money movement</em>, <em>refund</em>, <em>payout</em>,
+  <em>ledger posting</em>, or <em>external API call</em> lands, a follow-up spec must
+  split approval-state from execution-state &mdash; likely as
+  <code>Proposed</code> &rarr; <code>Approved</code> &rarr;
+  <code>Applied</code> / <code>Failed</code> with <code>Rejected</code> as a terminal
+  branch. That work is a hard precondition for those proposal types, not a "nice to
+  have."
+</p>
+
+<h2 id="migrate-flg">7. Migrating the existing FLG handlers</h2>
+
+<p>
+  Both sides of the existing FLG inference service are reference implementations of
+  the handler pattern.
+</p>
+
+<h3>7.1 Approval handler</h3>
 
 <p>
   The existing <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code>
-  body is the reference implementation of a handler. It already:
+  body already:
 </p>
 
 <ul>
@@ -585,15 +843,38 @@ public async Task&lt;ProposalDetailResponse&gt; ApproveAsync(Guid proposalId, Ca
 </ul>
 
 <p>
-  The migration is a near-mechanical lift:
+  Migration is a near-mechanical lift:
 </p>
 
 <ol>
-  <li>Create <code>FinancialLifeGraphAnnotationProposalHandler : IProposalHandler</code> with <code>ProposalType =&gt; "FinancialLifeGraphAnnotation"</code> and the body moved over <em>minus</em> the <code>ApproveAsync</code> call (the dispatcher's caller has already flipped the proposal).</li>
+  <li>Create <code>FinancialLifeGraphAnnotationProposalHandler : IProposalHandler</code> with <code>ProposalType =&gt; "FinancialLifeGraphAnnotation"</code> and the body moved over <em>minus</em> the <code>ApproveAsync</code> call (the dispatcher's caller has already flipped the proposal). Return <code>new ProposalHandlerResult(Applied: true, AppliedResourceType: "FinancialLifeGraphNode", AppliedResourceId: graphNodeId)</code>.</li>
+  <li>"Node already Active" should return <code>Applied: true</code> (idempotent re-apply), not throw.</li>
+  <li>"Node not found" should return <code>Applied: false</code> with a message &mdash; expected business failure, not an exception.</li>
+  <li>Register it in <code>Aonik.PersonalFinance</code> DI under the key <code>"FinancialLifeGraphAnnotation"</code>.</li>
+</ol>
+
+<h3>7.2 Rejection handler</h3>
+
+<p>
+  The existing <code>FinancialLifeGraphInferenceService.RejectProposalAsync</code> body
+  does real domain cleanup: it sets the FLG node and edge to a rejected status so the
+  graph does not retain orphaned <em>Proposed</em>-state inferences. Removing the
+  bespoke reject endpoint without dispatching rejection would silently break this
+  cleanup, so the rejection handler is required in v1.
+</p>
+
+<ol>
+  <li>Create <code>FinancialLifeGraphAnnotationProposalRejectionHandler : IProposalRejectionHandler</code> with the existing reject body lifted over (minus the <code>IAgentProposalStore.RejectAsync</code> call &mdash; <code>DismissAsync</code> on the agents side already flipped the row).</li>
   <li>Register it in <code>Aonik.PersonalFinance</code> DI under the same key.</li>
+  <li>Add an integration test asserting that dismissing an FLG proposal via the generic <code>/ai/proposals/{id}/dismiss</code> endpoint moves both the proposal row <em>and</em> the FLG node/edge into their rejected states.</li>
+</ol>
+
+<h3>7.3 Cleanup and frontend updates</h3>
+
+<ol>
   <li>Delete <code>ApproveFinancialLifeGraphProposalEndpoint</code> and the corresponding reject endpoint.</li>
-  <li>Reduce <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> to a forwarder or remove if no other caller remains.</li>
-  <li>Update any frontend references from <code>/personal-finance/graph/proposals/{id}/approve</code> to <code>/ai/proposals/{id}/approve</code>.</li>
+  <li>Reduce <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> / <code>RejectProposalAsync</code> to thin forwarders that call the handlers, or remove if no other caller remains.</li>
+  <li>Update any frontend references from <code>/personal-finance/graph/proposals/{id}/approve</code> (and the matching reject route) to the generic <code>/ai/proposals/{id}/approve</code> / <code>/ai/proposals/{id}/dismiss</code>.</li>
 </ol>
 
 <h2 id="tasks">8. Tasks</h2>
@@ -609,42 +890,52 @@ public async Task&lt;ProposalDetailResponse&gt; ApproveAsync(Guid proposalId, Ca
   <tbody>
     <tr>
       <td>1</td>
-      <td>Add <code>IProposalHandler</code>, <code>IProposalDispatcher</code>, <code>NoProposalHandlerRegisteredException</code>.</td>
+      <td>Add <code>IProposalHandler</code>, <code>IProposalRejectionHandler</code>, <code>IProposalDispatcher</code>, <code>IProposalRejectionDispatcher</code>, <code>ProposalHandlerResult</code>, <code>NoProposalHandlerRegisteredException</code>, <code>ProposalExecutionFailedException</code>.</td>
       <td><code>src/Aonik.SharedKernel/Abstractions/Agents/</code></td>
     </tr>
     <tr>
       <td>2</td>
-      <td>Implement <code>ProposalDispatcher</code>; register in <code>AgentsServiceCollectionExtensions</code>.</td>
-      <td><code>src/Aonik.Agents/Services/ProposalDispatcher.cs</code></td>
+      <td>Implement <code>ProposalDispatcher</code> and <code>ProposalRejectionDispatcher</code>; register in <code>AgentsServiceCollectionExtensions</code>.</td>
+      <td><code>src/Aonik.Agents/Services/</code></td>
     </tr>
     <tr>
       <td>3</td>
-      <td>Wire dispatcher into <code>ProposalApprovalService.ApproveAsync</code> with revert-on-failure.</td>
+      <td>Wire approval dispatcher into <code>ProposalApprovalService.ApproveAsync</code>: revert on exception, revert on <code>Applied = false</code>, return <code>AppliedResourceType</code> / <code>AppliedResourceId</code> in the response.</td>
       <td><code>src/Aonik.Agents/Services/ProposalApprovalService.cs</code></td>
     </tr>
     <tr>
       <td>4</td>
-      <td>Create FLG handler; register it; reduce inference service body to forwarder.</td>
-      <td><code>src/Aonik.PersonalFinance/Services/PersonalFinance/</code></td>
+      <td>Wire rejection dispatcher into <code>ProposalApprovalService.DismissAsync</code>: status stays Rejected on handler failure, exception bubbles.</td>
+      <td><code>src/Aonik.Agents/Services/ProposalApprovalService.cs</code></td>
     </tr>
     <tr>
       <td>5</td>
-      <td>Remove FLG-specific approve / reject endpoints; update Payabo / Admin UI references.</td>
-      <td><code>src/Aonik.PersonalFinance/Endpoints/</code>, frontend</td>
+      <td>Extend <code>ProposalDetailResponse</code> with nullable <code>AppliedResourceType</code> / <code>AppliedResourceId</code>; populate from dispatcher result on approve.</td>
+      <td><code>src/Aonik.Agents/Contracts/Models/ProposalApprovalModels.cs</code></td>
     </tr>
     <tr>
       <td>6</td>
-      <td>Update <code>ApproveProposalEndpoint</code> to map <code>NoProposalHandlerRegisteredException</code> to 409 with structured body.</td>
-      <td><code>src/Aonik.Agents/Endpoints/ApproveProposalEndpoint.cs</code></td>
+      <td>Create FLG approval handler + FLG rejection handler; register both; reduce inference service bodies to forwarders.</td>
+      <td><code>src/Aonik.PersonalFinance/Services/PersonalFinance/</code></td>
     </tr>
     <tr>
       <td>7</td>
-      <td>Unit tests for dispatcher and the FLG handler parity.</td>
-      <td><code>tests/Aonik.Agents.Tests/</code>, <code>tests/Aonik.PersonalFinance.Tests/</code></td>
+      <td>Remove FLG-specific approve and reject endpoints; update Payabo / Admin UI references to the generic routes.</td>
+      <td><code>src/Aonik.PersonalFinance/Endpoints/</code>, frontend</td>
     </tr>
     <tr>
       <td>8</td>
-      <td>Integration test: approve FLG proposal through the generic endpoint and assert both rows transition.</td>
+      <td>Update <code>ApproveProposalEndpoint</code> to map <code>NoProposalHandlerRegisteredException</code> &rarr; HTTP 409 and <code>ProposalExecutionFailedException</code> &rarr; HTTP 422, both with structured bodies.</td>
+      <td><code>src/Aonik.Agents/Endpoints/ApproveProposalEndpoint.cs</code></td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>Unit tests: dispatcher happy path, missing-handler, handler-throws, handler-returns-Applied-false, rejection dispatcher with and without registered handler, FLG handler parity (both approval and rejection).</td>
+      <td><code>tests/Aonik.Agents.Tests/</code>, <code>tests/Aonik.Application.Tests/PersonalFinance/</code></td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>Integration tests: approve <em>and</em> dismiss an FLG proposal through the generic endpoints; assert both rows transition correctly in each case.</td>
       <td><code>tests/Aonik.Api.Tests/</code></td>
     </tr>
   </tbody>
@@ -654,19 +945,23 @@ public async Task&lt;ProposalDetailResponse&gt; ApproveAsync(Guid proposalId, Ca
 
 <ul>
   <li><code>dotnet build Aonik.sln</code> and <code>dotnet test Aonik.sln</code> succeed.</li>
-  <li>Approving any <code>FinancialLifeGraphAnnotation</code> proposal via <code>POST /ai/proposals/{id}/approve</code> activates the underlying FLG node and edge.</li>
-  <li>Approving a proposal whose <code>ProposalType</code> has no registered handler returns HTTP 409 and leaves the proposal in <code>Proposed</code>.</li>
-  <li>If a handler throws, the proposal is left in <code>Proposed</code> (status reverted), the approver / timestamp fields are cleared, and the exception bubbles to the endpoint.</li>
+  <li>Approving any <code>FinancialLifeGraphAnnotation</code> proposal via <code>POST /ai/proposals/{id}/approve</code> activates the underlying FLG node and edge, and the response carries <code>AppliedResourceType = "FinancialLifeGraphNode"</code> plus the resource id.</li>
+  <li>Dismissing any <code>FinancialLifeGraphAnnotation</code> proposal via <code>POST /ai/proposals/{id}/dismiss</code> moves both the proposal row and the FLG node/edge into their rejected states.</li>
+  <li>Approving a proposal whose <code>ProposalType</code> has no registered approval handler returns HTTP 409 and leaves the proposal in <code>Proposed</code>.</li>
+  <li>Dismissing a proposal whose <code>ProposalType</code> has no registered rejection handler succeeds (no error) &mdash; missing rejection handlers are not fatal.</li>
+  <li>If an approval handler throws, the proposal is left in <code>Proposed</code> (status reverted, approver / timestamp cleared) and the exception bubbles to the endpoint.</li>
+  <li>If an approval handler returns <code>Applied = false</code>, the proposal is left in <code>Proposed</code> and the endpoint returns HTTP 422 with the handler's <code>Message</code> in the body.</li>
+  <li>If a rejection handler throws, the proposal stays <code>Rejected</code> (the user's dismissal intent is preserved) and the dismiss endpoint returns HTTP 500 with a structured body that identifies the proposal id and states that cleanup failed and requires manual intervention.</li>
   <li>No code in <code>Aonik.Agents</code> references <code>FinancialLifeGraphAnnotation</code> or any other module-specific proposal type by name.</li>
-  <li><code>ApproveFinancialLifeGraphProposalEndpoint</code> and its reject counterpart are removed; the admin UI / Payabo references the generic route.</li>
-  <li>Adding a hypothetical new proposal type requires one handler class + one <code>AddKeyedScoped</code> line, with no edits to <code>Aonik.Agents</code> or <code>Aonik.SharedKernel</code>.</li>
+  <li><code>ApproveFinancialLifeGraphProposalEndpoint</code> and its reject counterpart are removed; the admin UI / Payabo reference the generic routes.</li>
+  <li>Adding a hypothetical new proposal type requires one approval handler class + one <code>AddKeyedScoped&lt;IProposalHandler&gt;</code> line (and optionally one rejection handler + line if the type needs cleanup), with no edits to <code>Aonik.Agents</code> or <code>Aonik.SharedKernel</code>.</li>
 </ul>
 
 <h2 id="open">10. Open decisions</h2>
 
-<div class="callout open">
-  <span class="callout-label">Open</span>
-  Should handlers be allowed to <em>reject</em> a proposal at execution time (e.g. payload references a deleted entity)? Current proposal: they throw, the proposal reverts to <code>Proposed</code>, and the user has to explicitly dismiss. Alternative: a handler can return a <code>HandlerResult { Status = Failed, Reason = "..." }</code> that moves the proposal to a new <code>Failed</code> state. The alternative requires a fourth value on <code>ProposalStatus</code>.
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Handler failure-signal shape.</strong> Earlier draft asked whether handlers should throw or return a structured failure. Resolved in favour of <em>both</em>: throw for unexpected errors (DB unavailable, partner API outage), return <code>Applied = false</code> for expected business reasons (payload references a deleted entity, idempotency conflict). The two get distinct HTTP status codes (500-class vs 422) so the UI and audit log can tell them apart. No new <code>ProposalStatus</code> value needed in v1; see &sect;6.4 for the future split.
 </div>
 
 <div class="callout open">
@@ -676,7 +971,7 @@ public async Task&lt;ProposalDetailResponse&gt; ApproveAsync(Guid proposalId, Ca
 
 <div class="callout open">
   <span class="callout-label">Open</span>
-  How should the dispatcher's failure-revert interact with the audit log? Today there is no explicit audit emission on approve. The clean answer is: emit two audit events (<code>proposal.approved</code> on flip, <code>proposal.execution_reverted</code> on handler failure) so an operator reading the log sees the full story. Confirm whether that fits the existing <code>IAuditLogWriter</code> contract before implementing.
+  How should the dispatcher's failure-revert interact with the audit log? Today there is no explicit audit emission on approve. A clean taxonomy would emit <code>proposal.approval_requested</code>, <code>proposal.approved</code>, <code>proposal.execution_succeeded</code>, <code>proposal.execution_failed</code>, <code>proposal.dismissed</code>, <code>proposal.rejection_cleanup_failed</code> &mdash; but that is a real design decision in its own right. Confirm shape against the existing <code>IAuditLogWriter</code> contract before implementing, and consider whether the taxonomy is better landed in a dedicated audit-spec.
 </div>
 
 <h2 id="refs">11. References</h2>
