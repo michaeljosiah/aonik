@@ -24,13 +24,11 @@ internal class UpdateCommunicationProviderSettingsEndpoint
         {
             s.Summary = "Update communication provider settings";
             s.Description =
-                "Accepts per-channel update payloads for symmetry with the auth provider "
-                + "endpoint. The service currently rejects writes (returns 400 with a "
-                + "'configuration-managed' message) — operators set the underlying "
-                + "Communication:Email:* and Communication:Sms:* keys via appsettings / "
-                + "environment variables.";
-            s.Response(200, "Settings updated (reserved — not currently reachable)");
-            s.Response(400, "Configuration-managed; updates rejected");
+                "Accepts per-channel update payloads for the implemented communication "
+                + "provider connectors. Email and SMS active providers are stored separately; "
+                + "secrets are write-only and reported back as Has* flags.";
+            s.Response(200, "Settings updated");
+            s.Response(400, "Invalid request");
             s.Response(401, "Not authenticated");
         });
         Options(x => x.WithTags("Settings"));

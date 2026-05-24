@@ -1,5 +1,6 @@
 using Aonik.Platform.Contracts.Services.Notifications;
 using Fluid;
+using Mjml.Net;
 
 namespace Aonik.Infrastructure.Notifications;
 
@@ -18,11 +19,13 @@ namespace Aonik.Infrastructure.Notifications;
 public class FluidNotificationTemplateRenderer : INotificationTemplateRenderer
 {
     private readonly FluidParser _parser;
+    private readonly MjmlRenderer _mjmlRenderer;
     private readonly TemplateOptions _options;
 
     public FluidNotificationTemplateRenderer()
     {
         _parser = new FluidParser();
+        _mjmlRenderer = new MjmlRenderer();
         _options = new TemplateOptions();
 
         // Allow nested dictionary walks — e.g. base-template composition
@@ -47,6 +50,32 @@ public class FluidNotificationTemplateRenderer : INotificationTemplateRenderer
 
         var context = new TemplateContext(model, _options);
 
-        return await parsed.RenderAsync(context);
+        var rendered = await parsed.RenderAsync(context);
+        if (!LooksLikeMjml(rendered))
+        {
+            return rendered;
+        }
+
+        var options = new MjmlOptions
+        {
+            Beautify = true,
+            KeepComments = false
+        };
+        var (html, errors) = _mjmlRenderer.Render(rendered, options);
+
+        if (errors.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"MJML rendering failed: {string.Join("; ", errors.Select(error => error.Error))}");
+        }
+
+        return html;
+    }
+
+    private static bool LooksLikeMjml(string value)
+    {
+        var trimmed = value.TrimStart();
+        return trimmed.StartsWith("<mjml", StringComparison.OrdinalIgnoreCase)
+               || trimmed.Contains("<mjml", StringComparison.OrdinalIgnoreCase);
     }
 }

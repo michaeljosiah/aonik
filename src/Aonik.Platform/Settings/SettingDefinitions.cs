@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using Aonik.Platform.Services.Settings;
 using Aonik.SharedKernel.Abstractions.Settings;
 
+using CommunicationServiceSettingNames = Aonik.Platform.Services.Settings.CommunicationSettingNames;
+
 namespace Aonik.Platform.Settings;
 
 public static class SettingDefinitions
@@ -40,6 +42,14 @@ public static class SettingDefinitions
             [AuthSettingNames.KeycloakAdminClientSecret] = new SettingDefinition(AuthSettingNames.KeycloakAdminClientSecret, IsEncrypted: true),
 
             // ── Communication ─────────────────────────────────────────────
+            [CommunicationServiceSettingNames.EmailProvider] = new SettingDefinition(CommunicationServiceSettingNames.EmailProvider, "AzureCommunicationServices"),
+            [CommunicationServiceSettingNames.EmailAzureConnectionString] = new SettingDefinition(CommunicationServiceSettingNames.EmailAzureConnectionString, IsEncrypted: true),
+            [CommunicationServiceSettingNames.EmailAzureFromAddress] = new SettingDefinition(CommunicationServiceSettingNames.EmailAzureFromAddress),
+            [CommunicationServiceSettingNames.SmsProvider] = new SettingDefinition(CommunicationServiceSettingNames.SmsProvider, "AzureCommunicationServices"),
+            [CommunicationServiceSettingNames.SmsAzureConnectionString] = new SettingDefinition(CommunicationServiceSettingNames.SmsAzureConnectionString, IsEncrypted: true),
+            [CommunicationServiceSettingNames.SmsAzureFromPhoneNumber] = new SettingDefinition(CommunicationServiceSettingNames.SmsAzureFromPhoneNumber),
+
+            // Legacy ACS keys retained so existing deployments continue to resolve appsettings/env configuration.
             [CommunicationSettingNames.AzureEmailFromAddress] = new SettingDefinition(CommunicationSettingNames.AzureEmailFromAddress),
             [CommunicationSettingNames.AzureSmsFromPhoneNumber] = new SettingDefinition(CommunicationSettingNames.AzureSmsFromPhoneNumber),
 

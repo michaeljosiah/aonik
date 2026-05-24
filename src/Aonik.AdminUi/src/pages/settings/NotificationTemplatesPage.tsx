@@ -73,9 +73,12 @@ function ChannelBadge({ channel }: { channel: string }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════════════════════════════════
+type TemplateAuthoringFormat = 'MJML' | 'HTML' | 'Text';
+
 interface TemplateForm {
   name: string;
   channel: string;
+  authoringFormat: TemplateAuthoringFormat;
   subjectTemplate: string;
   bodyTemplate: string;
   description: string;
@@ -86,6 +89,7 @@ interface TemplateForm {
 const emptyForm: TemplateForm = {
   name: '',
   channel: 'Email',
+  authoringFormat: 'MJML',
   subjectTemplate: '',
   bodyTemplate: '',
   description: '',
@@ -108,6 +112,51 @@ const emptyBindingForm: BindingForm = {
   overrideTemplateId: '',
   isEnabled: true,
 };
+
+const defaultMjmlTemplate = `<mjml>
+  <mj-head>
+    <mj-preview>{{ tenant_name }} notification for {{ first_name }}</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="Inter, Arial, sans-serif" />
+      <mj-text font-size="15px" line-height="24px" color="#263238" />
+      <mj-button background-color="#4f46e5" border-radius="10px" font-weight="600" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f5f7fb">
+    <mj-section padding="32px 20px 12px">
+      <mj-column>
+        <mj-text font-size="13px" color="#64748b" padding-bottom="8px">{{ tenant_name }}</mj-text>
+        <mj-text font-size="28px" line-height="34px" font-weight="700" color="#111827">Hi {{ first_name }},</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#ffffff" border-radius="18px" padding="28px">
+      <mj-column>
+        <mj-text>Your account at {{ tenant_name }} is ready.</mj-text>
+        <mj-button href="{{ confirmation_url }}" padding-top="16px">Continue</mj-button>
+        <mj-text font-size="12px" color="#64748b" padding-top="18px">This link expires in {{ expiry_hours }} hours.</mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>`;
+
+const defaultHtmlTemplate = '<h1>Welcome, {{ first_name }}!</h1>\n<p>Your account at {{ tenant_name }} is ready.</p>';
+const defaultSmsTemplate = '{{ tenant_name }}: Your verification code is {{ otp_code }}. It expires in {{ expiry_minutes }} minutes.';
+
+function looksLikeMjml(value: string): boolean {
+  const trimmed = value.trimStart();
+  return trimmed.startsWith('<mjml') || trimmed.includes('<mjml');
+}
+
+function inferAuthoringFormat(channel: string, bodyTemplate: string): TemplateAuthoringFormat {
+  if (channel === 'SMS') return 'Text';
+  if (channel === 'Email' && looksLikeMjml(bodyTemplate)) return 'MJML';
+  return 'HTML';
+}
+
+function getDefaultBodyTemplate(channel: string, authoringFormat: TemplateAuthoringFormat): string {
+  if (channel === 'SMS') return defaultSmsTemplate;
+  return authoringFormat === 'MJML' ? defaultMjmlTemplate : defaultHtmlTemplate;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Page
@@ -132,7 +181,7 @@ export function NotificationTemplatesPage() {
   const [collapsedChannels, setCollapsedChannels] = useState<Record<string, boolean>>({});
 
   // ── Preview state ──────────────────────────────────────────────────────
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(true);
   const [sampleJson, setSampleJson] = useState('{\n  "first_name": "Amara",\n  "tenant_name": "Payabo",\n  "otp_code": "482910",\n  "confirmation_url": "https://app.payabo.com/confirm?token=abc123",\n  "expiry_hours": 24,\n  "expiry_minutes": 10\n}');
   const [previewResult, setPreviewResult] = useState<{ subject: string; body: string } | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -195,6 +244,7 @@ export function NotificationTemplatesPage() {
       setForm({
         name: detail.name,
         channel: detail.channel,
+        authoringFormat: inferAuthoringFormat(detail.channel, detail.bodyTemplate),
         subjectTemplate: detail.subjectTemplate,
         bodyTemplate: detail.bodyTemplate,
         description: detail.description,
@@ -219,7 +269,8 @@ export function NotificationTemplatesPage() {
     setSelectedId(null);
     setSelectedDetail(null);
     setIsCreating(true);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, bodyTemplate: defaultMjmlTemplate });
+    setPreviewOpen(true);
     setDirty(false);
     setPreviewResult(null);
   }
@@ -228,6 +279,23 @@ export function NotificationTemplatesPage() {
   function updateForm(patch: Partial<TemplateForm>) {
     setForm((prev) => ({ ...prev, ...patch }));
     setDirty(true);
+  }
+
+  function updateChannel(channel: string) {
+    const authoringFormat = inferAuthoringFormat(channel, form.bodyTemplate);
+    const bodyTemplate = form.bodyTemplate.trim()
+      ? form.bodyTemplate
+      : getDefaultBodyTemplate(channel, authoringFormat);
+
+    updateForm({ channel, authoringFormat, bodyTemplate });
+  }
+
+  function updateAuthoringFormat(authoringFormat: TemplateAuthoringFormat) {
+    const bodyTemplate = form.bodyTemplate.trim()
+      ? form.bodyTemplate
+      : getDefaultBodyTemplate(form.channel, authoringFormat);
+
+    updateForm({ authoringFormat, bodyTemplate });
   }
 
   // ── Save ───────────────────────────────────────────────────────────────
@@ -508,7 +576,7 @@ export function NotificationTemplatesPage() {
           <div>
             <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Notification Templates</h1>
             <p className="text-xs text-[var(--color-text-secondary)]">
-              Manage email, SMS, and push notification templates with Liquid syntax
+              Manage email MJML, SMS text, and push templates with Liquid syntax
             </p>
           </div>
         </div>
@@ -694,7 +762,7 @@ export function NotificationTemplatesPage() {
                           <Label htmlFor="tpl-channel" className="text-xs">Channel</Label>
                           <Select
                             value={form.channel}
-                            onValueChange={(v) => updateForm({ channel: v })}
+                            onValueChange={(v) => updateChannel(v)}
                           >
                             <SelectTrigger id="tpl-channel" className="h-9">
                               <SelectValue />
@@ -760,21 +828,66 @@ export function NotificationTemplatesPage() {
                       </div>
                     )}
 
+                    {form.channel === 'Email' && (
+                      <Card>
+                        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-[var(--color-text-primary)]">Email authoring format</p>
+                              <Badge variant="outline">Preview compiles MJML</Badge>
+                            </div>
+                            <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
+                              MJML is stored as the email body template, rendered with Liquid variables, then compiled to responsive HTML for preview and send.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={form.authoringFormat === 'MJML' ? 'default' : 'outline'}
+                              onClick={() => updateAuthoringFormat('MJML')}
+                            >
+                              MJML
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={form.authoringFormat === 'HTML' ? 'default' : 'outline'}
+                              onClick={() => updateAuthoringFormat('HTML')}
+                            >
+                              HTML
+                            </Button>
+                            {form.authoringFormat === 'MJML' && !looksLikeMjml(form.bodyTemplate) && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => updateForm({ bodyTemplate: defaultMjmlTemplate })}
+                              >
+                                Insert starter
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
                     {/* Body template */}
                     <div className="space-y-1.5 flex-1">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="tpl-body" className="text-xs">Body Template</Label>
+                        <Label htmlFor="tpl-body" className="text-xs">
+                          {form.authoringFormat === 'MJML' ? 'MJML Body Template' : form.authoringFormat === 'Text' ? 'Text Body Template' : 'HTML Body Template'}
+                        </Label>
                         <span className="text-[10px] text-[var(--color-text-tertiary)]">
-                          Liquid syntax: {'{{ variable }}'} {'{% if condition %}...{% endif %}'} {'{% for item in list %}...{% endfor %}'}
+                          {form.authoringFormat === 'MJML'
+                            ? 'MJML + Liquid syntax: <mj-section>, <mj-column>, {{ variable }}'
+                            : `Liquid syntax: {{ variable }} {% if condition %}...{% endif %} {% for item in list %}...{% endfor %}`}
                         </span>
                       </div>
                       <Textarea
                         id="tpl-body"
-                        placeholder={form.channel === 'SMS'
-                          ? '{{ tenant_name }}: Your verification code is {{ otp_code }}. It expires in {{ expiry_minutes }} minutes.'
-                          : '<h1>Welcome, {{ first_name }}!</h1>\n<p>Your account at {{ tenant_name }} is ready.</p>'
-                        }
-                        className="min-h-[320px] font-mono text-sm leading-relaxed resize-y"
+                        placeholder={getDefaultBodyTemplate(form.channel, form.authoringFormat)}
+                        className="min-h-[420px] font-mono text-sm leading-relaxed resize-y"
                         value={form.bodyTemplate}
                         onChange={(e) => updateForm({ bodyTemplate: e.target.value })}
                       />
@@ -815,11 +928,16 @@ export function NotificationTemplatesPage() {
 
                   {/* Preview panel (collapsible right side) */}
                   {previewOpen && (
-                    <div className="w-[380px] flex-shrink-0 border-l border-[var(--color-border)] flex flex-col bg-[var(--color-surface-inset)]">
+                    <div className="w-[440px] flex-shrink-0 border-l border-[var(--color-border)] flex flex-col bg-[var(--color-surface-inset)]">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
-                        <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wide">
-                          Live Preview
-                        </h3>
+                        <div>
+                          <h3 className="text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wide">
+                            Preview Window
+                          </h3>
+                          <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+                            {form.authoringFormat === 'MJML' ? 'Liquid rendered, MJML compiled to HTML' : 'Liquid rendered output'}
+                          </p>
+                        </div>
                         <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={runPreview} disabled={previewing}>
                           {previewing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Refresh'}
                         </Button>
@@ -865,11 +983,14 @@ export function NotificationTemplatesPage() {
                                   </div>
                                 </div>
                               ) : (
-                                /* Email/Push HTML preview */
-                                <div
-                                  className="bg-white rounded-sm border border-[var(--color-border)] p-4 text-sm prose prose-sm max-w-none"
-                                  dangerouslySetInnerHTML={{ __html: previewResult.body }}
-                                />
+                                <div className="overflow-hidden rounded-sm border border-[var(--color-border)] bg-white">
+                                  <iframe
+                                    title="Rendered notification preview"
+                                    sandbox=""
+                                    srcDoc={previewResult.body}
+                                    className="h-[520px] w-full bg-white"
+                                  />
+                                </div>
                               )}
                             </div>
                           </div>

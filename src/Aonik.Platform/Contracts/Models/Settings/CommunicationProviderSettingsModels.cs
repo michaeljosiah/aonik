@@ -29,11 +29,8 @@ public record AzureSmsSettingsSnapshot(
     string? FromPhoneNumber);
 
 /// <summary>
-/// Update payload. The service currently rejects all writes
-/// (configuration-managed via env vars) — see
-/// <see cref="Services.Settings.CommunicationProviderSettingsService.UpdateAsync"/>.
-/// Records exist for contract symmetry with the auth provider
-/// pattern.
+/// Update payload. Secrets are write-only: blank/null secret values keep
+/// the existing stored secret, while non-empty values replace it.
 /// </summary>
 public record CommunicationProviderSettingsUpdate(
     EmailChannelSettingsUpdate? Email,

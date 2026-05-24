@@ -7,10 +7,8 @@ import type {
 } from '@/types';
 
 /**
- * Backs the SettingsCommunicationPage. Mirrors authProviderSettingsService
- * — read-only viewer for now (the backend `update` endpoint rejects
- * writes with a "configuration-managed; use env vars" message, matching
- * the auth provider pattern).
+ * Backs the SettingsCommunicationPage. Secrets are write-only: leave
+ * secret fields empty to keep existing provider credentials.
  */
 export const communicationProviderSettingsService = {
   get: async (): Promise<CommunicationProviderSettingsResponse> => {

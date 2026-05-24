@@ -1,5 +1,6 @@
 using Aonik.Platform.Contracts.Models.Messaging;
-using Aonik.Platform.Contracts.Services.Messaging;
+using Aonik.Platform.Contracts.Models.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
@@ -15,13 +16,13 @@ namespace Aonik.Platform.Endpoints.Admin.Messaging;
 /// </summary>
 internal sealed class MessagingHealthEndpoint : EndpointWithoutRequest<MessagingHealthResponse>
 {
-    private readonly IEmailSender _emailSender;
-    private readonly ISmsSender _smsSender;
+    private const string AzureCommunicationServices = "AzureCommunicationServices";
 
-    public MessagingHealthEndpoint(IEmailSender emailSender, ISmsSender smsSender)
+    private readonly ICommunicationProviderSettingsService _settingsService;
+
+    public MessagingHealthEndpoint(ICommunicationProviderSettingsService settingsService)
     {
-        _emailSender = emailSender;
-        _smsSender = smsSender;
+        _settingsService = settingsService;
     }
 
     public override void Configure()
@@ -42,18 +43,73 @@ internal sealed class MessagingHealthEndpoint : EndpointWithoutRequest<Messaging
         Options(x => x.WithTags("Messaging"));
     }
 
-    public override Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
+        var settings = await _settingsService.GetAsync(ct);
         var response = new MessagingHealthResponse(
-            Email: new MessagingChannelHealth(
-                Configured: _emailSender.IsConfigured,
-                Provider: _emailSender.ProviderName,
-                Reason: _emailSender.UnconfiguredReason),
-            Sms: new MessagingChannelHealth(
-                Configured: _smsSender.IsConfigured,
-                Provider: _smsSender.ProviderName,
-                Reason: _smsSender.UnconfiguredReason));
+            Email: BuildEmailHealth(settings.Email),
+            Sms: BuildSmsHealth(settings.Sms));
 
-        return Send.OkAsync(response, ct);
+        await Send.OkAsync(response, ct);
+    }
+
+    private static MessagingChannelHealth BuildEmailHealth(EmailChannelSettingsSnapshot settings)
+    {
+        if (!string.Equals(settings.ActiveProvider, AzureCommunicationServices, StringComparison.OrdinalIgnoreCase))
+        {
+            return new MessagingChannelHealth(
+                Configured: false,
+                Provider: settings.ActiveProvider,
+                Reason: $"Email provider '{settings.ActiveProvider}' is selected, but no email connector is registered for it.");
+        }
+
+        var azure = settings.AzureCommunicationServices;
+        if (azure?.HasConnectionString != true)
+        {
+            return new MessagingChannelHealth(
+                Configured: false,
+                Provider: settings.ActiveProvider,
+                Reason: "Communication.Email.AzureCommunicationServices.ConnectionString is missing.");
+        }
+
+        if (string.IsNullOrWhiteSpace(azure.FromAddress))
+        {
+            return new MessagingChannelHealth(
+                Configured: false,
+                Provider: settings.ActiveProvider,
+                Reason: "Communication.Email.AzureCommunicationServices.FromAddress is missing.");
+        }
+
+        return new MessagingChannelHealth(Configured: true, Provider: settings.ActiveProvider, Reason: null);
+    }
+
+    private static MessagingChannelHealth BuildSmsHealth(SmsChannelSettingsSnapshot settings)
+    {
+        if (!string.Equals(settings.ActiveProvider, AzureCommunicationServices, StringComparison.OrdinalIgnoreCase))
+        {
+            return new MessagingChannelHealth(
+                Configured: false,
+                Provider: settings.ActiveProvider,
+                Reason: $"SMS provider '{settings.ActiveProvider}' is selected, but no SMS connector is registered for it.");
+        }
+
+        var azure = settings.AzureCommunicationServices;
+        if (azure?.HasConnectionString != true)
+        {
+            return new MessagingChannelHealth(
+                Configured: false,
+                Provider: settings.ActiveProvider,
+                Reason: "Communication.Sms.AzureCommunicationServices.ConnectionString is missing.");
+        }
+
+        if (string.IsNullOrWhiteSpace(azure.FromPhoneNumber))
+        {
+            return new MessagingChannelHealth(
+                Configured: false,
+                Provider: settings.ActiveProvider,
+                Reason: "Communication.Sms.AzureCommunicationServices.FromPhoneNumber is missing.");
+        }
+
+        return new MessagingChannelHealth(Configured: true, Provider: settings.ActiveProvider, Reason: null);
     }
 }

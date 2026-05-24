@@ -210,8 +210,8 @@ public static class DependencyInjection
         services.AddScoped<IAuthTokenServiceFactory, AuthTokenServiceFactory>();
         services.AddScoped<IIdpPasswordResetServiceFactory, IdpPasswordResetServiceFactory>();
         services.AddScoped<IIdpAccountServiceFactory, IdpAccountServiceFactory>();
-        services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
-        services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
+        services.AddScoped<IEmailSender, AzureCommunicationEmailSender>();
+        services.AddScoped<ISmsSender, AzureCommunicationSmsSender>();
         services.AddSingleton<INotificationTemplateRenderer, FluidNotificationTemplateRenderer>();
         services.AddHttpClient<IPushNotificationSender, FirebasePushNotificationSender>();
 
