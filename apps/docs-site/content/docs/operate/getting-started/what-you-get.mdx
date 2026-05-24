@@ -1,17 +1,17 @@
 ---
 title: What you get out of the box
-description: The platform modules Aonik ships with, plus what works locally vs what needs external integration.
+description: The Core capabilities and shipped domain modules Aonik includes, plus what works locally vs what needs external integration.
 ---
 
-A module-by-module view of what the platform gives you on day one, and which third parties you actually need accounts with.
+A module-by-module view of what the platform gives you on day one, and which third parties you actually need accounts with. AONIK Core provides the shared substrate; Finance and PersonalFinance are the first shipped domain modules.
 
 <Callout type="info">
   Before you decide which integration to wire first, it helps to see what Aonik already does without external dependencies.
 </Callout>
 
-## Platform modules
+## Core capabilities and domain modules
 
-Each module owns a coherent slice of the platform. You don't enable or disable them — they are always present. What varies is which capabilities you expose to end-users through feature flags and configuration.
+Each module owns a coherent slice of the platform. You don't enable or disable them - they are always present. What varies is which capabilities you expose to end-users through feature flags and configuration.
 
 | Module                   | What it gives you                                                                                  |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |
@@ -23,11 +23,12 @@ Each module owns a coherent slice of the platform. You don't enable or disable t
 | **Reference Data**       | Countries, currencies, biller catalogue, custom reference lists.                                   |
 | **Registration**         | Self-serve user onboarding flows, phone OTP, configurable per-country registration.                |
 | **Audit log**            | Append-only record of significant operator and user actions, captured automatically.               |
+| **Shared Human Context** | Current substrate for cross-domain context: households, goals, documents, notifications, settings, workflows, approvals, and user memory. |
 | **Orders**               | Canonical record of a requested financial service. Type-aware, multi-party, lifecycle-tracked.     |
 | **Payments**             | Payment intents and executed payments against orders, abstracted across providers.                 |
 | **Ledger**               | Per-tenant double-entry ledger with immutable journal entries — the source of financial truth.      |
 | **Billing & Invoicing**  | Invoice lifecycle, line items, allocations, dunning, autonumbering.                                |
-| **Personal Finance**     | Sibling module to Finance. Linked-account ingestion, transactions, categorisation, financial life graph, household sharing, customer insights. Powers the Payabo product. |
+| **Personal Finance**     | Sibling domain module to Finance. Linked-account ingestion, transactions, categorisation, financial life graph, household sharing, customer insights. Powers the Payabo product. |
 | **Catalog**              | Billers, services, dynamic service fields, biller categories.                                      |
 | **Pricing & FX**         | FX quotes with expiry, fee policies, pricing quotes.                                               |
 | **Partners**             | Correspondent / payout partner registry with routing rules.                                        |

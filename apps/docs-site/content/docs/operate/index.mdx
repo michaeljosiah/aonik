@@ -1,30 +1,31 @@
 ---
 title: Operate
-description: Run Aonik. Install the platform, configure identity and integrations, monitor jobs, and keep tenants healthy.
+description: Run Aonik. Understand the platform model, install it, configure identity and integrations, monitor jobs, and keep tenants healthy.
 ---
 
-You are the engineer running an Aonik deployment. This tab covers everything from "git clone" to "production at 3am" — installing, configuring identity, wiring integrations, monitoring, and contributing back to the codebase.
+You are the engineer running an Aonik deployment. This tab covers everything from "git clone" to "production at 3am" - understanding the platform model, installing it, configuring identity, wiring integrations, monitoring, and contributing back to the codebase.
 
 If you are integrating *with* a hosted Aonik tenant from your own application, switch to [Build with the API](/docs/api). If you are administering a single tenant from the Admin UI, switch to [Tenant admin](/docs/tenant-admin).
 
 ## Start here
 
 - **Brand new?** [Welcome](/docs/operate/getting-started/welcome) explains what Aonik is and who these docs are for.
+- **Want the vision?** [Product vision and platform model](/docs/operate/getting-started/platform-vision) explains AONIK Core, domain modules, product experiences, and the long-term cross-domain direction.
 - **Need it running locally?** [Quickstart](/docs/operate/getting-started/quickstart) gets you to a bootstrapped tenant in about 15 minutes.
 - **Want the moving parts?** [Architecture at a glance](/docs/operate/getting-started/architecture-at-a-glance) is a single page.
 - **Skimming for vocabulary?** [Glossary](/docs/operate/getting-started/glossary) defines every canonical term.
 
 ## The path through this tab
 
-1. **Getting Started** — orient, run the Quickstart, learn the platform vocabulary.
-2. **Install & Configure** — every supported install path, with deterministic per-step commands.
-3. **Identity & Access** — pick an IdP, wire users and roles.
-4. **Integrations** — Plaid, Stripe, Twilio, Firebase, ElevenLabs, AI providers, Qdrant, webhooks.
-5. **Core Concepts** — the platform model, conceptual reference.
-6. **Platform Capabilities** — per-module reference (Ledger, Orders, Payments, Billing, …).
-7. **AI Platform** — providers, prompts, tools, AiRuns, approval workflows.
-8. **Operations** — jobs, observability, audits, alerts, deploys, scaling.
-9. **CLI** — terminal-driven agent runs and approvals.
-10. **For Contributors** — architecture deep dive and ADRs for engineers writing Aonik itself.
+1. **Getting Started** - orient, understand the platform vision, run the Quickstart, learn the vocabulary.
+2. **Install & Configure** - every supported install path, with deterministic per-step commands.
+3. **Identity & Access** - pick an IdP, wire users and roles.
+4. **Integrations** - Plaid, Stripe, Twilio, Firebase, ElevenLabs, AI providers, Qdrant, webhooks.
+5. **Core Concepts** - AONIK Core, modules, tenancy, shared human primitives, AI governance.
+6. **Platform Capabilities** - per-module reference for Core capabilities and shipped domain modules.
+7. **AI Platform** - providers, prompts, tools, AiRuns, approval workflows.
+8. **Operations** - jobs, observability, audits, alerts, deploys, scaling.
+9. **CLI** - terminal-driven agent runs and approvals.
+10. **For Contributors** - architecture deep dive and ADRs for engineers writing Aonik itself.
 
 Most sections currently show a **Coming soon** placeholder. Each one names the audience and links to the pre-rewrite source material in `apps/docs-site/docs.old/` until the new pages land.

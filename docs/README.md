@@ -1,6 +1,6 @@
 # AONIK Documentation
 
-Welcome to the AONIK documentation. This guide covers the architecture, features, and development practices of the AONIK financial infrastructure platform.
+Welcome to the AONIK documentation. This guide covers the architecture, features, and development practices of the AONIK modular AI intelligence platform. Finance is the first shipped domain, but the platform model is broader: Core intelligence and governance capabilities support reusable domain modules and product experiences.
 
 ## Quick Links
 

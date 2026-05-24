@@ -1,16 +1,25 @@
 # Architecture Overview
 
-AONIK is a **module-first modular monolith** — an AI-native financial platform where each business domain lives in a self-contained module project.
+AONIK is a **module-first modular monolith** implementation of a modular AI intelligence platform. AONIK Core provides shared identity, memory, workflows, governance, AI routing, agents, approvals, and shared human primitives; Finance and PersonalFinance are the first shipped domain modules.
 
 See [ADR-005](../decisions/005-adopt-module-first-modular-monolith.md) for the full decision record.
 
 ## Key Characteristics
 
 - **Module-first**: Each domain owns its entities, services, endpoints, and persistence in a single project
+- **Platform-layered**: AONIK Core capabilities support reusable domain modules and product experiences
 - **Anemic domain model**: Entities are data containers; all business logic lives in services
 - **Module-scoped DbContexts**: Each module owns a DbContext over a shared physical database
 - **AI-native**: Microsoft Agent Framework (MAF) for agents, tools, and MCP servers; `ApprovalRequiredAIFunction` for human-in-the-loop
 - **Auditable**: All AI operations are traceable via `AuditMiddleware` + `IAiRunWriter`; `IDomainAgentDescriptor` pattern for agent registration
+
+## Conceptual Layers
+
+| Layer | Role |
+|--------|------|
+| AONIK Core | Domain-agnostic intelligence and orchestration substrate: identity, memory, workflows, governance, AI routing, agents, approvals, tasks, notifications, and shared human primitives. |
+| Domain Modules | Specialised systems that own domain truth, operations, workflows, policies, agents, and intelligence. Finance and PersonalFinance are the first shipped modules. |
+| Product Experiences | Curated applications such as Payabo, MyBillAfrica, and RemitExchange that package Core and one or more domain modules for a market or workflow. |
 
 ## Module Map
 

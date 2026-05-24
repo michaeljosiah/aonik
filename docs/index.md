@@ -7,6 +7,7 @@ Welcome to the AONIK documentation. The main navigation hub is [README.md](READM
 - **[README.md](README.md)** — Full documentation navigation
 - **[Getting Started](guides/getting-started.md)** — Setup and first run
 - **[Architecture Overview](architecture/overview.md)** — Modular monolith design
+- **[Product Vision](../apps/docs-site/content/docs/operate/getting-started/platform-vision.mdx)** — AONIK Core, domain modules, product experiences, and cross-domain direction
 - **[Financial Life Graph](features/financial-life-graph.md)** — Personal-finance graph context and reasoning layer
 - **[AGENTS.md](../AGENTS.md)** — Coding guidelines for AI agents and developers
 
@@ -38,8 +39,9 @@ dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-pro
 aonik/
 ├── src/
 │   ├── Aonik.SharedKernel/     # Cross-cutting primitives, interfaces, events
-│   ├── Aonik.Platform/          # Platform module (Identity, Party, Compliance, etc.)
-│   ├── Aonik.Finance/           # Finance module (Billing, Ledger, Payments, Orders, etc.)
+│   ├── Aonik.Platform/          # Core platform module (Identity, Party, Compliance, etc.)
+│   ├── Aonik.Finance/           # Finance domain module (Billing, Ledger, Payments, Orders, etc.)
+│   ├── Aonik.PersonalFinance/   # Personal finance domain module (Households, transactions, goals)
 │   ├── Aonik.Ai/               # AI module (providers, models, prompts, evals)
 │   ├── Aonik.Agents/           # Agents module (agents, proposals, orchestration)
 │   ├── Aonik.Application/      # Shared application abstractions

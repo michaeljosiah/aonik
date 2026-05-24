@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Payabo — Three-Month Plan to August 2026 Launch</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --muted: #6b6b6b;
+    --rule: #e3e3e0;
+    --bg: #fdfcf9;
+    --card: #ffffff;
+    --accent: #1f4d3f;
+    --warn: #8a4b00;
+    --danger: #8a1f1f;
+    --success: #1f5f3a;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.62 "Charter", "Iowan Old Style", Georgia, serif;
+  }
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 56px 36px 120px;
+  }
+  header.cover {
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 36px;
+    padding-bottom: 28px;
+  }
+  header.cover .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+    margin-bottom: 14px;
+  }
+  header.cover h1 {
+    font-size: 38px;
+    line-height: 1.18;
+    margin: 0 0 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  header.cover .lede {
+    color: var(--ink-soft);
+    font-size: 18px;
+    max-width: 60ch;
+  }
+  header.cover .meta {
+    margin-top: 22px;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+  }
+  h2 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin: 56px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h2 .num {
+    color: var(--muted);
+    font-weight: 400;
+    margin-right: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 600;
+    margin: 32px 0 6px;
+    color: var(--ink);
+  }
+  h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 22px 0 4px;
+    color: var(--ink);
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+  }
+  p { margin: 10px 0 16px; }
+  ul, ol { margin: 8px 0 18px; padding-left: 26px; }
+  li { margin: 6px 0; }
+  li > p { margin: 6px 0; }
+  code, .mono {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: #f3efe7;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #2b2b2b;
+  }
+  strong { font-weight: 600; }
+  em { font-style: italic; color: var(--ink-soft); }
+  .callout {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-radius: 2px;
+    font-size: 15px;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.danger { border-left-color: var(--danger); }
+  .callout.ok { border-left-color: var(--success); }
+  .callout .label {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .callout.warn .label { color: var(--warn); }
+  .callout.danger .label { color: var(--danger); }
+  .callout.ok .label { color: var(--success); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 22px;
+    font-size: 14px;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    background: #f3efe7;
+    font-weight: 600;
+    border-bottom: 1px solid #d8d4cc;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  td.status-real    { color: var(--success); font-weight: 600; }
+  td.status-partial { color: var(--warn);    font-weight: 600; }
+  td.status-stub    { color: var(--danger);  font-weight: 600; }
+  td.status-cut     { color: var(--muted);   font-weight: 600; }
+  .sprint {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 20px 24px 12px;
+    margin: 22px 0;
+    background: var(--card);
+  }
+  .sprint h3 {
+    margin-top: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .sprint h3 .dates {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 14px;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+  }
+  .sprint .lane {
+    margin-top: 14px;
+  }
+  .sprint .lane-title {
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    font-weight: 700;
+    margin: 0 0 6px;
+  }
+  .sprint .donot .lane-title { color: var(--danger); }
+  .sprint .lane ul {
+    margin: 4px 0 14px;
+    font-size: 14px;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+  }
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 16px 22px;
+    margin-bottom: 40px;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+    font-size: 14px;
+  }
+  .toc ol { margin: 6px 0; padding-left: 22px; }
+  .toc li { margin: 3px 0; }
+  .toc a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--muted); }
+  .toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  .footnote {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+  }
+  .risk-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 18px;
+    align-items: start;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .risk-row:last-child { border-bottom: 0; }
+  .risk-row .sev {
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 0;
+    border-top: 2px solid;
+    text-align: center;
+  }
+  .risk-row .sev.r1 { color: var(--danger);  border-color: var(--danger); }
+  .risk-row .sev.r2 { color: var(--warn);    border-color: var(--warn); }
+  .risk-row .sev.r3 { color: var(--accent);  border-color: var(--accent); }
+  .risk-row h4 { margin: 0 0 4px; font-size: 16px; }
+  .risk-row p  { margin: 4px 0 6px; font-size: 14px; }
+  .cuts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .cut-card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 14px 18px;
+  }
+  .cut-card h4 { margin: 0 0 4px; }
+  .cut-card .why {
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 4px 0 0;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+  }
+  @media (max-width: 640px) {
+    .page { padding: 30px 18px 80px; }
+    header.cover h1 { font-size: 28px; }
+    h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+<header class="cover">
+  <div class="eyebrow">Strategic Plan · Internal</div>
+  <h1>Payabo — From Code to Cohort by August 2026</h1>
+  <p class="lede">An honest, capacity-realistic three-month plan to put a working Payabo into the hands of fifty Nigerian-diaspora professionals in the UK, written from the code rather than from the slides.</p>
+  <div class="meta">
+    Written 24 May 2026 · Target launch 31 August 2026 · 14 weeks · Author: planning collaborator for Michael Josiah, founder
+  </div>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#exec">Executive Summary</a></li>
+    <li><a href="#state">Current State Assessment</a></li>
+    <li><a href="#mvp">MVP Definition</a></li>
+    <li><a href="#gaps">Gap Analysis</a></li>
+    <li><a href="#plan">Three-Month Plan</a></li>
+    <li><a href="#nonEng">Non-Engineering Workstream</a></li>
+    <li><a href="#risks">Risks and Mitigations</a></li>
+    <li><a href="#cuts">Recommended Cuts</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================== -->
+<section id="exec">
+<h2><span class="num">1.</span>Executive Summary</h2>
+
+<p>The AONIK platform is a great deal more <em>built</em> than it is <em>launchable</em>. The honest verdict, after walking the code rather than the docs, is this: you have spent serious craft on a personal-finance substrate that works (accounts, transactions, Plaid linking, household, dashboard, identity, document storage, notifications). You have <strong>almost none of the remittance plumbing</strong> that the Payabo wedge actually needs — no real cross-border partner, no recipient/NUBAN model, no remittance order type, and a payment gateway that is a Stripe simulation in name only.</p>
+
+<p>That asymmetry is the central fact of the next ninety days. The plan below treats it as such.</p>
+
+<h4>MVP — what we will actually ship</h4>
+<p>A single mobile app that lets a Nigerian professional in London (a) send money to a known family beneficiary in Nigeria, (b) pay one of four high-frequency Nigerian bills on a family member's behalf, (c) see a clean record of "money I have sent home this month" and "bills I have promised to cover," and (d) reach a human if anything breaks. Manual KYC. One corridor. One partner. Fifty hand-picked users. No goals, no voice, no Compass, no web app.</p>
+
+<h4>Top three launch risks</h4>
+<ol>
+  <li><strong>Regulatory authority for moving money</strong> — Payabo cannot operate as a principal under FCA in this timeframe. The only credible route is to ride on a regulated partner's permission (agent model or PSP-bears-liability). This decision needs to be made and contracted <em>this week</em>; everything else cascades from it.</li>
+  <li><strong>No real remittance partner is integrated.</strong> The Finance module's <code>OrderType</code> enum literally contains <code>BillPayment, BankTransfer, CashCollection</code> — no <code>CrossBorderRemittance</code>. There is one paper payment gateway (<code>StripeSimulatedPaymentProviderGateway</code>) and four entirely fictional partners in seed data. Pick one real counterparty (recommendation: Flutterwave for Africa-corridor coverage <em>and</em> biller pay in a single integration) and build the connector now.</li>
+  <li><strong>Single-founder bus factor</strong> on a regulated product. AI agents can hold open the typing speed of three engineers; they cannot sit on the legal contract with the FCA-authorised partner, cannot front a beta-user call, and cannot make the judgement call when a wire goes wrong. The work that <em>must</em> be done by you needs to be named explicitly and ring-fenced against the temptation to keep coding.</li>
+</ol>
+
+<h4>Honest verdict on August readiness</h4>
+<p>August 2026 is achievable <strong>only</strong> if the plan below is followed with discipline: one corridor, one partner, no platform work, manual compliance for the first fifty users, and a ruthless freeze on Compass / voice / household-v2 / customer-insight-AI. If any one of those four commitments slips — particularly the partner contract — September becomes the realistic ceiling, and that is still a win. Targeting July or earlier is not honest. Targeting August "fully self-licensed" is fantasy. Targeting <strong>"late-August soft launch via a regulated partner to fifty named users"</strong> is the credible answer.</p>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="state">
+<h2><span class="num">2.</span>Current State Assessment</h2>
+
+<p>This section is written from the code, not the specs. Where the two disagree, the code wins.</p>
+
+<h3>2.1 Flutter mobile app (<code>apps/payabo_mobile/</code>)</h3>
+
+<p>The strongest piece of consumer-facing work in the repo. Thirteen feature modules, ~50 routed screens, real Auth0 wiring, real Plaid client, real Firebase push, real WebSocket voice client, and a thoughtful split between <code>LiveAuthRepository</code> and <code>MockAuthRepository</code> driven by an <code>APP_ENV</code>/<code>USE_MOCKS</code> environment switch. The dashboard, spending, account-linking, commitments, and beneficiary surfaces are wired to backend endpoints (<code>/personal-finance/account-links</code>, <code>/personal-finance/commitments</code>, etc.).</p>
+
+<p>What's <em>not</em> there, and matters:</p>
+<ul>
+  <li><strong>No send-money flow.</strong> The <code>payments/</code> module is a checkout shell for paying utilities and friends. There is no UK→NG remittance journey, no FX confirmation screen, no recipient-picker for "send to my mother's NUBAN account." The <code>PaymentFriend</code> model is P2P, not beneficiary remittance.</li>
+  <li><strong>KYC is a gate without a verifier.</strong> <code>AuthOnboardingGate</code> and <code>AuthOnboardingSnapshot</code> exist; the actual identity capture (document photo, selfie, liveness) does not.</li>
+  <li><strong>Compass / plan screen is empty.</strong> <code>lib/features/plan/</code> renders a branded holding page. The compass illustration exists; the feature does not.</li>
+  <li><strong>Voice is plumbed but has no agent it can usefully ask.</strong> The PCM-over-WebSocket transport is real (<code>VoxaVoiceClient</code>) but transcript-and-status-only on the client side; the server-side mutating-tool approval gate (<a href="specifications/023.server-side-ai-tool-approval.md">spec 023</a>) is unimplemented, so voice cannot be allowed to <em>do</em> anything.</li>
+  <li><strong>Test coverage is thin.</strong> ~20 unit/widget tests, two integration tests, no end-to-end flow tests.</li>
+</ul>
+
+<h3>2.2 Payabo web app (<code>apps/Payabo/</code>)</h3>
+
+<p>A React 18 + Vite + Bootstrap app, ~13.7k lines, ~57 routes, calling the AONIK API for real. Stateless local <code>useState</code> throughout, no test coverage, no state-management abstraction. It duplicates the mobile surface: the same bill-pay wizard, the same dashboard, with a marketing landing site on top. <strong>For an August mobile MVP it is not load-bearing.</strong> Park the dashboard/payment routes; keep only the marketing pages live, behind a clean <code>payabo.com</code> hero with a "Get the app" CTA.</p>
+
+<h3>2.3 <code>Aonik.PersonalFinance</code> module</h3>
+
+<p>The hidden strength of the codebase. 70% production-grade, 30% scaffold, but the 70% is the right 70%.</p>
+
+<ul>
+  <li><strong>Entities are complete.</strong> Household + HouseholdMember, PersonalAccount, PersonalLinkedAccount, PersonalTransaction (27 columns including classification metadata), Bill, PersonalRecurringBill, Subscription, DebtRepayment, Budget, Goal, FinancialLifeGraph node/edge, CustomerInsightSnapshot. ~26 entities, none vestigial.</li>
+  <li><strong>DashboardService is real.</strong> 627 lines of live computation — net worth, safe-to-spend, upcoming bills merged across three commitment types, recent orders pulled through the SharedKernel read contracts (no Finance reference, per <a href="decisions/006-extract-personal-finance-module.md">ADR-006</a>). Will produce real numbers on day one if accounts and transactions exist.</li>
+  <li><strong>HouseholdService is real.</strong> Full invitation lifecycle, SERIALIZABLE transaction on accept, role-based permissions JSON, event publishing on mutation.</li>
+  <li><strong>PersonalAccountLinkService is real.</strong> Calls Plaid HTTP endpoints (<code>/link/token/create</code>, <code>/item/public_token/exchange</code>, <code>/transactions/get</code>) with DPAPI-encrypted secrets, webhook persistence, simulated sandbox sibling for testing. Production-ready once you point it at live Plaid keys.</li>
+  <li><strong>CommitmentService unifies bills+subs+debt</strong> behind one <code>CommitmentItem</code> projection. Confirm/reject flow for auto-detected items works.</li>
+</ul>
+
+<p><strong>Real weaknesses:</strong> no test project (the <code>InternalsVisibleTo</code> attribute points at a project that doesn't exist), the 15 <code>CustomerInsight*Builder</code> classes are data-shape shells with no aggregation logic, Goals has an entity but no service, household isolation is endpoint-enforced rather than row-level. None of these block MVP; the absent tests are the most embarrassing.</p>
+
+<h3>2.4 <code>Aonik.Finance</code> module</h3>
+
+<p>This is where the comfortable narrative breaks.</p>
+
+<table>
+  <thead><tr><th>Component</th><th>Status</th><th>What that means</th></tr></thead>
+  <tbody>
+    <tr><td>Ledger (double-entry)</td><td class="status-real">Working</td><td>Balanced posting enforced at write; no tests proving the invariant.</td></tr>
+    <tr><td>Orders state machine</td><td class="status-real">Working</td><td>Draft → Pending → Approved → Transmitted → Complete is solid. <strong>But <code>OrderType</code> has no remittance value</strong> — only <code>BillPayment, BankTransfer, CashCollection</code>.</td></tr>
+    <tr><td>Pricing &amp; FX</td><td class="status-partial">Demo-only</td><td>Pricing engine math works; rates are hard-coded in <code>CrossBorderPricingSeedPhase.cs</code> ("DemoRate" provider). No live FX feed.</td></tr>
+    <tr><td>Payment gateway</td><td class="status-stub">Stub</td><td>Single implementation is <code>StripeSimulatedPaymentProviderGateway</code> — returns <code>pi_…_secret_…</code> and hardcoded "Pending". No real Stripe SDK call, no webhook handler, no settlement.</td></tr>
+    <tr><td>Partner integrations</td><td class="status-stub">None real</td><td>Four fictional partners in seed (Naija Utility Switch, Gold Coast Bill Hub, EastPay Kenya, Mzansi Bill Connect). Grep for Wise, Lemfi, NALA, Sendwave, Flutterwave, ClearBank, currencycloud, EBANX, MFS Africa — <strong>zero hits</strong> in dedicated integration code.</td></tr>
+    <tr><td>Recipient model (NG bank account, NUBAN)</td><td class="status-stub">Missing</td><td><a href="specifications/008.recipients.md">Spec 008</a> is unimplemented.</td></tr>
+    <tr><td>Card vault</td><td class="status-stub">Missing</td><td><a href="specifications/007.cards-vault.md">Spec 007</a> is unimplemented.</td></tr>
+    <tr><td>Biller catalog</td><td class="status-partial">Demo only</td><td>Schema exists. No DSTV, no PHCN/Eko/Ikeja, no MTN/Glo/Airtel airtime — just generic JSON categories. <code>finance-demo-catalog.json</code> lists Utilities/Telecom/Internet/Education with placeholder names.</td></tr>
+    <tr><td>Transmission processor</td><td class="status-stub">Data-only</td><td><code>Transmission</code> entity stores PayoutId/Status/RetryCount/LastError. No background job ever picks one up and tries to execute it.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout danger">
+  <div class="label">Punchline</div>
+  Today the platform can <em>model</em> a UK→Nigeria remittance through bill-payment orders, but it cannot <em>move</em> a single pound. Until one real partner connector exists, the rest of the work is theatre.
+</div>
+
+<h3>2.5 <code>Aonik.Platform</code> module</h3>
+
+<p>Substantial, mostly real, with two compliance holes you cannot ignore for a regulated product.</p>
+
+<ul>
+  <li><strong>Identity:</strong> Auth0, Azure AD, and Keycloak all wired (<a href="specifications/029.keycloak-auth-provider.html">spec 029</a>). User lifecycle closed (<a href="specifications/026.user-lifecycle-closure.html">spec 026</a>): invite, signup, MFA, password reset, hard delete with session revocation. Solid.</li>
+  <li><strong>Party model:</strong> Person/Organization, profiles, addresses, contacts, relationships (spouse/parent/child via <code>PartyRelationshipTypes</code>), consents, role assignments. Complete.</li>
+  <li><strong>Document model</strong> (<a href="specifications/010.documentation.md">spec 010</a>): real CRUD, multi-file, versioning, verification records, storage-provider-agnostic. Fine for capturing a passport scan; <em>no</em> automated verifier behind it.</li>
+  <li><strong>Notifications:</strong> Azure Communication Services live for email and SMS, MJML templates wired, channel-scoped provider config (<a href="specifications/recent-commits">recent commits</a> e2d0bdca, 87f48cd2).</li>
+  <li><strong>Audit log:</strong> Comprehensive, PII-masked, retained. Real.</li>
+  <li><strong>Background jobs:</strong> Quartz scheduling, admin pause/resume/trigger surface, persistent projection. Framework is real; the Payabo-specific jobs (transaction-sync, balance refresh, insight regeneration) are scattered across modules and largely already exist where they need to.</li>
+</ul>
+
+<p><strong>The two compliance holes:</strong></p>
+<div class="callout danger">
+  <div class="label">Stubbed</div>
+  <code>ComplianceService.ScreenPartyAsync</code> logs a warning and returns <code>ResultStatus = "Passed"</code> for every party. No PEP, no sanctions, no Refinitiv/ComplyAdvantage/Worldcheck/Dow Jones integration. And <code>PersonProfile.IdvStatus</code> is a string field with no verifier writing to it — no Onfido, no Veriff, no Persona, no Sumsub. <strong>For a regulated UK→NG remittance product this is non-negotiable to close before live money moves.</strong>
+</div>
+
+<h3>2.6 <code>Aonik.Agents</code>, <code>Aonik.Ai</code>, <code>Aonik.Voice</code></h3>
+
+<p>Genuinely sophisticated work. <strong>And approximately none of it should ship in v1.</strong></p>
+
+<ul>
+  <li>Proposal-dispatch system (<a href="specifications/030.proposal-execution-dispatcher.html">spec 030</a>) is wired. Read-only agents are real. <code>AiRun</code> audit trail is real.</li>
+  <li><strong>Server-side mutating-tool approval wrapper</strong> (<a href="specifications/023.server-side-ai-tool-approval.md">spec 023</a>'s <code>ApprovalRequiredAIFunction</code>) <strong>does not exist in code.</strong> Without it, voice and AGUI cannot safely run any mutation. So either you build it (1–2 weeks of work) or your agents stay read-only.</li>
+  <li>Voice pipeline real-time transport works; the speech provider library (<a href="specifications/024.unified-speech-config-and-composer.md">spec 024</a>) is admin-configurable but the pipeline still reads legacy settings — Phase C (Active Settings cutover) is not done.</li>
+  <li><strong>Compass</strong> (<a href="specifications/021.aonik-compass-financial-guidance.md">spec 021</a>): zero code. No <code>CompassPlan</code> entity, no planner agent, no guidance service. It is a thought, not a feature.</li>
+  <li><strong>Customer insight pipeline</strong> (<a href="specifications/015.personal-finance-customer-insight-pipeline.md">spec 015</a>): the data loader and normalizer are real; the 15 insight builders are data-shape classes that don't compute anything. The AI summary endpoint exists.</li>
+</ul>
+
+<p><strong>For MVP: keep AI completely backstaged.</strong> The "Simi" persona can be a chat surface answering balance and bill questions; it should not propose, transact, or speak.</p>
+
+<h3>2.7 Specs &amp; prior planning</h3>
+
+<p>The founder has done significant prior thinking. The drift is real and worth naming:</p>
+
+<table>
+  <thead><tr><th>Spec</th><th>Wedge-aligned?</th><th>MVP verdict</th></tr></thead>
+  <tbody>
+    <tr><td>012 — Flutter mobile</td><td>Yes</td><td>Load-bearing. Mocked phase done.</td></tr>
+    <tr><td>015 — Customer insight pipeline</td><td>Yes</td><td>Keep as backend grounding; do not surface raw insights to users.</td></tr>
+    <tr><td>019 — Commitments</td><td>Yes</td><td>Load-bearing. The model is right for "bills I owe family."</td></tr>
+    <tr><td>020 — Household</td><td>Partial</td><td>Phase 1 only. Defer per-member permissions, household budgets.</td></tr>
+    <tr><td>Simi family support (extended)</td><td>Yes</td><td>Implement persona surface + family-support card only. Defer AI skills.</td></tr>
+    <tr><td>008 — Recipients</td><td>Yes</td><td>Must build for MVP.</td></tr>
+    <tr><td>linked-accounts (Plaid)</td><td>Partial</td><td>Done on backend; mobile path works. Don't depend on NG-bank linking.</td></tr>
+    <tr><td>017 — ElevenLabs TTS</td><td>No</td><td>Park.</td></tr>
+    <tr><td>021 — Compass</td><td>No</td><td>Park entirely.</td></tr>
+    <tr><td>022 — Voice realtime</td><td>No</td><td>Park.</td></tr>
+    <tr><td>025 — PF agent split + Codeact</td><td>No</td><td>Park.</td></tr>
+  </tbody>
+</table>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="mvp">
+<h2><span class="num">3.</span>MVP Definition</h2>
+
+<h3>3.1 The user</h3>
+<p>Call her Adaeze. She is 34, lives in Stratford, works as a senior analyst in financial services or healthcare, sends £400–£900 home most months — split between her mother's housekeeping, her younger sister's tuition top-up, and the family's DSTV and electricity bill. She currently does this through some combination of Wise, Lemfi, WhatsApp, calling her brother to "go pay PHCN," and remembering. She is high-trust, busy, slightly embarrassed at the patchwork, and intensely loyal to whoever finally makes it feel calm.</p>
+
+<h3>3.2 Core jobs-to-be-done</h3>
+<ol>
+  <li>"Send Mum her money for the month."</li>
+  <li>"Pay the family's PHCN / DSTV / GoTV / MTN airtime — directly, from here, without calling anyone."</li>
+  <li>"Remind me what I have committed to cover this month and whether I have done it."</li>
+  <li>"Show me, on one screen, what I have sent home this year and what's coming up."</li>
+  <li>"If something goes wrong with my transfer, get a real person to fix it."</li>
+</ol>
+
+<h3>3.3 In-scope features</h3>
+<table>
+  <thead><tr><th>Feature</th><th>Why it earns its slot</th></tr></thead>
+  <tbody>
+    <tr><td>Phone+email signup, MFA, biometric app-lock</td><td>Already built. Free.</td></tr>
+    <tr><td>Manual KYC — passport/BRP photo + selfie + UK proof of address upload, human-reviewed within 24h</td><td>50 users. Founder + one VA can clear them. Replaces an Onfido bill we cannot afford in time.</td></tr>
+    <tr><td>Single corridor: GBP → NGN, single regulated partner</td><td>The wedge.</td></tr>
+    <tr><td>Beneficiary management: name, phone, NUBAN bank account, relationship</td><td>Cannot remit without it. Spec 008 made real.</td></tr>
+    <tr><td>Send-money flow: pick beneficiary → enter GBP amount → see locked FX + fee + NGN delivered → confirm → status</td><td>Core verb.</td></tr>
+    <tr><td>Bill-pay flow for four billers: PHCN (start with Eko + Ikeja Disco), DSTV, GoTV, MTN airtime</td><td>Covers ~70% of monthly Nigerian-household bills. Add others post-launch by user request.</td></tr>
+    <tr><td>"My commitments" page — recurring family obligations, mark paid/skip/snooze</td><td>The differentiator vs. Wise/Lemfi. Re-uses CommitmentService.</td></tr>
+    <tr><td>Home dashboard: sent-home total this month, upcoming commitments, recent activity</td><td>Re-uses DashboardService. Strip safe-to-spend; keep "sent home this month".</td></tr>
+    <tr><td>Funding: card or UK bank top-up via the regulated partner (whatever they support)</td><td>Whatever your partner takes is what you take. Do not build vault.</td></tr>
+    <tr><td>Push notifications: status updates, KYC outcome, transfer delivered, bill paid</td><td>Firebase wired. Templates exist. Cheap.</td></tr>
+    <tr><td>In-app support: WhatsApp deep link, email, and a single founder phone number behind a "talk to someone" CTA</td><td>This is the one feature that genuinely cannot break in v1.</td></tr>
+    <tr><td>Marketing site: <code>payabo.com</code> landing + "Get the app"</td><td>Strip the web app down to this.</td></tr>
+  </tbody>
+</table>
+
+<h3>3.4 Explicitly out of scope</h3>
+<p>Each of these is something we are <em>choosing</em> not to build, not something we forgot.</p>
+<ul>
+  <li>Compass / goals / financial planning</li>
+  <li>Voice mode / voice-native interface / TTS</li>
+  <li>Full household multi-party model (use a "family circle" of beneficiaries, single-owner)</li>
+  <li>The React web app as a product surface (marketing pages only)</li>
+  <li>AI-generated insights, customer-insight narrative summaries surfaced to users</li>
+  <li>Automated IDV (Onfido / Veriff / Persona)</li>
+  <li>Automated PEP &amp; sanctions screening (manual against the OFSI consolidated list for first 50)</li>
+  <li>Multiple corridors (Ghana, Kenya, SA — all park)</li>
+  <li>Plaid NG-side linking (NG banks are not covered in any meaningful way)</li>
+  <li>Card vaulting / our own PCI scope</li>
+  <li>Cross-currency wallet / hold-in-FX</li>
+  <li>Native Plaid linking on the UK side — keep it as an <em>optional enrichment</em>; not required to send money</li>
+  <li>Budget enforcement, goal tracking, financial life graph mutations</li>
+  <li>Codeact agents, server-side approval wrapper, agent-driven proposals to the end user</li>
+  <li>RemitExchange, MyBillAfrica, AONIK OSS positioning, B2B billing</li>
+</ul>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="gaps">
+<h2><span class="num">4.</span>Gap Analysis</h2>
+
+<h3>4.1 Engineering gaps</h3>
+
+<h4>Backend</h4>
+<ul>
+  <li><strong>Remittance order type.</strong> Add <code>CrossBorderRemittance</code> to <code>OrderType</code> in <code>src/Aonik.Finance/Entities/Orders/OrderType.cs</code>. Build a <code>RemittanceOrderService</code> sibling to <code>OrderService</code>. Wire idempotency, party-role routing (payer/beneficiary), FX-quote attachment.</li>
+  <li><strong>Recipient model.</strong> Implement <a href="specifications/008.recipients.md">spec 008</a>: <code>Recipient</code> entity (party + bank-account + relationship), validation, NUBAN account-resolution via the chosen partner's name-enquiry endpoint.</li>
+  <li><strong>One real partner connector.</strong> Replace <code>StripeSimulatedPaymentProviderGateway</code>'s role with a real <code>IPartnerConnector</code> implementation against Flutterwave (or alternative — see §7.2). Cover: payout creation, status polling, webhook ingestion, idempotent retry.</li>
+  <li><strong>Transmission processor.</strong> Quartz job that picks pending <code>Transmission</code> rows, calls the partner connector, advances state, retries on failure.</li>
+  <li><strong>Ledger settlement.</strong> Post journal entries on payout success/failure. Reconciliation job that compares partner ledger to ours daily.</li>
+  <li><strong>Live FX feed.</strong> Replace seeded rates. Either pull from partner's quote endpoint per request (preferred — eliminates rate-arb risk) or schedule a daily pull from one feed; lock rate per quote ID for 15 minutes.</li>
+  <li><strong>Biller integrations.</strong> Map the four MVP billers (PHCN-Eko, PHCN-Ikeja, DSTV, GoTV, MTN airtime) to the partner's biller API. <code>CatalogBiller</code> table needs real entries, not the placeholder JSON.</li>
+  <li><strong>Public send-money endpoint.</strong> One FastEndpoint: quote → confirm → status. Tenant-scoped, user-scoped, idempotency-key-required.</li>
+  <li><strong>Tests.</strong> Spin up <code>tests/Aonik.PersonalFinance.Tests/</code> (the project is declared but doesn't exist) and <code>tests/Aonik.Finance.Tests/</code>. Cover the new remittance order flow, ledger invariants, partner-connector contract.</li>
+</ul>
+
+<h4>Mobile</h4>
+<ul>
+  <li><strong>Send-money flow.</strong> Replace the placeholder under <code>lib/features/payments/</code> with: beneficiary picker → amount → live quote → confirm → status screen + push.</li>
+  <li><strong>Beneficiary capture &amp; list.</strong> New screens under <code>lib/features/beneficiaries/</code>. Re-use the existing <code>SupportBeneficiary</code> model where possible.</li>
+  <li><strong>Bill-pay journey for the four billers.</strong> The current payment-flow shell is close — it needs the four real billers plugged in and the success/receipt screens hardened.</li>
+  <li><strong>Manual KYC capture.</strong> Document upload screen (passport/BRP), selfie capture, address upload, "we'll get back to you" pending state. Reuses the existing document upload backend.</li>
+  <li><strong>Home dashboard rewrite for the wedge.</strong> The current dashboard shows net-worth / safe-to-spend; v1 wants "sent home this month," "upcoming commitments," "recent activity." Same backend, different cards.</li>
+  <li><strong>Strip dead surfaces.</strong> Hide <code>/plan</code> (Compass), <code>/voice</code>, community, anything under setup_journey that is not load-bearing. Easier to keep cuts behind a feature flag than to delete.</li>
+  <li><strong>E2E happy-path test.</strong> One integration test: signup → KYC submit → top-up → beneficiary add → £100 sent → status received. If this test does not pass, MVP does not ship.</li>
+</ul>
+
+<h3>4.2 Compliance &amp; regulatory gaps</h3>
+<p>This is the section where polite hedging gets people fined.</p>
+<ul>
+  <li><strong>Permission to handle client money.</strong> Three doors. <strong>(a)</strong> Become an FCA Small Payment Institution or Electronic Money Institution — 9–18 months and ~£20k+ capital. Off the table for August. <strong>(b)</strong> Become an FCA Registered Agent of an existing API/EMI — 4–8 weeks if the principal will sponsor. <strong>(c)</strong> White-label / refer flows to a regulated PSP who holds the regulatory relationship with the user directly — fastest, lightest, lowest brand control. <strong>The plan assumes (c)</strong> via a single partner, with (b) as a parallel track to move to before scale.</li>
+  <li><strong>KYC / IDV.</strong> No vendor is integrated. Onfido or Veriff is the right answer pre-scale; for the first 50, accept manual review. Document everything you do so the partner accepts your KYC for their AML obligations (most partners will not — they will run their own IDV on top regardless).</li>
+  <li><strong>Sanctions / PEP screening.</strong> <code>ComplianceService</code> returns "Passed" for everyone. For 50 users you can screen against the UK OFSI consolidated list manually (it is a downloadable CSV). Get a contract with ComplyAdvantage or Refinitiv in motion now — even if it lands post-launch, you cannot scale past 200 users without it.</li>
+  <li><strong>Transaction monitoring.</strong> No rule engine exists. For 50 users, monitor manually with a daily admin dashboard query. Build a basic rules engine in v1.1.</li>
+  <li><strong>ICO registration / GDPR.</strong> Register with the ICO (~£40, online). Publish privacy policy. Implement the data-deletion request flow (you already have hard-delete from <a href="specifications/026.user-lifecycle-closure.html">spec 026</a>).</li>
+  <li><strong>Terms of Service / fee disclosure.</strong> Required before any user transacts. Use a fintech-aware UK lawyer for the first draft; do not do this with ChatGPT.</li>
+  <li><strong>Consumer Duty (FCA).</strong> Even via a partner, you are likely a distributor for FCA Consumer Duty purposes. Document your fair-value assessment for the first cohort.</li>
+  <li><strong>Data residency / cross-border data.</strong> UK customer data on Azure UK regions. Transfer to Nigerian partner is a controlled transfer — covered under your partner DPA.</li>
+</ul>
+
+<h3>4.3 Partner integration gaps</h3>
+<ul>
+  <li><strong>Cross-border payout partner</strong> (UK→NG): zero. The single most important commercial conversation to start <em>this week</em>.</li>
+  <li><strong>Nigerian biller API</strong>: zero. If you choose Flutterwave, the same contract gives you both — strong reason to prefer.</li>
+  <li><strong>UK payment funding</strong>: card acquiring or open-banking pay-in. Typically the same partner provides; otherwise add TrueLayer / Tink for OB pay-ins.</li>
+  <li><strong>FX</strong>: typically the same partner. Alternative is currencycloud / EBANX / Banking Circle but that's a second contract.</li>
+  <li><strong>IDV</strong>: Onfido / Veriff / Persona — first three calls go to all of them; pick on speed of contract.</li>
+  <li><strong>Plaid UK</strong>: already in code, needs production API key + UK product approval (open-banking institution access, ~2 weeks).</li>
+</ul>
+
+<h3>4.4 Operational gaps</h3>
+<ul>
+  <li><strong>Support channel</strong>: a single WhatsApp Business number, monitored by the founder + one VA, with an SLA of 4 hours during 7am–10pm UK time. No Zendesk yet.</li>
+  <li><strong>Status page</strong>: a single uptime page (BetterStack or similar) showing API, mobile auth, partner connectivity.</li>
+  <li><strong>Monitoring &amp; alerts</strong>: Azure Application Insights is wired. Add alerts for: failed remittance order, partner webhook timeout, KYC backlog &gt;24h, push delivery failure.</li>
+  <li><strong>On-call</strong>: founder is on-call. Period. Have a written runbook so an AI agent can triage and a future hire can take a shift.</li>
+  <li><strong>Incident response</strong>: a one-page playbook for "transfer stuck," "partner outage," "user reports fraud."</li>
+  <li><strong>Reconciliation</strong>: a daily script comparing platform ledger to partner ledger. Discrepancies email the founder.</li>
+  <li><strong>Onboarding ops</strong>: a Notion (or simpler) doc per beta user — referral source, KYC docs, first transfer, weekly check-in notes. Lo-fi CRM.</li>
+</ul>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="plan">
+<h2><span class="num">5.</span>Three-Month Plan</h2>
+
+<p>Seven two-week sprints from 24 May to 30 August, with the last sprint reserved for stabilisation and soft-launch rather than new features. Each sprint has four lanes: <strong>backend</strong>, <strong>mobile</strong>, <strong>non-engineering</strong> (commercial / legal / user dev), and <strong>do-not-do</strong> (the temptations to actively resist).</p>
+
+<!-- Sprint 1 -->
+<div class="sprint">
+  <h3>Sprint 1 <span class="dates">24 May – 7 Jun · "Pick the corridor partner"</span></h3>
+  <p><em>Theme: nothing else matters until the regulated partner is named and a contract is in motion.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend</p>
+    <ul>
+      <li>Stand up <code>tests/Aonik.Finance.Tests/</code> and <code>tests/Aonik.PersonalFinance.Tests/</code> projects. Write the ledger-invariant test as the first commit.</li>
+      <li>Add <code>CrossBorderRemittance</code> to <code>OrderType</code>; generate migration via the EF tool (no hand-writing — <a href="../CLAUDE.md">CLAUDE.md</a> rule).</li>
+      <li>Sketch the <code>IPartnerConnector</code> interface shape: <code>QuoteAsync</code>, <code>InitiatePayoutAsync</code>, <code>GetPayoutStatusAsync</code>, <code>HandleWebhookAsync</code>.</li>
+      <li>Draft the <code>Recipient</code> entity + endpoints (CRUD only this sprint; partner-side validation lands in S2).</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Mobile</p>
+    <ul>
+      <li>Feature-flag off Compass, voice mode, community, plan, and dead setup_journey steps. Don't delete yet — just hide.</li>
+      <li>Reshape the dashboard cards: "sent home this month" + "upcoming commitments" + "recent activity." Reuse <code>DashboardService</code>.</li>
+      <li>Scaffold the beneficiary list + add-beneficiary screens.</li>
+      <li>Write an integration test stub for the full happy path. It will fail. Keep failing in CI as a visible scoreboard.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering</p>
+    <ul>
+      <li><strong>Three partner calls this week:</strong> Flutterwave UK, Lemfi (white-label conversation), and one of {Modulr, ClearBank} as a fallback principal. Decision by end of sprint.</li>
+      <li>Email a UK fintech lawyer (Bird &amp; Bird, Fox Williams, or smaller — Cooley if you can afford it). 30-minute consultation on Registered Agent vs distributor structure under chosen partner.</li>
+      <li>Register with the ICO. Publish a "coming soon" page at <code>payabo.com</code> with email capture and a one-line trust statement (no fee promises yet).</li>
+      <li><strong>User dev: 5 conversations</strong> — pull from your own diaspora network. Question scaffold: "Walk me through the last three times you sent money or paid a bill back home. What did you use? What broke? What did you have to call someone about?" Take notes. Do not pitch.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not start writing the partner connector before the contract is signed. Wrong partner = wasted week.</li>
+      <li>Do not build IDV integration. Manual is the answer.</li>
+      <li>Do not touch Compass, voice, web app, household-v2, or any agent skill.</li>
+      <li>Do not pivot to "let's also do Kenya/Ghana while we're at it."</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 2 -->
+<div class="sprint">
+  <h3>Sprint 2 <span class="dates">8 Jun – 21 Jun · "First pound moves in sandbox"</span></h3>
+  <p><em>Theme: end-to-end skeleton in partner sandbox.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend</p>
+    <ul>
+      <li>Build the <code>FlutterwavePartnerConnector</code> (or chosen-partner equivalent). Quote, initiate payout, status polling, webhook handler. Sandbox keys only.</li>
+      <li>Implement <code>RemittanceOrderService</code>: quote → lock → debit ledger → call connector → record transmission → on webhook, post settlement.</li>
+      <li>Public endpoint: <code>POST /payabo/remittance/quote</code>, <code>POST /payabo/remittance/confirm</code>, <code>GET /payabo/remittance/{id}</code>.</li>
+      <li>Real biller catalog: load the four MVP billers + their validation field schemas. Migration generated via EF tool.</li>
+      <li>NUBAN name-enquiry on recipient create.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Mobile</p>
+    <ul>
+      <li>Send-money flow wired end-to-end against the new backend endpoints. FX shown live. Confirmation. Status screen. Push.</li>
+      <li>Beneficiary list + add + NUBAN validation + edit + soft-delete.</li>
+      <li>Manual KYC capture journey: passport/BRP photo, selfie, address proof, "we're reviewing" pending state. Uploads to existing document API.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering</p>
+    <ul>
+      <li><strong>Contract signed</strong> with the regulated partner. If not, this is a launch-blocking event — escalate to founder full-time for 48h.</li>
+      <li>Draft Terms of Service + Privacy Policy + Fee Schedule with the lawyer.</li>
+      <li>Set up the WhatsApp Business number + standard out-of-hours auto-reply.</li>
+      <li>Set up Notion (or Linear) "beta user CRM": one page per recruited user.</li>
+      <li><strong>User dev: 5 more conversations.</strong> Now showing a Figma click-through of the send-money flow. Watch for confusion at the "lock the FX" moment specifically.</li>
+      <li>Begin recruiting beta wait-list explicitly: WhatsApp to ten people in your network with the line "I'm building this, I'd like you to be one of the first 50, here's the wait-list link." No marketing.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not build a real-time-rate ticker. Lock-on-quote is enough.</li>
+      <li>Do not build a multi-corridor selector. Hard-code GBP→NGN.</li>
+      <li>Do not build a referral programme. You are not at that stage.</li>
+      <li>Do not start a Twitter/X content cadence yet. Premature.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 3 -->
+<div class="sprint">
+  <h3>Sprint 3 <span class="dates">22 Jun – 5 Jul · "First real bill paid"</span></h3>
+  <p><em>Theme: bill-pay corridor + reconciliation + ops dashboard.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend</p>
+    <ul>
+      <li>Bill-pay flow against the partner: validate biller field (meter number, smartcard number, phone number), get quote, charge, post settlement, webhook on completion.</li>
+      <li>Commitment → bill-pay handoff: tapping "pay now" on a commitment pre-fills the bill-pay flow.</li>
+      <li>Reconciliation Quartz job: daily diff platform ledger vs partner ledger, email discrepancies to founder.</li>
+      <li>Admin dashboard pages (re-use AdminUi): pending KYC queue, recent remittances, partner-webhook log, reconciliation status.</li>
+      <li>Tests: ledger invariants, remittance order state transitions, partner connector contract.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Mobile</p>
+    <ul>
+      <li>Bill-pay flow for all four billers end-to-end. Receipt + push.</li>
+      <li>"My commitments" page polished: confirmed family obligations with pay/skip/snooze actions.</li>
+      <li>In-app "talk to someone" surface — WhatsApp deep link + email + a phone number behind a long-press.</li>
+      <li>App icon + splash + onboarding copy reviewed by you in person, not by Claude.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering</p>
+    <ul>
+      <li>Terms of Service + Privacy Policy + Fee Schedule finalised and published.</li>
+      <li>FCA Registered Agent application started in parallel (this is the path to autonomy at scale, not for v1).</li>
+      <li>Recruit 15 named beta candidates. Personal WhatsApp message each. Not a form.</li>
+      <li><strong>User dev: 5 conversations</strong> — now specifically with people in the candidate pool. Show them an Android build via TestFlight equivalent (Firebase App Distribution).</li>
+      <li>Write the brand voice doc — one page, in your own voice. Tone of push notifications. Do not let it become a deck.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not add a fifth biller "while we're in there." Add it post-launch on the first user request.</li>
+      <li>Do not build referral codes, gamification, streaks, or loyalty.</li>
+      <li>Do not promote Compass or voice as "coming soon." Don't tell users about features that aren't real yet.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 4 -->
+<div class="sprint">
+  <h3>Sprint 4 <span class="dates">6 Jul – 19 Jul · "First real money moves"</span></h3>
+  <p><em>Theme: production cutover; founder is the first user.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend</p>
+    <ul>
+      <li>Switch partner connector to production credentials. Lock per-environment config in Azure Key Vault.</li>
+      <li>Production migration of all schema changes via the canonical <code>AonikDbContext</code>.</li>
+      <li>Application Insights alerts wired: failed remittance, webhook timeout, KYC SLA breach, push delivery failure, reconciliation discrepancy.</li>
+      <li>BetterStack-style status page wired to API health probe.</li>
+      <li>Idempotency hardening: replay every endpoint that touches money.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Mobile</p>
+    <ul>
+      <li>App Store + Play Store listings prepared. Screenshots are real-user-journey screenshots, not invented.</li>
+      <li>Crash reporting (Firebase Crashlytics — already wired) verified end-to-end.</li>
+      <li>Push notification copy tightened. No emojis unless explicitly your brand.</li>
+      <li>Accessibility pass: VoiceOver labels on every CTA, sensible focus order, contrast on the dashboard chart.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering</p>
+    <ul>
+      <li><strong>Founder sends £100 to founder's family member on the live system.</strong> Document the experience. Fix what's awkward before anyone else sees it.</li>
+      <li>App Store + Play Store submission begins. Allow 7–10 days for review; do not start S6 without an approved listing.</li>
+      <li>Onboard the first 5 beta users — personally, in real-time WhatsApp, walking them through KYC.</li>
+      <li><strong>User dev: 5 conversations</strong> — with each of the 5 onboarded users, after their first transfer. "Tell me what surprised you. Where did you pause? What did you almost not finish?"</li>
+      <li>Write the runbook for the founder + AI agent ops loop: KYC approval, transfer escalation, reconciliation triage.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not optimise the dashboard chart. It is fine.</li>
+      <li>Do not start a Substack/blog/podcast/content strategy.</li>
+      <li>Do not let any feature you said you would not build re-enter scope via "but it's only a small refactor."</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 5 -->
+<div class="sprint">
+  <h3>Sprint 5 <span class="dates">20 Jul – 2 Aug · "First ten users"</span></h3>
+  <p><em>Theme: discover where the product breaks under real-world variance.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend</p>
+    <ul>
+      <li>Bug-fix sprint. Period. The only new build allowed is what an actual beta user blocks on.</li>
+      <li>Edge cases that <em>will</em> bite: rounding mismatches in FX display vs settled NGN; webhook-out-of-order; user retries a failed payment and gets double-charged in partner side; partner returns a "compliance hold" status we did not anticipate.</li>
+      <li>Performance check on dashboard query at 50 users with 200+ transactions each. Add the obvious indexes.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Mobile</p>
+    <ul>
+      <li>Bug-fix sprint. Polish journeys based on real friction observed in S4 + S5.</li>
+      <li>Empty states: what the dashboard shows on day 1 for a user with no transactions yet.</li>
+      <li>Error states for every money-touching screen. Friendly copy, support CTA, retry where safe.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering</p>
+    <ul>
+      <li>Onboard 10 more users (15 total). Personal WhatsApp onboarding still.</li>
+      <li>Daily KYC clearance — 24h SLA inviolable.</li>
+      <li><strong>User dev: 5 conversations</strong> — specifically with the lapsed: anyone who signed up but didn't transfer. Why?</li>
+      <li>First 30-minute "founder demo" call with a candidate institutional partner (community NGO, diaspora professional group, a Nigerian church or alumni network). Not a sales pitch — a "could I learn from your community" conversation.</li>
+      <li>Begin transition planning: as you scale past the first 50, what is the second-tier support? (Likely a part-time VA who already speaks Yoruba/Igbo/Hausa.)</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not add a new feature this sprint. Anything.</li>
+      <li>Do not start the Android tablet layout, the dark theme refinement, or the Apple Watch complication. Nobody wants any of those yet.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 6 -->
+<div class="sprint">
+  <h3>Sprint 6 <span class="dates">3 Aug – 16 Aug · "Stabilise and stress"</span></h3>
+  <p><em>Theme: deliberate breakage to find what surprises us before users do.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend</p>
+    <ul>
+      <li>Run a chaos drill: partner returns 500 for 10 minutes mid-payout. Confirm transmission retry + idempotency hold. Run a duplicate-webhook drill. Run a "user double-taps confirm" drill.</li>
+      <li>Real load test at 100 concurrent quote requests. Identify hot endpoints.</li>
+      <li>Logging review: every money-moving action should be retrievable by order ID through Application Insights in &lt; 30s.</li>
+      <li>Backup &amp; restore drill on the SQL DB. If you cannot restore in 30 minutes, you cannot launch.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Mobile</p>
+    <ul>
+      <li>Production iOS build live on TestFlight; Android on Play internal track.</li>
+      <li>Verify deep-link push routing from cold-start, warm-start, and lock-screen.</li>
+      <li>Final copy pass — every push, every error, every empty state read aloud and softened.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering</p>
+    <ul>
+      <li>Onboard users 16–30. Same personal pattern.</li>
+      <li>Update the brand voice doc with one quote per real conversation. Use it to write the App Store "what's new" copy.</li>
+      <li><strong>User dev: 5 conversations</strong> — repeat customers now. "What would you regret losing if Payabo disappeared tomorrow?" The answer is your real differentiator.</li>
+      <li>Confirm App Store + Play Store approval. Plan the public listing live date for sprint 7.</li>
+      <li>Compliance check: have the lawyer review your live ToS, fee disclosure, and complaints policy.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not launch with a webinar, a Product Hunt push, or a launch tweet. The first 50 are recruited; the public listing is a quiet on-switch.</li>
+      <li>Do not invite the press.</li>
+      <li>Do not ship a referral programme. Word-of-mouth at this size is the right signal, not a feature.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 7 -->
+<div class="sprint">
+  <h3>Sprint 7 <span class="dates">17 Aug – 30 Aug · "Quiet launch"</span></h3>
+  <p><em>Theme: open the door without throwing a party.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend</p>
+    <ul>
+      <li>No new features. Hotfix only.</li>
+      <li>Stand up the daily "morning brief" automated email: KYC backlog, transfers yesterday, failed payouts, reconciliation status, error budget burn. Founder reads it with morning coffee.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Mobile</p>
+    <ul>
+      <li>App Store + Play Store listings go live.</li>
+      <li>Push the "we're live" message to the WhatsApp wait-list — not a public post.</li>
+      <li>Monitor crash-free rate. Hold &gt; 99.5% before opening sign-ups beyond the wait-list.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering</p>
+    <ul>
+      <li>Onboard users 31–50. Aim to hit 50 by 30 Aug.</li>
+      <li>Personal call (not WhatsApp) with each of the first 10 users to ask: "if I scaled this to 500, what would you want me to fix first?"</li>
+      <li>Write the post-launch retrospective in the same form as this document. Be as honest about the misses as you have been planning around them.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not announce on LinkedIn until you have 30 active monthly users. Announcement-driven sign-ups before product-market-fit kill cohort quality.</li>
+      <li>Do not start the "Payabo for Kenya" planning conversation in September. The first quarter post-launch is for depth in Nigeria.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout">
+  <div class="label">Capacity reality check</div>
+  This plan assumes the founder is working full-time on Payabo with AI agents for execution leverage. AI agents can carry the per-sprint engineering load if the architectural decisions and the partner conversations are made cleanly. They cannot carry the lawyer-facing, partner-facing, or user-facing work — those compound to roughly <strong>3 days a week of founder time on non-engineering activity</strong> across the plan. If you do not protect that time, the engineering goes faster than the regulation, and you arrive at August with a product you cannot legally turn on.
+</div>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="nonEng">
+<h2><span class="num">6.</span>Non-Engineering Workstream</h2>
+
+<h3>6.1 Beta user recruitment</h3>
+<p>Fifty users, hand-picked, one WhatsApp message at a time. The funnel:</p>
+<ol>
+  <li><strong>Wait-list of 80–100 names by end S3</strong>, drawn from: founder's WhatsApp groups (UK Nigerian professional networks, alumni groups, church/mosque communities, workplace), referrals from the first 10 conversations, no cold marketing.</li>
+  <li>One-to-one ask: "I'm building this, want to be one of the first 50?" Personal message, never broadcast.</li>
+  <li>KYC and first transfer is concierged by you for the first ten, by you + VA for the next twenty, by the product alone for the last twenty. Watch where the product cannot carry the load — that is the next sprint's backlog.</li>
+  <li><strong>No referral incentive.</strong> If a user invites a friend, it is signal; do not corrupt it with a kickback in v1.</li>
+</ol>
+
+<h3>6.2 Positioning &amp; brand voice</h3>
+<p>The wedge is <em>family financial stewardship for the diaspora</em>. Wise sells speed and cheapness. Lemfi sells the same with a Nigerian face. Payabo sells <strong>calm</strong>: "the financial home for diaspora families." Three voice principles to write everything against:</p>
+<ul>
+  <li><strong>Familiar, not chummy.</strong> The tone of an older cousin who happens to work in finance, not a brand-mascot.</li>
+  <li><strong>Concrete, not abstract.</strong> "Mum's PHCN was paid on Tuesday at 9:13" beats "your transaction is complete."</li>
+  <li><strong>Confident, not clever.</strong> Especially in error states — never make a user feel they did something wrong.</li>
+</ul>
+<p>Write one page of brand voice. Apply it to push notifications and the App Store listing. Do not commission a brand book.</p>
+
+<h3>6.3 Compliance &amp; legal — the gating sequence</h3>
+<table>
+  <thead><tr><th>By end of</th><th>Must be true</th></tr></thead>
+  <tbody>
+    <tr><td>Sprint 1</td><td>Partner shortlisted; lawyer engaged; ICO registered; payabo.com landing live.</td></tr>
+    <tr><td>Sprint 2</td><td>Partner contract signed (or fallback partner negotiations begun); ToS / Privacy / Fees first draft; complaints policy template.</td></tr>
+    <tr><td>Sprint 3</td><td>ToS / Privacy / Fees published; FCA Registered Agent application started (post-MVP track); manual sanctions screening procedure documented.</td></tr>
+    <tr><td>Sprint 4</td><td>First real money moves under partner permission. Founder personally tested.</td></tr>
+    <tr><td>Sprint 5</td><td>Daily KYC + transaction-monitoring routine running. Complaints log in use.</td></tr>
+    <tr><td>Sprint 6</td><td>Lawyer second-look on live ToS and fee disclosure. Consumer Duty fair-value note drafted.</td></tr>
+    <tr><td>Sprint 7</td><td>Launch with documented evidence of every compliance step. If a regulator asks tomorrow, you can produce the file.</td></tr>
+  </tbody>
+</table>
+
+<h3>6.4 Partner conversations</h3>
+<p>Open this week. Do not let it drift.</p>
+<ul>
+  <li><strong>Flutterwave</strong> (preferred): UK→NG payouts + Nigerian biller API + card pay-in, single integration. Nigerian-founded; cultural alignment. Pricing tends to be higher than principal-only providers.</li>
+  <li><strong>Lemfi white-label conversation</strong>: explore whether they offer agent/partner programs for adjacent products. They may not, but knowing the answer costs nothing.</li>
+  <li><strong>Modulr or ClearBank</strong>: UK-side e-money / agency banking. Pair with a NG-corridor specialist (Verto, Onafriq/MFS Africa, or LemFi if they will white-label) for the payout leg.</li>
+  <li><strong>Onafriq (MFS Africa)</strong>: pan-African payouts, strong bank coverage in NG. Worth a 30-minute call as fallback.</li>
+</ul>
+<p>Pick by end of S1. The plan from S2 onward assumes a single partner. If you change in S3+, you delay launch by 4–6 weeks.</p>
+
+<h3>6.5 Support &amp; operations</h3>
+<ul>
+  <li><strong>Channels</strong>: WhatsApp Business (primary), email, in-app form. No Zendesk.</li>
+  <li><strong>SLA</strong>: 4 hours response 7am–10pm UK; same-day clearance for KYC.</li>
+  <li><strong>Coverage</strong>: founder for the first 25 users; founder + part-time VA (likely Lagos-based for time-zone overlap with both UK and NG) from user 26.</li>
+  <li><strong>Tooling</strong>: a Notion CRM page per beta user with referral source, KYC status, first-transfer date, weekly check-in notes.</li>
+  <li><strong>Runbooks</strong>: written, not in your head. Three runbooks for v1: "transfer stuck," "KYC dispute," "user reports fraud." Each one-page. AI agents can execute against them when you sleep.</li>
+</ul>
+
+<h3>6.6 Brand-facing assets — minimum viable</h3>
+<ul>
+  <li>Logo (already exists).</li>
+  <li>One-page <code>payabo.com</code> with: hero statement, 3-line "what it does," screenshot, "join the wait-list" CTA, footer links to Privacy &amp; ToS.</li>
+  <li>App Store + Play Store listing: real screenshots, no stock people, no aspirational mockups.</li>
+  <li>Push notification copy register (~20 messages, in brand voice).</li>
+  <li>That is the entire marketing surface area for August.</li>
+</ul>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="risks">
+<h2><span class="num">7.</span>Risks and Mitigations</h2>
+
+<div class="risk-row">
+  <div class="sev r1">Tier 1<br/>Date-killer</div>
+  <div>
+    <h4>Partner contract slips or falls through</h4>
+    <p>If no partner has signed by end of Sprint 2, August launch is at serious risk. Every dependent piece of work assumes a known counterparty.</p>
+    <p><strong>Mitigation:</strong> Have two partners in conversation from S1, not one. Be willing to take worse commercial terms for faster contract speed. Have the lawyer pre-drafted on a "standard distributor agreement" template so signing is a redline exercise, not a build-from-scratch.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r1">Tier 1<br/>Date-killer</div>
+  <div>
+    <h4>Regulatory misclassification</h4>
+    <p>You believe you are operating as a partner's distributor; FCA later disagrees and you are operating as an unauthorised payment institution. This is the kind of error that ends companies.</p>
+    <p><strong>Mitigation:</strong> Get the legal opinion in writing in Sprint 1. Have the partner explicitly confirm in the contract that they are the regulated entity and the customer relationship for payment-services purposes sits with them. Do not move a single live pound until that letter is in your inbox.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r1">Tier 1<br/>Date-killer</div>
+  <div>
+    <h4>Single-founder bus factor on regulated activity</h4>
+    <p>Anyone-fall-ill-or-overwhelmed scenario, with no second party who knows the partner contract, the compliance procedure, or where the keys are kept.</p>
+    <p><strong>Mitigation:</strong> Document everything as you go in <code>/docs/operations/</code>. Runbooks for every recurring process. A trusted second person (lawyer, partner-side contact, or co-founder-of-record) who has the contract, the password vault recovery, and a one-page "if Michael goes silent for 72 hours, here's what to do." This is not pessimism; it is the bare minimum for handling other people's money.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r2">Tier 2<br/>Quality-killer</div>
+  <div>
+    <h4>Manual KYC backlog</h4>
+    <p>If KYC clearance takes &gt; 24h, sign-up conversion drops sharply and users abandon. At 50 users you can handle it; the moment you grow, this breaks.</p>
+    <p><strong>Mitigation:</strong> Strict 24h SLA, founder + VA on it. Start the Onfido / Veriff contract conversation in S3 so you are ready to flip the switch in v1.1. Have a written "what counts as an acceptable ID" matrix so the VA does not need to escalate every borderline case.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r2">Tier 2<br/>Quality-killer</div>
+  <div>
+    <h4>FX rate gap between displayed and settled</h4>
+    <p>User sees one NGN amount on the confirm screen and a different amount lands. Single biggest trust-killer in remittance.</p>
+    <p><strong>Mitigation:</strong> Lock partner-provided rate per quote for ≥ 5 minutes. Display the locked NGN amount, not a derived recalculation. Reconcile daily. If a discrepancy of &gt; 0.1% appears, automated alert + manual review.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r2">Tier 2<br/>Quality-killer</div>
+  <div>
+    <h4>Plaid UK coverage gaps</h4>
+    <p>Some UK challenger banks (Monzo, Starling, Revolut UK) have non-uniform Plaid coverage. A user who can't link their primary account loses the spending-side product story.</p>
+    <p><strong>Mitigation:</strong> Plaid is <em>optional</em> in v1. The send-money flow funds via partner card / open-banking pay-in, not via Plaid balance. Plaid linking is an enrichment layer for the "commitments detected" feature, gracefully absent if not linked.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r2">Tier 2<br/>Quality-killer</div>
+  <div>
+    <h4>App Store rejection</h4>
+    <p>iOS App Review for fintech apps can take 2 weeks and reject for unclear KYC flow, missing privacy disclosures, or in-app finance promises that smell like investment advice.</p>
+    <p><strong>Mitigation:</strong> Submit by S4 not S6. Be very precise in the listing about what the app does and who is the regulated entity behind it. Have the privacy policy URL working. Avoid any "save money" / "grow your money" / "AI advisor" language.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r2">Tier 2<br/>Quality-killer</div>
+  <div>
+    <h4>Nigerian biller API instability</h4>
+    <p>NG biller APIs (especially PHCN / discos) have variable uptime. A user pays £20 of PHCN credit and the meter doesn't recharge for 3 hours. They blame Payabo, not Eko Disco.</p>
+    <p><strong>Mitigation:</strong> Status-aware UI ("usually within 5 minutes; can take up to 30 if the disco is slow"). Customer service script for the inevitable angry WhatsApp. Choose your partner partly on biller-uptime track record — ask for SLA data in S1.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r3">Tier 3<br/>Survivable</div>
+  <div>
+    <h4>AI agent over-confident on engineering work</h4>
+    <p>Agents will happily write a migration by hand even though CLAUDE.md forbids it. They will happily implement a "household v2 phase 2 — should be quick." Drift accumulates silently.</p>
+    <p><strong>Mitigation:</strong> Founder code-reviews every PR. Treat the "do not do" list in each sprint as enforceable — if it shipped, push back hard. Use the existing review skills (<code>/review</code>, <code>/ultrareview</code>, <code>/security-review</code>) on every PR that touches money or auth.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r3">Tier 3<br/>Survivable</div>
+  <div>
+    <h4>Beta users are too charitable</h4>
+    <p>You recruited from your own network. They will smile and say "lovely" rather than tell you the truth. You won't see real product problems until users 51+.</p>
+    <p><strong>Mitigation:</strong> Structure user conversations around what they <em>did</em>, not what they <em>think</em> (see <em>The Mom Test</em>, Rob Fitzpatrick — required reading). Track what they actually use, not what they say they will. Be explicit with them: "your job is to find the embarrassing problems."</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r3">Tier 3<br/>Survivable</div>
+  <div>
+    <h4>Sunk-cost gravity from AONIK platform breadth</h4>
+    <p>The platform has Compass-shaped, voice-shaped, household-shaped, web-shaped, agent-shaped, MCP-shaped things in it. The temptation to "just turn this one on" will be constant.</p>
+    <p><strong>Mitigation:</strong> The "Recommended Cuts" section below is the answer. Re-read it weekly. The codebase that ships in August will be smaller than the codebase that exists today, on purpose.</p>
+  </div>
+</div>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="cuts">
+<h2><span class="num">8.</span>Recommended Cuts</h2>
+
+<p>Each of these is something currently in the codebase or roadmap that should be paused, hidden, or radically deferred. None of these are bad ideas — they are simply not what makes August work.</p>
+
+<div class="cuts-grid">
+
+  <div class="cut-card">
+    <h4>Aonik Compass (financial guidance)</h4>
+    <p class="why"><strong>What:</strong> Spec 021. Goal-based planning, safe-to-spend, plan generation. Zero code today.</p>
+    <p class="why"><strong>Why cut:</strong> Six to eight weeks of feature work for a value proposition users have not asked for. The wedge is family stewardship, not goal-planning. Defer to Q1 2027 after retention data on the launched MVP.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Voice mode / real-time voice</h4>
+    <p class="why"><strong>What:</strong> Spec 022. WebSocket voice transport (partially built), composite voice providers, voice-native interface.</p>
+    <p class="why"><strong>Why cut:</strong> The mutating-tool approval wrapper (spec 023) does not exist; voice cannot safely act. Speech-pipeline Phase C cutover is unbuilt. Without those, voice is read-only, which is not a feature users would notice. Hide the voice surface entirely in v1.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>ElevenLabs TTS narration</h4>
+    <p class="why"><strong>What:</strong> Spec 017. Backend-managed TTS, tenant-scoped voice config, mobile SDK abstraction.</p>
+    <p class="why"><strong>Why cut:</strong> Premium personalisation; not in the wedge. Ongoing ElevenLabs spend you do not need.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Server-side AI tool approval wrapper</h4>
+    <p class="why"><strong>What:</strong> Spec 023's <code>ApprovalRequiredAIFunction</code>. Unimplemented.</p>
+    <p class="why"><strong>Why cut:</strong> Not needed if agents are read-only in v1. Build it pre-v1.1 when you want voice or AGUI to take actions.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Customer insight pipeline — AI narrative</h4>
+    <p class="why"><strong>What:</strong> Spec 015. Snapshots already work; the AI-generated narrative summary surfaced to users is a maintenance-and-trust risk.</p>
+    <p class="why"><strong>Why cut:</strong> Keep snapshots as agent grounding context (cheap, useful). Do not show users LLM-generated financial commentary in v1 — getting it subtly wrong is worse than not having it.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Household v2 (per-member permissions, household budgets)</h4>
+    <p class="why"><strong>What:</strong> Spec 020 Phase 2.</p>
+    <p class="why"><strong>Why cut:</strong> Phase 1 (multi-member household, invitation, account sharing) is already built. v1 uses a simpler "beneficiary list" mental model — the underlying entities are sufficient. Phase 2 polish lands when there is real evidence multi-member households are the norm in the cohort.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>The React web app as a product surface</h4>
+    <p class="why"><strong>What:</strong> Most of <code>apps/Payabo/</code> — 57 routes including dashboard, payments, personal-finance, chat, profile.</p>
+    <p class="why"><strong>Why cut:</strong> Duplicates mobile, untested, fragile state management. Mobile is the right form factor for the wedge. Keep only the marketing landing pages (Home / Features / About / Get the App / Privacy / ToS). Hide authenticated routes from the public; do not include them in the launch surface.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Automated IDV (Onfido / Veriff / Persona)</h4>
+    <p class="why"><strong>What:</strong> Pre-MVP integration with an IDV vendor.</p>
+    <p class="why"><strong>Why cut:</strong> Manual review is acceptable for 50 hand-picked users. Start the contract conversation in Sprint 3 so it lands in v1.1, not in v1.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Automated PEP / sanctions screening</h4>
+    <p class="why"><strong>What:</strong> ComplyAdvantage / Refinitiv integration replacing the stub.</p>
+    <p class="why"><strong>Why cut:</strong> For 50 users, screen manually against the UK OFSI consolidated list. Same vendor-conversation-in-S3 logic as IDV. Hard limit at ~200 users — must be live before you cross that.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Card vault / PCI scope</h4>
+    <p class="why"><strong>What:</strong> Spec 007.</p>
+    <p class="why"><strong>Why cut:</strong> Let the partner own PCI. Hosted fields / hosted checkout / tokenised refs only.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Additional corridors (Ghana, Kenya, South Africa)</h4>
+    <p class="why"><strong>What:</strong> The seed phase already pretends to support GH/KE/ZA corridors.</p>
+    <p class="why"><strong>Why cut:</strong> One corridor, done excellently, beats four corridors done shakily. Each new corridor needs its own partner agreement, FX feed, recipient validation. Do not.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>MyBillAfrica and RemitExchange as sibling products</h4>
+    <p class="why"><strong>What:</strong> The aspirational B2B sibling products in the AONIK narrative.</p>
+    <p class="why"><strong>Why cut:</strong> Already parked by the founder's strategic constraints. Reinforced here: the platform extraction story has zero commercial value in 2026 — every reusable abstraction comes free if Payabo succeeds, and is wasted effort if it doesn't.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Codeact agent pseudocode</h4>
+    <p class="why"><strong>What:</strong> Spec 025.</p>
+    <p class="why"><strong>Why cut:</strong> R&amp;D-stage thinking. Not customer-facing.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Financial life graph as user-facing surface</h4>
+    <p class="why"><strong>What:</strong> The graph entities + node/edge mutation endpoints in PersonalFinance.</p>
+    <p class="why"><strong>Why cut:</strong> Keep the read side for agent context. Do not ship mutation endpoints or graph-visualisation UI in v1. The model is aspirationally generic; the v1 user does not need a hypergraph.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Goals (entity exists, no service)</h4>
+    <p class="why"><strong>What:</strong> <code>Goal.cs</code> entity in PersonalFinance.</p>
+    <p class="why"><strong>Why cut:</strong> Leave the entity. Do not build the service or surface in v1. Goals are the seam where Compass would live; both park together.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Budget enforcement</h4>
+    <p class="why"><strong>What:</strong> Budget service is CRUD-only today; surfacing it as "your monthly food budget is 80% used" is tempting.</p>
+    <p class="why"><strong>Why cut:</strong> Wedge user does not budget categorically — she budgets by family obligation. Commitments are her budget. Do not add a redundant model.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Aonik Desktop admin app</h4>
+    <p class="why"><strong>What:</strong> <code>src/Aonik.AdminDesktop/</code>.</p>
+    <p class="why"><strong>Why cut:</strong> AdminUi (web) is enough for two operators. Desktop wrapping is not the bottleneck.</p>
+  </div>
+
+  <div class="cut-card">
+    <h4>Aonik OSS / platform story</h4>
+    <p class="why"><strong>What:</strong> Public AONIK positioning, docs-site as external product.</p>
+    <p class="why"><strong>Why cut:</strong> Already parked by founder. Reinforced: docs-site stays internal; no public AONIK marketing; no platform-story conference talks until Payabo has 1,000+ users.</p>
+  </div>
+
+</div>
+
+</section>
+
+<p class="footnote">
+  This document is written from the codebase as of commit <code>e2d0bdca</code> on branch <code>master</code>, 24 May 2026. Where it claims a feature is "real," "stubbed," or "missing," that claim is grounded in named files and line numbers. Where it claims a partner does or does not exist, it is grounded in a code-wide grep. Where it makes a judgement call about scope, it is the planner's call, and the founder is welcome to overrule.
+</p>
+
+</main>
+</body>
+</html>

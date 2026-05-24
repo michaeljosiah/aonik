@@ -1,6 +1,6 @@
 ---
 title: Architecture at a glance
-description: A one-page summary of how Aonik is put together — modules, services, runtime topology, and the contracts between them.
+description: A one-page summary of how Aonik is put together - Core, domain modules, product experiences, services, runtime topology, and the contracts between them.
 ---
 
 A one-page tour of how Aonik is put together. Deeper architectural detail and the rationale for each choice lives in [For Contributors](/docs/operate/for-contributors).
@@ -11,7 +11,13 @@ A one-page tour of how Aonik is put together. Deeper architectural detail and th
 
 ## Shape of the platform
 
-Aonik is a **modular monolith**. One solution, one shared SQL Server database, but modules are vertical slices that own their entities, services, endpoints, and persistence configuration. Modules talk to each other through contracts in `SharedKernel` and integration events — never through direct references.
+Aonik is a modular AI intelligence platform with three conceptual layers:
+
+- **AONIK Core** - domain-agnostic identity, memory, orchestration, workflows, governance, AI routing, agents, approvals, and shared human primitives.
+- **Domain Modules** - specialised systems that own domain truth and workflows. Finance and PersonalFinance are the first shipped domains.
+- **Product Experiences** - curated applications such as Payabo, MyBillAfrica, and RemitExchange that package Core and one or more modules for a market or workflow.
+
+The current implementation is a **modular monolith**. One solution, one shared SQL Server database, but modules are vertical slices that own their entities, services, endpoints, and persistence configuration. Modules talk to each other through contracts in `SharedKernel` and integration events - never through direct references.
 
 ## Runtime processes
 
@@ -27,7 +33,7 @@ The application(s) you build on top of Aonik talk to the same API.
 
 ## Modules
 
-Each module owns a vertical slice — entities, services, endpoints, persistence configurations:
+Each implementation module owns a vertical slice - entities, services, endpoints, persistence configurations:
 
 - **`SharedKernel`** — cross-cutting primitives, contracts, integration events, **cross-module read contracts** (`ICustomerOrderHistoryReader`, `IPartyReader`, etc.)
 - **`Platform`** — identity, tenancy, party/profile, compliance, notifications, settings, reference data, registration
@@ -39,7 +45,7 @@ Each module owns a vertical slice — entities, services, endpoints, persistence
 - **`Api`** — HTTP composition root
 - **`Worker`** — background jobs
 
-Modules never reference each other directly. Cross-module needs go through `SharedKernel` contracts — service interfaces (e.g. `IPartyService`), integration events (e.g. `TenantProvisionedEvent`), or thin **read contracts** (e.g. `ICustomerOrderHistoryReader`, `IPartyReader`) that return DTOs the consumer can use without knowing the owning entity.
+Modules never reference each other directly. Cross-module needs go through `SharedKernel` contracts - service interfaces (e.g. `IPartyService`), integration events (e.g. `TenantProvisionedEvent`), or thin **read contracts** (e.g. `ICustomerOrderHistoryReader`, `IPartyReader`) that return DTOs the consumer can use without knowing the owning entity.
 
 ## Data
 
@@ -70,9 +76,14 @@ Every AI invocation flows through a fixed pipeline:
 
 Read-only tools execute directly. Mutating tools (`CreateInvoice`, `IssueInvoice`, `CapturePayment`, etc.) always require approval.
 
+## Cross-domain direction
+
+As new domain modules are added, they should reuse Core primitives rather than rebuilding identity, memory, workflows, approvals, audit, notifications, and agent orchestration. The long-term goal is cross-domain intelligence: agents that can reason across finance, household, health, education, productivity, and other life domains when the user has granted the relevant access and the action is policy-governed.
+
 ## Where to look next
 
 - **For everyday vocabulary** — [Glossary](/docs/operate/getting-started/glossary)
+- **For the product vision** — [Product vision and platform model](/docs/operate/getting-started/platform-vision)
 - **For the full per-module breakdown** — [Platform Capabilities](/docs/operate/platform-capabilities)
 - **For the architectural rationale** — [For Contributors](/docs/operate/for-contributors)
 - **For the runtime endpoints** — [API Reference](/docs/api)

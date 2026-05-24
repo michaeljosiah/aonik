@@ -5,8 +5,8 @@
 <h1 align="center">AONIK</h1>
 
 <p align="center">
-  <strong>AI-native financial infrastructure.</strong><br>
-  Identity. Compliance. Agents. Ledger. Payments. One foundation.
+  <strong>AI-native intelligence platform.</strong><br>
+  Orchestration. Memory. Governance. Agents. Domain systems. One foundation.
 </p>
 
 <p align="center">
@@ -21,15 +21,35 @@
 
 ## What is AONIK?
 
-AONIK is an AI-native, modular financial platform that powers multiple products: **Payabo** (B2C personal finance), **MyBillAfrica** (B2B billing), and **RemitExchange** (cross-border remittance). It is the foundational platform layer, not a single application.
+AONIK is a modular AI intelligence platform designed to power intelligent systems, agents, and products across multiple domains of human life.
 
-The platform is **modular by design**. Each capability is a self-contained module with its own entities, services, endpoints, and persistence. Modules communicate through contracts and integration events, not direct coupling. New verticals plug in without touching the core.
+It is not simply a fintech platform, a remittance application, or a personal finance tool. Those are products and domain experiences built on top of the platform. AONIK itself is the foundational intelligence substrate: the shared architecture, orchestration, memory, workflows, governance, and reasoning layer required to build AI-native systems that understand context, coordinate actions, and help people move forward with clarity and control.
+
+The initial focus is finance because finance is structurally rich, operationally important, and deeply connected to everyday life. The long-term vision extends beyond finance into domains such as health, household coordination, education, wellbeing, productivity, and community systems.
+
+In one sentence: **AONIK enables intelligent systems, agents, and products to reason, coordinate, and assist across multiple domains of life through shared orchestration, memory, governance, and trustworthy automation.**
+
+---
+
+## Platform Model
+
+AONIK is structured into three layers:
+
+| Layer | Role |
+|---|---|
+| **AONIK Core** | Domain-agnostic intelligence and orchestration substrate: identity, memory, workflows, governance, AI routing, agents, approvals, and shared human primitives. |
+| **Domain Modules** | Specialised systems that own domain truth, operations, policies, workflows, and agents. Finance and Personal Finance are the first shipped modules. |
+| **Product Experiences** | Curated end-user or operator experiences that package Core and one or more domain modules for a market, brand, or workflow. |
+
+The ambition is not to build isolated applications. It is to create a trusted intelligence substrate capable of coordinating complex areas of life through shared context, adaptive workflows, explainable AI assistance, and explicit human control.
+
+AONIK is **modular by design**. Each capability is a self-contained module with its own entities, services, endpoints, and persistence. Modules communicate through contracts and integration events, not direct coupling. New domains and product experiences plug in without collapsing into the core.
 
 ---
 
 ## Platform Core
 
-The platform provides horizontal capabilities that any domain module can consume:
+AONIK Core provides horizontal capabilities that every domain module and product experience can consume:
 
 **Identity and Access** &mdash; Multi-tenant identity with users, roles, permissions, and tenant isolation. Auth0 for external authentication, with Azure Entra ID as an alternative provider. Every request is scoped to a tenant. Every entity is tenant-aware.
 
@@ -43,6 +63,8 @@ The platform provides horizontal capabilities that any domain module can consume
 
 **User Memory** &mdash; Per-user memory system that agents use to recall context across conversations. Supports SQL Server (key-value) and Qdrant (semantic vector search) backends, configurable at runtime via platform settings.
 
+**Shared Human Primitives** &mdash; Cross-domain concepts such as households, goals, tasks, reminders, relationships, documents, responsibilities, preferences, and memory/context. These are human concepts, not finance-only concepts, and they enable agents to reason across domains as the platform evolves.
+
 **Agent Framework** &mdash; Five domain-specific agents built on Microsoft Agent Framework. Agents reason, plan, and use tools &mdash; but they never directly mutate state. Mutating tools are wrapped with `ApprovalRequiredAIFunction` for human-in-the-loop approval:
 
 ```
@@ -52,6 +74,8 @@ Agent calls mutating tool  -->  ApprovalRequiredAIFunction gates  -->  Human or 
 This flow is never bypassed. Agents propose. Systems apply. Humans stay in control.
 
 **Operations** &mdash; Background jobs (Quartz.NET), notifications, webhook subscriptions, content management, text-to-speech, and autonumbering. The runtime plumbing that domain modules need but shouldn't have to build.
+
+**Workflow and Governance** &mdash; Tasks, schedules, operational workflows, approval flows, policy enforcement, provenance, audit logs, and explainability. AONIK does not pursue blind automation; higher-risk actions require user approval, policy validation, or operational oversight.
 
 ---
 
@@ -73,7 +97,7 @@ Agents produce structured outputs and use tools scoped to their domain. The orch
 
 ## Finance Module
 
-The Finance module (`Aonik.Finance`) provides production-grade financial primitives. It is the B2B / cross-border money plumbing — Ledger, Orders, Payments, Billing, Pricing, Partners, Catalog. The B2C personal-finance substrate now lives in its own sibling module (see below).
+AONIK Finance (`Aonik.Finance`) is the foundational financial operating domain. It provides the B2B / cross-border money plumbing &mdash; Ledger, Orders, Payments, Billing, Pricing, Partners, Catalog. The B2C personal-finance substrate now lives in its own sibling module (see below).
 
 - **Ledger** &mdash; Double-entry, immutable. The source of financial truth. Journal entries, chart of accounts, balance snapshots.
 - **Payments** &mdash; Payment intents, processing, payouts, refunds, chargebacks. Provider-abstracted.
@@ -86,7 +110,9 @@ The Finance module (`Aonik.Finance`) provides production-grade financial primiti
 
 ## Personal Finance Module
 
-The PersonalFinance module (`Aonik.PersonalFinance`) is a sibling of Finance and the entire substrate of the **Payabo** product. Extracted from `Aonik.Finance` per [ADR-006](docs/decisions/006-extract-personal-finance-module.md) so the B2C cadence (households, life-graph, customer insights) evolves independently of the Ledger/Orders/Payments core that powers MyBillAfrica and RemitExchange.
+The PersonalFinance module (`Aonik.PersonalFinance`) is distinct from the Finance infrastructure layer. It focuses on personal financial assistance: budgeting, subscriptions, bills, financial guidance, goals, household coordination, insights, planning, and financial wellbeing.
+
+PersonalFinance is a sibling of Finance and the substrate of the **Payabo** product. Extracted from `Aonik.Finance` per [ADR-006](docs/decisions/006-extract-personal-finance-module.md) so the B2C cadence (households, life-graph, customer insights) evolves independently of the Ledger/Orders/Payments core that powers MyBillAfrica and RemitExchange.
 
 - **Households** &mdash; Multi-member groups, invitations, roles, shared accounts and budgets.
 - **Personal Accounts &amp; Transactions** &mdash; Plaid-linked accounts, manual accounts, transaction import, categorisation, attachments.
@@ -98,9 +124,24 @@ The PersonalFinance module (`Aonik.PersonalFinance`) is a sibling of Finance and
 
 PersonalFinance does **not** reference `Aonik.Finance` directly. Cross-module reads (Orders, Invoices, Payment Intents, FxQuotes, Parties, Users) go through `SharedKernel.Abstractions.{Finance,Platform}` reader contracts &mdash; the same pattern used by other inter-module boundaries.
 
+## Future Domain Modules
+
+The long-term platform model allows additional domain modules to compose onto AONIK Core without reimplementing identity, memory, workflows, approvals, agents, or governance.
+
+Potential future modules include:
+
+- **AONIK Health** &mdash; Wellness, nutrition, preventative guidance, health coaching, and healthcare coordination.
+- **AONIK Household** &mdash; Shared planning, responsibilities, caregiving workflows, family coordination, and shared goals.
+- **AONIK Education** &mdash; Learning plans, educational goals, tutoring workflows, and skill development.
+- **AONIK Productivity** &mdash; Task coordination, personal operations, intelligent scheduling, and workflow orchestration.
+
+Each module contributes specialised intelligence while benefiting from shared Core capabilities. Over time, agents can reason across domains through shared identity, memory, workflows, and human primitives.
+
 ---
 
 ## Products
+
+Products are curated experiences built on top of AONIK Core and one or more domain modules. They package user experience, workflows, branding, customer segmentation, and market-specific capabilities without rebuilding foundational intelligence.
 
 | Product | Domain | Stack |
 |---|---|---|
@@ -112,7 +153,7 @@ PersonalFinance does **not** reference `Aonik.Finance` directly. Cross-module re
 
 ## Architecture
 
-AONIK is a **module-first modular monolith**. Each domain module owns its vertical slice &mdash; entities, services, endpoints, persistence configuration &mdash; with a module-scoped DbContext over a shared physical database.
+AONIK is implemented as a **module-first modular monolith**. Each domain module owns its vertical slice &mdash; entities, services, endpoints, persistence configuration &mdash; with a module-scoped DbContext over a shared physical database.
 
 ```
 src/
@@ -140,7 +181,7 @@ apps/
   Payabo/                   B2C personal finance web app (React, Vite)
   payabo_mobile/            Payabo mobile app (Flutter, Firebase, Plaid)
   website/                  Marketing website (React, Vite, Framer Motion)
-  docs-site/                Documentation site (Docusaurus, OpenAPI)
+  docs-site/                Documentation site (Fumadocs, OpenAPI)
 
 tests/
   Aonik.SharedKernel.Tests/
@@ -172,11 +213,14 @@ services.AddAgentsModule(configuration);
 
 ### Design Principles
 
-- **Ledger is the source of financial truth.** Double-entry, immutable.
-- **Orders represent business intent.** They are not payments.
+- **Shared intelligence over isolated silos.** Modules interoperate through shared context, workflows, and orchestration.
+- **Human-centred assistance.** AONIK should help people feel clearer, steadier, more capable, and more in control.
+- **Explainability over black-box behaviour.** Recommendations, actions, workflows, and decisions must be explainable.
 - **Agents propose; systems execute.** Every material action follows Propose, Approve, Apply.
 - **Every AI action is auditable.** Every execution is an `AiRun`. Financially material outputs reference an `AiRunId`.
 - **Risk tier determines AI autonomy.** Human approval is explicit for high-risk actions.
+- **Ledger is the source of financial truth.** Double-entry, immutable.
+- **Orders represent business intent.** They are not payments.
 - **Modules own their boundaries.** No cross-module project references. Contracts and events only.
 - **Domain entities are anemic.** All business logic lives in services, not entities.
 
@@ -270,7 +314,7 @@ dotnet test --filter "DisplayName~CreateInvoice"
 | Testing | xUnit, FluentAssertions |
 | IaC | Bicep (Azure Container Apps) |
 | CI/CD | GitHub Actions (9 workflows) |
-| Docs | Docusaurus, OpenAPI |
+| Docs | Fumadocs, MDX, OpenAPI |
 
 ---
 

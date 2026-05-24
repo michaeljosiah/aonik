@@ -3,7 +3,11 @@ title: Welcome to Aonik
 description: What Aonik is, who these docs are for, and what's in scope.
 ---
 
-Aonik is an AI-native, open-core financial platform built on .NET 10. You self-host it and use it to power your own branded financial products — anything from consumer personal finance to B2B billing to cross-border remittance. Aonik provides the platform; the product you ship is yours.
+Aonik is an AI-native, open-core intelligence platform built on .NET 10. You self-host it and use it to power branded intelligent products and domain systems.
+
+Finance is the first shipped domain: consumer personal finance, B2B billing, collections, payments, ledger, and cross-border remittance. The platform itself is broader than finance. AONIK Core provides shared identity, memory, workflows, governance, agents, AI routing, approvals, and shared human primitives that future domains can build on.
+
+If you are new to the platform model, start with [Product vision and platform model](/docs/operate/getting-started/platform-vision). It explains how AONIK Core, domain modules, and product experiences fit together.
 
 ## Who these docs are for
 
@@ -24,6 +28,7 @@ These docs are **not** end-user help for any specific application built on Aonik
 A short list of what an operator gets the day they finish the [Quickstart](/docs/operate/getting-started/quickstart):
 
 - Multi-tenant identity backed by Auth0 or Microsoft Entra ID
+- AONIK Core primitives for agents, memory, workflows, approvals, audit, notifications, tasks, and settings
 - Double-entry ledger with immutable journal entries
 - Orders, payment intents, billing and invoicing
 - Personal finance primitives: linked-account ingestion, transactions, household sharing, financial life graph
@@ -44,23 +49,24 @@ The [Capability matrix](/docs/operate/getting-started/what-you-get) lists every 
 
 The sidebar follows the lifecycle of a fresh operator:
 
-1. **Getting Started** — orient, then run the [Quickstart](/docs/operate/getting-started/quickstart)
-2. **Core Concepts** — short conceptual reference for the platform model
-3. **Install & Configure** — every supported way to stand Aonik up
-4. **Identity & Access** — pick an IdP, wire users and roles
-5. **Integrations** — Plaid, Stripe, Twilio, Firebase, ElevenLabs, model providers, Qdrant, webhooks
-6. **Platform Capabilities** — reference for every domain capability
-7. **AI Platform** — how AI runs, route policies, prompts, tools, approval workflows
-8. **Operations** — jobs, observability, deploys, scaling
-9. **Admin UI** — workspace mode, playground, settings
-10. **CLI** — terminal-based agent and approval workflows
-11. **API Reference** — auto-generated from the live OpenAPI spec
-12. **For Contributors** — architecture deep dive, ADRs, patterns, contributing workflow
+1. **Getting Started** - orient, understand the platform vision, then run the [Quickstart](/docs/operate/getting-started/quickstart)
+2. **Core Concepts** - short conceptual reference for AONIK Core, modules, tenancy, and governance
+3. **Install & Configure** - every supported way to stand Aonik up
+4. **Identity & Access** - pick an IdP, wire users and roles
+5. **Integrations** - Plaid, Stripe, Twilio, Firebase, ElevenLabs, model providers, Qdrant, webhooks
+6. **Platform Capabilities** - reference for Core capabilities and shipped domain modules
+7. **AI Platform** - how AI runs, route policies, prompts, tools, approval workflows
+8. **Operations** - jobs, observability, deploys, scaling
+9. **Admin UI** - workspace mode, playground, settings
+10. **CLI** - terminal-based agent and approval workflows
+11. **API Reference** - auto-generated from the live OpenAPI spec
+12. **For Contributors** - architecture deep dive, ADRs, patterns, contributing workflow
 
 Most sections currently show a **Coming soon** placeholder. They link to the most relevant existing material in the meantime.
 
 ## What's next
 
 - **Start now.** Run the [Quickstart](/docs/operate/getting-started/quickstart) — about 15 minutes from a fresh clone.
+- **Understand the platform.** Read [Product vision and platform model](/docs/operate/getting-started/platform-vision).
 - **See the moving parts.** [Architecture at a glance](/docs/operate/getting-started/architecture-at-a-glance).
 - **Learn the vocabulary.** Skim the [Glossary](/docs/operate/getting-started/glossary) before reading any deep page.

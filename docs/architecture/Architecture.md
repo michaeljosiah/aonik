@@ -2,7 +2,7 @@
 
 > **This document is a legacy reference.** For current architecture documentation, see the files below.
 
-AONIK is an **AI-native financial infrastructure platform** built as a **module-first modular monolith**. Each business domain (Platform, Finance, AI, Agents) lives in a self-contained module project that owns its entities, services, endpoints, and persistence.
+AONIK is an **AI-native intelligence platform** built as a **module-first modular monolith**. AONIK Core provides shared orchestration, memory, governance, agents, and AI routing; Finance and PersonalFinance are the first shipped domain modules. Each implementation module lives in a self-contained project that owns its entities, services, endpoints, and persistence.
 
 ## Current Architecture Documentation
 

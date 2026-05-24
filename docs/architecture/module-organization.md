@@ -1,6 +1,6 @@
 # Module Organization
 
-AONIK uses a **module-first modular monolith** architecture. Each business domain is a self-contained .NET project that owns its entities, services, endpoints, and persistence.
+AONIK uses a **module-first modular monolith** architecture to implement a broader modular AI intelligence platform. Each domain or platform capability is a self-contained .NET project that owns its entities, services, endpoints, and persistence.
 
 ## Module Anatomy
 
