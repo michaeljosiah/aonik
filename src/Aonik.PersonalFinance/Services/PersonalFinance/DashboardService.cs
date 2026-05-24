@@ -146,6 +146,68 @@ internal sealed class DashboardService : IDashboardService
         return new DashboardResponse(metrics, billDtos, orderDtos, overview);
     }
 
+    public async Task<SafeToSpendBreakdownResponse> GetSafeToSpendBreakdownAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var now = DateTime.UtcNow;
+
+        var accounts = await GetActiveAccountsAsync(tenantId, userId, cancellationToken);
+        var upcomingBills = await GetUpcomingBillsAsync(tenantId, userId, now, cancellationToken);
+        var upcomingRecurring = await GetUpcomingPersonalRecurringBillsAsync(tenantId, userId, now, cancellationToken);
+        var upcomingDebt = await GetUpcomingDebtRepaymentsAsync(tenantId, userId, now, cancellationToken);
+
+        var currency = DeterminePrimaryCurrency(accounts);
+        var liquidAssets = CalculateLiquidAssets(accounts);
+
+        var factors = new List<SafeToSpendFactorDto>();
+        foreach (var bill in upcomingBills.Where(b => b.ExpectedAmount.HasValue))
+        {
+            factors.Add(BuildFactor("Bill", bill.Id, bill.Payee, bill.ExpectedAmount!.Value, bill.Currency, bill.NextDueDate, now));
+        }
+        foreach (var bill in upcomingRecurring.Where(b => b.ExpectedAmount.HasValue))
+        {
+            factors.Add(BuildFactor("RecurringBill", bill.Id, bill.Payee, bill.ExpectedAmount!.Value, bill.Currency, bill.NextDueDate, now));
+        }
+        foreach (var debt in upcomingDebt.Where(d => d.ExpectedAmount.HasValue))
+        {
+            factors.Add(BuildFactor("DebtRepayment", debt.Id, debt.CreditorName, debt.ExpectedAmount!.Value, debt.Currency, debt.NextDueDate, now));
+        }
+
+        factors.Sort((a, b) => a.DueDate.CompareTo(b.DueDate));
+
+        var protectedObligations = factors.Sum(f => f.Amount);
+        var availableToSpend = Math.Max(0, liquidAssets - protectedObligations);
+
+        return new SafeToSpendBreakdownResponse(
+            LiquidAssets: liquidAssets,
+            LiquidAssetsLabel: FormatAmount(liquidAssets, currency),
+            ProtectedObligations: protectedObligations,
+            ProtectedObligationsLabel: FormatAmount(protectedObligations, currency),
+            AvailableToSpend: availableToSpend,
+            AvailableToSpendLabel: FormatAmount(availableToSpend, currency),
+            Currency: currency,
+            AsOfUtc: now,
+            LookaheadDays: UpcomingBillsDaysAhead,
+            Factors: factors);
+    }
+
+    private static SafeToSpendFactorDto BuildFactor(
+        string kind, Guid sourceId, string label, decimal amount, string currency, DateTime dueDate, DateTime now)
+    {
+        var daysUntilDue = Math.Max(0, (int)Math.Ceiling((dueDate.Date - now.Date).TotalDays));
+        return new SafeToSpendFactorDto(
+            Kind: kind,
+            SourceId: sourceId,
+            Label: label,
+            Amount: amount,
+            AmountLabel: FormatAmount(amount, currency),
+            Currency: currency,
+            DueDate: dueDate,
+            DaysUntilDue: daysUntilDue);
+    }
+
     // ═════════════════════════════════════════════════════════════════
     // Metrics Calculation
     // ═════════════════════════════════════════════════════════════════
@@ -222,10 +284,7 @@ internal sealed class DashboardService : IDashboardService
         //
         // Note: amounts are summed in the user's primary currency (DeterminePrimaryCurrency).
         // Cross-currency FX normalisation is deferred to V2 once exchange rate data is available.
-        var liquidAssets = accounts
-            .Where(a => !LiabilityAccountTypes.Contains(a.AccountType)
-                        && !NonLiquidAssetTypes.Contains(a.AccountType))
-            .Sum(a => a.CurrentBalance);
+        var liquidAssets = CalculateLiquidAssets(accounts);
 
         var availableToSpend = Math.Max(0, liquidAssets - totalBillsDue);
 
@@ -443,6 +502,19 @@ internal sealed class DashboardService : IDashboardService
         }
 
         return userId;
+    }
+
+    /// <summary>
+    /// Liquid assets = everything that is not a liability and not a long-term investment.
+    /// Shared by GetDashboardAsync (for the AvailableToSpend metric) and
+    /// GetSafeToSpendBreakdownAsync so the two surfaces never drift.
+    /// </summary>
+    private static decimal CalculateLiquidAssets(IEnumerable<PersonalAccount> accounts)
+    {
+        return accounts
+            .Where(a => !LiabilityAccountTypes.Contains(a.AccountType)
+                        && !NonLiquidAssetTypes.Contains(a.AccountType))
+            .Sum(a => a.CurrentBalance);
     }
 
     /// <summary>

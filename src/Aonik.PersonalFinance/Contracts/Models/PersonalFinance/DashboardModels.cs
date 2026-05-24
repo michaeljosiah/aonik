@@ -93,3 +93,27 @@ public record DashboardOverviewSliceDto(
     decimal Amount,
     string AmountLabel,
     string ColorKey);
+
+// ── Safe-to-spend DTOs ──────────────────────────────────────────
+
+public record SafeToSpendBreakdownResponse(
+    decimal LiquidAssets,
+    string LiquidAssetsLabel,
+    decimal ProtectedObligations,
+    string ProtectedObligationsLabel,
+    decimal AvailableToSpend,
+    string AvailableToSpendLabel,
+    string Currency,
+    DateTime AsOfUtc,
+    int LookaheadDays,
+    IReadOnlyList<SafeToSpendFactorDto> Factors);
+
+public record SafeToSpendFactorDto(
+    string Kind,
+    Guid SourceId,
+    string Label,
+    decimal Amount,
+    string AmountLabel,
+    string Currency,
+    DateTime DueDate,
+    int DaysUntilDue);
