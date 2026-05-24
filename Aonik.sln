@@ -61,6 +61,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Finance.Tests", "test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.PersonalFinance.Tests", "tests\Aonik.PersonalFinance.Tests\Aonik.PersonalFinance.Tests.csproj", "{9BAC6C5E-1E2D-4B2D-99DC-F2BAED885A5E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.TestSupport", "tests\Aonik.TestSupport\Aonik.TestSupport.csproj", "{9234D4C2-557A-4D95-8685-E87B13C1247A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -395,6 +397,18 @@ Global
 		{9BAC6C5E-1E2D-4B2D-99DC-F2BAED885A5E}.Release|x64.Build.0 = Release|Any CPU
 		{9BAC6C5E-1E2D-4B2D-99DC-F2BAED885A5E}.Release|x86.ActiveCfg = Release|Any CPU
 		{9BAC6C5E-1E2D-4B2D-99DC-F2BAED885A5E}.Release|x86.Build.0 = Release|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Debug|x64.Build.0 = Debug|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Debug|x86.Build.0 = Debug|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Release|x64.ActiveCfg = Release|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Release|x64.Build.0 = Release|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Release|x86.ActiveCfg = Release|Any CPU
+		{9234D4C2-557A-4D95-8685-E87B13C1247A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -427,5 +441,6 @@ Global
 		{E133691B-1F8B-4729-973F-96ADD989614C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{E64B9D3E-137B-4D8F-9154-B85CC8E99E7F} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{9BAC6C5E-1E2D-4B2D-99DC-F2BAED885A5E} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{9234D4C2-557A-4D95-8685-E87B13C1247A} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

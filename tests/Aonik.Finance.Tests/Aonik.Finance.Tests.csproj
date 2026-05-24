@@ -31,6 +31,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Aonik.Finance\Aonik.Finance.csproj" />
     <ProjectReference Include="..\..\src\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+    <ProjectReference Include="..\Aonik.TestSupport\Aonik.TestSupport.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,9 +1,9 @@
-using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Contracts.Models.Ledger;
-using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
 using Aonik.Finance.Persistence;
+using Aonik.TestSupport.Identity;
+using Aonik.TestSupport.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,45 +11,8 @@ namespace Aonik.Application.Tests.Ledger;
 
 public class LedgerServiceTests
 {
-    private class TestTenantProvider : ITenantProvider
-    {
-        private readonly Guid _tenantId;
-
-        public TestTenantProvider(Guid tenantId) => _tenantId = tenantId;
-
-        public Guid GetCurrentTenantId() => _tenantId;
-
-        public bool TryGetCurrentTenantId(out Guid tenantId)
-        {
-            tenantId = _tenantId;
-            return true;
-        }
-    }
-
-    private sealed class AllowAllPermissionService : IPermissionService
-    {
-        public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
-            Task.FromResult(true);
-
-        public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
-            Task.FromResult(new List<string>());
-    }
-
-    private sealed class TestCurrentUserProvider : ICurrentUserProvider
-    {
-        private readonly Guid _userId;
-
-        public TestCurrentUserProvider(Guid userId) => _userId = userId;
-
-        public Guid? GetCurrentUserId() => _userId;
-
-        public bool TryGetCurrentUserId(out Guid userId)
-        {
-            userId = _userId;
-            return true;
-        }
-    }
-
+    // SharedKernel-level fakes now come from Aonik.TestSupport; only the
+    // Finance-specific DbContext factory stays local.
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()

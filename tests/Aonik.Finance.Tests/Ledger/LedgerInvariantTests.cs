@@ -2,8 +2,8 @@ using Aonik.Finance.Contracts.Models.Ledger;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
-using Aonik.SharedKernel.Abstractions;
-using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.TestSupport.Identity;
+using Aonik.TestSupport.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -135,35 +135,11 @@ public class LedgerInvariantTests
 
     // ─── Local fixture ──────────────────────────────────────────────────
     //
-    // Self-contained, no shared state across tests — each fixture spins
-    // up a fresh InMemory FinanceDbContext keyed by a random Guid. The
-    // existing LedgerServiceTests in Aonik.Application.Tests follow the
-    // same pattern; we duplicate it here rather than depending on that
-    // assembly so Aonik.Finance.Tests can stand alone.
-
-    private sealed class TestTenantProvider : ITenantProvider
-    {
-        private readonly Guid _tenantId;
-        public TestTenantProvider(Guid tenantId) => _tenantId = tenantId;
-        public Guid GetCurrentTenantId() => _tenantId;
-        public bool TryGetCurrentTenantId(out Guid tenantId) { tenantId = _tenantId; return true; }
-    }
-
-    private sealed class AllowAllPermissionService : IPermissionService
-    {
-        public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
-            Task.FromResult(true);
-        public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
-            Task.FromResult(new List<string>());
-    }
-
-    private sealed class TestCurrentUserProvider : ICurrentUserProvider
-    {
-        private readonly Guid _userId;
-        public TestCurrentUserProvider(Guid userId) => _userId = userId;
-        public Guid? GetCurrentUserId() => _userId;
-        public bool TryGetCurrentUserId(out Guid userId) { userId = _userId; return true; }
-    }
+    // SharedKernel-level fakes (TestTenantProvider, AllowAllPermissionService,
+    // TestCurrentUserProvider) come from the Aonik.TestSupport library so
+    // every module's test project consumes the same implementations.
+    // What stays local is the Finance-specific scaffolding: spinning up
+    // FinanceDbContext + LedgerService and seeding a starter ledger.
 
     private sealed class TestFixture
     {
@@ -173,17 +149,17 @@ public class LedgerInvariantTests
 
         public static async Task<TestFixture> CreateAsync()
         {
-            var tenantId = Guid.NewGuid();
+            var tenantProvider = new TestTenantProvider();
             var options = new DbContextOptionsBuilder<FinanceDbContext>()
                 .UseInMemoryDatabase($"LedgerInvariantTests_{Guid.NewGuid()}")
                 .Options;
-            var dbContext = new FinanceDbContext(options, new TestTenantProvider(tenantId));
+            var dbContext = new FinanceDbContext(options, tenantProvider);
 
             var service = new LedgerService(
                 dbContext,
-                new TestTenantProvider(tenantId),
+                tenantProvider,
                 new AllowAllPermissionService(),
-                new TestCurrentUserProvider(Guid.NewGuid()),
+                new TestCurrentUserProvider(),
                 new FinanceMetrics());
 
             var ledger = await service.CreateLedgerAsync(new CreateLedgerRequest("USD"));

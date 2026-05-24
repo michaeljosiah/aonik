@@ -31,6 +31,7 @@
     <ProjectReference Include="..\..\src\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Platform\Aonik.Platform.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Worker\Aonik.Worker.csproj" />
+    <ProjectReference Include="..\Aonik.TestSupport\Aonik.TestSupport.csproj" />
   </ItemGroup>
 
 </Project>

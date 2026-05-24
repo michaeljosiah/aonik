@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Aonik.TestSupport — shared fixtures for the platform's test
+    projects. Hosts the SharedKernel-level fakes (TestTenantProvider,
+    AllowAllPermissionService, TestCurrentUserProvider, etc.) that
+    every module's test project ends up needing.
+
+    Deliberately NOT a test project (no xunit, no Test.Sdk) so that
+    `dotnet test Aonik.TestSupport.csproj` doesn't scan it for tests
+    and so consumers stay free of forced test-runner dependencies.
+
+    Scope rule: only depends on Aonik.SharedKernel. Module-specific
+    fakes (e.g. email/SMS senders, finance-module test helpers) belong
+    either in the consuming test project or in a per-module support
+    library — keeping this assembly narrow stops it becoming a god-
+    project every test transitively pulls.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
