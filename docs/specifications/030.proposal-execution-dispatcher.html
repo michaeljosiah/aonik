@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 030 · Proposal execution dispatcher</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e6f1ef; color: #166053; }
+    .meta-tag.priority-p1 { background: #fce8e2; color: #9b3815; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 030</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-small">Size: Small</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Agents / Platform</span>
+  <h1>Proposal execution dispatcher</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Adds a generic dispatch path that runs domain-side execution logic when an agent
+    <code>Proposal</code> is approved. Today only one proposal type
+    (<code>FinancialLifeGraphAnnotation</code>) executes anything &mdash; via a bespoke
+    endpoint that bypasses the generic approval flow. This spec generalises that pattern
+    so any module can register an <code>IProposalHandler</code>, and a single approval
+    endpoint flips status <em>and</em> applies the change atomically.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Guardrails</a></li>
+    <li><a href="#design">Component design</a></li>
+    <li><a href="#failure">Failure &amp; idempotency</a></li>
+    <li><a href="#migrate-flg">Migrating the FLG handler</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  The <code>Proposal</code> entity in <code>Aonik.Agents</code> already supports the full
+  agent &rarr; human &rarr; system loop except for the last step: there is no generic way
+  to <em>execute</em> an approved proposal. <code>ProposalApprovalService.ApproveAsync</code>
+  only flips <code>Status</code> from <code>Proposed</code> to <code>Approved</code> and
+  stamps approver / timestamp. The single proposal type that actually does anything on
+  approval &mdash; <code>FinancialLifeGraphAnnotation</code> &mdash; works around this by
+  exposing its own approval endpoint (<code>/personal-finance/graph/proposals/{id}/approve</code>)
+  whose handler reads the payload, applies domain changes, then calls
+  <code>IAgentProposalStore.ApproveAsync</code>.
+</p>
+
+<p>
+  This spec replaces that ad-hoc pattern with a registry: each module that defines a
+  <code>ProposalType</code> also registers an <code>IProposalHandler</code> keyed by that
+  type string. The generic approval endpoint dispatches through the registry inside one
+  unit of work, so the proposal row and the domain action either both happen or both
+  do not.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Approving any proposal via <code>POST /ai/proposals/{id}/approve</code> applies the
+  domain action. The FLG-specific approval endpoint is removed. A new proposal type can
+  be added by writing one handler class and registering it &mdash; no new endpoint, no
+  changes to <code>Aonik.Agents</code>.
+</div>
+
+<h2 id="problem">2. Problem</h2>
+
+<p>
+  Today's approval flow has two divergent shapes:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Path</th>
+      <th>What happens on approval</th>
+      <th>Where the logic lives</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>POST /ai/proposals/{id}/approve</code></td>
+      <td>Flip <code>Status &rarr; Approved</code>. Nothing else.</td>
+      <td><a href="../../src/Aonik.Agents/Services/ProposalApprovalService.cs"><code>ProposalApprovalService.ApproveAsync</code></a></td>
+    </tr>
+    <tr>
+      <td><code>POST /personal-finance/graph/proposals/{id}/approve</code></td>
+      <td>Parse payload, activate FLG node + edge, then flip status.</td>
+      <td><a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphInferenceService.cs"><code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code></a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Concrete consequences:
+</p>
+
+<ul>
+  <li>A user (or automation) that approves an FLG proposal via the generic endpoint silently <em>does not apply</em> the change &mdash; the proposal row is Approved but the graph nodes remain in <code>Proposed</code> state. Two endpoints with overlapping URLs, different semantics, no enforcement.</li>
+  <li>Every future proposal type needs its own endpoint, its own service method, its own knowledge of how to call <code>IAgentProposalStore.ApproveAsync</code>. The Admin UI's approvals page already speaks the generic endpoint &mdash; new types are silently broken there until a parallel UI is added.</li>
+  <li>There is no shared place to enforce cross-cutting concerns (idempotency on retry, audit emission, failure rollback, policy gating, observability spans).</li>
+  <li>Spec 030's predecessor (the scrapped Compass spec) assumed proposal types like <code>Orders.CreateBillPaymentOrder</code> would simply <em>work</em> on approval. They will not until this gap is closed.</li>
+</ul>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+
+<ul>
+  <li><span class="tag new">New</span> <code>IProposalHandler</code> contract in <code>Aonik.SharedKernel.Abstractions.Agents</code> &mdash; one method, <code>HandleAsync(AgentProposalDetail, CancellationToken)</code>, plus a static <code>ProposalType</code> discriminator.</li>
+  <li><span class="tag new">New</span> <code>IProposalDispatcher</code> in <code>Aonik.SharedKernel.Abstractions.Agents</code> &mdash; resolves the handler for a given <code>ProposalType</code> string and invokes it.</li>
+  <li><span class="tag new">New</span> <code>ProposalDispatcher</code> implementation in <code>Aonik.Agents.Services</code> &mdash; backed by a dictionary built from DI-registered handlers, throws a typed exception if no handler is registered for a type.</li>
+  <li><span class="tag mutate">Edit</span> <code>ProposalApprovalService.ApproveAsync</code> &mdash; after the status transition (same transaction / SaveChanges) invoke the dispatcher. On dispatcher failure, roll the proposal back to <code>Proposed</code> and bubble the failure to the caller.</li>
+  <li><span class="tag new">New</span> <code>FinancialLifeGraphAnnotationProposalHandler</code> in <code>Aonik.PersonalFinance.Services.PersonalFinance</code> that wraps the existing <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> body.</li>
+  <li><span class="tag mutate">Edit</span> <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> &mdash; reduce to a thin facade that calls the handler (kept temporarily for the legacy endpoint, removed in the same change as the endpoint).</li>
+  <li><span class="tag mutate">Edit</span> Remove <code>ApproveFinancialLifeGraphProposalEndpoint</code> and the matching reject endpoint. The generic <code>/ai/proposals/{id}/approve</code> is the only path.</li>
+  <li><span class="tag new">New</span> <code>NoProposalHandlerRegisteredException</code> &mdash; thrown by the dispatcher and surfaced as HTTP 409 by the approve endpoint (with a clear error body).</li>
+  <li><span class="tag new">New</span> Unit tests: dispatcher happy path, missing-handler path, handler-throws path, FLG handler parity with the old inline service.</li>
+  <li><span class="tag new">New</span> Integration test: approve an FLG proposal via <code>/ai/proposals/{id}/approve</code> and assert both the proposal row <em>and</em> the FLG node/edge transition to active.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+
+<ul>
+  <li><strong>New proposal types.</strong> This spec ships the dispatcher and migrates the one existing handler. <code>Orders.CreateBillPaymentOrder</code>, <code>PersonalFinance.UpdateBudget</code>, etc. are separate work that becomes possible <em>after</em> this lands.</li>
+  <li><strong>Background / async execution.</strong> Handlers run synchronously inside the approval request. If a handler needs to enqueue work (e.g. payment that polls a partner), that's the handler's choice &mdash; the dispatcher does not own scheduling. Background-driven dispatch (retry queues, dead-letter) is a separate decision.</li>
+  <li><strong>Multi-handler fan-out.</strong> One <code>ProposalType</code> &rarr; one handler. No middleware chain, no decorators, no policy pipeline.</li>
+  <li><strong>Per-handler authorisation.</strong> The approve endpoint's existing <code>AdminUserPolicy</code> is the gate. Per-handler additional checks (e.g. "only the proposal subject can approve a self-transfer") are deferred to a later spec.</li>
+  <li><strong>Payload schema validation.</strong> The handler is responsible for parsing and validating its own <code>PayloadJson</code>. The dispatcher passes the raw payload and does not enforce shape.</li>
+  <li><strong>Rejection-side dispatch.</strong> <code>DismissAsync</code> stays a pure status flip. Rejection-time cleanup (e.g. removing the proposed-but-not-yet-applied FLG nodes) currently happens inline in the legacy reject endpoint. Moving rejection logic into the dispatcher is a follow-up if a second type ever needs it.</li>
+</ul>
+
+<h2 id="guardrails">4. Guardrails</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Must&nbsp;not&nbsp;change</th>
+      <th>Must&nbsp;follow</th>
+      <th>Ask&nbsp;before</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>The <code>Proposal</code> entity schema (no new columns required).</li>
+          <li><code>IAgentProposalStore</code> public surface &mdash; the dispatcher composes with it, does not replace it.</li>
+          <li><code>ProposalStatus</code> enum &mdash; only the three existing values.</li>
+          <li>The <code>POST /ai/proposals/{id}/approve</code> route, request shape, or response shape (the body just gains the side-effect).</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Handler registration via DI keyed-services (<code>services.AddKeyedScoped&lt;IProposalHandler&gt;(proposalType, ...)</code>) so each module owns its own wiring.</li>
+          <li>Status transition and handler execution happen in the same logical unit &mdash; if the handler throws, the proposal stays <code>Proposed</code>.</li>
+          <li>Handlers live in the owning domain module, not in <code>Aonik.Agents</code>.</li>
+          <li>The dispatcher emits an OpenTelemetry span (<code>aonik.proposals.dispatch</code>) with <code>proposal.type</code> and <code>proposal.id</code> tags.</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Introducing async / background dispatch (would change the contract).</li>
+          <li>Letting handlers run outside the approval request thread (e.g. publish-and-forget).</li>
+          <li>Allowing more than one handler per <code>ProposalType</code>.</li>
+          <li>Adding a new database column to <code>Proposal</code> to track handler execution state (versus inferring it from <code>Status</code>).</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="design">5. Component design</h2>
+
+<h3>5.1 Target flow</h3>
+
+<div class="ascii-diagram">User clicks "Approve" in Admin UI
+  ↓
+POST /ai/proposals/{id}/approve
+  ↓
+ApproveProposalEndpoint
+  ↓
+ProposalApprovalService.ApproveAsync
+  ├─ Load Proposal (must be Proposed)
+  ├─ Flip Status → Approved, stamp approver + timestamp
+  ├─ SaveChanges (proposal row committed)
+  ├─ IProposalDispatcher.DispatchAsync(proposalType, AgentProposalDetail)
+  │     ↓
+  │   IProposalHandler resolved from DI by ProposalType key
+  │     ↓
+  │   handler.HandleAsync(detail, ct)   ← domain side applies the change
+  │
+  └─ On handler failure: revert Status → Proposed, SaveChanges, rethrow</div>
+
+<h3>5.2 Contracts (SharedKernel)</h3>
+
+<pre><code>namespace Aonik.SharedKernel.Abstractions.Agents;
+
+/// &lt;summary&gt;
+/// Domain-side executor for an approved proposal. Implementations live in the
+/// owning module (e.g. PersonalFinance for FLG annotations, Finance for bill
+/// payments) and are registered with DI keyed by their ProposalType discriminator.
+/// &lt;/summary&gt;
+public interface IProposalHandler
+{
+    /// &lt;summary&gt;The ProposalType string this handler is registered for.&lt;/summary&gt;
+    string ProposalType { get; }
+
+    /// &lt;summary&gt;
+    /// Apply the proposal's payload to the owning domain. Called by the dispatcher
+    /// after the Proposal row has been flipped to Approved. If this method throws,
+    /// the dispatcher reverts the proposal to Proposed and rethrows to the caller.
+    /// &lt;/summary&gt;
+    Task HandleAsync(AgentProposalDetail proposal, CancellationToken cancellationToken);
+}
+
+/// &lt;summary&gt;
+/// Resolves the IProposalHandler registered for a given ProposalType and invokes it.
+/// Throws &lt;see cref="NoProposalHandlerRegisteredException"/&gt; when no handler is
+/// registered &mdash; that error is treated as approval failure, not silent no-op.
+/// &lt;/summary&gt;
+public interface IProposalDispatcher
+{
+    Task DispatchAsync(AgentProposalDetail proposal, CancellationToken cancellationToken);
+}
+
+public sealed class NoProposalHandlerRegisteredException : Exception
+{
+    public NoProposalHandlerRegisteredException(string proposalType)
+        : base($"No IProposalHandler is registered for proposal type '{proposalType}'.")
+    {
+        ProposalType = proposalType;
+    }
+
+    public string ProposalType { get; }
+}</code></pre>
+
+<h3>5.3 Dispatcher implementation</h3>
+
+<pre><code>namespace Aonik.Agents.Services;
+
+internal sealed class ProposalDispatcher : IProposalDispatcher
+{
+    private readonly IServiceProvider _services;
+
+    public ProposalDispatcher(IServiceProvider services) =&gt; _services = services;
+
+    public Task DispatchAsync(AgentProposalDetail proposal, CancellationToken ct)
+    {
+        var handler = _services.GetKeyedService&lt;IProposalHandler&gt;(proposal.ProposalType)
+            ?? throw new NoProposalHandlerRegisteredException(proposal.ProposalType);
+
+        // OpenTelemetry span around the handler call (aonik.proposals.dispatch).
+        return handler.HandleAsync(proposal, ct);
+    }
+}</code></pre>
+
+<h3>5.4 Registration pattern</h3>
+
+<p>
+  Each module's <code>DependencyInjection.Add{Module}</code> extension registers its
+  handler with the type string as the DI key:
+</p>
+
+<pre><code>// In Aonik.PersonalFinance/DependencyInjection.cs
+services.AddKeyedScoped&lt;IProposalHandler, FinancialLifeGraphAnnotationProposalHandler&gt;(
+    "FinancialLifeGraphAnnotation");</code></pre>
+
+<p>
+  The dispatcher (in <code>Aonik.Agents</code>) registers once with the container and
+  resolves handlers by key. New proposal types ship as one handler class plus one
+  registration line.
+</p>
+
+<h3>5.5 Approval service change</h3>
+
+<pre><code>// Aonik.Agents/Services/ProposalApprovalService.cs (post-change sketch)
+
+public async Task&lt;ProposalDetailResponse&gt; ApproveAsync(Guid proposalId, CancellationToken ct)
+{
+    var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p =&gt; p.Id == proposalId, ct)
+        ?? throw new KeyNotFoundException(...);
+
+    if (proposal.Status != ProposalStatus.Proposed)
+        throw new InvalidOperationException(...);
+
+    proposal.Status = ProposalStatus.Approved;
+    proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
+    proposal.ApprovedAt = _clock.UtcNow;
+    await _dbContext.SaveChangesAsync(ct);
+
+    try
+    {
+        var detail = ToDetail(proposal);
+        await _dispatcher.DispatchAsync(detail, ct);
+    }
+    catch
+    {
+        // Handler failed. Revert so the user can retry or reject explicitly.
+        proposal.Status = ProposalStatus.Proposed;
+        proposal.ApprovedByUserId = null;
+        proposal.ApprovedAt = null;
+        await _dbContext.SaveChangesAsync(CancellationToken.None);
+        throw;
+    }
+
+    var row = await JoinedQuery().FirstAsync(p =&gt; p.Proposal.Id == proposalId, ct);
+    return Map(row);
+}</code></pre>
+
+<div class="callout">
+  <span class="callout-label">Note</span>
+  The revert is best-effort &mdash; the proposal row and the domain side live in
+  different <code>DbContext</code>s today, so this is not a true distributed transaction.
+  Handlers must therefore be idempotent (see &sect;6).
+</div>
+
+<h2 id="failure">6. Failure &amp; idempotency</h2>
+
+<h3>6.1 Handler must be idempotent</h3>
+
+<p>
+  The dispatcher catches handler exceptions and reverts the proposal status, but a
+  handler that partially succeeded before throwing leaves the domain in a partial state.
+  Handlers must therefore be safe to re-run on the same proposal payload &mdash; the
+  retry path is "user clicks Approve again."
+</p>
+
+<p>
+  Concrete techniques handlers should use:
+</p>
+
+<ul>
+  <li>Check current state before mutating (e.g. FLG handler activates a node only if it is still <code>Proposed</code>; no-op otherwise).</li>
+  <li>Use deterministic IDs derived from the proposal payload, never <code>Guid.NewGuid()</code>, when creating downstream records.</li>
+  <li>Treat "downstream record already exists with this deterministic ID" as success, not as a duplicate-key failure.</li>
+</ul>
+
+<h3>6.2 Missing-handler is a hard failure</h3>
+
+<p>
+  If <code>ProposalType</code> has no registered handler, the dispatcher throws
+  <code>NoProposalHandlerRegisteredException</code>, the approval reverts, and the
+  endpoint returns HTTP 409 with a structured error pointing at the missing type.
+  This intentionally surfaces drift between proposals being created and the handlers
+  that should execute them.
+</p>
+
+<h3>6.3 What this spec does not guarantee</h3>
+
+<ul>
+  <li>Cross-module ACID. The proposal row and the domain-side mutation are still in separate <code>DbContext</code>s.</li>
+  <li>Exactly-once execution under crash mid-handler. If the process dies between the handler partially mutating and the revert happening, the proposal stays Approved with no domain effect. Resolution is operator-driven for now (read the audit log, decide).</li>
+  <li>Ordered execution of multiple approvals. Each approval is its own request.</li>
+</ul>
+
+<p>
+  Both gaps are acceptable for v1 because today's only handler (FLG annotation) already
+  operates in this model with no observed issues; closing them would require an outbox
+  pattern that is out of scope here.
+</p>
+
+<h2 id="migrate-flg">7. Migrating the existing FLG handler</h2>
+
+<p>
+  The existing <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code>
+  body is the reference implementation of a handler. It already:
+</p>
+
+<ul>
+  <li>Loads the proposal via <code>IAgentProposalStore.GetByIdAsync</code>.</li>
+  <li>Parses <code>PayloadJson</code> to extract <code>GraphNodeId</code>.</li>
+  <li>Looks up the FLG node and edge.</li>
+  <li>Flips both to <code>Active</code>.</li>
+  <li>Saves the FLG context.</li>
+  <li>Calls <code>IAgentProposalStore.ApproveAsync</code>.</li>
+  <li>Invalidates the FLG cache.</li>
+</ul>
+
+<p>
+  The migration is a near-mechanical lift:
+</p>
+
+<ol>
+  <li>Create <code>FinancialLifeGraphAnnotationProposalHandler : IProposalHandler</code> with <code>ProposalType =&gt; "FinancialLifeGraphAnnotation"</code> and the body moved over <em>minus</em> the <code>ApproveAsync</code> call (the dispatcher's caller has already flipped the proposal).</li>
+  <li>Register it in <code>Aonik.PersonalFinance</code> DI under the same key.</li>
+  <li>Delete <code>ApproveFinancialLifeGraphProposalEndpoint</code> and the corresponding reject endpoint.</li>
+  <li>Reduce <code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code> to a forwarder or remove if no other caller remains.</li>
+  <li>Update any frontend references from <code>/personal-finance/graph/proposals/{id}/approve</code> to <code>/ai/proposals/{id}/approve</code>.</li>
+</ol>
+
+<h2 id="tasks">8. Tasks</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Task</th>
+      <th>Files</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Add <code>IProposalHandler</code>, <code>IProposalDispatcher</code>, <code>NoProposalHandlerRegisteredException</code>.</td>
+      <td><code>src/Aonik.SharedKernel/Abstractions/Agents/</code></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Implement <code>ProposalDispatcher</code>; register in <code>AgentsServiceCollectionExtensions</code>.</td>
+      <td><code>src/Aonik.Agents/Services/ProposalDispatcher.cs</code></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Wire dispatcher into <code>ProposalApprovalService.ApproveAsync</code> with revert-on-failure.</td>
+      <td><code>src/Aonik.Agents/Services/ProposalApprovalService.cs</code></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Create FLG handler; register it; reduce inference service body to forwarder.</td>
+      <td><code>src/Aonik.PersonalFinance/Services/PersonalFinance/</code></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Remove FLG-specific approve / reject endpoints; update Payabo / Admin UI references.</td>
+      <td><code>src/Aonik.PersonalFinance/Endpoints/</code>, frontend</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Update <code>ApproveProposalEndpoint</code> to map <code>NoProposalHandlerRegisteredException</code> to 409 with structured body.</td>
+      <td><code>src/Aonik.Agents/Endpoints/ApproveProposalEndpoint.cs</code></td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Unit tests for dispatcher and the FLG handler parity.</td>
+      <td><code>tests/Aonik.Agents.Tests/</code>, <code>tests/Aonik.PersonalFinance.Tests/</code></td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>Integration test: approve FLG proposal through the generic endpoint and assert both rows transition.</td>
+      <td><code>tests/Aonik.Api.Tests/</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">9. Acceptance criteria</h2>
+
+<ul>
+  <li><code>dotnet build Aonik.sln</code> and <code>dotnet test Aonik.sln</code> succeed.</li>
+  <li>Approving any <code>FinancialLifeGraphAnnotation</code> proposal via <code>POST /ai/proposals/{id}/approve</code> activates the underlying FLG node and edge.</li>
+  <li>Approving a proposal whose <code>ProposalType</code> has no registered handler returns HTTP 409 and leaves the proposal in <code>Proposed</code>.</li>
+  <li>If a handler throws, the proposal is left in <code>Proposed</code> (status reverted), the approver / timestamp fields are cleared, and the exception bubbles to the endpoint.</li>
+  <li>No code in <code>Aonik.Agents</code> references <code>FinancialLifeGraphAnnotation</code> or any other module-specific proposal type by name.</li>
+  <li><code>ApproveFinancialLifeGraphProposalEndpoint</code> and its reject counterpart are removed; the admin UI / Payabo references the generic route.</li>
+  <li>Adding a hypothetical new proposal type requires one handler class + one <code>AddKeyedScoped</code> line, with no edits to <code>Aonik.Agents</code> or <code>Aonik.SharedKernel</code>.</li>
+</ul>
+
+<h2 id="open">10. Open decisions</h2>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  Should handlers be allowed to <em>reject</em> a proposal at execution time (e.g. payload references a deleted entity)? Current proposal: they throw, the proposal reverts to <code>Proposed</code>, and the user has to explicitly dismiss. Alternative: a handler can return a <code>HandlerResult { Status = Failed, Reason = "..." }</code> that moves the proposal to a new <code>Failed</code> state. The alternative requires a fourth value on <code>ProposalStatus</code>.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  Should the dispatcher run inside <code>ProposalApprovalService.ApproveAsync</code> (current proposal) or in a separate post-commit pipeline so the approval HTTP request can return quickly and execution happens out of band? Synchronous is simpler and matches user expectations ("clicked approve, it's done"), but slow handlers (e.g. external API calls) will tie up the approval request. Asynchronous needs an outbox or a hosted-service consumer.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  How should the dispatcher's failure-revert interact with the audit log? Today there is no explicit audit emission on approve. The clean answer is: emit two audit events (<code>proposal.approved</code> on flip, <code>proposal.execution_reverted</code> on handler failure) so an operator reading the log sees the full story. Confirm whether that fits the existing <code>IAuditLogWriter</code> contract before implementing.
+</div>
+
+<h2 id="refs">11. References</h2>
+
+<ul>
+  <li><a href="../../src/Aonik.Agents/Entities/Proposal.cs"><code>Proposal</code> entity</a> &mdash; the row this spec orchestrates.</li>
+  <li><a href="../../src/Aonik.Agents/Services/ProposalApprovalService.cs"><code>ProposalApprovalService</code></a> &mdash; the call site that gains dispatch.</li>
+  <li><a href="../../src/Aonik.SharedKernel/Abstractions/Agents/IAgentProposalStore.cs"><code>IAgentProposalStore</code></a> &mdash; the existing cross-module write surface the dispatcher composes with.</li>
+  <li><a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/FinancialLifeGraphInferenceService.cs"><code>FinancialLifeGraphInferenceService.ApproveProposalAsync</code></a> &mdash; the reference handler body being lifted out.</li>
+  <li><a href="../../src/Aonik.PersonalFinance/Endpoints/PersonalFinance/ApproveFinancialLifeGraphProposalEndpoint.cs"><code>ApproveFinancialLifeGraphProposalEndpoint</code></a> &mdash; the bespoke endpoint being removed.</li>
+  <li>CLAUDE.md &mdash; "Agents propose; systems execute" rule that this spec operationalises.</li>
+</ul>
+
+<footer>
+  Spec 030 · Proposal execution dispatcher · Draft
+</footer>
+
+</body>
+</html>
