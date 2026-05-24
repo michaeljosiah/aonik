@@ -54,7 +54,9 @@ const navigation: NavigationSection[] = [
           {
             label: 'Build & debug',
             items: [
-              { id: 'ai-workflows-item', label: 'Workflows', icon: 'Workflow', href: '/ai/workflows' },
+              // Workflows nav entry intentionally hidden — read-only display
+              // until a create-workflow flow exists. Routes remain registered
+              // below so deep links continue to resolve.
               { id: 'ai-playground-item', label: 'AI Playground', icon: 'FlaskConical', href: '/ai/playground' },
               { id: 'ai-traces-item', label: 'AI Traces', icon: 'Activity', href: '/ai/traces' },
             ],

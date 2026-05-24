@@ -19,7 +19,6 @@ import {
   SettingsAuthenticationPage,
   SettingsPaymentGatewaysPage,
   SettingsSpeechPage,
-  SettingsToolCatalogPage,
   SystemToolsPage,
   NotificationTemplatesPage,
   BackgroundJobsPage,
@@ -118,7 +117,6 @@ const navigation: NavigationSection[] = [
               { id: 'settings-authentication', label: 'Authentication', icon: 'Shield', href: '/settings/authentication' },
               { id: 'settings-payment-gateways', label: 'Payment Gateways', icon: 'Landmark', href: '/settings/payment-gateways' },
               { id: 'settings-speech', label: 'Speech & Voice', icon: 'AudioLines', href: '/settings/speech' },
-              { id: 'settings-tool-catalog', label: 'Tool Catalog', icon: 'ListChecks', href: '/settings/tool-catalog' },
               { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
               { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
               { id: 'settings-notification-templates', label: 'Notifications', icon: 'Bell', href: '/settings/notification-templates' },
@@ -155,7 +153,6 @@ const routes = [
   // (host-default credential management is now done via the API direct or the unified
   // ProviderEditPanel API key field).
   { path: '/settings/speech', element: SettingsSpeechPage },
-  { path: '/settings/tool-catalog', element: SettingsToolCatalogPage },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
   { path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
   { path: '/settings/system-tools', element: SystemToolsPage },
@@ -191,7 +188,6 @@ const panels: WorkspacePanelConfig[] = [
   // routes retired in Phase D; the page covers providers, recipes, voice mode, chat speech,
   // and API key management on the provider edit panel).
   { id: 'settings-speech', title: 'Speech & Voice', type: 'internal', category: 'page', componentKey: 'settings-speech', route: '/settings/speech' },
-  { id: 'settings-tool-catalog', title: 'Tool Catalog', type: 'internal', category: 'page', componentKey: 'settings-tool-catalog', route: '/settings/tool-catalog' },
   { id: 'background-jobs', title: 'Background Jobs', type: 'internal', category: 'page', componentKey: 'background-jobs', route: '/settings/background-jobs' },
   { id: 'settings-system-tools', title: 'System Tools', type: 'internal', category: 'page', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
   { id: 'settings-notification-templates', title: 'Notifications', type: 'internal', category: 'page', componentKey: 'settings-notification-templates', route: '/settings/notification-templates' },
@@ -215,7 +211,6 @@ const panelComponents = {
   'settings-payment-gateways': wrapPage(SettingsPaymentGatewaysPage),
   'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
   'settings-speech': wrapPage(SettingsSpeechPage),
-  'settings-tool-catalog': wrapPage(SettingsToolCatalogPage),
   'background-jobs': wrapPage(BackgroundJobsPage),
   'settings-system-tools': wrapPage(SystemToolsPage),
   'settings-notification-templates': wrapPage(NotificationTemplatesPage),

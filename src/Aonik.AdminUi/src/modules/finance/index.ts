@@ -11,7 +11,6 @@ import {
   AccountTransactionsPage,
 } from '@/pages/accounts';
 import {
-  OrdersLandingPage,
   OrdersListPage,
   BillPaymentOrderFormPage,
 } from '@/pages/orders';
@@ -21,7 +20,6 @@ import {
   LedgerJournalEntriesPage,
 } from '@/pages/ledger';
 import {
-  ComplianceLandingPage,
   DocumentsListPage,
   DocumentDetailPage,
   DocumentCreatePage,
@@ -45,7 +43,7 @@ import { AutonumberingPage } from '@/pages/settings';
 import { FxRatesPage } from '@/pages/FxRatesPage';
 import { InvoiceManagerPanel } from '@/workspace/apps/InvoiceManagerPanel';
 import { ReconciliationHubPanel } from '@/workspace/apps/ReconciliationHubPanel';
-import { wrapPage } from '../utils';
+import { redirectTo, wrapPage } from '../utils';
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -125,7 +123,9 @@ const routes = [
   { path: '/accounts', element: AccountsListPage },
   { path: '/accounts/:accountId/transactions', element: AccountTransactionsPage, isDynamic: true },
   { path: '/accounts/connections/:connectionId', element: AccountConnectionDetailPage, isDynamic: true },
-  { path: '/orders', element: OrdersLandingPage },
+  // /orders is a vestigial landing page (two tiles). Collapse it to the
+  // activity list — the "Create" path is reachable from there.
+  { path: '/orders', element: redirectTo('/orders/activity') },
   { path: '/orders/activity', element: OrdersListPage },
   { path: '/orders/bill-payments/new', element: BillPaymentOrderFormPage },
   { path: '/orders/bill-payments/:orderId', element: BillPaymentOrderFormPage, isDynamic: true },
@@ -144,7 +144,8 @@ const routes = [
   { path: '/catalog/billers/:billerId/services/:serviceId', element: CatalogBillerServiceDetailPage, isDynamic: true },
   { path: '/catalog/partners', element: CatalogPartnersPage },
   { path: '/catalog/partners/:partnerId', element: CatalogPartnerDetailPage, isDynamic: true },
-  { path: '/compliance', element: ComplianceLandingPage },
+  // /compliance had a single Documents tile — collapse straight to the list.
+  { path: '/compliance', element: redirectTo('/compliance/documents') },
   { path: '/compliance/documents', element: DocumentsListPage },
   { path: '/compliance/documents/new', element: DocumentCreatePage },
   { path: '/compliance/documents/:documentId', element: DocumentDetailPage, isDynamic: true },
@@ -159,7 +160,6 @@ const panels: WorkspacePanelConfig[] = [
   // Page panels — wrapped full-page components
   { id: 'customers', title: 'Customers', type: 'internal', category: 'page', componentKey: 'customers-list', route: '/customers' },
   { id: 'accounts', title: 'Accounts', type: 'internal', category: 'page', componentKey: 'accounts-list', route: '/accounts' },
-  { id: 'orders', title: 'Orders', type: 'internal', category: 'page', componentKey: 'orders-landing', route: '/orders' },
   { id: 'orders-bill-payments-new', title: 'Create Bill Payment', type: 'internal', category: 'page', componentKey: 'bill-payment-form', route: '/orders/bill-payments/new' },
   { id: 'orders-activity', title: 'Order Activity', type: 'internal', category: 'page', componentKey: 'orders-list', route: '/orders/activity' },
   { id: 'billing-invoices', title: 'Invoices', type: 'internal', category: 'page', componentKey: 'invoices-list', route: '/billing/invoices' },
@@ -179,7 +179,6 @@ const panels: WorkspacePanelConfig[] = [
 const panelComponents = {
   'customers-list': wrapPage(CustomersListPage),
   'accounts-list': wrapPage(AccountsListPage),
-  'orders-landing': wrapPage(OrdersLandingPage),
   'orders-list': wrapPage(OrdersListPage),
   'bill-payment-form': wrapPage(BillPaymentOrderFormPage),
   'catalog-landing': wrapPage(CatalogLandingPage),

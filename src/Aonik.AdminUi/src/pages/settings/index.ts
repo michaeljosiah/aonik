@@ -5,7 +5,6 @@ export { SettingsAuditLogsPage } from './SettingsAuditLogsPage';
 export { SettingsAuthenticationPage } from './SettingsAuthenticationPage';
 export { SettingsSpeechPage } from './SettingsSpeechPage';
 export { SettingsPaymentGatewaysPage } from './SettingsPaymentGatewaysPage';
-export { SettingsToolCatalogPage } from './SettingsToolCatalogPage';
 export { NotificationTemplatesPage } from './NotificationTemplatesPage';
 export { BackgroundJobsPage } from './BackgroundJobsPage';
 export { BackgroundJobDetailPage } from './BackgroundJobDetailPage';

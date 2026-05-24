@@ -84,7 +84,7 @@ import {
   SetupGuidePage,
   SetupGuidesLandingPage,
   TenantSetupWizardPage,
-  AiChatMock,
+  AiChatPage,
 } from '@/pages';
 import { WorkspacePage } from '@/workspace/WorkspacePage';
 import { useModules } from '@/modules';
@@ -339,7 +339,7 @@ function AiChatRoute({
 }) {
   const params = useParams<{ agentId?: string }>();
 
-  return <AiChatMock key={params.agentId ?? '__orchestrator__'} agentId={params.agentId ?? agentId} agents={agents} onSelectAgent={onSelectAgent} />;
+  return <AiChatPage key={params.agentId ?? '__orchestrator__'} agentId={params.agentId ?? agentId} agents={agents} onSelectAgent={onSelectAgent} />;
 }
 
 function BootstrapStatusUnavailablePage({ message }: { message: string }) {

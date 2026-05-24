@@ -94,14 +94,6 @@ const settingsTiles: SettingsTile[] = [
     icon: <ShieldCheck className="h-[18px] w-[18px]" />,
     badge: 'Governance',
   },
-  {
-    section: 'AI & Agents',
-    title: 'Tool Catalog',
-    description: 'Browse, enable, and version the tools available to agents.',
-    href: '/settings/tool-catalog',
-    icon: <AonikTemplateIcon name="list" size={18} />,
-    badge: 'AI',
-  },
 ];
 
 function SettingsTileGrid({ title, tiles }: { title: string; tiles: SettingsTile[] }) {

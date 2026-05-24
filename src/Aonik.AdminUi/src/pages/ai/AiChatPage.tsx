@@ -1,3 +1,9 @@
+// Admin AI chat surface. Despite the historical filename ("AiChatMock"),
+// this page is fully wired to the AG-UI streaming protocol via
+// `useAguiChat` and pulls real persisted threads via `useThreads`.
+//
+// File renamed to `AiChatPage` so the surface matches what it actually is.
+
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -27,7 +33,7 @@ import { cn } from '@/lib/utils';
 import { resolveChatRunState, useAguiChat } from '@/hooks/useAguiChat';
 import { useThreads, type ThreadSummary } from '@/hooks/useThreads';
 
-type AiChatMockProps = {
+type AiChatPageProps = {
   agentId?: string;
   agents?: AiAgentSelectorItem[];
   onSelectAgent?: (agentId: string) => void;
@@ -60,7 +66,7 @@ function getGreeting(name?: string) {
   return name ? `${period} ${name}!` : `${period}!`;
 }
 
-export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) {
+export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) {
   const params = useParams<{ agentId?: string }>();
   const [query, setQuery] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);

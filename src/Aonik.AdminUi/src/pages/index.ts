@@ -19,12 +19,12 @@ export {
   CatalogPartnersPage,
   CatalogPartnerDetailPage,
 } from './catalog';
-export { BillPaymentOrderFormPage, OrdersLandingPage, OrdersListPage } from './orders';
+export { BillPaymentOrderFormPage, OrdersListPage } from './orders';
 export { CustomersListPage, CustomerDetailPage } from './customers';
-export { ComplianceLandingPage, DocumentsListPage, DocumentDetailPage, DocumentCreatePage } from './compliance';
+export { DocumentsListPage, DocumentDetailPage, DocumentCreatePage } from './compliance';
 export { LedgerOverviewPage, LedgerAccountsPage, LedgerJournalEntriesPage } from './ledger';
 
-export { AiChatMock } from './ai/AiChatMock';
+export { AiChatPage } from './ai/AiChatPage';
 export { ContentBlocksListPage } from './ContentBlocksListPage';
 export { ContentBlockEditPage } from './ContentBlockEditPage';
 export { ContentWizardPage } from './ContentWizardPage';
