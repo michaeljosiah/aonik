@@ -1238,6 +1238,13 @@ export interface InviteUserRequest {
   email: string;
   roleIds?: string[] | null;
   displayName?: string | null;
+  /**
+   * Optional. When supplied, the placeholder user is linked to this
+   * existing Party (which must belong to the current tenant) instead
+   * of provisioning a new Individual party. Drives the "invite a
+   * customer's contact person as a user" flow.
+   */
+  partyId?: string | null;
 }
 
 // ── Spec 026 · User lifecycle closure ────────────────────────────────────
@@ -1265,6 +1272,22 @@ export interface ResendInviteResponse {
   expiresUtc?: string | null;
   emailSendCount: number;
   rateLimitReason?: string | null;
+}
+
+// ── Messaging health ─────────────────────────────────────────────────────
+
+/// Per-channel snapshot returned by /admin/messaging/health. When
+/// `configured` is false, `reason` carries a short operator-readable
+/// explanation suitable for surfacing in the UI.
+export interface MessagingChannelHealth {
+  configured: boolean;
+  provider: string;
+  reason?: string | null;
+}
+
+export interface MessagingHealth {
+  email: MessagingChannelHealth;
+  sms: MessagingChannelHealth;
 }
 
 export interface RevokeUserSessionsRequest {

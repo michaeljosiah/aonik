@@ -53,12 +53,14 @@ internal sealed class PendingTenantUserProvisioner : IPendingTenantUserProvision
             displayName,
             BootstrapIdentityConstants.CreatePendingOwnerSubject(email),
             placeholderKind: "owner",
+            existingPartyId: null,
             cancellationToken);
 
     public Task<PendingTenantUserResult> ProvisionPendingInviteAsync(
         Guid tenantId,
         string email,
         string? displayName,
+        Guid? existingPartyId = null,
         CancellationToken cancellationToken = default)
         => ProvisionAsync(
             tenantId,
@@ -66,6 +68,7 @@ internal sealed class PendingTenantUserProvisioner : IPendingTenantUserProvision
             displayName,
             BootstrapIdentityConstants.CreatePendingInviteSubject(email),
             placeholderKind: "invite",
+            existingPartyId,
             cancellationToken);
 
     private async Task<PendingTenantUserResult> ProvisionAsync(
@@ -74,6 +77,7 @@ internal sealed class PendingTenantUserProvisioner : IPendingTenantUserProvision
         string? displayName,
         string externalSubject,
         string placeholderKind,
+        Guid? existingPartyId,
         CancellationToken cancellationToken)
     {
         if (tenantId == Guid.Empty)
@@ -82,6 +86,23 @@ internal sealed class PendingTenantUserProvisioner : IPendingTenantUserProvision
             throw new ArgumentException("Email is required to provision a pending tenant user.", nameof(email));
 
         var normalizedEmail = email.Trim();
+
+        // If an existing party was specified, validate it up front so
+        // we can't half-create a placeholder for a bogus party id.
+        PartyEntity? targetExistingParty = null;
+        if (existingPartyId.HasValue && existingPartyId.Value != Guid.Empty)
+        {
+            targetExistingParty = await _dbContext.Parties
+                .FirstOrDefaultAsync(
+                    p => p.Id == existingPartyId.Value && p.TenantId == tenantId,
+                    cancellationToken);
+            if (targetExistingParty == null)
+            {
+                throw new ArgumentException(
+                    $"Party {existingPartyId.Value} was not found in this tenant.",
+                    nameof(existingPartyId));
+            }
+        }
 
         // Idempotent: if a placeholder for this email already exists in
         // this tenant (under the bootstrap issuer), reuse it. We scan
@@ -106,6 +127,18 @@ internal sealed class PendingTenantUserProvisioner : IPendingTenantUserProvision
                 .FirstOrDefaultAsync(
                     up => up.UserId == existing.Id && up.TenantId == tenantId,
                     cancellationToken);
+
+            // If the caller asked to link to a specific existing party,
+            // refuse silently changing the linkage on a placeholder that
+            // is already attached elsewhere. The idempotent case is when
+            // the link target matches.
+            if (targetExistingParty != null
+                && existingLink != null
+                && existingLink.PartyId != targetExistingParty.Id)
+            {
+                throw new InvalidOperationException(
+                    $"User '{normalizedEmail}' is already linked to party {existingLink.PartyId} in this tenant; cannot re-link to {targetExistingParty.Id}.");
+            }
 
             return new PendingTenantUserResult(
                 existing.Id,
@@ -139,49 +172,76 @@ internal sealed class PendingTenantUserProvisioner : IPendingTenantUserProvision
         // continuous after first IdP link.
         var effectiveActorId = actorId ?? newUser.Id;
 
-        var party = new PartyEntity
-        {
-            TenantId = tenantId,
-            PartyType = "Individual",
-            DisplayName = resolvedDisplayName,
-            Status = "Active",
-            CreatedAt = now,
-            CreatedBy = effectiveActorId,
-        };
+        // Branch: either link to an existing party (e.g. invite a
+        // customer's contact person as a user) or provision a fresh
+        // Individual party as before.
+        PartyEntity partyToLink;
+        PersonProfile? newPersonProfile = null;
+        string linkType;
+        bool linkedExistingParty;
 
-        party.Contacts.Add(new PartyContact
+        if (targetExistingParty != null)
         {
-            PartyId = party.Id,
-            Type = "Email",
-            Value = normalizedEmail,
-            IsPrimary = true,
-            CreatedAt = now,
-            CreatedBy = effectiveActorId,
-        });
+            // Reuse the existing party; do NOT create a new PartyContact
+            // (the caller owns the party's contact set already) and do
+            // NOT create a PersonProfile (Individual parties already
+            // have one; Business parties don't need one for the link).
+            partyToLink = targetExistingParty;
+            linkType = IsPersonPartyType(targetExistingParty.PartyType)
+                ? "Individual"
+                : "Employee";
+            linkedExistingParty = true;
+        }
+        else
+        {
+            // Original behaviour — provision a fresh Individual party
+            // for the placeholder, seeded with the invitee's email.
+            partyToLink = new PartyEntity
+            {
+                TenantId = tenantId,
+                PartyType = "Individual",
+                DisplayName = resolvedDisplayName,
+                Status = "Active",
+                CreatedAt = now,
+                CreatedBy = effectiveActorId,
+            };
 
-        _dbContext.Parties.Add(party);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            partyToLink.Contacts.Add(new PartyContact
+            {
+                PartyId = partyToLink.Id,
+                Type = "Email",
+                Value = normalizedEmail,
+                IsPrimary = true,
+                CreatedAt = now,
+                CreatedBy = effectiveActorId,
+            });
+
+            _dbContext.Parties.Add(partyToLink);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            newPersonProfile = new PersonProfile
+            {
+                PartyId = partyToLink.Id,
+                IdvStatus = "Pending",
+                CreatedAt = now,
+                CreatedBy = effectiveActorId,
+            };
+            _dbContext.PersonProfiles.Add(newPersonProfile);
+            linkType = "Individual";
+            linkedExistingParty = false;
+        }
 
         var userParty = new UserParty
         {
             TenantId = tenantId,
             UserId = newUser.Id,
-            PartyId = party.Id,
-            LinkType = "Individual",
-            CreatedAt = now,
-            CreatedBy = effectiveActorId,
-        };
-
-        var personProfile = new PersonProfile
-        {
-            PartyId = party.Id,
-            IdvStatus = "Pending",
+            PartyId = partyToLink.Id,
+            LinkType = linkType,
             CreatedAt = now,
             CreatedBy = effectiveActorId,
         };
 
         _dbContext.UserParties.Add(userParty);
-        _dbContext.PersonProfiles.Add(personProfile);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
@@ -195,18 +255,27 @@ internal sealed class PendingTenantUserProvisioner : IPendingTenantUserProvision
             {
                 newUser.Id,
                 Email = AuditLogMasking.MaskEmail(newUser.Email),
-                PartyId = party.Id,
+                PartyId = partyToLink.Id,
                 UserPartyId = userParty.Id,
-                PersonProfileId = personProfile.Id,
+                PersonProfileId = newPersonProfile?.Id,
                 PlaceholderKind = placeholderKind,
+                LinkType = linkType,
+                LinkedExistingParty = linkedExistingParty,
                 RequiresIdentityLink = true,
             }),
             cancellationToken);
 
         return new PendingTenantUserResult(
             newUser.Id,
-            party.Id,
+            partyToLink.Id,
             userParty.Id,
             WasCreated: true);
     }
+
+    // Match CustomerAdminService.IsPersonPartyType so the link-type
+    // derivation stays consistent across the codebase: "Person" and
+    // "Individual" are both treated as human-party labels.
+    private static bool IsPersonPartyType(string? partyType)
+        => string.Equals(partyType, "Person", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(partyType, "Individual", StringComparison.OrdinalIgnoreCase);
 }

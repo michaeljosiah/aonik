@@ -25,6 +25,7 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
+  UserPlus,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,7 @@ import { BudgetsSubTab } from './finance/BudgetsSubTab';
 import { CommitmentsSubTab } from './finance/CommitmentsSubTab';
 import { FinancialGraphSubTab } from './finance/FinancialGraphSubTab';
 import { TransactionsSubTab } from './finance/TransactionsSubTab';
+import { InviteUserDialog } from '../access/InviteUserDialog';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -185,6 +187,8 @@ export function CustomerDetailPage() {
   const [activity, setActivity] = useState<CustomerActivityEntry[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
+
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
@@ -444,6 +448,10 @@ export function CustomerDetailPage() {
             <Download className="h-3 w-3" />
             Export
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="h-3 w-3" />
+            Invite as user
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setActiveTab('insights')}>
             <Sparkles className="h-3 w-3" />
             Generate insight
@@ -454,6 +462,16 @@ export function CustomerDetailPage() {
           </Button>
         </div>
       </div>
+
+      <InviteUserDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onSuccess={() => {
+          /* nothing local to refresh — the user appears on /access/users */
+        }}
+        prefilledPartyId={partyId ?? null}
+        prefilledPartyLabel={customer.displayName}
+      />
 
       {/* KPI strip — backend-grounded mappings, no faked metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

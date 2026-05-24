@@ -14,6 +14,7 @@ public class AzureCommunicationEmailSender : IEmailSender
     private readonly EmailClient? _client;
     private readonly CommunicationOptions _options;
     private readonly ILogger<AzureCommunicationEmailSender> _logger;
+    private readonly string _unconfiguredReason;
 
     public AzureCommunicationEmailSender(
         IOptions<CommunicationOptions> options,
@@ -21,9 +22,11 @@ public class AzureCommunicationEmailSender : IEmailSender
     {
         _options = options.Value;
         _logger = logger;
+        _unconfiguredReason = string.Empty;
 
         if (string.IsNullOrWhiteSpace(_options.Azure.ConnectionString))
         {
+            _unconfiguredReason = "Communication:Azure:ConnectionString is missing in app settings.";
             _logger.LogWarning("Azure Communication connection string not configured for email sending.");
             return;
         }
@@ -34,20 +37,33 @@ public class AzureCommunicationEmailSender : IEmailSender
         }
         catch (Exception ex)
         {
+            _unconfiguredReason = $"Azure Communication email client failed to initialise: {ex.Message}";
             _logger.LogWarning(ex, "Azure Communication email client could not be initialized. Email sending will be unavailable.");
         }
     }
 
+    public bool IsConfigured => _client != null;
+
+    public string ProviderName => "AzureCommunicationServices";
+
+    public string? UnconfiguredReason
+        => _client != null ? null : (string.IsNullOrEmpty(_unconfiguredReason)
+            ? "Azure Communication Services is not configured."
+            : _unconfiguredReason);
+
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
+        // Hard fail (with a typed, caller-recoverable exception) instead
+        // of silently swallowing the message. Previously this method
+        // returned without throwing when the client was null — making
+        // every invite look "sent" while no email actually went out.
         if (_client == null)
         {
-            _logger.LogWarning(
-                "Email not sent (Azure Communication Services not configured). To: {To}, Subject: {Subject}, Body: {Body}",
-                message.To,
-                message.Subject,
-                message.Body);
-            return;
+            throw new MessagingNotConfiguredException(
+                channel: "Email",
+                reason: string.IsNullOrEmpty(_unconfiguredReason)
+                    ? "Azure Communication Services is not configured."
+                    : _unconfiguredReason);
         }
 
         var fromAddress = string.IsNullOrWhiteSpace(message.From)

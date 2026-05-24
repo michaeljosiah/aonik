@@ -4,9 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AlertCircle, Edit, Eye, Send, ShieldOff, Trash2, UserMinus, Users } from 'lucide-react';
+import { AlertCircle, Edit, Eye, Send, ShieldOff, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { InviteUserDialog } from './InviteUserDialog';
 import type { AccessUserSummary, PagedResult } from '@/types';
 import {
   DataTable,
@@ -69,6 +70,7 @@ export function AccessUsersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [inviteOpen, setInviteOpen] = useState(false);
   const requestIdRef = useRef(0);
   const [imageLoadStates, setImageLoadStates] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
@@ -433,7 +435,17 @@ export function AccessUsersPage() {
               Manage tenant users, invitations, and access status.
             </p>
           </div>
+          <Button onClick={() => setInviteOpen(true)} className="gap-1.5">
+            <UserPlus className="h-4 w-4" />
+            Invite user
+          </Button>
         </div>
+
+        <InviteUserDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          onSuccess={loadUsers}
+        />
 
         {/* Error State */}
         {error && (

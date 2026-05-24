@@ -89,6 +89,10 @@ public class VerificationServiceTests
             return Task.CompletedTask;
         }
 
+        public bool IsConfigured => true;
+        public string ProviderName => "Test";
+        public string? UnconfiguredReason => null;
+
         private static string? ExtractCode(string body)
         {
             var match = Regex.Match(body, @"\b\d{4,8}\b");
@@ -99,6 +103,9 @@ public class VerificationServiceTests
     private sealed class TestSmsSender : ISmsSender
     {
         public Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public bool IsConfigured => true;
+        public string ProviderName => "Test";
+        public string? UnconfiguredReason => null;
     }
 
     private sealed class AllowAllPermissionService : IPermissionService

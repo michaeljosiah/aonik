@@ -107,10 +107,15 @@ internal sealed class AccessUserInviteHelper
         // Create (or reuse) the pending placeholder. The provisioner
         // is idempotent — re-inviting the same email returns the
         // existing row, so we can safely (re-)apply roles below.
+        // When request.PartyId is supplied, the placeholder is linked
+        // to that existing party (must belong to this tenant) instead
+        // of provisioning a fresh Individual party — the "invite a
+        // customer's contact as a user" pathway.
         var placeholder = await _pendingUserProvisioner.ProvisionPendingInviteAsync(
             tenantId,
             trimmedEmail,
             request.DisplayName,
+            request.PartyId,
             cancellationToken);
 
         // Refuse to attach invite roles to a user that has ALREADY
@@ -213,6 +218,8 @@ internal sealed class AccessUserInviteHelper
                 placeholder.UserId,
                 Email = AuditLogMasking.MaskEmail(trimmedEmail),
                 placeholder.WasCreated,
+                placeholder.PartyId,
+                LinkedExistingParty = request.PartyId.HasValue,
                 AssignedRoleIds = assignedRoleIds,
                 EmailSent = emailSent,
                 ExpiresUtc = expiresUtc,

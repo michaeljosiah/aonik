@@ -148,6 +148,9 @@ public class UserLifecycleClosureTests
             SentMessages.Add(message);
             return Task.CompletedTask;
         }
+        public bool IsConfigured => true;
+        public string ProviderName => "Test";
+        public string? UnconfiguredReason => null;
     }
 
     private sealed class FakeUserSessionBlocklist : IUserSessionBlocklist

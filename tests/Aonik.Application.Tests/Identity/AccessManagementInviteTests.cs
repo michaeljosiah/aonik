@@ -207,6 +207,9 @@ public class AccessManagementInviteTests
     {
         public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+        public bool IsConfigured => true;
+        public string ProviderName => "Test";
+        public string? UnconfiguredReason => null;
     }
 
     private sealed class StubUserSessionBlocklist : IUserSessionBlocklist

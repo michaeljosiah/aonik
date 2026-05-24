@@ -415,6 +415,10 @@ public sealed class InviteUserRequestValidator : Validator<InviteUserRequest>
         RuleFor(x => x.RoleIds)
             .Must(r => r == null || r.Count <= 50).WithMessage("RoleIds may include at most 50 entries.");
         RuleForEach(x => x.RoleIds).RequiredId();
+        // Spec 026 follow-up — optional party linkage; when supplied,
+        // must be a non-empty GUID. The service validates tenant scope
+        // (the party must belong to the current tenant).
+        RuleFor(x => x.PartyId).ValidIdWhenSupplied();
     }
 }
 

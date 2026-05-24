@@ -57,10 +57,19 @@ public interface IPendingTenantUserProvisioner
     /// Provision a pending invite placeholder for <paramref name="tenantId"/>.
     /// Idempotent: if an invite already exists for the same email, the
     /// existing one is returned.
+    /// <para>
+    /// When <paramref name="existingPartyId"/> is supplied, the
+    /// placeholder is linked to that party (which must belong to the
+    /// same tenant) instead of provisioning a fresh Individual party.
+    /// This is the "invite an existing customer / contact as a user"
+    /// path. Re-invoking with the same email but a different party
+    /// throws — operators must manage existing users directly.
+    /// </para>
     /// </summary>
     Task<PendingTenantUserResult> ProvisionPendingInviteAsync(
         Guid tenantId,
         string email,
         string? displayName,
+        Guid? existingPartyId = null,
         CancellationToken cancellationToken = default);
 }

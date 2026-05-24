@@ -125,11 +125,17 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private sealed class TestEmailSender : IEmailSender
     {
         public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public bool IsConfigured => true;
+        public string ProviderName => "Test";
+        public string? UnconfiguredReason => null;
     }
 
     private sealed class TestSmsSender : ISmsSender
     {
         public Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public bool IsConfigured => true;
+        public string ProviderName => "Test";
+        public string? UnconfiguredReason => null;
     }
 
     public sealed class TestPushNotificationSender : IPushNotificationSender

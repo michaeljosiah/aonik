@@ -13,10 +13,20 @@ public record ListRolesRequest(
     string? Search = null
 );
 
+/// <summary>
+/// Invite request. When <paramref name="PartyId"/> is supplied the
+/// placeholder user is linked to an existing Party in the tenant
+/// (e.g. inviting a customer's contact person as a user) instead of
+/// the default behaviour of provisioning a brand-new Individual party.
+/// The existing party must belong to the same tenant; the link type
+/// is derived from the party's <c>PartyType</c> (<c>Individual</c>/
+/// <c>Person</c> → <c>Individual</c>; everything else → <c>Employee</c>).
+/// </summary>
 public record InviteUserRequest(
     string Email,
     List<Guid>? RoleIds = null,
-    string? DisplayName = null
+    string? DisplayName = null,
+    Guid? PartyId = null
 );
 
 /// <summary>

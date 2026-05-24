@@ -11,6 +11,7 @@ public class AzureCommunicationSmsSender : ISmsSender
     private readonly SmsClient? _client;
     private readonly CommunicationOptions _options;
     private readonly ILogger<AzureCommunicationSmsSender> _logger;
+    private readonly string _unconfiguredReason;
 
     public AzureCommunicationSmsSender(
         IOptions<CommunicationOptions> options,
@@ -18,9 +19,11 @@ public class AzureCommunicationSmsSender : ISmsSender
     {
         _options = options.Value;
         _logger = logger;
+        _unconfiguredReason = string.Empty;
 
         if (string.IsNullOrWhiteSpace(_options.Azure.ConnectionString))
         {
+            _unconfiguredReason = "Communication:Azure:ConnectionString is missing in app settings.";
             _logger.LogWarning("Azure Communication connection string not configured for SMS sending.");
             return;
         }
@@ -31,19 +34,32 @@ public class AzureCommunicationSmsSender : ISmsSender
         }
         catch (Exception ex)
         {
+            _unconfiguredReason = $"Azure Communication SMS client failed to initialise: {ex.Message}";
             _logger.LogWarning(ex, "Azure Communication SMS client could not be initialized. SMS sending will be unavailable.");
         }
     }
 
+    public bool IsConfigured => _client != null;
+
+    public string ProviderName => "AzureCommunicationServices";
+
+    public string? UnconfiguredReason
+        => _client != null ? null : (string.IsNullOrEmpty(_unconfiguredReason)
+            ? "Azure Communication Services is not configured."
+            : _unconfiguredReason);
+
     public async Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default)
     {
+        // See AzureCommunicationEmailSender — same rationale: throw a
+        // typed exception so callers can distinguish "not configured"
+        // from "delivery failed" and report both honestly.
         if (_client == null)
         {
-            _logger.LogWarning(
-                "SMS not sent (Azure Communication Services not configured). To: {To}, Body: {Body}",
-                message.To,
-                message.Body);
-            return;
+            throw new MessagingNotConfiguredException(
+                channel: "SMS",
+                reason: string.IsNullOrEmpty(_unconfiguredReason)
+                    ? "Azure Communication Services is not configured."
+                    : _unconfiguredReason);
         }
 
         var fromNumber = string.IsNullOrWhiteSpace(message.From)
