@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero-banner4.png" alt="AONIK" width="100%">
+  <img src="docs/images/hero-banner.png" alt="AONIK" width="100%">
 </p>
 
 <h1 align="center">AONIK</h1>
@@ -18,6 +18,10 @@
 </p>
 
 ---
+
+<p align="center">
+  <img src="docs/images/hero-banner4.png" alt="AONIK platform" width="100%">
+</p>
 
 ## What is AONIK?
 
