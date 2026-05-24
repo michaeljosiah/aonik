@@ -1,17 +1,16 @@
 // SettingsCommunicationPage — Spec-029-style viewer for the outbound
-// messaging configuration. Mirrors SettingsAuthenticationPage:
+// messaging configuration. Email and SMS are independent channels:
+// each can run on its own provider (today only Azure Communication
+// Services is wired, but the page is shaped so SendGrid for email +
+// Twilio for SMS slot in without rework).
 //
-//   • Renders the active provider + snapshot of each channel's state
-//     (connection string set? from-address? from-phone?)
-//   • Shows the /admin/messaging/health probe as a live status badge
-//     for both email and SMS
-//   • "Send test" panel lets the operator hit either channel with a
-//     real one-shot dispatch and see the result inline
-//
-// Writes are not currently supported — the backend update endpoint
-// returns 400 with a "configuration-managed; use environment
-// variables" message. The page surfaces that message verbatim and
-// directs the operator at the canonical config keys.
+//   • Two channel cards (Email, SMS), each owning its own active
+//     provider, masked credential, and live health badge
+//   • Test-send panel lets the operator hit either channel with a
+//     one-off dispatch and see the result inline
+//   • Writes are not currently supported — the backend update endpoint
+//     returns 400 with a "configuration-managed; use environment
+//     variables" message that we surface verbatim
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -72,6 +71,17 @@ function HealthBadge({ health }: { health: MessagingChannelHealth | undefined })
     >
       <AlertTriangle className="h-3 w-3" /> Not configured
     </Badge>
+  );
+}
+
+function ProviderRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-2">
+      <span className="text-xs text-[var(--color-text-tertiary)]">{label}</span>
+      <Badge variant="outline" className="font-mono text-[11px]">
+        {value}
+      </Badge>
+    </div>
   );
 }
 
@@ -174,7 +184,7 @@ export function SettingsCommunicationPage() {
       setTestResult({
         sent: false,
         channel: testChannel,
-        provider: settings?.activeProvider ?? 'Unknown',
+        provider: 'Unknown',
         errorMessage: message,
       });
       toast.error(message);
@@ -187,6 +197,9 @@ export function SettingsCommunicationPage() {
     return <PageLoadingScreen message="Loading communication settings" />;
   }
 
+  const emailAzure = settings?.email.azureCommunicationServices ?? null;
+  const smsAzure = settings?.sms.azureCommunicationServices ?? null;
+
   return (
     <div className="h-full overflow-auto px-8 py-6">
       {/* Page header */}
@@ -198,8 +211,9 @@ export function SettingsCommunicationPage() {
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Communication</h1>
           <p className="max-w-3xl text-[var(--color-text-secondary)]">
             Outbound email and SMS configuration for invitations, notifications, and verification
-            flows. Settings are managed via environment variables — this page shows the current
-            state and lets you verify it with a test send.
+            flows. Email and SMS are configured independently — each can run on its own provider.
+            Settings are managed via environment variables; this page shows the current state and
+            lets you verify it with a test send.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing || loading}>
@@ -221,27 +235,6 @@ export function SettingsCommunicationPage() {
         </Card>
       )}
 
-      {/* Provider summary */}
-      {settings && (
-        <Card className="mb-4">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-base">Active provider</CardTitle>
-                <CardDescription className="mt-1">
-                  Today only Azure Communication Services is wired in code. Additional providers
-                  (SendGrid, Mailgun, etc.) would slot in as alternative values once their senders
-                  are implemented.
-                </CardDescription>
-              </div>
-              <Badge variant="outline" className="font-mono text-[11px]">
-                {settings.activeProvider}
-              </Badge>
-            </div>
-          </CardHeader>
-        </Card>
-      )}
-
       {/* Email channel */}
       {settings && (
         <Card className="mb-4">
@@ -260,22 +253,26 @@ export function SettingsCommunicationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Connection string — masked, read-only */}
-            <ReadOnlyRow
-              label="Connection string"
-              keyName="Communication:Azure:ConnectionString"
-              value={
-                settings.azure.hasConnectionString
-                  ? '••••••••••••••••••••  (configured)'
-                  : '(not set — outbound email will fail)'
-              }
-              monospace
-            />
-            <ReadOnlyRow
-              label="From address"
-              keyName="Communication:Azure:Email:FromAddress"
-              value={settings.azure.emailFromAddress ?? '(not set)'}
-            />
+            <ProviderRow label="Active provider" value={settings.email.activeProvider} />
+            {emailAzure && settings.email.activeProvider === 'AzureCommunicationServices' && (
+              <>
+                <ReadOnlyRow
+                  label="Connection string"
+                  keyName="Communication:Email:AzureCommunicationServices:ConnectionString"
+                  value={
+                    emailAzure.hasConnectionString
+                      ? '••••••••••••••••••••  (configured)'
+                      : '(not set — outbound email will fail)'
+                  }
+                  monospace
+                />
+                <ReadOnlyRow
+                  label="From address"
+                  keyName="Communication:Email:AzureCommunicationServices:FromAddress"
+                  value={emailAzure.fromAddress ?? '(not set)'}
+                />
+              </>
+            )}
             {health?.email && !health.email.configured && (
               <div className="flex items-start gap-2 rounded border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-warning)]">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -304,21 +301,32 @@ export function SettingsCommunicationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ReadOnlyRow
-              label="Connection string"
-              keyName="Communication:Azure:ConnectionString"
-              value={
-                settings.azure.hasConnectionString
-                  ? '••••••••••••••••••••  (shared with email)'
-                  : '(not set — outbound SMS will fail)'
-              }
-              monospace
-            />
-            <ReadOnlyRow
-              label="From phone number"
-              keyName="Communication:Azure:Sms:FromPhoneNumber"
-              value={settings.azure.smsFromPhoneNumber ?? '(not set)'}
-            />
+            <ProviderRow label="Active provider" value={settings.sms.activeProvider} />
+            {smsAzure && settings.sms.activeProvider === 'AzureCommunicationServices' && (
+              <>
+                <ReadOnlyRow
+                  label="Connection string"
+                  keyName="Communication:Sms:AzureCommunicationServices:ConnectionString"
+                  value={
+                    smsAzure.hasConnectionString
+                      ? '••••••••••••••••••••  (configured)'
+                      : '(not set — outbound SMS will fail)'
+                  }
+                  monospace
+                />
+                <ReadOnlyRow
+                  label="From phone number"
+                  keyName="Communication:Sms:AzureCommunicationServices:FromPhoneNumber"
+                  value={smsAzure.fromPhoneNumber ?? '(not set)'}
+                />
+              </>
+            )}
+            {health?.sms && !health.sms.configured && (
+              <div className="flex items-start gap-2 rounded border border-[var(--color-warning)] bg-[var(--color-warning-light)] px-3 py-2 text-xs text-[var(--color-warning)]">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{health.sms.reason ?? 'SMS provider is not configured.'}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -328,9 +336,9 @@ export function SettingsCommunicationPage() {
         <CardHeader>
           <CardTitle className="text-base">Send a test message</CardTitle>
           <CardDescription className="mt-1">
-            Dispatches a one-off message via the active provider so you can confirm
-            configuration end-to-end. Result appears below — the request succeeds even on
-            delivery failure so the error is rendered inline.
+            Dispatches a one-off message via the active provider for the selected channel.
+            Result appears below — the request succeeds even on delivery failure so the error
+            is rendered inline.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -411,19 +419,25 @@ export function SettingsCommunicationPage() {
           <CardTitle className="text-base">Configuring providers</CardTitle>
           <CardDescription className="mt-1">
             All outbound-messaging configuration lives in app settings / environment variables.
-            Update the keys below and restart the API for changes to take effect.
+            Email and SMS keys are separate — set each channel independently and restart the API
+            for changes to take effect.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-3 font-mono text-[12px] leading-relaxed">
-            <div>Communication:Azure:ConnectionString=&lt;your ACS endpoint=...&gt;</div>
-            <div>Communication:Azure:Email:FromAddress=noreply@yourdomain.com</div>
-            <div>Communication:Azure:Sms:FromPhoneNumber=+44XXXXXXXXXX</div>
+            <div className="text-[var(--color-text-tertiary)]"># Email channel</div>
+            <div>Communication:Email:Provider=AzureCommunicationServices</div>
+            <div>Communication:Email:AzureCommunicationServices:ConnectionString=&lt;...&gt;</div>
+            <div>Communication:Email:AzureCommunicationServices:FromAddress=noreply@yourdomain.com</div>
+            <div className="mt-2 text-[var(--color-text-tertiary)]"># SMS channel</div>
+            <div>Communication:Sms:Provider=AzureCommunicationServices</div>
+            <div>Communication:Sms:AzureCommunicationServices:ConnectionString=&lt;...&gt;</div>
+            <div>Communication:Sms:AzureCommunicationServices:FromPhoneNumber=+44XXXXXXXXXX</div>
           </div>
           <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
-            Multi-provider support (SendGrid / Mailgun / etc.) is on the roadmap; today only
-            Azure Communication Services is implemented in code. When a second provider lands,
-            this page will gain a provider dropdown.
+            Multi-provider support (SendGrid / Mailgun for email; Twilio / MessageBird for SMS) is
+            on the roadmap. Today only Azure Communication Services is implemented in code — when
+            a second provider lands, this page will gain a provider dropdown per channel.
           </p>
         </CardContent>
       </Card>

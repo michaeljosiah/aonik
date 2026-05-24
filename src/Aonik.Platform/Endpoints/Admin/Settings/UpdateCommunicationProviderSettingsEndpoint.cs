@@ -24,10 +24,11 @@ internal class UpdateCommunicationProviderSettingsEndpoint
         {
             s.Summary = "Update communication provider settings";
             s.Description =
-                "Accepts an update payload for symmetry with the auth provider endpoint. The "
-                + "service currently rejects writes (returns 400 with a 'configuration-managed' "
-                + "message) — operators set the underlying Communication:* keys via appsettings "
-                + "/ environment variables.";
+                "Accepts per-channel update payloads for symmetry with the auth provider "
+                + "endpoint. The service currently rejects writes (returns 400 with a "
+                + "'configuration-managed' message) — operators set the underlying "
+                + "Communication:Email:* and Communication:Sms:* keys via appsettings / "
+                + "environment variables.";
             s.Response(200, "Settings updated (reserved — not currently reachable)");
             s.Response(400, "Configuration-managed; updates rejected");
             s.Response(401, "Not authenticated");
@@ -40,13 +41,24 @@ internal class UpdateCommunicationProviderSettingsEndpoint
         try
         {
             var update = new CommunicationProviderSettingsUpdate(
-                req.ActiveProvider,
-                req.Azure == null
+                Email: req.Email == null
                     ? null
-                    : new AzureCommunicationSettingsUpdate(
-                        req.Azure.ConnectionString,
-                        req.Azure.EmailFromAddress,
-                        req.Azure.SmsFromPhoneNumber));
+                    : new EmailChannelSettingsUpdate(
+                        req.Email.ActiveProvider,
+                        req.Email.AzureCommunicationServices == null
+                            ? null
+                            : new AzureEmailSettingsUpdate(
+                                req.Email.AzureCommunicationServices.ConnectionString,
+                                req.Email.AzureCommunicationServices.FromAddress)),
+                Sms: req.Sms == null
+                    ? null
+                    : new SmsChannelSettingsUpdate(
+                        req.Sms.ActiveProvider,
+                        req.Sms.AzureCommunicationServices == null
+                            ? null
+                            : new AzureSmsSettingsUpdate(
+                                req.Sms.AzureCommunicationServices.ConnectionString,
+                                req.Sms.AzureCommunicationServices.FromPhoneNumber)));
 
             var snapshot = await _service.UpdateAsync(update, ct);
             await Send.OkAsync(GetCommunicationProviderSettingsEndpoint.MapResponse(snapshot), ct);

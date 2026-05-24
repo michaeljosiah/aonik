@@ -7,8 +7,14 @@ namespace Aonik.Platform.Services.Settings;
 /// <summary>
 /// Resolves communication settings from the platform settings store
 /// for the Admin UI's <c>SettingsCommunicationPage</c>. Read-only —
-/// updates throw with a clear "configure via env vars" message so the
-/// UI can render the operator-facing explanation.
+/// updates throw a "configure via env vars" message that the UI
+/// surfaces in its error banner.
+///
+/// Email and SMS are treated as independent channels: each has its
+/// own active provider and its own credentials. ACS happens to bundle
+/// the two today (one connection string per resource) but the schema
+/// makes no such assumption — operators can mix providers freely
+/// (e.g. SendGrid email + Twilio SMS in a future build).
 /// </summary>
 internal sealed class CommunicationProviderSettingsService : ICommunicationProviderSettingsService
 {
@@ -23,32 +29,42 @@ internal sealed class CommunicationProviderSettingsService : ICommunicationProvi
 
     public async Task<CommunicationProviderSettingsSnapshot> GetAsync(CancellationToken cancellationToken = default)
     {
-        var activeProvider = await _settingProvider.GetAsync(CommunicationSettingNames.Provider, cancellationToken)
-                             ?? DefaultActiveProvider;
+        // Email channel
+        var emailProvider = await _settingProvider.GetAsync(CommunicationSettingNames.EmailProvider, cancellationToken)
+                            ?? DefaultActiveProvider;
+        var emailAzureConnString = await _settingProvider.GetAsync(CommunicationSettingNames.EmailAzureConnectionString, cancellationToken);
+        var emailAzureFromAddress = await _settingProvider.GetAsync(CommunicationSettingNames.EmailAzureFromAddress, cancellationToken);
 
-        var connectionString = await _settingProvider.GetAsync(CommunicationSettingNames.AzureConnectionString, cancellationToken);
-        var emailFromAddress = await _settingProvider.GetAsync(CommunicationSettingNames.AzureEmailFromAddress, cancellationToken);
-        var smsFromPhoneNumber = await _settingProvider.GetAsync(CommunicationSettingNames.AzureSmsFromPhoneNumber, cancellationToken);
+        // SMS channel
+        var smsProvider = await _settingProvider.GetAsync(CommunicationSettingNames.SmsProvider, cancellationToken)
+                          ?? DefaultActiveProvider;
+        var smsAzureConnString = await _settingProvider.GetAsync(CommunicationSettingNames.SmsAzureConnectionString, cancellationToken);
+        var smsAzureFromPhone = await _settingProvider.GetAsync(CommunicationSettingNames.SmsAzureFromPhoneNumber, cancellationToken);
 
         return new CommunicationProviderSettingsSnapshot(
-            activeProvider,
-            new AzureCommunicationSettingsSnapshot(
-                HasConnectionString: !string.IsNullOrWhiteSpace(connectionString),
-                EmailFromAddress: emailFromAddress,
-                SmsFromPhoneNumber: smsFromPhoneNumber));
+            Email: new EmailChannelSettingsSnapshot(
+                ActiveProvider: emailProvider,
+                AzureCommunicationServices: new AzureEmailSettingsSnapshot(
+                    HasConnectionString: !string.IsNullOrWhiteSpace(emailAzureConnString),
+                    FromAddress: emailAzureFromAddress)),
+            Sms: new SmsChannelSettingsSnapshot(
+                ActiveProvider: smsProvider,
+                AzureCommunicationServices: new AzureSmsSettingsSnapshot(
+                    HasConnectionString: !string.IsNullOrWhiteSpace(smsAzureConnString),
+                    FromPhoneNumber: smsAzureFromPhone)));
     }
 
     public Task<CommunicationProviderSettingsSnapshot> UpdateAsync(
         CommunicationProviderSettingsUpdate update,
         CancellationToken cancellationToken = default)
     {
-        // Matches AuthProviderSettingsService — the Admin UI shows the
+        // Mirrors AuthProviderSettingsService — the UI shows the
         // current values but writes happen via appsettings / env vars.
         // The exception message is surfaced verbatim in the UI's error
         // banner, so it has to read well for operators.
         throw new InvalidOperationException(
             "Communication provider settings are configuration-managed. "
-            + "Update Communication:Azure:ConnectionString (and related keys) "
+            + "Update the Communication:Email:* and Communication:Sms:* keys "
             + "in appsettings/environment variables and restart the API.");
     }
 }

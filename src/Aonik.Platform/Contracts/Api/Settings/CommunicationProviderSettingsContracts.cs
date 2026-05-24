@@ -1,28 +1,55 @@
 namespace Aonik.Platform.Contracts.Api.Settings;
 
-public record CommunicationProviderSettingsResponse(
-    string ActiveProvider,
-    AzureCommunicationSettingsResponse Azure);
+// ── Snapshot ────────────────────────────────────────────────────────
 
-public record AzureCommunicationSettingsResponse(
+public record CommunicationProviderSettingsResponse(
+    EmailChannelSettingsResponse Email,
+    SmsChannelSettingsResponse Sms);
+
+public record EmailChannelSettingsResponse(
+    string ActiveProvider,
+    AzureEmailSettingsResponse? AzureCommunicationServices);
+
+public record SmsChannelSettingsResponse(
+    string ActiveProvider,
+    AzureSmsSettingsResponse? AzureCommunicationServices);
+
+public record AzureEmailSettingsResponse(
     bool HasConnectionString,
-    string? EmailFromAddress,
-    string? SmsFromPhoneNumber);
+    string? FromAddress);
+
+public record AzureSmsSettingsResponse(
+    bool HasConnectionString,
+    string? FromPhoneNumber);
+
+// ── Update ──────────────────────────────────────────────────────────
 
 public record CommunicationProviderSettingsUpdateRequest(
-    string ActiveProvider,
-    AzureCommunicationSettingsUpdateRequest? Azure);
+    EmailChannelSettingsUpdateRequest? Email,
+    SmsChannelSettingsUpdateRequest? Sms);
 
-public record AzureCommunicationSettingsUpdateRequest(
+public record EmailChannelSettingsUpdateRequest(
+    string ActiveProvider,
+    AzureEmailSettingsUpdateRequest? AzureCommunicationServices);
+
+public record SmsChannelSettingsUpdateRequest(
+    string ActiveProvider,
+    AzureSmsSettingsUpdateRequest? AzureCommunicationServices);
+
+public record AzureEmailSettingsUpdateRequest(
     string? ConnectionString,
-    string? EmailFromAddress,
-    string? SmsFromPhoneNumber);
+    string? FromAddress);
+
+public record AzureSmsSettingsUpdateRequest(
+    string? ConnectionString,
+    string? FromPhoneNumber);
+
+// ── Test send (unchanged) ───────────────────────────────────────────
 
 /// <summary>
 /// Posted to <c>POST /admin/settings/communication-provider/test-send</c>.
 /// Fires a one-off email/SMS to the supplied recipient using the
-/// currently-active provider so operators can verify their configuration
-/// without doing a full invite cycle.
+/// currently-active provider for that channel.
 /// </summary>
 public record SendCommunicationTestRequest(
     string Channel,        // "Email" or "SMS"

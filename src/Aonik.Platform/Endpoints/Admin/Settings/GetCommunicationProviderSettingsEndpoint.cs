@@ -23,11 +23,10 @@ internal class GetCommunicationProviderSettingsEndpoint
         {
             s.Summary = "Get communication provider settings";
             s.Description =
-                "Returns the active outbound-messaging provider plus the current state of each "
-                + "channel's configuration (whether the connection string is set, from-address, "
-                + "from-phone). Used by SettingsCommunicationPage in the Admin UI. Mirrors the "
-                + "Auth provider snapshot pattern — secrets are reported via Has* indicators "
-                + "rather than round-tripped.";
+                "Returns Email + SMS channels independently — each carries its own active "
+                + "provider plus per-provider credentials (with secrets reported via Has* "
+                + "indicators rather than round-tripped). Used by SettingsCommunicationPage "
+                + "in the Admin UI.";
             s.Response(200, "Communication provider settings");
             s.Response(401, "Not authenticated");
         });
@@ -44,10 +43,19 @@ internal class GetCommunicationProviderSettingsEndpoint
         Aonik.Platform.Contracts.Models.Settings.CommunicationProviderSettingsSnapshot snapshot)
     {
         return new CommunicationProviderSettingsResponse(
-            snapshot.ActiveProvider,
-            new AzureCommunicationSettingsResponse(
-                snapshot.Azure.HasConnectionString,
-                snapshot.Azure.EmailFromAddress,
-                snapshot.Azure.SmsFromPhoneNumber));
+            Email: new EmailChannelSettingsResponse(
+                ActiveProvider: snapshot.Email.ActiveProvider,
+                AzureCommunicationServices: snapshot.Email.AzureCommunicationServices == null
+                    ? null
+                    : new AzureEmailSettingsResponse(
+                        snapshot.Email.AzureCommunicationServices.HasConnectionString,
+                        snapshot.Email.AzureCommunicationServices.FromAddress)),
+            Sms: new SmsChannelSettingsResponse(
+                ActiveProvider: snapshot.Sms.ActiveProvider,
+                AzureCommunicationServices: snapshot.Sms.AzureCommunicationServices == null
+                    ? null
+                    : new AzureSmsSettingsResponse(
+                        snapshot.Sms.AzureCommunicationServices.HasConnectionString,
+                        snapshot.Sms.AzureCommunicationServices.FromPhoneNumber)));
     }
 }

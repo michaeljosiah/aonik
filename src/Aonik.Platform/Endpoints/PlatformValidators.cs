@@ -712,16 +712,28 @@ public sealed class AuthProviderSettingsUpdateRequestValidator : Validator<AuthP
 public sealed class CommunicationProviderSettingsUpdateRequestValidator
     : Validator<CommunicationProviderSettingsUpdateRequest>
 {
-    // Single provider today. Listed as a set so SendGrid / Mailgun /
-    // etc. slot in without changing the validator shape.
-    private static readonly string[] ActiveProviders = ["AzureCommunicationServices"];
+    // Single provider per channel today. Listed as sets so SendGrid /
+    // Mailgun for email and Twilio / MessageBird for SMS can slot in
+    // independently without changing the validator shape.
+    private static readonly string[] EmailProviders = ["AzureCommunicationServices"];
+    private static readonly string[] SmsProviders = ["AzureCommunicationServices"];
 
     public CommunicationProviderSettingsUpdateRequestValidator()
     {
-        RuleFor(x => x.ActiveProvider)
-            .NotEmpty()
-            .Must(p => ActiveProviders.Contains(p))
-            .WithMessage($"ActiveProvider must be one of: {string.Join(", ", ActiveProviders)}.");
+        When(x => x.Email != null, () =>
+        {
+            RuleFor(x => x.Email!.ActiveProvider)
+                .NotEmpty()
+                .Must(p => EmailProviders.Contains(p))
+                .WithMessage($"Email.ActiveProvider must be one of: {string.Join(", ", EmailProviders)}.");
+        });
+        When(x => x.Sms != null, () =>
+        {
+            RuleFor(x => x.Sms!.ActiveProvider)
+                .NotEmpty()
+                .Must(p => SmsProviders.Contains(p))
+                .WithMessage($"Sms.ActiveProvider must be one of: {string.Join(", ", SmsProviders)}.");
+        });
     }
 }
 

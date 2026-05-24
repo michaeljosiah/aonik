@@ -1293,29 +1293,59 @@ export interface MessagingHealth {
 // ── Communication provider settings ──────────────────────────────────────
 
 /// Snapshot returned by GET /admin/settings/communication-provider.
-/// Mirrors the AuthProviderSettingsResponse pattern — the connection
-/// string secret is reported via `hasConnectionString` rather than
-/// round-tripped.
+/// Email and SMS are independent channels — each carries its own active
+/// provider plus per-provider credential blocks. Secrets are reported
+/// via `has*` flags rather than round-tripped.
 export interface CommunicationProviderSettingsResponse {
-  activeProvider: string;
-  azure: AzureCommunicationSettingsResponse;
+  email: EmailChannelSettingsResponse;
+  sms: SmsChannelSettingsResponse;
 }
 
-export interface AzureCommunicationSettingsResponse {
+export interface EmailChannelSettingsResponse {
+  activeProvider: string;
+  azureCommunicationServices?: AzureEmailSettingsResponse | null;
+  // Future: sendGrid?: SendGridEmailSettingsResponse | null;
+}
+
+export interface SmsChannelSettingsResponse {
+  activeProvider: string;
+  azureCommunicationServices?: AzureSmsSettingsResponse | null;
+  // Future: twilio?: TwilioSmsSettingsResponse | null;
+}
+
+export interface AzureEmailSettingsResponse {
   hasConnectionString: boolean;
-  emailFromAddress?: string | null;
-  smsFromPhoneNumber?: string | null;
+  fromAddress?: string | null;
+}
+
+export interface AzureSmsSettingsResponse {
+  hasConnectionString: boolean;
+  fromPhoneNumber?: string | null;
 }
 
 export interface CommunicationProviderSettingsUpdateRequest {
-  activeProvider: string;
-  azure?: AzureCommunicationSettingsUpdateRequest | null;
+  email?: EmailChannelSettingsUpdateRequest | null;
+  sms?: SmsChannelSettingsUpdateRequest | null;
 }
 
-export interface AzureCommunicationSettingsUpdateRequest {
+export interface EmailChannelSettingsUpdateRequest {
+  activeProvider: string;
+  azureCommunicationServices?: AzureEmailSettingsUpdateRequest | null;
+}
+
+export interface SmsChannelSettingsUpdateRequest {
+  activeProvider: string;
+  azureCommunicationServices?: AzureSmsSettingsUpdateRequest | null;
+}
+
+export interface AzureEmailSettingsUpdateRequest {
   connectionString?: string | null;
-  emailFromAddress?: string | null;
-  smsFromPhoneNumber?: string | null;
+  fromAddress?: string | null;
+}
+
+export interface AzureSmsSettingsUpdateRequest {
+  connectionString?: string | null;
+  fromPhoneNumber?: string | null;
 }
 
 export interface SendCommunicationTestRequest {
