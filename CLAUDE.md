@@ -128,6 +128,10 @@ dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-pro
 5. **Risk tier determines AI autonomy**
 6. **Domain entities are anemic** — all business logic lives in services, not entities
 
+## Authentication
+
+AONIK supports **three operator-choice IdP providers**: Auth0, Azure AD (Entra ID), and **Keycloak** (per [ADR-007](docs/decisions/007-keycloak-as-auth-provider.md) / [Spec 029](docs/specifications/029.keycloak-auth-provider.html)). The `Auth.Provider` setting selects one per deployment — **not per-tenant**. Six capability surfaces (JWT validation, IdP management client, user provisioning, password reset, account service, token exchange) each have one interface in `Aonik.Platform.Contracts.Services.Authentication` and one factory in `Aonik.Infrastructure.Authentication` that dispatches by `Auth.Provider` string. Issuer routing in `AonikAuthenticationSetup.SelectScheme` lets tokens from any registered provider validate side-by-side, so a provider switch is non-breaking for in-flight tokens. Keycloak owns federation to upstream IdPs (Okta, AD FS, SAML, social) — Aonik itself talks one OIDC dialect. The Keycloak local-dev profile lives at `infra/keycloak/compose.keycloak.yml`.
+
 ## Orders
 
 An Order is the canonical record of a customer's intent to use an AONIK-powered financial service. It captures the requested service, the parties involved, the amounts and currencies, and the lifecycle from funding through fulfilment. Orders capture the requested financial service and why money should move.

@@ -1,8 +1,12 @@
 import { type Configuration, LogLevel } from '@azure/msal-browser';
 import { isElectron } from '@/lib/electron';
 
-// Auth provider type - determined by environment variable
-export type AuthProvider = 'azure-ad' | 'auth0' | 'mock';
+// Auth provider type - determined by environment variable.
+//
+// Spec 029 adds 'keycloak' as a third operator-choice provider. The backend
+// has supported Keycloak-issued JWTs since Phase 1; this is the SPA-side
+// login flow that closes the loop for "100% Keycloak deployments".
+export type AuthProvider = 'azure-ad' | 'auth0' | 'keycloak' | 'mock';
 
 // Validation result type
 export interface ConfigValidationResult {
@@ -28,6 +32,7 @@ export const getAuthProvider = (): AuthProvider => {
 
   const provider = import.meta.env.VITE_AUTH_PROVIDER as string;
   if (provider === 'auth0') return 'auth0';
+  if (provider === 'keycloak') return 'keycloak';
   if (provider === 'mock') return 'mock';
   return 'azure-ad'; // Default to Azure AD
 };
@@ -53,13 +58,18 @@ export const validateAuthConfig = (): ConfigValidationResult => {
 
   // Check if provider is explicitly set
   if (!rawProvider) {
-    missingFields.push('VITE_AUTH_PROVIDER (set to "azure-ad", "auth0", or "mock")');
-  } else if (rawProvider !== 'azure-ad' && rawProvider !== 'auth0' && rawProvider !== 'mock') {
+    missingFields.push('VITE_AUTH_PROVIDER (set to "azure-ad", "auth0", "keycloak", or "mock")');
+  } else if (
+    rawProvider !== 'azure-ad' &&
+    rawProvider !== 'auth0' &&
+    rawProvider !== 'keycloak' &&
+    rawProvider !== 'mock'
+  ) {
     return {
       isValid: false,
       provider: null,
       missingFields: [],
-      error: `Invalid auth provider: "${rawProvider}". Must be "azure-ad", "auth0", or "mock".`,
+      error: `Invalid auth provider: "${rawProvider}". Must be "azure-ad", "auth0", "keycloak", or "mock".`,
     };
   }
 
@@ -95,6 +105,23 @@ export const validateAuthConfig = (): ConfigValidationResult => {
     }
   }
 
+  // Validate Keycloak config — Spec 029.
+  //
+  // VITE_KEYCLOAK_AUTHORITY is the full realm URL
+  // (e.g. https://keycloak.example.com/realms/aonik); discovery resolves the
+  // authorization/token/userinfo endpoints from there. VITE_KEYCLOAK_AUDIENCE
+  // is optional — if the realm's `aonik-spa` client emits the audience via a
+  // protocol mapper, the SPA doesn't need to know about it, but a separate
+  // backend `Auth.Keycloak.Audience` setting must still match the mapped value.
+  if (provider === 'keycloak') {
+    if (!import.meta.env.VITE_KEYCLOAK_AUTHORITY) {
+      missingFields.push('VITE_KEYCLOAK_AUTHORITY');
+    }
+    if (!import.meta.env.VITE_KEYCLOAK_CLIENT_ID) {
+      missingFields.push('VITE_KEYCLOAK_CLIENT_ID');
+    }
+  }
+
   return {
     isValid: missingFields.length === 0,
     provider,
@@ -106,6 +133,7 @@ export const validateAuthConfig = (): ConfigValidationResult => {
 export const getProviderDisplayName = (provider: AuthProvider): string => {
   if (provider === 'azure-ad') return 'Microsoft Entra ID';
   if (provider === 'auth0') return 'Auth0';
+  if (provider === 'keycloak') return 'Keycloak';
   return 'Mock (Development)';
 };
 
@@ -175,6 +203,31 @@ export const auth0Config = {
   cacheLocation: 'localstorage' as const,
   useRefreshTokens: true,
   useRefreshTokensFallback: true,
+};
+
+// Keycloak Configuration — Spec 029.
+//
+// Authority is the full realm URL (e.g. https://keycloak.example.com/realms/aonik).
+// The oidc-client-ts UserManager fetches OIDC discovery from that authority and
+// resolves authorization/token/userinfo/logout endpoints from the metadata, so
+// none of those need to live in env vars. We request offline_access so refresh
+// tokens are issued; the realm's `aonik-spa` client must enable that scope.
+export const keycloakConfig = {
+  authority: import.meta.env.VITE_KEYCLOAK_AUTHORITY || '',
+  client_id: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || '',
+  // SPA client typically has no secret (public PKCE flow). If the operator
+  // chose a confidential client for some reason, VITE_KEYCLOAK_CLIENT_SECRET
+  // can carry one — generally NOT recommended for browser-resident SPAs.
+  client_secret: import.meta.env.VITE_KEYCLOAK_CLIENT_SECRET || undefined,
+  redirect_uri: import.meta.env.VITE_KEYCLOAK_REDIRECT_URI || window.location.origin,
+  post_logout_redirect_uri:
+    import.meta.env.VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI || window.location.origin,
+  scope: 'openid profile email offline_access',
+  // Keep tokens in localStorage so refresh works across tabs and full reloads,
+  // mirroring the Auth0 cacheLocation choice. react-oidc-context exposes this
+  // through a WebStorageStateStore — see AuthProvider.tsx where the UserManager
+  // options are passed.
+  loadUserInfo: false,
 };
 
 // API Configuration

@@ -1,6 +1,6 @@
 # ADR-007: Keycloak as a First-Class Operator-Choice Auth Provider
 
-**Status**: Accepted (Phase 1-3 landed; Phase 4 admin-UI OIDC client deferred)
+**Status**: Accepted (Phase 1-4 landed; admin-UI OIDC client landed 2026-05-24)
 **Date**: 2026-05-21
 **Decision Makers**: Development Team
 **Related**: [ADR-005](005-adopt-module-first-modular-monolith.md), [Spec 029](../specifications/029.keycloak-auth-provider.html), Spec 026 (introduced the IdP factory pattern this ADR extends)
@@ -57,11 +57,20 @@ Add Keycloak as a third occupant of the existing IdP factory pattern. Operator s
 - `infra/keycloak/realm-export.json` — pre-seeded realm (`aonik`) with `aonik-spa` + `aonik-admin` clients, three users (admin / regular / service-account), audience + roles flattening mappers.
 - This ADR + the operator runbook at `docs/operations/keycloak-setup.md`.
 
-### Deferred — Admin-UI OIDC client
+### Admin-UI OIDC client ✅ Landed (2026-05-24)
 
-The admin UI's **own login flow** still uses Auth0 / Azure AD / mock via Vite env vars (`VITE_AUTH_PROVIDER`). Adding a `KeycloakAuthContextProvider` requires introducing `oidc-client-ts` (or equivalent) as a meaningful runtime dependency and reproducing the same `AuthContextType` interface that the existing MSAL and Auth0 wrappers expose.
+The admin UI now logs in against Keycloak when `VITE_AUTH_PROVIDER=keycloak`. Implementation:
 
-This is intentionally separated. The **backend API** is fully Keycloak-capable today; the **admin UI** is one specific client of that API. Machine clients, CLI, mobile (Payabo Flutter), and any other API consumer can authenticate against Keycloak immediately — only the admin web UI's login button continues to drive Auth0 / Azure AD until the OIDC client wiring lands.
+- `oidc-client-ts` + `react-oidc-context` added as runtime dependencies (the React wrapper mirrors `@azure/msal-react` / `@auth0/auth0-react` patterns the codebase already uses).
+- `authConfig.ts` extends the `AuthProvider` union to `'azure-ad' | 'auth0' | 'keycloak' | 'mock'`; `validateAuthConfig` checks `VITE_KEYCLOAK_AUTHORITY` + `VITE_KEYCLOAK_CLIENT_ID`; `keycloakConfig` exposes the OIDC client config.
+- `useAuth.tsx` gains `useKeycloakAuth` + `KeycloakAuthContextProvider`. Roles extraction looks at `profile.roles` first (flattened by the realm protocol mapper, the spec default) then falls back to `profile.realm_access.roles`. Silent renew runs through `signinSilent`; `getAccessToken` checks freshness against `expires_at` with a 60-second skew margin.
+- `AuthProvider.tsx` wraps the tree in `<AuthProvider>` from `react-oidc-context`, configured with PKCE, `automaticSilentRenew`, `localStorage`-backed `WebStorageStateStore`, and an `onSigninCallback` that strips OIDC response params from the URL after the redirect.
+
+Required env vars (set in `.env.local` or the deployment environment):
+- `VITE_AUTH_PROVIDER=keycloak`
+- `VITE_KEYCLOAK_AUTHORITY=https://keycloak.example.com/realms/aonik`
+- `VITE_KEYCLOAK_CLIENT_ID=aonik-spa`
+- Optional: `VITE_KEYCLOAK_REDIRECT_URI`, `VITE_KEYCLOAK_POST_LOGOUT_REDIRECT_URI`, `VITE_KEYCLOAK_CLIENT_SECRET` (not recommended for browser clients).
 
 ### Configuration shape
 
@@ -116,7 +125,7 @@ See [docs/operations/keycloak-setup.md](../operations/keycloak-setup.md) for the
 - **Three providers is one more than two.** Each upgrade-compatible IdP release, each claim-name surprise, each refresh-token-rotation quirk multiplies maintenance work.
 - **Keycloak Admin API ≠ Auth0 Management API ≠ Microsoft Graph.** The interface shape held; the implementations are real engineering with subtle semantics (e.g. Keycloak's `username` vs Auth0's email-as-username, Keycloak's `reset-password` endpoint vs Auth0's PATCH).
 - **Direct-grant is off by default in Keycloak.** Operators using `KeycloakAuthTokenService.ExchangeAsync` must enable "Direct Access Grants Enabled" on the `aonik-spa` client. Documented prominently in the runbook.
-- **Admin UI login path stays Auth0 / Azure AD / mock for now.** The deferred Phase 4 admin-UI OIDC client is the only piece preventing "100% Keycloak-only deployment via the admin UI" today.
+- **Three SPA login codepaths to maintain.** `@azure/msal-react`, `@auth0/auth0-react`, and `react-oidc-context` each have their own session-restore semantics, silent-renew quirks, and error shapes. The thin `AuthContextType` interface that `useAuth` exposes papers over the differences for the rest of the SPA, but the three hook implementations diverge in detail.
 
 ### Risks
 

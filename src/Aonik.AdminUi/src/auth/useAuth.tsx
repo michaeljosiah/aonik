@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { useMsal, useIsAuthenticated as useMsalIsAuthenticated } from '@azure/msal-react';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth as useOidcAuth } from 'react-oidc-context';
 import { InteractionStatus } from '@azure/msal-browser';
 import { msalLoginRequest, msalApiTokenRequest, auth0Config, type AuthProvider } from './authConfig';
 import { isElectron, electronAPI, type AuthTokenSet } from '@/lib/electron';
@@ -370,6 +371,117 @@ function useAuth0Auth(): AuthContextType {
   };
 }
 
+// Keycloak Auth Hook — Spec 029.
+//
+// Backed by react-oidc-context's UserManager. The realm authority + client_id
+// come from VITE_KEYCLOAK_AUTHORITY / VITE_KEYCLOAK_CLIENT_ID (see authConfig);
+// the UserManager handles PKCE, token storage, and silent renewal.
+//
+// Roles extraction looks in two places, in order:
+//   1. `profile.roles` — flat top-level claim added by a Keycloak protocol
+//       mapper (the spec's preferred default; see docs/operations/keycloak-setup.md).
+//   2. `profile.realm_access.roles` — default Keycloak claim shape when no
+//       flattening mapper is configured.
+// Backend `ClaimsRoleMapper.ExtractRoles` reads from the same locations, so
+// the SPA and the API see the same role set.
+function useKeycloakAuth(): AuthContextType {
+  const oidc = useOidcAuth();
+  const [authError, setAuthError] = useState<Error | null>(null);
+
+  const profile = oidc.user?.profile as
+    | (Record<string, unknown> & {
+        sub?: string;
+        email?: string;
+        name?: string;
+        preferred_username?: string;
+        picture?: string;
+        roles?: string[];
+        realm_access?: { roles?: string[] };
+      })
+    | undefined;
+
+  const user: AuthUser | null = profile
+    ? {
+        id: profile.sub ?? '',
+        email: profile.email ?? '',
+        name: profile.name ?? profile.preferred_username ?? profile.email ?? '',
+        picture: profile.picture,
+        roles: profile.roles ?? profile.realm_access?.roles ?? [],
+        roleSource: 'claims',
+      }
+    : null;
+
+  const login = useCallback(
+    async (options?: LoginOptions) => {
+      try {
+        await oidc.signinRedirect({
+          // Keycloak honours `login_hint` for pre-filling the username on the
+          // hosted login page; matches the Auth0 / MSAL hint plumbing above.
+          login_hint: options?.loginHint,
+        });
+      } catch (error) {
+        console.error('Keycloak login error:', error);
+        setAuthError(error instanceof Error ? error : new Error(String(error)));
+        throw error;
+      }
+    },
+    [oidc],
+  );
+
+  const logout = useCallback(async () => {
+    try {
+      // Same pre-logout housekeeping as the Auth0 / MSAL paths — clear the
+      // tenant context first so the next sign-in starts clean.
+      clearSelectedTenant();
+      invalidateTenantBootstrap();
+      await oidc.signoutRedirect();
+    } catch (error) {
+      console.error('Keycloak logout error:', error);
+      // Fall back to removeUser + manual redirect if the realm doesn't allow
+      // RP-initiated logout (rare; operator misconfiguration).
+      await oidc.removeUser();
+      window.location.href = window.location.origin;
+    }
+  }, [oidc]);
+
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    // react-oidc-context auto-refreshes if `automaticSilentRenew` is enabled
+    // on the UserManager (we set it on the provider). When a renewal is in
+    // flight `oidc.user?.access_token` updates reactively; otherwise we kick
+    // a manual silent renew here.
+    if (!oidc.user) {
+      return null;
+    }
+    const expiresAt = oidc.user.expires_at ? oidc.user.expires_at * 1000 : 0;
+    const stillFresh = Date.now() < expiresAt - 60_000;
+    if (stillFresh) {
+      return oidc.user.access_token ?? null;
+    }
+    try {
+      const fresh = await oidc.signinSilent();
+      return fresh?.access_token ?? null;
+    } catch (error) {
+      console.error('Keycloak silent renew error:', error);
+      // If silent renew fails (refresh token expired, realm down, etc.) we
+      // fall through and return whatever we still have — the caller's HTTP
+      // request will then 401 and the global interceptor handles redirect.
+      return oidc.user.access_token ?? null;
+    }
+  }, [oidc]);
+
+  return {
+    isAuthenticated: oidc.isAuthenticated,
+    isLoading: oidc.isLoading,
+    user,
+    accessToken: oidc.user?.access_token ?? null,
+    provider: 'keycloak',
+    authError: oidc.error ?? authError,
+    login,
+    logout,
+    getAccessToken,
+  };
+}
+
 // Wrapper for MSAL that provides context
 function MsalAuthContextProvider({ children }: { children: ReactNode }) {
   const auth = useMsalAuth();
@@ -379,6 +491,12 @@ function MsalAuthContextProvider({ children }: { children: ReactNode }) {
 // Wrapper for Auth0 that provides context
 function Auth0AuthContextProvider({ children }: { children: ReactNode }) {
   const auth = useAuth0Auth();
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
+}
+
+// Wrapper for Keycloak that provides context
+function KeycloakAuthContextProvider({ children }: { children: ReactNode }) {
+  const auth = useKeycloakAuth();
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
@@ -584,6 +702,7 @@ export {
   AuthContext,
   MsalAuthContextProvider,
   Auth0AuthContextProvider,
+  KeycloakAuthContextProvider,
   MockAuthContextProvider,
   ElectronAuthContextProvider,
 };

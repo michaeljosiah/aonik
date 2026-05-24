@@ -28,6 +28,43 @@ var qdrant = builder
     .WithEnvironment("QDRANT_API_KEY", "qdrant-dev-key")
     .WithEnvironment("QDRANT_SNAPSHOT_DIR", "/qdrant/snapshots");
 
+// Spec 029 — conditional Keycloak local-dev container.
+//
+// Operators developing against Keycloak set AONIK_AUTH_PROVIDER=Keycloak (env
+// var, case-insensitive) and `dotnet run --project src/Aonik.AppHost` brings up
+// a single-node Keycloak alongside the rest of the platform. When the variable
+// is unset (Auth0 / Azure AD developers), Keycloak is skipped — same one-command
+// dev experience as before. The realm export at infra/keycloak/realm-export.json
+// is mounted into the container, so login works against the pre-seeded `aonik`
+// realm with no further setup.
+//
+// DEV-ONLY. The default admin credentials (admin / admin) and ephemeral storage
+// make this unsuitable for any non-local use. Production Keycloak is operator-
+// owned; see docs/operations/keycloak-setup.md.
+var enableKeycloak = string.Equals(
+    Environment.GetEnvironmentVariable("AONIK_AUTH_PROVIDER"),
+    "Keycloak",
+    StringComparison.OrdinalIgnoreCase);
+
+if (enableKeycloak)
+{
+    var realmExportPath = Path.GetFullPath(
+        Path.Combine(builder.AppHostDirectory, "..", "..", "infra", "keycloak", "realm-export.json"));
+
+    builder
+        .AddContainer("keycloak", "quay.io/keycloak/keycloak", "26.0")
+        .WithHttpEndpoint(8080, 8080, name: "http")
+        .WithBindMount(realmExportPath, "/opt/keycloak/data/import/realm-export.json", isReadOnly: true)
+        .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
+        .WithEnvironment("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
+        .WithEnvironment("KC_HEALTH_ENABLED", "true")
+        .WithEnvironment("KC_HTTP_PORT", "8080")
+        .WithEnvironment("KC_HOSTNAME", "localhost")
+        .WithEnvironment("KC_HOSTNAME_STRICT", "false")
+        .WithEnvironment("KC_HTTP_ENABLED", "true")
+        .WithArgs("start-dev", "--import-realm");
+}
+
 // Add API project with LocalDB connection
 var api = builder.AddProject<Projects.Aonik_Api>("api")
     .WithEndpoint("https", endpoint =>

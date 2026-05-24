@@ -1,18 +1,22 @@
-import { type ReactNode, useState, useEffect } from 'react';
+import { type ReactNode, useState, useEffect, useMemo } from 'react';
 import { PublicClientApplication } from '@azure/msal-browser';
 import { MsalProvider } from '@azure/msal-react';
 import { Auth0Provider } from '@auth0/auth0-react';
+import { AuthProvider as OidcAuthProvider } from 'react-oidc-context';
+import { WebStorageStateStore } from 'oidc-client-ts';
 import {
   getAuthProvider,
   msalConfig,
   auth0Config,
+  keycloakConfig,
   validateAuthConfig,
   getProviderDisplayName,
-  getRawAuthProvider
+  getRawAuthProvider,
 } from './authConfig';
 import {
   MsalAuthContextProvider,
   Auth0AuthContextProvider,
+  KeycloakAuthContextProvider,
   MockAuthContextProvider,
   ElectronAuthContextProvider,
 } from './useAuth';
@@ -80,7 +84,7 @@ function AzureAdAuthProvider({ children }: AuthProviderProps) {
 function Auth0AuthProvider({ children }: AuthProviderProps) {
   // Auth0 provider handles its own initialization
   // We just need to validate the config is present
-  
+
   return (
     <Auth0Provider
       domain={auth0Config.domain}
@@ -100,6 +104,46 @@ function Auth0AuthProvider({ children }: AuthProviderProps) {
     >
       <Auth0AuthContextProvider>{children}</Auth0AuthContextProvider>
     </Auth0Provider>
+  );
+}
+
+// Keycloak Provider wrapper — Spec 029.
+//
+// Wraps react-oidc-context's <AuthProvider> with a UserManager configured for
+// the operator's Keycloak realm. PKCE-only (public client, no secret), tokens
+// kept in localStorage so refresh works across tabs and full page reloads
+// (mirroring the Auth0 cacheLocation choice). After the OIDC callback we strip
+// the `code` / `state` / `session_state` / `iss` query params from the URL so
+// the address bar doesn't carry a one-shot auth code through the SPA route.
+function KeycloakAuthProvider({ children }: AuthProviderProps) {
+  // Memoise to keep the UserManager identity stable across re-renders —
+  // re-creating it on every render would tear down silent-renew timers and
+  // detach the iframe-based silent callback.
+  const userStore = useMemo(
+    () => new WebStorageStateStore({ store: window.localStorage }),
+    [],
+  );
+
+  return (
+    <OidcAuthProvider
+      authority={keycloakConfig.authority}
+      client_id={keycloakConfig.client_id}
+      client_secret={keycloakConfig.client_secret}
+      redirect_uri={keycloakConfig.redirect_uri}
+      post_logout_redirect_uri={keycloakConfig.post_logout_redirect_uri}
+      scope={keycloakConfig.scope}
+      loadUserInfo={keycloakConfig.loadUserInfo}
+      automaticSilentRenew={true}
+      userStore={userStore}
+      onSigninCallback={() => {
+        // Strip OIDC response params so the SPA history doesn't carry the
+        // single-use code/state. Without this, refreshing the page after
+        // sign-in re-submits the (now-invalid) code and triggers an error.
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }}
+    >
+      <KeycloakAuthContextProvider>{children}</KeycloakAuthContextProvider>
+    </OidcAuthProvider>
   );
 }
 
@@ -145,6 +189,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   if (provider === 'auth0') {
     return <Auth0AuthProvider>{children}</Auth0AuthProvider>;
+  }
+
+  if (provider === 'keycloak') {
+    return <KeycloakAuthProvider>{children}</KeycloakAuthProvider>;
   }
 
   return <AzureAdAuthProvider>{children}</AzureAdAuthProvider>;
