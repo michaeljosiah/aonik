@@ -21,9 +21,10 @@ The AppHost (`src/Aonik.AppHost/AppHost.cs`) wires the following resources:
 | `worker`           | .NET project               | (no HTTP endpoint)          | Quartz background jobs                         |
 | `adminui`          | Vite dev server (Node)     | http://localhost:5173       | React 19 admin UI                              |
 | `qdrant`           | Docker container           | http://localhost:6333       | Vector store (`qdrant/qdrant:v1.13.2`)         |
+| `keycloak`         | Docker container *(opt-in)*| http://localhost:8080       | Pre-seeded `aonik` realm — opt in via `AONIK_AUTH_PROVIDER=Keycloak` |
 | `aspire-dashboard` | Aspire's own observability | https://localhost:21183     | Resource list, logs, traces, metrics           |
 
-Aspire calls the local **Docker Desktop** API to pull and start the Qdrant image. SQL Server is **not** containerised — it uses your local **SQL Server LocalDB** instance directly.
+Aspire calls the local **Docker Desktop** API to pull and start the Qdrant image (and the Keycloak image when the opt-in is set). SQL Server is **not** containerised — it uses your local **SQL Server LocalDB** instance directly.
 
 ## Step 1 — Clone the repository
 
@@ -71,6 +72,53 @@ dotnet user-secrets --project src/Aonik.Api list
 Bootstrap:Enabled = true
 Bootstrap:SetupSecret = <your-guid>
 ```
+
+## Step 2.5 — (Optional) Enable Keycloak for zero-account login
+
+This step is the fastest path to a working sign-in. If you skip it, the Admin UI loads but every login attempt fails until you wire Auth0 or Microsoft Entra ID per [Identity & Access](/docs/operate/identity-access).
+
+**What it does.** Setting `AONIK_AUTH_PROVIDER=Keycloak` for the AppHost process makes Aspire spin up a sixth resource — a Keycloak 26 container — and auto-wire every other process to it:
+
+- `keycloak` container at `http://localhost:8080`, pre-seeded with the `aonik` realm (two clients, three users, two protocol mappers — see `infra/keycloak/realm-export.json`)
+- `api` receives `Auth__Provider=Keycloak`, `Auth__Keycloak__Authority=http://localhost:8080/realms/aonik`, `Auth__Keycloak__Audience=aonik-api`
+- `adminui` receives `VITE_AUTH_PROVIDER=keycloak`, `VITE_KEYCLOAK_AUTHORITY=http://localhost:8080/realms/aonik`, `VITE_KEYCLOAK_CLIENT_ID=aonik-spa`
+
+There is nothing else for you to configure. No user-secrets, no `.env.local`, no realm import — everything lives in the repo.
+
+**Run (PowerShell):**
+
+```powershell
+$env:AONIK_AUTH_PROVIDER = 'Keycloak'
+```
+
+The variable lives in the current shell session. To make it persistent for your user account:
+
+```powershell
+[Environment]::SetEnvironmentVariable('AONIK_AUTH_PROVIDER', 'Keycloak', 'User')
+```
+
+To turn Keycloak back off later, set the variable to an empty string or remove it.
+
+**Verify (after step 4 below — once the AppHost is running):**
+
+```powershell
+curl.exe --silent http://localhost:8080/realms/aonik/.well-known/openid-configuration |
+  ConvertFrom-Json |
+  Select-Object issuer, authorization_endpoint, token_endpoint
+```
+
+**Expected:** `issuer` is `http://localhost:8080/realms/aonik` and the two endpoints are non-null URLs hanging off the same host.
+
+**Pre-seeded credentials.** The realm includes:
+
+| Username              | Password         | Roles                             | Notes                                |
+| --------------------- | ---------------- | --------------------------------- | ------------------------------------ |
+| `admin@aonik.local`   | `Aonik!Dev2026`  | `Aonik.PlatformAdmin`, `TenantAdmin` | Use this for the bootstrap email     |
+| `user@aonik.local`    | `Aonik!Dev2026`  | `PersonalUser`                    | Regular tenant user for testing Payabo |
+
+<Callout type="warn">
+  These credentials are checked into the repo for **local dev only**. Never use them in any deployment a colleague can reach. Production Keycloak realms are operator-owned — see [Identity & Access → Keycloak](/docs/operate/identity-access/keycloak) for the production setup runbook.
+</Callout>
 
 ## Step 3 — Confirm Docker Desktop is running
 
@@ -139,7 +187,10 @@ curl.exe --silent --output $null --write-out '%{http_code}' http://localhost:517
 
 **Expected:** `200`.
 
-You can also open `http://localhost:5173/` in a browser — the login screen renders. Login will not succeed yet because no identity provider is wired — that's expected and is fixed in [Identity & Access](/docs/operate/identity-access).
+Open `http://localhost:5173/` in a browser — the login screen renders.
+
+- If you completed [Step 2.5 (Keycloak)](#step-25-optional-enable-keycloak-for-zero-account-login), click **Sign in**. Keycloak's hosted login page loads. Sign in as `admin@aonik.local` / `Aonik!Dev2026`. You'll be returned to the Admin UI; the next step (Bootstrap) creates the matching Aonik-side tenant + user.
+- If you skipped Step 2.5, the login button works but no identity provider is wired — that's expected and is fixed in [Identity & Access](/docs/operate/identity-access).
 
 ## Step 7 — Verify Qdrant is up
 
@@ -157,9 +208,19 @@ docker ps --filter "ancestor=qdrant/qdrant" --format "table {{.Names}}\t{{.Statu
 
 **Expected:** a single row with status `Up <N> seconds (healthy)`.
 
+## Step 8 — (Only if Step 2.5 was run) Verify Keycloak is up
+
+```powershell
+curl.exe --silent --output $null --write-out '%{http_code}' http://localhost:8080/realms/aonik/.well-known/openid-configuration
+```
+
+**Expected:** `200`. The OIDC discovery document being served proves the realm imported cleanly and Keycloak is ready to issue tokens.
+
+The Keycloak admin console is available at `http://localhost:8080/admin/` (login `admin` / `admin`). You shouldn't need it for normal work — every dev artifact (users, clients, mappers, roles) is in the checked-in realm export.
+
 ## All-in-one verification
 
-The block below runs steps 5–7 in sequence and exits non-zero on the first failure.
+The block below runs steps 5–8 in sequence and exits non-zero on the first failure. The Keycloak assertion runs only when the env var is set, so it works identically on the Keycloak and non-Keycloak paths.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -179,6 +240,13 @@ $qdrant = curl.exe --silent --max-time 5 http://localhost:6333/readyz
 if ($qdrant -notmatch 'all shards are ready') { throw "Qdrant not ready: $qdrant" }
 Write-Host '✅ Qdrant ready' -ForegroundColor Green
 
+# Keycloak (only when AONIK_AUTH_PROVIDER=Keycloak)
+if ($env:AONIK_AUTH_PROVIDER -eq 'Keycloak') {
+  $kcCode = curl.exe --silent --output $null --write-out '%{http_code}' http://localhost:8080/realms/aonik/.well-known/openid-configuration
+  if ($kcCode -ne '200') { throw "Keycloak realm discovery returned $kcCode" }
+  Write-Host '✅ Keycloak realm reachable' -ForegroundColor Green
+}
+
 Write-Host ''
 Write-Host 'Aspire stack healthy. Proceed to Bootstrap your first tenant.' -ForegroundColor Green
 ```
@@ -187,9 +255,17 @@ Write-Host 'Aspire stack healthy. Proceed to Bootstrap your first tenant.' -Fore
 
 ### Docker not running
 
-**Symptom.** The Aspire dashboard shows `qdrant` as **Failed**, and the AppHost console logs include `error during connect: this error may indicate that the docker daemon is not running`.
+**Symptom.** The Aspire dashboard shows `qdrant` (or `keycloak`, when enabled) as **Failed**, and the AppHost console logs include `error during connect: this error may indicate that the docker daemon is not running`.
 
-**Fix.** Start Docker Desktop and wait for the tray icon to report **running**. Then click the **Restart** button on the `qdrant` row in the Aspire dashboard.
+**Fix.** Start Docker Desktop and wait for the tray icon to report **running**. Then click the **Restart** button on the failed row in the Aspire dashboard.
+
+### Keycloak realm fails to import
+
+**Symptom.** The `keycloak` row is **Running** but `http://localhost:8080/realms/aonik/.well-known/openid-configuration` returns `404`. The Keycloak container logs include `Realm 'aonik' not found` or `Failed to import realm`.
+
+**Cause.** The bind mount of `infra/keycloak/realm-export.json` failed — most often because Docker Desktop hasn't been granted access to the repo's drive in **Settings → Resources → File sharing**, or because the AppHost was started from a path that resolved `..\..\infra\keycloak\realm-export.json` to a non-existent location.
+
+**Fix.** Add the repo's drive in Docker Desktop's file sharing settings (if on Windows + WSL2, this is usually unnecessary), then restart the `keycloak` row in the Aspire dashboard. Re-running `dotnet run --project src/Aonik.AppHost` works too — the realm export is re-mounted on container start.
 
 ### LocalDB connection fails at startup
 

@@ -26,6 +26,15 @@ Calling `/bootstrap` again returns **409 Conflict**. To provision additional ten
 - The [Aspire stack](/docs/operate/install-configure/run-with-aspire) is running. The `api` row in the Aspire dashboard reads **Running** and `curl.exe --insecure https://localhost:5001/health` returns `{"Status":"Healthy"...}`.
 - `Bootstrap:Enabled` is `true` and `Bootstrap:SetupSecret` is set in user-secrets for `src/Aonik.Api`. Verify with `dotnet user-secrets --project src/Aonik.Api list`.
 
+<Callout type="info" title="Using Keycloak? Pick the email carefully.">
+  Bootstrap pre-creates an owner user with whatever `ownerEmail` you supply. On first sign-in, the Aonik backend links the live IdP identity (issuer + subject) to the placeholder user by **email match**. For the simplest local-dev path, set `ownerEmail` to a value that already exists in your identity provider:
+
+  - **Keycloak (Step 2.5 path):** use `admin@aonik.local` — the pre-seeded realm user with `Aonik.PlatformAdmin` + `TenantAdmin` roles. Password: `Aonik!Dev2026`.
+  - **Auth0 / Microsoft Entra ID:** use the email of an existing user in that IdP. You can also create the IdP user first and then bootstrap with a matching email.
+
+  If the bootstrap email and the IdP-side email don't match, the first sign-in succeeds at the IdP but the backend rejects the token with `Tenant could not be resolved` — fix it by updating either the Aonik user record's `Email` (`UPDATE AnkUsers SET Email = '<real-idp-email>' WHERE Email = '<bootstrap-email>'`) or by signing in as a user whose email matches what you bootstrapped.
+</Callout>
+
 ## Step 1 — Pre-flight check (`/bootstrap/status`)
 
 The status endpoint reports whether bootstrap is ready, disabled, misconfigured, or already completed. Always run it first — the response tells an agent exactly what to do.
@@ -79,12 +88,21 @@ and restart the API resource from the Aspire dashboard before continuing.
 
 ## Step 3 — Call `POST /bootstrap`
 
-**Run** (replace `you@example.com` with your real email):
+**Run** (use `admin@aonik.local` for the Keycloak fastest-path; otherwise use your real IdP email):
 
 ```powershell
+# Use admin@aonik.local if you enabled AONIK_AUTH_PROVIDER=Keycloak in step 2.5
+# of Run with Aspire. Otherwise use the email of a user that already exists
+# in your Auth0 / Microsoft Entra ID tenant.
+$ownerEmail = if ($env:AONIK_AUTH_PROVIDER -eq 'Keycloak') {
+  'admin@aonik.local'
+} else {
+  'you@example.com'
+}
+
 $payload = @{
   setupSecret      = $secret
-  ownerEmail       = 'you@example.com'
+  ownerEmail       = $ownerEmail
   ownerDisplayName = 'Platform Admin'
 } | ConvertTo-Json
 
@@ -210,5 +228,6 @@ After this completes, the bootstrap state should report `ready` again.
 ## What's next
 
 - [Verify the install](/docs/operate/install-configure/verify) — end-to-end smoke test of the running stack
-- [Identity & Access](/docs/operate/identity-access) — wire Auth0 or Microsoft Entra ID so the owner can actually sign in
+- [Identity & Access → Keycloak](/docs/operate/identity-access/keycloak) — the no-external-account auth path (recommended for local dev)
+- [Identity & Access](/docs/operate/identity-access) — wire Auth0 or Microsoft Entra ID instead, if your team is already on one
 - [API Reference](/docs/api) — every endpoint the API exposes

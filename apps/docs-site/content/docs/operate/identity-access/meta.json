@@ -1,0 +1,7 @@
+{
+  "title": "Identity & Access",
+  "pages": [
+    "index",
+    "keycloak"
+  ]
+}

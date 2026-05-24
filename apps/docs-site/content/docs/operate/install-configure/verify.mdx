@@ -20,10 +20,11 @@ Save this as `scripts/verify-install.ps1` (or run it inline). It performs nine a
 ```powershell
 #requires -Version 7
 param(
-  [string]$ApiUrl     = 'https://localhost:5001',
-  [string]$AdminUrl   = 'http://localhost:5173',
-  [string]$QdrantUrl  = 'http://localhost:6333',
-  [string]$OwnerEmail = 'you@example.com'
+  [string]$ApiUrl       = 'https://localhost:5001',
+  [string]$AdminUrl     = 'http://localhost:5173',
+  [string]$QdrantUrl    = 'http://localhost:6333',
+  [string]$KeycloakUrl  = 'http://localhost:8080',
+  [string]$OwnerEmail   = 'you@example.com'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +105,16 @@ Assert 'OpenAPI document is served' {
   if ($body -notmatch '"openapi"') { throw "no openapi field in response" }
 }
 
+# 10. (Keycloak only) Realm discovery document is served
+if ($env:AONIK_AUTH_PROVIDER -eq 'Keycloak') {
+  Assert 'Keycloak realm OIDC discovery is served' {
+    $body = curl.exe --silent --max-time 5 "$KeycloakUrl/realms/aonik/.well-known/openid-configuration"
+    if ($body -notmatch '"issuer"\s*:\s*"http://localhost:8080/realms/aonik"') {
+      throw "discovery document missing or wrong issuer"
+    }
+  }
+}
+
 if ($failures.Count -gt 0) {
   Write-Host ''
   Write-Host "Verification FAILED. Failures: $($failures -join ', ')" -ForegroundColor Red
@@ -122,7 +133,11 @@ Write-Host 'Next step: wire identity in /docs/operate/identity-access so the own
 Save the block above to a file, then:
 
 ```powershell
+# Non-Keycloak setups
 .\scripts\verify-install.ps1 -OwnerEmail 'you@example.com'
+
+# Keycloak fastest-path setup (matches the run-with-aspire step 2.5 walkthrough)
+.\scripts\verify-install.ps1 -OwnerEmail 'admin@aonik.local'
 ```
 
 **Expected final output (one of two):**
@@ -170,6 +185,7 @@ Verification FAILED. Failures: Bootstrap status is completed, Exactly one tenant
 
 Once every assertion passes, the platform is ready for the next chapter:
 
-- [Identity & Access](/docs/operate/identity-access) — wire Auth0 or Microsoft Entra ID so the owner user can sign in
+- [Identity & Access → Keycloak](/docs/operate/identity-access/keycloak) — the recommended no-external-account local-dev path
+- [Identity & Access](/docs/operate/identity-access) — Auth0 / Microsoft Entra ID if your team is already on one
 - [Integrations](/docs/operate/integrations) — connect Plaid, Stripe, Twilio, ElevenLabs, model providers
 - [Architecture at a glance](/docs/operate/getting-started/architecture-at-a-glance) — see how the moving parts fit together

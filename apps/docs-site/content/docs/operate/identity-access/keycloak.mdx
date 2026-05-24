@@ -1,0 +1,240 @@
+---
+title: Keycloak
+description: Local-dev quickstart (zero config when run via Aspire), production realm setup, and federation playbook for upstream IdPs.
+---
+
+Keycloak is Aonik's recommended identity provider for local development and for any deployment that needs self-hosting, data residency, or upstream federation. The Aonik backend treats it identically to Auth0 and Microsoft Entra ID — the same six capability surfaces, the same `Auth.Provider=Keycloak` setting flip.
+
+This page has two parts:
+
+1. **[Local dev — zero config](#local-dev-zero-config)** — the fastest path; everything in the repo
+2. **[Production realm setup](#production-realm-setup)** — the operator runbook for a real Keycloak instance
+
+If you only want to get Aonik running on your laptop, follow the first part and stop. The production realm setup is the same shape, just against your own Keycloak.
+
+## Local dev — zero config
+
+Running Aonik with `AONIK_AUTH_PROVIDER=Keycloak` makes the Aspire orchestrator do every Keycloak-side configuration step for you:
+
+- A Keycloak 26 container starts on `http://localhost:8080`
+- The container imports `infra/keycloak/realm-export.json` — a pre-configured `aonik` realm with two clients, three users, and the required audience + roles mappers
+- The API receives `Auth__Provider=Keycloak` + authority + audience env vars
+- The Admin UI receives `VITE_AUTH_PROVIDER=keycloak` + authority + client_id env vars
+
+You don't edit `appsettings.json`. You don't touch user-secrets. You don't create realm clients by hand. Everything lives in the repo.
+
+### Quickstart
+
+1. **Set the env var, start the AppHost.** See [Run with Aspire — Step 2.5](/docs/operate/install-configure/run-with-aspire#step-25-optional-enable-keycloak-for-zero-account-login) for the one-liner.
+2. **Bootstrap with the pre-seeded admin email.** `admin@aonik.local`. See [Bootstrap your first tenant — Step 3](/docs/operate/install-configure/bootstrap-tenant#step-3-call-post-bootstrap).
+3. **Sign in.** Browse to `http://localhost:5173`, click **Sign in**, log in as `admin@aonik.local` / `Aonik!Dev2026`. The Admin UI returns with your session.
+
+That's it. The bootstrap user's placeholder identity links to the Keycloak identity on first sign-in via email match (see `UserIdentityService.ResolveOrCreateUserAsync` in `src/Aonik.Platform/Services/Identity/`).
+
+### Pre-seeded users
+
+| Username              | Password         | Roles                                     | Why it exists                                  |
+| --------------------- | ---------------- | ----------------------------------------- | ---------------------------------------------- |
+| `admin@aonik.local`   | `Aonik!Dev2026`  | `Aonik.PlatformAdmin`, `TenantAdmin`      | Admin UI sign-in; matches bootstrap owner email |
+| `user@aonik.local`    | `Aonik!Dev2026`  | `PersonalUser`                            | Testing the Payabo customer-facing flows        |
+| `service-account-aonik-admin` | *(secret)* | `manage-users`, `view-users`, `view-realm` | Service-account client used by Aonik's Admin API for user provisioning |
+
+The credentials are checked into the repo. **Do not use them in any deployment a colleague can reach.**
+
+### What's pre-configured
+
+The `aonik` realm export contains:
+
+| Element                | Value / behaviour                                                         |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Realm                  | `aonik`                                                                    |
+| Access-token lifespan  | 30 minutes                                                                 |
+| SSO session idle / max | 30 min idle / 10 hours max                                                 |
+| Forgot password        | Enabled                                                                    |
+| Verify email           | Disabled (dev convenience)                                                 |
+| `aonik-spa` client     | Public PKCE; redirect URIs for `:5173` (Admin UI) and `:5174` (Payabo)     |
+| `aonik-admin` client   | Confidential service-account; secret `aonik-admin-dev-secret`              |
+| Audience mapper        | `audience-aonik-api` — emits `aud: ["aonik-api"]` on access tokens         |
+| Roles mapper           | `roles-flatten` — flattens `realm_access.roles` into top-level `roles` claim |
+| Realm roles            | `Aonik.PlatformAdmin`, `TenantAdmin`, `PersonalUser`, `Operations`, `ReadOnly`, `Compliance` |
+
+The full export is at [`infra/keycloak/realm-export.json`](https://github.com/michaeljosiah/aonik/blob/master/infra/keycloak/realm-export.json).
+
+### Inspecting & modifying the dev realm
+
+The Keycloak admin console is at `http://localhost:8080/admin/` — log in as `admin` / `admin`. Changes you make through the console are written to the container's in-memory database and **disappear when the container restarts**. To make a change persistent for the team, export the realm and update `infra/keycloak/realm-export.json`:
+
+```powershell
+docker exec aonik-keycloak-dev /opt/keycloak/bin/kc.sh export `
+  --file /tmp/realm-export.json --realm aonik
+docker cp aonik-keycloak-dev:/tmp/realm-export.json infra/keycloak/realm-export.json
+```
+
+Then commit the updated export. The next contributor's container picks it up on `--import-realm`.
+
+### Tearing down
+
+```powershell
+$env:AONIK_AUTH_PROVIDER = ''
+# Or remove the persistent variable entirely:
+[Environment]::SetEnvironmentVariable('AONIK_AUTH_PROVIDER', $null, 'User')
+```
+
+Stop the AppHost (Ctrl+C), then start it again — the Keycloak container is omitted from the resource graph. The Admin UI falls back to `azure-ad` (the default `VITE_AUTH_PROVIDER`), which won't work without further config but no longer pulls a container.
+
+---
+
+## Production realm setup
+
+The production runbook is a detailed step-by-step at [`docs/operations/keycloak-setup.md`](https://github.com/michaeljosiah/aonik/blob/master/docs/operations/keycloak-setup.md). What follows is the abbreviated, decision-flow version. Use the runbook for the exact click-paths.
+
+<Callout type="warn">
+  Production Keycloak is **operator-owned**. Aonik does not ship a managed Keycloak. The `compose.keycloak.yml` profile is local-dev only and ships with weak default credentials baked in — never use it on a host that isn't your laptop.
+</Callout>
+
+### Architecture at a glance
+
+```
+                  ┌─────────────────────────────────────┐
+                  │  Your Keycloak (operator-hosted)     │
+                  │                                      │
+                  │  Realm: aonik                        │
+                  │  ├── Client: aonik-spa (PKCE)        │
+                  │  │   ├── audience-aonik-api mapper   │
+                  │  │   └── roles-flatten mapper        │
+                  │  └── Client: aonik-admin (service)   │
+                  │      └── realm-management roles      │
+                  │          (manage-users, view-users,  │
+                  │           view-realm)                │
+                  │                                      │
+                  │  (optional) Identity Providers:      │
+                  │  ├── Okta                            │
+                  │  ├── AD FS / Entra                   │
+                  │  ├── Google / GitHub                 │
+                  │  └── SAML 2.0                        │
+                  └─────────────────────────────────────┘
+                                  ▲
+                                  │ OIDC (one dialect)
+                                  │
+                  ┌───────────────┴─────────────────────┐
+                  │  Aonik deployment                    │
+                  │  Auth.Provider = Keycloak            │
+                  └─────────────────────────────────────┘
+```
+
+### Step 1 — Stand up Keycloak
+
+Run any Keycloak 26+ instance (Docker, Kubernetes, Helm, bare metal, managed). Aonik never ships Keycloak itself. Make it reachable from the API host and from the SPA's browser origins.
+
+Configure realm SMTP if you want password-reset and verify-email mails delivered (Keycloak sends them; Aonik never sees them).
+
+### Step 2 — Create the `aonik` realm
+
+Conventional name; any name works as long as it matches `Auth.Keycloak.Realm`. Tokens carry `iss = {keycloak-host}/realms/{realm-name}`, which must match `Auth.Keycloak.Authority`.
+
+### Step 3 — Create the `aonik-spa` client
+
+The end-user login client. Public (PKCE), standard flow on, **audience mapper required** (else Aonik rejects every token with `audience invalid`):
+
+| Mapper            | Type           | Config                                                    |
+| ----------------- | -------------- | --------------------------------------------------------- |
+| `audience-aonik-api` | Audience    | Included client audience = `aonik-api`; access token: ON   |
+| `roles-flatten`   | User Realm Role | Token claim name = `roles`; multivalued; ID + access + userinfo |
+
+Set redirect URIs to your Admin UI / Payabo origins.
+
+### Step 4 — Create the `aonik-admin` service-account client
+
+Confidential client used by Aonik to provision and delete users via Keycloak's Admin API. Grant **only** these three `realm-management` roles:
+
+- `manage-users` (create / delete / update)
+- `view-users` (lookup by email or subject)
+- `view-realm` (read realm metadata)
+
+**Do not grant `realm-admin`.** A leaked Aonik admin client should not be able to modify realm config, federation, or other clients.
+
+### Step 5 — Wire Aonik
+
+Set these settings (via Admin UI **Settings → Authentication** once you're signed in, or via direct config for the very first deployment):
+
+| Setting                              | Value                                              |
+| ------------------------------------ | -------------------------------------------------- |
+| `Auth.Provider`                      | `Keycloak`                                         |
+| `Auth.Keycloak.Authority`            | `https://<keycloak-host>/realms/aonik`             |
+| `Auth.Keycloak.Audience`             | `aonik-api`                                        |
+| `Auth.Keycloak.ClientId`             | `aonik-spa`                                        |
+| `Auth.Keycloak.ClientSecret`         | *(empty for public PKCE client)*                   |
+| `Auth.Keycloak.Realm`                | `aonik`                                            |
+| `Auth.Keycloak.AdminClientId`        | `aonik-admin`                                      |
+| `Auth.Keycloak.AdminClientSecret`    | *(from Keycloak: aonik-admin → Credentials)*        |
+
+Restart the API. Subsequent settings changes (e.g. switching providers) are picked up without a restart — but the JwtBearer schemes are registered at boot.
+
+### Step 6 — Smoke test
+
+1. Browse to the Admin UI. You're redirected to Keycloak's hosted login.
+2. Sign in. You land back in the Admin UI authenticated.
+3. Hit a tenant-scoped endpoint (`GET /v1/me`). Expect 200.
+4. From **Settings → Users**, invite a new user. Confirm Keycloak shows the new user with `emailVerified=false`.
+5. Click "Forgot password" — confirm the realm's SMTP delivers the reset email.
+
+---
+
+## Federation playbook
+
+Aonik talks one OIDC dialect — Keycloak. Upstream IdPs (Okta, AD FS, Google, GitHub, SAML 2.0) plug into Keycloak via its **Identity Providers** feature. Aonik gains zero code for any of them.
+
+| Upstream      | Keycloak path                                            | What the user experiences                                                                  |
+| ------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Okta**      | Identity Providers → Add → OpenID Connect v1.0           | "Sign in with Okta" button on Keycloak's login page → Okta SSO → back into Aonik           |
+| **AD FS / Entra** | Identity Providers → Add → OpenID Connect v1.0 (Microsoft well-known) | "Sign in with Microsoft" → Microsoft SSO → back into Aonik                       |
+| **Google / GitHub** | Identity Providers → Add → Google / GitHub (built-in) | One-click social sign-in on Keycloak's login page                                          |
+| **SAML 2.0**  | Identity Providers → Add → SAML v2.0 (upload metadata)   | SAML round-trip handled by Keycloak; Aonik sees a Keycloak-issued OIDC token               |
+
+The full per-provider configuration (URLs, client IDs, secret handling) lives in [`docs/operations/keycloak-setup.md`](https://github.com/michaeljosiah/aonik/blob/master/docs/operations/keycloak-setup.md#federation-playbook).
+
+---
+
+## Troubleshooting
+
+### `401 audience invalid`
+
+The audience mapper on `aonik-spa` is missing or its value doesn't match `Auth.Keycloak.Audience`. Both must be `aonik-api` (the dev default) or another value that the two sides agree on.
+
+### `401 Token issuer not allowed for active provider`
+
+`Auth.Keycloak.Authority` doesn't match the `iss` claim on the token. Most common cause: `KC_HOSTNAME` isn't set on the Keycloak container, so the issuer comes back as the container's internal hostname (e.g. `http://17e4d2c1f8af:8080/realms/aonik`) instead of the externally-reachable URL. The Aspire dev container sets `KC_HOSTNAME=localhost` — confirm yours is set in production.
+
+### `403 forbidden` on every authenticated request
+
+Roles aren't flowing through. Either the `roles-flatten` mapper isn't configured on `aonik-spa`, or the signed-in user has no realm roles assigned. Check **Users → the affected user → Role mappings**.
+
+### First sign-in after bootstrap returns `401 Tenant could not be resolved`
+
+The bootstrap user's email doesn't match the IdP user's email. See [Bootstrap your first tenant → email guidance](/docs/operate/install-configure/bootstrap-tenant#before-you-start). Quick fix: update the Aonik user's email to match the Keycloak user's email:
+
+```sql
+UPDATE AnkUsers
+SET Email = '<the-keycloak-user-email>'
+WHERE Email = '<the-bootstrap-email-you-used>';
+```
+
+### Admin-API operations fail with `403`
+
+The `aonik-admin` service-account client is missing one of the three required `realm-management` roles. Re-check Step 4 — needs `manage-users`, `view-users`, and `view-realm`. Do **not** grant `realm-admin`.
+
+### `Direct-grant disabled` when calling `KeycloakAuthTokenService.ExchangeAsync`
+
+Direct-grant (password) is off by default on `aonik-spa`. Flip **Direct access grants enabled** to ON on the client. Note the security trade-off — direct grant skips the hosted login flow including MFA and consent screens. Use it only for tests and CLI tools that genuinely need password-grant exchange.
+
+### Keycloak admin console works but the SPA can't reach `/realms/aonik/.well-known/openid-configuration`
+
+CORS or `Web Origins` config on the `aonik-spa` client. Set **Web origins** to `+` (mirror the configured redirect URIs) or to the explicit SPA origin (e.g. `https://admin.aonik.com`).
+
+## See also
+
+- [ADR-007 — Keycloak as a first-class auth provider](https://github.com/michaeljosiah/aonik/blob/master/docs/decisions/007-keycloak-as-auth-provider.md) — the architectural decisions behind this guide
+- [Spec 029 — full specification](https://github.com/michaeljosiah/aonik/blob/master/docs/specifications/029.keycloak-auth-provider.html)
+- [`infra/keycloak/realm-export.json`](https://github.com/michaeljosiah/aonik/blob/master/infra/keycloak/realm-export.json) — pre-seeded dev realm
+- [`infra/keycloak/compose.keycloak.yml`](https://github.com/michaeljosiah/aonik/blob/master/infra/keycloak/compose.keycloak.yml) — bare docker-compose alternative to running via Aspire
+- [Keycloak Admin REST API reference](https://www.keycloak.org/docs-api/latest/rest-api/index.html)

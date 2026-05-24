@@ -65,6 +65,14 @@ if (enableKeycloak)
         .WithArgs("start-dev", "--import-realm");
 }
 
+// Spec 029 — when Keycloak is the active provider, the realm authority
+// and audience are the same dev-local values across api / worker / adminui.
+// Pulling them into constants here keeps the per-resource wiring below
+// readable and ensures the API + SPA agree on the same realm URL.
+const string KeycloakAuthority = "http://localhost:8080/realms/aonik";
+const string KeycloakAudience = "aonik-api";
+const string KeycloakSpaClientId = "aonik-spa";
+
 // Add API project with LocalDB connection
 var api = builder.AddProject<Projects.Aonik_Api>("api")
     .WithEndpoint("https", endpoint =>
@@ -84,6 +92,17 @@ var api = builder.AddProject<Projects.Aonik_Api>("api")
     .WithEnvironment("Qdrant__CollectionPrefix", "aonik-dev")
     .WithExternalHttpEndpoints();
 
+if (enableKeycloak)
+{
+    // Auto-wire the API to the dev realm so the developer doesn't have to
+    // touch user-secrets or appsettings just to try Keycloak. The realm
+    // URL matches the container declared above; the audience matches the
+    // `aonik-spa` client's audience mapper in infra/keycloak/realm-export.json.
+    api.WithEnvironment("Auth__Provider", "Keycloak")
+        .WithEnvironment("Auth__Keycloak__Authority", KeycloakAuthority)
+        .WithEnvironment("Auth__Keycloak__Audience", KeycloakAudience);
+}
+
 // Add Worker project with LocalDB connection
 var worker = builder.AddProject<Projects.Aonik_Worker>("worker")
     .WithEnvironment("ConnectionStrings__DefaultConnection", LocalDbConnectionString)
@@ -102,6 +121,17 @@ var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
     .WithEnvironment("VITE_API_BASE_URL", "/api")
     .WaitFor(api)
     .WithExternalHttpEndpoints();
+
+if (enableKeycloak)
+{
+    // SPA OIDC client config — same realm URL, the public `aonik-spa` client
+    // declared in the realm export. Vite reads these at dev-server boot, so a
+    // single `dotnet run --project src/Aonik.AppHost` is enough to bring up a
+    // working Keycloak login experience end-to-end (no .env.local needed).
+    adminUi.WithEnvironment("VITE_AUTH_PROVIDER", "keycloak")
+        .WithEnvironment("VITE_KEYCLOAK_AUTHORITY", KeycloakAuthority)
+        .WithEnvironment("VITE_KEYCLOAK_CLIENT_ID", KeycloakSpaClientId);
+}
 
 // Add Payabo (React/Vite frontend)
 var payabo = builder.AddViteApp("payabo", "../../apps/Payabo")

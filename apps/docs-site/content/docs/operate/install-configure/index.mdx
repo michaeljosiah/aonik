@@ -5,6 +5,10 @@ description: The supported ways to install Aonik, what the orchestrator launches
 
 This is the operator's onboarding flow. Read the overview here, then work through the pages below in order.
 
+<Callout type="info" title="Fastest path: zero external accounts">
+  Set the env var `AONIK_AUTH_PROVIDER=Keycloak` before you start the AppHost and Aspire spins up a pre-seeded Keycloak realm alongside the rest of the stack. The Admin UI and API auto-discover the realm; you can sign in immediately as **`admin@aonik.local` / `Aonik!Dev2026`** with no Auth0 / Microsoft tenant to register. See [Run with Aspire — step 2.5](/docs/operate/install-configure/run-with-aspire#step-25-optional-enable-keycloak-for-zero-account-login) for the one-liner, and [Identity & Access → Keycloak](/docs/operate/identity-access/keycloak) for the full picture.
+</Callout>
+
 ## The path
 
 <Steps>
@@ -29,7 +33,7 @@ Install **Docker Desktop**, the **.NET 10 SDK**, **SQL Server LocalDB**, **Node.
 - the **Qdrant** vector store container (Aspire calls Docker Desktop to pull and start it)
 - the **Aspire dashboard** at `https://localhost:21183` for live resource state, logs, and traces
 
-SQL Server is **not** containerised — it uses your local SQL Server LocalDB instance directly.
+SQL Server is **not** containerised — it uses your local SQL Server LocalDB instance directly. With `AONIK_AUTH_PROVIDER=Keycloak`, a sixth resource — a **Keycloak** container on `http://localhost:8080` — joins the set, pre-seeded with a working realm.
 
 </Step>
 
@@ -37,7 +41,7 @@ SQL Server is **not** containerised — it uses your local SQL Server LocalDB in
 
 ### [Bootstrap your first tenant](/docs/operate/install-configure/bootstrap-tenant)
 
-The `/bootstrap` endpoint is the only way to create the first tenant on a fresh deployment. It is anonymous, single-use, and gated by a setup secret you put in user-secrets. A single call creates a tenant, an owner user, and the `PlatformAdmin` + `TenantAdmin` role assignments on that user.
+The `/bootstrap` endpoint is the only way to create the first tenant on a fresh deployment. It is anonymous, single-use, and gated by a setup secret you put in user-secrets. A single call creates a tenant, an owner user, and the `PlatformAdmin` + `TenantAdmin` role assignments on that user. If you're running in Keycloak mode, bootstrap with the pre-seeded admin's email (`admin@aonik.local`) so the placeholder user record links to the realm identity on first sign-in.
 
 </Step>
 
@@ -45,7 +49,7 @@ The `/bootstrap` endpoint is the only way to create the first tenant on a fresh 
 
 ### [Verify the install](/docs/operate/install-configure/verify)
 
-A single PowerShell script runs nine assertions: API healthy, Scalar reference served, bootstrap completed, one tenant present, owner user has both admin roles, Admin UI reachable, Qdrant ready and healthy, OpenAPI document served. Exit code `0` on full pass, `1` on any failure.
+A single PowerShell script runs nine assertions: API healthy, Scalar reference served, bootstrap completed, one tenant present, owner user has both admin roles, Admin UI reachable, Qdrant ready and healthy, OpenAPI document served. Exit code `0` on full pass, `1` on any failure. With Keycloak mode on, the script gains a tenth assertion that the realm's OIDC discovery document is reachable.
 
 </Step>
 
@@ -125,3 +129,4 @@ The pages currently published are the local-dev onboarding path. The following p
 - [Run with Aspire](/docs/operate/install-configure/run-with-aspire) — what the orchestrator does
 - [Bootstrap your first tenant](/docs/operate/install-configure/bootstrap-tenant) — create the first tenant + owner
 - [Verify the install](/docs/operate/install-configure/verify) — assert the result end-to-end
+- [Identity & Access → Keycloak](/docs/operate/identity-access/keycloak) — the no-external-account auth path you can swap to at any point

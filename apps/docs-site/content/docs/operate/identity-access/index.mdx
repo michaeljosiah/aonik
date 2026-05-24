@@ -1,26 +1,89 @@
 ---
 title: Identity & Access
-description: Pick an identity provider, wire users and roles, and troubleshoot authentication.
+description: Pick an identity provider, wire users and roles, troubleshoot authentication. Aonik supports three operator-choice IdPs — Keycloak (recommended for local dev), Auth0, and Microsoft Entra ID.
 ---
 
-<Callout type="warn" title="Coming soon">
-  This section is being written in a later phase of the docs rewrite. Until then, use the pre-rewrite guides under `apps/docs-site/docs.old/guides/`.
+Aonik authenticates users against one of three identity providers, chosen per deployment via the `Auth.Provider` setting:
+
+| Provider             | Best for                                                            | External account needed?                   |
+| -------------------- | ------------------------------------------------------------------- | ------------------------------------------ |
+| **Keycloak**         | Local development, self-hosting, data-residency-regulated markets   | No — runs in a container on your laptop    |
+| **Auth0**            | Teams already on Auth0; SaaS-style hosted identity                  | Yes — free tier covers most dev scenarios  |
+| **Microsoft Entra ID** | Microsoft-365 organisations; native SSO with corporate identity   | Yes — your org's Entra tenant              |
+
+The capability surfaces (JWT validation, user provisioning, password reset, account service, token exchange, IdP management) are identical across all three. Switching providers is a single setting flip plus per-provider credentials — no Aonik code changes.
+
+<Callout type="info" title="Recommended path: Keycloak for local dev">
+  If you're getting Aonik up and running for the first time, use Keycloak. It's the only option that needs no external account, no manual realm configuration, and no `appsettings` edits. [Run with Aspire → step 2.5](/docs/operate/install-configure/run-with-aspire#step-25-optional-enable-keycloak-for-zero-account-login) shows the one-env-var setup. Switching to Auth0 or Entra later is a settings change, not a re-deploy.
 </Callout>
 
-## What this section will cover
+## How identity flows through Aonik
 
-- Choose an identity provider (Auth0 vs Microsoft Entra ID decision matrix)
-- Set up Auth0 (tenants, organisations, claims)
-- Set up Microsoft Entra ID (app registration, claims, audience)
-- Configure platform admin (`PlatformAdmin` policy, admin email list)
-- Tenant routing (header vs subdomain vs organisation claim)
-- Add users (invite, JIT provisioning, role assignment)
-- Roles and permissions reference (the canonical list)
-- Troubleshoot authentication (401/403, audience/issuer, clock skew)
+1. **SPA login flow.** The Admin UI (or Payabo SPA) redirects the user to the configured IdP's hosted login page (Keycloak's `/realms/aonik/protocol/openid-connect/auth`, Auth0's `/authorize`, or Microsoft's `/oauth2/v2.0/authorize`). The user signs in there. The IdP redirects back to the SPA with an authorization code.
+2. **Token exchange.** The SPA exchanges the code for an access token + refresh token + ID token via PKCE.
+3. **API call.** The SPA attaches the access token as `Authorization: Bearer <token>` on every API request.
+4. **Backend validation.** Aonik's `AonikAuthenticationSetup` runs the token through the JwtBearer middleware. The middleware fetches the IdP's JWKS via OIDC discovery (cached) and validates signature, audience, issuer, expiry, and clock skew.
+5. **Tenant + user resolution.** A successful token triggers `HandleTokenValidatedAsync`, which resolves the tenant (via `X-Tenant-Id` header or `aonik_tenant_id` claim) and the Aonik-side user record (matched by external issuer + subject, or upgraded from a bootstrap placeholder by email match on first sign-in).
+6. **Authorization.** Permission checks read the user's role assignments from `AnkUserRoles` plus any role claims surfaced by the IdP.
 
-## In the meantime
+This pipeline is provider-agnostic. The differences live entirely in the three `IIdentityProviderManagementClient` implementations (Auth0, AzureAd, Keycloak) and their factory in `Aonik.Infrastructure.Authentication`.
 
-- `apps/docs-site/docs.old/guides/authentication-auth0.md` (in the repo)
-- `apps/docs-site/docs.old/guides/authentication-azure-ad.md` (in the repo)
-- `apps/docs-site/docs.old/guides/authentication-troubleshooting.md` (in the repo)
-- `apps/docs-site/docs.old/guides/roles-and-permissions.md` (in the repo)
+## Decision matrix
+
+```
+                        ┌──────────────────────────────────────┐
+                        │ Are you setting up local dev?         │
+                        └─────────┬───────────────┬─────────────┘
+                                  │               │
+                              Yes │               │ No
+                                  ▼               ▼
+                  ┌──────────────────┐    ┌──────────────────┐
+                  │ Use Keycloak     │    │ Does your org    │
+                  │ (Step 2.5 of     │    │ already use      │
+                  │ Run with Aspire) │    │ Microsoft 365?    │
+                  └──────────────────┘    └─────┬─────────────┘
+                                                │
+                                          ┌─────┴──────┐
+                                       Yes│            │ No
+                                          ▼            ▼
+                                ┌──────────────┐  ┌──────────────────┐
+                                │ Use Entra ID │  │ Need self-hosted │
+                                │              │  │ + federation?    │
+                                └──────────────┘  └─────┬─────────────┘
+                                                        │
+                                                  ┌─────┴──────┐
+                                               Yes│            │ No
+                                                  ▼            ▼
+                                       ┌──────────────┐  ┌──────────────┐
+                                       │ Use Keycloak │  │ Use Auth0    │
+                                       │ (production) │  │              │
+                                       └──────────────┘  └──────────────┘
+```
+
+The most common path is **Keycloak in dev** (zero setup) plus **whatever the customer's organisation uses in production** (federated to Keycloak if they want zero-trust Aonik) — see [Federation playbook](/docs/operate/identity-access/keycloak#federation-playbook).
+
+## Provider guides
+
+- **[Keycloak](/docs/operate/identity-access/keycloak)** — quickstart for local dev (zero config when running via Aspire); production realm setup; federation playbook for Okta / AD FS / Google / GitHub / SAML
+- **Auth0** — *(coming soon — see `apps/docs-site/docs.old/guides/authentication-auth0.md` in the meantime)*
+- **Microsoft Entra ID** — *(coming soon — see `apps/docs-site/docs.old/guides/authentication-azure-ad.md` in the meantime)*
+
+## Roles & permissions
+
+Aonik ships with six built-in roles (`PlatformAdmin`, `TenantAdmin`, `Operations`, `Compliance`, `ReadOnly`, `PersonalUser`) plus per-tenant custom roles. Role claims are normalised by `ClaimsRoleMapper.ExtractRoles`, which reads from a top-level `roles` claim and from `realm_access.roles` (Keycloak default) — your IdP should emit roles in one of those locations.
+
+- *Detailed role and permission reference — coming soon, see `apps/docs-site/docs.old/guides/roles-and-permissions.md`*
+
+## Troubleshooting
+
+The most common authentication failures and their causes:
+
+| Symptom                                              | Most likely cause                                                                        | Where to look                                                                                              |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `401 audience invalid`                               | Token audience doesn't match `Auth.<Provider>.Audience`                                  | IdP-side audience mapper / API identifier config                                                           |
+| `401 Token issuer not allowed for active provider`   | `Auth.<Provider>.Authority` doesn't match the `iss` claim                                | Provider authority setting; for Keycloak, also check `KC_HOSTNAME`                                         |
+| `401 Tenant could not be resolved`                   | First sign-in for a bootstrapped user whose email doesn't match the IdP user's email     | `AnkUsers.Email` vs IdP user email — see [bootstrap email guidance](/docs/operate/install-configure/bootstrap-tenant#before-you-start) |
+| `403 forbidden` on every authenticated request       | Roles aren't flowing through the token                                                   | IdP-side roles mapper (Keycloak: `roles-flatten`; Auth0: custom Action; Entra: app roles)                  |
+| User logs in but never appears in the Admin UI       | Role-claim mismatch or `Status` not `Active`                                             | `SELECT Status, Email FROM AnkUsers WHERE Email = '<email>'`                                               |
+
+For provider-specific troubleshooting, see the per-provider guides above.
