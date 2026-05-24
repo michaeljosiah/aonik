@@ -86,6 +86,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IAuditLogAdminService, AuditLogAdminService>();
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
+        services.AddScoped<ICommunicationProviderSettingsService, CommunicationProviderSettingsService>();
         services.AddScoped<IPayaboSetupProfileService, PayaboSetupProfileService>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITenantTextToSpeechSettingsService, TenantTextToSpeechSettingsService>();
         // Voice provider settings — same JSON-payload-on-existing-Settings-table pattern as TTS.

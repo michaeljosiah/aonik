@@ -42,6 +42,8 @@ using UpdateMarketingPreferencesRequest = Aonik.Platform.Contracts.Api.Identity.
 using UpdateNotificationPreferencesRequest = Aonik.Platform.Contracts.Api.Identity.UpdateNotificationPreferencesRequest;
 using CreateRoleRequest = Aonik.Platform.Contracts.Models.Identity.CreateRoleRequest;
 using CreateTenantRequest = Aonik.Platform.Contracts.Models.Identity.CreateTenantRequest;
+using CommunicationProviderSettingsUpdateRequest = Aonik.Platform.Contracts.Api.Settings.CommunicationProviderSettingsUpdateRequest;
+using SendCommunicationTestRequest = Aonik.Platform.Contracts.Api.Settings.SendCommunicationTestRequest;
 using InviteUserRequest = Aonik.Platform.Contracts.Models.Identity.InviteUserRequest;
 using ListRolesRequest = Aonik.Platform.Contracts.Models.Identity.ListRolesRequest;
 using ListTenantsRequest = Aonik.Platform.Contracts.Models.Identity.ListTenantsRequest;
@@ -704,6 +706,39 @@ public sealed class AuthProviderSettingsUpdateRequestValidator : Validator<AuthP
             .NotEmpty()
             .Must(p => ActiveProviders.Contains(p))
             .WithMessage($"ActiveProvider must be one of: {string.Join(", ", ActiveProviders)}.");
+    }
+}
+
+public sealed class CommunicationProviderSettingsUpdateRequestValidator
+    : Validator<CommunicationProviderSettingsUpdateRequest>
+{
+    // Single provider today. Listed as a set so SendGrid / Mailgun /
+    // etc. slot in without changing the validator shape.
+    private static readonly string[] ActiveProviders = ["AzureCommunicationServices"];
+
+    public CommunicationProviderSettingsUpdateRequestValidator()
+    {
+        RuleFor(x => x.ActiveProvider)
+            .NotEmpty()
+            .Must(p => ActiveProviders.Contains(p))
+            .WithMessage($"ActiveProvider must be one of: {string.Join(", ", ActiveProviders)}.");
+    }
+}
+
+public sealed class SendCommunicationTestRequestValidator
+    : Validator<SendCommunicationTestRequest>
+{
+    private static readonly string[] Channels = ["Email", "SMS"];
+
+    public SendCommunicationTestRequestValidator()
+    {
+        RuleFor(x => x.Channel)
+            .NotEmpty()
+            .Must(c => Channels.Contains(c, StringComparer.OrdinalIgnoreCase))
+            .WithMessage($"Channel must be one of: {string.Join(", ", Channels)}.");
+        RuleFor(x => x.Recipient).RequiredText(254);
+        RuleFor(x => x.Subject).MaximumLength(998);  // RFC 5322 hard limit
+        RuleFor(x => x.Body).MaximumLength(64_000);
     }
 }
 

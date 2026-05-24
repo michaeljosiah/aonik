@@ -166,6 +166,7 @@ export const SIDEBAR_NAV: NavigationSection[] = [
         audience: 'host',
         children: [
           { id: 'settings-platform', label: 'Platform', icon: 'settings', href: '/settings/global' },
+          { id: 'settings-communication', label: 'Communication', icon: 'bell', href: '/settings/communication' },
           { id: 'settings-finance', label: 'Finance', icon: 'bank', href: '/settings/payment-gateways' },
           { id: 'settings-ai', label: 'AI & Agents', icon: 'sparkles', href: '/settings/speech' },
         ],

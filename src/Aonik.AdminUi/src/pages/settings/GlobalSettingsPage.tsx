@@ -205,30 +205,9 @@ const GLOBAL_TABS: GlobalTabDef[] = [
       },
     ],
   },
-  {
-    id: 'communication',
-    label: 'Communication',
-    sections: [
-      {
-        title: 'Azure Communication Services',
-        description: 'Sender addresses for transactional email and SMS.',
-        fields: [
-          {
-            key: 'Communication.Azure.Email.FromAddress',
-            label: 'Email From Address',
-            type: 'text',
-            placeholder: 'noreply@example.com',
-          },
-          {
-            key: 'Communication.Azure.Sms.FromPhoneNumber',
-            label: 'SMS From Phone Number',
-            type: 'text',
-            placeholder: '+44...',
-          },
-        ],
-      },
-    ],
-  },
+  // Communication tab removed — outbound-messaging configuration now
+  // lives on its own page at /settings/communication with a health
+  // badge, masked secret indicator, and a test-send panel.
   {
     id: 'features',
     label: 'Feature Flags',
@@ -389,7 +368,7 @@ function ToggleRow({ title, description, checked, onCheckedChange }: {
 const STARTERKIT_PLATFORM_TABS: Array<{ id: string; label: string; badge?: string }> = [
   { id: 'ai', label: 'AI' },
   { id: 'storage', label: 'Storage' },
-  { id: 'communication', label: 'Communication' },
+  // Communication tab moved to its own page at /settings/communication.
   { id: 'features', label: 'Feature Flags' },
   { id: 'general', label: 'Workspace' },
   { id: 'platform', label: 'Platform Ops', badge: 'host' },

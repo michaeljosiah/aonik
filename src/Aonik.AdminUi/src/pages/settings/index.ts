@@ -3,6 +3,7 @@ export { SystemToolsPage } from './SystemToolsPage';
 export { SettingsLandingPage } from './SettingsLandingPage';
 export { SettingsAuditLogsPage } from './SettingsAuditLogsPage';
 export { SettingsAuthenticationPage } from './SettingsAuthenticationPage';
+export { SettingsCommunicationPage } from './SettingsCommunicationPage';
 export { SettingsSpeechPage } from './SettingsSpeechPage';
 export { SettingsPaymentGatewaysPage } from './SettingsPaymentGatewaysPage';
 export { NotificationTemplatesPage } from './NotificationTemplatesPage';

@@ -17,6 +17,7 @@ import {
   SettingsLandingPage,
   SettingsAuditLogsPage,
   SettingsAuthenticationPage,
+  SettingsCommunicationPage,
   SettingsPaymentGatewaysPage,
   SettingsSpeechPage,
   SystemToolsPage,
@@ -146,6 +147,7 @@ const routes = [
   { path: '/settings/general', element: GlobalSettingsPage },
   { path: '/settings/global', element: GlobalSettingsPage },
   { path: '/settings/authentication', element: SettingsAuthenticationPage },
+  { path: '/settings/communication', element: SettingsCommunicationPage },
   { path: '/settings/payment-gateways', element: SettingsPaymentGatewaysPage },
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   // Spec 024 — consolidated speech library + recipes + voice mode + chat speech. The

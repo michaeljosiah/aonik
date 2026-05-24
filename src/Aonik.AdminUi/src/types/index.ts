@@ -1290,6 +1290,48 @@ export interface MessagingHealth {
   sms: MessagingChannelHealth;
 }
 
+// ── Communication provider settings ──────────────────────────────────────
+
+/// Snapshot returned by GET /admin/settings/communication-provider.
+/// Mirrors the AuthProviderSettingsResponse pattern — the connection
+/// string secret is reported via `hasConnectionString` rather than
+/// round-tripped.
+export interface CommunicationProviderSettingsResponse {
+  activeProvider: string;
+  azure: AzureCommunicationSettingsResponse;
+}
+
+export interface AzureCommunicationSettingsResponse {
+  hasConnectionString: boolean;
+  emailFromAddress?: string | null;
+  smsFromPhoneNumber?: string | null;
+}
+
+export interface CommunicationProviderSettingsUpdateRequest {
+  activeProvider: string;
+  azure?: AzureCommunicationSettingsUpdateRequest | null;
+}
+
+export interface AzureCommunicationSettingsUpdateRequest {
+  connectionString?: string | null;
+  emailFromAddress?: string | null;
+  smsFromPhoneNumber?: string | null;
+}
+
+export interface SendCommunicationTestRequest {
+  channel: 'Email' | 'SMS';
+  recipient: string;
+  subject?: string | null;
+  body?: string | null;
+}
+
+export interface SendCommunicationTestResponse {
+  sent: boolean;
+  channel: string;
+  provider: string;
+  errorMessage?: string | null;
+}
+
 export interface RevokeUserSessionsRequest {
   reason?: string | null;
 }
