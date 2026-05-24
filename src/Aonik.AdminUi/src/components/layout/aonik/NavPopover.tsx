@@ -11,7 +11,7 @@ import type { NavItem, NavItemGroup } from '@/types';
 import { getWorkspacePanelForRoute } from '@/workspace/registry';
 import { AonikTemplateIcon } from './AonikTemplateIcon';
 import { getViewportFlyoutPosition } from './flyoutPosition';
-import { collectNavItemHrefs } from './starterkitSidebarNav';
+import { collectNavItemHrefs } from './sidebarNav';
 
 interface NavPopoverProps {
   parent: NavItem;

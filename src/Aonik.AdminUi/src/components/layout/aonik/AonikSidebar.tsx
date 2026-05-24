@@ -37,7 +37,7 @@ import { AonikMark, AonikWordmark } from './AonikMark';
 import { AonikTemplateIcon } from './AonikTemplateIcon';
 import { NavPopover } from './NavPopover';
 import { getViewportFlyoutPosition } from './flyoutPosition';
-import { STARTERKIT_SIDEBAR_NAV, collectNavItemHrefs } from './starterkitSidebarNav';
+import { SIDEBAR_NAV, collectNavItemHrefs } from './sidebarNav';
 
 interface AonikSidebarProps {
   collapsed?: boolean;
@@ -953,7 +953,7 @@ export function AonikSidebar({ collapsed = false, onToggle }: AonikSidebarProps)
     [disabledRoutes, isItemVisible],
   );
 
-  const visibleSections = STARTERKIT_SIDEBAR_NAV.filter((s: NavigationSection) => {
+  const visibleSections = SIDEBAR_NAV.filter((s: NavigationSection) => {
     if (s.audience === 'host') return isPortalAdmin;
     if (s.audience === 'tenant') return !isPortalAdmin && !isLoadingNavRoles;
     return true;

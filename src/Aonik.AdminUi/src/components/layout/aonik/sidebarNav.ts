@@ -1,8 +1,15 @@
 import type { NavItem, NavigationSection } from '@/types';
 
-// Starterkit-first sidebar tree. Route targets are mapped to the closest live
-// admin pages until every dedicated starterkit surface exists in AONIK.
-export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
+// Authoritative sidebar navigation tree for the Admin UI. Defines the
+// top-level sections (HOME / TRANSACT / PRODUCTS / PLATFORM / HOST), their
+// items, and child links. AonikSidebar.tsx imports `SIDEBAR_NAV` directly
+// from here.
+//
+// Note: the per-module `navigation` arrays in `modules/*/index.ts` are
+// aggregated by `getAggregatedNavigation()` but are not currently wired
+// into the rendered sidebar — this file is the live source. Audience
+// filtering ('host' | 'tenant' | 'all') is applied at render time.
+export const SIDEBAR_NAV: NavigationSection[] = [
   {
     id: 'home',
     label: 'Home',
@@ -23,11 +30,9 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         id: 'orders',
         label: 'Orders',
         icon: 'receipt',
-        badge: '4',
         children: [
           { id: 'orders-activity', label: 'All orders', icon: 'list', href: '/orders/activity' },
           { id: 'orders-bill-payments-new', label: 'New order', icon: 'plus', href: '/orders/bill-payments/new' },
-          { id: 'order-items', label: 'Item monitor', icon: 'activity', badge: '2', href: '/orders' },
         ],
       },
       {
@@ -40,7 +45,6 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         id: 'approvals',
         label: 'Approvals',
         icon: 'clipcheck',
-        badge: '7',
         href: '/approvals',
       },
     ],
@@ -56,7 +60,6 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         children: [
           { id: 'catalog-billers', label: 'Billers', icon: 'building', href: '/catalog/billers' },
           { id: 'catalog-categories', label: 'Categories', icon: 'tag', href: '/catalog/categories' },
-          { id: 'bill-history', label: 'Recent activity', icon: 'list', href: '/orders/activity' },
         ],
       },
       {
@@ -67,7 +70,6 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
           { id: 'catalog-countries', label: 'Corridors', icon: 'route', href: '/catalog/countries' },
           { id: 'catalog-partners', label: 'Partners', icon: 'network', href: '/catalog/partners' },
           { id: 'settings-fx-rates', label: 'FX & Rates', icon: 'arrows', href: '/settings/fx-rates' },
-          { id: 'remit-history', label: 'Recent activity', icon: 'list', href: '/orders/activity' },
         ],
       },
       {
@@ -77,7 +79,6 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         children: [
           { id: 'billing-invoices', label: 'Invoices', icon: 'invoice', href: '/billing/invoices' },
           { id: 'bank-accounts', label: 'Customer accounts', icon: 'users2', href: '/accounts' },
-          { id: 'collections', label: 'Collections', icon: 'arrows', badge: '3', href: '/billing/invoices' },
           {
             id: 'ledger',
             label: 'Ledger',
@@ -91,16 +92,10 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
           },
         ],
       },
-      {
-        id: 'personal-finance',
-        label: 'Personal Finance',
-        icon: 'bank',
-        children: [
-          { id: 'wallets', label: 'Wallets', icon: 'bank', href: '/accounts' },
-          { id: 'savings', label: 'Savings', icon: 'chart', href: '/accounts' },
-          { id: 'transfers', label: 'Transfers', icon: 'payout', href: '/orders/activity' },
-        ],
-      },
+      // Personal Finance nav entry intentionally omitted — no dedicated
+      // PF admin surfaces exist today (the template's Wallets / Savings /
+      // Transfers all routed to /accounts or /orders/activity). Re-add
+      // when real PF admin pages land.
     ],
   },
   {
@@ -108,10 +103,19 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
     label: 'Platform',
     items: [
       {
+        id: 'team',
+        label: 'Team',
+        icon: 'users2',
+        children: [
+          { id: 'access-users', label: 'Users', icon: 'users', href: '/access/users' },
+          { id: 'access-roles', label: 'Roles', icon: 'shield', href: '/access/roles' },
+          { id: 'access-permissions', label: 'Permissions', icon: 'verified', href: '/access/permissions' },
+        ],
+      },
+      {
         id: 'compliance',
         label: 'Compliance',
         icon: 'clipcheck',
-        badge: '2',
         href: '/compliance',
       },
       {
@@ -121,8 +125,10 @@ export const STARTERKIT_SIDEBAR_NAV: NavigationSection[] = [
         children: [
           { id: 'ai-playground-item', label: 'Playground', icon: 'bot', href: '/ai/playground' },
           { id: 'ai-agents-item', label: 'Agents', icon: 'sparkles', href: '/ai/agents' },
-          { id: 'ai-workflows-item', label: 'Workflows', icon: 'workflow', href: '/ai/workflows' },
-          { id: 'ai-tasks-item', label: 'Tasks', icon: 'clipcheck', badge: '3', href: '/ai/tasks' },
+          // Workflows nav entry intentionally hidden — read-only display
+          // until a create-workflow flow exists. Route still registered
+          // in modules/agent-command-center so deep links resolve.
+          { id: 'ai-tasks-item', label: 'Tasks', icon: 'clipcheck', href: '/ai/tasks' },
           { id: 'ai-policies', label: 'Policies', icon: 'shield', href: '/ai/policies' },
           { id: 'ai-usage', label: 'Usage', icon: 'chart', href: '/ai/usage' },
         ],
