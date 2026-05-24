@@ -5,8 +5,16 @@ description: The supported ways to install Aonik, what the orchestrator launches
 
 This is the operator's onboarding flow. Read the overview here, then work through the pages below in order.
 
-<Callout type="info" title="Fastest path: zero external accounts">
-  Set the env var `AONIK_AUTH_PROVIDER=Keycloak` before you start the AppHost and Aspire spins up a pre-seeded Keycloak realm alongside the rest of the stack. The Admin UI and API auto-discover the realm; you can sign in immediately as **`admin@aonik.local` / `Aonik!Dev2026`** with no Auth0 / Microsoft tenant to register. See [Run with Aspire — step 2.5](/docs/operate/install-configure/run-with-aspire#step-25-optional-enable-keycloak-for-zero-account-login) for the one-liner, and [Identity & Access → Keycloak](/docs/operate/identity-access/keycloak) for the full picture.
+<Callout type="info" title="Fastest path: one command, zero external accounts">
+  From a clean clone:
+
+  ```powershell
+  pwsh .\scripts\onboard.ps1
+  ```
+
+  This drives the full sequence — prereq check, user-secrets, Keycloak-enabled AppHost launch, `/bootstrap`, and verification. When it finishes, you're signed in as **`admin@aonik.local` / `Aonik!Dev2026`** with no Auth0 / Microsoft tenant to register. The script is idempotent; re-running is safe.
+
+  If you want to follow the steps by hand, the pages below walk through what the script does. See [Run with Aspire — step 2.5](/docs/operate/install-configure/run-with-aspire#step-25-optional-enable-keycloak-for-zero-account-login) for the Keycloak opt-in and [Identity & Access → Keycloak](/docs/operate/identity-access/keycloak) for the full picture.
 </Callout>
 
 ## The path

@@ -15,7 +15,9 @@ The script exits with code `0` only if every assertion passes. Any failure print
 
 ## The verification script
 
-Save this as `scripts/verify-install.ps1` (or run it inline). It performs nine assertions covering every surface a fresh install should expose.
+The script lives in the repo at [`scripts/verify-install.ps1`](https://github.com/michaeljosiah/aonik/blob/master/scripts/verify-install.ps1) — you don't need to copy-paste it. It performs nine assertions covering every surface a fresh install should expose, plus a tenth conditional assertion when running under `AONIK_AUTH_PROVIDER=Keycloak`.
+
+The full contents are reproduced below for reference; the canonical version is the repo file.
 
 ```powershell
 #requires -Version 7
@@ -128,9 +130,7 @@ Write-Host 'Next step: wire identity in /docs/operate/identity-access so the own
 
 ## Running the script
 
-**Inline (one-shot):**
-
-Save the block above to a file, then:
+The script is already in the repo — no copy-paste needed.
 
 ```powershell
 # Non-Keycloak setups
@@ -139,6 +139,18 @@ Save the block above to a file, then:
 # Keycloak fastest-path setup (matches the run-with-aspire step 2.5 walkthrough)
 .\scripts\verify-install.ps1 -OwnerEmail 'admin@aonik.local'
 ```
+
+<Callout type="info" title="Want the whole thing automated?">
+  [`scripts/onboard.ps1`](https://github.com/michaeljosiah/aonik/blob/master/scripts/onboard.ps1) wraps every step on these install-configure pages: prereq check, user-secrets, AppHost launch, /bootstrap, and finally this verify script. From a clean clone:
+
+  ```powershell
+  pwsh .\scripts\onboard.ps1                # default: Keycloak (no external accounts)
+  pwsh .\scripts\onboard.ps1 -Provider Auth0  # skip the Keycloak opt-in
+  pwsh .\scripts\onboard.ps1 -Reset           # drop AonikDb and start over
+  ```
+
+  The script is idempotent — re-running it is safe and skips steps that already completed.
+</Callout>
 
 **Expected final output (one of two):**
 
