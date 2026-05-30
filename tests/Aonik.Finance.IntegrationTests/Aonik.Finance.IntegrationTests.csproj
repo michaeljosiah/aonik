@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="FluentAssertions" Version="8.8.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <!-- [SkippableFact]/[SkippableTheory] + Skip.IfNot, so the SQL-backed tests
+         report Skipped (not Failed) when Docker is unavailable. -->
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.61" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!--
+    Real-SQL-Server integration tests for the Finance module's money paths.
+    Mirrors Aonik.Finance.Tests (same module + SharedKernel + TestSupport fakes)
+    but swaps the InMemory provider for the Testcontainers SQL Server fixture in
+    Aonik.IntegrationTests.Support, verifying the ledger invariant against the
+    production schema and real transactional semantics.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Aonik.Finance\Aonik.Finance.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+    <ProjectReference Include="..\Aonik.TestSupport\Aonik.TestSupport.csproj" />
+    <ProjectReference Include="..\Aonik.IntegrationTests.Support\Aonik.IntegrationTests.Support.csproj" />
+  </ItemGroup>
+
+</Project>

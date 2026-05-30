@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!--
+      Support library, not a test project: it ships the shared SQL Server
+      container fixture but carries no tests of its own, so no test SDK/runner
+      and never packed. Mirrors the Aonik.TestSupport convention.
+    -->
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.MsSql" Version="4.12.0" />
+    <PackageReference Include="Respawn" Version="7.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <!--
+      xunit fixture contracts (IAsyncLifetime, ICollectionFixture). This is a
+      test-support library, so coupling to the test framework is intentional and
+      lets the container live as a per-collection fixture in consuming projects.
+    -->
+    <PackageReference Include="xunit" Version="2.5.3" />
+  </ItemGroup>
+
+  <!--
+    The fixture applies the canonical AonikDbContext migration stream
+    (Aonik.Infrastructure) against the container, so integration tests run on the
+    exact schema production gets rather than an EnsureCreated approximation.
+    SharedKernel comes along for the shared persistence primitives.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
