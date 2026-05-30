@@ -1,5 +1,6 @@
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.BackgroundJobs;
+using Aonik.Infrastructure.Messaging.Outbox;
 using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.Platform;
 using Aonik.Finance;
@@ -24,6 +25,10 @@ builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
+
+// Drain the transactional outbox here only — a single drainer in the Worker host
+// avoids double-dispatch. Event types live in SharedKernel and are auto-discovered.
+builder.Services.AddOutboxProcessing(builder.Configuration);
 
 // Register RAG context provider adapters and RagContextProvider
 // This is deferred until after Infrastructure is registered to avoid circular dependencies

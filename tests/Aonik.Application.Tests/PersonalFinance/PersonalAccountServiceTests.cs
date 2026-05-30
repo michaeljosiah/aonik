@@ -4,7 +4,6 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -64,13 +63,6 @@ public class PersonalAccountServiceTests
         public Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class NoOpEventBus : IEventBus
-    {
-        public Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
-            where TEvent : Aonik.SharedKernel.Events.IIntegrationEvent
-            => Task.CompletedTask;
-    }
-
     private static PersonalFinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()
@@ -91,8 +83,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         var request = new CreatePersonalAccountRequest(
             "Main Bank",
@@ -125,8 +116,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Card",
@@ -160,8 +150,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         var request = new CreatePersonalAccountRequest(
             "Rooster",
@@ -192,8 +181,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Rooster",
@@ -234,8 +222,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Cash Wallet",
@@ -288,8 +275,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         // Act
         var act = () => service.DeleteManualAccountAsync(Guid.NewGuid());
@@ -310,8 +296,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         var household = new Household
         {
@@ -365,8 +350,7 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator(),
-            new NoOpEventBus());
+            new NoOpGraphCacheInvalidator());
 
         var household = new Household
         {

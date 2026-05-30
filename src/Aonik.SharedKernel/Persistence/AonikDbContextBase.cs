@@ -1,8 +1,12 @@
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Events;
+using Aonik.SharedKernel.Events.Outbox;
 using Aonik.SharedKernel.Primitives;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 using System.Linq.Expressions;
+using System.Text.Json;
 
 namespace Aonik.SharedKernel.Persistence;
 
@@ -60,6 +64,48 @@ public abstract class AonikDbContextBase : DbContext
         OnBeforeSave();
         UpdateAuditFields();
         return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Maps the transactional outbox / inbox tables onto every derived context so
+    /// that <see cref="EnqueueIntegrationEvent"/> can stage events through whichever
+    /// module context performed the write. Derived contexts must call
+    /// <c>base.OnModelCreating(modelBuilder)</c> (they already do) for this to apply.
+    /// The canonical migration stream lives in <c>AonikDbContext</c>, which inherits
+    /// this mapping and is the only context that owns the schema.
+    /// </summary>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new InboxMessageConfiguration());
+    }
+
+    /// <summary>
+    /// Stages an integration event into the transactional outbox. The row is added to
+    /// this context's change tracker, so it commits atomically with the surrounding
+    /// <see cref="SaveChangesAsync"/> — closing the crash window between persisting a
+    /// domain change and publishing its event. Drained asynchronously by the outbox
+    /// processor in the Worker. Call this BEFORE <see cref="SaveChangesAsync"/>, never after.
+    /// </summary>
+    public void EnqueueIntegrationEvent(IIntegrationEvent integrationEvent)
+    {
+        ArgumentNullException.ThrowIfNull(integrationEvent);
+
+        var eventType = integrationEvent.GetType();
+        var now = _clock?.UtcNow ?? DateTime.UtcNow;
+
+        Set<OutboxMessage>().Add(new OutboxMessage
+        {
+            EventId = integrationEvent.EventId,
+            EventType = eventType.FullName!,
+            Payload = JsonSerializer.Serialize(integrationEvent, eventType, OutboxSerialization.Options),
+            TenantId = CurrentTenantId,
+            OccurredAt = integrationEvent.OccurredAt,
+            CreatedAt = now,
+            Attempts = 0,
+            TraceParent = Activity.Current?.Id,
+        });
     }
 
     /// <summary>

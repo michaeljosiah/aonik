@@ -4,7 +4,6 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Events.Integration;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,20 +15,17 @@ internal sealed class PersonalAccountService : IPersonalAccountService
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
-    private readonly IEventBus _eventBus;
 
     public PersonalAccountService(
         PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IFinancialLifeGraphCacheInvalidator cacheInvalidator,
-        IEventBus eventBus)
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
-        _eventBus = eventBus;
     }
 
     public async Task<PersonalAccountResponse> CreateAccountAsync(
@@ -247,6 +243,8 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         account.HouseholdId = request.HouseholdId;
 
+        _financeDbContext.EnqueueIntegrationEvent(new HouseholdAccountSharedEvent(tenantId, request.HouseholdId, account.Id));
+
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
         var acceptedMembers = await _financeDbContext.HouseholdMembers
@@ -258,7 +256,6 @@ internal sealed class PersonalAccountService : IPersonalAccountService
             HouseholdMembershipRules.NormalizeLegacyMember(membership);
         }
 
-        await _eventBus.PublishAsync(new HouseholdAccountSharedEvent(tenantId, request.HouseholdId, account.Id), cancellationToken);
         await _cacheInvalidator.InvalidateUserGraphsAsync(
             acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
             cancellationToken);
@@ -279,6 +276,11 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         account.HouseholdId = null;
 
+        if (householdId.HasValue)
+        {
+            _financeDbContext.EnqueueIntegrationEvent(new HouseholdAccountUnsharedEvent(tenantId, householdId.Value, account.Id));
+        }
+
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
         if (householdId.HasValue)
@@ -292,7 +294,6 @@ internal sealed class PersonalAccountService : IPersonalAccountService
                 HouseholdMembershipRules.NormalizeLegacyMember(membership);
             }
 
-            await _eventBus.PublishAsync(new HouseholdAccountUnsharedEvent(tenantId, householdId.Value, account.Id), cancellationToken);
             await _cacheInvalidator.InvalidateUserGraphsAsync(
                 acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
                 cancellationToken);

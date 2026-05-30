@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
@@ -5,8 +6,8 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
-using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Events.Integration;
+using Aonik.SharedKernel.Events.Outbox;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -98,16 +99,16 @@ public class HouseholdServiceTests
         }
     }
 
-    private sealed class RecordingEventBus : IEventBus
+    private static IReadOnlyList<TEvent> ReadOutboxEvents<TEvent>(PersonalFinanceDbContext context)
+        where TEvent : class
     {
-        public List<IIntegrationEvent> PublishedEvents { get; } = [];
-
-        public Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
-            where TEvent : IIntegrationEvent
-        {
-            PublishedEvents.Add(@event);
-            return Task.CompletedTask;
-        }
+        var eventType = typeof(TEvent).FullName;
+        return context.Set<OutboxMessage>()
+            .Where(message => message.EventType == eventType)
+            .OrderBy(message => message.CreatedAt)
+            .AsEnumerable()
+            .Select(message => JsonSerializer.Deserialize<TEvent>(message.Payload, OutboxSerialization.Options)!)
+            .ToList();
     }
 
     private sealed class RecordingNotificationWriter : IUserNotificationWriter
@@ -154,7 +155,6 @@ public class HouseholdServiceTests
         Guid userId,
         TestClock clock,
         RecordingGraphCacheInvalidator cacheInvalidator,
-        RecordingEventBus eventBus,
         RecordingNotificationWriter notificationWriter,
         IPartyReader partyReader,
         IUserDirectoryReader userDirectoryReader)
@@ -167,7 +167,6 @@ public class HouseholdServiceTests
             partyReader,
             userDirectoryReader,
             clock,
-            eventBus,
             notificationWriter);
     }
 
@@ -180,7 +179,6 @@ public class HouseholdServiceTests
         var inviteeUserId = Guid.NewGuid();
         var clock = new TestClock(new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc));
         var cacheInvalidator = new RecordingGraphCacheInvalidator();
-        var eventBus = new RecordingEventBus();
         var notificationWriter = new RecordingNotificationWriter();
         var partyReader = new StubPartyReader();
         var userDirectoryReader = new StubUserDirectoryReader();
@@ -213,7 +211,7 @@ public class HouseholdServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, eventBus, notificationWriter, partyReader, userDirectoryReader);
+        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, notificationWriter, partyReader, userDirectoryReader);
 
         // Act
         var result = await service.InviteMemberAsync(
@@ -244,7 +242,7 @@ public class HouseholdServiceTests
             && request.Type == "household.invited"
             && request.Body.Contains("Alice Owner invited you to join Home."));
 
-        var invitedEvent = eventBus.PublishedEvents.OfType<HouseholdMemberInvitedEvent>().Single();
+        var invitedEvent = ReadOutboxEvents<HouseholdMemberInvitedEvent>(context).Single();
         invitedEvent.HouseholdId.Should().Be(household.Id);
         invitedEvent.InvitedUserId.Should().Be(inviteeUserId);
         invitedEvent.InvitedByUserId.Should().Be(ownerUserId);
@@ -263,7 +261,6 @@ public class HouseholdServiceTests
         var inviteeUserId = Guid.NewGuid();
         var clock = new TestClock(new DateTime(2026, 2, 2, 9, 30, 0, DateTimeKind.Utc));
         var cacheInvalidator = new RecordingGraphCacheInvalidator();
-        var eventBus = new RecordingEventBus();
         var notificationWriter = new RecordingNotificationWriter();
         var partyReader = new StubPartyReader();
         var userDirectoryReader = new StubUserDirectoryReader();
@@ -337,7 +334,7 @@ public class HouseholdServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, inviteeUserId, clock, cacheInvalidator, eventBus, notificationWriter, partyReader, userDirectoryReader);
+        var service = CreateService(context, tenantId, inviteeUserId, clock, cacheInvalidator, notificationWriter, partyReader, userDirectoryReader);
 
         // Act
         var result = await service.AcceptInvitationAsync(targetHousehold.Id);
@@ -362,7 +359,7 @@ public class HouseholdServiceTests
             request.UserId == inviteeUserId
             && request.Type == "household.accepted");
 
-        var acceptedEvent = eventBus.PublishedEvents.OfType<HouseholdInvitationAcceptedEvent>().Single();
+        var acceptedEvent = ReadOutboxEvents<HouseholdInvitationAcceptedEvent>(context).Single();
         acceptedEvent.HouseholdId.Should().Be(targetHousehold.Id);
         acceptedEvent.UserId.Should().Be(inviteeUserId);
 
@@ -378,7 +375,6 @@ public class HouseholdServiceTests
         var memberUserId = Guid.NewGuid();
         var clock = new TestClock(new DateTime(2026, 3, 10, 18, 45, 0, DateTimeKind.Utc));
         var cacheInvalidator = new RecordingGraphCacheInvalidator();
-        var eventBus = new RecordingEventBus();
         var notificationWriter = new RecordingNotificationWriter();
         var partyReader = new StubPartyReader();
         var userDirectoryReader = new StubUserDirectoryReader();
@@ -440,7 +436,7 @@ public class HouseholdServiceTests
 
         await context.SaveChangesAsync();
 
-        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, eventBus, notificationWriter, partyReader, userDirectoryReader);
+        var service = CreateService(context, tenantId, ownerUserId, clock, cacheInvalidator, notificationWriter, partyReader, userDirectoryReader);
 
         // Act
         await service.RemoveMemberAsync(household.Id, memberUserId);
@@ -456,12 +452,12 @@ public class HouseholdServiceTests
         notificationWriter.Requests.Should().Contain(request => request.UserId == memberUserId && request.Type == "household.removed");
         notificationWriter.Requests.Should().Contain(request => request.UserId == ownerUserId && request.Type == "household.member-removed");
 
-        var removedEvent = eventBus.PublishedEvents.OfType<HouseholdMemberRemovedEvent>().Single();
+        var removedEvent = ReadOutboxEvents<HouseholdMemberRemovedEvent>(context).Single();
         removedEvent.HouseholdId.Should().Be(household.Id);
         removedEvent.UserId.Should().Be(memberUserId);
         removedEvent.RemovedByUserId.Should().Be(ownerUserId);
 
-        var unsharedEvent = eventBus.PublishedEvents.OfType<HouseholdAccountUnsharedEvent>().Single();
+        var unsharedEvent = ReadOutboxEvents<HouseholdAccountUnsharedEvent>(context).Single();
         unsharedEvent.HouseholdId.Should().Be(household.Id);
         unsharedEvent.AccountId.Should().Be(sharedAccount.Id);
 

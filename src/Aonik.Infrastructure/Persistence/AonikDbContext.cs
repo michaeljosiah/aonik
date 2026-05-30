@@ -23,6 +23,7 @@ using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Voice.Entities;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Events.Outbox;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -159,6 +160,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<VoiceRecipeEntity> VoiceRecipes { get; set; } = null!;
     public virtual DbSet<VoiceModeSettingsEntity> VoiceModeSettings { get; set; } = null!;
     public virtual DbSet<ChatSpeechSettingsEntity> ChatSpeechSettings { get; set; } = null!;
+
+    // Transactional outbox / inbox (configured on AonikDbContextBase; this is the
+    // canonical migration stream that owns the AnkOutboxMessages/AnkInboxMessages tables)
+    public virtual DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
+    public virtual DbSet<InboxMessage> InboxMessages { get; set; } = null!;
 
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,

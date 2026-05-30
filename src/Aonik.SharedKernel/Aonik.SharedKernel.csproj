@@ -19,6 +19,14 @@
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="FluentValidation" Version="12.1.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.1" />
+    <!--
+      Relational (provider-agnostic, not a specific provider like SqlServer) so the
+      outbox/inbox IEntityTypeConfigurations can map their relational table/index
+      names. These tables carry a uniform "Ank" prefix in every DbContext, so the
+      mapping is defined once here and applied to all contexts via
+      AonikDbContextBase.OnModelCreating, keeping module write paths consistent.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.1" />
     <!--
       Bumped to 10.0.4 to match the transitive minimum demanded by

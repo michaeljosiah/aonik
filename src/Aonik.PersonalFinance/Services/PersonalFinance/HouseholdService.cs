@@ -10,7 +10,6 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
-using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Events.Integration;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -27,7 +26,6 @@ internal sealed class HouseholdService : IHouseholdService
     private readonly IPartyReader _partyReader;
     private readonly IUserDirectoryReader _userDirectoryReader;
     private readonly IClock _clock;
-    private readonly IEventBus _eventBus;
     private readonly IUserNotificationWriter _notificationWriter;
 
     public HouseholdService(
@@ -38,7 +36,6 @@ internal sealed class HouseholdService : IHouseholdService
         IPartyReader partyReader,
         IUserDirectoryReader userDirectoryReader,
         IClock clock,
-        IEventBus eventBus,
         IUserNotificationWriter notificationWriter)
     {
         _dbContext = dbContext;
@@ -48,7 +45,6 @@ internal sealed class HouseholdService : IHouseholdService
         _partyReader = partyReader;
         _userDirectoryReader = userDirectoryReader;
         _clock = clock;
-        _eventBus = eventBus;
         _notificationWriter = notificationWriter;
     }
 
@@ -106,9 +102,10 @@ internal sealed class HouseholdService : IHouseholdService
 
         profile.HouseholdId = household.Id;
 
+        _dbContext.EnqueueIntegrationEvent(new HouseholdCreatedEvent(tenantId, household.Id, userId));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await _eventBus.PublishAsync(new HouseholdCreatedEvent(tenantId, household.Id, userId), cancellationToken);
         await _cacheInvalidator.InvalidateUserGraphAsync(userId, cancellationToken);
 
         return new HouseholdResponse(
@@ -189,6 +186,9 @@ internal sealed class HouseholdService : IHouseholdService
             existingMembership.ExpiresAt = now.AddDays(InvitationExpiryDays);
             existingMembership.RespondedAt = null;
 
+            _dbContext.EnqueueIntegrationEvent(new HouseholdMemberInvitedEvent(
+                tenantId, household.Id, existingMembership.UserId, inviterUserId, normalizedRole));
+
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             var invitationResponse = await BuildInvitationResponseAsync(existingMembership, household.Name, inviterUserId, cancellationToken);
@@ -210,6 +210,10 @@ internal sealed class HouseholdService : IHouseholdService
         };
 
         _dbContext.HouseholdMembers.Add(member);
+
+        _dbContext.EnqueueIntegrationEvent(new HouseholdMemberInvitedEvent(
+            tenantId, household.Id, member.UserId, inviterUserId, normalizedRole));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var createdInvitation = await BuildInvitationResponseAsync(member, household.Name, inviterUserId, cancellationToken);
@@ -301,6 +305,8 @@ internal sealed class HouseholdService : IHouseholdService
                 otherInvitation.RespondedAt = now;
             }
 
+            _dbContext.EnqueueIntegrationEvent(new HouseholdInvitationAcceptedEvent(tenantId, householdId, userId));
+
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             if (transaction != null)
@@ -309,7 +315,6 @@ internal sealed class HouseholdService : IHouseholdService
                 committed = true;
             }
 
-            await _eventBus.PublishAsync(new HouseholdInvitationAcceptedEvent(tenantId, householdId, userId), cancellationToken);
             await NotifyActorAsync(
                 tenantId,
                 userId,
@@ -368,8 +373,9 @@ internal sealed class HouseholdService : IHouseholdService
         invitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
         invitation.RespondedAt = _clock.UtcNow;
 
+        _dbContext.EnqueueIntegrationEvent(new HouseholdInvitationDeclinedEvent(tenantId, householdId, userId));
+
         await _dbContext.SaveChangesAsync(cancellationToken);
-        await _eventBus.PublishAsync(new HouseholdInvitationDeclinedEvent(tenantId, householdId, userId), cancellationToken);
     }
 
     public async Task RemoveMemberAsync(
@@ -409,9 +415,10 @@ internal sealed class HouseholdService : IHouseholdService
             throw new InvalidOperationException("Cannot remove the sole accepted household owner.");
         }
 
+        _dbContext.EnqueueIntegrationEvent(new HouseholdMemberRemovedEvent(tenantId, householdId, userId, actorUserId));
+
         await RemoveMembershipAsync(targetMembership, actorUserId, tenantId, householdId, isSelfRemoval: false, cancellationToken);
 
-        await _eventBus.PublishAsync(new HouseholdMemberRemovedEvent(tenantId, householdId, userId, actorUserId), cancellationToken);
         await NotifyActorAsync(
             tenantId,
             userId,
@@ -443,9 +450,10 @@ internal sealed class HouseholdService : IHouseholdService
             throw new InvalidOperationException("Transfer household ownership before leaving as the sole owner.");
         }
 
+        _dbContext.EnqueueIntegrationEvent(new HouseholdMemberLeftEvent(tenantId, householdId, userId));
+
         await RemoveMembershipAsync(membership, userId, tenantId, householdId, isSelfRemoval: true, cancellationToken);
 
-        await _eventBus.PublishAsync(new HouseholdMemberLeftEvent(tenantId, householdId, userId), cancellationToken);
         await NotifyActorAsync(
             tenantId,
             userId,
@@ -486,11 +494,10 @@ internal sealed class HouseholdService : IHouseholdService
         currentOwnerMembership.Role = HouseholdRoles.Manager;
         targetMembership.Role = HouseholdRoles.Owner;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        _dbContext.EnqueueIntegrationEvent(
+            new HouseholdOwnershipTransferredEvent(tenantId, householdId, currentUserId, newOwnerUserId));
 
-        await _eventBus.PublishAsync(
-            new HouseholdOwnershipTransferredEvent(tenantId, householdId, currentUserId, newOwnerUserId),
-            cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
         await _cacheInvalidator.InvalidateUserGraphsAsync(acceptedMembers.Select(item => item.UserId), cancellationToken);
@@ -608,10 +615,6 @@ internal sealed class HouseholdService : IHouseholdService
             ? resolvedInviterDisplayName
             : null;
 
-        await _eventBus.PublishAsync(
-            new HouseholdMemberInvitedEvent(tenantId, household.Id, member.UserId, inviterUserId, HouseholdMembershipRules.NormalizeRole(member.Role)),
-            cancellationToken);
-
         await NotifyActorAsync(
             tenantId,
             member.UserId,
@@ -652,6 +655,7 @@ internal sealed class HouseholdService : IHouseholdService
         foreach (var account in ownedHouseholdAccounts)
         {
             account.HouseholdId = null;
+            _dbContext.EnqueueIntegrationEvent(new HouseholdAccountUnsharedEvent(tenantId, householdId, account.Id));
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -664,11 +668,6 @@ internal sealed class HouseholdService : IHouseholdService
             .ToList();
 
         await _cacheInvalidator.InvalidateUserGraphsAsync(affectedUserIds, cancellationToken);
-
-        foreach (var account in ownedHouseholdAccounts)
-        {
-            await _eventBus.PublishAsync(new HouseholdAccountUnsharedEvent(tenantId, householdId, account.Id), cancellationToken);
-        }
 
         if (!isSelfRemoval)
         {
