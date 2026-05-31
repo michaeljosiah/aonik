@@ -376,4 +376,204 @@ public class PersonalFinanceInsightsServiceTests
         var exception = await action.Should().ThrowAsync<ArgumentException>();
         exception.Which.Message.Should().Contain("multiple currencies");
     }
+
+    [Fact]
+    public async Task GetCategoryBreakdownAsync_ShouldFoldNullAndEmptyCategory_IntoUncategorized()
+    {
+        // H1 (SQL aggregation): the GROUP BY item.Category runs in the database and produces
+        // separate null and empty-string groups; the service must fold both into a single
+        // "uncategorized" bucket in memory with the combined total, count, and percentage.
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        context.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-3),
+                Amount = -60m,
+                Currency = "USD",
+                Category = null,
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-2),
+                Amount = -40m,
+                Currency = "USD",
+                Category = "",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-1),
+                Amount = -100m,
+                Currency = "USD",
+                Category = "Rent",
+                TagsJson = "[]"
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = new PersonalFinanceInsightsService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.GetCategoryBreakdownAsync(DateTime.UtcNow.AddDays(-10), DateTime.UtcNow);
+
+        // Assert
+        result.Should().HaveCount(2);
+        var uncategorized = result.Single(item => item.Category == "uncategorized");
+        uncategorized.TotalAmount.Should().Be(100m); // -60 and -40 folded together
+        uncategorized.TransactionCount.Should().Be(2);
+        uncategorized.Percentage.Should().Be(50.00m); // 100 of 200 total expense
+        result.Single(item => item.Category == "Rent").TotalAmount.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task GetMerchantBreakdownAsync_ShouldFoldNullAndEmptyMerchant_IntoUnknownMerchant()
+    {
+        // H1: the GROUP BY item.Merchant aggregate yields distinct null and empty-string groups;
+        // the service folds both into "Unknown Merchant".
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        context.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-3),
+                Amount = -30m,
+                Currency = "USD",
+                Merchant = null,
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-2),
+                Amount = -20m,
+                Currency = "USD",
+                Merchant = "",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-1),
+                Amount = -50m,
+                Currency = "USD",
+                Merchant = "Spotify",
+                TagsJson = "[]"
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = new PersonalFinanceInsightsService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.GetMerchantBreakdownAsync(DateTime.UtcNow.AddDays(-10), DateTime.UtcNow);
+
+        // Assert
+        result.Should().HaveCount(2);
+        var unknown = result.Single(item => item.Merchant == "Unknown Merchant");
+        unknown.TotalAmount.Should().Be(50m); // -30 and -20 folded together
+        unknown.TransactionCount.Should().Be(2);
+        result.Single(item => item.Merchant == "Spotify").TotalAmount.Should().Be(50m);
+    }
+
+    [Fact]
+    public async Task GetMerchantHistoryAsync_ShouldCountAndSumExpensesOnly_IgnoringIncome()
+    {
+        // H1: CountAsync + SumAsync run in SQL over the expense predicate; income rows for the
+        // same merchant must be excluded from the count, total, and average.
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        context.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-3),
+                Amount = -100m,
+                Currency = "GBP",
+                Merchant = "Tesco",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-2),
+                Amount = -50m,
+                Currency = "GBP",
+                Merchant = "Tesco",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-1),
+                Amount = 200m, // income for the same merchant — must be excluded
+                Currency = "GBP",
+                Merchant = "Tesco",
+                TagsJson = "[]"
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = new PersonalFinanceInsightsService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.GetMerchantHistoryAsync("Tesco");
+
+        // Assert — two expense rows totalling 150 (average 75); the 200 income row is ignored.
+        // Format expectations with the same N2 call the service uses so the assertion is
+        // culture-independent.
+        result.TransactionCountLabel.Should().Be("2");
+        result.TotalSpentLabel.Should().Be($"£{150m:N2}");
+        result.AverageSpendLabel.Should().Be($"£{75m:N2}");
+    }
 }

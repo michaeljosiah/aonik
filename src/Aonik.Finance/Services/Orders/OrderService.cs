@@ -19,6 +19,9 @@ internal class OrderService : IOrderService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+    private static readonly IReadOnlyDictionary<Guid, PartyReadModel> EmptyParties =
+        new Dictionary<Guid, PartyReadModel>();
+
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IPartyService _partyService;
@@ -773,6 +776,26 @@ internal class OrderService : IOrderService
             .FirstOrDefaultAsync(entity => entity.Id == partyId, cancellationToken);
     }
 
+    // H4: batch-load every party an order references (payer + each item's receiver) in a
+    // single round-trip, keyed for in-memory resolution during mapping. Replaces the previous
+    // per-line-item party lookup (N+1). Mirrors the accountMap pattern in
+    // PersonalFinanceInsightsService.GetAccountBreakdownAsync.
+    private async Task<IReadOnlyDictionary<Guid, PartyReadModel>> LoadPartiesAsync(
+        IEnumerable<Guid> partyIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = partyIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return EmptyParties;
+        }
+
+        return await _dbContext.Parties
+            .AsNoTracking()
+            .Where(entity => ids.Contains(entity.Id))
+            .ToDictionaryAsync(entity => entity.Id, cancellationToken);
+    }
+
     private void UpdateOrderTotals(Order order, Dictionary<Guid, PricingQuote> quotes)
     {
         var items = order.Items;
@@ -829,12 +852,31 @@ internal class OrderService : IOrderService
 
     private async Task<BillPaymentOrderResponse> MapOrderAsync(Order order, CancellationToken cancellationToken, PartyReadModel? payer = null)
     {
-        payer ??= await LoadPartyAsync(order.PayerPartyId ?? Guid.Empty, cancellationToken);
-        var items = new List<OrderItemResponse>();
-        foreach (var item in order.Items.OrderBy(entity => entity.ItemIndex))
+        // Deserialize each item's details once, then batch-load every party this order
+        // references (payer + each item's receiver) in a single round-trip. Previously each
+        // line item issued its own party lookup during mapping (N+1); see finding H4.
+        var mappedItems = order.Items
+            .OrderBy(entity => entity.ItemIndex)
+            .Select(entity => (Item: entity, Details: DeserializeDetails(entity.DetailsJson)))
+            .ToList();
+
+        var payerPartyId = order.PayerPartyId ?? Guid.Empty;
+        var partyIds = mappedItems.Select(entry => entry.Details.ReceiverPartyId).ToList();
+        if (payer == null)
         {
-            items.Add(await MapOrderItemAsync(item, cancellationToken));
+            partyIds.Add(payerPartyId);
         }
+
+        var parties = await LoadPartiesAsync(partyIds, cancellationToken);
+
+        if (payer == null && payerPartyId != Guid.Empty && parties.TryGetValue(payerPartyId, out var resolvedPayer))
+        {
+            payer = resolvedPayer;
+        }
+
+        var items = mappedItems
+            .Select(entry => MapOrderItem(entry.Item, entry.Details, parties))
+            .ToList();
 
         var totalFees = order.Items.Sum(entity => entity.FeesTotal);
         var submittedAt = order.HistoryEvents
@@ -864,7 +906,16 @@ internal class OrderService : IOrderService
     private async Task<OrderItemResponse> MapOrderItemAsync(OrderItem item, CancellationToken cancellationToken)
     {
         var details = DeserializeDetails(item.DetailsJson);
-        var receiver = await LoadPartyAsync(details.ReceiverPartyId, cancellationToken);
+        var parties = await LoadPartiesAsync(new[] { details.ReceiverPartyId }, cancellationToken);
+        return MapOrderItem(item, details, parties);
+    }
+
+    private OrderItemResponse MapOrderItem(
+        OrderItem item,
+        BillPaymentItemDetails details,
+        IReadOnlyDictionary<Guid, PartyReadModel> parties)
+    {
+        parties.TryGetValue(details.ReceiverPartyId, out var receiver);
         var quoteExpired = details.PricingSnapshot.QuoteExpiresAt.HasValue
             && details.PricingSnapshot.QuoteExpiresAt.Value <= _clock.UtcNow;
 

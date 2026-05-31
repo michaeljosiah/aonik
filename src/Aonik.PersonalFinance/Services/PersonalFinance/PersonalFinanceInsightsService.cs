@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Finance.Contracts.Models.PersonalFinance;
@@ -14,6 +16,21 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
     private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+
+    // H1: classify income/expense inside SQL instead of materializing the whole period and
+    // filtering in memory. Mirrors the old IsIncome/IsExpense helpers — prefer the
+    // TransactionType column when populated, fall back to amount sign for legacy rows that
+    // predate it. Expressed as a boolean OR-of-ANDs (not a ternary) so EF Core emits a plain
+    // WHERE with no CASE. string.IsNullOrEmpty is an EF-translatable call; in SQL Server the
+    // trailing-space comparison semantics also fold whitespace-only values into the empty case,
+    // matching the original IsNullOrWhiteSpace intent.
+    private static readonly Expression<Func<PersonalTransaction, bool>> ExpensePredicate =
+        item => item.TransactionType == TransactionCategoryReference.TypeExpense
+            || (string.IsNullOrEmpty(item.TransactionType) && item.Amount < 0);
+
+    private static readonly Expression<Func<PersonalTransaction, bool>> IncomePredicate =
+        item => item.TransactionType == TransactionCategoryReference.TypeIncome
+            || (string.IsNullOrEmpty(item.TransactionType) && item.Amount > 0);
 
     public PersonalFinanceInsightsService(
         PersonalFinanceDbContext financeDbContext,
@@ -33,11 +50,23 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
     {
         ValidatePeriod(periodStart, periodEnd);
 
-        var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
-        var currency = EnsureSingleCurrency(transactions);
+        var baseQuery = BuildTransactionQuery(periodStart, periodEnd, personalAccountId);
 
-        var totalIncome = transactions.Where(IsIncome).Sum(item => item.Amount);
-        var totalExpense = Math.Abs(transactions.Where(IsExpense).Sum(item => item.Amount));
+        // One small grouped pass over the period covers both currency validation and the total
+        // transaction count (which includes income, transfers and uncategorised rows).
+        var currencyGroups = await LoadCurrencyGroupsAsync(baseQuery, cancellationToken);
+        var currency = EnsureSingleCurrency(currencyGroups.Select(group => group.RawCurrency));
+        var totalCount = currencyGroups.Sum(group => group.Count);
+
+        var totalIncome = await baseQuery
+            .Where(IncomePredicate)
+            .SumAsync(item => (decimal?)item.Amount, cancellationToken) ?? 0m;
+
+        var totalExpenseSigned = await baseQuery
+            .Where(ExpensePredicate)
+            .SumAsync(item => (decimal?)item.Amount, cancellationToken) ?? 0m;
+
+        var totalExpense = Math.Abs(totalExpenseSigned);
 
         return new SpendingSummaryResponse(
             periodStart,
@@ -46,7 +75,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
             totalIncome,
             totalExpense,
             totalIncome - totalExpense,
-            transactions.Count);
+            totalCount);
     }
 
     public async Task<IReadOnlyList<CategorySpendingItemResponse>> GetCategoryBreakdownAsync(
@@ -57,32 +86,61 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
     {
         ValidatePeriod(periodStart, periodEnd);
 
-        var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
-        var expenseRows = FilterToDominantExpenseCurrency(
-            transactions.Where(IsExpense).ToList(),
-            personalAccountId);
-        var expenseTotal = Math.Abs(expenseRows.Sum(item => item.Amount));
+        var expenseQuery = BuildTransactionQuery(periodStart, periodEnd, personalAccountId)
+            .Where(ExpensePredicate);
 
-        if (expenseRows.Count == 0 || expenseTotal == 0)
+        var scope = ResolveDominantExpenseCurrency(
+            await LoadCurrencyGroupsAsync(expenseQuery, cancellationToken),
+            personalAccountId);
+
+        if (scope is null)
         {
             return Array.Empty<CategorySpendingItemResponse>();
         }
 
-        var currency = EnsureSingleCurrency(expenseRows);
+        var (rawCurrencies, currency) = scope.Value;
 
-        return expenseRows
-            .GroupBy(item => string.IsNullOrWhiteSpace(item.Category) ? TransactionCategoryReference.Uncategorized : item.Category!)
-            .Select(group =>
+        var categoryGroups = await expenseQuery
+            .Where(item => rawCurrencies.Contains(item.Currency))
+            .GroupBy(item => item.Category)
+            .Select(group => new
             {
-                var categoryTotal = Math.Abs(group.Sum(item => item.Amount));
-                var percentage = categoryTotal / expenseTotal * 100m;
+                Category = group.Key,
+                Total = group.Sum(item => item.Amount),
+                Count = group.Count(),
+            })
+            .ToListAsync(cancellationToken);
 
+        // Fold the null and empty-string category groups together into "Uncategorized".
+        var merged = categoryGroups
+            .GroupBy(row => string.IsNullOrWhiteSpace(row.Category)
+                ? TransactionCategoryReference.Uncategorized
+                : row.Category!)
+            .Select(group => new
+            {
+                Category = group.Key,
+                Signed = group.Sum(row => row.Total),
+                Count = group.Sum(row => row.Count),
+            })
+            .ToList();
+
+        var expenseTotal = Math.Abs(merged.Sum(row => row.Signed));
+
+        if (expenseTotal == 0)
+        {
+            return Array.Empty<CategorySpendingItemResponse>();
+        }
+
+        return merged
+            .Select(row =>
+            {
+                var amount = Math.Abs(row.Signed);
                 return new CategorySpendingItemResponse(
-                    group.Key,
+                    row.Category,
                     currency,
-                    categoryTotal,
-                    decimal.Round(percentage, 2),
-                    group.Count());
+                    amount,
+                    decimal.Round(amount / expenseTotal * 100m, 2),
+                    row.Count);
             })
             .OrderByDescending(item => item.TotalAmount)
             .ToList();
@@ -98,25 +156,40 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         ValidatePeriod(periodStart, periodEnd);
 
         var limit = top <= 0 ? 10 : Math.Min(top, 100);
-        var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
-        var expenseRows = FilterToDominantExpenseCurrency(
-            transactions.Where(IsExpense).ToList(),
+
+        var expenseQuery = BuildTransactionQuery(periodStart, periodEnd, personalAccountId)
+            .Where(ExpensePredicate);
+
+        var scope = ResolveDominantExpenseCurrency(
+            await LoadCurrencyGroupsAsync(expenseQuery, cancellationToken),
             personalAccountId);
 
-        if (expenseRows.Count == 0)
+        if (scope is null)
         {
             return Array.Empty<MerchantSpendingItemResponse>();
         }
 
-        var currency = EnsureSingleCurrency(expenseRows);
+        var (rawCurrencies, currency) = scope.Value;
 
-        return expenseRows
-            .GroupBy(item => string.IsNullOrWhiteSpace(item.Merchant) ? "Unknown Merchant" : item.Merchant!)
+        var merchantGroups = await expenseQuery
+            .Where(item => rawCurrencies.Contains(item.Currency))
+            .GroupBy(item => item.Merchant)
+            .Select(group => new
+            {
+                Merchant = group.Key,
+                Total = group.Sum(item => item.Amount),
+                Count = group.Count(),
+            })
+            .ToListAsync(cancellationToken);
+
+        // Fold the null and empty-string merchant groups together into "Unknown Merchant".
+        return merchantGroups
+            .GroupBy(row => string.IsNullOrWhiteSpace(row.Merchant) ? "Unknown Merchant" : row.Merchant!)
             .Select(group => new MerchantSpendingItemResponse(
                 group.Key,
                 currency,
-                Math.Abs(group.Sum(item => item.Amount)),
-                group.Count()))
+                Math.Abs(group.Sum(row => row.Total)),
+                group.Sum(row => row.Count)))
             .OrderByDescending(item => item.TotalAmount)
             .Take(limit)
             .ToList();
@@ -129,19 +202,32 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
     {
         ValidatePeriod(periodStart, periodEnd);
 
-        var transactions = await QueryTransactionsAsync(periodStart, periodEnd, null, cancellationToken);
-        _ = EnsureSingleCurrency(transactions);
+        var baseQuery = BuildTransactionQuery(periodStart, periodEnd, null);
 
-        var expenseRows = transactions.Where(IsExpense).ToList();
+        // Account breakdown enforces a single currency across ALL transactions in the period
+        // (income, transfers included) rather than picking a dominant expense currency.
+        var currencyGroups = await LoadCurrencyGroupsAsync(baseQuery, cancellationToken);
+        _ = EnsureSingleCurrency(currencyGroups.Select(group => group.RawCurrency));
 
-        if (expenseRows.Count == 0)
+        var accountGroups = await baseQuery
+            .Where(ExpensePredicate)
+            .GroupBy(item => item.PersonalAccountId)
+            .Select(group => new
+            {
+                AccountId = group.Key,
+                Total = group.Sum(item => item.Amount),
+                Count = group.Count(),
+            })
+            .ToListAsync(cancellationToken);
+
+        if (accountGroups.Count == 0)
         {
             return Array.Empty<AccountSpendingItemResponse>();
         }
 
-        var accountIds = expenseRows
-            .Where(item => item.PersonalAccountId.HasValue)
-            .Select(item => item.PersonalAccountId!.Value)
+        var accountIds = accountGroups
+            .Where(group => group.AccountId.HasValue)
+            .Select(group => group.AccountId!.Value)
             .Distinct()
             .ToList();
 
@@ -150,23 +236,21 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
             .Where(account => accountIds.Contains(account.Id))
             .ToDictionaryAsync(account => account.Id, account => account.Name, cancellationToken);
 
-        return expenseRows
-            .GroupBy(item => item.PersonalAccountId)
+        return accountGroups
             .Select(group =>
             {
-                var accountId = group.Key;
                 var accountName = "Unassigned";
 
-                if (accountId.HasValue && accountMap.TryGetValue(accountId.Value, out var resolvedName))
+                if (group.AccountId.HasValue && accountMap.TryGetValue(group.AccountId.Value, out var resolvedName))
                 {
                     accountName = resolvedName;
                 }
 
                 return new AccountSpendingItemResponse(
-                    accountId,
+                    group.AccountId,
                     accountName,
-                    Math.Abs(group.Sum(item => item.Amount)),
-                    group.Count());
+                    Math.Abs(group.Total),
+                    group.Count);
             })
             .OrderByDescending(item => item.TotalAmount)
             .ToList();
@@ -179,24 +263,31 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
 
-        var transactions = await _financeDbContext.PersonalTransactions
+        var merchantQuery = _financeDbContext.PersonalTransactions
             .AsNoTracking()
             .Where(item =>
                 item.TenantId == tenantId
                 && item.UserId == userId
-                && item.Merchant == merchantName)
-            .ToListAsync(cancellationToken);
+                && item.Merchant == merchantName);
 
-        var expenses = transactions.Where(IsExpense).ToList();
-        var count = expenses.Count;
-        var totalSpent = Math.Abs(expenses.Sum(item => item.Amount));
+        var count = await merchantQuery
+            .Where(ExpensePredicate)
+            .CountAsync(cancellationToken);
+
+        var totalSpentSigned = await merchantQuery
+            .Where(ExpensePredicate)
+            .SumAsync(item => (decimal?)item.Amount, cancellationToken) ?? 0m;
+
+        var totalSpent = Math.Abs(totalSpentSigned);
         var averageSpend = count > 0 ? totalSpent / count : 0m;
-        var currency = transactions
-            .Select(item => item.Currency)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => value!.Trim().ToUpperInvariant())
-            .FirstOrDefault() ?? "USD";
 
+        // First non-empty currency recorded against the merchant (any transaction type).
+        var currencyRaw = await merchantQuery
+            .Where(item => item.Currency != "")
+            .Select(item => item.Currency)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var currency = NormalizeCurrency(currencyRaw);
         var symbol = GetCurrencySymbol(currency);
 
         return new MerchantHistoryResponse(
@@ -208,9 +299,9 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
     private static string GetCurrencySymbol(string currencyCode) =>
         currencyCode switch
         {
-            "GBP" => "\u00A3",
-            "EUR" => "\u20AC",
-            "NGN" => "\u20A6",
+            "GBP" => "£",
+            "EUR" => "€",
+            "NGN" => "₦",
             _ => "$",
         };
 
@@ -224,11 +315,15 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         return userId;
     }
 
-    private async Task<List<PersonalTransaction>> QueryTransactionsAsync(
+    /// <summary>
+    /// Builds the composable per-user, per-period transaction query. Returns an
+    /// <see cref="IQueryable{T}"/> (not a materialized list) so callers can push GROUP BY/SUM/
+    /// COUNT aggregation into SQL instead of pulling every row into memory (finding H1).
+    /// </summary>
+    private IQueryable<PersonalTransaction> BuildTransactionQuery(
         DateTime periodStart,
         DateTime periodEnd,
-        Guid? personalAccountId,
-        CancellationToken cancellationToken)
+        Guid? personalAccountId)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
@@ -246,47 +341,97 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
             query = query.Where(item => item.PersonalAccountId == personalAccountId.Value);
         }
 
-        return await query.ToListAsync(cancellationToken);
+        return query;
     }
 
-    private static List<PersonalTransaction> FilterToDominantExpenseCurrency(
-        List<PersonalTransaction> expenseRows,
+    /// <summary>
+    /// Runs a single GROUP BY currency aggregate in SQL, returning one row per distinct raw
+    /// currency string with its signed total and count. The result set is tiny (one row per
+    /// currency), so the downstream currency normalization/dominance logic runs in memory.
+    /// </summary>
+    private static async Task<IReadOnlyList<CurrencyGroup>> LoadCurrencyGroupsAsync(
+        IQueryable<PersonalTransaction> query,
+        CancellationToken cancellationToken)
+    {
+        var rows = await query
+            .GroupBy(item => item.Currency)
+            .Select(group => new
+            {
+                Currency = group.Key,
+                Total = group.Sum(item => item.Amount),
+                Count = group.Count(),
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(row => new CurrencyGroup(row.Currency, row.Total, row.Count))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Decides which raw currency strings feed an expense breakdown and the normalized currency
+    /// label to report, from the SQL currency-group aggregate. Returns <c>null</c> when there
+    /// are no expenses. Mirrors the old <c>FilterToDominantExpenseCurrency</c> +
+    /// <c>EnsureSingleCurrency</c> pairing: when an account is specified there is no dominant
+    /// selection (all rows are kept) and a multi-currency account throws; otherwise the
+    /// dominant currency is chosen by absolute total, then count, then ordinal code.
+    /// </summary>
+    private static (string[] RawCurrencies, string Currency)? ResolveDominantExpenseCurrency(
+        IReadOnlyList<CurrencyGroup> expenseGroups,
         Guid? personalAccountId)
     {
-        if (personalAccountId.HasValue || expenseRows.Count == 0)
+        if (expenseGroups.Count == 0)
         {
-            return expenseRows;
+            return null;
         }
 
-        var currencies = expenseRows
-            .Select(item => NormalizeCurrency(item.Currency))
-            .Distinct(StringComparer.Ordinal)
+        var byNormalized = expenseGroups
+            .GroupBy(group => NormalizeCurrency(group.RawCurrency), StringComparer.Ordinal)
+            .Select(group => new
+            {
+                Normalized = group.Key,
+                Total = group.Sum(entry => entry.Total),
+                Count = group.Sum(entry => entry.Count),
+            })
             .ToList();
 
-        if (currencies.Count <= 1)
+        if (personalAccountId.HasValue && byNormalized.Count > 1)
         {
-            return expenseRows;
+            throw new ArgumentException(
+                "Insights cannot aggregate multiple currencies. Filter by a single account or currency-scoped period.");
         }
 
-        var dominantCurrency = expenseRows
-            .GroupBy(item => NormalizeCurrency(item.Currency))
-            .OrderByDescending(group => Math.Abs(group.Sum(item => item.Amount)))
-            .ThenByDescending(group => group.Count())
-            .ThenBy(group => group.Key, StringComparer.Ordinal)
-            .Select(group => group.Key)
+        if (personalAccountId.HasValue || byNormalized.Count <= 1)
+        {
+            // No dominant filtering: keep every raw currency present in the period.
+            var allRaw = expenseGroups
+                .Select(group => group.RawCurrency)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            return (allRaw, byNormalized[0].Normalized);
+        }
+
+        var dominant = byNormalized
+            .OrderByDescending(group => Math.Abs(group.Total))
+            .ThenByDescending(group => group.Count)
+            .ThenBy(group => group.Normalized, StringComparer.Ordinal)
             .First();
 
-        return expenseRows
-            .Where(item => NormalizeCurrency(item.Currency) == dominantCurrency)
-            .ToList();
+        var dominantRaw = expenseGroups
+            .Where(group => NormalizeCurrency(group.RawCurrency) == dominant.Normalized)
+            .Select(group => group.RawCurrency)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return (dominantRaw, dominant.Normalized);
     }
 
-    private static string EnsureSingleCurrency(IReadOnlyList<PersonalTransaction> transactions)
+    private static string EnsureSingleCurrency(IEnumerable<string> rawCurrencies)
     {
-        var currencies = transactions
-            .Select(item => item.Currency)
+        var currencies = rawCurrencies
             .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => NormalizeCurrency(value))
+            .Select(NormalizeCurrency)
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
@@ -314,33 +459,6 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         }
     }
 
-    /// <summary>
-    /// Returns true when the transaction should be classified as income.
-    /// Prefers the <c>TransactionType</c> field when populated; falls back to amount sign
-    /// for historical records that predate the TransactionType column.
-    /// </summary>
-    private static bool IsIncome(PersonalTransaction item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.TransactionType))
-        {
-            return item.TransactionType == TransactionCategoryReference.TypeIncome;
-        }
-
-        return item.Amount > 0;
-    }
-
-    /// <summary>
-    /// Returns true when the transaction should be classified as an expense.
-    /// Prefers the <c>TransactionType</c> field when populated; falls back to amount sign
-    /// for historical records that predate the TransactionType column.
-    /// </summary>
-    private static bool IsExpense(PersonalTransaction item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.TransactionType))
-        {
-            return item.TransactionType == TransactionCategoryReference.TypeExpense;
-        }
-
-        return item.Amount < 0;
-    }
+    /// <summary>One row of the SQL GROUP BY currency aggregate: raw currency, signed total, count.</summary>
+    private readonly record struct CurrencyGroup(string RawCurrency, decimal Total, int Count);
 }
