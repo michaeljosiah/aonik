@@ -121,6 +121,23 @@ public sealed class FinanceModule : IModule
         // Partners
         services.AddScoped<Contracts.Services.Partners.IPartnerAdminService, Services.Partners.PartnerAdminService>();
 
+        // ── Partner Connectors (Spec 031) ───────────────────────────
+        // Partner-agnostic money-movement ports (payout / collection / bill payment + airtime).
+        // One concrete simulated connector backs all three ports; forwarding registrations keep
+        // it a single object while satisfying each port list the resolver injects. A real vendor
+        // is added by registering one more connector against the relevant port(s) — no other change.
+        services.AddSingleton<Services.Partners.Connectors.SimulatedPartnerConnector>();
+        services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerPayoutConnector>(
+            sp => sp.GetRequiredService<Services.Partners.Connectors.SimulatedPartnerConnector>());
+        services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerCollectionConnector>(
+            sp => sp.GetRequiredService<Services.Partners.Connectors.SimulatedPartnerConnector>());
+        services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerBillPaymentConnector>(
+            sp => sp.GetRequiredService<Services.Partners.Connectors.SimulatedPartnerConnector>());
+        services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerWebhookTranslator,
+            Services.Partners.Connectors.SimulatedPartnerWebhookTranslator>();
+        services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerConnectorResolver,
+            Services.Partners.Connectors.PartnerConnectorResolver>();
+
         // Catalog
         services.AddScoped<Contracts.Services.Catalog.ICatalogService, Services.Catalog.CatalogService>();
         services.AddScoped<Contracts.Services.Catalog.IPublicCatalogService, Services.Catalog.PublicCatalogService>();

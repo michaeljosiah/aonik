@@ -12,6 +12,13 @@ public class CatalogBillerService : AuditableEntity, ITenantScoped
     public string Currency { get; set; } = string.Empty;
     public decimal? MinAmount { get; set; }
     public decimal? MaxAmount { get; set; }
+
+    /// <summary>Fixed | Variable - whether the amount is set by the item or chosen by the customer.</summary>
+    public string AmountType { get; set; } = string.Empty;
+
+    /// <summary>The set price when <see cref="AmountType"/> is Fixed (e.g. a specific data bundle).</summary>
+    public decimal? FixedAmount { get; set; }
+
     public bool SupportsPartialPayment { get; set; }
     public bool RequiresValidation { get; set; }
     public bool IsActive { get; set; } = true;

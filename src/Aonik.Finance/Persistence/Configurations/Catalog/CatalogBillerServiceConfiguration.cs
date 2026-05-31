@@ -17,6 +17,8 @@ internal class CatalogBillerServiceConfiguration : IEntityTypeConfiguration<Cata
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.Property(x => x.MinAmount).HasPrecision(19, 4);
         builder.Property(x => x.MaxAmount).HasPrecision(19, 4);
+        builder.Property(x => x.AmountType).HasMaxLength(30);
+        builder.Property(x => x.FixedAmount).HasPrecision(19, 4);
         builder.Property(x => x.FieldsJson).IsRequired();
         builder.Property(x => x.ValidationJson).HasMaxLength(4000);
         builder.Property(x => x.SortOrder).IsRequired();

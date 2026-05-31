@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 031 · Partner integration abstraction layer</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e6f1ef; color: #166053; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    .meta-tag.priority-p1 { background: #fce8e2; color: #9b3815; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 031</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Finance / Partners</span>
+  <h1>Partner integration abstraction layer</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Defines a partner-agnostic contract for executing money movement through external
+    partners across four services &mdash; <strong>payout</strong>,
+    <strong>collection</strong>, <strong>bill payment</strong>, and
+    <strong>airtime / data top-up</strong>. Today the only provider port is
+    <code>IPaymentProviderGateway</code> (card checkout only) with an inline
+    <code>ResolveProvider</code> switch &mdash; nothing for partner transfers,
+    partner-initiated pulls, biller payments, or mobile top-up. This spec adds the
+    connector ports, normalized DTOs / status vocabulary, a capability-aware resolver,
+    and webhook translation contracts &mdash; proven by one <strong>simulated</strong>
+    reference connector wired into DI. <strong>Flutterwave</strong> is the payout /
+    collection baseline; <strong>eTranzact SwitchIt</strong> and
+    <strong>Interswitch Quickteller</strong> are the bill-payment baselines, and
+    Interswitch also anchors airtime / data top-up. All three bill-payment vendors run
+    top-up through the <em>same</em> rails as bill payment, so it is served by the
+    bill-payment port as a distinct service category &mdash; not a duplicate port
+    (&sect;5.5). No real vendor implementation is built here. The concrete entity changes
+    and a single tool-generated migration that persist all four services are
+    <strong>in scope</strong> (&sect;7), with every new and modified table inventoried.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#baseline">Partner API baseline mapping</a></li>
+    <li><a href="#design">Abstraction design</a></li>
+    <li><a href="#gaps">Entity-model gap analysis</a></li>
+    <li><a href="#entity-changes">Proposed entity changes</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK's Finance module owns "partners (B2B / cross-border money plumbing)" but has no
+  normalized contract for <em>executing money movement through an external partner</em>.
+  The single provider port today &mdash;
+  <a href="../../src/Aonik.Finance/Contracts/Services/Payments/IPaymentProviderGateway.cs"><code>IPaymentProviderGateway</code></a>
+  &mdash; only models card checkout (<code>CreateIntentAsync</code>), is satisfied by one
+  <code>StripeSimulatedPaymentProviderGateway</code>, and is dispatched by an inline
+  <code>ResolveProvider</code> switch inside <code>PublicPaymentService</code>. There is no
+  port for <strong>payouts / transfers</strong>, <strong>partner-initiated collections</strong>,
+  <strong>bill payments</strong>, or <strong>airtime / data top-up</strong>.
+</p>
+
+<p>
+  This spec introduces a partner-agnostic abstraction so connectors (Flutterwave,
+  eTranzact, Interswitch, &hellip;) can be swapped per deployment via the established
+  "operator-choice provider + factory dispatch" pattern already used for payment gateways
+  and auth providers. Three structurally different vendors collapse onto one small set of
+  ports &mdash; that is the proof the abstraction sits at the right level (&sect;4).
+  Airtime / data top-up rides the bill-payment port (every vendor implements top-up on its
+  bill rails), elevated to its own service category for routing and reporting. The
+  deliverables:
+</p>
+
+<ul>
+  <li><strong>The abstraction</strong> &mdash; provider-port interfaces, normalized
+  DTOs / enums, a capability model + resolver, and webhook-translation contracts, all under
+  <code>Aonik.Finance.Contracts.Services.Partners.Connectors</code>.</li>
+  <li><strong>One simulated reference connector</strong> implementing all three ports
+  (payout, collection, bill payment &mdash; the last also serving airtime top-up),
+  registered in DI through the resolver &mdash; mirroring
+  <code>StripeSimulatedPaymentProviderGateway</code>. This proves the contracts compile and
+  route end to end without any network, secret, or vendor dependency.</li>
+  <li><strong>The entity changes + a single migration</strong> (&sect;7) that close the
+  gaps in &sect;6 so all four services can be persisted and reconciled &mdash;
+  <strong>in scope</strong> this phase. New and modified entities are tabulated and mapped
+  to gap IDs, and every affected database table is inventoried in &sect;7.4. The migration
+  is tool-generated against <code>AonikDbContext</code> per CLAUDE.md.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  <code>dotnet build Aonik.sln</code> compiles the six contract files, the simulated
+  connector, and the resolver. The simulated connector advertises capability lanes
+  (including an airtime-top-up lane) and returns deterministic fake references; a payout
+  instruction yields a <code>PartnerReference</code> with a non-empty provider reference
+  and a <code>Succeeded</code> status; a bill <em>validate &rarr; pay</em> round-trips the
+  <code>ValidationToken</code>; the resolver returns the connector for
+  <code>"Simulated"</code> and throws for an unknown code. The &sect;7 migration is
+  tool-generated against <code>AonikDbContext</code>, applies cleanly with
+  <code>dotnet ef database update</code>, and contains only the new / changed tables. A
+  second vendor would add one connector class &mdash; no contract change.
+</div>
+
+<h2 id="problem">2. Problem</h2>
+
+<p>
+  Three concrete shortfalls block partner-executed money movement today:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concern</th>
+      <th>Today</th>
+      <th>Consequence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Provider port coverage</td>
+      <td>Only <code>IPaymentProviderGateway.CreateIntentAsync</code> (card checkout).</td>
+      <td>No way to express a payout, a partner-initiated collection, a biller payment, or an airtime / data top-up behind a swappable contract.</td>
+    </tr>
+    <tr>
+      <td>Provider selection</td>
+      <td>Inline <code>ResolveProvider</code> switch in <code>PublicPaymentService</code> matching a <code>ProviderCode</code> string.</td>
+      <td>No capability-aware routing (&ldquo;mobile-money payout, KES, Kenya&rdquo;); selection logic is duplicated per call site.</td>
+    </tr>
+    <tr>
+      <td>Async settlement</td>
+      <td>Plaid webhook handler is anonymous + unsigned (<code>AccountLinkEndpoints</code>); no normalized inbound contract.</td>
+      <td>All four partner services settle via callback. There is no translator contract and no idempotent inbox to dedupe / replay them.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  A clean abstraction has to do two things at once: present <em>one</em> normalized port
+  per service category that any vendor maps onto, and carry <em>enough</em> vendor-native
+  detail (raw codes, provider references, next-actions) that reconciliation and requery
+  still work. &sect;4 verifies Flutterwave, eTranzact, and Interswitch all satisfy that shape.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+
+<ul>
+  <li><span class="tag new">New</span> Six contract files under
+  <code>src/Aonik.Finance/Contracts/Services/Partners/Connectors/</code>: common types +
+  base port, payout port, collection port, bill-payment port, webhook translator, resolver
+  (&sect;5).</li>
+  <li><span class="tag new">New</span> Normalized vocabulary: <code>PartnerServiceCategory</code>
+  (<code>Payout</code> / <code>Collection</code> / <code>BillPayment</code> /
+  <code>AirtimeTopup</code>), <code>PartnerTransactionStatus</code>,
+  <code>PartnerReference</code>, <code>RawProviderResponse</code>,
+  <code>PartnerConnectorCapability</code> &mdash; the single status / reference language
+  every vendor maps onto.</li>
+  <li><span class="tag existing">Reuse</span> Airtime / data top-up is served by
+  <code>IPartnerBillPaymentConnector</code> (no new port) and surfaced as the
+  <code>AirtimeTopup</code> service category for capability routing and reporting
+  (&sect;5.5).</li>
+  <li><span class="tag new">New</span> One <code>SimulatedPartnerConnector</code> implementing
+  all three port interfaces, a <code>SimulatedPartnerWebhookTranslator</code>, and a
+  <code>PartnerConnectorResolver</code> over <code>IEnumerable&lt;IPort&gt;</code>
+  (&sect;5.8).</li>
+  <li><span class="tag mutate">Edit</span> <code>FinanceModule.ConfigureServices</code> &mdash;
+  a "Partner Connectors" DI block registering the simulated connector against all three
+  ports plus the translator and resolver.</li>
+  <li><span class="tag new">New</span> <code>SimulatedPartnerConnectorTests</code> mirroring
+  <code>StripeSimulatedPaymentProviderGatewayTests</code> &mdash; payout / collection /
+  bill + airtime round-trips, capability-based resolution, and resolver lookup.</li>
+  <li><span class="tag new">New</span> The <strong>entity changes</strong> in &sect;7 &mdash;
+  new and modified entities + their <code>IEntityTypeConfiguration&lt;T&gt;</code>,
+  <code>DbSet</code>s on <code>AonikDbContext</code> (and the <code>FinanceDbContext</code>
+  read/write path), backing all four services.</li>
+  <li><span class="tag new">New</span> <strong>One migration</strong>, tool-generated
+  against <code>AonikDbContext</code> (single stream, per CLAUDE.md), reviewed to contain
+  only the &sect;7 tables, and verified to apply with
+  <code>dotnet ef database update</code>.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+
+<ul>
+  <li><strong>Real Flutterwave / eTranzact / Interswitch connectors.</strong> No credentials,
+  HTTP clients, request signing, or vendor SDKs. The simulated connector is the only
+  implementation.</li>
+  <li><strong>Inbound webhook endpoints + processing.</strong> The
+  <code>PartnerWebhookEvent</code> inbox table <em>is</em> created in &sect;7, and the
+  translator contract is defined; wiring an inbound FastEndpoints route to verify, persist,
+  and dispatch callbacks into domain state is follow-up work.</li>
+  <li><strong>Application-service orchestration.</strong> Services that <em>call</em> these
+  ports and write the new entities (a <code>PayoutService</code>, a partner
+  <code>CollectionService</code>, a <code>BillPaymentService</code>) are not in this spec
+  &mdash; only the ports and the persistence they will use.</li>
+  <li><strong>Routing-rule evaluation.</strong> The resolver exposes capability-aware
+  <code>TryResolve*</code> overloads, but the engine that reads
+  <code>RoutingRule.ConditionsJson</code> to pick a connector is deferred.</li>
+</ul>
+
+<h2 id="baseline">4. Partner API baseline mapping</h2>
+
+<p>
+  Field-level mapping verified against vendor docs. The point of the table is the right-hand
+  column: <em>every</em> vendor concept collapses onto one normalized port method or DTO.
+  That one-to-one collapse across three structurally different vendors is the evidence the
+  abstraction is at the correct altitude &mdash; not leaking vendor shape, not so abstract it
+  loses requery / reconciliation detail.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Flutterwave v3</th>
+      <th>eTranzact SwitchIt</th>
+      <th>Interswitch Quickteller</th>
+      <th>Normalized as</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Payout init</td>
+      <td><code>POST /transfers</code> &mdash; <code>account_bank, account_number, amount, currency, debit_currency, narration, reference, callback_url, beneficiary_name, destination_branch_code, meta</code></td>
+      <td>&mdash;</td>
+      <td>&mdash;</td>
+      <td><code>InitiatePayoutAsync(PayoutInstruction)</code></td>
+    </tr>
+    <tr>
+      <td>Payout status</td>
+      <td><code>GET /transfers/{id}</code> &mdash; <code>NEW / PENDING / SUCCESSFUL / FAILED</code></td>
+      <td>&mdash;</td>
+      <td>&mdash;</td>
+      <td><code>GetPayoutStatusAsync(PartnerReference)</code></td>
+    </tr>
+    <tr>
+      <td>Payout quote</td>
+      <td>transfer fee (<code>amount, currency</code>) + FX rate (<code>amount, destination_currency</code>)</td>
+      <td>&mdash;</td>
+      <td>&mdash;</td>
+      <td><code>QuotePayoutAsync(PayoutQuoteRequest)</code></td>
+    </tr>
+    <tr>
+      <td>Name enquiry</td>
+      <td>account resolve (bank / account &rarr; name)</td>
+      <td>&mdash;</td>
+      <td>&mdash;</td>
+      <td><code>ResolveAccountAsync(AccountResolutionRequest)</code></td>
+    </tr>
+    <tr>
+      <td>Saved recipient</td>
+      <td>beneficiaries (<code>account_bank, account_number, beneficiary_name</code>)</td>
+      <td>&mdash;</td>
+      <td>&mdash;</td>
+      <td>gap &rarr; <code>ExternalPayoutAccount</code> entity (&sect;7)</td>
+    </tr>
+    <tr>
+      <td>Collection init</td>
+      <td><code>POST /charges</code> &mdash; <code>tx_ref, amount, currency, email, phone_number, fullname, redirect_url, meta</code>; auth modes redirect / pin / ussd / callback</td>
+      <td>&mdash;</td>
+      <td>&mdash;</td>
+      <td><code>InitiateCollectionAsync(CollectionInstruction)</code></td>
+    </tr>
+    <tr>
+      <td>Reference duality</td>
+      <td><code>tx_ref</code> (merchant) vs <code>flw_ref</code> (provider) vs <code>id</code></td>
+      <td><code>clientRef</code> vs <code>paymentRef</code></td>
+      <td><code>requestReference</code> (merchant, &le; 20 chars) vs <code>TransactionRef</code> (provider)</td>
+      <td><code>PartnerReference(ClientReference, ProviderReference)</code></td>
+    </tr>
+    <tr>
+      <td>Bill catalog</td>
+      <td><code>fetch_bills_Cat()</code> &mdash; <code>biller_code, item_code, biller_name, label_name</code></td>
+      <td><code>GET /service-type/biller/{id}</code> &mdash; <code>billId, billerCode, billName, category, expectedFields[]</code></td>
+      <td><code>GET /services/categories</code> &rarr; <code>/services</code> &rarr; <code>/services/options</code> &mdash; <code>Id, PaymentCode, AmountType, IsAmountFixed, CustomerField1/2</code></td>
+      <td><code>GetBillerCatalogAsync(BillerCatalogQuery)</code></td>
+    </tr>
+    <tr>
+      <td>Customer validate</td>
+      <td><code>validate(item_code, code, customer)</code></td>
+      <td>Bill Query (<code>clientRef, billId, customerId</code>) &rarr; <code>paymentRef</code> (= <code>billQueryRef</code>), <code>customerName</code> (pipe-delimited), <code>plans</code></td>
+      <td><code>POST /Transactions/validatecustomers</code> (<code>PaymentCode, CustomerId</code>) &rarr; <code>FullName, Amount</code> (no carry-token)</td>
+      <td><code>ValidateCustomerAsync(&hellip;)</code> &rarr; <code>ValidationToken</code> (nullable)</td>
+    </tr>
+    <tr>
+      <td>Bill pay</td>
+      <td><code>create_bill(country, customer, amount, recurrence, type, reference)</code></td>
+      <td>Bill Payment (<code>clientRef, billQueryRef, billId, customerId, amount, productId</code>) &rarr; <code>PAID_PROCESSED</code></td>
+      <td><code>POST /Transactions</code> (<code>paymentCode, customerId, amount, requestReference, customerMobile, customerEmail</code>) &rarr; <code>TransactionRef</code></td>
+      <td><code>PayBillAsync(BillPaymentInstruction)</code></td>
+    </tr>
+    <tr>
+      <td>Bill requery</td>
+      <td><code>fetch_status(reference)</code></td>
+      <td>Bill Status (<code>clientRef</code> / <code>paymentRef</code>)</td>
+      <td><code>GET /Transactions?requestRef={requestReference}</code> &mdash; <code>status, transactionResponseCode</code></td>
+      <td><code>GetBillPaymentStatusAsync(PartnerReference)</code></td>
+    </tr>
+    <tr>
+      <td>Airtime / data top-up</td>
+      <td>bills <code>type = AIRTIME / DATA_BUNDLE</code></td>
+      <td>recharge bill category</td>
+      <td><code>categoryId = 4</code> telco biller + <code>POST /Transactions</code> with <code>customerId = MSISDN</code>; <code>AdditionalInfo.network</code></td>
+      <td>served by <code>IPartnerBillPaymentConnector</code> &mdash; <code>AirtimeTopup</code> category</td>
+    </tr>
+    <tr>
+      <td>Vend artefact</td>
+      <td>bill token (e.g. electricity)</td>
+      <td>bill token</td>
+      <td><code>AdditionalInfo.token</code> / <code>units</code> (electricity, recharge PIN)</td>
+      <td><code>BillPaymentResult.Token</code> &rarr; <code>PartnerBillPayment.VendToken</code> (&sect;7)</td>
+    </tr>
+    <tr>
+      <td>Status values</td>
+      <td>NEW / PENDING / SUCCESSFUL / FAILED &middot; success / failed / pending / success-pending-validation</td>
+      <td>PAID_PROCESSED / SUCCESS / error</td>
+      <td><code>ResponseCode</code> <code>90000</code> = success; <code>status</code> Completed / Pending / Failed / Reversed</td>
+      <td><code>PartnerTransactionStatus</code> enum</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="design">5. Abstraction design</h2>
+
+<h3>5.1 Namespace &amp; file layout</h3>
+
+<p>
+  Contracts mirror the in-repo convention from
+  <code>Contracts/Services/Payments/IPaymentProviderGateway.cs</code>: each interface and its
+  DTO records live together in one file, DTOs are <code>record</code>s with positional
+  params, and the connector self-describes via a <code>string ProviderCode</code>.
+</p>
+
+<div class="ascii-diagram">src/Aonik.Finance/Contracts/Services/Partners/Connectors/
+  PartnerConnector.cs               common: enums, reference, raw, capability, base port
+  IPartnerPayoutConnector.cs        payout port + DTOs
+  IPartnerCollectionConnector.cs    collection port + DTOs
+  IPartnerBillPaymentConnector.cs   bill-payment port + DTOs
+  IPartnerWebhookTranslator.cs      inbound-callback normalization
+  IPartnerConnectorResolver.cs      selection by ProviderCode and by capability
+
+src/Aonik.Finance/Services/Partners/Connectors/
+  SimulatedPartnerConnector.cs          internal: implements all three port interfaces
+  SimulatedPartnerWebhookTranslator.cs  internal: IPartnerWebhookTranslator
+  PartnerConnectorResolver.cs           internal: IPartnerConnectorResolver</div>
+
+<h3>5.2 Common types &mdash; <code>PartnerConnector.cs</code></h3>
+
+<p>
+  One status vocabulary, one reference shape, one raw-response envelope, and a capability
+  descriptor. Every category port extends <code>IPartnerConnector</code> so the resolver can
+  discover what a connector supports.
+</p>
+
+<pre><code>namespace Aonik.Finance.Contracts.Services.Partners.Connectors;
+
+// Airtime / data top-up is a distinct service category but rides the bill-payment port (&sect;5.5).
+public enum PartnerServiceCategory { Payout, Collection, BillPayment, AirtimeTopup }
+
+// Single normalized vocabulary every vendor status maps onto.
+public enum PartnerTransactionStatus
+{
+    Pending, Processing, RequiresAction,
+    Succeeded, Failed, Reversed, Expired, Unknown
+}
+
+// Our idempotent client ref (tx_ref / clientRef) + the provider's ref (flw_ref / paymentRef).
+public sealed record PartnerReference(string ClientReference, string? ProviderReference);
+
+// Vendor-native code / message / raw payload, preserved for audit, mapping, and requery.
+public sealed record RawProviderResponse(string? Code, string? Message, string? PayloadJson);
+
+public sealed record PartnerConnectorCapability(
+    PartnerServiceCategory Category,
+    IReadOnlyCollection&lt;string&gt; Countries,
+    IReadOnlyCollection&lt;string&gt; Currencies,
+    IReadOnlyCollection&lt;string&gt; Methods);
+
+public interface IPartnerConnector
+{
+    string ProviderCode { get; }
+    IReadOnlyCollection&lt;PartnerConnectorCapability&gt; Capabilities { get; }
+}</code></pre>
+
+<h3>5.3 Payout port &mdash; <code>IPartnerPayoutConnector.cs</code></h3>
+
+<p>
+  Covers Flutterwave bank / mobile-money / wallet payouts plus the pre-send helpers (quote
+  fee + FX, name enquiry). The destination hierarchy is a discriminated <code>record</code>
+  set so each rail carries only its own fields.
+</p>
+
+<pre><code>using Aonik.SharedKernel.Primitives;
+
+namespace Aonik.Finance.Contracts.Services.Partners.Connectors;
+
+public interface IPartnerPayoutConnector : IPartnerConnector
+{
+    Task&lt;PayoutInitiationResult&gt; InitiatePayoutAsync(
+        PayoutInstruction instruction, CancellationToken cancellationToken = default);
+
+    Task&lt;PayoutStatusResult&gt; GetPayoutStatusAsync(
+        PartnerReference reference, CancellationToken cancellationToken = default);
+
+    Task&lt;PayoutQuoteResult&gt; QuotePayoutAsync(
+        PayoutQuoteRequest request, CancellationToken cancellationToken = default);
+
+    Task&lt;AccountResolutionResult&gt; ResolveAccountAsync(
+        AccountResolutionRequest request, CancellationToken cancellationToken = default);
+}
+
+public abstract record PayoutDestination;
+
+public sealed record BankAccountDestination(
+    string BankCode, string AccountNumber, string? BranchCode, string? AccountName)
+    : PayoutDestination;
+
+public sealed record MobileMoneyDestination(
+    string Network, string PhoneNumber, string? AccountName) : PayoutDestination;
+
+public sealed record WalletDestination(string WalletId, string? AccountName) : PayoutDestination;
+
+public sealed record PayoutInstruction(
+    string ClientReference,
+    Money Amount,
+    string DebitCurrency,
+    PayoutDestination Destination,
+    string Narration,
+    string? CallbackUrl,
+    IReadOnlyDictionary&lt;string, string&gt;? Metadata);
+
+public sealed record PayoutInitiationResult(
+    PartnerReference Reference,
+    PartnerTransactionStatus Status,
+    Money? Fee,
+    RawProviderResponse Raw);
+
+public sealed record PayoutStatusResult(
+    PartnerReference Reference,
+    PartnerTransactionStatus Status,
+    Money? Fee,
+    RawProviderResponse Raw);
+
+public sealed record PayoutQuoteRequest(
+    Money Amount, string DestinationCurrency, PayoutDestination? Destination);
+
+public sealed record PayoutQuoteResult(
+    Money Fee, decimal? FxRate, Money? ConvertedAmount, RawProviderResponse Raw);
+
+public sealed record AccountResolutionRequest(
+    string BankCode, string AccountNumber, string? Currency);
+
+public sealed record AccountResolutionResult(
+    bool Resolved, string? AccountName, RawProviderResponse Raw);</code></pre>
+
+<h3>5.4 Collection port &mdash; <code>IPartnerCollectionConnector.cs</code></h3>
+
+<p>
+  Models a partner-initiated <em>pull</em> (card / bank transfer / mobile-money / USSD) with
+  async settlement. The normalized <code>PartnerAuthorizationAction</code> captures
+  Flutterwave's <code>meta.authorization</code> next-step so the payer can be redirected or
+  shown a USSD code.
+</p>
+
+<pre><code>using Aonik.SharedKernel.Primitives;
+
+namespace Aonik.Finance.Contracts.Services.Partners.Connectors;
+
+public interface IPartnerCollectionConnector : IPartnerConnector
+{
+    Task&lt;CollectionInitiationResult&gt; InitiateCollectionAsync(
+        CollectionInstruction instruction, CancellationToken cancellationToken = default);
+
+    Task&lt;CollectionStatusResult&gt; GetCollectionStatusAsync(
+        PartnerReference reference, CancellationToken cancellationToken = default);
+
+    Task&lt;CollectionRefundResult&gt; RefundCollectionAsync(
+        CollectionRefundInstruction instruction, CancellationToken cancellationToken = default);
+}
+
+public abstract record CollectionMethod;
+public sealed record CardCollection(string? RedirectUrl) : CollectionMethod;
+public sealed record BankTransferCollection : CollectionMethod;
+public sealed record MobileMoneyCollection(string Network, string PhoneNumber) : CollectionMethod;
+public sealed record UssdCollection(string BankCode) : CollectionMethod;
+
+public sealed record PayerContact(
+    string? Email, string? PhoneNumber, string? FullName, string? IpAddress);
+
+public sealed record CollectionInstruction(
+    string ClientReference,
+    Money Amount,
+    CollectionMethod Method,
+    PayerContact Payer,
+    IReadOnlyDictionary&lt;string, string&gt;? Metadata);
+
+// Normalized "next action" relayed to the payer (redirect / pin / ussd / callback).
+public sealed record PartnerAuthorizationAction(
+    string Mode, string? RedirectUrl, string? UssdCode, string? Reference);
+
+public sealed record CollectionInitiationResult(
+    PartnerReference Reference,
+    PartnerTransactionStatus Status,
+    PartnerAuthorizationAction? NextAction,
+    RawProviderResponse Raw);
+
+public sealed record CollectionStatusResult(
+    PartnerReference Reference,
+    PartnerTransactionStatus Status,
+    Money? SettledAmount,
+    RawProviderResponse Raw);
+
+public sealed record CollectionRefundInstruction(
+    PartnerReference OriginalReference, Money Amount, string? Reason);
+
+public sealed record CollectionRefundResult(
+    PartnerReference Reference, PartnerTransactionStatus Status, RawProviderResponse Raw);</code></pre>
+
+<h3>5.5 Bill-payment port &mdash; <code>IPartnerBillPaymentConnector.cs</code></h3>
+
+<p>
+  The eTranzact <em>catalog &rarr; validate &rarr; pay &rarr; requery</em> flow.
+  <code>ValidationToken</code> carries the short-lived <code>billQueryRef</code> / <code>paymentRef</code>
+  from validate into pay; <code>Token</code> on the payment result carries vend artefacts
+  (e.g. prepaid-electricity tokens).
+</p>
+
+<pre><code>using Aonik.SharedKernel.Primitives;
+
+namespace Aonik.Finance.Contracts.Services.Partners.Connectors;
+
+public interface IPartnerBillPaymentConnector : IPartnerConnector
+{
+    Task&lt;IReadOnlyList&lt;BillerCatalogEntry&gt;&gt; GetBillerCatalogAsync(
+        BillerCatalogQuery query, CancellationToken cancellationToken = default);
+
+    Task&lt;BillCustomerValidationResult&gt; ValidateCustomerAsync(
+        BillCustomerValidationRequest request, CancellationToken cancellationToken = default);
+
+    Task&lt;BillPaymentResult&gt; PayBillAsync(
+        BillPaymentInstruction instruction, CancellationToken cancellationToken = default);
+
+    Task&lt;BillPaymentStatusResult&gt; GetBillPaymentStatusAsync(
+        PartnerReference reference, CancellationToken cancellationToken = default);
+}
+
+public enum BillAmountType { Fixed, Variable }
+
+// Maps eTranzact expectedFields[] / Flutterwave label_name.
+public sealed record BillCustomerField(string Key, string Label, bool Required);
+
+public sealed record BillItem(
+    string ItemCode, string Name, BillAmountType AmountType,
+    Money? FixedAmount, Money? MinAmount, Money? MaxAmount);
+
+// ServiceCategory marks a biller as BillPayment or AirtimeTopup (a telco). The connector still
+// routes by biller / item code; the category drives reporting and the persisted record's ServiceCategory.
+public sealed record BillerCatalogEntry(
+    string BillerCode, string BillerName, string CategoryCode, string CategoryName,
+    PartnerServiceCategory ServiceCategory,
+    IReadOnlyList&lt;BillCustomerField&gt; CustomerFields, IReadOnlyList&lt;BillItem&gt; Items);
+
+public sealed record BillerCatalogQuery(string? CategoryCode, string? Country, string? Currency);
+
+public sealed record BillCustomerValidationRequest(
+    string ClientReference, string BillerCode, string ItemCode, string CustomerId,
+    IReadOnlyDictionary&lt;string, string&gt;? Inputs);
+
+// ValidationToken = eTranzact billQueryRef / paymentRef, carried into payment.
+public sealed record BillCustomerValidationResult(
+    bool IsValid, string? ValidationToken, string? CustomerName,
+    IReadOnlyDictionary&lt;string, string&gt;? ResolvedFields,
+    Money? OutstandingAmount, RawProviderResponse Raw);
+
+// ServiceCategory is advisory (the connector routes by biller / item code); it is carried so the
+// persisted PartnerBillPayment.ServiceCategory is unambiguous &mdash; bill payment vs airtime top-up.
+public sealed record BillPaymentInstruction(
+    string ClientReference, string BillerCode, string ItemCode, string CustomerId,
+    Money Amount, string? ValidationToken,
+    PartnerServiceCategory? ServiceCategory,
+    IReadOnlyDictionary&lt;string, string&gt;? Inputs);
+
+// Token carries e.g. prepaid-electricity vend tokens.
+public sealed record BillPaymentResult(
+    PartnerReference Reference, PartnerTransactionStatus Status,
+    string? Token, RawProviderResponse Raw);
+
+public sealed record BillPaymentStatusResult(
+    PartnerReference Reference, PartnerTransactionStatus Status,
+    string? Token, RawProviderResponse Raw);</code></pre>
+
+<div class="callout ok">
+  <span class="callout-label">Airtime / data top-up reuses this port</span>
+  <strong>Airtime and data top-up are <em>not</em> a separate port.</strong> All three
+  vendors run top-up through their bill rails &mdash; Flutterwave bills
+  <code>type = AIRTIME / DATA_BUNDLE</code>, eTranzact's recharge bill category, and
+  Interswitch's <code>categoryId = 4</code> telco billers paid via the same
+  <code>POST /Transactions</code> as any bill. The interaction shape is identical:
+  <em>catalog &rarr; (optional) validate &rarr; pay &rarr; requery</em>. So a telco is just a
+  <code>BillerCatalogEntry</code>, a data bundle is a <code>BillItem</code>, the MSISDN is the
+  <code>CustomerId</code>, and a recharge PIN / electricity units come back as
+  <code>BillPaymentResult.Token</code>. The guiding rule: <strong>a port is the interaction
+  shape; a category is the service offered.</strong> Top-up keeps the bill-payment port but is
+  elevated to its own <code>PartnerServiceCategory.AirtimeTopup</code> so it can be routed,
+  reported, and ledgered as a distinct service (and so a connector can advertise top-up
+  without advertising general bill payment). A connector signals support by adding an
+  <code>AirtimeTopup</code> capability lane; nothing on the interface changes. Each
+  <code>BillerCatalogEntry</code> now carries a <code>ServiceCategory</code> so the catalog is
+  self-describing (a telco entry reports <code>AirtimeTopup</code>), and
+  <code>BillPaymentInstruction</code> carries an optional <code>ServiceCategory</code> so the
+  persisted record is unambiguous &mdash; the connector still routes purely by biller / item code.
+</div>
+
+<h3>5.6 Webhook translator &mdash; <code>IPartnerWebhookTranslator.cs</code></h3>
+
+<p>
+  All four services settle asynchronously via partner callbacks. The translator is
+  per-provider: it verifies the signature and lifts the raw envelope into one normalized
+  <code>PartnerWebhookEvent</code> carrying the category, reference duality, and normalized
+  status.
+</p>
+
+<pre><code>namespace Aonik.Finance.Contracts.Services.Partners.Connectors;
+
+public interface IPartnerWebhookTranslator
+{
+    string ProviderCode { get; }
+    bool VerifySignature(PartnerWebhookEnvelope envelope, string signingSecret);
+    PartnerWebhookEvent Translate(PartnerWebhookEnvelope envelope);
+}
+
+public sealed record PartnerWebhookEnvelope(
+    string ProviderCode, IReadOnlyDictionary&lt;string, string&gt; Headers, string Body);
+
+public sealed record PartnerWebhookEvent(
+    PartnerServiceCategory Category, string EventType,
+    PartnerReference Reference, PartnerTransactionStatus Status, RawProviderResponse Raw);</code></pre>
+
+<h3>5.7 Connector resolver &mdash; <code>IPartnerConnectorResolver.cs</code></h3>
+
+<p>
+  A single selection point &mdash; an improvement on the inline <code>ResolveProvider</code>
+  switch. Direct lookups match a <code>ProviderCode</code> (case-insensitive, mirroring
+  <code>PublicPaymentService.ResolveProvider</code>); the <code>TryResolve*</code> overloads
+  pick a connector whose <code>Capabilities</code> satisfy a
+  <code>PartnerConnectorQuery</code> &mdash; the seam a routing engine will later drive.
+  Because airtime rides the bill-payment port, an airtime lane is resolved through
+  <code>TryResolveBillPaymentConnector</code> with
+  <code>Category = PartnerServiceCategory.AirtimeTopup</code> &mdash; the same port, selected
+  by category.
+</p>
+
+<pre><code>namespace Aonik.Finance.Contracts.Services.Partners.Connectors;
+
+public interface IPartnerConnectorResolver
+{
+    IPartnerPayoutConnector ResolvePayoutConnector(string providerCode);
+    IPartnerCollectionConnector ResolveCollectionConnector(string providerCode);
+    IPartnerBillPaymentConnector ResolveBillPaymentConnector(string providerCode);
+    IPartnerWebhookTranslator ResolveWebhookTranslator(string providerCode);
+
+    bool TryResolvePayoutConnector(
+        PartnerConnectorQuery query, out IPartnerPayoutConnector? connector);
+    bool TryResolveCollectionConnector(
+        PartnerConnectorQuery query, out IPartnerCollectionConnector? connector);
+    bool TryResolveBillPaymentConnector(
+        PartnerConnectorQuery query, out IPartnerBillPaymentConnector? connector);
+}
+
+public sealed record PartnerConnectorQuery(
+    PartnerServiceCategory Category, string? Country, string? Currency, string? Method);</code></pre>
+
+<h3>5.8 Simulated connector + DI</h3>
+
+<p>
+  <code>SimulatedPartnerConnector</code> is an <code>internal</code> class implementing all
+  three port interfaces, exactly as <code>StripeSimulatedPaymentProviderGateway</code>
+  implements <code>IPaymentProviderGateway</code>. <code>ProviderCode =&gt; "Simulated"</code>,
+  it advertises a few capability lanes (Payout NG/NGN bank + mobile-money, Collection NG/NGN
+  card, BillPayment NG, AirtimeTopup NG), and it returns deterministic fake references and
+  <code>Succeeded</code> / <code>RequiresAction</code> outcomes &mdash; no network, no secrets.
+</p>
+
+<pre><code>// FinanceModule.ConfigureServices — "Partner Connectors" block.
+// One concrete instance backs all three ports; forwarding registrations keep
+// the simulated connector a single object while satisfying each port list.
+services.AddSingleton&lt;SimulatedPartnerConnector&gt;();
+services.AddSingleton&lt;IPartnerPayoutConnector&gt;(
+    sp =&gt; sp.GetRequiredService&lt;SimulatedPartnerConnector&gt;());
+services.AddSingleton&lt;IPartnerCollectionConnector&gt;(
+    sp =&gt; sp.GetRequiredService&lt;SimulatedPartnerConnector&gt;());
+services.AddSingleton&lt;IPartnerBillPaymentConnector&gt;(
+    sp =&gt; sp.GetRequiredService&lt;SimulatedPartnerConnector&gt;());
+services.AddSingleton&lt;IPartnerWebhookTranslator, SimulatedPartnerWebhookTranslator&gt;();
+services.AddSingleton&lt;IPartnerConnectorResolver, PartnerConnectorResolver&gt;();</code></pre>
+
+<div class="callout">
+  <span class="callout-label">Note</span>
+  <code>PartnerConnectorResolver</code> injects
+  <code>IEnumerable&lt;IPartnerPayoutConnector&gt;</code>,
+  <code>IEnumerable&lt;IPartnerCollectionConnector&gt;</code>,
+  <code>IEnumerable&lt;IPartnerBillPaymentConnector&gt;</code>, and
+  <code>IEnumerable&lt;IPartnerWebhookTranslator&gt;</code>, then matches on
+  <code>ProviderCode</code> for direct lookups and on <code>Capabilities</code> for the
+  <code>TryResolve*</code> overloads &mdash; the same injected-list pattern as the existing
+  gateway resolution. A real vendor is added by registering one more connector against the
+  relevant port(s); no resolver change.
+</div>
+
+<h2 id="gaps">6. Entity-model gap analysis</h2>
+
+<p>
+  How well today's entities can back payout / collection / bill payment / airtime top-up
+  through these ports. Severity = impact on covering the four services. This section
+  <em>reports</em>; &sect;7 <em>designs the fix</em>.
+</p>
+
+<h3>6.1 Payout</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Gap</th><th>Where</th><th>Sev</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>P1</td>
+      <td><code>Payout</code> is too thin (<code>Amount, Currency, DestinationExternalAccountId, PartnerId, Status</code>). No <code>ConnectorId</code>, no <code>ClientReference</code> / idempotency, no <code>ProviderReference</code> (needed for requery / recon), no <code>DebitCurrency</code> / FX, no <code>Fee</code>, no <code>Narration</code>, no <code>FailureReason</code> / raw response, no order-item fulfilment link.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Payments/Payout.cs"><code>Payout.cs</code></a></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>P2</td>
+      <td>No structured destination. <code>DestinationExternalAccountId</code> is a single Guid; it can't express bank (branch code) vs mobile-money (MSISDN + network) vs wallet. The <code>PayoutDestination</code> hierarchy has nowhere to persist.</td>
+      <td>&mdash;</td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>P3</td>
+      <td>No saved-recipient / external-account entity. Flutterwave beneficiaries + name-enquiry result (<code>AccountName</code>) have no home; <code>DestinationExternalAccountId</code> references a type that does not exist.</td>
+      <td><code>Entities/Partners/*</code></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>P4</td>
+      <td>No bank / institution directory. Each partner has its own bank codes (Flutterwave <code>044</code>, eTranzact codes); nothing maps an AONIK institution to per-connector codes.</td>
+      <td>&mdash;</td>
+      <td>Med</td>
+    </tr>
+    <tr>
+      <td>P5</td>
+      <td>No payout reversal / recall modelling. <code>Refund</code> is collection-side (<code>PaymentId</code>). Failed transfers that auto-reverse the wallet can't be represented against the ledger.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Payments/Refund.cs"><code>Refund.cs</code></a></td>
+      <td>Med</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.2 Collection</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Gap</th><th>Where</th><th>Sev</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>C1</td>
+      <td>No first-class partner Collection record mirroring <code>Payout</code>. <code>PaymentIntent</code> / <code>Payment</code> cover card checkout but not a partner-initiated pull (mobile-money / bank-transfer / USSD) with async settlement.</td>
+      <td><code>Entities/Payments/*</code></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>C2</td>
+      <td><code>PaymentIntent</code> lacks partner linkage: no <code>ConnectorId</code>, no <code>ClientReference</code>, no <code>ProviderReference</code> (only <code>Payment</code> has provider fields), no method-specific data (network / MSISDN).</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Payments/PaymentIntent.cs"><code>PaymentIntent.cs</code></a></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>C3</td>
+      <td>Nowhere to persist a "next action" (redirect URL / USSD code) returned at initiation and relayed to the payer.</td>
+      <td>&mdash;</td>
+      <td>Med</td>
+    </tr>
+    <tr>
+      <td>C4</td>
+      <td>No inbound webhook inbox. The Plaid webhook is anonymous + unsigned. Partner callbacks need an idempotent event store (<code>ProviderCode, EventType, ProviderReference, ClientReference, RawPayload, SignatureValid, ProcessedAt</code>) keyed for replay / dedupe.</td>
+      <td><code>Endpoints/Admin/Accounts/*</code></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>C5</td>
+      <td>No partner-collection refund persistence. <code>IPartnerCollectionConnector.RefundCollectionAsync</code> returns a <code>CollectionRefundResult</code> (provider reference, normalized status, raw response), but <code>Refund</code> is thin (<code>PaymentId, Amount, Currency, Status, Reason</code>) &mdash; no <code>ConnectorId</code>, no <code>ClientReference</code> / idempotency, no <code>ProviderReference</code>, no <code>FailureReason</code> / raw response, and it links only to a card <code>Payment</code>, not the partner <code>PaymentIntent</code> collection path. The refund outcome is homeless. Symmetric to P5 (payout reversal).</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Payments/Refund.cs"><code>Refund.cs</code></a></td>
+      <td>High</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.3 Bill payment &amp; airtime top-up</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Gap</th><th>Where</th><th>Sev</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>B1</td>
+      <td>No connector&harr;biller code mapping. <code>CatalogBiller.CorrespondentPartnerId</code> links a biller to <em>one</em> partner, but partner-specific codes (Flutterwave <code>biller_code</code> / <code>item_code</code> vs eTranzact <code>billId</code> / <code>productId</code>) aren't stored &mdash; the same logical biller can't route to multiple partners. <strong>Core blocker for a multi-partner abstraction.</strong></td>
+      <td><a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBiller.cs"><code>CatalogBiller.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBillerService.cs"><code>CatalogBillerService.cs</code></a></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>B2</td>
+      <td>Validation result isn't persisted. The validate &rarr; pay handshake produces a short-lived <code>ValidationToken</code> (eTranzact <code>billQueryRef</code>) + resolved customer name / outstanding amount that must carry into payment; <code>RequiresValidation</code> flags it but there is no entity to store the result / expiry.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBillerService.cs"><code>CatalogBillerService.cs</code></a></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>B3</td>
+      <td><code>CatalogBillerService</code> lacks an explicit <code>AmountType</code> (Fixed vs Variable) and <code>FixedAmount</code>; fixed-price items (a specific data bundle) are only implied by Min / Max.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBillerService.cs"><code>CatalogBillerService.cs</code></a></td>
+      <td>Low</td>
+    </tr>
+    <tr>
+      <td>B4</td>
+      <td>No executed bill / airtime transaction entity. The port returns a <code>BillPaymentResult</code> carrying a vend <code>Token</code> (prepaid-electricity units, recharge PIN), a <code>ProviderReference</code>, and a status, but there is nowhere to persist the executed transaction &mdash; the bill / airtime analogue of <code>Payout</code>. The vend token, provider ref, and outcome are homeless, so requery, reconciliation, and ledger fulfilment can't bind to a stored record.</td>
+      <td><code>Entities/Payments/*</code> (none)</td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>A1</td>
+      <td>Airtime / data top-up has no first-class service representation. <code>OrderType</code> has no airtime value, no <code>AirtimeTopup</code> service category is persisted, and nothing distinguishes a telco top-up from a generic bill at the order / reporting / ledger layer. (Telcos themselves can already be modelled as billers &mdash; see &sect;7.)</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Orders/OrderType.cs"><code>OrderType.cs</code></a></td>
+      <td>Med</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6.4 Cross-cutting</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Gap</th><th>Where</th><th>Sev</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>X1</td>
+      <td><code>Transmission</code> is payout-only (<code>PayoutId</code>) and has no <code>ProviderReference</code> (only <code>LastError</code>). Collections and bill payments have no attempt / transmission record; reconciliation can't store the provider txn id. <code>OrderFulfilmentRef</code> shares the same limitation &mdash; it links an order only to a <code>PayoutId</code>, so a collection or bill / airtime payment can't be tied back to the order that requested it. Both need to link to any of several target types (payout / collection / bill / airtime) and to store a <code>ProviderReference</code> + <code>RawResponse</code> on <code>Transmission</code>; &sect;7 closes this with typed nullable FKs (the linkage shape is decided in &sect;10).</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Partners/Transmission.cs"><code>Transmission.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Orders/OrderFulfilmentRef.cs"><code>OrderFulfilmentRef.cs</code></a></td>
+      <td>High</td>
+    </tr>
+    <tr>
+      <td>X2</td>
+      <td>No structured connector capability. <code>Partner.CapabilitiesJson</code> / <code>Connector.ConfigJson</code> are schema-less; <code>RoutingRule.ConditionsJson</code> can't reliably select "mobile-money payout, KES, Kenya". The port models capability; persistence needs a typed <code>ConnectorCapability</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Partners/Connector.cs"><code>Connector.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Partners/RoutingRule.cs"><code>RoutingRule.cs</code></a></td>
+      <td>Med</td>
+    </tr>
+    <tr>
+      <td>X3</td>
+      <td>No normalized status vocabulary on entities. <code>Order</code> uses <code>OrderStatuses</code> strings, <code>Payment</code> uses <code>PaymentStatus</code>; partner-operation status is freeform on <code>Payout.Status</code> / <code>Transmission.Status</code>.</td>
+      <td><code>Entities/Payments/*</code>, <code>Entities/Partners/*</code></td>
+      <td>Med</td>
+    </tr>
+    <tr>
+      <td>X4</td>
+      <td><code>OrderType</code> (<code>BillPayment, BankTransfer, CashCollection</code>) is too narrow: no mobile-money / wallet payout, no remittance, and "CashCollection" doesn't represent partner card / bank / mobile-money inflows.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Orders/OrderType.cs"><code>OrderType.cs</code></a></td>
+      <td>Med</td>
+    </tr>
+    <tr>
+      <td>X5</td>
+      <td>No realized fee / FX capture on <code>Payout</code> / <code>PaymentIntent</code>. <code>Order.FxQuoteId</code> / <code>OrderItem.PricingQuoteId</code> hold the <em>indicative</em> quote; the partner-quoted fee + rate at execution isn't stored for reconciliation.</td>
+      <td><code>Entities/Payments/*</code></td>
+      <td>Low</td>
+    </tr>
+    <tr>
+      <td>X6</td>
+      <td>No sensitive-data storage rule for the partner rails. Payout destinations carry full account numbers / MSISDNs / wallet ids and connector calls return raw payloads, but nothing states these must be masked / tokenized / vaulted and that raw responses be redacted before persistence. The established <code>Account</code> / <code>PartyAccount</code> convention (<code>MaskedIdentifier</code> + <code>ProviderAccountReference</code>, never the raw number) isn't yet carried to the new partner entities.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Accounts/Account.cs"><code>Account.cs</code></a></td>
+      <td>High</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="entity-changes">7. Proposed entity changes</h2>
+
+<p>
+  The concrete schema work that closes &sect;6, expressed as new and modified entities. Each
+  row names the gap ID(s) it resolves. <strong>This is in scope this phase</strong> &mdash; the
+  entities, their <code>IEntityTypeConfiguration&lt;T&gt;</code>, the <code>DbSet</code>s, and a
+  single migration are all delivered here, not deferred. Every change follows the CLAUDE.md
+  workflow: edit the entity + <code>IEntityTypeConfiguration&lt;T&gt;</code>, add the
+  <code>DbSet</code> to <code>AonikDbContext</code> (and the <code>FinanceDbContext</code>
+  read/write path), then <strong>tool-generate</strong> one migration against
+  <code>AonikDbContext</code> (the single migration stream) &mdash; never hand-author it. All
+  new tables take the <code>Ank</code> prefix and inherit <code>AuditableEntity</code>. Tenant
+  scoping is <strong>per-entity, not blanket</strong>: tenant-owned tables implement
+  <code>ITenantScoped</code> (non-null <code>TenantId</code>), while canonical / ingestion tables
+  &mdash; <code>FinancialInstitution</code> (a shared directory) and <code>PartnerWebhookEvent</code>
+  (an inbound inbox written before a tenant is resolved) &mdash; are <strong>global</strong>
+  (<code>AuditableEntity</code> + nullable <code>TenantId</code>). Global scoping here is a
+  <em>query-filter</em> concern, <strong>not</strong> <code>IsGlobalEntity()</code>: that hook only
+  governs write-time tenant <em>stamping</em> for <code>ITenantScoped</code> types whose
+  <code>TenantId</code> is <code>Guid.Empty</code> (it is consulted only inside
+  <code>EnforceTenantOnWrites()</code>, which iterates
+  <code>ChangeTracker.Entries&lt;ITenantScoped&gt;()</code>) and is a <strong>no-op</strong> for
+  nullable-tenant <code>AuditableEntity</code> types that don't implement <code>ITenantScoped</code>.
+  Each instead follows the matching in-repo precedent: <code>FinancialInstitution</code> is a
+  tenant-overridable directory like <code>ReferenceDataItem</code> / <code>Country</code> &mdash;
+  registered via <code>ApplyNullableTenantQueryFilter(modelBuilder, typeof(FinancialInstitution))</code>
+  and excluded from the soft-delete filter, so global (null-tenant) rows are visible to every tenant;
+  <code>PartnerWebhookEvent</code> is a purely global inbox like <code>FinancialWebhookEvent</code>
+  &mdash; <em>no</em> tenant query filter at all, since rows land before a tenant is resolved. Each
+  entity's scope is marked in Table A. &sect;7.4 inventories every table the migration creates or alters.
+</p>
+
+<div class="callout p0">
+  <span class="callout-label">Load-bearing first</span>
+  If the schema work is staged, land these first &mdash; they are what actually lets all
+  four services execute through swappable partners: <strong>B1</strong>
+  (<code>ConnectorBillerMapping</code>), <strong>B4</strong> (<code>PartnerBillPayment</code> &mdash;
+  the executed bill / airtime record), <strong>P1 / P2</strong> (<code>Payout</code> shape +
+  destination), <strong>C1 / C2</strong> (<code>PaymentIntent</code> partner linkage), and
+  <strong>C4 + X1</strong> (<code>PartnerWebhookEvent</code> inbox + generalized
+  <code>Transmission</code> / <code>OrderFulfilmentRef</code>).
+</div>
+
+<h3>7.1 Table A &mdash; New entities</h3>
+
+<table>
+  <thead>
+    <tr><th>Entity</th><th>Purpose</th><th>Key fields</th><th>Closes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tag new">New</span> <code>ExternalPayoutAccount</code></td>
+      <td><strong>Tenant-scoped.</strong> Reusable, verified payout destination &mdash; a saved beneficiary plus the name-enquiry result. Links back to the beneficiary through a nullable <code>BeneficiaryPartyId</code> &mdash; a soft Guid reference to the Platform <code>Party</code> (read via <code>PartyReadModel</code>), the same convention <code>Order.PayerPartyId</code> / <code>PaymentIntent.PayeePartyId</code> already use; null for a name-enquiry-only destination not yet tied to a known party. Gives <code>Payout.DestinationExternalAccountId</code> a real referent and a home for the <code>PayoutDestination</code> rails. Stores a <strong>masked</strong> identifier + the connector's <code>ProviderBeneficiaryId</code> token (and an optional <code>VaultRef</code>) &mdash; never the raw account number / MSISDN / wallet id, mirroring the verified <code>Account</code> / <code>PartyAccount</code> <code>MaskedIdentifier</code> + <code>ProviderAccountReference</code> convention (see the storage rule below). Separate from Platform's <code>PartyAccount</code> &mdash; see the overlap note below.</td>
+      <td><code>TenantId, BeneficiaryPartyId?, PartnerId?, ConnectorId?, DestinationType {Bank|MobileMoney|Wallet}, BankCode?, BranchCode?, MobileNetwork?, MaskedAccountIdentifier, AccountName, Currency, IsVerified, VerifiedAt?, ProviderBeneficiaryId?, VaultRef?</code> &mdash; no raw account-number / MSISDN / wallet-id column.</td>
+      <td>P3, P2, X6</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>FinancialInstitution</code></td>
+      <td><strong>Global.</strong> Canonical, partner-agnostic directory of banks / MMOs / wallet providers that connector codes map onto. This is the payout / collection institution directory; airtime telcos are billers (modelled via <code>CatalogBiller</code> + <code>ConnectorBillerMapping</code>), not entries here.</td>
+      <td><code>TenantId?, CountryCode, Name, InstitutionType {Bank|MobileMoney|Wallet}, DefaultCurrency?, Bic?, IsActive</code></td>
+      <td>P4</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>ConnectorInstitutionCode</code></td>
+      <td><strong>Tenant-scoped</strong> (follows <code>Connector</code>). Maps one <code>FinancialInstitution</code> to a connector-specific code (Flutterwave <code>044</code>, an eTranzact bank code). Many per institution &mdash; one per connector.</td>
+      <td><code>TenantId, ConnectorId, FinancialInstitutionId, ProviderInstitutionCode, IsActive</code></td>
+      <td>P4</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>ConnectorCapability</code></td>
+      <td><strong>Tenant-scoped</strong> (follows <code>Connector</code>). Typed, queryable capability lane per connector &mdash; the persistent twin of <code>PartnerConnectorCapability</code>. Authoritative for routing post-migration; <code>Connector.ConfigJson</code> / <code>Partner.CapabilitiesJson</code> are demoted to free-form config and no longer parsed at selection time.</td>
+      <td><code>TenantId, ConnectorId, Category {Payout|Collection|BillPayment|AirtimeTopup}, CountryCode, Currency, Method, Status</code></td>
+      <td>X2</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>ConnectorBillerMapping</code></td>
+      <td><strong>Tenant-scoped.</strong> Maps a logical <code>CatalogBiller</code> (+ optional service) to a connector's provider codes, so the same biller routes to multiple partners. Provider-specific biller / item codes live <em>only</em> here (<code>ProviderBillerCode</code> / <code>ProviderItemCode</code>) &mdash; <code>CatalogBillerService.ServiceCode</code> stays the logical AONIK code, never a vendor code (AF5). Telcos are billers too (Flutterwave <code>AIRTIME</code> / Interswitch <code>categoryId = 4</code>), so airtime / data routing flows through the same mapping. The core multi-partner enabler.</td>
+      <td><code>TenantId, CatalogBillerId, CatalogBillerServiceId?, ConnectorId, ProviderBillerCode, ProviderItemCode?, IsActive</code></td>
+      <td>B1</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>BillValidation</code></td>
+      <td><strong>Tenant-scoped.</strong> Persists the validate &rarr; pay handshake: the token, resolved customer name, outstanding amount, resolved fields, and expiry that must carry into payment.</td>
+      <td><code>TenantId, ClientReference, ConnectorId, CatalogBillerServiceId?, CustomerId, ValidationToken, CustomerName?, OutstandingAmount?, Currency?, ResolvedFieldsJson, ExpiresAt?, Status</code></td>
+      <td>B2</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>PartnerBillPayment</code></td>
+      <td><strong>Tenant-scoped.</strong> The executed bill / airtime transaction &mdash; the bill-side analogue of <code>Payout</code>. Persists the vend <code>Token</code>, provider reference, normalized status, and the order item it fulfils. <code>ServiceCategory</code> distinguishes a bill payment from an airtime / data top-up so the same table backs both (A1). Without it the <code>BillPaymentResult</code> token and outcome have nowhere to live (B4). Named <code>PartnerBillPayment</code> (not <code>BillPayment</code>) to avoid colliding with PersonalFinance's <code>Bill</code> obligation entity and with the bill-payment <em>port</em> (AF4).</td>
+      <td><code>TenantId, OrderId?, OrderItemId?, ConnectorId, ConnectorBillerMappingId?, BillerCode, ItemCode, CustomerId, Amount, Currency, ClientReference, ProviderReference?, BillValidationId?, ServiceCategory {BillPayment|AirtimeTopup}, VendToken?, Status, FailureReason?, RawResponseJson?</code></td>
+      <td>B4, A1</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>PartnerWebhookEvent</code></td>
+      <td><strong>Global</strong> (nullable <code>TenantId</code> &mdash; rows are written on callback receipt, before a tenant is resolved; <strong>purely global with no tenant query filter</strong>, like <code>FinancialWebhookEvent</code> &mdash; <em>not</em> <code>IsGlobalEntity()</code>, see the &sect;7 intro). Idempotent inbound-callback inbox across all four services. The persisted twin of the translator's <code>PartnerWebhookEvent</code> output (§5.6). Distinct from the existing <code>FinancialWebhookEvent</code> (Plaid / personal-finance): it carries partner correlation that one lacks &mdash; <code>Category</code> (service category), <code>ClientReference</code>, <code>SignatureValid</code> (AF2). <strong>Deduped</strong> by <strong>two filtered unique indexes</strong> (SQL Server treats NULLs as equal in a unique index, so one unfiltered index over the nullable <code>ProviderEventId</code> would reject every event-id-less row): one on (<code>ProviderCode, ProviderEventId</code>) <code>WHERE ProviderEventId IS NOT NULL</code>, plus a fallback on (<code>ProviderCode, PayloadHash</code>) <code>WHERE ProviderEventId IS NULL</code>.</td>
+      <td><code>TenantId?, ProviderCode, Category, EventType, ProviderEventId?, ProviderReference, ClientReference, PayloadHash, RawPayload, SignatureValid, ReceivedAt, ProcessedAt?, ProcessingStatus, Error?</code></td>
+      <td>C4</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> <code>PayoutReversal</code> <em>(optional)</em></td>
+      <td><strong>Tenant-scoped.</strong> Models a recalled or auto-reversed transfer against the ledger &mdash; the payout-side analogue of <code>Refund</code>.</td>
+      <td><code>TenantId, PayoutId, Amount, Currency, Reason, ProviderReference?, Status, JournalEntryId?</code></td>
+      <td>P5</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Sensitive-data storage rule</span>
+  Raw destination identifiers &mdash; full account number, MSISDN, wallet id &mdash; are
+  <strong>never persisted in plaintext</strong>. <code>ExternalPayoutAccount</code> stores a
+  <strong>masked</strong> display identifier (e.g. last-four) plus the connector's reusable
+  <code>ProviderBeneficiaryId</code> token; when execution needs the full value it is supplied
+  transiently on the <code>PayoutInstruction</code> DTO or held behind a vault reference
+  (<code>VaultRef</code>), not as a column &mdash; mirroring the verified <code>Account</code> /
+  <code>PartyAccount</code> <code>MaskedIdentifier</code> + <code>ProviderAccountReference</code>
+  convention. The transient port DTOs (<code>BankAccountDestination</code>,
+  <code>MobileMoneyDestination</code>, <code>WalletDestination</code> in &sect;5.3) still carry the
+  full value &mdash; they are in-memory call payloads, not stored rows. Likewise every
+  <code>RawResponseJson</code> / <code>RawPayload</code> column (<code>Payout</code>,
+  <code>Transmission</code>, <code>PartnerBillPayment</code>, <code>PartnerWebhookEvent</code>) is
+  <strong>redacted</strong> of PANs / MSISDNs / secrets before persistence &mdash; it is an audit
+  trail of vendor codes and status, not a store of cardholder data. The same holds for a
+  collection's payer MSISDN on <code>PaymentIntent</code>, persisted as
+  <code>MaskedPhoneNumber</code> with the full number carried only on the transient
+  <code>CollectionInstruction</code>. Closes X6.
+</div>
+
+<div class="callout">
+  <span class="callout-label">Why new entities, not reuses</span>
+  Each new entity was checked against an existing type that looked similar; they are kept
+  separate for concrete reasons, not by oversight:
+  <ul>
+    <li><strong><code>ExternalPayoutAccount</code> vs Platform's <code>PartyAccount</code> (AF1).</strong>
+    <code>PartyAccount</code> is a <em>party-owned</em> funding / identity account in the
+    <strong>Platform</strong> module; Finance cannot reference it directly (no cross-module
+    entity refs). The payout destination is connector-facing, so it lives in Finance alongside the
+    <code>Payout</code> it backs and links to the beneficiary through an <em>optional</em>
+    <code>BeneficiaryPartyId</code> &mdash; a soft Guid reference to the Platform <code>Party</code>
+    (read via <code>PartyReadModel</code>), exactly as <code>Order.PayerPartyId</code> /
+    <code>PaymentIntent.PayeePartyId</code> reference parties. It is a Guid rather than an EF
+    navigation precisely because of the module boundary, and nullable because a connector can mint a
+    destination from a name-enquiry result alone, before any <code>Party</code> exists.</li>
+    <li><strong><code>PartnerWebhookEvent</code> vs <code>FinancialWebhookEvent</code> (AF2).</strong>
+    Same shape, different correlation. <code>FinancialWebhookEvent</code> keys on Plaid
+    connection references; the partner inbox keys on partner <code>ServiceCategory</code> +
+    <code>ClientReference</code> + <code>SignatureValid</code> and is deduped by provider event id
+    / payload hash. Both copy the same global, nullable-<code>TenantId</code> tenancy model.</li>
+    <li><strong><code>FinancialInstitution</code> vs <code>ReferenceDataItem</code> /
+    <code>AccountConnection</code> (AF3).</strong> <code>ReferenceDataItem</code> is generic
+    <code>Type</code>/<code>Code</code>/<code>DisplayName</code> lookup data, and
+    <code>AccountConnection.InstitutionName</code> is a free-text Plaid label &mdash; neither is a
+    typed institution directory that per-connector codes can FK onto. <code>FinancialInstitution</code>
+    is Finance-owned partner-routing data; it borrows <code>ReferenceDataItem</code>'s global,
+    nullable-<code>TenantId</code> scoping precedent.</li>
+  </ul>
+</div>
+
+<h3>7.2 Table B &mdash; Modified entities</h3>
+
+<table>
+  <thead>
+    <tr><th>Entity</th><th>Current shape</th><th>Add / change</th><th>Closes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>Payout</code></td>
+      <td><code>Amount, Currency, DestinationExternalAccountId?, PartnerId?, Status</code></td>
+      <td>Repurpose the existing <code>DestinationExternalAccountId?</code> as a real FK to <code>ExternalPayoutAccount</code> (no duplicate column added); + <code>ConnectorId</code>, <code>ClientReference</code> (idempotent), <code>ProviderReference</code>, <code>DebitCurrency</code>, <code>FxRate?</code>, <code>ConvertedAmount?</code>, <code>Fee?</code>, <code>FeeCurrency?</code>, <code>Narration?</code>, <code>DestinationType</code>, <code>FailureReason?</code>, <code>RawResponseJson?</code>, <code>OrderItemId?</code>; <code>Status</code> &rarr; <code>PartnerTransactionStatus</code> vocabulary.</td>
+      <td>P1, P2, X3, X5</td>
+    </tr>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>PaymentIntent</code></td>
+      <td><code>Amount, Currency, parties, Order/Invoice/Purpose, PaymentMethodType, PaymentMethodRef?, Status, FailureReason?</code></td>
+      <td>+ <code>ConnectorId?</code>, <code>ClientReference?</code>, <code>ProviderReference?</code>, <code>CollectionMethod?</code>, <code>MobileNetwork?</code>, <code>MaskedPhoneNumber?</code>, <code>NextActionMode?</code>, <code>NextActionRedirectUrl?</code>, <code>NextActionUssdCode?</code>, <code>SettledAmount?</code>, <code>Fee?</code>, <code>FxRate?</code>, <code>CollectionStatus?</code>. The existing <code>Status</code> column <strong>stays the <code>PaymentStatus</code> lifecycle</strong> &mdash; <code>PaymentService</code> parses it (<code>Enum.TryParse&lt;PaymentStatus&gt;</code> at <code>CapturePaymentAsync</code> / <code>CancelPaymentAsync</code>) and throws on an unknown value, so a partner status must <em>not</em> be written there; the partner outcome rides the new <code>CollectionStatus</code> field (<code>PartnerTransactionStatus</code> vocabulary). (Pragmatic path for C1 &mdash; extend the intent rather than add a parallel Collection entity; see &sect;10.)</td>
+      <td>C1, C2, C3, X5</td>
+    </tr>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>Refund</code></td>
+      <td><code>PaymentId, Amount, Currency, Status, Reason?</code></td>
+      <td>make <code>PaymentId</code> nullable and add <code>PaymentIntentId?</code> so a partner-collection refund binds to the <code>PaymentIntent</code> it reverses (today <code>Refund</code> links only to a card <code>Payment</code>); + <code>ConnectorId?</code>, <code>ClientReference?</code> (idempotent), <code>ProviderReference?</code>, <code>FailureReason?</code>, <code>RawResponseJson?</code> (redacted per the storage rule); <code>Status</code> &rarr; <code>PartnerTransactionStatus</code> vocabulary. The collection-side analogue of <code>PayoutReversal</code>. Pragmatic path mirroring the C1 choice &mdash; extend <code>Refund</code> rather than add a parallel <code>CollectionRefund</code> entity (see &sect;10).</td>
+      <td>C5</td>
+    </tr>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>Transmission</code></td>
+      <td><code>PayoutId, ConnectorId, IdempotencyKey, Status, RetryCount, LastError?</code></td>
+      <td>replace the single <code>PayoutId</code> with <strong>typed nullable FKs</strong> &mdash; <code>PayoutId?</code>, <code>PaymentIntentId?</code>, <code>PartnerBillPaymentId?</code> &mdash; under a DB <code>CHECK</code> that <em>exactly one</em> is set; + <code>ProviderReference</code>, <code>RawResponseJson?</code>; <code>Status</code> &rarr; <code>PartnerTransactionStatus</code> vocabulary. (Keeps <code>ConnectorId</code>, <code>IdempotencyKey</code>, <code>RetryCount</code>, <code>LastError</code>.) Typed FKs preserve referential integrity; a polymorphic <code>TargetType + TargetId</code> pair was rejected because it drops the FK constraint (&sect;10).</td>
+      <td>X1, X3</td>
+    </tr>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>OrderFulfilmentRef</code></td>
+      <td><code>OrderId, PayoutId</code></td>
+      <td>replace the single <code>PayoutId</code> with <strong>typed nullable FKs</strong> &mdash; <code>PayoutId?</code>, <code>PaymentIntentId?</code>, <code>PartnerBillPaymentId?</code> &mdash; under a <code>CHECK</code> that exactly one is set, so an order can be fulfilled by a collection or a bill / airtime payment, not only a payout. (An airtime top-up is a <code>PartnerBillPayment</code> target.) Typed FKs over a polymorphic pair for the same integrity reason as <code>Transmission</code> (&sect;10).</td>
+      <td>X1</td>
+    </tr>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>CatalogBillerService</code></td>
+      <td><code>&hellip; MinAmount?, MaxAmount?, RequiresValidation, FieldsJson &hellip;</code></td>
+      <td>+ <code>AmountType {Fixed|Variable}</code>, <code>FixedAmount?</code>.</td>
+      <td>B3</td>
+    </tr>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>CatalogBiller</code></td>
+      <td><code>CorrespondentPartnerId</code> (single partner)</td>
+      <td>soft-deprecate <code>CorrespondentPartnerId</code> as the routing key &mdash; the biller stays the logical entity, but partner routing now flows through <code>ConnectorBillerMapping</code> (Table A). Keep the column until callers migrate. No new biller <em>type</em> is needed for airtime: a telco is just a <code>CatalogBiller</code> under a telco / airtime category, so top-up reuses the existing biller schema.</td>
+      <td>B1, A1</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>7.3 Table C &mdash; Enum / convention changes</h3>
+
+<table>
+  <thead>
+    <tr><th>Change</th><th>Current</th><th>Proposed</th><th>Closes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tag mutate">Edit</span> <code>OrderType</code> enum</td>
+      <td><code>BillPayment, BankTransfer, CashCollection</code></td>
+      <td>+ <code>Payout, Collection, AirtimeTopup, Remittance</code> &mdash; <strong>service intent only</strong> (<code>BillPayment</code> already exists). The rail / method (bank vs mobile-money vs wallet vs card) is <em>not</em> an <code>OrderType</code> value; it lives on the execution entity (<code>Payout.DestinationType</code>, <code>PaymentIntent.CollectionMethod</code>). Keeps the enum a clean business-intent axis and avoids the service&times;rail combinatorial blow-up (&sect;10).</td>
+      <td>X4, A1</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> partner status vocabulary</td>
+      <td>freeform strings on <code>Payout.Status</code> / <code>Transmission.Status</code></td>
+      <td>adopt the <code>PartnerTransactionStatus</code> values (stored as string) on <code>Payout.Status</code>, <code>Transmission.Status</code>, and a <strong>new</strong> <code>PaymentIntent.CollectionStatus</code> field &mdash; one vocabulary spanning port and persistence. <code>PaymentIntent.Status</code> is left untouched as the existing <code>PaymentStatus</code> lifecycle (parsed and enforced by <code>PaymentService</code>), so the partner vocabulary sits <em>beside</em> it, not on it.</td>
+      <td>X3</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">New</span> typed capability</td>
+      <td>schema-less <code>Connector.ConfigJson</code> / <code>Partner.CapabilitiesJson</code></td>
+      <td>typed <code>ConnectorCapability</code> rows (Table A) that <code>RoutingRule</code> can query, instead of parsing JSON blobs at selection time. Its <code>Category</code> includes <code>AirtimeTopup</code>, so a connector can advertise (and routing can select) top-up support independently of general bill payment.</td>
+      <td>X2</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>7.4 Associated database tables</h3>
+
+<p>
+  Every table the &sect;7 migration creates or alters, with the <code>Ank</code> prefix the
+  module convention applies (<code>ModuleTablePrefixes.Finance</code>, verified in-repo).
+  <strong>New</strong> tables come from Table A (new entities); <strong>Modified</strong>
+  tables come from Tables B / C. The <code>OrderType</code> widening and the
+  <code>PartnerTransactionStatus</code> vocabulary are <em>column values</em> on existing tables
+  (<code>AnkOrders</code>, <code>AnkPayouts</code>, &hellip;), not new tables &mdash; see the note
+  below the table.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Table</th><th>Change</th><th>Entity</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>AnkExternalPayoutAccounts</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>ExternalPayoutAccount</code></td>
+      <td>Reusable, verified payout destinations &mdash; saved beneficiaries plus the name-enquiry result, each with a nullable <code>BeneficiaryPartyId</code> soft ref back to the <code>Party</code>. Gives <code>Payout.DestinationExternalAccountId</code> a real referent.</td>
+    </tr>
+    <tr>
+      <td><code>AnkFinancialInstitutions</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>FinancialInstitution</code></td>
+      <td>Partner-agnostic directory of banks / MMOs / wallet providers that connector codes map onto. (Airtime telcos are billers, not rows here.)</td>
+    </tr>
+    <tr>
+      <td><code>AnkConnectorInstitutionCodes</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>ConnectorInstitutionCode</code></td>
+      <td>Per-connector institution code map (e.g. Flutterwave <code>044</code> &rarr; one <code>FinancialInstitution</code>). One row per connector per institution.</td>
+    </tr>
+    <tr>
+      <td><code>AnkConnectorCapabilities</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>ConnectorCapability</code></td>
+      <td>Typed, queryable capability lanes per connector (category / country / currency / method) &mdash; the persistent twin of <code>PartnerConnectorCapability</code>. <code>Category</code> covers <code>AirtimeTopup</code>.</td>
+    </tr>
+    <tr>
+      <td><code>AnkConnectorBillerMappings</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>ConnectorBillerMapping</code></td>
+      <td>Maps a logical <code>CatalogBiller</code> (+ optional service) to a connector's provider codes, so the same biller &mdash; including a telco for airtime / data &mdash; routes to multiple partners. Core multi-partner enabler (B1).</td>
+    </tr>
+    <tr>
+      <td><code>AnkBillValidations</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>BillValidation</code></td>
+      <td>Persists the validate &rarr; pay handshake: the token, resolved customer name, outstanding amount, resolved fields, and expiry carried into payment (B2).</td>
+    </tr>
+    <tr>
+      <td><code>AnkPartnerBillPayments</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>PartnerBillPayment</code></td>
+      <td>The executed bill / airtime transaction with vend <code>Token</code>, provider reference, and normalized status &mdash; the bill-side analogue of <code>Payout</code>. <code>ServiceCategory</code> separates bill payment from airtime top-up (B4, A1).</td>
+    </tr>
+    <tr>
+      <td><code>AnkPartnerWebhookEvents</code></td>
+      <td><span class="tag new">New</span></td>
+      <td><code>PartnerWebhookEvent</code></td>
+      <td><strong>Global</strong> (nullable <code>TenantId</code>, no tenant query filter). Idempotent inbound-callback inbox across all four services, deduped by <strong>two filtered unique indexes</strong> &mdash; (<code>ProviderCode, ProviderEventId</code>) <code>WHERE ProviderEventId IS NOT NULL</code> and (<code>ProviderCode, PayloadHash</code>) <code>WHERE ProviderEventId IS NULL</code> (C4). Distinct from the existing <code>AnkFinancialWebhookEvents</code> (Plaid / personal-finance).</td>
+    </tr>
+    <tr>
+      <td><code>AnkPayoutReversals</code></td>
+      <td><span class="tag new">New</span> <em>(optional)</em></td>
+      <td><code>PayoutReversal</code></td>
+      <td>Recalled or auto-reversed transfer modelled against the ledger &mdash; the payout-side analogue of <code>Refund</code> (P5). Land only if reversal handling is in the first slice.</td>
+    </tr>
+    <tr>
+      <td><code>AnkPayouts</code></td>
+      <td><span class="tag mutate">Modified</span></td>
+      <td><code>Payout</code></td>
+      <td>Add connector linkage, client / provider references, debit currency + FX, fee, narration, structured destination (FK on the existing <code>DestinationExternalAccountId</code> + <code>DestinationType</code>, no duplicate column), failure reason / raw response, and the fulfilled order item; <code>Status</code> &rarr; <code>PartnerTransactionStatus</code> (P1, P2, X3, X5).</td>
+    </tr>
+    <tr>
+      <td><code>AnkPaymentIntents</code></td>
+      <td><span class="tag mutate">Modified</span></td>
+      <td><code>PaymentIntent</code></td>
+      <td>Add partner-collection linkage: connector, client / provider references, collection method (network / masked MSISDN), the relayed next-action (redirect / USSD), settled amount, fee / FX, and a separate <code>CollectionStatus</code> column (the existing <code>Status</code> stays the <code>PaymentStatus</code> lifecycle) (C1, C2, C3, X5).</td>
+    </tr>
+    <tr>
+      <td><code>AnkRefunds</code></td>
+      <td><span class="tag mutate">Modified</span></td>
+      <td><code>Refund</code></td>
+      <td>Make <code>PaymentId</code> nullable + add <code>PaymentIntentId</code>, connector / client / provider references, failure reason, and a redacted raw response so a partner-collection refund (<code>RefundCollectionAsync</code>) can persist; <code>Status</code> &rarr; <code>PartnerTransactionStatus</code>. Collection-side analogue of <code>PayoutReversal</code> (C5).</td>
+    </tr>
+    <tr>
+      <td><code>AnkTransmissions</code></td>
+      <td><span class="tag mutate">Modified</span></td>
+      <td><code>Transmission</code></td>
+      <td>Replace <code>PayoutId</code> with typed nullable FKs (<code>PayoutId?</code> / <code>PaymentIntentId?</code> / <code>PartnerBillPaymentId?</code>) under an exactly-one <code>CHECK</code>; add provider reference + raw response; <code>Status</code> &rarr; <code>PartnerTransactionStatus</code> (X1, X3).</td>
+    </tr>
+    <tr>
+      <td><code>AnkOrderFulfilmentRefs</code></td>
+      <td><span class="tag mutate">Modified</span></td>
+      <td><code>OrderFulfilmentRef</code></td>
+      <td>Replace <code>PayoutId</code> with typed nullable FKs (<code>PayoutId?</code> / <code>PaymentIntentId?</code> / <code>PartnerBillPaymentId?</code>) under an exactly-one <code>CHECK</code>, so a collection or bill / airtime payment can fulfil an order, not only a payout (X1).</td>
+    </tr>
+    <tr>
+      <td><code>AnkCatalogBillers</code></td>
+      <td><span class="tag mutate">Modified</span></td>
+      <td><code>CatalogBiller</code></td>
+      <td>Soft-deprecate <code>CorrespondentPartnerId</code> as the routing key (routing moves to <code>ConnectorBillerMapping</code>); column retained until callers migrate (B1).</td>
+    </tr>
+    <tr>
+      <td><code>AnkCatalogBillerServices</code></td>
+      <td><span class="tag mutate">Modified</span></td>
+      <td><code>CatalogBillerService</code></td>
+      <td>Add <code>AmountType {Fixed|Variable}</code> and <code>FixedAmount</code> so fixed-price items (a specific data bundle) are explicit, not implied by Min / Max (B3).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Not new tables</span>
+  The <code>OrderType</code> enum widening (Table C) and the <code>PartnerTransactionStatus</code>
+  vocabulary are stored as <em>column values</em> on existing tables &mdash; <code>OrderType</code>
+  on <code>AnkOrders</code>, status on <code>AnkPayouts</code> / <code>AnkTransmissions</code> /
+  <code>AnkPaymentIntents</code>. Persisted as strings (the recommended option in &sect;10), they
+  add no table and no column-type change, only new permitted values. The typed-capability change
+  (X2) <em>is</em> a table &mdash; <code>AnkConnectorCapabilities</code>, already listed above.
+  <strong>Total: 9 new tables (8 core + 1 optional), 7 modified.</strong>
+</div>
+
+<h2 id="tasks">8. Tasks</h2>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Task</th><th>Files</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Add common types + base port: <code>PartnerServiceCategory</code>, <code>PartnerTransactionStatus</code>, <code>PartnerReference</code>, <code>RawProviderResponse</code>, <code>PartnerConnectorCapability</code>, <code>IPartnerConnector</code>.</td>
+      <td><code>Contracts/Services/Partners/Connectors/PartnerConnector.cs</code></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Add the payout port + DTOs (<code>IPartnerPayoutConnector</code>, destinations, instruction / results / quote / account resolution).</td>
+      <td><code>Contracts/&hellip;/IPartnerPayoutConnector.cs</code></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Add the collection port + DTOs (<code>IPartnerCollectionConnector</code>, methods, payer, next-action, results).</td>
+      <td><code>Contracts/&hellip;/IPartnerCollectionConnector.cs</code></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Add the bill-payment port + DTOs (<code>IPartnerBillPaymentConnector</code>, catalog / validate / pay / status).</td>
+      <td><code>Contracts/&hellip;/IPartnerBillPaymentConnector.cs</code></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Add the webhook-translator contract + envelope / event records.</td>
+      <td><code>Contracts/&hellip;/IPartnerWebhookTranslator.cs</code></td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Add the resolver contract + <code>PartnerConnectorQuery</code>.</td>
+      <td><code>Contracts/&hellip;/IPartnerConnectorResolver.cs</code></td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Implement <code>SimulatedPartnerConnector</code> (all three ports, deterministic fake refs, capability lanes) and <code>SimulatedPartnerWebhookTranslator</code>.</td>
+      <td><code>Services/Partners/Connectors/</code></td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>Implement <code>PartnerConnectorResolver</code> over the injected port lists (ProviderCode match + capability match).</td>
+      <td><code>Services/Partners/Connectors/PartnerConnectorResolver.cs</code></td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>Add the "Partner Connectors" DI block (concrete once, forward to all three ports + translator + resolver).</td>
+      <td><a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>Add <code>SimulatedPartnerConnectorTests</code>: payout yields a non-empty <code>ProviderReference</code> + <code>Succeeded</code>; bill validate &rarr; pay round-trips the <code>ValidationToken</code>; an airtime pay (no validation) succeeds and the connector advertises an <code>AirtimeTopup</code> lane; resolver returns the connector for <code>"Simulated"</code> (and throws for an unknown code), and <code>TryResolveBillPaymentConnector</code> with <code>Category = AirtimeTopup</code> resolves it.</td>
+      <td><code>tests/Aonik.Application.Tests/Partners/</code></td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>Implement the &sect;7.1 <strong>new entities</strong> (Table A) + their <code>IEntityTypeConfiguration&lt;T&gt;</code>, and add each <code>DbSet</code> to <code>AonikDbContext</code> and the <code>FinanceDbContext</code> read/write path. Includes <code>PartnerBillPayment</code> (with <code>ServiceCategory</code>) and <code>PartnerWebhookEvent</code>. Wire the two global entities the way the codebase already handles nullable-tenant globals &mdash; <strong>not</strong> <code>IsGlobalEntity()</code>, which only governs write-time stamping for <code>ITenantScoped</code> types and is a no-op here: register <code>FinancialInstitution</code> via <code>ApplyNullableTenantQueryFilter(modelBuilder, typeof(FinancialInstitution))</code> and add it to the soft-delete exclude list (mirroring <code>ReferenceDataItem</code> / <code>Country</code>); leave <code>PartnerWebhookEvent</code> purely global with no tenant query filter (mirroring <code>FinancialWebhookEvent</code>).</td>
+      <td><code>Entities/Partners/*</code>, <code>Entities/Payments/*</code>, <code>Entities/Catalog/*</code>, <code>Persistence/Configurations/*</code></td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>Apply the &sect;7.2 / &sect;7.3 <strong>modifications</strong>: extend <code>Payout</code> (reuse <code>DestinationExternalAccountId</code> as the <code>ExternalPayoutAccount</code> FK), extend <code>PaymentIntent</code> (add a separate <code>CollectionStatus</code>, leaving <code>Status</code> as the existing <code>PaymentStatus</code> lifecycle), extend <code>Refund</code> (nullable <code>PaymentId</code> + <code>PaymentIntentId?</code> + connector / provider references + redacted raw, for partner-collection refunds), replace the <code>PayoutId</code> on <code>Transmission</code> and <code>OrderFulfilmentRef</code> with typed nullable FKs (<code>PayoutId?</code> / <code>PaymentIntentId?</code> / <code>PartnerBillPaymentId?</code> + exactly-one <code>CHECK</code>), add <code>AmountType</code> / <code>FixedAmount</code> to <code>CatalogBillerService</code>, soft-deprecate <code>CatalogBiller.CorrespondentPartnerId</code>, widen the <code>OrderType</code> enum (service-level: <code>Payout, Collection, AirtimeTopup, Remittance</code>), and adopt the <code>PartnerTransactionStatus</code> string vocabulary on the partner-operation entities.</td>
+      <td><code>Entities/Payments/*</code>, <code>Entities/Partners/*</code>, <code>Entities/Orders/*</code>, <code>Entities/Catalog/*</code></td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td><strong>Tool-generate one migration</strong> against <code>AonikDbContext</code> (<code>dotnet ef migrations add PartnerIntegrationAbstraction --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>), review that it contains only the &sect;7.4 tables (9 new + 7 modified), then apply with <code>dotnet ef database update</code>. Never hand-author the migration.</td>
+      <td><code>src/Aonik.Infrastructure/Migrations/</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">9. Acceptance criteria</h2>
+
+<ul>
+  <li><code>dotnet build Aonik.sln</code> compiles the six contract files, the simulated connector + translator, the resolver, and the DI block with no warnings introduced.</li>
+  <li>All three port interfaces extend <code>IPartnerConnector</code>; <code>SimulatedPartnerConnector.ProviderCode</code> is <code>"Simulated"</code> and its <code>Capabilities</code> advertise at least one lane per category.</li>
+  <li><code>InitiatePayoutAsync</code> on the simulated connector returns a <code>PartnerReference</code> with a non-empty <code>ProviderReference</code> and <code>PartnerTransactionStatus.Succeeded</code>.</li>
+  <li>A bill <code>ValidateCustomerAsync</code> &rarr; <code>PayBillAsync</code> sequence round-trips the <code>ValidationToken</code> (the value returned by validate is accepted by pay).</li>
+  <li><code>PartnerConnectorResolver.ResolvePayoutConnector("Simulated")</code> (case-insensitive) returns the connector; an unknown code throws <code>InvalidOperationException</code>, mirroring <code>PublicPaymentService.ResolveProvider</code>.</li>
+  <li><code>TryResolvePayoutConnector</code> with a satisfiable <code>PartnerConnectorQuery</code> returns <code>true</code> + the connector; an unsatisfiable query returns <code>false</code>.</li>
+  <li><code>dotnet test tests/Aonik.Application.Tests --filter "FullyQualifiedName~Partners"</code> passes.</li>
+  <li>Adding a hypothetical second vendor requires one new connector class + its DI registration &mdash; no edit to any contract, the resolver, or the DTOs.</li>
+  <li>The simulated connector advertises an <code>AirtimeTopup</code> capability lane; <code>TryResolveBillPaymentConnector</code> with <code>Category = AirtimeTopup</code> resolves it; and an airtime <code>PayBillAsync</code> (without a prior validate) round-trips like a bill payment.</li>
+  <li>The &sect;7 entities, their <code>IEntityTypeConfiguration&lt;T&gt;</code>, and <code>DbSet</code>s compile against <code>AonikDbContext</code> and <code>FinanceDbContext</code>.</li>
+  <li><strong>One</strong> migration is tool-generated against <code>AonikDbContext</code> (not hand-authored), contains only the &sect;7.4 tables (9 new + 7 modified) plus their indexes / FKs, and applies cleanly with <code>dotnet ef database update</code>.</li>
+  <li>A <code>PartnerBillPayment</code> entity round-trips through <code>AonikDbContext</code>: saving a row &mdash; once with <code>ServiceCategory = BillPayment</code>, once with <code>AirtimeTopup</code>, each carrying a vend <code>Token</code>, a <code>ProviderReference</code>, and a <code>PartnerTransactionStatus</code> &mdash; and reading it back asserts the column mapping for both, confirming B4 / A1 are closed at the schema level. (This is an EF persistence test against the entity, <em>not</em> an end-to-end validate &rarr; pay flow: the orchestration service that writes the row from a live port call is out of scope, &sect;3.2.)</li>
+</ul>
+
+<h2 id="open">10. Open decisions</h2>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Collection: extend <code>PaymentIntent</code> vs new entity.</strong> &sect;7 Table B
+  takes the pragmatic path &mdash; add partner-linkage fields to <code>PaymentIntent</code>
+  (C1 / C2 / C3) rather than introduce a dedicated partner <code>Collection</code> entity
+  mirroring <code>Payout</code>. Extending keeps one intent record per inflow and avoids a
+  parallel lifecycle; a dedicated entity gives collections the same first-class shape as
+  payouts. The collection <em>refund</em> path (C5) follows the same fork and the same chosen
+  resolution &mdash; &sect;7 extends <code>Refund</code> rather than adding a parallel
+  <code>CollectionRefund</code> entity. Decide before the &sect;7 entities are implemented and the
+  migration is generated this phase.
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong><code>OrderType</code>: service intent, not rail.</strong> <code>OrderType</code> carries
+  the <em>service</em> only &mdash; <code>Payout</code>, <code>Collection</code>,
+  <code>BillPayment</code>, <code>AirtimeTopup</code>, <code>Remittance</code>. The <em>rail /
+  method</em> (Bank / MobileMoney / Wallet / Card) is modelled on the execution entity instead:
+  <code>Payout.DestinationType</code> (and <code>ExternalPayoutAccount.DestinationType</code>) for
+  outflows, <code>PaymentIntent.CollectionMethod</code> for inflows. Airtime is the sharpest case
+  for the split &mdash; a distinct service that runs on the bill rail &mdash; mirroring the
+  port/category split in &sect;5.5. This keeps <code>OrderType</code> a clean intent axis and
+  avoids a combinatorial service&times;rail enum. (A flat service&times;rail enum was the rejected
+  alternative.)
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Target linkage: typed FKs, not a polymorphic pair.</strong> <code>Transmission</code>
+  and <code>OrderFulfilmentRef</code> link to their target via typed nullable FKs
+  (<code>PayoutId?</code> / <code>PaymentIntentId?</code> / <code>PartnerBillPaymentId?</code>)
+  guarded by a DB <code>CHECK</code> that exactly one is set. A polymorphic
+  <code>TargetType + TargetId</code> pair was rejected: it cannot carry a real foreign key, so it
+  drops referential integrity and cascade behaviour and pushes target resolution into application
+  code. Typed FKs cost three nullable columns and one check constraint but keep the database the
+  source of integrity truth.
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Payout destination &rarr; beneficiary link: a nullable soft Guid ref, role optional.</strong>
+  <code>ExternalPayoutAccount</code> links to the beneficiary through a nullable
+  <code>BeneficiaryPartyId</code> &mdash; a soft Guid reference to the Platform <code>Party</code>
+  (read via <code>PartyReadModel</code>), the same convention <code>Order.PayerPartyId</code> /
+  <code>PaymentIntent.PayeePartyId</code> already use; a Guid, not an EF navigation, because
+  <code>Party</code> lives in another module. <em>Beneficiary</em> is a party <strong>role</strong>
+  (<code>PartyRoles.Beneficiary</code>, assigned via <code>PartyRoleAssignment</code>), <em>not</em> a
+  <code>PartyType</code> &mdash; so one party can be a customer <em>and</em> a beneficiary at once
+  (two role rows, one Guid). The payout path traverses the FK only; assigning the
+  <code>Beneficiary</code> role is optional and can be layered on later for listing / permissioning.
+  (An orphan destination with no party link &mdash; the prior draft &mdash; and a hard cross-module
+  FK were both rejected.)
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Status storage: string vs CLR enum column.</strong> X3 proposes
+  <code>PartnerTransactionStatus</code> as the vocabulary. Persisting it as a string keeps
+  parity with <code>Order</code> / <code>Payment</code> status conventions and is
+  migration-tolerant; persisting as an <code>int</code>-backed enum is tighter but couples the
+  DB to enum ordering. Recommend string-backed for consistency with existing entities.
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Collection status: a separate column, not <code>PaymentIntent.Status</code>.</strong>
+  The partner outcome vocabulary (<code>PartnerTransactionStatus</code>) is written to a
+  <strong>new</strong> <code>PaymentIntent.CollectionStatus</code> field; the existing
+  <code>Status</code> column is left as the <code>PaymentStatus</code> lifecycle it already is.
+  Reason: <code>PaymentService.CapturePaymentAsync</code> / <code>CancelPaymentAsync</code> parse
+  <code>Status</code> with <code>Enum.TryParse&lt;PaymentStatus&gt;</code> and throw on an unknown
+  value, and the partner statuses (<code>Processing</code>, <code>RequiresAction</code>,
+  <code>Succeeded</code>, <code>Reversed</code>, <code>Expired</code>) are not
+  <code>PaymentStatus</code> members &mdash; overloading the column would break capture / cancel.
+  Two columns keep the funding lifecycle and the partner-settlement state independent.
+  (Overloading <code>Status</code> with both vocabularies was the rejected alternative.)
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Abstraction altitude.</strong> Three structurally different vendors &mdash;
+  Flutterwave's transfer / charge / bill model, eTranzact's catalog &rarr; query &rarr; pay
+  flow, and Interswitch Quickteller's category &rarr; validate &rarr; pay &rarr; requery &mdash;
+  all collapse onto the same three ports and one reference / status vocabulary (&sect;4). That
+  confirms the ports are neither vendor-shaped nor over-abstracted. The four services (payout,
+  collection, bill payment, airtime top-up) need only three ports.
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Airtime / data top-up is not a new port.</strong> All three vendors run top-up on
+  their bill rails with the identical <em>catalog &rarr; (validate) &rarr; pay &rarr; requery</em>
+  shape, so it is served by <code>IPartnerBillPaymentConnector</code> &mdash; a port is the
+  interaction shape, a category is the service offered (&sect;5.5). It is elevated to
+  <code>PartnerServiceCategory.AirtimeTopup</code> for routing, reporting, and ledgering, and
+  persisted via the <code>PartnerBillPayment</code> entity's <code>ServiceCategory</code>. No
+  duplicate port, no parallel DTO set.
+</div>
+
+<h2 id="refs">11. References</h2>
+
+<ul>
+  <li><a href="../../src/Aonik.Finance/Contracts/Services/Payments/IPaymentProviderGateway.cs"><code>IPaymentProviderGateway</code></a> &mdash; the existing provider-port pattern these contracts follow (interface + DTOs in one file, <code>string ProviderCode</code>).</li>
+  <li><a href="../../src/Aonik.Finance/Services/Payments/StripeSimulatedPaymentProviderGateway.cs"><code>StripeSimulatedPaymentProviderGateway</code></a> &mdash; the simulated-connector template (deterministic fake refs, no network / secrets).</li>
+  <li><a href="../../src/Aonik.Finance/Services/Payments/PublicPaymentService.cs"><code>PublicPaymentService.ResolveProvider</code></a> &mdash; the inline provider switch the resolver improves on.</li>
+  <li><a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a> &mdash; DI composition root; gains the "Partner Connectors" block.</li>
+  <li><a href="../../src/Aonik.SharedKernel/Primitives/Money.cs"><code>Money</code></a> &mdash; the value object every amount-carrying DTO uses.</li>
+  <li>Entities referenced by the gap analysis &amp; entity-change design:
+    <a href="../../src/Aonik.Finance/Entities/Payments/Payout.cs"><code>Payout</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Payments/PaymentIntent.cs"><code>PaymentIntent</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Payments/Refund.cs"><code>Refund</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Partners/Transmission.cs"><code>Transmission</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Partners/Connector.cs"><code>Connector</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Partners/RoutingRule.cs"><code>RoutingRule</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBiller.cs"><code>CatalogBiller</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBillerService.cs"><code>CatalogBillerService</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Orders/OrderType.cs"><code>OrderType</code></a>.</li>
+  <li>Flutterwave developer docs (payout / collection baseline): <a href="https://developer.flutterwave.com/docs/getting-started">developer.flutterwave.com/docs/getting-started</a> &mdash; transfers, beneficiaries, charges, bill payments.</li>
+  <li>eTranzact SwitchIt bill-payment docs: <a href="https://developers.etranzactng.com/category/switchit-bill-payment">developers.etranzactng.com/category/switchit-bill-payment</a> &mdash; catalog &rarr; bill query &rarr; bill payment &rarr; bill status.</li>
+  <li>Interswitch Quickteller bill-payment docs: <a href="https://docs.interswitchgroup.com/docs/bills-payment-1">docs.interswitchgroup.com/docs/bills-payment-1</a> &mdash; categories &rarr; services &rarr; options, customer validation, <code>POST /Transactions</code>, requery.</li>
+  <li>Interswitch airtime / VTU top-up docs: <a href="https://docs.interswitchgroup.com/docs/airtime-recharge-virtual-top-up">docs.interswitchgroup.com/docs/airtime-recharge-virtual-top-up</a> &mdash; <code>categoryId = 4</code> telco billers paid via the same bill rail (<code>customerId = MSISDN</code>).</li>
+  <li>CLAUDE.md &mdash; "operator-choice provider + factory dispatch", anemic-entity rule, and the tool-generated-migration workflow this spec's &sect;7 follows.</li>
+</ul>
+
+<footer>
+  Spec 031 · Partner integration abstraction layer · Draft
+</footer>
+
+</body>
+</html>

@@ -221,6 +221,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(PromptSpec));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiTask));
+        // FinancialInstitution is a global directory (nullable TenantId): tenants share the base bank
+        // list and may add their own rows. Mirrors ReferenceDataItem.
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(FinancialInstitution));
 
         // Apply soft-delete filters for AuditableEntity types that are not tenant-scoped
         // and not already covered by nullable tenant filters above
@@ -233,7 +236,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
             typeof(NotificationTemplate),
             typeof(AiRoutePolicy),
             typeof(PromptSpec),
-            typeof(AiTask));
+            typeof(AiTask),
+            typeof(FinancialInstitution));
 
         ApplyDboPrefixedTableNames(modelBuilder);
         ConfigureScheduledJobProjection(modelBuilder);
@@ -363,6 +367,17 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<CatalogBillerCategory>(modelBuilder, "CatalogBillerCategories");
         MapFinanceTable<CatalogBiller>(modelBuilder, "CatalogBillers");
         MapFinanceTable<CatalogBillerService>(modelBuilder, "CatalogBillerServices");
+
+        // Partner integration abstraction (spec 031): payout / collection / bill-payment plumbing.
+        MapFinanceTable<ExternalPayoutAccount>(modelBuilder, "ExternalPayoutAccounts");
+        MapFinanceTable<PayoutReversal>(modelBuilder, "PayoutReversals");
+        MapFinanceTable<BillValidation>(modelBuilder, "BillValidations");
+        MapFinanceTable<PartnerBillPayment>(modelBuilder, "PartnerBillPayments");
+        MapFinanceTable<FinancialInstitution>(modelBuilder, "FinancialInstitutions");
+        MapFinanceTable<ConnectorInstitutionCode>(modelBuilder, "ConnectorInstitutionCodes");
+        MapFinanceTable<ConnectorCapability>(modelBuilder, "ConnectorCapabilities");
+        MapFinanceTable<ConnectorBillerMapping>(modelBuilder, "ConnectorBillerMappings");
+        MapFinanceTable<PartnerWebhookEvent>(modelBuilder, "PartnerWebhookEvents");
 
         MapFinanceTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
         MapFinanceTable<Household>(modelBuilder, "Households");

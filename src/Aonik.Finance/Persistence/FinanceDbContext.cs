@@ -40,6 +40,12 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Refund> Refunds { get; set; } = null!;
     public DbSet<Chargeback> Chargebacks { get; set; } = null!;
 
+    // Partner integration abstraction (spec 031): payout / collection / bill-payment execution records.
+    public DbSet<ExternalPayoutAccount> ExternalPayoutAccounts { get; set; } = null!;
+    public DbSet<PayoutReversal> PayoutReversals { get; set; } = null!;
+    public DbSet<BillValidation> BillValidations { get; set; } = null!;
+    public DbSet<PartnerBillPayment> PartnerBillPayments { get; set; } = null!;
+
     // ── Billing ─────────────────────────────────────────────────────
     public DbSet<Invoice> Invoices { get; set; } = null!;
     public DbSet<InvoiceLine> InvoiceLines { get; set; } = null!;
@@ -73,6 +79,13 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<RoutingRule> RoutingRules { get; set; } = null!;
     public DbSet<PayoutSchema> PayoutSchemas { get; set; } = null!;
     public DbSet<Transmission> Transmissions { get; set; } = null!;
+
+    // Partner integration abstraction (spec 031): institution directory, connector capability / code maps, webhook inbox.
+    public DbSet<FinancialInstitution> FinancialInstitutions { get; set; } = null!;
+    public DbSet<ConnectorInstitutionCode> ConnectorInstitutionCodes { get; set; } = null!;
+    public DbSet<ConnectorCapability> ConnectorCapabilities { get; set; } = null!;
+    public DbSet<ConnectorBillerMapping> ConnectorBillerMappings { get; set; } = null!;
+    public DbSet<PartnerWebhookEvent> PartnerWebhookEvents { get; set; } = null!;
 
     // ── Temporary Cross-Module DbSets ──────────────────────────────
     // These entities belong to other modules but are queried by Finance
@@ -185,6 +198,10 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<Payout>(modelBuilder, "Payouts");
         MapTable<Refund>(modelBuilder, "Refunds");
         MapTable<Chargeback>(modelBuilder, "Chargebacks");
+        MapTable<ExternalPayoutAccount>(modelBuilder, "ExternalPayoutAccounts");
+        MapTable<PayoutReversal>(modelBuilder, "PayoutReversals");
+        MapTable<BillValidation>(modelBuilder, "BillValidations");
+        MapTable<PartnerBillPayment>(modelBuilder, "PartnerBillPayments");
 
         MapTable<Invoice>(modelBuilder, "Invoices");
         MapTable<InvoiceLine>(modelBuilder, "InvoiceLines");
@@ -215,6 +232,11 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<RoutingRule>(modelBuilder, "RoutingRules");
         MapTable<PayoutSchema>(modelBuilder, "PayoutSchemas");
         MapTable<Transmission>(modelBuilder, "Transmissions");
+        MapTable<FinancialInstitution>(modelBuilder, "FinancialInstitutions");
+        MapTable<ConnectorInstitutionCode>(modelBuilder, "ConnectorInstitutionCodes");
+        MapTable<ConnectorCapability>(modelBuilder, "ConnectorCapabilities");
+        MapTable<ConnectorBillerMapping>(modelBuilder, "ConnectorBillerMappings");
+        MapTable<PartnerWebhookEvent>(modelBuilder, "PartnerWebhookEvents");
 
         MapTable<CatalogBillerCategory>(modelBuilder, "CatalogBillerCategories");
         MapTable<CatalogBiller>(modelBuilder, "CatalogBillers");
