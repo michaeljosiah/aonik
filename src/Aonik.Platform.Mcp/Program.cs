@@ -7,12 +7,23 @@ using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
+using Aonik.SharedKernel.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// ── Fail-closed environment guard (backend review finding C4) ────────
+// This server authenticates every call as a fixed PlatformAdmin identity (see
+// McpCurrentUserContext) with a fixed tenant/user — a blanket-trust stand-in that
+// is safe only in Development. Refuse to start anywhere else so this ambient-admin
+// context can never be exposed outside Development.
+DevelopmentOnlyHostGuard.EnsureDevelopmentOnly(
+    builder.Environment.EnvironmentName,
+    "The Platform MCP server",
+    "It authenticates every call as a fixed PlatformAdmin identity with a fixed tenant/user.");
 
 // ── Configuration ────────────────────────────────────────────────────
 var tenantId = builder.Configuration.GetValue<Guid?>("McpTenantId")

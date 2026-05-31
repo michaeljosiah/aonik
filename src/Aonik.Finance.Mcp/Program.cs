@@ -4,12 +4,23 @@ using Aonik.Finance;
 using Aonik.Finance.Mcp.Hosting;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// ── Fail-closed environment guard (backend review finding C4) ────────
+// This server registers a grant-all IPermissionService and an auto-clear
+// IComplianceService (see McpHostingStubs) — safe only in Development. Refuse to
+// start anywhere else so an agent can never be handed blanket authority or have
+// compliance screening silently bypassed by connecting to this MCP server.
+DevelopmentOnlyHostGuard.EnsureDevelopmentOnly(
+    builder.Environment.EnvironmentName,
+    "The Finance MCP server",
+    "It registers a grant-all IPermissionService and an auto-clear IComplianceService.");
 
 // ── Module Registration ──────────────────────────────────────────────
 // Register the Finance, AI, and Agents modules so all domain services

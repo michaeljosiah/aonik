@@ -2,14 +2,17 @@ using Aonik.Finance.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Finance.Agents;
 
 /// <summary>
 /// Finance domain agent descriptor. Builds the finance <see cref="ChatClientAgent"/>
 /// with billing, ledger, and payment tools. Mutating tools (create, issue, cancel,
-/// mark paid, capture) rely on the <c>confirmAction</c> frontend tool
-/// for human-in-the-loop approval.
+/// mark paid, capture) are wrapped by the server-side <see cref="IToolApprovalGate"/>
+/// (Spec 032, finding C3) so they cannot execute ungated — Medium/High tools surface a
+/// requires-approval result instead of running. The <c>confirmAction</c> frontend tool
+/// remains only a presentation affordance, no longer the enforcement boundary.
 ///
 /// The finance agent is split into two sub-agents for better LLM tool selection:
 /// <list type="bullet">
@@ -104,9 +107,14 @@ public sealed class FinanceAgentDescriptor : IDomainAgentDescriptor
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
     {
-        return InvoiceTools.CreateAll(serviceProvider)
-            .Concat(LedgerTools.CreateAll(serviceProvider))
-            .Concat(PaymentTools.CreateAll(serviceProvider));
+        // Fail-closed approval seam (Spec 032 C3): every mutating finance tool is wrapped so
+        // it cannot run ungated, and an unclassified mutating-looking tool throws here at build.
+        var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
+
+        return gate.GateAll(
+            InvoiceTools.CreateAll(serviceProvider)
+                .Concat(LedgerTools.CreateAll(serviceProvider))
+                .Concat(PaymentTools.CreateAll(serviceProvider)));
     }
 }
 
@@ -218,9 +226,15 @@ public sealed class FinancialLifeGraphAgentDescriptor : IDomainAgentDescriptor
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
     {
-        return FinancialLifeGraphTools.CreateAll(serviceProvider)
-            .Concat(FinancialLifeGraphSchemaTools.CreateAll(serviceProvider))
-            .Concat(FinancialLifeGraphTraversalTools.CreateAll(serviceProvider))
-            .Concat(FinancialLifeGraphRetrievalTools.CreateAll(serviceProvider));
+        // All FLG tools are read-only, so they pass through the gate unchanged. Routing them
+        // through it anyway keeps the seam uniform and fails closed if a mutating FLG tool is
+        // ever added without an approval classification.
+        var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
+
+        return gate.GateAll(
+            FinancialLifeGraphTools.CreateAll(serviceProvider)
+                .Concat(FinancialLifeGraphSchemaTools.CreateAll(serviceProvider))
+                .Concat(FinancialLifeGraphTraversalTools.CreateAll(serviceProvider))
+                .Concat(FinancialLifeGraphRetrievalTools.CreateAll(serviceProvider)));
     }
 }

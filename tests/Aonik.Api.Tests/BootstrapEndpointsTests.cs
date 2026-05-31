@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Aonik.Platform.Contracts.Api.Bootstrap;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Api.Tests;
 
@@ -56,6 +57,10 @@ public class BootstrapEndpointsTests
         payload.RequiresIdentityLink.Should().BeTrue();
 
         await using var scope = factory.Services.CreateAsyncScope();
+        // The fail-closed tenant filter (finding C5) hides tenant-scoped rows from an
+        // unscoped read. Verify as the bootstrapped tenant so Users.FindAsync sees the
+        // owner row the endpoint genuinely persisted (the write ran with this tenant set).
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = payload.TenantId;
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         var tenant = await dbContext.Tenants.FindAsync(payload.TenantId);

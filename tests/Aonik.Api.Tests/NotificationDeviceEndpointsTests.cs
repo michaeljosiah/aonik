@@ -34,6 +34,7 @@ public class NotificationDeviceEndpointsTests : IClassFixture<CustomWebApplicati
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = auth.TenantId!.Value;
         var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
         var device = await dbContext.NotificationDevices.SingleAsync(x =>
             x.TenantId == auth.TenantId!.Value
@@ -63,6 +64,7 @@ public class NotificationDeviceEndpointsTests : IClassFixture<CustomWebApplicati
         secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = auth.TenantId!.Value;
         var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
         var count = await dbContext.NotificationDevices.CountAsync(x =>
             x.TenantId == auth.TenantId!.Value
@@ -87,6 +89,7 @@ public class NotificationDeviceEndpointsTests : IClassFixture<CustomWebApplicati
         response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
 
         await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = auth.TenantId!.Value;
         var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
         var count = await dbContext.NotificationDevices.CountAsync(x =>
             x.TenantId == auth.TenantId!.Value

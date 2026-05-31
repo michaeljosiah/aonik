@@ -142,10 +142,14 @@ public abstract class AonikDbContextBase : DbContext
     /// <summary>
     /// Applies <see cref="ITenantScoped"/> query filters to all tenant-scoped entities
     /// registered in the model. Call this from <see cref="DbContext.OnModelCreating"/>.
-    /// 
-    /// Filter logic: no tenant context → show all rows; otherwise show rows matching
-    /// the current tenant OR rows with TenantId == Guid.Empty (global/system rows).
-    /// 
+    ///
+    /// Filter logic (fail-closed): show rows matching the current tenant OR rows with
+    /// TenantId == Guid.Empty (global/system rows). When no tenant context is resolved
+    /// (CurrentTenantId is null) the tenant-match clause matches nothing, so ONLY global
+    /// rows are visible — a missing tenant never exposes another tenant's data. Legitimate
+    /// cross-tenant reads must opt out explicitly via the sanctioned IgnoreQueryFilters
+    /// escape hatch (see QueryFilterIntentExtensions), never by relying on a missing tenant.
+    ///
     /// For entities that also inherit from <see cref="AuditableEntity"/>, the filter
     /// additionally excludes soft-deleted rows (IsDeleted == true).
     /// </summary>
@@ -163,13 +167,14 @@ public abstract class AonikDbContextBase : DbContext
                 var parameter = Expression.Parameter(clrType, "e");
                 var property = Expression.Property(parameter, nameof(ITenantScoped.TenantId));
                 var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
-                var noTenantContext = Expression.Equal(
-                    currentTenantId,
-                    Expression.Constant(null, typeof(Guid?)));
                 var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
                 var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
                 var equalsGlobal = Expression.Equal(property, Expression.Constant(Guid.Empty));
-                Expression filter = Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsGlobal));
+                // Fail-closed: when CurrentTenantId is null (no resolved tenant), equalsTenant
+                // evaluates to false for every row (a non-null Guid never equals null), so only
+                // global (TenantId == Guid.Empty) rows remain visible. A missing tenant must
+                // never expose another tenant's data through an unscoped query.
+                Expression filter = Expression.OrElse(equalsTenant, equalsGlobal);
 
                 // Combine with soft-delete filter for AuditableEntity types
                 if (typeof(AuditableEntity).IsAssignableFrom(clrType))
@@ -189,7 +194,13 @@ public abstract class AonikDbContextBase : DbContext
     /// Applies a nullable-TenantId query filter for entities where TenantId is Guid? (nullable).
     /// These entities can exist without a tenant (TenantId == null means global/platform-level).
     /// Call this from <see cref="DbContext.OnModelCreating"/> after <see cref="ApplyTenantQueryFilters"/>.
-    /// 
+    ///
+    /// Filter logic (fail-closed): show rows matching the current tenant OR global rows
+    /// (TenantId == null). When no tenant context is resolved (CurrentTenantId is null) the
+    /// tenant-match clause collapses onto the global (TenantId == null) clause under EF
+    /// null-semantics, so ONLY global rows are visible — a missing tenant never exposes
+    /// another tenant's data.
+    ///
     /// For entities that also inherit from <see cref="AuditableEntity"/>, the filter
     /// additionally excludes soft-deleted rows (IsDeleted == true).
     /// </summary>
@@ -198,13 +209,13 @@ public abstract class AonikDbContextBase : DbContext
         var parameter = Expression.Parameter(clrType, "e");
         var property = Expression.Property(parameter, "TenantId");
         var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
-        var noTenantContext = Expression.Equal(
-            currentTenantId,
-            Expression.Constant(null, typeof(Guid?)));
         var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
         var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
         var equalsNull = Expression.Equal(property, Expression.Constant(null, property.Type));
-        Expression filter = Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsNull));
+        // Fail-closed: when CurrentTenantId is null, equalsTenant collapses to (TenantId == null)
+        // under EF null-semantics, which coincides with the global (TenantId == null) clause — so an
+        // unscoped query exposes only global rows, never another tenant's.
+        Expression filter = Expression.OrElse(equalsTenant, equalsNull);
 
         // Combine with soft-delete filter for AuditableEntity types
         if (typeof(AuditableEntity).IsAssignableFrom(clrType))

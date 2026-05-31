@@ -210,6 +210,11 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PersonalFinanceAgentDescriptor>();
 
+        // Spec 032 (finding C3) — Finance's tool-approval classification. The central
+        // IToolApprovalGate (registered in AgentsModule) discovers every module manifest and
+        // uses this one to wrap the finance agent's mutating tools before they reach the model.
+        services.AddSingleton<IToolApprovalManifest, FinanceToolApprovalManifest>();
+
         // Spec 025 — three analytical sub-agents Simi invokes via the
         // pf_run_insights / pf_run_forecast / pf_run_classify_review tools.
         // Replaced the legacy pf-spending-intelligence + pf-obligation-planning

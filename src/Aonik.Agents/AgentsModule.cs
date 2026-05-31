@@ -4,10 +4,12 @@ using Aonik.Agents.Persistence;
 using Aonik.Agents.Workflows;
 using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Agents.Approval;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Aonik.Agents;
 
@@ -82,6 +84,13 @@ public sealed class AgentsModule : IModule
 
         // Seed global default agent configurations on startup
         services.AddHostedService<AgentConfigurationSeedingService>();
+
+        // Spec 032 (finding C3) — fail-closed tool approval gate. The gate aggregates every
+        // module-registered IToolApprovalManifest and wraps each classified mutating tool so it
+        // cannot run ungated; unclassified mutating-looking tools throw at agent-build time. The
+        // audit sink records every gated outcome. TryAdd so a host can substitute its own sink/gate.
+        services.TryAddSingleton<IToolApprovalAuditSink, LoggingToolApprovalAuditSink>();
+        services.TryAddSingleton<IToolApprovalGate, ToolApprovalGate>();
 
         // MCP tool provider — connects to MCP servers and exposes their tools as AITool
         // instances for use by agents. Registered as singleton since it manages long-lived
