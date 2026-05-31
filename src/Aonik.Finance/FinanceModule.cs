@@ -55,6 +55,10 @@ public sealed class FinanceModule : IModule
         // ── Finance Services ─────────────────────────────────────────
         // Ledger
         services.AddScoped<Contracts.Services.Ledger.ILedgerService, Services.Ledger.LedgerService>();
+        // System-initiated double-entry poster for payment capture / invoice
+        // settlement. Writes JournalEntry rows directly (no Ledger.Write gate),
+        // mirroring the PartnerPrefundSeedHelper direct-write pattern.
+        services.AddScoped<Services.Ledger.LedgerPostingService>();
 
         // Payments
         services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();

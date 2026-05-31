@@ -106,14 +106,16 @@ Agents:
 
 ### Human-in-the-Loop (Mandatory for Mutations)
 
-All mutating tools are wrapped with MAF's `ApprovalRequiredAIFunction`:
+Mutating tools must be approval-gated **on the server**, tiered by risk per [Spec 032](docs/specifications/032.tiered-ai-mutation-approval.html):
 
-1. **Read tools** — execute directly (no gate)
-2. **Mutating tools** — wrapped with `ApprovalRequiredAIFunction`, requiring human or policy approval
+1. **Read tools** — execute directly (no gate).
+2. **Low-risk mutations** (reversible personal-state writes) — run in-band with an audit record.
+3. **Medium-risk mutations** (everyday domain writes like `CreateInvoice`) — require an in-session confirmation before running in-band.
+4. **High-risk mutations** (money movement, ledger posting, partner calls like `CapturePayment`) — never run in-band; they are marshalled into a durable `Proposal` and executed only by the [Spec 030](docs/specifications/030.proposal-execution-dispatcher.html) dispatcher after approval.
 
 Current mutating tools: `CreateInvoice`, `IssueInvoice`, `CancelInvoice`, `MarkInvoicePaid`, `CreatePaymentIntent`, `CapturePayment`, `CancelPayment`, `CreateLedger`, `CreateAccount`.
 
-Never bypass this flow.
+> ⚠️ **Current status (not yet the built state).** The single `ApprovalRequiredAIFunction` decorator described in Spec 032 does **not** exist yet — and it is **not** a Microsoft Agent Framework type. Today the money tools (`finance_capture_payment`, etc.) are registered directly via `AIFunctionFactory.Create(...)` and rely only on the frontend `confirmAction` tool — a prompt-and-UI convention, **not** a server-side boundary. The only real server-side gate is the `Proposal` pipeline (Spec 030), which currently serves only FLG annotations and insights. Spec 032 is the plan to close this gap; do not assume mutating tools are gated until it lands.
 
 ### Orchestrator
 

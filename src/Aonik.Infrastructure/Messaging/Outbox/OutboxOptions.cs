@@ -25,4 +25,12 @@ public sealed class OutboxOptions
 
     /// <summary>Grace period after host start before the first sweep, so startup migrations settle.</summary>
     public int StartupDelaySeconds { get; set; } = 5;
+
+    /// <summary>
+    /// How long a claimed message stays leased to its drainer before another
+    /// drainer may reclaim it. Sized to comfortably exceed normal per-message
+    /// processing so a healthy drainer is never pre-empted, while still letting a
+    /// crashed drainer's in-flight rows recover within a bounded window.
+    /// </summary>
+    public int ClaimLeaseSeconds { get; set; } = 300;
 }

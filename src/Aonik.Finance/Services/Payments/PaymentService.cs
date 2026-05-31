@@ -6,6 +6,7 @@ using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
 
 namespace Aonik.Finance.Services.Payments;
@@ -15,24 +16,31 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly FinanceMetrics _metrics;
+    private readonly LedgerPostingService _ledgerPoster;
 
     public PaymentService(
         FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider,
-        FinanceMetrics metrics)
+        FinanceMetrics metrics,
+        LedgerPostingService ledgerPoster)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _metrics = metrics;
+        _ledgerPoster = ledgerPoster;
     }
 
     public async Task<PaymentIntentResponse> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Payment.Create", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var paymentMethodType = string.IsNullOrWhiteSpace(request.PaymentMethodType)
+            ? "Card"
+            : request.PaymentMethodType.Trim();
 
         var paymentIntent = new PaymentIntent
         {
@@ -42,11 +50,11 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             Status = PaymentStatus.Pending.ToString(),
             PurposeType = "Order",
             PurposeId = request.OrderId,
-            PayerPartyId = Guid.Empty, // TODO: Add to request or get from context
+            PayerPartyId = request.PayerPartyId ?? Guid.Empty,
             PayeePartyId = null,
             OrderId = request.OrderId,
             InvoiceId = request.InvoiceId,
-            PaymentMethodType = "Card", // TODO: Add to request
+            PaymentMethodType = paymentMethodType,
             PaymentMethodRef = request.Reference,
             TenantId = tenantId
         };
@@ -71,6 +79,38 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         return paymentIntent == null ? null : MapToResponse(paymentIntent);
     }
 
+    public async Task<PaymentIntentResponse> AuthorizePaymentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+    {
+        // Authorize is the first leg of the capture flow, so it is gated by the
+        // same Payment.Capture permission rather than a separate (unseeded) one.
+        await EnsurePermissionAsync("Payment.Capture", cancellationToken);
+        var paymentIntent = await _dbContext.PaymentIntents
+            .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
+
+        if (paymentIntent == null)
+        {
+            throw new InvalidOperationException($"Payment intent with ID {paymentIntentId} not found");
+        }
+
+        // Business logic: only a pending intent can be authorized.
+        if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
+        {
+            throw new InvalidOperationException($"Invalid payment status: {paymentIntent.Status}");
+        }
+
+        if (currentStatus != PaymentStatus.Pending)
+        {
+            throw new InvalidOperationException("Only pending payments can be authorized");
+        }
+
+        paymentIntent.Status = PaymentStatus.Authorized.ToString();
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
+
+        return MapToResponse(paymentIntent);
+    }
+
     public async Task<PaymentIntentResponse> CapturePaymentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Payment.Capture", cancellationToken);
@@ -92,6 +132,12 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         {
             throw new InvalidOperationException("Only authorized payments can be captured");
         }
+
+        // Record the cash receipt in the ledger BEFORE flipping the status:
+        // Dr Cash / Cr Payments Clearing. If the post fails the intent stays
+        // Authorized and the capture can be retried; the post is idempotent per
+        // payment intent so a retry after a partial success cannot double-post.
+        await _ledgerPoster.PostPaymentCaptureAsync(paymentIntent, cancellationToken);
 
         paymentIntent.Status = PaymentStatus.Captured.ToString();
         await _dbContext.SaveChangesAsync(cancellationToken);

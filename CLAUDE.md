@@ -155,7 +155,9 @@ An Order records: what service was requested, who the relevant parties are, what
 
 **DTOs**: Use records with positional parameters: `public record CreateInvoiceRequest(Guid CustomerId, string Currency, ...);`
 
-**Agent tools**: Read tools execute directly. Mutating tools (`CreateInvoice`, `IssueInvoice`, `CreatePaymentIntent`, etc.) are wrapped with `ApprovalRequiredAIFunction`.
+**Agent tools**: Read tools execute directly. Mutating tools must be approval-gated on the server, tiered by risk per [Spec 032](docs/specifications/032.tiered-ai-mutation-approval.html): **low** (reversible personal-state writes) run in-band with an audit record; **medium** (everyday domain writes like `CreateInvoice`) require an in-session confirmation before running in-band; **high** (money movement, ledger posting, partner calls like `CapturePayment`) never run in-band — they are marshalled into a durable `Proposal` and executed only by the [Spec 030](docs/specifications/030.proposal-execution-dispatcher.html) dispatcher after approval.
+
+> ⚠️ **Current status (not yet the built state).** The single `ApprovalRequiredAIFunction` decorator described in Spec 032 does **not** exist yet. Today the money tools (`finance_capture_payment`, etc.) are registered directly and rely on the frontend `confirmAction` tool — a prompt-and-UI convention, **not** a server-side boundary. Only the `Proposal` pipeline (Spec 030) is a real server-side gate, and it currently serves only FLG annotations and insights. Spec 032 is the plan to close this gap; do not assume mutating tools are gated until it lands.
 
 ## Testing
 

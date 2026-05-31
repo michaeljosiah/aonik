@@ -233,115 +233,122 @@ internal sealed class HouseholdService : IHouseholdService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
         var now = _clock.UtcNow;
-        var useTransaction = _dbContext.Database.IsRelational();
-        var committed = false;
-        await using var transaction = useTransaction
-            ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
-            : null;
 
-        try
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        var acceptedInvitation = await strategy.ExecuteAsync(async ct =>
         {
-            var invitation = await _dbContext.HouseholdMembers
-                .FirstOrDefaultAsync(
-                    member => member.TenantId == tenantId
-                        && member.HouseholdId == householdId
-                        && member.UserId == userId,
-                    cancellationToken)
-                ?? throw new InvalidOperationException("Pending household invitation not found.");
+            var useTransaction = _dbContext.Database.IsRelational();
+            var committed = false;
+            await using var transaction = useTransaction
+                ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
+                : null;
 
-            HouseholdMembershipRules.NormalizeLegacyMember(invitation);
-
-            if (!HouseholdMembershipRules.IsPending(invitation))
+            try
             {
-                throw new InvalidOperationException("Pending household invitation not found.");
-            }
+                var invitation = await _dbContext.HouseholdMembers
+                    .FirstOrDefaultAsync(
+                        member => member.TenantId == tenantId
+                            && member.HouseholdId == householdId
+                            && member.UserId == userId,
+                        ct)
+                    ?? throw new InvalidOperationException("Pending household invitation not found.");
 
-            if (IsExpired(invitation, now))
-            {
-                throw new InvalidOperationException("Household invitation has expired.");
-            }
+                HouseholdMembershipRules.NormalizeLegacyMember(invitation);
 
-            var competingMemberships = await _dbContext.HouseholdMembers
-                .AsNoTracking()
-                .Where(member => member.TenantId == tenantId
-                    && member.UserId == userId
-                    && member.Id != invitation.Id)
-                .ToListAsync(cancellationToken);
+                if (!HouseholdMembershipRules.IsPending(invitation))
+                {
+                    throw new InvalidOperationException("Pending household invitation not found.");
+                }
 
-            foreach (var competingMembership in competingMemberships)
-            {
-                HouseholdMembershipRules.NormalizeLegacyMember(competingMembership);
-                if (HouseholdMembershipRules.IsAccepted(competingMembership))
+                if (IsExpired(invitation, now))
+                {
+                    throw new InvalidOperationException("Household invitation has expired.");
+                }
+
+                var competingMemberships = await _dbContext.HouseholdMembers
+                    .AsNoTracking()
+                    .Where(member => member.TenantId == tenantId
+                        && member.UserId == userId
+                        && member.Id != invitation.Id)
+                    .ToListAsync(ct);
+
+                foreach (var competingMembership in competingMemberships)
+                {
+                    HouseholdMembershipRules.NormalizeLegacyMember(competingMembership);
+                    if (HouseholdMembershipRules.IsAccepted(competingMembership))
+                    {
+                        throw new InvalidOperationException("User already belongs to a household.");
+                    }
+                }
+
+                invitation.Role = HouseholdMembershipRules.NormalizeRole(invitation.Role);
+                invitation.InvitationStatus = HouseholdInvitationStatuses.Accepted;
+                invitation.InvitedAt ??= invitation.CreatedAt;
+                invitation.RespondedAt = now;
+
+                var profile = await GetRequiredPersonalProfileAsync(userId, tenantId, ct);
+
+                if (profile.HouseholdId.HasValue && profile.HouseholdId.Value != householdId)
                 {
                     throw new InvalidOperationException("User already belongs to a household.");
                 }
+
+                profile.HouseholdId = householdId;
+
+                var otherPendingInvitations = await _dbContext.HouseholdMembers
+                    .Where(member => member.TenantId == tenantId
+                        && member.UserId == userId
+                        && member.Id != invitation.Id
+                        && member.InvitationStatus == HouseholdInvitationStatuses.Pending)
+                    .ToListAsync(ct);
+
+                foreach (var otherInvitation in otherPendingInvitations)
+                {
+                    HouseholdMembershipRules.NormalizeLegacyMember(otherInvitation);
+                    otherInvitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
+                    otherInvitation.RespondedAt = now;
+                }
+
+                _dbContext.EnqueueIntegrationEvent(new HouseholdInvitationAcceptedEvent(tenantId, householdId, userId));
+
+                await _dbContext.SaveChangesAsync(ct);
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(ct);
+                    committed = true;
+                }
+
+                return invitation;
             }
-
-            invitation.Role = HouseholdMembershipRules.NormalizeRole(invitation.Role);
-            invitation.InvitationStatus = HouseholdInvitationStatuses.Accepted;
-            invitation.InvitedAt ??= invitation.CreatedAt;
-            invitation.RespondedAt = now;
-
-            var profile = await GetRequiredPersonalProfileAsync(userId, tenantId, cancellationToken);
-
-            if (profile.HouseholdId.HasValue && profile.HouseholdId.Value != householdId)
+            catch
             {
-                throw new InvalidOperationException("User already belongs to a household.");
+                if (transaction != null && !committed)
+                {
+                    await transaction.RollbackAsync(ct);
+                }
+
+                throw;
             }
+        }, cancellationToken);
 
-            profile.HouseholdId = householdId;
+        await NotifyActorAsync(
+            tenantId,
+            userId,
+            "household.accepted",
+            "Household joined",
+            "You joined the household successfully.",
+            "Success",
+            $"/household",
+            JsonSerializer.Serialize(new { householdId }),
+            cancellationToken);
 
-            var otherPendingInvitations = await _dbContext.HouseholdMembers
-                .Where(member => member.TenantId == tenantId
-                    && member.UserId == userId
-                    && member.Id != invitation.Id
-                    && member.InvitationStatus == HouseholdInvitationStatuses.Pending)
-                .ToListAsync(cancellationToken);
+        var affectedAcceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+        await _cacheInvalidator.InvalidateUserGraphsAsync(
+            affectedAcceptedMembers.Select(item => item.UserId).Append(userId).Distinct(),
+            cancellationToken);
 
-            foreach (var otherInvitation in otherPendingInvitations)
-            {
-                HouseholdMembershipRules.NormalizeLegacyMember(otherInvitation);
-                otherInvitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
-                otherInvitation.RespondedAt = now;
-            }
-
-            _dbContext.EnqueueIntegrationEvent(new HouseholdInvitationAcceptedEvent(tenantId, householdId, userId));
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            if (transaction != null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-                committed = true;
-            }
-
-            await NotifyActorAsync(
-                tenantId,
-                userId,
-                "household.accepted",
-                "Household joined",
-                "You joined the household successfully.",
-                "Success",
-                $"/household",
-                JsonSerializer.Serialize(new { householdId }),
-                cancellationToken);
-
-            var affectedAcceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
-            await _cacheInvalidator.InvalidateUserGraphsAsync(
-                affectedAcceptedMembers.Select(item => item.UserId).Append(userId).Distinct(),
-                cancellationToken);
-
-            return MapMemberResponse(invitation);
-        }
-        catch
-        {
-            if (transaction != null && !committed)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-
-            throw;
-        }
+        return MapMemberResponse(acceptedInvitation);
     }
 
     public async Task DeclineInvitationAsync(

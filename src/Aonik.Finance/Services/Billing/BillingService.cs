@@ -15,18 +15,21 @@ internal class BillingService : FinanceServiceBase, IBillingService
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly Services.Observability.FinanceMetrics _metrics;
+    private readonly Services.Ledger.LedgerPostingService _ledgerPoster;
 
     public BillingService(
         FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider,
-        Services.Observability.FinanceMetrics metrics)
+        Services.Observability.FinanceMetrics metrics,
+        Services.Ledger.LedgerPostingService ledgerPoster)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _metrics = metrics;
+        _ledgerPoster = ledgerPoster;
     }
 
     public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
@@ -171,6 +174,12 @@ internal class BillingService : FinanceServiceBase, IBillingService
 
         if (invoice.Status != "Issued")
             throw new InvalidOperationException("Only issued invoices can be marked as paid");
+
+        // Recognise revenue in the ledger BEFORE flipping the status:
+        // Dr Payments Clearing / Cr Operating Revenue for the invoice total. If
+        // the post fails the invoice stays Issued and the operation can be
+        // retried; the post is idempotent per invoice so it cannot double-count.
+        await _ledgerPoster.PostInvoiceSettlementAsync(invoice, cancellationToken);
 
         invoice.Status = "Paid";
         await _dbContext.SaveChangesAsync(cancellationToken);

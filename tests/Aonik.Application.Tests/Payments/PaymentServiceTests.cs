@@ -2,10 +2,13 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
 using Aonik.Finance.Services.Payments;
+using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -73,7 +76,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
-            new FinanceMetrics());
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
         var orderId = Guid.NewGuid();
         var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", orderId, null);
 
@@ -107,7 +111,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
-            new FinanceMetrics());
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
         var orderId = Guid.NewGuid();
         var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", orderId, null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
@@ -135,7 +140,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
-            new FinanceMetrics());
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
 
         // Act
         var result = await service.GetPaymentIntentAsync(Guid.NewGuid());
@@ -156,13 +162,38 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
-            new FinanceMetrics());
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Authorize the payment first (set status directly since entities are anemic)
         var payment = await context.PaymentIntents.FirstAsync(p => p.Id == created.Id);
         payment.Status = "Authorized";
+        await context.SaveChangesAsync();
+
+        // Capture now posts to the ledger (Dr Cash / Cr Payments Clearing), so the
+        // tenant needs a ledger and a Cash (1000) account. The poster materialises
+        // the Payments Clearing (2100) account on demand, so it is not seeded here.
+        var ledgerId = Guid.NewGuid();
+        context.Ledgers.Add(new LedgerEntity
+        {
+            Id = ledgerId,
+            TenantId = tenantId,
+            BaseCurrency = "USD",
+            CreatedAt = DateTime.UtcNow
+        });
+        context.LedgerAccounts.Add(new LedgerAccount
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            LedgerId = ledgerId,
+            AccountType = "Asset",
+            Name = "Cash",
+            Code = "1000",
+            DimensionsJson = "{}",
+            CreatedAt = DateTime.UtcNow
+        });
         await context.SaveChangesAsync();
 
         // Act
@@ -185,7 +216,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
-            new FinanceMetrics());
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
 
         // Act
         var act = async () => await service.CapturePaymentAsync(Guid.NewGuid());
@@ -207,7 +239,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
-            new FinanceMetrics());
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
@@ -231,7 +264,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
-            new FinanceMetrics());
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
 
         // Act
         var act = async () => await service.CancelPaymentAsync(Guid.NewGuid());

@@ -191,6 +191,22 @@ internal class FinanceTenantProvisioningContributor : ITenantProvisioningContrib
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
+                // Suspense account that absorbs the captured-cash leg until the
+                // matching invoice is settled. Payment capture credits it; invoice
+                // settlement debits it back to revenue, so it nets to zero per
+                // funded order. Resolved by code 2100 in LedgerPostingService.
+                AccountType = "Liability",
+                Name = "Payments Clearing",
+                Code = "2100",
+                DimensionsJson = "{}",
+                CreatedAt = now,
+                CreatedBy = userId
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                LedgerId = ledgerId,
                 AccountType = "Equity",
                 Name = "Retained Earnings",
                 Code = "3000",

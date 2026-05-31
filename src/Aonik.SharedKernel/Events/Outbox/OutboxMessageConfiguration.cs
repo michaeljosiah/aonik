@@ -17,6 +17,7 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
         builder.Property(x => x.Payload).IsRequired();
         builder.Property(x => x.TraceParent).HasMaxLength(128);
         builder.Property(x => x.Error).HasMaxLength(4000);
+        builder.Property(x => x.ClaimedBy).HasMaxLength(128);
 
         // Hot path: the processor polls for unprocessed, non-dead-lettered, due rows oldest-first.
         builder.HasIndex(x => new { x.ProcessedAt, x.DeadLetteredAt, x.NextAttemptAt, x.CreatedAt })

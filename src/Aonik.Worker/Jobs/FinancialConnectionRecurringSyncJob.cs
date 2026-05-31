@@ -2,6 +2,7 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -46,8 +47,11 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
         // Seed a system-tenant context up-front so any service we call (or any
         // EF query filter / cache invalidator on the path) finds a resolved
         // context instead of throwing "Tenant context not available".
+        // A null TenantId is the system "see-all" sentinel: the tenant query
+        // filter fails open only for null, never for Guid.Empty (which would
+        // scope every query to a non-existent tenant and return zero rows).
         // The orchestrator overrides TenantId per-connection inside its loop.
-        _tenantContext.TenantId = Guid.Empty;
+        _tenantContext.TenantId = null;
         _tenantContext.ResolutionSource = "system";
 
         if (!_syncOptions.EnableRecurringSync)
@@ -62,6 +66,7 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
         var utcNow = DateTime.UtcNow;
 
         var dueConnections = await _financeDbContext.FinancialConnections
+            .AcrossTenants()
             .AsNoTracking()
             .Where(c => c.AutoSyncEnabled
                 && c.DisconnectedAt == null

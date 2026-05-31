@@ -229,6 +229,44 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
             throw new InvalidOperationException("Ledger not found for the current tenant.");
         }
 
+        // Resolve the originating source identity. A blank/Manual source is the
+        // free-form path (unbounded entries, all keyed to Guid.Empty); a real
+        // upstream event ("PaymentCaptured", "InvoicePaid", ...) must carry a
+        // non-empty SourceId and posts at most once per (tenant, type, id).
+        var requestedSourceType = string.IsNullOrWhiteSpace(request.SourceType) ? "Manual" : request.SourceType.Trim();
+        var hasExternalSource = !string.Equals(requestedSourceType, "Manual", StringComparison.OrdinalIgnoreCase);
+
+        // Canonicalize the manual sentinel to exactly "Manual" / Guid.Empty so the
+        // filtered unique index reliably excludes manual entries under any
+        // database collation (case-sensitive or not).
+        var sourceType = hasExternalSource ? requestedSourceType : "Manual";
+        var sourceId = hasExternalSource ? (request.SourceId ?? Guid.Empty) : Guid.Empty;
+
+        if (hasExternalSource && sourceId == Guid.Empty)
+        {
+            throw new InvalidOperationException("A non-manual journal entry source requires a non-empty SourceId.");
+        }
+
+        // Idempotency fast path: if this source event was already posted, return
+        // the canonical entry instead of creating a duplicate. The filtered
+        // unique index on (TenantId, SourceType, SourceId) is the authority that
+        // closes the check-then-insert race (handled at SaveChanges below).
+        if (hasExternalSource)
+        {
+            var existingEntry = await _dbContext.JournalEntries
+                .Include(entry => entry.Lines)
+                .FirstOrDefaultAsync(
+                    entry => entry.TenantId == tenantId
+                        && entry.SourceType == sourceType
+                        && entry.SourceId == sourceId,
+                    cancellationToken);
+
+            if (existingEntry != null)
+            {
+                return MapJournalEntryResponse(existingEntry, request.Reference, request.Description);
+            }
+        }
+
         if (request.Lines.Count < 2)
         {
             throw new InvalidOperationException("Journal entries must include at least two lines.");
@@ -242,6 +280,16 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
             Currency = string.IsNullOrWhiteSpace(line.Currency) ? ledger.BaseCurrency : line.Currency,
             line.Narration
         }).ToList();
+
+        // A journal entry must settle in a single currency. The balance check
+        // below sums debit and credit amounts numerically; without this guard a
+        // mixed-currency entry (e.g. 100 USD debit, 100 EUR credit) would satisfy
+        // totalDebit == totalCredit yet be economically unbalanced. The
+        // downstream metric also relies on every line sharing one currency.
+        if (normalizedLines.Select(line => line.Currency).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+        {
+            throw new InvalidOperationException("A journal entry must use a single currency.");
+        }
 
         var totalDebit = normalizedLines
             .Where(line => string.Equals(line.Direction, "Debit", StringComparison.OrdinalIgnoreCase))
@@ -272,8 +320,8 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
             LedgerId = ledger.Id,
             TenantId = tenantId,
             Timestamp = DateTime.UtcNow,
-            SourceType = "Manual",
-            SourceId = Guid.Empty,
+            SourceType = sourceType,
+            SourceId = sourceId,
             Status = "Posted",
             Lines = normalizedLines.Select(line => new JournalEntryLine
             {
@@ -290,7 +338,37 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
         };
 
         _dbContext.JournalEntries.Add(entry);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (hasExternalSource)
+        {
+            // A concurrent caller won the race to post the same source event and
+            // the filtered unique index rejected this duplicate. Detach the
+            // losing entry and return the canonical one already committed.
+            _dbContext.Entry(entry).State = EntityState.Detached;
+            foreach (var line in entry.Lines)
+            {
+                _dbContext.Entry(line).State = EntityState.Detached;
+            }
+
+            var winningEntry = await _dbContext.JournalEntries
+                .Include(item => item.Lines)
+                .FirstOrDefaultAsync(
+                    item => item.TenantId == tenantId
+                        && item.SourceType == sourceType
+                        && item.SourceId == sourceId,
+                    cancellationToken);
+
+            if (winningEntry == null)
+            {
+                throw;
+            }
+
+            return MapJournalEntryResponse(winningEntry, request.Reference, request.Description);
+        }
 
         // Per-tenant ledger-entry counter. Currency is taken from the
         // first line — journal entries are constrained to a single
@@ -298,20 +376,7 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
         var entryCurrency = normalizedLines[0].Currency;
         _metrics.RecordLedgerEntryPosted(tenantId, entryCurrency);
 
-        return new JournalEntryResponse(
-            entry.Id,
-            entry.LedgerId,
-            entry.Timestamp,
-            entry.Status,
-            request.Reference,
-            request.Description,
-            entry.Lines.Select(line => new JournalEntryLineResponse(
-                line.Id,
-                line.LedgerAccountId,
-                line.Direction,
-                line.Amount,
-                line.Currency,
-                line.Narration)).ToList());
+        return MapJournalEntryResponse(entry, request.Reference, request.Description);
     }
 
     public async Task<IReadOnlyList<JournalEntryResponse>> ListJournalEntriesAsync(ListJournalEntriesRequest request, CancellationToken cancellationToken = default)
@@ -332,19 +397,27 @@ internal class LedgerService : FinanceServiceBase, ILedgerService
             .OrderByDescending(entry => entry.Timestamp)
             .ToListAsync(cancellationToken);
 
-        return entries.Select(entry => new JournalEntryResponse(
+        return entries.Select(entry => MapJournalEntryResponse(entry, null, null)).ToList();
+    }
+
+    private static JournalEntryResponse MapJournalEntryResponse(
+        JournalEntry entry,
+        string? reference,
+        string? description)
+    {
+        return new JournalEntryResponse(
             entry.Id,
             entry.LedgerId,
             entry.Timestamp,
             entry.Status,
-            null,
-            null,
+            reference,
+            description,
             entry.Lines.Select(line => new JournalEntryLineResponse(
                 line.Id,
                 line.LedgerAccountId,
                 line.Direction,
                 line.Amount,
                 line.Currency,
-                line.Narration)).ToList())).ToList();
+                line.Narration)).ToList());
     }
 }

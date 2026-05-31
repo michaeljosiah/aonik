@@ -186,12 +186,20 @@ internal class OrderService : IOrderService
             throw new ArgumentException("Origin currency is required.", nameof(request.OriginCurrency));
         }
 
-        if (!string.IsNullOrWhiteSpace(request.IdempotencyKey))
+        // Normalize the idempotency key ONCE so the dedupe lookup and the stored
+        // value can never diverge. Previously the lookup compared the raw request
+        // key while the order persisted a trimmed copy, so a retry carrying
+        // trailing whitespace missed the pre-check and created a duplicate order.
+        var idempotencyKey = string.IsNullOrWhiteSpace(request.IdempotencyKey)
+            ? null
+            : request.IdempotencyKey.Trim();
+
+        if (idempotencyKey != null)
         {
             var existing = await _dbContext.Orders
                 .Include(order => order.Items)
                 .FirstOrDefaultAsync(
-                    order => order.OrderType == "BillPayment" && order.IdempotencyKey == request.IdempotencyKey,
+                    order => order.OrderType == "BillPayment" && order.IdempotencyKey == idempotencyKey,
                     cancellationToken);
 
             if (existing != null)
@@ -212,7 +220,7 @@ internal class OrderService : IOrderService
             TenantId = _tenantProvider.GetCurrentTenantId(),
             OrderType = "BillPayment",
             Status = "Draft",
-            IdempotencyKey = request.IdempotencyKey?.Trim(),
+            IdempotencyKey = idempotencyKey,
             PayerPartyId = request.PayerPartyId,
             OriginCountry = request.OriginCountry.Trim().ToUpperInvariant(),
             CurrencyIn = request.OriginCurrency.Trim().ToUpperInvariant(),
@@ -245,7 +253,32 @@ internal class OrderService : IOrderService
         order.HistoryEvents.Add(BuildHistoryEvent(order.Id, "OrderCreated"));
 
         _dbContext.Orders.Add(order);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (idempotencyKey != null)
+        {
+            // Lost an idempotency race: a concurrent create with the same
+            // (TenantId, OrderType, IdempotencyKey) committed first and tripped the
+            // filtered unique index. Detach our rejected graph and return the
+            // winning order so the caller still receives a single coherent result.
+            DetachOrderGraph(order);
+
+            var winner = await _dbContext.Orders
+                .Include(entity => entity.Items)
+                .FirstOrDefaultAsync(
+                    entity => entity.OrderType == "BillPayment" && entity.IdempotencyKey == idempotencyKey,
+                    cancellationToken);
+
+            if (winner == null)
+            {
+                throw;
+            }
+
+            return await MapOrderAsync(winner, cancellationToken);
+        }
 
         await _auditLogWriter.LogAsync(
             AuditEventNames.OrderCreated,
@@ -512,6 +545,29 @@ internal class OrderService : IOrderService
             cancellationToken: cancellationToken);
 
         return await MapOrderAsync(order, cancellationToken);
+    }
+
+    private void DetachOrderGraph(Order order)
+    {
+        // The whole graph was cascade-tracked as Added by _dbContext.Orders.Add.
+        // After a failed insert we detach every node so the rejected order can't
+        // be replayed by a later SaveChanges on this scoped context.
+        foreach (var historyEvent in order.HistoryEvents)
+        {
+            _dbContext.Entry(historyEvent).State = EntityState.Detached;
+        }
+
+        foreach (var partyRole in order.PartyRoles)
+        {
+            _dbContext.Entry(partyRole).State = EntityState.Detached;
+        }
+
+        foreach (var item in order.Items)
+        {
+            _dbContext.Entry(item).State = EntityState.Detached;
+        }
+
+        _dbContext.Entry(order).State = EntityState.Detached;
     }
 
     private async Task<Order> LoadOrderForUpdateAsync(Guid orderId, CancellationToken cancellationToken)

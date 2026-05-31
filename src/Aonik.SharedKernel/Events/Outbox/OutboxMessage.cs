@@ -44,6 +44,23 @@ public sealed class OutboxMessage : Entity
     /// <summary>When the message was abandoned after exhausting retries. Null unless dead-lettered.</summary>
     public DateTime? DeadLetteredAt { get; set; }
 
+    /// <summary>
+    /// Identifier of the drainer instance currently holding the processing lease
+    /// (machine name + a per-sweep token). Null when the row is unclaimed. Stops a
+    /// second drainer from dispatching the same row concurrently.
+    /// </summary>
+    public string? ClaimedBy { get; set; }
+
+    /// <summary>When the current processing lease was taken. Null when unclaimed.</summary>
+    public DateTime? ClaimedAt { get; set; }
+
+    /// <summary>
+    /// When the processing lease lapses and another drainer may reclaim the row.
+    /// Lets a crashed drainer's in-flight rows recover automatically once the lease
+    /// expires. Null when unclaimed.
+    /// </summary>
+    public DateTime? ClaimExpiresAt { get; set; }
+
     /// <summary>W3C traceparent captured at enqueue, for cross-process trace continuity.</summary>
     public string? TraceParent { get; set; }
 }

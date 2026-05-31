@@ -79,7 +79,15 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.OrderType);
         builder.HasIndex(x => x.PayerPartyId);
-        builder.HasIndex(x => x.IdempotencyKey);
+
+        // Idempotency is enforced per (tenant, order type, key). Filtered so the
+        // many orders WITHOUT a key are exempt — NULL keys are never deduplicated.
+        // This is the DB-level authority behind the race catch in
+        // OrderService.CreateBillPaymentOrderAsync; tenant scoping comes first so
+        // every (always tenant-filtered) lookup can seek on this same index.
+        builder.HasIndex(x => new { x.TenantId, x.OrderType, x.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
         builder.HasIndex("OrderNumber")
             .IsUnique();
         builder.HasIndex("ServiceCode");

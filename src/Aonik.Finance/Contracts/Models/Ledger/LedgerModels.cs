@@ -19,7 +19,20 @@ public record AddJournalEntryRequest(
     Guid LedgerId,
     string? Reference,
     string? Description,
-    List<AddJournalEntryLineRequest> Lines);
+    List<AddJournalEntryLineRequest> Lines,
+    /// <summary>
+    /// Originating business event that caused this entry to be posted
+    /// (e.g. "PaymentCaptured", "InvoicePaid"). Null/blank means a manual
+    /// entry with no upstream source. A non-manual source must be paired
+    /// with a non-empty <see cref="SourceId"/> and is enforced to post at
+    /// most once per (tenant, source type, source id) for idempotency.
+    /// </summary>
+    string? SourceType = null,
+    /// <summary>
+    /// Identifier of the originating business event (e.g. the payment or
+    /// invoice id). Required when <see cref="SourceType"/> is non-manual.
+    /// </summary>
+    Guid? SourceId = null);
 
 public record ListLedgerAccountsRequest(Guid? LedgerId);
 

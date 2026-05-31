@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 032 · Tiered AI mutation approval</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2c82; }
+    .meta-tag.priority-p0 { background: #fbe2dd; color: #b3261e; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tier {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .tier.low { background: #ecf6ee; color: #1f6b3a; }
+    .tier.medium { background: #fff5d9; color: #7a5a10; }
+    .tier.high { background: #fbe2dd; color: #b3261e; }
+    .tier.ro { background: #eef0f2; color: #5a6a76; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 032</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p0">Priority: P0</span>
+  <span class="meta-tag">Domain: Agents / Finance / Platform</span>
+  <h1>Tiered AI mutation approval</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Makes &ldquo;agents propose, humans approve, systems execute&rdquo; a real
+    <strong>server-side</strong> boundary for every mutating agent tool, replacing
+    today's prompt-and-UI honour system. A single
+    <code>ApprovalRequiredAIFunction</code> decorator wraps every mutating tool, and the
+    tool's <strong>risk tier selects the enforcement path</strong>: low-risk writes are
+    audited and run in-band, medium-risk writes require an explicit in-session
+    confirmation before running in-band, and high-risk <em>money movement</em> never
+    runs in-band at all &mdash; it is marshalled into a durable <code>Proposal</code> and
+    executed only by the Spec 030 dispatcher after approval. Unifies the unbuilt
+    decorator (<a href="023.server-side-ai-tool-approval.md">Spec 023</a>) with the
+    shipped proposal pipeline (<a href="030.proposal-execution-dispatcher.html">Spec
+    030</a>) under one classification model.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem: the false boundary</a></li>
+    <li><a href="#mechanisms">Two mechanisms, one principle</a></li>
+    <li><a href="#tiers">Risk-tier model &amp; routing</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Guardrails</a></li>
+    <li><a href="#design">Component design</a></li>
+    <li><a href="#preconditions">Mandated preconditions (Spec 030)</a></li>
+    <li><a href="#approver">Approver model: in-session + queue</a></li>
+    <li><a href="#migrate">Migrating the Finance money tools</a></li>
+    <li><a href="#failure">Failure, idempotency &amp; money safety</a></li>
+    <li><a href="#security">Security &amp; audit</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK's foundational rule is that <em>agents propose, humans approve, systems
+  execute</em> &mdash; CLAUDE.md states it as a non-negotiable: &ldquo;Agents propose;
+  systems execute &mdash; never bypass human-in-the-loop for mutations.&rdquo; Today that
+  rule is enforced in exactly one place &mdash; the <code>Proposal</code> pipeline
+  (<a href="030.proposal-execution-dispatcher.html">Spec 030</a>) &mdash; and that
+  pipeline is wired to only two low-stakes producers (financial-life-graph annotations
+  and insights). Every <strong>money-movement</strong> agent tool &mdash; create payment
+  intent, capture payment, cancel payment, post to the ledger, mark an invoice paid
+  &mdash; is registered <em>directly</em> as a callable <code>AIFunction</code> and is
+  ungated on the server. The only thing standing between the model and a captured
+  payment is a system-prompt instruction to call a frontend <code>confirmAction</code>
+  tool first. That is UX, not a boundary.
+</p>
+
+<p>
+  This spec closes the gap by making the boundary structural and uniform. A single
+  decorator, <code>ApprovalRequiredAIFunction</code>, wraps every mutating tool at the
+  one composition seam where tools are assembled
+  (<code>*AgentDescriptor.GetTools</code>). The decorator's behaviour is selected by the
+  tool's declared <strong>risk tier</strong>:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Tier</th><th>Example actions</th><th>Enforcement path</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tier low">Low</span></td>
+      <td>Save a memory, dismiss an insight, rename a label, recategorise a personal note</td>
+      <td>Audited, auto-approved, runs <strong>in-band</strong>; non-blocking &ldquo;done&rdquo; card</td>
+    </tr>
+    <tr>
+      <td><span class="tier medium">Medium</span></td>
+      <td>Create invoice, create bill, update budget, recategorise a transaction</td>
+      <td>Explicit <strong>in-session confirm</strong> with fresh-presence step-up; then runs in-band</td>
+    </tr>
+    <tr>
+      <td><span class="tier high">High</span></td>
+      <td>Capture / cancel payment, transfer, payout, refund, pay bill, ledger posting, partner API call</td>
+      <td><strong>Never runs in-band.</strong> Marshalled into a durable <code>Proposal</code>; executed only by the Spec 030 dispatcher after approval</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The high-risk path is exactly the design the platform's ethos implies and that was
+  sketched informally early on: the agent is never handed the real mutation tool &mdash;
+  it is handed a tool whose only effect is to <em>create a proposal</em> for the
+  mutation. The proposal's <code>IProposalHandler</code> is the single code path that
+  ever touches the domain service. The decorator makes that true automatically for any
+  tool classified <span class="tier high">High</span>, with no per-tool bespoke wiring.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  No mutating agent tool can reach a domain service without a recorded approval decision.
+  A money-movement tool call produces a <code>Proposal</code> the user can approve in the
+  same turn <em>or</em> from the approvals queue, and the funds move only inside the
+  dispatcher's handler. Registering a new mutating tool without classifying it
+  <strong>fails the build</strong>. <code>confirmAction</code> still renders the same card
+  it does today &mdash; but it is now a view over a server-owned decision, not the gate
+  itself.
+</div>
+
+<h2 id="problem">2. Problem: the false boundary</h2>
+
+<p>
+  The documentation asserts a server-side control that does not exist. CLAUDE.md's
+  &ldquo;Code Patterns&rdquo; section states:
+</p>
+
+<div class="callout p0">
+  <span class="callout-label">False claim</span>
+  &ldquo;Mutating tools (<code>CreateInvoice</code>, <code>IssueInvoice</code>,
+  <code>CreatePaymentIntent</code>, etc.) are wrapped with
+  <code>ApprovalRequiredAIFunction</code>.&rdquo; &mdash; <strong>No such class exists
+  anywhere in the codebase.</strong> A grep for <code>ApprovalRequiredAIFunction</code>
+  returns only the (markdown) Spec 023 proposal. The wrapper was specified and never
+  built; the docs describe the intended state as if it shipped.
+</div>
+
+<p>
+  The concrete as-is state, confirmed by reading the code:
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>What it actually does</th>
+      <th>Is it a boundary?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>System prompt (<code>orchestrator.v1.system.md</code>, <code>MasterOrchestratorService</code>)</td>
+      <td>Instructs the model: &ldquo;you MUST first call the <code>confirmAction</code> tool &hellip; BEFORE invoking the domain agent.&rdquo;</td>
+      <td>No &mdash; a prompt instruction the model can ignore or be injected around.</td>
+    </tr>
+    <tr>
+      <td><code>confirmAction</code> frontend tool + <code>ToolCallClassifier.RequiresApproval</code></td>
+      <td><code>RequiresApproval</code> returns true only for the literal string <code>"confirmAction"</code>. <code>AguiStreamPipeline</code> sets a stream metadata flag from it.</td>
+      <td>No &mdash; it flags a UI card. It never blocks a backend mutating tool from executing.</td>
+    </tr>
+    <tr>
+      <td>Finance money tools (<a href="../../src/Aonik.Finance/Agents/Tools/PaymentTools.cs"><code>PaymentTools</code></a>, <a href="../../src/Aonik.Finance/Agents/Tools/InvoiceTools.cs"><code>InvoiceTools</code></a>, <a href="../../src/Aonik.Finance/Agents/Tools/LedgerTools.cs"><code>LedgerTools</code></a>)</td>
+      <td>Registered directly, e.g. <code>yield return AIFunctionFactory.Create(tools.CapturePayment, name: "finance_capture_payment");</code> Comment reads &ldquo;Mutating &mdash; approval enforced via the confirmAction frontend tool.&rdquo;</td>
+      <td>No &mdash; the comment asserts an enforcement that the registration does not provide. If the model calls the tool, it runs.</td>
+    </tr>
+    <tr>
+      <td><code>Proposal</code> pipeline (Spec 030)</td>
+      <td>A real server-side approve-then-execute boundary, via <code>IProposalHandler</code> keyed by <code>ProposalType</code>.</td>
+      <td><strong>Yes</strong> &mdash; but only FLG annotations and insights flow through it. No money tool does.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Three consequences follow:
+</p>
+
+<ul>
+  <li>
+    <strong>Money can move without a server-verified human decision.</strong> A prompt
+    injection, a model error, or a future agent surface that doesn't render
+    <code>confirmAction</code> can drive <code>finance_capture_payment</code> straight to
+    <code>IPaymentService.CapturePaymentAsync</code>. The ledger is the source of
+    financial truth; nothing in the tool path guarantees a human authorised the posting.
+  </li>
+  <li>
+    <strong>The control is unevenly applied and unenforceable.</strong> Whether a
+    mutation is gated depends on the model choosing to emit <code>confirmAction</code>
+    and on the active client rendering it. Voice and any non-AG-UI surface have no
+    equivalent, which is why voice v1 is restricted to read-only tools as a workaround.
+  </li>
+  <li>
+    <strong>The docs give false assurance.</strong> A reader (human or agent) trusts the
+    CLAUDE.md claim and reasons as if mutations are gated. Spec 023 itself names this:
+    &ldquo;Prompt instructions and frontend UX are not a security boundary.&rdquo;
+  </li>
+</ul>
+
+<h2 id="mechanisms">3. Two mechanisms, one principle</h2>
+
+<p>
+  AONIK already contains the two primitives needed to fix this. They were designed
+  independently and at different times, but they express the <em>same</em> principle from
+  two angles: <strong>the gated/handler code is the only path that reaches the domain
+  service.</strong>
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th>Spec 023 decorator</th>
+      <th>Spec 030 dispatcher</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Status</strong></td>
+      <td><span class="tag mutate">Unbuilt</span> markdown proposal</td>
+      <td><span class="tag existing">Shipped</span> and in use</td>
+    </tr>
+    <tr>
+      <td><strong>Shape</strong></td>
+      <td><code>ApprovalRequiredAIFunction</code> wraps an <code>AIFunction</code>; intercepts <code>InvokeAsync</code>; waits for a decision before calling the inner tool.</td>
+      <td><code>IProposalHandler</code> keyed by <code>ProposalType</code>; runs domain logic when a durable <code>Proposal</code> is approved.</td>
+    </tr>
+    <tr>
+      <td><strong>When the human decides</strong></td>
+      <td><strong>In-band</strong> &mdash; within the agent turn, synchronously.</td>
+      <td><strong>Out-of-band</strong> &mdash; later, from the approvals UI (or in-session, once this spec lands).</td>
+    </tr>
+    <tr>
+      <td><strong>Durability</strong></td>
+      <td>Transient consent tied to one tool call (plus an audit row).</td>
+      <td>Durable row that survives the turn, the session, and process restarts.</td>
+    </tr>
+    <tr>
+      <td><strong>Right for</strong></td>
+      <td>Reversible, fast, low/medium-stakes writes the user wants done &ldquo;now.&rdquo;</td>
+      <td>Money movement and anything that must be auditable, deferrable, and durable.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Neither alone is sufficient. The decorator alone would force money movement into a
+  transient, in-process wait &mdash; wrong for an operation that may be approved by a
+  different operator hours later and must never silently re-run. The dispatcher alone
+  would force every trivial &ldquo;save this note&rdquo; mutation through a durable
+  proposal row and an approvals queue &mdash; far too heavy, and it offers no in-band
+  path for the everyday writes a conversational agent should just do after a quick
+  confirm.
+</p>
+
+<p>
+  The synthesis: <strong>one decorator at the tool boundary, whose behaviour is selected
+  by the tool's risk tier.</strong> Low and medium tiers resolve in-band (the decorator's
+  own consent flow); the high tier defers to the durable proposal pipeline (the decorator
+  becomes a proposal-marshaller and never calls the inner tool). Both tiers share one
+  front-door service and one audit substrate, so a tool author attaches behaviour in one
+  place and the routing is automatic.
+</p>
+
+<h2 id="tiers">4. Risk-tier model &amp; routing</h2>
+
+<p>
+  Risk tier is a property of the <em>tool</em>, declared at registration, not a property
+  of the agent. (Today <a href="../../src/Aonik.Agents/Framework/AgentConfigurationService.cs"><code>AgentConfigurationService.IsMutatingToolName</code></a>
+  assigns a tier to the <em>agent</em> via an incomplete verb heuristic &mdash; that stays
+  only as a seed/lint, see &sect;7.2.) Four classes:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Class</th><th>Definition</th><th>Decorator behaviour</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tier ro">Read&nbsp;only</span></td>
+      <td>No state change. <code>get_</code>, <code>list_</code>, <code>search_</code>, <code>describe_</code>, <code>summarize_</code>, graph traversal.</td>
+      <td>Not wrapped. Executes directly, as today.</td>
+    </tr>
+    <tr>
+      <td><span class="tier low">Low</span></td>
+      <td>Reversible personal-state writes with no financial effect and no cross-party impact. Save a memory/preference, dismiss an insight, rename/retag a personal label.</td>
+      <td>Records a <code>ToolApprovalRequest</code>, <strong>auto-approves</strong>, runs the inner tool in-band, surfaces a non-blocking &ldquo;done&rdquo; card. No human wait.</td>
+    </tr>
+    <tr>
+      <td><span class="tier medium">Medium</span></td>
+      <td>Real domain writes that are reversible and do <em>not</em> move money or post to the ledger. Create invoice/bill, update budget, recategorise a transaction, add a line to a draft.</td>
+      <td>Creates a <code>ToolApprovalRequest</code>, publishes an approval card, <strong>blocks the turn</strong> awaiting an explicit decision (short timeout), then runs the inner tool in-band only if approved. Requires fresh user presence (step-up).</td>
+    </tr>
+    <tr>
+      <td><span class="tier high">High</span></td>
+      <td><strong>Money movement, ledger posting, refunds/payouts/transfers, or any external partner API call.</strong> Capture/cancel payment, pay bill, mark invoice paid, post journal entry, partner remittance.</td>
+      <td><strong>Never invokes the inner tool.</strong> Creates a durable <code>Proposal</code> (status <code>Proposed</code>), publishes an approval card, returns a &ldquo;queued for approval&rdquo; result to the agent. Execution happens only inside the Spec 030 dispatcher's <code>IProposalHandler</code> once the proposal is approved.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>4.1 The routing rule, in one line</h3>
+
+<p>
+  <strong>If a tool can move money, post to the ledger, or call a partner &mdash; it is
+  High and must become a Proposal.</strong> Everything else that writes state is Medium
+  (confirm in-session) unless it is a trivial reversible personal-state write, which is
+  Low (audit-only). Anything not classified is treated as High and the build fails &mdash;
+  fail closed.
+</p>
+
+<h3>4.2 Why this split</h3>
+
+<ul>
+  <li>
+    <strong>Money movement is inherently durable and deferrable.</strong> It may be
+    approved by a different authorised operator (B2B), minutes or hours later; it must
+    survive a process restart; and a failed attempt must never silently re-run. Those are
+    the properties of a <code>Proposal</code> row, not an in-process <code>await</code>.
+    Forcing money through the in-band decorator would be a regression dressed as a
+    feature.
+  </li>
+  <li>
+    <strong>Everyday domain writes should feel conversational.</strong> &ldquo;Create an
+    invoice for &pound;1,250&rdquo; should complete in the turn after one confirmation,
+    not land in an approvals queue. Medium tier preserves the responsive UX the
+    <code>confirmAction</code> card was reaching for &mdash; but now the wait and the
+    decision are enforced on the server.
+  </li>
+  <li>
+    <strong>Trivial writes shouldn't nag.</strong> Saving a preference or dismissing an
+    insight is reversible and carries no financial weight. Gating it behind a blocking
+    confirmation trains users to approve reflexively, which erodes the value of the
+    medium/high prompts. Low tier audits the action and moves on. (This preserves today's
+    deliberate exemption of <code>user_memory_save</code> from <code>confirmAction</code>,
+    while still recording it.)
+  </li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Tier is a floor, not a ceiling</span>
+  A tool author may classify <em>up</em> (mark a Medium tool High because the tenant's
+  policy is conservative) but never <em>down</em> below the rule in &sect;4.1. Money
+  movement is High, full stop. The classification manifest is reviewed as a security
+  artefact (see &sect;7.2).
+</div>
+
+<h2 id="scope">5. Scope (in / out)</h2>
+
+<h3>5.1 In scope</h3>
+
+<ul>
+  <li><span class="tag new">New</span> <code>ApprovalRequiredAIFunction</code> &mdash; the single tier-driven decorator over <code>AIFunction</code>, in <code>Aonik.Agents</code>. Preserves the inner tool's name, description, and JSON schema so the model sees an unchanged tool.</li>
+  <li><span class="tag new">New</span> <code>IToolApprovalService</code> &mdash; the unifying front door. Given a gated invocation, routes by tier: auto-approve (Low), in-band wait (Medium), or marshal-to-<code>Proposal</code> (High). Returns a uniform <code>ToolGateOutcome</code>.</li>
+  <li><span class="tag new">New</span> <code>ToolApprovalRequest</code> entity + EF configuration in the owning module; <code>DbSet</code> added to <code>AonikDbContext</code> (migration via the single stream only). Audit/correlation record for <em>every</em> gated call; for High it carries the spawned <code>ProposalId</code>.</li>
+  <li><span class="tag new">New</span> <code>IToolApprovalGateway</code> &mdash; transport-neutral bridge that publishes an approval card to the active client (AG-UI SSE / voice Voxa envelope) and routes the decision back. Presentation only; never decides authorisation.</li>
+  <li><span class="tag new">New</span> Per-module <strong>tool classification manifest</strong> (<code>IToolApprovalManifest</code>) declaring each tool's tier + <code>ToolApprovalOptions</code> (<code>ActionKind</code>, <code>SummaryTemplate</code>, <code>RequiresFreshUserPresence</code>, optional <code>ProposalType</code> for High). Aggregated by a central <code>IToolClassification</code>.</li>
+  <li><span class="tag new">New</span> <strong>Fail-closed composition seam.</strong> A central gate applied at every <code>*AgentDescriptor.GetTools</code> that wraps mutating tools, passes read-only tools, and <em>throws</em> for unclassified tools &mdash; making an ungated mutation structurally impossible to expose.</li>
+  <li><span class="tag mutate">Edit</span> <code>FinanceAgentDescriptor.GetTools</code> (and any other descriptor exposing mutating tools) to route through the gate. Remove the false &ldquo;approval enforced via confirmAction&rdquo; comments from <code>PaymentTools</code> / <code>InvoiceTools</code> / <code>LedgerTools</code>.</li>
+  <li><span class="tag new">New</span> <code>IProposalHandler</code> implementations in <code>Aonik.Finance</code> for each migrated High tool (capture/cancel payment, mark invoice paid, ledger posting). These become the <em>only</em> code path to the corresponding <code>IPaymentService</code> / ledger method.</li>
+  <li><span class="tag mutate">Edit</span> <span class="tag new">Precondition</span> Split <code>ProposalStatus</code> into <code>Proposed</code> &rarr; <code>Approved</code> &rarr; <code>Applied</code> / <code>Failed</code> (with <code>Rejected</code> terminal). Mandated by Spec 030 &sect;6.4 before any money-movement proposal type. See &sect;8.1.</li>
+  <li><span class="tag mutate">Edit</span> <span class="tag new">Precondition</span> Replace the blanket <code>AdminUserPolicy</code> on <code>/ai/proposals/{id}/approve</code> with policy-based authorisation (<code>IProposalApprovalPolicy</code>) over actor / ownership / tenant / risk tier / proposal type. Mandated by Spec 030 &sect;3.2. See &sect;8.2.</li>
+  <li><span class="tag mutate">Edit</span> In-session approval surface: allow the requesting user to approve a freshly-created High proposal from within the active session, routing the decision through the same policy + dispatcher path as the queue.</li>
+  <li><span class="tag mutate">Edit</span> <code>confirmAction</code> / <code>ToolCallClassifier</code> / <code>AguiStreamPipeline</code>: demote <code>confirmAction</code> to a presentation surface over a server-owned <code>ToolApprovalRequest</code> / <code>Proposal</code>; the frontend decision routes to <code>IToolApprovalService.DecideAsync</code>.</li>
+  <li><span class="tag new">New</span> Unit, integration, and safety tests (see &sect;13).</li>
+</ul>
+
+<h3>5.2 Out of scope</h3>
+
+<ul>
+  <li><strong>Spoken approval.</strong> Voice renders and collects the decision through the existing Voxa <code>toolCall</code> envelope; no &ldquo;say yes to approve.&rdquo; (Per Spec 023 non-goals.)</li>
+  <li><strong>Multi-approver / segregation-of-duties beyond &ldquo;self or one authorised operator.&rdquo;</strong> Q2 requires that a High proposal be approvable by the requesting user <em>or</em> an authorised operator (B2B). Richer N-of-M workflows, maker-checker thresholds, and delegation are a later spec.</li>
+  <li><strong>Background retry / dead-letter for failed money proposals.</strong> A <code>Failed</code> proposal is terminal; retry means raising a new proposal (operator/user-driven). An outbox-backed retry pipeline is separate work. (Note: Spec 030 ships an outbox for integration events; reusing it for proposal execution retry is explicitly deferred.)</li>
+  <li><strong>Redesigning domain services.</strong> This spec gates access to <code>IPaymentService</code>, the ledger, etc.; it does not change their internals or invariants.</li>
+  <li><strong>New proposal types beyond the money-tool migration.</strong> FLG/insights stay working; the Finance money tools are migrated; net-new proposal types are their own specs built on this substrate.</li>
+  <li><strong>Per-tenant tier overrides at runtime.</strong> Tiers are declared in code/manifest in v1. A tenant-configurable risk policy is a later enhancement (the manifest is the seam it would plug into).</li>
+</ul>
+
+<h2 id="guardrails">6. Guardrails</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Must&nbsp;not&nbsp;change</th>
+      <th>Must&nbsp;follow</th>
+      <th>Ask&nbsp;before</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>The tool name, description, and JSON schema the model sees &mdash; the decorator is transparent to the LLM.</li>
+          <li>The <code>IProposalHandler</code> contract and the Spec 030 dispatch flow &mdash; this spec <em>feeds</em> it, it does not fork it.</li>
+          <li>The ledger / payment / order invariants &mdash; approval sits in front of domain services, never replaces their checks.</li>
+          <li>The single migration stream (<code>AonikDbContext</code> only); <code>ToolApprovalRequest</code> and the <code>ProposalStatus</code> change ship as tool-generated migrations.</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>The wrapped/handler code is the <strong>only</strong> path to the domain service. For High, the inner <code>AIFunction</code> is never invoked &mdash; the <code>IProposalHandler</code> is.</li>
+          <li>Unknown / unclassified mutating tools <strong>fail closed</strong> &mdash; the build fails and the composition seam throws, so an ungated mutation cannot be exposed.</li>
+          <li>Enforcement is transport-neutral: AG-UI, voice, and the admin playground all flow through <code>IToolApprovalService</code>; transports only present and collect.</li>
+          <li>For consumer (Payabo) flows, the approving user MUST equal the requesting user. Tenant boundary is mandatory for every decision.</li>
+          <li>The decorator and dispatcher emit OpenTelemetry spans: <code>aonik.tools.approval</code> (tags <code>tool.name</code>, <code>tool.risk_tier</code>, <code>approval.outcome</code>, <code>approval.request_id</code>, <code>proposal.id</code>) composing with Spec 030's <code>aonik.proposals.dispatch</code>.</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Classifying any money-moving tool below <span class="tier high">High</span>.</li>
+          <li>Adding a bounded in-band blocking wait for High tools (the &ldquo;synchronous money&rdquo; temptation &mdash; see &sect;15).</li>
+          <li>Letting a transport adapter make an authorisation decision instead of presenting one.</li>
+          <li>Adding columns to <code>Proposal</code> beyond the status-model change in &sect;8.1.</li>
+          <li>Reusing a single approval decision for changed arguments (replay).</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="design">7. Component design</h2>
+
+<h3>7.1 One decorator, tier-driven behaviour</h3>
+
+<p>
+  <code>ApprovalRequiredAIFunction</code> wraps an inner <code>AIFunction</code> and holds
+  its <code>ToolApprovalOptions</code> (which carry the tier). It does not itself contain
+  tier logic &mdash; it delegates to <code>IToolApprovalService</code> and acts on the
+  returned <code>ToolGateOutcome</code>. This keeps the routing in one testable service
+  and the decorator thin.
+</p>
+
+<pre><code>namespace Aonik.Agents.Approval;
+
+internal sealed class ApprovalRequiredAIFunction : AIFunction
+{
+    private readonly AIFunction _inner;
+    private readonly ToolApprovalOptions _options;
+    private readonly IToolApprovalService _approvals;
+
+    // Transparent passthrough — the model sees the original tool unchanged.
+    public override string Name => _inner.Name;
+    public override string Description => _inner.Description;
+    public override JsonElement JsonSchema => _inner.JsonSchema;
+
+    public override async ValueTask&lt;object?&gt; InvokeAsync(
+        AIFunctionArguments arguments,
+        CancellationToken ct = default)
+    {
+        var outcome = await _approvals.GateAsync(
+            new ToolGateContext(_inner.Name, _options, arguments), ct);
+
+        return outcome switch
+        {
+            // Low/Medium, approved: the inner tool IS the domain call. Run it in-band.
+            { Decision: GateDecision.ApprovedInline } =&gt;
+                await _inner.InvokeAsync(arguments, ct),
+
+            // High: a durable Proposal was created. The inner tool is NEVER called here;
+            // the IProposalHandler will execute it on approval. Tell the agent it's queued.
+            { Decision: GateDecision.Queued } =&gt;
+                ToolGateResult.Queued(outcome.ProposalId!.Value, outcome.Summary),
+
+            // Rejected / expired / failed-to-gate: structured refusal back to the model.
+            _ =&gt; ToolGateResult.Refused(outcome.Decision, outcome.Reason),
+        };
+    }
+}</code></pre>
+
+<div class="callout">
+  <span class="callout-label">The High invariant, made structural</span>
+  For a High tool, <code>_inner.InvokeAsync</code> is unreachable inside the decorator.
+  The domain mutation lives only in the matching <code>IProposalHandler</code>. This is
+  the &ldquo;expose the proposal-creating tool, never the mutation tool&rdquo; design,
+  achieved without writing a second proposal-creating function per tool &mdash; the
+  decorator <em>is</em> the proposal-creator, and the inner function's metadata (name,
+  schema) is reused as the proposal's payload shape.
+</div>
+
+<h3>7.2 Classification &amp; fail-closed composition seam</h3>
+
+<p>
+  Classification is explicit and module-owned. Each module contributes an
+  <code>IToolApprovalManifest</code> mapping its tool names to a tier and options; a
+  central <code>IToolClassification</code> aggregates them. The wrapping is applied at the
+  one place tools are assembled &mdash; the descriptor seam &mdash; so it cannot be
+  forgotten:
+</p>
+
+<pre><code>// Aonik.Finance/Agents/FinanceAgentRegistration.cs (post-change)
+private IEnumerable&lt;AITool&gt; GetTools(IServiceProvider sp)
+{
+    var classification = sp.GetRequiredService&lt;IToolClassification&gt;();
+    return classification.GateAll(
+        InvoiceTools.CreateAll(sp)
+            .Concat(LedgerTools.CreateAll(sp))
+            .Concat(PaymentTools.CreateAll(sp)));
+}
+
+// IToolClassification.GateAll, per tool:
+//   read-only (allow-listed prefix or explicit RO classification) → pass through
+//   classified Low/Medium/High                                     → wrap in ApprovalRequiredAIFunction
+//   unclassified mutating-looking tool                             → throw ToolNotClassifiedException
+public AITool Gate(AITool tool) => _manifest.Classify(tool.Name) switch
+{
+    ToolClass.ReadOnly        =&gt; tool,
+    { } c when c.IsMutating   =&gt; new ApprovalRequiredAIFunction((AIFunction)tool, c.Options, _approvals),
+    _                         =&gt; throw new ToolNotClassifiedException(tool.Name),
+};</code></pre>
+
+<p>
+  The legacy verb heuristic
+  (<a href="../../src/Aonik.Agents/Framework/AgentConfigurationService.cs"><code>IsMutatingToolName</code></a>:
+  <code>_create_</code>, <code>_archive_</code>, <code>_cancel_</code>, <code>_issue_</code>,
+  <code>_mark_</code>, <code>_capture_</code>) is retained for two jobs only, never as the
+  runtime authority:
+</p>
+
+<ul>
+  <li><strong>Seed</strong> &mdash; it pre-fills a draft tier for a newly added tool so the manifest entry is one edit, not a blank.</li>
+  <li><strong>Lint trip-wire</strong> &mdash; a startup/build test asserts that any tool whose name matches a mutation verb is <em>not</em> classified read-only, catching misclassification. (The heuristic is intentionally widened in this check to include <code>_update_</code>, <code>_delete_</code>, <code>_apply_</code>, <code>_pay_</code>, <code>_transfer_</code>, <code>_payout_</code>, <code>_refund_</code>, <code>_set_</code>, <code>_override_</code>, <code>_sync_</code>, which the current heuristic misses.)</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Why a manifest and not just inline <code>.WithApprovalRequired</code></span>
+  Spec 023 proposed attaching options inline at registration. That is ergonomic but
+  fails open: a developer who registers a tool the normal way (as every Finance money
+  tool does today) silently ships an ungated mutation. Routing the wrap through a
+  central, completeness-validated classification makes the safe path the only path. Inline
+  options can still be the authoring ergonomics &mdash; but the gate, not the call site,
+  is the authority.
+</div>
+
+<h3>7.3 Low &amp; Medium: in-band gating</h3>
+
+<div class="ascii-diagram">In-band path (Low / Medium)
+────────────────────────────
+Agent calls finance_create_invoice(args)
+  ↓
+ApprovalRequiredAIFunction.InvokeAsync
+  ↓
+IToolApprovalService.GateAsync(ctx)
+  ├─ persist ToolApprovalRequest (tenant, user, thread, agent, run, tool, args-hash, redacted args, summary)
+  ├─ Low?     → auto-approve, status Approved, return ApprovedInline   (non-blocking "done" card)
+  └─ Medium?  → publish approval card via IToolApprovalGateway
+                 ├─ require fresh user presence (step-up); short expiry (≈2 min)
+                 ├─ await IToolApprovalService.DecideAsync(requestId, decision)
+                 │     • approved (same user, fresh) → ApprovedInline
+                 │     • rejected / expired / disconnect → Refused
+                 └─ replay guard: decision is bound to the args-hash
+  ↓
+ApprovedInline → decorator calls _inner.InvokeAsync(args) → domain service runs → result to agent
+Refused        → structured refusal to agent ("not approved"), turn continues</div>
+
+<p>
+  Medium blocks the turn because the user wants the result now and the action is
+  reversible &mdash; a bounded wait is acceptable and matches the existing
+  <code>confirmAction</code> mental model. The wait, the identity check, the freshness
+  check, and the replay guard are all server-side. Low never blocks; it exists in the
+  decorator only so the &ldquo;every mutation is classified and audited&rdquo; invariant
+  holds without exception.
+</p>
+
+<h3>7.4 High: marshal into a durable Proposal</h3>
+
+<div class="ascii-diagram">High path (money movement)
+──────────────────────────
+Agent calls finance_capture_payment(args)
+  ↓
+ApprovalRequiredAIFunction.InvokeAsync
+  ↓
+IToolApprovalService.GateAsync(ctx)   [tier = High]
+  ├─ persist ToolApprovalRequest
+  ├─ create Proposal via IAgentProposalStore.CreateManyAsync:
+  │     ProposalType = options.ProposalType (e.g. "Finance.CapturePayment")
+  │     PayloadJson  = serialized tool arguments
+  │     RiskTier     = "High", ProposedByAgentId, AiRunId, ImpactSummary
+  │     Status       = Proposed
+  ├─ store ProposalId on the ToolApprovalRequest
+  ├─ publish approval card via IToolApprovalGateway (same surface as Medium)
+  └─ return Queued(proposalId)            ← inner tool NEVER invoked here
+  ↓
+Decorator returns "queued for approval (proposal {id})" → agent tells user it's pending
+  ⋮  (in-session OR later, from the approvals queue)
+User / authorised operator approves
+  ↓
+POST /ai/proposals/{id}/approve  (policy-checked — §8.2)
+  ↓
+ProposalApprovalService.ApproveAsync
+  ├─ Proposed → Approved (stamp approver + time)            [§8.1 status split]
+  ├─ IProposalDispatcher.DispatchAsync → IProposalHandler.HandleAsync
+  │     └─ FinanceCapturePaymentHandler → IPaymentService.CapturePaymentAsync   ← the ONLY domain call
+  ├─ Applied=true  → status Applied;  surface result back into the session
+  └─ throws / Applied=false → status Failed (terminal; retry = new proposal)</div>
+
+<p>
+  The agent's turn does not block on a money decision. The decorator returns immediately
+  with a queued result, and the agent reports &ldquo;I've prepared the payment capture
+  &mdash; it's waiting for your approval.&rdquo; When the decision lands &mdash; in the
+  same session seconds later, or from the approvals queue hours later &mdash; the
+  dispatcher executes and the outcome is delivered back into the conversation as a
+  follow-up event (AG-UI tool-result event / voice envelope), not as the original tool
+  call's return value.
+</p>
+
+<p>
+  The <code>ProposalType</code> for each migrated tool is declared in the manifest (e.g.
+  <code>"Finance.CapturePayment"</code>), and the matching <code>IProposalHandler</code>
+  deserialises <code>PayloadJson</code> back into the domain request and calls the domain
+  service. This is precisely the Spec 030 contract &mdash; this spec simply makes the
+  decorator the producer of those proposals.
+</p>
+
+<h3>7.5 <code>IToolApprovalService</code> &mdash; the unifying front door</h3>
+
+<pre><code>namespace Aonik.Agents.Approval;
+
+public interface IToolApprovalService
+{
+    /// Routes by the tool's tier. Persists a ToolApprovalRequest for every call.
+    ///   Low    → auto-approved, ApprovedInline
+    ///   Medium → publish card, await decision, ApprovedInline | Refused
+    ///   High   → create Proposal (Proposed), publish card, Queued(proposalId)
+    Task&lt;ToolGateOutcome&gt; GateAsync(ToolGateContext context, CancellationToken ct = default);
+
+    /// Records a decision for a pending in-band (Medium) request, or routes a High
+    /// proposal decision through ProposalApprovalService. Enforces identity, tenant,
+    /// freshness, expiry, and args-hash replay protection.
+    Task&lt;ToolApprovalDecision&gt; DecideAsync(
+        Guid approvalRequestId, ToolApprovalDecisionInput decision, CancellationToken ct = default);
+}
+
+public sealed record ToolGateOutcome(
+    GateDecision Decision,          // ApprovedInline | Queued | Rejected | Expired | Failed
+    Guid ApprovalRequestId,
+    Guid? ProposalId,               // set only for High
+    string? Summary,
+    string? Reason);</code></pre>
+
+<p>
+  One service, one dependency for the decorator, two persistence substrates behind it:
+  <code>ToolApprovalRequest</code> (the universal audit/correlation row, present for all
+  tiers) and &mdash; for High only &mdash; a <code>Proposal</code> (the durable execution
+  record). The two stay purpose-built rather than awkwardly merged: the
+  <code>ToolApprovalRequest</code> answers &ldquo;what did this conversation ask for and
+  who consented&rdquo;; the <code>Proposal</code> answers &ldquo;what durable money
+  operation is pending and what executed it.&rdquo; They are linked by
+  <code>ProposalId</code>.
+</p>
+
+<h3>7.6 <code>confirmAction</code> demoted to presentation</h3>
+
+<p>
+  <code>confirmAction</code> stops being the gate and becomes one renderer of a
+  server-owned decision request. Concretely:
+</p>
+
+<ul>
+  <li><a href="../../src/Aonik.Agents/Services/ToolCallClassifier.cs"><code>ToolCallClassifier.RequiresApproval</code></a> no longer carries enforcement meaning; the server decides via <code>IToolApprovalService</code>. The classifier's <code>confirmAction</code> recognition remains only to route the frontend's <em>card</em> rendering.</li>
+  <li><a href="../../src/Aonik.Agents/Services/AguiStreamPipeline.cs"><code>AguiStreamPipeline</code></a> surfaces a server-created <code>ToolApprovalRequest</code> / <code>Proposal</code> as the existing <code>confirmAction</code> card shape, so the frontend UX is unchanged.</li>
+  <li>The frontend's approve/reject click routes to <code>IToolApprovalService.DecideAsync</code> &mdash; which, for High, calls the policy-checked <code>/ai/proposals/{id}/approve</code> path. The card is a view; the decision is owned by the server.</li>
+  <li>The orchestrator prompt's &ldquo;you MUST call <code>confirmAction</code> first&rdquo; instruction is downgraded to guidance about <em>narrating</em> intent; it is no longer load-bearing for safety, because the server enforces regardless of what the model emits.</li>
+</ul>
+
+<h3>7.7 Transport neutrality</h3>
+
+<p>
+  <code>IToolApprovalGateway</code> is the only transport-aware seam, and it only presents
+  and collects:
+</p>
+
+<ul>
+  <li><strong>AG-UI (SSE):</strong> approval card surfaced as the existing <code>confirmAction</code> frontend tool event; decision posted back to <code>DecideAsync</code>.</li>
+  <li><strong>Voice (WebSocket / Voxa):</strong> approval card as a Voxa <code>toolCall</code> envelope with <code>name: "confirmAction"</code>; the client's <code>toolResult</code> routes to <code>DecideAsync</code>. Because enforcement is now server-side, voice can expose Medium and High tools &mdash; lifting the read-only-only restriction for agents whose mutating tools are classified.</li>
+  <li><strong>Admin playground:</strong> renders the same payload.</li>
+</ul>
+
+<p>
+  No transport decides whether a mutation runs. A decision arriving over any transport is
+  treated as a <em>request to decide</em>, validated server-side for identity, tenant,
+  freshness, expiry, and args-hash before it has any effect.
+</p>
+
+<h2 id="preconditions">8. Mandated preconditions (from Spec 030)</h2>
+
+<p>
+  Spec 030 shipped the dispatcher but explicitly deferred two things, naming them hard
+  preconditions for any money-movement proposal type. This spec introduces exactly those
+  proposal types, so both must land <em>with</em> the High path &mdash; they are not
+  optional follow-ups.
+</p>
+
+<h3>8.1 Status split: Proposed → Approved → Applied / Failed</h3>
+
+<p>
+  Spec 030 &sect;6.4 documents that the three-value enum collapses two distinct facts and
+  must be split before money movement. With money, &ldquo;a human approved this&rdquo; and
+  &ldquo;the system moved the funds&rdquo; are different states with different recovery
+  semantics.
+</p>
+
+<table>
+  <thead>
+    <tr><th>State</th><th>Meaning</th><th>Transitions to</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Proposed</code></td><td>Created by the decorator; awaiting a decision.</td><td><code>Approved</code>, <code>Rejected</code></td></tr>
+    <tr><td><code>Approved</code></td><td>A human/policy approved; execution not yet confirmed.</td><td><code>Applied</code>, <code>Failed</code></td></tr>
+    <tr><td><code>Applied</code></td><td>Dispatcher ran the handler; it returned <code>Applied = true</code>. Terminal success.</td><td>&mdash;</td></tr>
+    <tr><td><code>Failed</code></td><td>Handler threw or returned <code>Applied = false</code>. Terminal failure.</td><td>&mdash; (retry = a new proposal)</td></tr>
+    <tr><td><code>Rejected</code></td><td>Dismissed without execution. Terminal.</td><td>&mdash;</td></tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Behavioural change vs Spec 030</span>
+  Spec 030's revert-on-failure rule (handler throws &rArr; status goes back to
+  <code>Proposed</code>) is <strong>unsafe for money</strong>: it invites an operator to
+  re-approve a capture whose first attempt's outcome is unknown, risking a double
+  movement. For High proposals, a failed dispatch lands in <strong><code>Failed</code>
+  (terminal)</strong>, not back in <code>Proposed</code>. Recovery is an explicit new
+  proposal after the operator confirms the prior attempt's real outcome with the partner.
+  Low-stakes proposal types (FLG) may keep the revert behaviour; the status field
+  supports both because <code>Approved</code> is now an explicit intermediate.
+</div>
+
+<p>
+  This is a tool-generated migration against <code>AonikDbContext</code> (add the two enum
+  values; existing rows are unaffected since <code>Approved</code> previously meant
+  approved-and-applied &mdash; a data note documents that historical <code>Approved</code>
+  rows predate the split).
+</p>
+
+<h3>8.2 Policy-based authorisation</h3>
+
+<p>
+  Spec 030 &sect;3.2 retains a blanket <code>AdminUserPolicy</code> on the approve
+  endpoint &ldquo;only because the FLG migration is the sole live consumer,&rdquo; and
+  names policy-based authorisation a hard precondition for money-movement types. The
+  &ldquo;in-session + queue&rdquo; approver model (&sect;9) makes it unavoidable: who may
+  approve depends on the actor, the subject's ownership, the tenant, the risk tier, and
+  the proposal type &mdash; not a single role.
+</p>
+
+<pre><code>public interface IProposalApprovalPolicy
+{
+    // Decides whether `actor` may approve `proposal`. Evaluated for both the
+    // in-session approval and the approvals-queue endpoint — one rule set, two surfaces.
+    Task&lt;ApprovalAuthorization&gt; EvaluateAsync(
+        ApprovalActor actor, ProposalAuthorizationContext proposal, CancellationToken ct);
+}</code></pre>
+
+<p>v1 rules:</p>
+
+<ul>
+  <li><strong>Tenant boundary is mandatory</strong> &mdash; actor and proposal must share a tenant. No cross-tenant approval, ever.</li>
+  <li><strong>Consumer (Payabo) flows: self-approval only.</strong> The approver MUST equal the proposal's originating user. An agent acting on a user's own money can only be approved by that user.</li>
+  <li><strong>B2B flows: authorised operator.</strong> An operator holding the right permission within the same tenant may approve a proposal raised on that tenant's behalf. (Optional SoD &mdash; approver &ne; proposer for high-value &mdash; is a manifest/policy knob, defaulted off in v1.)</li>
+  <li><strong>Risk tier / proposal type may demand step-up</strong> &mdash; fresh authentication within a window before a High approval is accepted.</li>
+</ul>
+
+<p>
+  The <code>/ai/proposals/{id}/approve</code> endpoint drops <code>Policies("AdminUserPolicy")</code>
+  and instead calls <code>IProposalApprovalPolicy.EvaluateAsync</code>; an unauthorized
+  actor gets <code>403</code>. The in-session approval surface calls the identical policy.
+</p>
+
+<h2 id="approver">9. Approver model: in-session + queue</h2>
+
+<p>
+  A High proposal can be resolved two ways, both routed through the same policy +
+  dispatcher path:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Mode</th><th>Who</th><th>When</th><th>Mechanics</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>In-session</strong></td>
+      <td>The requesting user (self).</td>
+      <td>Immediately, in the active turn/session.</td>
+      <td>The approval card the decorator published is acted on right away; <code>DecideAsync</code> routes to <code>ApproveAsync</code>; the dispatcher runs synchronously and the result is surfaced back into the conversation.</td>
+    </tr>
+    <tr>
+      <td><strong>Queue</strong></td>
+      <td>The same user, or an authorised operator (B2B).</td>
+      <td>Later &mdash; minutes or hours.</td>
+      <td>The proposal sits <code>Proposed</code> in the approvals queue; approved from the admin/approvals UI via <code>/ai/proposals/{id}/approve</code>; same policy, same dispatcher.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The crucial property: <strong>in-session and queue differ only in who triggers the
+  decision and when</strong> &mdash; the authorisation rule and the execution path are
+  identical. There is no &ldquo;fast lane&rdquo; that skips policy for in-session
+  approvals. This is what forces &sect;8.1 (a money decision must persist as
+  <code>Approved</code> independently of whether execution has happened yet) and &sect;8.2
+  (the &ldquo;self or authorised operator&rdquo; rule is policy, not a role gate).
+</p>
+
+<h2 id="migrate">10. Migrating the Finance money tools</h2>
+
+<p>
+  The Finance agent's mutating tools move off direct registration. Each is classified and,
+  for High, gets an <code>IProposalHandler</code>. Proposed classification of the current
+  tools (rule from &sect;4.1):
+</p>
+
+<table>
+  <thead>
+    <tr><th>Tool</th><th>Tier</th><th>Rationale / target ProposalType</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>finance_get_*</code>, <code>finance_graph_*</code></td><td><span class="tier ro">Read&nbsp;only</span></td><td>No state change.</td></tr>
+    <tr><td><code>finance_create_invoice</code></td><td><span class="tier medium">Medium</span></td><td>Creates a record; no money moves. Confirm in-session.</td></tr>
+    <tr><td><code>finance_add_line_to_invoice</code>, <code>finance_apply_discount</code></td><td><span class="tier medium">Medium</span></td><td>Mutates a draft; reversible.</td></tr>
+    <tr><td><code>finance_issue_invoice</code></td><td><span class="tier medium">Medium</span></td><td>External-facing commitment but no money movement. (Classify up to High if issuing triggers dunning/partner notification.)</td></tr>
+    <tr><td><code>finance_cancel_invoice</code></td><td><span class="tier medium">Medium</span></td><td>State change; reversible-ish. (Up to High if it triggers a credit note / refund.)</td></tr>
+    <tr><td><code>finance_mark_invoice_paid</code></td><td><span class="tier high">High</span></td><td>Asserts a financial fact that posts to the ledger. <code>Finance.MarkInvoicePaid</code>.</td></tr>
+    <tr><td><code>finance_create_payment_intent</code></td><td><span class="tier medium">Medium</span></td><td>Sets up an intent; no funds move yet.</td></tr>
+    <tr><td><code>finance_capture_payment</code></td><td><span class="tier high">High</span></td><td>Moves funds. <code>Finance.CapturePayment</code>.</td></tr>
+    <tr><td><code>finance_cancel_payment</code></td><td><span class="tier high">High</span></td><td>Money-state change / possible partner reversal. <code>Finance.CancelPayment</code>.</td></tr>
+    <tr><td><code>finance_create_ledger</code>, <code>finance_create_account</code></td><td><span class="tier medium">Medium</span></td><td>Structural setup, not a posting.</td></tr>
+    <tr><td>Any journal-entry / ledger-posting tool</td><td><span class="tier high">High</span></td><td>Direct mutation of financial truth. <code>Finance.PostJournalEntry</code>.</td></tr>
+  </tbody>
+</table>
+
+<p>Migration steps per High tool (mechanical, mirrors Spec 030 &sect;7):</p>
+
+<ol>
+  <li>Add a manifest entry: tier <code>High</code>, <code>ActionKind</code>, <code>SummaryTemplate</code>, <code>ProposalType</code>.</li>
+  <li>Write <code>Finance{Action}ProposalHandler : IProposalHandler</code> in <code>Aonik.Finance</code> that deserialises <code>PayloadJson</code> into the existing domain request and calls the existing <code>IPaymentService</code> / ledger method &mdash; returning <code>ProposalHandlerResult(Applied: true, AppliedResourceType, AppliedResourceId)</code> on success, <code>Applied: false</code> for expected business failures, and throwing for unexpected ones. <strong>Make it idempotent</strong> (Spec 030 &sect;6.1): derive deterministic IDs from the payload; treat &ldquo;already captured&rdquo; as success.</li>
+  <li>Register the handler keyed by <code>ProposalType</code>.</li>
+  <li>The inner <code>AIFunction</code> stays exactly as written &mdash; it is the payload-shape source and is never invoked for a High tool.</li>
+  <li>Delete the false &ldquo;approval enforced via confirmAction&rdquo; comment.</li>
+</ol>
+
+<div class="callout">
+  <span class="callout-label">No duplicate domain code</span>
+  The handler and the inner tool both ultimately want to call the same domain method.
+  The inner tool's body is reused as documentation of the call shape; the handler does the
+  call. We do not fork <code>IPaymentService</code> &mdash; both routes converge on the one
+  domain service, preserving its invariants (the ledger stays the single source of truth).
+</div>
+
+<h2 id="failure">11. Failure, idempotency &amp; money safety</h2>
+
+<ul>
+  <li><strong>Idempotent handlers (High).</strong> The dispatcher may be retried (&ldquo;approve again&rdquo; in the queue is still possible for a <code>Proposed</code> row). Handlers must derive deterministic downstream IDs and treat &ldquo;already done&rdquo; as success &mdash; never <code>Guid.NewGuid()</code> for a captured payment.</li>
+  <li><strong>Failed is terminal for money.</strong> Per &sect;8.1, a failed High dispatch does not revert to <code>Proposed</code>. This prevents the double-movement hazard inherent in re-approving an operation whose first attempt's outcome is uncertain.</li>
+  <li><strong>Args-hash replay guard.</strong> A decision is bound to a hash of the arguments it was shown. If the agent re-calls the tool with changed arguments, the prior decision does not apply &mdash; a fresh request is created. (Spec 023 state-machine rule, retained.)</li>
+  <li><strong>Expiry &amp; disconnect.</strong> Medium in-band requests expire on timeout; a socket disconnect before decision cancels or expires the request. High proposals do not expire with the session &mdash; they persist in the queue (a separate, longer proposal-level expiry policy is an open decision, &sect;15).</li>
+  <li><strong>Not cross-module ACID.</strong> As Spec 030 &sect;6.3 notes, the proposal row and the domain mutation live in different <code>DbContext</code>s. The status split narrows the blast radius (an <code>Approved</code>-but-not-<code>Applied</code> row is an explicit, queryable state for an operator) but does not make it a distributed transaction. Crash mid-handler is operator-recoverable, not auto-recovered, in v1.</li>
+</ul>
+
+<h2 id="security">12. Security &amp; audit</h2>
+
+<ul>
+  <li><strong>Every gated call is recorded.</strong> A <code>ToolApprovalRequest</code> captures tenant, user, thread, agent, AI run, tool name, tool-call id, redacted arguments, args hash, risk tier, summary, decision, deciding user, and timestamps (requested / decided / for High, linked <code>ProposalId</code>).</li>
+  <li><strong>Identity &amp; tenant on every decision.</strong> The deciding user must match the expected user (consumer self-approval) or hold the operator permission (B2B), and must share the proposal's tenant. Enforced in <code>DecideAsync</code> and <code>IProposalApprovalPolicy</code> &mdash; never in a transport adapter.</li>
+  <li><strong>No data leakage in cards.</strong> Approval payloads carry human-readable summaries and material change details (old &rarr; new for updates), never secrets, credentials, full account numbers, or unnecessary PII.</li>
+  <li><strong>The wrapper is the only registration path for mutating tools.</strong> Enforced structurally by the composition seam (&sect;7.2) and verified by the fail-closed completeness test.</li>
+  <li><strong>Observability.</strong> <code>aonik.tools.approval</code> spans compose with Spec 030's <code>aonik.proposals.dispatch</code> so a money movement is traceable end-to-end: tool call &rarr; gate &rarr; proposal &rarr; approval &rarr; dispatch &rarr; domain call.</li>
+</ul>
+
+<h2 id="tasks">13. Phasing &amp; tasks</h2>
+
+<table>
+  <thead>
+    <tr><th>Phase</th><th>#</th><th>Task</th><th>Files / area</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3"><strong>A. Classification &amp; fail-closed seam</strong></td>
+      <td>1</td><td>Add <code>ToolApprovalOptions</code>, <code>ToolClass</code>, <code>IToolApprovalManifest</code>, <code>IToolClassification</code>, <code>ToolNotClassifiedException</code>.</td><td><code>src/Aonik.Agents/Approval/</code>, <code>src/Aonik.SharedKernel/Abstractions/Agents/</code></td></tr>
+    <tr><td>2</td><td>Implement the central gate; apply at <code>FinanceAgentDescriptor.GetTools</code> (and any other descriptor with mutating tools). Add the completeness/lint test (widened verb set) that fails the build on an unclassified or misclassified tool.</td><td><code>src/Aonik.Finance/Agents/FinanceAgentRegistration.cs</code>, <code>tests/Aonik.Agents.Tests/</code></td></tr>
+    <tr><td>3</td><td>Author the Finance tool manifest per &sect;10; delete the false &ldquo;confirmAction enforces&rdquo; comments.</td><td><code>src/Aonik.Finance/Agents/Tools/*</code></td></tr>
+    <tr><td rowspan="2"><strong>B. Decorator &amp; in-band tiers</strong></td>
+      <td>4</td><td>Implement <code>ApprovalRequiredAIFunction</code> + <code>IToolApprovalService.GateAsync</code> (Low auto-approve, Medium in-band wait with step-up + replay guard).</td><td><code>src/Aonik.Agents/Approval/</code></td></tr>
+    <tr><td>5</td><td>Add <code>ToolApprovalRequest</code> entity + EF config; <code>DbSet</code> on <code>AonikDbContext</code>; tool-generated migration; indexes (tenant/thread/status/expiry).</td><td><code>src/Aonik.Agents/Entities/</code>, <code>src/Aonik.Infrastructure/Migrations/</code></td></tr>
+    <tr><td rowspan="2"><strong>C. Status split &amp; policy (Spec 030 preconditions)</strong></td>
+      <td>6</td><td>Split <code>ProposalStatus</code> &rarr; add <code>Applied</code>, <code>Failed</code>; update <code>ApproveAsync</code> so High proposals go <code>Approved</code>&rarr;<code>Applied</code>/<code>Failed</code> (terminal on fail), FLG keeps revert. Tool-generated migration.</td><td><code>src/Aonik.Agents/Entities/ProposalStatus.cs</code>, <code>src/Aonik.Agents/Services/ProposalApprovalService.cs</code></td></tr>
+    <tr><td>7</td><td>Add <code>IProposalApprovalPolicy</code> + v1 rules; replace <code>AdminUserPolicy</code> on the approve endpoint; wire the in-session approval surface to the same policy.</td><td><code>src/Aonik.Agents/Endpoints/ApproveProposalEndpoint.cs</code>, <code>src/Aonik.Agents/Services/</code></td></tr>
+    <tr><td rowspan="2"><strong>D. High path &amp; money-tool handlers</strong></td>
+      <td>8</td><td><code>GateAsync</code> High branch: create <code>Proposal</code>, link <code>ProposalId</code>, return <code>Queued</code>. <code>DecideAsync</code> routes High decisions through <code>ApproveAsync</code>.</td><td><code>src/Aonik.Agents/Approval/</code></td></tr>
+    <tr><td>9</td><td>Write &amp; register <code>IProposalHandler</code>s for capture/cancel payment, mark-invoice-paid, ledger posting (idempotent).</td><td><code>src/Aonik.Finance/Agents/Proposals/</code></td></tr>
+    <tr><td rowspan="2"><strong>E. Transport &amp; presentation</strong></td>
+      <td>10</td><td>Implement <code>IToolApprovalGateway</code>; surface requests as <code>confirmAction</code> cards (AG-UI) and Voxa envelopes (voice); route decisions to <code>DecideAsync</code>. Demote <code>confirmAction</code> / <code>ToolCallClassifier</code> to presentation.</td><td><code>src/Aonik.Agents/Services/AguiStreamPipeline.cs</code>, voice adapter, <code>ToolCallClassifier.cs</code></td></tr>
+    <tr><td>11</td><td>Lift the read-only-only voice restriction for agents whose mutating tools are classified; surface in-session result events for High dispatch.</td><td>voice adapter, <code>src/Aonik.Agents/</code></td></tr>
+    <tr><td><strong>F. Verification</strong></td>
+      <td>12</td><td>Unit + integration + safety tests (see &sect;14).</td><td><code>tests/Aonik.Agents.Tests/</code>, <code>tests/Aonik.Api.Tests/</code>, <code>tests/Aonik.Application.Tests/</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+
+<ul>
+  <li><code>dotnet build Aonik.sln</code> and <code>dotnet test Aonik.sln</code> succeed.</li>
+  <li><strong>Fail-closed:</strong> adding a mutating-looking tool (name matches the widened verb set) without a manifest entry fails the build; the composition seam throws <code>ToolNotClassifiedException</code> at agent build time.</li>
+  <li><strong>High never runs in-band:</strong> a unit test asserts <code>ApprovalRequiredAIFunction</code> for a High tool never calls <code>_inner.InvokeAsync</code> and instead creates a <code>Proposal</code> and returns <code>Queued</code>.</li>
+  <li><strong>Money flows only through the handler:</strong> an integration test drives <code>finance_capture_payment</code> via the agent, asserts no funds move until approval, then approves the resulting proposal and asserts <code>IPaymentService.CapturePaymentAsync</code> ran exactly once and the proposal is <code>Applied</code>.</li>
+  <li><strong>Medium in-band:</strong> <code>finance_create_invoice</code> blocks for a decision; approving (same user, fresh presence) runs the inner tool once and returns the invoice; rejecting/expiring runs it zero times.</li>
+  <li><strong>Low audit-only:</strong> a Low tool runs in-band without blocking and produces a <code>ToolApprovalRequest</code> in <code>Approved</code> state.</li>
+  <li><strong>Status split:</strong> a failed High dispatch lands the proposal in <code>Failed</code> (terminal), not back in <code>Proposed</code>; an FLG proposal still reverts to <code>Proposed</code> on handler failure.</li>
+  <li><strong>Policy:</strong> a decision by a different user (consumer flow) or a different tenant is rejected; a B2B operator with the permission is accepted; <code>AdminUserPolicy</code> is no longer the gate.</li>
+  <li><strong>In-session = queue:</strong> approving a High proposal in-session and approving the identical proposal from the queue produce the same authorisation checks and the same execution path.</li>
+  <li><strong>Replay:</strong> a decision bound to one args-hash does not authorise a call with changed arguments.</li>
+  <li><strong>Transport parity:</strong> AG-UI and voice both create a server-side request and wait for a validated decision; neither transport can execute a mutation by itself.</li>
+  <li><strong>Docs:</strong> CLAUDE.md no longer claims mutating tools are already wrapped; it describes the tiered model and links this spec.</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Tier routing.</strong> Three tiers with &ldquo;money-move = proposal&rdquo;: Low
+  &rarr; inline audited decorator; Medium &rarr; in-session confirm with step-up; High
+  (any money movement / ledger posting / partner call) &rarr; durable proposal pipeline.
+  <strong>Approver model.</strong> &ldquo;In-session + queue&rdquo;: the requesting user
+  may approve a High proposal in the turn, or it waits in the queue for the same user or an
+  authorised B2B operator &mdash; both via one policy and one dispatch path. These two
+  decisions are the spine of the spec.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Bounded in-band wait for High?</strong> Should a High tool optionally block the
+  turn for a few seconds so a self-approving consumer sees the result inline, instead of
+  always returning &ldquo;queued&rdquo;? Tempting for UX, but it reintroduces a synchronous
+  money wait and a partial-failure window inside the agent turn. Recommendation: <em>defer</em>
+  &mdash; keep High strictly non-blocking; deliver the result as a follow-up session event.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Proposal-level expiry for queued High proposals.</strong> A money proposal left
+  unapproved for days may reference stale amounts or a closed order. Should proposals carry
+  an <code>ExpiresAtUtc</code> and auto-transition to a terminal <code>Expired</code> state?
+  Likely yes, but the duration is product/compliance-driven; confirm before implementing.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Audit taxonomy.</strong> Spec 030 &sect;10 already flags the proposal audit
+  event taxonomy as undecided. This spec adds tool-gate events
+  (<code>tool.gate_requested</code>, <code>tool.gate_auto_approved</code>,
+  <code>tool.gate_decided</code>, <code>tool.gate_queued</code>). Land both taxonomies
+  together against the existing <code>IAuditLogWriter</code> rather than piecemeal.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Per-tenant tier overrides.</strong> The manifest is code-owned in v1. Some
+  tenants may want a more conservative policy (e.g. Medium &rarr; High for invoice
+  creation). The manifest is the natural seam for a tenant-scoped override table, but the
+  configuration surface and precedence rules are deferred.
+</div>
+
+<h2 id="refs">16. References</h2>
+
+<ul>
+  <li><a href="023.server-side-ai-tool-approval.md">Spec 023 &mdash; Server-side AI tool approval</a> &mdash; the unbuilt decorator this spec adopts for the in-band tiers and money-marshalling.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec 030 &mdash; Proposal execution dispatcher</a> &mdash; the shipped pipeline the High tier feeds; &sect;3.2 and &sect;6.4 are the preconditions this spec discharges.</li>
+  <li><a href="../../src/Aonik.SharedKernel/Abstractions/Agents/IProposalHandler.cs"><code>IProposalHandler</code> / <code>IProposalDispatcher</code></a> &mdash; the contract the High path produces proposals for.</li>
+  <li><a href="../../src/Aonik.Agents/Services/ProposalApprovalService.cs"><code>ProposalApprovalService</code></a> &mdash; gains the status split and the policy check.</li>
+  <li><a href="../../src/Aonik.Agents/Endpoints/ApproveProposalEndpoint.cs"><code>ApproveProposalEndpoint</code></a> &mdash; loses <code>AdminUserPolicy</code>, gains <code>IProposalApprovalPolicy</code>.</li>
+  <li><a href="../../src/Aonik.Finance/Agents/FinanceAgentRegistration.cs"><code>FinanceAgentDescriptor</code></a> &mdash; the composition seam where the gate is applied.</li>
+  <li><a href="../../src/Aonik.Finance/Agents/Tools/PaymentTools.cs"><code>PaymentTools</code></a>, <a href="../../src/Aonik.Finance/Agents/Tools/InvoiceTools.cs"><code>InvoiceTools</code></a>, <a href="../../src/Aonik.Finance/Agents/Tools/LedgerTools.cs"><code>LedgerTools</code></a> &mdash; the money tools being migrated off direct registration.</li>
+  <li><a href="../../src/Aonik.Agents/Services/ToolCallClassifier.cs"><code>ToolCallClassifier</code></a>, <a href="../../src/Aonik.Agents/Services/AguiStreamPipeline.cs"><code>AguiStreamPipeline</code></a> &mdash; where <code>confirmAction</code> is demoted to presentation.</li>
+  <li><a href="../../src/Aonik.Agents/Framework/AgentConfigurationService.cs"><code>AgentConfigurationService.IsMutatingToolName</code></a> &mdash; the verb heuristic retained as seed/lint only.</li>
+  <li>CLAUDE.md &mdash; &ldquo;Agents propose; systems execute&rdquo; and &ldquo;Risk tier determines AI autonomy&rdquo; rules this spec operationalises (and the stale <code>ApprovalRequiredAIFunction</code> claim it corrects).</li>
+</ul>
+
+<footer>
+  Spec 032 · Tiered AI mutation approval · Draft
+</footer>
+
+</body>
+</html>

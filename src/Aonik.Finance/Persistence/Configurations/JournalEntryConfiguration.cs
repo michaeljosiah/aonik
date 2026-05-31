@@ -35,5 +35,13 @@ public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>
         builder.HasIndex(x => x.LedgerId);
         builder.HasIndex(x => x.SourceId);
         builder.HasIndex(x => x.Timestamp);
+
+        // One journal entry per originating business event. Manual entries all
+        // share SourceId = Guid.Empty, so they are excluded from the constraint;
+        // every non-manual source posts at most once per tenant. This is the
+        // authority behind the idempotency check in LedgerService.
+        builder.HasIndex(x => new { x.TenantId, x.SourceType, x.SourceId })
+            .IsUnique()
+            .HasFilter("[SourceType] <> 'Manual'");
     }
 }
