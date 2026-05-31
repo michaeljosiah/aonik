@@ -24,6 +24,7 @@ using Aonik.Infrastructure.Identity;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.SharedKernel.Persistence;
 
 namespace Aonik.Infrastructure.Authentication;
 
@@ -388,7 +389,17 @@ public static class AonikAuthenticationSetup
         string subject,
         CancellationToken ct)
     {
+        // Cross-tenant by necessity: this runs during token validation BEFORE any
+        // tenant is resolved — it is the step that discovers WHICH tenant the user
+        // belongs to, keyed by their global IdP identity (iss + sub). Users are
+        // tenant-scoped, so under the fail-closed query filter (finding C5) a lookup
+        // with no ambient tenant matches nothing, and every login that relies on
+        // user-association tenant resolution (e.g. the /host/me/tenants bootstrap call)
+        // would 401 with "Tenant could not be resolved". AcrossTenants() is the
+        // sanctioned escape hatch; the iss + sub predicate keeps the read scoped to the
+        // single authenticated user.
         var user = await dbContext.Users
+            .AcrossTenants()
             .Where(u => u.ExternalIssuer == issuer && u.ExternalSubject == subject)
             .Select(u => new { u.TenantId })
             .FirstOrDefaultAsync(ct);
