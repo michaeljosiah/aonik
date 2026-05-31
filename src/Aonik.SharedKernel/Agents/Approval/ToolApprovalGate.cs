@@ -24,13 +24,13 @@ public sealed class ToolApprovalGate : IToolApprovalGate
         _auditSink = auditSink ?? throw new ArgumentNullException(nameof(auditSink));
     }
 
-    public IEnumerable<AITool> GateAll(IEnumerable<AITool> tools)
+    public IEnumerable<AITool> GateAll(IEnumerable<AITool> tools, IServiceProvider? serviceProvider = null)
     {
         ArgumentNullException.ThrowIfNull(tools);
-        return tools.Select(Gate);
+        return tools.Select(tool => Gate(tool, serviceProvider));
     }
 
-    public AITool Gate(AITool tool)
+    public AITool Gate(AITool tool, IServiceProvider? serviceProvider = null)
     {
         ArgumentNullException.ThrowIfNull(tool);
 
@@ -62,7 +62,7 @@ public sealed class ToolApprovalGate : IToolApprovalGate
                 "so the approval gate cannot wrap it.");
         }
 
-        return new ApprovalGatedAIFunction(function, classification.Options!, _auditSink);
+        return new ApprovalGatedAIFunction(function, classification.Options!, _auditSink, serviceProvider);
     }
 
     private ToolClassification? Classify(string toolName)

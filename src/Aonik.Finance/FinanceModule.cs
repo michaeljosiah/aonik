@@ -215,6 +215,19 @@ public sealed class FinanceModule : IModule
         // uses this one to wrap the finance agent's mutating tools before they reach the model.
         services.AddSingleton<IToolApprovalManifest, FinanceToolApprovalManifest>();
 
+        // Spec 032 §7.4 — durable-execution handlers for the High-tier money tools. The approval
+        // gate marshals finance_capture_payment / finance_cancel_payment / finance_create_payment_intent
+        // / finance_mark_invoice_paid into a Proposal; these keyed handlers are the ONLY path that
+        // reaches the Finance service, and only after the Spec 030 dispatcher runs them on approval.
+        services.AddKeyedScoped<IProposalHandler, Agents.Proposals.CapturePaymentProposalHandler>(
+            Agents.Proposals.CapturePaymentProposalHandler.ProposalTypeKey);
+        services.AddKeyedScoped<IProposalHandler, Agents.Proposals.CancelPaymentProposalHandler>(
+            Agents.Proposals.CancelPaymentProposalHandler.ProposalTypeKey);
+        services.AddKeyedScoped<IProposalHandler, Agents.Proposals.CreatePaymentIntentProposalHandler>(
+            Agents.Proposals.CreatePaymentIntentProposalHandler.ProposalTypeKey);
+        services.AddKeyedScoped<IProposalHandler, Agents.Proposals.MarkInvoicePaidProposalHandler>(
+            Agents.Proposals.MarkInvoicePaidProposalHandler.ProposalTypeKey);
+
         // Spec 025 — three analytical sub-agents Simi invokes via the
         // pf_run_insights / pf_run_forecast / pf_run_classify_review tools.
         // Replaced the legacy pf-spending-intelligence + pf-obligation-planning

@@ -99,6 +99,14 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
                 $"Proposal {proposalId} is already {proposal.Status} and cannot be approved.");
         }
 
+        // Spec 032 §8.1: High-risk (money) proposals follow Proposed → Approved →
+        // Applied/Failed, where Approved persists the human decision independently
+        // of execution and a failed dispatch is TERMINAL (no revert). Low-stakes
+        // types (e.g. FLG) keep Spec 030's revert-on-failure so "click Approve
+        // again" stays the retry path. Approved is now the explicit intermediate
+        // that lets one status field support both recovery models.
+        var isHighRisk = string.Equals(proposal.RiskTier, "High", StringComparison.OrdinalIgnoreCase);
+
         proposal.Status = ProposalStatus.Approved;
         proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
         proposal.ApprovedAt = _clock.UtcNow;
@@ -111,21 +119,46 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         }
         catch
         {
-            // Revert is best-effort — the proposal row and the handler's domain
-            // mutations live in different DbContexts; this is not a true
-            // distributed transaction. Handlers must be idempotent so the
-            // user can simply click Approve again on retry (spec 030 §6.1).
-            await RevertToProposedAsync(proposal);
+            // High: a money dispatch whose outcome is unknown must not return to
+            // Proposed — re-approving it could double-move funds. Land in Failed
+            // (terminal); recovery is an explicit new proposal once the operator
+            // confirms the prior attempt with the partner (Spec 032 §8.1).
+            // Non-High: best-effort revert — the proposal row and the handler's
+            // domain mutations live in different DbContexts (not a distributed
+            // transaction), so handlers must be idempotent (Spec 030 §6.1).
+            if (isHighRisk)
+            {
+                await MarkFailedAsync(proposal);
+            }
+            else
+            {
+                await RevertToProposedAsync(proposal);
+            }
             throw;
         }
 
         if (!result.Applied)
         {
             // Handler signalled an expected business failure (e.g. payload
-            // references a deleted entity). Revert and surface as 422 to
-            // distinguish from the 500-class path above.
-            await RevertToProposedAsync(proposal);
+            // references a deleted entity). High → terminal Failed; non-High →
+            // revert. Either way surface as 422 to distinguish from the 500-class
+            // path above.
+            if (isHighRisk)
+            {
+                await MarkFailedAsync(proposal);
+            }
+            else
+            {
+                await RevertToProposedAsync(proposal);
+            }
             throw new ProposalExecutionFailedException(proposal.Id, result.Message);
+        }
+
+        if (isHighRisk)
+        {
+            // Execution confirmed: Approved → Applied (terminal success).
+            proposal.Status = ProposalStatus.Applied;
+            await _dbContext.SaveChangesAsync(ct);
         }
 
         var row = await JoinedQuery().FirstAsync(p => p.Proposal.Id == proposalId, ct);
@@ -168,6 +201,16 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         proposal.ApprovedAt = null;
         // CancellationToken.None — the caller's token may already be cancelled
         // but we still need to roll back the row we just committed.
+        await _dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
+    private async Task MarkFailedAsync(Proposal proposal)
+    {
+        // Terminal failure for a High-risk proposal. The approver stamp is kept —
+        // a human DID approve; only execution failed — so the audit trail records
+        // who authorised the attempt. CancellationToken.None for the same reason
+        // as RevertToProposedAsync: we must persist the terminal state regardless.
+        proposal.Status = ProposalStatus.Failed;
         await _dbContext.SaveChangesAsync(CancellationToken.None);
     }
 

@@ -107,6 +107,99 @@ public sealed record ToolApprovalRequiredResult(
     }
 }
 
+/// <summary>
+/// Structured result returned to the model when a High-tier tool is marshalled into a durable
+/// <c>Proposal</c> (Spec 032 §7.4). The inner domain call was NOT invoked — the matching
+/// <c>IProposalHandler</c> will execute it only after the proposal is approved. Carries the
+/// durable <see cref="ProposalId"/> so the agent can reference the pending action.
+/// </summary>
+public sealed record ToolApprovalQueuedResult(
+    string Tool,
+    string Tier,
+    string ActionKind,
+    bool Executed,
+    string Status,
+    Guid ProposalId,
+    string Message)
+{
+    /// <summary>The <see cref="Status"/> value used for a queued-for-approval action.</summary>
+    public const string QueuedStatus = "Queued";
+
+    /// <summary>Builds a queued result for the given tool, options, and created proposal.</summary>
+    public static ToolApprovalQueuedResult For(
+        string tool,
+        ToolApprovalOptions options,
+        Guid proposalId,
+        string? summary = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var action = options.ActionKind ?? tool;
+        return new ToolApprovalQueuedResult(
+            Tool: tool,
+            Tier: options.Tier.ToString(),
+            ActionKind: action,
+            Executed: false,
+            Status: QueuedStatus,
+            ProposalId: proposalId,
+            Message:
+                $"The '{action}' action is a {options.Tier}-risk money movement and was NOT executed. " +
+                $"It has been queued as proposal {proposalId} and will run only after a human approves it. " +
+                "Tell the user the action is prepared and awaiting their approval — do not claim it succeeded.");
+    }
+}
+
+/// <summary>How <see cref="IToolApprovalService.GateAsync"/> routed a gated mutating tool.</summary>
+public enum ToolGateDecision
+{
+    /// <summary>Run the inner tool in-band (Low, or Medium once approved). The caller invokes the domain call.</summary>
+    ApprovedInline,
+
+    /// <summary>A durable <c>Proposal</c> was created (High). The inner tool is never invoked in-band.</summary>
+    Queued,
+
+    /// <summary>The action was refused (rejected / expired / failed to gate). The inner tool must not run.</summary>
+    Refused,
+}
+
+/// <summary>
+/// Input to <see cref="IToolApprovalService.GateAsync"/> for a single gated invocation: the
+/// tool's name, its approval <see cref="Options"/> (carrying tier + High <c>ProposalType</c>),
+/// and the model-supplied <see cref="Arguments"/> that become the proposal payload.
+/// </summary>
+public sealed record ToolGateContext(
+    string ToolName,
+    ToolApprovalOptions Options,
+    IDictionary<string, object?> Arguments);
+
+/// <summary>Uniform outcome of <see cref="IToolApprovalService.GateAsync"/>.</summary>
+/// <param name="Decision">How the call was routed.</param>
+/// <param name="ProposalId">The durable proposal id — set only when <see cref="Decision"/> is <see cref="ToolGateDecision.Queued"/>.</param>
+/// <param name="Summary">Short human label for the action (used in the queued result message).</param>
+/// <param name="Reason">Refusal reason — set only when <see cref="Decision"/> is <see cref="ToolGateDecision.Refused"/>.</param>
+public sealed record ToolGateOutcome(
+    ToolGateDecision Decision,
+    Guid? ProposalId,
+    string? Summary,
+    string? Reason);
+
+/// <summary>
+/// Server-side front door that routes a gated mutating tool by tier (Spec 032 §7.5). The
+/// <c>ApprovalGatedAIFunction</c> decorator delegates to this so the routing lives in one
+/// testable place rather than in the decorator.
+/// <para>
+/// Focused Spec 032 slice: only the High branch is wired through here — it creates a durable
+/// <c>Proposal</c> and returns <see cref="ToolGateDecision.Queued"/>, so the inner money call is
+/// never reached in-band. Low (run in-band) and Medium (in-band confirm) are still handled
+/// directly by the decorator; calling <see cref="GateAsync"/> for them returns
+/// <see cref="ToolGateDecision.ApprovedInline"/>. The unified Medium <c>DecideAsync</c> path is deferred.
+/// </para>
+/// </summary>
+public interface IToolApprovalService
+{
+    /// <summary>Routes a gated invocation by tier. For High, persists a durable proposal and returns its id.</summary>
+    Task<ToolGateOutcome> GateAsync(ToolGateContext context, CancellationToken cancellationToken = default);
+}
+
 /// <summary>One audit record for a gated mutating-tool invocation.</summary>
 /// <param name="Tool">The tool name.</param>
 /// <param name="Tier">The tool's risk tier.</param>

@@ -34,6 +34,41 @@ public class ToolApprovalGateTests
         public void Record(ToolApprovalAuditEntry entry) => Entries.Add(entry);
     }
 
+    /// <summary>
+    /// Stand-in for the request-scoped High-tier router. Records the context it was handed so a
+    /// test can assert the decorator marshals the real tool name / ProposalType / arguments, and
+    /// returns a fixed outcome so both the queued and refused branches can be exercised.
+    /// </summary>
+    private sealed class StubApprovalService : IToolApprovalService
+    {
+        private readonly ToolGateOutcome _outcome;
+
+        public StubApprovalService(ToolGateOutcome outcome) => _outcome = outcome;
+
+        public int Calls { get; private set; }
+
+        public ToolGateContext? LastContext { get; private set; }
+
+        public Task<ToolGateOutcome> GateAsync(ToolGateContext context, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            LastContext = context;
+            return Task.FromResult(_outcome);
+        }
+    }
+
+    /// <summary>Minimal provider that resolves only <see cref="IToolApprovalService"/> — mirrors how the
+    /// decorator pulls the router lazily from the agent-build-time <see cref="IServiceProvider"/>.</summary>
+    private sealed class StubServiceProvider : IServiceProvider
+    {
+        private readonly object? _approvalService;
+
+        public StubServiceProvider(object? approvalService) => _approvalService = approvalService;
+
+        public object? GetService(Type serviceType) =>
+            serviceType == typeof(IToolApprovalService) ? _approvalService : null;
+    }
+
     private static ToolApprovalGate CreateGate(
         IReadOnlyDictionary<string, ToolClassification> classifications,
         out RecordingAuditSink sink)
@@ -143,6 +178,8 @@ public class ToolApprovalGateTests
             },
             out var sink);
 
+        // No service provider → the decorator cannot resolve the marshalling service, so the High
+        // path must fail closed exactly like Medium rather than run the money call ungated.
         var gated = (AIFunction)gate.Gate(tool);
         var result = await gated.InvokeAsync(new AIFunctionArguments(), CancellationToken.None);
 
@@ -152,6 +189,82 @@ public class ToolApprovalGateTests
 
         sink.Entries.Should().ContainSingle();
         sink.Entries[0].Executed.Should().BeFalse();
+        sink.Entries[0].Outcome.Should().Be("blocked-requires-approval");
+    }
+
+    [Fact]
+    public async Task GatedHighTool_Should_MarshalIntoProposalAndReturnQueued_When_ApprovalServiceQueuesIt()
+    {
+        var invoked = 0;
+        var tool = AIFunctionFactory.Create(() => { invoked++; return "captured"; }, "finance_capture_payment");
+        var gate = CreateGate(
+            new Dictionary<string, ToolClassification>(StringComparer.Ordinal)
+            {
+                ["finance_capture_payment"] = ToolClassification.Mutating(
+                    new ToolApprovalOptions(ToolApprovalTier.High, "Capture a payment", "Finance.CapturePayment")),
+            },
+            out var sink);
+
+        var proposalId = Guid.NewGuid();
+        var approvals = new StubApprovalService(
+            new ToolGateOutcome(ToolGateDecision.Queued, proposalId, "Capture a payment", Reason: null));
+        var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals));
+
+        var paymentIntentId = Guid.NewGuid();
+        var args = new AIFunctionArguments { ["paymentIntentId"] = paymentIntentId };
+        var result = await gated.InvokeAsync(args, CancellationToken.None);
+
+        invoked.Should().Be(0, "a High tool is marshalled into a durable proposal, never run in-band");
+
+        approvals.Calls.Should().Be(1, "the decorator must delegate the High tool to the marshalling service");
+        approvals.LastContext.Should().NotBeNull();
+        approvals.LastContext!.ToolName.Should().Be("finance_capture_payment");
+        approvals.LastContext.Options.ProposalType.Should().Be("Finance.CapturePayment", "the ProposalType must flow to the router so it can pick the right handler");
+        approvals.LastContext.Arguments.Should().ContainKey("paymentIntentId", "the model-supplied arguments become the proposal payload");
+
+        result.Should().BeOfType<ToolApprovalQueuedResult>();
+        var queued = (ToolApprovalQueuedResult)result!;
+        queued.Status.Should().Be(ToolApprovalQueuedResult.QueuedStatus);
+        queued.ProposalId.Should().Be(proposalId, "the agent must be able to reference the created proposal");
+        queued.Executed.Should().BeFalse();
+        queued.Tier.Should().Be("High");
+
+        sink.Entries.Should().ContainSingle();
+        sink.Entries[0].Tool.Should().Be("finance_capture_payment");
+        sink.Entries[0].Tier.Should().Be(ToolApprovalTier.High);
+        sink.Entries[0].Executed.Should().BeFalse();
+        sink.Entries[0].Outcome.Should().Be("queued-for-approval");
+    }
+
+    [Fact]
+    public async Task GatedHighTool_Should_FailClosed_When_ApprovalServiceRefusesToQueue()
+    {
+        var invoked = 0;
+        var tool = AIFunctionFactory.Create(() => { invoked++; return "captured"; }, "finance_capture_payment");
+        var gate = CreateGate(
+            new Dictionary<string, ToolClassification>(StringComparer.Ordinal)
+            {
+                ["finance_capture_payment"] = ToolClassification.Mutating(
+                    new ToolApprovalOptions(ToolApprovalTier.High, "Capture a payment", "Finance.CapturePayment")),
+            },
+            out var sink);
+
+        // The router declined to queue (e.g. no tenant, missing ProposalType). The decorator must
+        // NOT treat a non-Queued outcome as success — it falls through to the refusal result.
+        var approvals = new StubApprovalService(
+            new ToolGateOutcome(ToolGateDecision.Refused, ProposalId: null, Summary: null, Reason: "no tenant in scope"));
+        var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals));
+
+        var result = await gated.InvokeAsync(new AIFunctionArguments(), CancellationToken.None);
+
+        invoked.Should().Be(0, "a refused High gate must never run the money call");
+        approvals.Calls.Should().Be(1);
+        result.Should().BeOfType<ToolApprovalRequiredResult>("a refused outcome fails closed, it does not queue");
+        ((ToolApprovalRequiredResult)result!).Executed.Should().BeFalse();
+
+        sink.Entries.Should().ContainSingle();
+        sink.Entries[0].Executed.Should().BeFalse();
+        sink.Entries[0].Outcome.Should().Be("blocked-requires-approval");
     }
 
     [Fact]

@@ -17,9 +17,15 @@ public interface IToolApprovalGate
     ///   <item>classified mutating → wrapped so it cannot execute ungated;</item>
     ///   <item>unclassified but mutating-looking → throws <see cref="ToolNotClassifiedException"/>.</item>
     /// </list>
+    /// <para>
+    /// <paramref name="serviceProvider"/> is the request-scoped provider captured at tool-build
+    /// time. The wrapper uses it to resolve the scoped <see cref="IToolApprovalService"/> when a
+    /// High-tier tool is invoked (the gate itself is a singleton and cannot hold scoped services).
+    /// May be null in tests or hosts that do not exercise the High marshalling path.
+    /// </para>
     /// </summary>
-    AITool Gate(AITool tool);
+    AITool Gate(AITool tool, IServiceProvider? serviceProvider = null);
 
     /// <summary>Gate every tool in the sequence. See <see cref="Gate"/>.</summary>
-    IEnumerable<AITool> GateAll(IEnumerable<AITool> tools);
+    IEnumerable<AITool> GateAll(IEnumerable<AITool> tools, IServiceProvider? serviceProvider = null);
 }

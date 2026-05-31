@@ -111,10 +111,13 @@ public sealed class FinanceAgentDescriptor : IDomainAgentDescriptor
         // it cannot run ungated, and an unclassified mutating-looking tool throws here at build.
         var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
 
+        // Pass the request-scoped provider so the wrapper can resolve the scoped
+        // IToolApprovalService when a High-tier money tool is invoked (Spec 032 §7.5).
         return gate.GateAll(
             InvoiceTools.CreateAll(serviceProvider)
                 .Concat(LedgerTools.CreateAll(serviceProvider))
-                .Concat(PaymentTools.CreateAll(serviceProvider)));
+                .Concat(PaymentTools.CreateAll(serviceProvider)),
+            serviceProvider);
     }
 }
 
@@ -235,6 +238,7 @@ public sealed class FinancialLifeGraphAgentDescriptor : IDomainAgentDescriptor
             FinancialLifeGraphTools.CreateAll(serviceProvider)
                 .Concat(FinancialLifeGraphSchemaTools.CreateAll(serviceProvider))
                 .Concat(FinancialLifeGraphTraversalTools.CreateAll(serviceProvider))
-                .Concat(FinancialLifeGraphRetrievalTools.CreateAll(serviceProvider)));
+                .Concat(FinancialLifeGraphRetrievalTools.CreateAll(serviceProvider)),
+            serviceProvider);
     }
 }

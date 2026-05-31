@@ -57,7 +57,7 @@ public class ProposalApprovalServiceDispatcherTests
         return new AgentsDbContext(options, new TestTenantProvider(tenantId));
     }
 
-    private static Proposal SeedProposed(AgentsDbContext db, Guid tenantId)
+    private static Proposal SeedProposed(AgentsDbContext db, Guid tenantId, string riskTier = "Low")
     {
         var agent = new Agent
         {
@@ -82,7 +82,9 @@ public class ProposalApprovalServiceDispatcherTests
             ProposedByAgentId = agent.Id,
             AiRunId = Guid.NewGuid(),
             ImpactSummary = "test",
-            RiskTier = "Low",
+            // The proposal's RiskTier — not the agent's — drives the Spec 032 §8.1
+            // Applied/Failed terminal model vs the Spec 030 revert model.
+            RiskTier = riskTier,
             Status = ProposalStatus.Proposed,
             PayloadJson = "{}",
             CreatedAt = DateTime.UtcNow,
@@ -264,5 +266,86 @@ public class ProposalApprovalServiceDispatcherTests
 
         detail.Status.Should().Be("Rejected");
         detail.ApprovedByUserId.Should().Be(userId);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_Should_SetStatusApplied_When_HighRiskHandlerSucceeds()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        await using var db = CreateDbContext(tenantId);
+        var proposal = SeedProposed(db, tenantId, riskTier: "High");
+
+        var service = new ProposalApprovalService(
+            db,
+            new TestCurrentUserProvider(userId),
+            new FixedClock(DateTime.UtcNow),
+            new DelegateDispatcher { Impl = _ => Task.FromResult(new ProposalHandlerResult(Applied: true)) },
+            new DelegateRejectionDispatcher());
+
+        var detail = await service.ApproveAsync(proposal.Id);
+
+        // Spec 032 §8.1: a High-risk proposal whose handler confirms execution
+        // lands in the terminal Applied state, distinct from the Approved decision.
+        detail.Status.Should().Be("Applied");
+
+        var persisted = await db.Proposals.AsNoTracking().FirstAsync(p => p.Id == proposal.Id);
+        persisted.Status.Should().Be(ProposalStatus.Applied);
+        persisted.ApprovedByUserId.Should().Be(userId, "the approver stamp is kept on a successful High dispatch");
+    }
+
+    [Fact]
+    public async Task ApproveAsync_Should_MarkFailedTerminally_When_HighRiskHandlerThrows()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        await using var db = CreateDbContext(tenantId);
+        var proposal = SeedProposed(db, tenantId, riskTier: "High");
+
+        var service = new ProposalApprovalService(
+            db,
+            new TestCurrentUserProvider(userId),
+            new FixedClock(DateTime.UtcNow),
+            new DelegateDispatcher { Impl = _ => throw new InvalidOperationException("partner timeout") },
+            new DelegateRejectionDispatcher());
+
+        await FluentActions.Invoking(() => service.ApproveAsync(proposal.Id))
+            .Should().ThrowAsync<InvalidOperationException>().WithMessage("partner timeout");
+
+        // Spec 032 §8.1: a High-risk dispatch whose outcome is unknown must NOT revert
+        // to Proposed (re-approving could double-move funds). It is terminal Failed,
+        // with the approver stamp preserved for the audit trail.
+        var persisted = await db.Proposals.AsNoTracking().FirstAsync(p => p.Id == proposal.Id);
+        persisted.Status.Should().Be(ProposalStatus.Failed);
+        persisted.ApprovedByUserId.Should().Be(userId);
+        persisted.ApprovedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ApproveAsync_Should_MarkFailedTerminally_When_HighRiskHandlerReportsAppliedFalse()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        await using var db = CreateDbContext(tenantId);
+        var proposal = SeedProposed(db, tenantId, riskTier: "High");
+
+        var service = new ProposalApprovalService(
+            db,
+            new TestCurrentUserProvider(userId),
+            new FixedClock(DateTime.UtcNow),
+            new DelegateDispatcher
+            {
+                Impl = _ => Task.FromResult(new ProposalHandlerResult(Applied: false, Message: "intent already captured"))
+            },
+            new DelegateRejectionDispatcher());
+
+        var thrown = await FluentActions.Invoking(() => service.ApproveAsync(proposal.Id))
+            .Should().ThrowAsync<ProposalExecutionFailedException>();
+        thrown.Which.ProposalId.Should().Be(proposal.Id);
+
+        // Even an expected business failure is terminal for High — no revert-to-Proposed.
+        var persisted = await db.Proposals.AsNoTracking().FirstAsync(p => p.Id == proposal.Id);
+        persisted.Status.Should().Be(ProposalStatus.Failed);
+        persisted.ApprovedByUserId.Should().Be(userId);
     }
 }

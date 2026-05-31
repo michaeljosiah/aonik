@@ -74,6 +74,11 @@ public sealed class AgentsModule : IModule
         // Proposal approval pipeline — wires the dashboard's Apply / Dismiss / Review actions.
         services.AddScoped<IProposalApprovalService, Services.ProposalApprovalService>();
 
+        // Spec 032 §8.2 — single authorization seam the approve / dismiss endpoints consult to
+        // decide WHO may resolve a proposal, replacing the coarse AdminUserPolicy role gate. v1
+        // enforces an authenticated user + the tenant boundary; self/SoD/step-up land here later.
+        services.TryAddScoped<IProposalApprovalPolicy, Services.ProposalApprovalPolicy>();
+
         // Spec 030 — generic execution dispatcher for approved / dismissed proposals.
         // Resolves the IProposalHandler / IProposalRejectionHandler that each owning
         // module registers under its ProposalType key (e.g. PersonalFinance registers
@@ -91,6 +96,12 @@ public sealed class AgentsModule : IModule
         // audit sink records every gated outcome. TryAdd so a host can substitute its own sink/gate.
         services.TryAddSingleton<IToolApprovalAuditSink, LoggingToolApprovalAuditSink>();
         services.TryAddSingleton<IToolApprovalGate, ToolApprovalGate>();
+
+        // Spec 032 §7.5 — server-side router the ApprovalGatedAIFunction decorator delegates to
+        // for High-tier tools: it marshals the call into a durable Proposal and returns Queued so
+        // the money call never runs in-band. Scoped because it creates a tenant-scoped proposal
+        // through the (scoped) IAgentProposalStore. TryAdd so a host/test can substitute its own.
+        services.TryAddScoped<IToolApprovalService, Services.ToolApprovalService>();
 
         // MCP tool provider — connects to MCP servers and exposes their tools as AITool
         // instances for use by agents. Registered as singleton since it manages long-lived
