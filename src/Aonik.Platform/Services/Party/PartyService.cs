@@ -291,6 +291,55 @@ internal class PartyService : IPartyService
             rel.IsActive)).ToList();
     }
 
+    public async Task AssignPartyRoleAsync(
+        Guid partyId,
+        string role,
+        string contextType,
+        Guid contextId,
+        CancellationToken cancellationToken = default)
+    {
+        if (partyId == Guid.Empty)
+        {
+            throw new ArgumentException("Party id is required.", nameof(partyId));
+        }
+
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            throw new ArgumentException("Role is required.", nameof(role));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var normalizedRole = role.Trim();
+        var normalizedContextType = string.IsNullOrWhiteSpace(contextType) ? "Tenant" : contextType.Trim();
+
+        var existing = await _dbContext.PartyRoleAssignments
+            .AnyAsync(assignment =>
+                assignment.TenantId == tenantId &&
+                assignment.PartyId == partyId &&
+                assignment.Role == normalizedRole &&
+                assignment.ContextType == normalizedContextType &&
+                assignment.ContextId == contextId,
+                cancellationToken);
+
+        if (existing)
+        {
+            return;
+        }
+
+        _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartyId = partyId,
+            Role = normalizedRole,
+            ContextType = normalizedContextType,
+            ContextId = contextId,
+            CreatedAt = _clock.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<(string FromPartyName, string ToPartyName)> LoadPartyNamesAsync(
         Guid fromPartyId,
         Guid toPartyId,

@@ -120,6 +120,9 @@ internal sealed class McpPartyService : IPartyService
 
     public Task<IReadOnlyList<PartyRelationshipResponse>> GetRelationshipsAsync(Guid partyId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<PartyRelationshipResponse>>(Array.Empty<PartyRelationshipResponse>());
+
+    public Task AssignPartyRoleAsync(Guid partyId, string role, string contextType, Guid contextId, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Party role assignment is not available via the Finance MCP server. Use the Platform MCP server.");
 }
 
 // ── Compliance Service ───────────────────────────────────────────────

@@ -64,6 +64,9 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
         services.AddSingleton<Contracts.Services.Payments.IPaymentProviderGateway, Services.Payments.StripeSimulatedPaymentProviderGateway>();
+        // Saves payout destinations and stitches the customer→recipient party graph
+        // (relationship edge + Beneficiary role) via the cross-module IPartyService seam.
+        services.AddScoped<Contracts.Services.Payments.IPayoutBeneficiaryService, Services.Payments.PayoutBeneficiaryService>();
 
         // Pay Activity (mobile BFF)
         services.AddScoped<Contracts.Services.PayActivity.IPayActivityService, Services.PayActivity.PayActivityService>();
