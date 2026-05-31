@@ -65,7 +65,7 @@
 <script type="text/babel" src="screens/customers-orders.jsx"></script>
 <script type="text/babel" src="screens/invoices-accounts.jsx"></script>
 <script type="text/babel" src="screens/journal-partners.jsx"></script>
-<script type="text/babel" src="screens/customer-detail.jsx"></script>
+<script type="text/babel" src="screens/customer-detail.jsx?v=3"></script>
 <script type="text/babel" src="screens/ai-pages.jsx"></script>
 <script type="text/babel" src="screens/ai-tasks-policies.jsx"></script>
 <script type="text/babel" src="screens/obs-overview-traces.jsx"></script>
@@ -93,6 +93,7 @@
 <script type="text/babel" src="screens/account.jsx"></script>
 <script type="text/babel" src="screens/speech.jsx"></script>
 <script type="text/babel" src="screens/user-lifecycle.jsx"></script>
+<script type="text/babel" src="screens/partner-hub.jsx"></script>
 
 <!-- Background Workers (added) -->
 <script src="mock-data.js"></script>
@@ -339,7 +340,10 @@ function App() {
           <DCArtboard id="customers" label="Customers · list + tiers" width={W} height={H}>
             {mkShell('customers', ['Finance', 'Customers'], ScreenCustomers)}
           </DCArtboard>
-          <DCArtboard id="customer-detail" label="Customer detail · Primrose · Finance tab" width={W} height={H}>
+          <DCArtboard id="customer-individual" label="Customer detail · Adaeze Nwosu · Individual · Household tab" width={W} height={H}>
+            {mkShell('customers', ['Finance', 'Customers', 'Adaeze Nwosu'], ScreenCustomerIndividual, 'customer')}
+          </DCArtboard>
+          <DCArtboard id="customer-detail" label="Customer detail · Primrose · Corporate · Beneficiaries tab" width={W} height={H}>
             {mkShell('customers', ['Finance', 'Customers', 'Primrose Logistics'], ScreenCustomerDetail, 'customer')}
           </DCArtboard>
           <DCArtboard id="orders" label="Orders · inline agent proposal on flagged row" width={W} height={H}>
@@ -529,6 +533,30 @@ function App() {
           </DCArtboard>
           <DCArtboard id="tenants" label="Tenants · host admin · provisioning" width={W} height={H}>
             {mkShell('tenants', ['Admin', 'Tenants'], ScreenTenants)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="partner-hub" title="Partner Network · Spec 031" subtitle="Operator hub for the partner-integration abstraction · payouts · collections · bill payments · airtime">
+          <DCArtboard id="phub-overview"      label="Partner Network · Overview · health + KPIs + latest" width={W} height={H}>
+            {mkShell('partners', ['Finance', 'Network', 'Overview'], ScreenPartnerHubOverview)}
+          </DCArtboard>
+          <DCArtboard id="phub-partners"      label="Partner Network · Partners · grid + list toggle" width={W} height={H}>
+            {mkShell('partners', ['Finance', 'Network', 'Partners'], ScreenPartnerHubPartners)}
+          </DCArtboard>
+          <DCArtboard id="phub-detail"        label="Partner Network · Partner detail · Flutterwave deep-dive" width={W} height={H}>
+            {mkShell('partners', ['Finance', 'Network', 'Partners', 'Flutterwave'], ScreenPartnerDetail)}
+          </DCArtboard>
+          <DCArtboard id="phub-coverage"      label="Partner Network · Coverage matrix · who supports what" width={W} height={H}>
+            {mkShell('partners', ['Finance', 'Network', 'Coverage'], ScreenPartnerHubCoverage)}
+          </DCArtboard>
+          <DCArtboard id="phub-routes"        label="Partner Network · Routing · primary + backup partner per route" width={W} height={H}>
+            {mkShell('partners', ['Finance', 'Network', 'Routing'], ScreenPartnerHubRoutes)}
+          </DCArtboard>
+          <DCArtboard id="phub-activity"      label="Partner Network · Activity · payouts + collections + bill + airtime" width={W} height={H}>
+            {mkShell('partners', ['Finance', 'Network', 'Activity'], ScreenPartnerHubActivity)}
+          </DCArtboard>
+          <DCArtboard id="phub-updates"       label="Partner Network · Updates · settlement notifications inbox" width={W} height={H}>
+            {mkShell('partners', ['Finance', 'Network', 'Updates'], ScreenPartnerHubUpdates)}
           </DCArtboard>
         </DCSection>
 

@@ -1,5 +1,55 @@
 // Customer Detail screen — mirrors src/pages/customers/CustomerDetailPage.tsx
-// Tabs: Overview · Finance · Insights · Documents
+// Tabs: Overview · Finance · Insights · Documents · Orders · Beneficiaries · Activity
+
+// Beneficiaries scoped to this customer (Spec 031 · ExternalPayoutAccount).
+// Tenant-scoped + Party-linked: each row is a destination Primrose pays
+// through Aonik partners. Not a global registry — the customer owns them.
+const PRIMROSE_BENEFICIARIES = [
+  { id: 'pba_3f9c2a', name: 'Hassan Aliyu',       role: 'Driver · Lagos route',    partner: 'Flutterwave', partnerColor: '#f5a623', type: 'mobile', destination: 'OPay · +234 8•• ••• 218', country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦184,200 · 2d ago', payments: 14 },
+  { id: 'pba_7d40b1', name: 'Total Energies UK',  role: 'Fuel supplier',           partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Lloyds · ••• 1042',       country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£12,480 · 5h ago', payments: 38 },
+  { id: 'pba_9c2d1e', name: 'Tunde Adebayo',      role: 'Contractor · mechanic',   partner: 'Flutterwave', partnerColor: '#f5a623', type: 'mobile', destination: 'MTN MoMo · +234 8•• ••• 884', country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦92,400 · 1w ago', payments: 22 },
+  { id: 'pba_2b88f0', name: 'Northstar Freight',  role: 'Shipping partner',        partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'GTBank · ••• 7741',       country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦18.2M · 3d ago', payments: 7 },
+  { id: 'pba_e4d219', name: 'Maersk UK Ltd',      role: 'Container shipping',      partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Barclays · ••• 0241',     country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£8,420 · 12d ago',payments: 11 },
+  { id: 'pba_18f9aa', name: 'LIRS · Lagos Tax',   role: 'Tax authority',           partner: 'Interswitch', partnerColor: '#ed1c24', type: 'bank',   destination: 'Direct · LIRS-9821',      country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦284,000 · 1m ago', payments: 4 },
+  { id: 'pba_44a8cc', name: 'Chioma Okeke',       role: 'Accountant · contractor', partner: 'Paystack',    partnerColor: '#1a73e8', type: 'bank',   destination: 'Access Bank · ••• 5092',  country: 'NG', currency: 'NGN', verified: false, lastPaid: 'never',           payments: 0 },
+];
+
+// ─── Individual customer · Payabo user (Adaeze Nwosu) ─────────────
+// Household applies here because the customer is an individual.
+// Some household members are also beneficiaries (Tobi, Ada, Nkechi)
+// — they're linked via householdLink to show the overlap clearly.
+const ADAEZE_CUSTOMER = {
+  name: 'Adaeze Nwosu',
+  legalName: 'Adaeze Chioma Nwosu',
+  type: 'Individual',
+  status: 'Active',
+  country: 'United Kingdom · Nigeria',
+  customerId: 'PAY-9821',
+  since: 'Apr 2, 2024',
+  tier: 'Premium · Payabo',
+  email: 'adaeze@example.com',
+  phone: '+44 7700 900142',
+  address: '24 Hampstead Road, London NW1 7DZ',
+  occupation: 'Senior Nurse · NHS',
+};
+
+const HOUSEHOLD_MEMBERS = [
+  { id: 'hm-1', name: 'Adaeze Nwosu',   role: 'You',     relationship: 'Lead',         age: 34, account: 'Primary current · GBP',   perms: 'Full',      color: '#055a60', tag: 'YOU' },
+  { id: 'hm-2', name: 'Chinedu Nwosu',  role: 'Spouse',  relationship: 'Co-signer',    age: 36, account: 'Joint savings · GBP',     perms: 'Full',      color: '#e8a838', monthlyContribution: '£840' },
+  { id: 'hm-3', name: 'Tobi Nwosu',     role: 'Son',     relationship: 'Dependent',    age: 12, account: 'Allowance · GBP',         perms: 'View-only', color: '#3ab795', allowance: '£25/wk' },
+  { id: 'hm-4', name: 'Ada Nwosu',      role: 'Daughter',relationship: 'Dependent',    age:  8, account: 'Allowance · GBP',         perms: 'View-only', color: '#7b76b6', allowance: '£15/wk' },
+  { id: 'hm-5', name: 'Nkechi Nwosu',   role: 'Mother',  relationship: 'Supported',    age: 64, account: 'Recipient · Lagos, NGN',  perms: 'External',  color: '#eb5c37', monthlyTransfer: '₦580,000', extLocation: 'Lagos, NG' },
+];
+
+const ADAEZE_BENEFICIARIES = [
+  { id: 'pba_aa1', name: 'Nkechi Nwosu',           role: 'Mother · Lagos',                  partner: 'Flutterwave', partnerColor: '#f5a623', type: 'bank',   destination: 'GTBank · ••• 8821',   country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦580,000 · 3d ago', payments: 28, householdLink: 'hm-5' },
+  { id: 'pba_aa2', name: 'Tobi Nwosu',             role: 'Son · weekly allowance',          partner: 'Aonik',       partnerColor: '#055a60', type: 'bank',   destination: 'Aonik · TBN-09812',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£25 · 2d ago',      payments: 18, householdLink: 'hm-3' },
+  { id: 'pba_aa3', name: 'Ada Nwosu',              role: 'Daughter · weekly allowance',     partner: 'Aonik',       partnerColor: '#055a60', type: 'bank',   destination: 'Aonik · ADN-09813',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£15 · 2d ago',      payments: 18, householdLink: 'hm-4' },
+  { id: 'pba_aa4', name: 'Foxtons Properties',     role: 'Landlord · monthly rent',         partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Lloyds · ••• 4421',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£1,840 · 4d ago',   payments: 14 },
+  { id: 'pba_aa5', name: 'Kingdom Heights Primary',role: 'School · termly fees',            partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'NatWest · ••• 9282',  country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£3,400 · 2mo ago',  payments: 4 },
+  { id: 'pba_aa6', name: 'Lagos Pharmacy',         role: "Healthcare · for Mum's meds",     partner: 'Flutterwave', partnerColor: '#f5a623', type: 'bank',   destination: 'Direct · LP-2812',    country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦42,000 · 1mo ago', payments: 6 },
+  { id: 'pba_aa7', name: 'British Gas',            role: 'Utility · monthly',               partner: 'Direct',      partnerColor: '#999999', type: 'bank',   destination: 'Direct biller',       country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£180 · 1w ago',     payments: 12 },
+];
 
 function ScreenCustomerDetail() {
   const [tab, setTab] = React.useState('Overview');
@@ -86,7 +136,7 @@ function ScreenCustomerDetail() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border-light)', padding: '0 2px' }}>
-        {['Overview', 'Finance', 'Insights', 'Documents', 'Orders', 'Activity'].map(t => {
+        {['Overview', 'Finance', 'Insights', 'Documents', 'Orders', 'Beneficiaries', 'Activity'].map(t => {
           const a = t === tab;
           return (
             <button key={t} onClick={() => setTab(t)} className="btn btn-ghost"
@@ -430,6 +480,8 @@ function ScreenCustomerDetail() {
         </Card>
       )}
 
+      {tab === 'Beneficiaries' && <CustomerBeneficiaries customer={c} beneficiaries={PRIMROSE_BENEFICIARIES}/>}
+
       {tab === 'Activity' && (
         <Card>
           <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Full audit trail · 842 events · exportable.</div>
@@ -439,4 +491,541 @@ function ScreenCustomerDetail() {
   );
 }
 
-Object.assign(window, { ScreenCustomerDetail });
+// ─── Beneficiaries tab body ───────────────────────────────────────
+// Saved destinations Primrose pays through partners. Grid ↔ list
+// toggle matches the billers.jsx pattern. Each beneficiary card
+// shows who, where the money goes, which partner routes it, and
+// recent payment history.
+function CustomerBeneficiaries({ customer, beneficiaries }) {
+  const [view, setView] = React.useState('grid');
+  const verifiedCount = beneficiaries.filter(b => b.verified).length;
+  const totalPayments = beneficiaries.reduce((s, b) => s + b.payments, 0);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Helper banner — explains scope */}
+      <div style={{
+        padding: '12px 14px', background: 'var(--brand-primary-10)',
+        border: '1px solid transparent', borderRadius: 10,
+        display: 'flex', alignItems: 'center', gap: 10,
+        fontSize: 12.5, color: 'var(--text-primary)',
+      }}>
+        <Icon name="info" size={14} color="var(--brand-primary)"/>
+        <span style={{ flex: 1 }}>
+          Saved destinations {customer.name} pays through Aonik partners.
+          {' '}<b style={{ color: 'var(--brand-primary)' }}>{beneficiaries.length}</b> beneficiaries
+          {' · '}<b>{verifiedCount}</b> verified
+          {' · '}<b>{totalPayments}</b> total payments to date.
+        </span>
+        <button className="btn btn-primary btn-sm"><Icon name="userplus" size={12}/> Add beneficiary</button>
+      </div>
+
+      {/* Filter / search / view toggle */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: 'var(--surface)', border: '1px solid var(--border-light)',
+        borderRadius: 10, padding: '10px 14px',
+      }}>
+        <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }}>
+            <Icon name="search" size={13}/>
+          </span>
+          <input className="input" placeholder="Search by name, account, country…"
+            style={{ paddingLeft: 30, height: 30, fontSize: 12, background: 'var(--surface-inset)', border: 'none', width: '100%' }}/>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginRight: 4 }}>View</span>
+          {['grid', 'list'].map(v => (
+            <button key={v} onClick={() => setView(v)} style={{
+              background: view === v ? 'var(--surface-inset)' : 'transparent',
+              color: view === v ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              border: '1px solid ' + (view === v ? 'var(--border-medium)' : 'var(--border-light)'),
+              borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 5,
+              fontSize: 11.5, fontWeight: 500,
+            }}>
+              <Icon name={v} size={12}/>
+              {v[0].toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'grid' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {beneficiaries.map(b => <CustomerBeneficiaryCard key={b.id} ben={b}/>)}
+          <div style={{
+            border: '1.5px dashed var(--border-medium)', borderRadius: 12,
+            minHeight: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 6, color: 'var(--text-tertiary)', cursor: 'pointer',
+            background: 'var(--surface)',
+          }}>
+            <Icon name="userplus" size={20}/>
+            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Add a beneficiary</div>
+            <div style={{ fontSize: 11, padding: '0 24px', textAlign: 'center' }}>Bank account · Mobile wallet · Direct biller</div>
+          </div>
+        </div>
+      )}
+
+      {view === 'list' && <CustomerBeneficiaryList beneficiaries={beneficiaries}/>}
+    </div>
+  );
+}
+
+function CustomerBeneficiaryCard({ ben }) {
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border-light)',
+      borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 12,
+      cursor: 'pointer',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Avatar name={ben.name} size={40} color={agentColor(ben.name) + '22'} textColor={agentColor(ben.name)}/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{ben.name}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2 }}>{ben.role}</div>
+        </div>
+        {ben.verified
+          ? <Pill tone="success" dot size="sm">Verified</Pill>
+          : <Pill tone="warning" dot size="sm">Unverified</Pill>}
+      </div>
+
+      <div style={{
+        padding: '11px 12px', background: 'var(--surface-inset)',
+        border: '1px solid var(--border-light)', borderRadius: 8,
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <Icon name={ben.type === 'mobile' ? 'mobile' : 'landmark'} size={16} color="var(--text-secondary)"/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{ben.destination}</div>
+          <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginTop: 2, display: 'flex', gap: 6 }}>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>{ben.currency}</span>
+            <span>·</span>
+            <span>{ben.country}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        paddingTop: 8, borderTop: '1px solid var(--border-light)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{
+            width: 16, height: 16, borderRadius: 4,
+            background: ben.partnerColor, color: '#fff',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-brand)', fontWeight: 700, fontSize: 9,
+          }}>{ben.partner.charAt(0)}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>via {ben.partner}</span>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'right' }}>
+          <div>{ben.lastPaid}</div>
+          {ben.payments > 0 && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 1 }}>{ben.payments} total payments</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CustomerBeneficiaryList({ beneficiaries }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1.4fr 1.4fr 1fr 90px 110px 130px 50px',
+        padding: '11px 16px', background: 'var(--surface-inset)',
+        borderBottom: '1px solid var(--border-light)',
+        fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-tertiary)',
+      }}>
+        <div>Beneficiary</div><div>Destination</div><div>Partner</div><div>Verified</div><div>Payments</div><div>Last paid</div><div></div>
+      </div>
+      {beneficiaries.map((b, i) => (
+        <div key={b.id} style={{
+          display: 'grid', gridTemplateColumns: '1.4fr 1.4fr 1fr 90px 110px 130px 50px',
+          padding: '14px 16px', alignItems: 'center',
+          borderBottom: i < beneficiaries.length - 1 ? '1px solid var(--border-light)' : 'none',
+          fontSize: 12.5,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Avatar name={b.name} size={28} color={agentColor(b.name) + '22'} textColor={agentColor(b.name)}/>
+            <div>
+              <div style={{ fontWeight: 600 }}>{b.name}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>{b.role}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name={b.type === 'mobile' ? 'mobile' : 'landmark'} size={13} color="var(--text-tertiary)"/>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{b.destination}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{b.currency} · {b.country}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{
+              width: 18, height: 18, borderRadius: 4,
+              background: b.partnerColor, color: '#fff',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-brand)', fontWeight: 700, fontSize: 10,
+            }}>{b.partner.charAt(0)}</span>
+            <span style={{ fontSize: 12 }}>{b.partner}</span>
+          </div>
+          {b.verified
+            ? <Pill tone="success" dot size="sm">Yes</Pill>
+            : <Pill tone="warning" dot size="sm">Pending</Pill>}
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600 }}>{b.payments}</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{b.lastPaid}</span>
+          <span className="hover-halo" style={{ width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6 }}>
+            <Icon name="ellipsis" size={14} color="var(--text-secondary)"/>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Individual Customer Detail · Payabo user ─────────────────────
+// Adaeze Nwosu, a senior NHS nurse in London with family in Lagos.
+// Tabs adapted for an individual: Household (instead of Compliance) +
+// Beneficiaries (some of which are household members). KPIs reflect
+// personal finance — monthly inflows, spending, savings, send-home —
+// not corporate concepts like ARR / MRR / Runway.
+function ScreenCustomerIndividual() {
+  const [tab, setTab] = React.useState('Household');
+  const c = ADAEZE_CUSTOMER;
+
+  return (
+    <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Header card */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border-light)',
+        borderRadius: 12, padding: 20, display: 'flex', gap: 20, alignItems: 'center',
+      }}>
+        <Avatar name={c.name} size={68} color="#055a60" textColor="#fff"/>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontFamily: 'var(--font-brand)', fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{c.name}</div>
+            <Pill tone="success" dot>Active</Pill>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--surface-inset)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border-light)' }}>{c.customerId}</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <span><Icon name="user" size={11}/> {c.type} · {c.tier}</span>
+            <span><Icon name="globe" size={11}/> {c.country}</span>
+            <span><Icon name="badge" size={11}/> {c.occupation}</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>customer since · {c.since}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className="btn btn-outline btn-sm"><Icon name="download" size={12}/> Export</button>
+          <button className="btn btn-outline btn-sm"><Icon name="sparkles" size={12} color="var(--brand-primary)"/> Generate insight</button>
+          <button className="btn btn-primary btn-sm"><Icon name="plus" size={12}/> New transfer</button>
+        </div>
+      </div>
+
+      {/* KPI strip — personal-finance-flavoured */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+        {[
+          { l: 'Monthly inflow',  v: '£4,840',  sub: 'salary + side income',  tone: 'var(--success)' },
+          { l: 'Monthly spend',   v: '£3,210',  sub: '−£1,630 vs inflow',     tone: 'var(--brand-primary)' },
+          { l: 'Savings rate',    v: '34%',     sub: '£12,420 total',         tone: 'var(--accent-violet)' },
+          { l: 'Send to family',  v: '₦580K/mo',sub: 'to Lagos · ~£420',      tone: 'var(--warning)' },
+          { l: 'Household',       v: '5',       sub: '2 adults · 2 kids · 1 supported', tone: 'var(--brand-secondary)' },
+        ].map((k, i) => (
+          <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: 14 }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.06em', color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: k.tone }}/>
+              {k.l}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 4 }}>{k.v}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs — Household replaces Compliance; both Household + Beneficiaries visible */}
+      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border-light)', padding: '0 2px' }}>
+        {['Overview', 'Finance', 'Insights', 'Household', 'Beneficiaries', 'Activity'].map(t => {
+          const a = t === tab;
+          return (
+            <button key={t} onClick={() => setTab(t)} className="btn btn-ghost"
+              style={{
+                height: 38, padding: '0 14px', fontSize: 13, borderRadius: 0,
+                borderBottom: a ? '2px solid var(--brand-primary)' : '2px solid transparent',
+                color: a ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontWeight: a ? 600 : 400, marginBottom: -1,
+              }}>{t}</button>
+          );
+        })}
+      </div>
+
+      {tab === 'Overview' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+          <Card title="Details">
+            {[
+              ['Legal name', c.legalName],
+              ['Type', c.type + ' · ' + c.tier],
+              ['Customer ID', c.customerId],
+              ['Email', c.email],
+              ['Phone', c.phone],
+              ['Address', c.address],
+              ['Occupation', c.occupation],
+            ].map(([k, v], i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, padding: '8px 0', borderBottom: i < 6 ? '1px solid var(--border-light)' : 'none' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.02em' }}>{k}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--text-primary)', fontFamily: k === 'Customer ID' || k === 'Phone' ? 'var(--font-mono)' : 'inherit' }}>{v}</span>
+              </div>
+            ))}
+          </Card>
+
+          <Card title="Identity verification" subtitle="KYC · sanctions · proof of address"
+            action={<Pill tone="success" dot>Verified</Pill>}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+              {[
+                { label: 'Passport · UK',               status: 'Verified', tone: 'success', when: '2 Apr 24' },
+                { label: 'Proof of address · utility',  status: 'Verified', tone: 'success', when: '2 Apr 24' },
+                { label: 'NIN · Nigerian ID',           status: 'Verified', tone: 'success', when: '2 Apr 24' },
+                { label: 'Source-of-funds declaration', status: 'Verified', tone: 'success', when: '8 May 25' },
+                { label: 'Annual re-screen',            status: 'Due Apr 2',tone: 'warning', when: '320 days' },
+              ].map((d, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+                  <Icon name="check" size={14} color={d.tone === 'success' ? 'var(--success)' : 'var(--warning)'}/>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-primary)', flex: 1 }}>{d.label}</span>
+                  <Pill tone={d.tone} size="sm">{d.status}</Pill>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)', minWidth: 60, textAlign: 'right' }}>{d.when}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Recent activity" style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {[
+                { ic: 'sparkles', t: 'Insights Agent: you saved £214 vs last April — strongest month yet', w: '5m ago',   c: 'var(--brand-primary)' },
+                { ic: 'send',     t: 'Sent ₦580,000 to Mum · settled via Flutterwave',                       w: '3d ago',   c: 'var(--success)' },
+                { ic: 'send',     t: "Tobi's weekly allowance · £25",                                         w: '2d ago',   c: 'var(--text-secondary)' },
+                { ic: 'creditcard', t: 'Rent paid · Foxtons £1,840',                                          w: '4d ago',   c: 'var(--text-secondary)' },
+                { ic: 'shield',   t: 'Annual KYC re-screen reminder · due Apr 2',                             w: '1w ago',   c: 'var(--warning)' },
+              ].map((a, i, arr) => (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: 10,
+                  padding: '10px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-light)' : 'none',
+                }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: a.c + '18', color: a.c, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name={a.ic} size={14}/>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>{a.t}</div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>{a.w}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {tab === 'Finance' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+          {[
+            { name: 'Primary current · GBP',     inst: 'Aonik', bal: 4_840.18, cur: 'GBP', last: '12m ago' },
+            { name: 'Joint savings · GBP',       inst: 'Aonik', bal: 12_420.00,cur: 'GBP', last: '1h ago'  },
+            { name: "Tobi's allowance · GBP",    inst: 'Aonik', bal:    142.50,cur: 'GBP', last: '2d ago'  },
+            { name: "Ada's allowance · GBP",     inst: 'Aonik', bal:     78.00,cur: 'GBP', last: '2d ago'  },
+          ].map((a, i) => (
+            <div key={i} style={{
+              background: 'var(--surface)', border: '1px solid var(--border-light)',
+              borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', gap: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--brand-primary-10)', color: 'var(--brand-primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="landmark" size={15}/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{a.inst} · synced {a.last}</div>
+                </div>
+                <Pill tone="success" dot size="sm">live</Pill>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' }}>
+                {a.cur} {a.bal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'Insights' && (
+        <Card title="AI summary" subtitle="Generated 5m ago · Insights Agent · conf 0.94"
+          action={<Pill tone="tint" dot>fresh</Pill>}>
+          <div style={{ marginTop: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+              You're saving 34% of your inflow — your strongest April yet. Send-home to Lagos is stable; consider scheduling Tobi's school fees to ride a stronger GBP→NGN window in 6 weeks.
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {tab === 'Household' && <HouseholdTab customer={c} members={HOUSEHOLD_MEMBERS}/>}
+
+      {tab === 'Beneficiaries' && <CustomerBeneficiaries customer={c} beneficiaries={ADAEZE_BENEFICIARIES}/>}
+
+      {tab === 'Activity' && (
+        <Card>
+          <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Full personal-finance audit trail · 384 events · exportable.</div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── Household tab body ───────────────────────────────────────────
+// Warm, family-feeling layout. Members are people, not data rows.
+// The "YOU" card has a teal ring so the operator/user can find
+// themselves first. External members (Mum in Lagos) get a location
+// pin and a warmer treatment — they're family, not just a recipient.
+function HouseholdTab({ customer, members }) {
+  const adults = members.filter(m => m.age >= 18 && m.perms !== 'External');
+  const children = members.filter(m => m.age < 18);
+  const supported = members.filter(m => m.perms === 'External');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Warm hero banner with avatar group + summary */}
+      <div style={{
+        padding: '18px 20px',
+        background: 'linear-gradient(135deg, rgba(5,90,96,0.10) 0%, rgba(232,168,56,0.12) 100%)',
+        borderRadius: 12,
+        display: 'flex', alignItems: 'center', gap: 18,
+      }}>
+        {/* Overlapping avatar group */}
+        <div style={{ display: 'flex' }}>
+          {members.map((m, i) => (
+            <div key={m.id} style={{
+              marginLeft: i === 0 ? 0 : -10,
+              borderRadius: '50%',
+              border: '2px solid var(--surface)',
+              zIndex: members.length - i,
+            }}>
+              <Avatar name={m.name} size={44} color={m.color} textColor="#fff"/>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
+            {customer.name}'s household
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 3 }}>
+            <b style={{ color: 'var(--text-primary)' }}>{members.length}</b> members
+            {' · '}<b>{adults.length}</b> adults
+            {' · '}<b>{children.length}</b> children
+            {supported.length > 0 && <>{' · '}<b>{supported.length}</b> supported relative{supported.length > 1 ? 's' : ''}</>}
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm"><Icon name="userplus" size={12}/> Add household member</button>
+      </div>
+
+      {/* Section · Your household */}
+      <div>
+        <SectionHeader label="In your household" hint="People who share your day-to-day finances"/>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginTop: 12 }}>
+          {[...adults, ...children].map(m => <HouseholdMemberCard key={m.id} m={m}/>)}
+        </div>
+      </div>
+
+      {/* Section · Supported relatives (different vibe — they're family but not in the home) */}
+      {supported.length > 0 && (
+        <div>
+          <SectionHeader label="Supported relatives" hint="Family abroad you send money to regularly"/>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginTop: 12 }}>
+            {supported.map(m => <HouseholdMemberCard key={m.id} m={m} external/>)}
+          </div>
+        </div>
+      )}
+
+      {/* Helper card · explaining the relationship */}
+      <div style={{
+        padding: '12px 14px', background: 'var(--surface-inset)',
+        border: '1px dashed var(--border-light)', borderRadius: 10,
+        display: 'flex', alignItems: 'center', gap: 10,
+        fontSize: 12, color: 'var(--text-secondary)',
+      }}>
+        <Icon name="info" size={13} color="var(--brand-primary)"/>
+        <span>
+          <b style={{ color: 'var(--text-primary)' }}>Household ≠ beneficiaries.</b>
+          {' '}A household member is someone in your financial life. A beneficiary is someone you send money to.
+          They overlap when you pay a household member — those rows are
+          {' '}<a href="#" style={{ color: 'var(--brand-primary)' }}>cross-linked under Beneficiaries</a>.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ label, hint }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-tertiary)' }}>{label}</div>
+      {hint && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>{hint}</div>}
+    </div>
+  );
+}
+
+function HouseholdMemberCard({ m, external = false }) {
+  const isYou = m.tag === 'YOU';
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      border: isYou ? '2px solid var(--brand-primary)' : '1px solid var(--border-light)',
+      borderRadius: 12,
+      padding: 18,
+      display: 'flex', flexDirection: 'column', gap: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Avatar name={m.name} size={48} color={m.color} textColor="#fff"/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{m.name}</div>
+            {isYou && <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.08em',
+              padding: '2px 7px', borderRadius: 4,
+              background: 'var(--brand-primary)', color: '#fff',
+            }}>YOU</span>}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+            {m.role}{m.age ? ` · ${m.age} years old` : ''}
+          </div>
+        </div>
+        <Pill tone={m.perms === 'Full' ? 'success' : m.perms === 'View-only' ? 'tint' : 'warning'} dot size="sm">
+          {m.perms}
+        </Pill>
+      </div>
+
+      {/* Account / location row */}
+      <div style={{
+        padding: '11px 12px',
+        background: 'var(--surface-inset)', border: '1px solid var(--border-light)',
+        borderRadius: 8,
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <Icon name={external ? 'mappin' : 'landmark'} size={16} color="var(--text-secondary)"/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text-primary)' }}>{m.account}</div>
+          {m.extLocation && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{m.extLocation}</div>}
+        </div>
+      </div>
+
+      {/* Footer · allowance, contribution, or transfer */}
+      {(m.allowance || m.monthlyTransfer || m.monthlyContribution) && (
+        <div style={{
+          paddingTop: 10, borderTop: '1px solid var(--border-light)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+            {m.allowance ? 'Weekly allowance' : m.monthlyContribution ? 'Monthly contribution' : 'Monthly transfer'}
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13.5, fontWeight: 600, color: 'var(--brand-primary)' }}>
+            {m.allowance || m.monthlyContribution || m.monthlyTransfer}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { ScreenCustomerDetail, ScreenCustomerIndividual });
