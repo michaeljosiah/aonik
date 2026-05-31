@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AONIK Backend Code Analysis</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5b667a;
+      --line: #dbe1ea;
+      --critical: #b42318;
+      --high: #b54708;
+      --medium: #175cd3;
+      --low: #475467;
+      --good: #027a48;
+      --code-bg: #f2f4f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    header {
+      padding: 48px 32px 36px;
+      background: linear-gradient(135deg, #101828 0%, #1d2939 62%, #344054 100%);
+      color: white;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: -24px auto 64px;
+    }
+
+    h1, h2, h3 { line-height: 1.2; margin: 0; }
+    h1 { font-size: clamp(2rem, 4vw, 3.4rem); letter-spacing: -0.04em; }
+    h2 { font-size: 1.4rem; margin-bottom: 16px; }
+    h3 { font-size: 1.05rem; margin-bottom: 8px; }
+    p { margin: 0 0 12px; }
+    a { color: var(--medium); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: var(--code-bg);
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    .subtitle { max-width: 900px; margin-top: 16px; color: #d0d5dd; font-size: 1.05rem; }
+    .meta { margin-top: 22px; color: #d0d5dd; font-size: 0.92rem; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 16px 40px rgba(16, 24, 40, 0.07);
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .metric .number { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; }
+    .metric .label { color: var(--muted); font-size: 0.92rem; }
+
+    .toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .toc a {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.92rem;
+    }
+
+    .finding {
+      border: 1px solid var(--line);
+      border-left-width: 6px;
+      border-radius: 14px;
+      padding: 18px;
+      margin: 14px 0;
+      background: #fff;
+    }
+
+    .finding.critical { border-left-color: var(--critical); }
+    .finding.high { border-left-color: var(--high); }
+    .finding.medium { border-left-color: var(--medium); }
+    .finding.low { border-left-color: var(--low); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 0.75rem;
+      font-weight: 750;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-right: 8px;
+    }
+
+    .badge.critical { color: #7a271a; background: #fef3f2; }
+    .badge.high { color: #7a2e0e; background: #fffaeb; }
+    .badge.medium { color: #1849a9; background: #eff8ff; }
+    .badge.low { color: #344054; background: #f2f4f7; }
+    .badge.good { color: #05603a; background: #ecfdf3; }
+
+    .refs {
+      margin: 10px 0 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #eef2f6;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    ul, ol { margin: 10px 0 0 20px; padding: 0; }
+    li { margin: 6px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 11px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .callout {
+      border-left: 5px solid var(--medium);
+      background: #eff8ff;
+      border-radius: 12px;
+      padding: 15px 16px;
+      margin: 12px 0;
+    }
+
+    .positive {
+      border-left: 5px solid var(--good);
+      background: #ecfdf3;
+      border-radius: 12px;
+      padding: 15px 16px;
+      margin: 12px 0;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 36px 20px; }
+      main { width: min(100% - 20px, 1180px); }
+      .grid { grid-template-columns: 1fr; }
+      .card { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AONIK Backend Code Analysis</h1>
+    <p class="subtitle">Backend-only review focused on scalability, performance, enterprise readiness, governance, code quality, and simplification opportunities. Findings intentionally exclude Payabo, frontend applications, and everything under <code>apps/*</code>.</p>
+    <p class="meta">Generated by OpenCode on 2026-05-30. Scope: <code>src/Aonik.*</code> backend services, API, infrastructure, workers, AI/agents, MCP services, module persistence, and shared kernel.</p>
+  </header>
+
+  <main>
+    <section class="grid" aria-label="Summary metrics">
+      <div class="metric"><div class="number">7</div><div class="label">Critical findings</div></div>
+      <div class="metric"><div class="number">14</div><div class="label">High findings</div></div>
+      <div class="metric"><div class="number">11</div><div class="label">Medium findings</div></div>
+      <div class="metric"><div class="number">6</div><div class="label">Simplification themes</div></div>
+    </section>
+
+    <section class="card" id="executive-summary">
+      <h2>Executive Summary</h2>
+      <p>AONIK has a strong modular-monolith foundation, good domain separation intent, clear migration ownership, and a useful AI governance vocabulary. The most important risks are not basic style issues. They are enforcement gaps around AI mutation approval, tenant isolation fail-open behavior, incomplete auditability of LLM calls, unbounded high-volume queries, and cross-module coupling that undermines the intended clean architecture.</p>
+      <p>The biggest simplification opportunity is to reduce duplicate runtime surfaces. Today there are separate in-process agent tools, MCP tools, broad DbContext facades, duplicate PersonalFinance ownership in Finance and PersonalFinance, and several hand-rolled validation/error paths. Senior engineers will likely view the platform as promising but still carrying too many parallel abstraction paths for its current maturity.</p>
+      <div class="callout">
+        <strong>Recommended priority:</strong> fix safety and isolation first, then performance hot paths, then simplify module boundaries and duplicated abstractions. Do not add more abstractions before retiring the duplicate ones already present.
+      </div>
+      <div class="toc" aria-label="Table of contents">
+        <a href="#critical">Critical</a>
+        <a href="#high">High</a>
+        <a href="#medium">Medium</a>
+        <a href="#simplification">Simplification Roadmap</a>
+        <a href="#positive">Patterns To Preserve</a>
+      </div>
+    </section>
+
+    <section class="card" id="critical">
+      <h2>Critical Findings</h2>
+
+      <article class="finding critical">
+        <h3><span class="badge critical">Critical</span>Mutating AI agent tools are not enforceably approval-gated</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Agents/Tools/InvoiceTools.cs:120-141</code><br>
+          <code>src/Aonik.Finance/Agents/Tools/PaymentTools.cs:57-72</code><br>
+          <code>src/Aonik.Finance/Agents/Tools/LedgerTools.cs:80-82</code><br>
+          <code>src/Aonik.Agents/Framework/MasterOrchestratorService.cs:113-122</code>
+        </div>
+        <p>Mutating tools are plain <code>AIFunctionFactory.Create(...)</code> functions. The code comments say approval is enforced by a frontend <code>confirmAction</code> tool, but prompt instructions and UI conventions are not a security boundary. A model, MCP client, playground, test harness, or future client can invoke the mutating tools directly.</p>
+        <p><strong>Why it matters:</strong> this violates the project rule that agents propose and systems execute, and that mutating tools require <code>ApprovalRequiredAIFunction</code>. It is the highest-risk AI governance gap because it can mutate financial state.</p>
+        <p><strong>Suggested fix:</strong> create one server-side tool registration path that marks each tool as read-only or mutating. Wrap every mutating function in MAF <code>ApprovalRequiredAIFunction</code>, and add tests that enumerate tools and fail if known mutating tool names are exposed without approval metadata.</p>
+      </article>
+
+      <article class="finding critical">
+        <h3><span class="badge critical">Critical</span>MCP finance tools directly mutate financial state and are added to the orchestrator</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance.Mcp/Tools/InvoiceMcpTools.cs:24-65</code><br>
+          <code>src/Aonik.Finance.Mcp/Tools/InvoiceMcpTools.cs:77-121</code><br>
+          <code>src/Aonik.Finance.Mcp/Tools/PaymentMcpTools.cs:24-53</code><br>
+          <code>src/Aonik.Finance.Mcp/Tools/LedgerMcpTools.cs:43-63</code><br>
+          <code>src/Aonik.Agents/Framework/MasterOrchestratorService.cs:544-550</code>
+        </div>
+        <p>The MCP server exposes financial mutations such as invoice creation, invoice issuing, payment capture, ledger creation, and account creation. The orchestrator imports all MCP tools directly with <code>tools.AddRange(serverTools)</code>.</p>
+        <p><strong>Why it matters:</strong> this bypasses the same approval path that in-process tools should use. MCP becomes a second, less governed mutation channel.</p>
+        <p><strong>Suggested fix:</strong> make Finance MCP read-only by default, or expose mutating MCP commands as proposal-only operations. If mutating MCP tools must exist, wrap imported MCP tools by risk tier before they reach the orchestrator.</p>
+      </article>
+
+      <article class="finding critical">
+        <h3><span class="badge critical">Critical</span>MCP hosting stubs grant all permissions and auto-clear compliance</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance.Mcp/Hosting/McpHostingStubs.cs:64-75</code><br>
+          <code>src/Aonik.Finance.Mcp/Hosting/McpHostingStubs.cs:127-140</code><br>
+          <code>src/Aonik.Finance.Mcp/Hosting/McpHostingStubs.cs:22-39</code><br>
+          <code>src/Aonik.Finance.Mcp/Hosting/McpHostingStubs.cs:43-60</code>
+        </div>
+        <p>The Finance MCP host uses fixed tenant/user providers, grants every permission, and returns clear compliance results. The comment says tools are gated by the agent approval flow, but the MCP tools themselves are not gated.</p>
+        <p><strong>Why it matters:</strong> if this process touches real data, it bypasses enterprise access control, compliance review, and audit intent for financial actions.</p>
+        <p><strong>Suggested fix:</strong> fail closed outside Development unless real identity, tenant, permission, and compliance services are configured. Add an explicit <code>Mcp:UnsafeMutationsEnabled</code> flag if temporary mutation support is needed locally.</p>
+      </article>
+
+      <article class="finding critical">
+        <h3><span class="badge critical">Critical</span>Tenant query filters fail open when tenant context is missing</h3>
+        <div class="refs">
+          <code>src/Aonik.SharedKernel/Persistence/AonikDbContextBase.cs:142-172</code><br>
+          <code>src/Aonik.SharedKernel/Persistence/AonikDbContextBase.cs:196-207</code>
+        </div>
+        <p>The global tenant filter explicitly treats <code>CurrentTenantId == null</code> as permission to show all tenant rows.</p>
+        <p><strong>Why it matters:</strong> any background process, endpoint, test fixture, or service path with a missing tenant provider can accidentally become cross-tenant. This is unsafe for an enterprise multi-tenant financial platform.</p>
+        <p><strong>Suggested fix:</strong> fail closed by default. Require explicit <code>AcrossTenants()</code>, a system tenant scope, or a dedicated cross-tenant query service for jobs and platform-admin workflows. Reserve fail-open behavior only for migrations/design-time cases where EF requires it.</p>
+      </article>
+
+      <article class="finding critical">
+        <h3><span class="badge critical">Critical</span>Chat thread endpoints are anonymous and service filters are insufficient</h3>
+        <div class="refs">
+          <code>src/Aonik.Agents/Endpoints/ListChatThreadsEndpoint.cs:21-31</code><br>
+          <code>src/Aonik.Agents/Endpoints/GetChatThreadEndpoint.cs:21-31</code><br>
+          <code>src/Aonik.Agents/Endpoints/ArchiveChatThreadEndpoint.cs:21-31</code><br>
+          <code>src/Aonik.Agents/Framework/ChatThreadService.cs:155-162</code><br>
+          <code>src/Aonik.Agents/Framework/ChatThreadService.cs:170-189</code><br>
+          <code>src/Aonik.Agents/Framework/ChatThreadService.cs:194-205</code>
+        </div>
+        <p>The endpoints call <code>AllowAnonymous()</code>. The service lists by user only if a current user exists, and get/archive by thread ID only. It does not consistently require both tenant and user ownership.</p>
+        <p><strong>Why it matters:</strong> AI chat threads can contain financial information, operational instructions, PII, and tool outputs. Anonymous access with weak ownership checks is a data exposure and mutation risk.</p>
+        <p><strong>Suggested fix:</strong> require an authenticated user policy, reject missing user context, and filter every thread operation by <code>TenantId</code> and <code>UserId</code>. Consider platform-admin override as a separate policy with audit logging.</p>
+      </article>
+
+      <article class="finding critical">
+        <h3><span class="badge critical">Critical</span>Streaming LLM calls are not recorded as AiRun records</h3>
+        <div class="refs">
+          <code>src/Aonik.Ai/Middleware/AuditMiddleware.cs:30-104</code><br>
+          <code>src/Aonik.Ai/Middleware/AuditMiddleware.cs:140-156</code>
+        </div>
+        <p>Non-streaming calls start and complete an <code>AiRun</code>. Streaming calls only log debug start/end timings and never start, complete, fail, stamp, or record an <code>AiRun</code>.</p>
+        <p><strong>Why it matters:</strong> AONIK's rule is that every LLM execution is auditable. Streaming is common for chat and agent UX, so this creates an audit gap for normal production behavior.</p>
+        <p><strong>Suggested fix:</strong> mirror the non-streaming audit flow in <code>GetStreamingResponseAsync</code>. Start an <code>AiRun</code>, stamp call context, accumulate usage/model metadata from updates when available, and complete or fail the run in <code>finally</code>.</p>
+      </article>
+
+      <article class="finding critical">
+        <h3><span class="badge critical">Critical</span>Financial state transitions bypass ledger proof</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Payments/PaymentService.cs:74-99</code><br>
+          <code>src/Aonik.Finance/Services/Billing/BillingService.cs:163-176</code>
+        </div>
+        <p><code>CapturePaymentAsync</code> changes a payment intent status to captured without creating or linking ledger entries. <code>MarkInvoiceAsPaidAsync</code> changes invoice status to paid without ledger linkage.</p>
+        <p><strong>Why it matters:</strong> this conflicts with the core platform principle that ledger is the source of financial truth and payments execute intent while ledger proves it.</p>
+        <p><strong>Suggested fix:</strong> move capture and mark-paid flows into an application orchestration service that posts immutable ledger entries in the same transactional unit and persists references from the payment/invoice/order to the resulting journal entries.</p>
+      </article>
+    </section>
+
+    <section class="card" id="high">
+      <h2>High Findings</h2>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Payment and order lookups are inconsistently tenant-scoped</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Payments/PaymentService.cs:65-78</code><br>
+          <code>src/Aonik.Finance/Services/Payments/PaymentService.cs:104-108</code><br>
+          <code>src/Aonik.Finance/Services/Orders/OrderService.cs:263-269</code><br>
+          <code>src/Aonik.Finance/Services/Orders/OrderService.cs:517-523</code><br>
+          <code>src/Aonik.Finance/Services/Orders/OrderService.cs:678-717</code>
+        </div>
+        <p>Several service methods query by entity ID only and rely on global filters. The system also contains explicit cross-tenant behavior, background jobs, and public endpoints, so security-critical invariants should be local and obvious.</p>
+        <p><strong>Suggested fix:</strong> resolve the current tenant in every service method that reads or mutates tenant-scoped financial state, and include <code>TenantId == tenantId</code> in all lookups. Treat global filters as defense-in-depth, not the primary access check.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Order idempotency is not tenant-scoped or database-enforced</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Orders/OrderService.cs:189-199</code><br>
+          <code>src/Aonik.Finance/Services/Orders/OrderService.cs:209-216</code><br>
+          <code>src/Aonik.Finance/Persistence/Configurations/Orders/OrderConfiguration.cs:34-35</code><br>
+          <code>src/Aonik.Finance/Persistence/Configurations/Orders/OrderConfiguration.cs:79-85</code>
+        </div>
+        <p>The lookup uses <code>OrderType</code> and <code>IdempotencyKey</code>, omits tenant, and compares an untrimmed request key while saving a trimmed value. The database index is not unique.</p>
+        <p><strong>Why it matters:</strong> retries can create duplicate business intent, and cross-tenant key collisions can produce incorrect behavior if filters are bypassed or context is wrong.</p>
+        <p><strong>Suggested fix:</strong> normalize once, query by <code>TenantId</code>, <code>OrderType</code>, and normalized key, and add a unique filtered index for non-null active idempotency keys.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Payment creation stores placeholder financial parties and has an unreachable capture path</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Payments/PaymentService.cs:32-52</code><br>
+          <code>src/Aonik.Finance/Services/Payments/PaymentService.cs:74-97</code>
+        </div>
+        <p>Created intents start as <code>Pending</code>, but capture only allows <code>Authorized</code>. The service also stores <code>PayerPartyId = Guid.Empty</code> and hard-codes <code>PaymentMethodType = "Card"</code>.</p>
+        <p><strong>Why it matters:</strong> the service cannot complete its own lifecycle, and the records are incomplete for audit, screening, reconciliation, and enterprise support.</p>
+        <p><strong>Suggested fix:</strong> require payer/payee/payment method data or derive it from an order. Add an explicit authorization/provider-confirmation flow before capture, or model provider state separately from internal lifecycle state.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Outbox processing is not safe for horizontal scale</h3>
+        <div class="refs">
+          <code>src/Aonik.Infrastructure/Messaging/Outbox/OutboxProcessor.cs:12-20</code><br>
+          <code>src/Aonik.Infrastructure/Messaging/Outbox/OutboxProcessor.cs:61-76</code><br>
+          <code>src/Aonik.Infrastructure/Messaging/Outbox/OutboxProcessor.cs:79-108</code>
+        </div>
+        <p>The code documents a single drainer assumption and has no row claim, lock, or leased status. Multiple workers can read and dispatch the same messages.</p>
+        <p><strong>Why it matters:</strong> enterprise deployments commonly scale workers horizontally. Duplicate side effects will happen unless every downstream handler is perfectly idempotent.</p>
+        <p><strong>Suggested fix:</strong> add atomic row claiming with <code>Status</code>, <code>LockedUntil</code>, and <code>LockedBy</code>, or use SQL Server <code>UPDLOCK, READPAST</code> for claim queries. Keep inbox idempotency as defense-in-depth.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Hot list queries are unbounded and eager-load child collections</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Billing/BillingService.cs:252-266</code><br>
+          <code>src/Aonik.Finance/Services/Ledger/LedgerService.cs:317-333</code>
+        </div>
+        <p>Invoice listing loads all matching invoices with lines. Journal entry listing loads all entries with lines. Both are high-volume financial datasets.</p>
+        <p><strong>Why it matters:</strong> these endpoints will eventually load years of ledger and billing data into memory, increasing latency, database load, and application memory pressure.</p>
+        <p><strong>Suggested fix:</strong> add cursor or keyset pagination with hard page-size limits. Use <code>AsNoTracking()</code> and DTO projection. Load details separately or use split queries when child rows are required.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Worker enumerators materialize cross-tenant datasets before batching</h3>
+        <div class="refs">
+          <code>src/Aonik.Worker/Jobs/CustomerInsightSnapshotJobUserEnumerator.cs:29-58</code><br>
+          <code>src/Aonik.Worker/Jobs/CustomerInsightAiSummaryJobSnapshotEnumerator.cs:35-72</code>
+        </div>
+        <p>The snapshot enumerator loads users from seven tables into memory, then distincts, sorts, checkpoints, and takes. The AI summary enumerator loads all current snapshots, then filters already processed rows in memory.</p>
+        <p><strong>Why it matters:</strong> cross-tenant jobs must stay bounded. These will degrade with data volume and can create memory spikes and expensive repeated AI workloads.</p>
+        <p><strong>Suggested fix:</strong> push <code>Union</code>, <code>Distinct</code>, checkpoint predicates, ordering, <code>Take</code>, and anti-joins into SQL. Consider a persisted projection of active customer insight targets.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Recurring financial connection sync likely sees no tenant data</h3>
+        <div class="refs">
+          <code>src/Aonik.Worker/Jobs/FinancialConnectionRecurringSyncJob.cs:44-51</code><br>
+          <code>src/Aonik.Worker/Jobs/FinancialConnectionRecurringSyncJob.cs:64-78</code>
+        </div>
+        <p>The job sets tenant context to <code>Guid.Empty</code> and then queries tenant-scoped financial connections without <code>AcrossTenants()</code>.</p>
+        <p><strong>Why it matters:</strong> if global filters apply normally, the job will only see system-tenant records and silently skip real tenant connections.</p>
+        <p><strong>Suggested fix:</strong> query due connections with an explicit cross-tenant API or <code>AcrossTenants()</code>, project only the needed IDs, then set tenant context per connection while processing.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>AdminUserPolicy authorizes read-only roles for mutating finance endpoints</h3>
+        <div class="refs">
+          <code>src/Aonik.Infrastructure/DependencyInjection.cs:381-385</code><br>
+          <code>src/Aonik.Finance/Endpoints/Payments/CreatePaymentIntentEndpoint.cs:19-20</code><br>
+          <code>src/Aonik.Finance/Endpoints/Payments/CapturePaymentEndpoint.cs:19-20</code><br>
+          <code>src/Aonik.Finance/Endpoints/Orders/SubmitOrderEndpoint.cs:19-20</code><br>
+          <code>src/Aonik.Finance/Endpoints/Billing/IssueInvoiceEndpoint.cs:19-20</code>
+        </div>
+        <p><code>AdminUserPolicy</code> includes <code>ReadOnly</code> and <code>PersonalUser</code>. Several financial mutation endpoints use that broad policy.</p>
+        <p><strong>Why it matters:</strong> API boundary authorization is too coarse for enterprise financial operations.</p>
+        <p><strong>Suggested fix:</strong> introduce mutation-specific policies backed by permissions such as <code>Payment.Capture</code>, <code>Order.Submit</code>, and <code>Invoice.Issue</code>. Keep read-only roles out of write paths.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>AI route policy discipline is bypassed by hard-coded and pinned model names</h3>
+        <div class="refs">
+          <code>src/Aonik.Agents/Endpoints/ImprovePromptEndpoint.cs:66-69</code><br>
+          <code>src/Aonik.Agents/Framework/ChatThreadTitleGenerator.cs:22</code><br>
+          <code>src/Aonik.Agents/Framework/ChatThreadTitleGenerator.cs:56-59</code><br>
+          <code>src/Aonik.Agents/Framework/MasterOrchestratorService.cs:489-507</code><br>
+          <code>src/Aonik.Ai/Services/AiTaskProfileResolver.cs:45-52</code>
+        </div>
+        <p>Some paths pin or fall back to literal model names, and agent configuration can pin a model directly using <code>ModelPinningChatClient</code>.</p>
+        <p><strong>Why it matters:</strong> AONIK's model/cost/risk governance depends on <code>AiRoutePolicy</code>. Direct model names create a second routing system.</p>
+        <p><strong>Suggested fix:</strong> make agent config reference a route-policy use case, not a model. Add policy use cases for prompt improvement, thread title generation, and sub-agent profiles.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>AiRun records do not store actual model and token metrics for normal calls</h3>
+        <div class="refs">
+          <code>src/Aonik.Ai/Middleware/AuditMiddleware.cs:80-95</code><br>
+          <code>src/Aonik.Ai/Services/AiRunWriter.cs:120-128</code><br>
+          <code>src/Aonik.Ai/Services/AiRunWriter.cs:238-245</code>
+        </div>
+        <p>The middleware logs token usage but completes the run with an <code>outputRef</code> string. The persisted structured token, latency, model, and cost fields are not consistently updated for chat calls.</p>
+        <p><strong>Why it matters:</strong> audit, cost allocation, vendor governance, and incident analysis require queryable metadata, not string blobs.</p>
+        <p><strong>Suggested fix:</strong> extend completion to persist <code>response.ModelId</code>, input/output/total tokens, latency, and estimated cost. Use the structured metrics completion path from the middleware.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Published prompts are mutable</h3>
+        <div class="refs">
+          <code>src/Aonik.Ai/Services/PromptSpecService.cs:77-105</code><br>
+          <code>src/Aonik.Ai/Services/PromptSpecService.cs:130-138</code><br>
+          <code>src/Aonik.Ai/Entities/PromptSpec.cs:16</code>
+        </div>
+        <p>Existing prompt versions can be updated in place, including content, schema, safety policy, and published state.</p>
+        <p><strong>Why it matters:</strong> prompt immutability is required for repeatable audit and evaluation. Changing a published prompt in place makes past AI behavior hard to reproduce.</p>
+        <p><strong>Suggested fix:</strong> reject content/schema/safety updates when <code>IsPublished</code> is true. Require a new version for material changes and only permit narrow metadata edits.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Ledger allows cross-currency entries while validation assumes one currency</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Ledger/LedgerService.cs:237-256</code><br>
+          <code>src/Aonik.Finance/Services/Ledger/LedgerService.cs:295-299</code>
+        </div>
+        <p>The debit/credit balance check sums all currencies together, then comments and metrics assume journal entries are constrained to a single currency.</p>
+        <p><strong>Why it matters:</strong> <code>100 USD</code> debit can balance <code>100 NGN</code> credit. That is materially wrong for ledger integrity.</p>
+        <p><strong>Suggested fix:</strong> either validate balance per currency or reject multi-currency journal entries until explicit FX accounting is implemented.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Plaid webhook endpoints appear unsigned and anonymous</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Endpoints/Admin/Accounts/AccountLinkEndpoints.cs:304-329</code><br>
+          <code>src/Aonik.PersonalFinance/Endpoints/PersonalFinance/AccountLinkEndpoints.cs:301-326</code><br>
+          <code>src/Aonik.Finance/Services/Accounts/Linking/PlaidAccountWebhookProcessor.cs:35-75</code><br>
+          <code>src/Aonik.PersonalFinance/Services/PersonalFinance/PersonalAccountLinkService.cs:371-449</code>
+        </div>
+        <p>The endpoints are anonymous and process webhook body fields such as <code>item_id</code> without visible provider signature/JWT verification.</p>
+        <p><strong>Why it matters:</strong> unsigned webhooks can be spoofed to trigger syncs, status changes, disconnect handling, or event noise.</p>
+        <p><strong>Suggested fix:</strong> verify Plaid webhook signatures/JWT headers before processing or persisting events. Reject unsigned or invalid events.</p>
+      </article>
+
+      <article class="finding high">
+        <h3><span class="badge high">High</span>Database migration/startup failures can be swallowed</h3>
+        <div class="refs">
+          <code>src/Aonik.Api/Configuration/DatabaseStartupConfiguration.cs:76-80</code><br>
+          <code>src/Aonik.Api/Configuration/DatabaseStartupConfiguration.cs:98-113</code><br>
+          <code>src/Aonik.Api/Program.cs:66-68</code>
+        </div>
+        <p>When startup migration or seeding fails, the API can continue running.</p>
+        <p><strong>Why it matters:</strong> production services should not continue against an unexpected schema. This creates partial availability, runtime exceptions, and possible data corruption.</p>
+        <p><strong>Suggested fix:</strong> use the Migrator for production. If API auto-migration is explicitly enabled outside Development, fail fast on migration or seed failure.</p>
+      </article>
+    </section>
+
+    <section class="card" id="medium">
+      <h2>Medium Findings</h2>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Core indexes are not consistently tenant-leading or filtered for hot paths</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Persistence/Configurations/Billing/InvoiceConfiguration.cs:51-54</code><br>
+          <code>src/Aonik.Finance/Persistence/Configurations/Orders/OrderConfiguration.cs:79-85</code><br>
+          <code>src/Aonik.SharedKernel/Events/Outbox/OutboxMessageConfiguration.cs:21-23</code><br>
+          <code>src/Aonik.Finance/Persistence/Configurations/PaymentIntentConfiguration.cs:39-42</code>
+        </div>
+        <p>Many indexes are single-column status/date/entity indexes even though most queries are tenant-scoped. The outbox dispatch index includes processed historical rows instead of filtering to active dispatch rows.</p>
+        <p><strong>Suggested fix:</strong> prefer composite indexes beginning with <code>TenantId</code> for tenant-scoped tables. Use filtered indexes for hot queues such as outbox dispatch: <code>ProcessedAt IS NULL AND DeadLetteredAt IS NULL</code>.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Read queries often use tracking unnecessarily</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Billing/BillingService.cs:86-92</code><br>
+          <code>src/Aonik.Finance/Services/Billing/BillingService.cs:252-266</code><br>
+          <code>src/Aonik.Finance/Services/Ledger/LedgerService.cs:50-59</code><br>
+          <code>src/Aonik.Finance/Services/Ledger/LedgerService.cs:103-122</code><br>
+          <code>src/Aonik.Finance/Services/Payments/PaymentService.cs:65-71</code>
+        </div>
+        <p>Several read-only paths return DTOs but allow EF to track entities.</p>
+        <p><strong>Suggested fix:</strong> add <code>AsNoTracking()</code> to read-only queries, project directly to DTOs, or set no-tracking as a default and opt into tracking for mutations.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Public payment/order flows need stronger idempotency and tenant ownership checks</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Payments/PublicPaymentService.cs:31-32</code><br>
+          <code>src/Aonik.Finance/Services/Payments/PublicPaymentService.cs:58-94</code><br>
+          <code>src/Aonik.Finance/Services/Payments/PublicPaymentService.cs:120-129</code><br>
+          <code>src/Aonik.Finance/Services/Orders/PublicOrderService.cs:123-125</code>
+        </div>
+        <p>Public services use tenant headers but some entity lookups are by ID only, and public payment intent creation is not idempotent.</p>
+        <p><strong>Suggested fix:</strong> require <code>Idempotency-Key</code> for public payment creation and enforce tenant/order/provider uniqueness. Include tenant in all public entity lookups.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Manual transactions are used with SQL retry strategies</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/FinanceModule.cs:42-43</code><br>
+          <code>src/Aonik.PersonalFinance/Services/PersonalFinance/HouseholdService.cs:236-240</code><br>
+          <code>src/Aonik.PersonalFinance/Services/PersonalFinance/HouseholdService.cs:310-315</code>
+        </div>
+        <p>SQL Server retry is enabled, but manual transactions should run through EF's execution strategy.</p>
+        <p><strong>Suggested fix:</strong> wrap transactional units in <code>Database.CreateExecutionStrategy().ExecuteAsync(...)</code> so transient failures are retried safely.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Document upload API advertises unsupported file types and leaks raw exceptions</h3>
+        <div class="refs">
+          <code>src/Aonik.Api/Endpoints/DocumentUploadEndpoint.cs:49</code><br>
+          <code>src/Aonik.Api/Endpoints/DocumentUploadEndpoint.cs:162-166</code><br>
+          <code>src/Aonik.Api/Endpoints/DocumentUploadEndpoint.cs:182-201</code>
+        </div>
+        <p>The endpoint lists PDF/DOCX as supported types but extraction throws for them. It also returns raw exception messages to clients.</p>
+        <p><strong>Suggested fix:</strong> either implement PDF/DOCX extraction or restrict accepted types to what works. Let global exception handling sanitize unexpected errors.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>CORS and forwarded-header defaults are broad for enterprise deployment</h3>
+        <div class="refs">
+          <code>src/Aonik.Api/Configuration/CorsConfiguration.cs:61-64</code><br>
+          <code>src/Aonik.Api/Configuration/CorsConfiguration.cs:90-93</code><br>
+          <code>src/Aonik.Api/Program.cs:81-84</code>
+        </div>
+        <p>CORS allows <code>Origin: null</code> with credentials, and forwarded headers are enabled without visible trusted proxy/network restrictions.</p>
+        <p><strong>Suggested fix:</strong> use environment-specific origin allowlists and configure <code>KnownProxies</code>/<code>KnownNetworks</code> for production ingress.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Route policy service mixes global policy management with tenant access</h3>
+        <div class="refs">
+          <code>src/Aonik.Ai/Services/RoutePolicyService.cs:23-31</code><br>
+          <code>src/Aonik.Ai/Services/RoutePolicyService.cs:51</code><br>
+          <code>src/Aonik.Ai/Services/RoutePolicyService.cs:109-134</code>
+        </div>
+        <p>Tenant admins can list global route policies and potentially modify policy records by ID depending on authorization around the endpoints.</p>
+        <p><strong>Suggested fix:</strong> separate platform-admin global policy management from tenant-scoped overrides. Make tenant admins read global defaults and write only tenant overrides.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Tool versioning exists conceptually but is not enforced</h3>
+        <div class="refs">
+          <code>src/Aonik.Ai/Entities/ToolSpec.cs:5-12</code><br>
+          <code>src/Aonik.Ai/AiModule.cs:197-204</code><br>
+          <code>src/Aonik.Finance/Agents/Tools/InvoiceTools.cs:125-142</code>
+        </div>
+        <p>Tool metadata exists separately, but agent tools are created directly from code without a registry enforcing version, risk tier, approval requirement, or allowed scope.</p>
+        <p><strong>Suggested fix:</strong> use a canonical tool registry that records name, version, risk tier, mutating/read-only status, approval requirement, and allowed scopes. Generate/adapt in-process and MCP surfaces from the same registry.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Orchestrator sessions are static, unbounded, and scope-unsafe</h3>
+        <div class="refs">
+          <code>src/Aonik.Agents/Framework/MasterOrchestratorService.cs:45-51</code><br>
+          <code>src/Aonik.Agents/Framework/MasterOrchestratorService.cs:325-339</code><br>
+          <code>src/Aonik.Agents/AgentsModule.cs:91-93</code>
+        </div>
+        <p>A scoped orchestrator service stores <code>AgentSession</code> objects in a static dictionary with no eviction.</p>
+        <p><strong>Why it matters:</strong> sessions can outlive scoped dependencies and grow memory indefinitely. Tenant/user/thread isolation also becomes harder to reason about.</p>
+        <p><strong>Suggested fix:</strong> move sessions to a bounded store keyed by tenant/user/thread with expiry. Avoid storing scoped-runtime objects in static state.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Service-layer exceptions create inconsistent API behavior</h3>
+        <div class="refs">
+          <code>src/Aonik.Finance/Services/Billing/BillingService.cs:106-107</code><br>
+          <code>src/Aonik.Finance/Services/Payments/PaymentService.cs:80-93</code><br>
+          <code>src/Aonik.Finance/Services/Orders/OrderService.cs:271-273</code><br>
+          <code>src/Aonik.Finance/Endpoints/Payments/CapturePaymentEndpoint.cs:52-55</code>
+        </div>
+        <p>Expected outcomes such as not found, invalid state, and validation failures are commonly represented as <code>InvalidOperationException</code>, then endpoints map them inconsistently.</p>
+        <p><strong>Suggested fix:</strong> introduce a small typed result or exception set for <code>NotFound</code>, <code>Conflict</code>, and <code>Validation</code>, and map centrally to consistent HTTP responses.</p>
+      </article>
+
+      <article class="finding medium">
+        <h3><span class="badge medium">Medium</span>Startup database provider selection is duplicated and inconsistent</h3>
+        <div class="refs">
+          <code>src/Aonik.Infrastructure/DependencyInjection.cs:136-166</code><br>
+          <code>src/Aonik.Finance/FinanceModule.cs:29-45</code><br>
+          <code>src/Aonik.PersonalFinance/PersonalFinanceModule.cs:43-58</code><br>
+          <code>src/Aonik.Platform/PlatformModule.cs:55-71</code>
+        </div>
+        <p>Infrastructure and module contexts each decide SQL/InMemory behavior. Some paths honor <code>UseInMemoryDatabase</code> differently.</p>
+        <p><strong>Suggested fix:</strong> centralize provider selection and expose one helper used by canonical and module DbContexts. Ensure test hosts cannot accidentally mix SQL and InMemory providers.</p>
+      </article>
+    </section>
+
+    <section class="card" id="simplification">
+      <h2>Simplification Roadmap</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Theme</th>
+            <th>Evidence</th>
+            <th>Recommendation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Collapse duplicate tool surfaces</td>
+            <td><code>InvoiceTools</code>, <code>PaymentTools</code>, <code>LedgerTools</code>, and matching MCP tools duplicate descriptions, names, validation assumptions, and safety metadata.</td>
+            <td>Create one canonical tool registry and adapt it to in-process MAF and MCP. This improves DRY while strengthening governance.</td>
+          </tr>
+          <tr>
+            <td>Finish the PersonalFinance extraction</td>
+            <td><code>src/Aonik.PersonalFinance</code> still has many <code>Aonik.Finance.*PersonalFinance</code> namespaces and imports. Search returned hundreds of matches. Finance also references PersonalFinance in <code>src/Aonik.Finance/Aonik.Finance.csproj:24-40</code>.</td>
+            <td>Rename namespaces to <code>Aonik.PersonalFinance.*</code>, move contracts to the owning module or neutral contracts, and remove legacy PersonalFinance DbSets from Finance runtime context once services move.</td>
+          </tr>
+          <tr>
+            <td>Untangle Platform from Finance</td>
+            <td><code>src/Aonik.Platform/Aonik.Platform.csproj:25-28</code> references Finance, while Finance exposes internals to Platform in <code>src/Aonik.Finance/Aonik.Finance.csproj:10-16</code>.</td>
+            <td>Move shared currency/customer/party read contracts to SharedKernel or a neutral contracts package. Platform should not depend on Finance.</td>
+          </tr>
+          <tr>
+            <td>Narrow the broad DbContext facade</td>
+            <td><code>src/Aonik.Application/Abstractions/Persistence/IAonikDbContext.cs:18-108</code> exposes a large cross-module DbSet surface. <code>src/Aonik.Infrastructure/Persistence/AonikDbContext.cs:36-167</code> implements everything.</td>
+            <td>Keep <code>AonikDbContext</code> as the canonical migration context, but prefer module DbContexts or narrow service/query contracts for runtime code.</td>
+          </tr>
+          <tr>
+            <td>Standardize list/query contracts</td>
+            <td>Billing and ledger list methods are unbounded, while some endpoints define pagination manually.</td>
+            <td>Introduce simple common paging primitives with max page size. Avoid generic repository abstraction; keep service methods explicit.</td>
+          </tr>
+          <tr>
+            <td>Centralize API error mapping</td>
+            <td>Services throw generic exceptions and endpoints duplicate catch/mapping logic.</td>
+            <td>Use a small domain result/exception set and one FastEndpoints/global mapping layer. This reduces endpoint boilerplate and improves consistency.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="positive">
+      <h2>Patterns To Preserve</h2>
+      <div class="positive">
+        <p><span class="badge good">Preserve</span><strong>Canonical migration ownership is clear.</strong> Keeping migrations in <code>AonikDbContext</code> is the right direction for a modular monolith sharing one physical database.</p>
+      </div>
+      <div class="positive">
+        <p><span class="badge good">Preserve</span><strong>Module registration methods keep composition understandable.</strong> <code>Aonik.Api/Program.cs</code> wiring through module extension methods is cleaner than scattering service registrations across the API host.</p>
+      </div>
+      <div class="positive">
+        <p><span class="badge good">Preserve</span><strong>Anemic entities and service-owned business logic are consistent with the repo rules.</strong> The backend generally follows the intended pattern of simple entities plus application/domain services.</p>
+      </div>
+      <div class="positive">
+        <p><span class="badge good">Preserve</span><strong>The AI governance concepts are the right ones.</strong> <code>AiRoutePolicy</code>, <code>AiRun</code>, prompt specs, agent descriptors, and proposal services are useful building blocks. The issue is enforcement consistency, not the direction.</p>
+      </div>
+    </section>
+
+    <section class="card" id="next-steps">
+      <h2>Recommended Next Steps</h2>
+      <ol>
+        <li><strong>Safety sprint:</strong> enforce approval-gated mutating AI/MCP tools, secure MCP stubs, fix chat-thread auth, and make tenant filters fail closed.</li>
+        <li><strong>Financial integrity sprint:</strong> tenant-scope all financial lookups, enforce order/payment idempotency, connect capture/mark-paid flows to ledger posting, and fix multi-currency ledger validation.</li>
+        <li><strong>Scale sprint:</strong> add pagination to ledger/invoice lists, make outbox claiming multi-worker safe, move worker enumeration batching into SQL, and add tenant-leading/filtered indexes.</li>
+        <li><strong>Simplification sprint:</strong> centralize tool metadata, finish PersonalFinance namespace/context extraction, remove Platform-to-Finance coupling, and replace broad DbContext runtime usage with narrow module contracts.</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AONIK Backend Review — Architecture, Correctness, Performance & Simplification</title>
+<style>
+  :root{
+    --ink:#191927; --body:#3c3c4e; --muted:#73738a; --faint:#9a9aae;
+    --paper:#fbfbfd; --card:#ffffff; --line:#e7e7ef; --line-soft:#f0f0f6;
+    --accent:#4f46e5; --accent-soft:#eef2ff; --accent-ink:#3730a3;
+    --crit:#dc2626; --crit-bg:#fef2f2; --crit-line:#f6cccc;
+    --high:#d97706; --high-bg:#fffbeb; --high-line:#f6e0a8;
+    --med:#2563eb; --med-bg:#eff6ff; --med-line:#c4dafb;
+    --good:#059669; --good-bg:#ecfdf5; --good-line:#aee9d1;
+    --t-over:#7c3aed; --t-perf:#ea580c; --t-corr:#dc2626; --t-scale:#0891b2;
+    --t-struct:#475569; --t-quality:#4f46e5; --t-dry:#2563eb;
+    --t-sec:#db2777; --t-gov:#0d9488;
+    --shadow:0 1px 2px rgba(20,20,40,.04),0 8px 24px rgba(20,20,40,.05);
+    --shadow-sm:0 1px 2px rgba(20,20,40,.05);
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--body);
+    font-family:var(--sans);font-size:16px;line-height:1.62;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  .col{max-width:880px}
+  h1,h2,h3,h4{color:var(--ink);line-height:1.2;letter-spacing:-.018em;margin:0}
+  p{margin:0 0 1em}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.86em;background:var(--line-soft);
+    border:1px solid var(--line);border-radius:5px;padding:.06em .38em;color:#43435a;white-space:nowrap}
+  .mono{font-family:var(--mono)}
+
+  /* ---------- masthead ---------- */
+  .masthead{padding:72px 0 44px;border-bottom:1px solid var(--line)}
+  .kicker{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:22px}
+  .masthead h1{font-size:40px;font-weight:800;max-width:19ch;margin-bottom:24px}
+  .masthead h1 .em{color:var(--accent)}
+  .standfirst{font-size:19.5px;line-height:1.5;color:#2f2f40;max-width:64ch;font-weight:420}
+  .standfirst strong{color:var(--ink);font-weight:650}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:30px;
+    font-size:13.5px;color:var(--muted)}
+  .meta-row b{color:var(--ink);font-weight:600}
+
+  /* ---------- section frame ---------- */
+  section{padding:52px 0;border-bottom:1px solid var(--line-soft)}
+  .eyebrow{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+  .eyebrow .num{font-family:var(--mono);font-size:12.5px;color:var(--accent);font-weight:600}
+  .eyebrow .ttl{font-size:12.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .lead{font-size:25px;font-weight:750;letter-spacing:-.02em;margin-bottom:14px;max-width:24ch}
+  .sub{font-size:16.5px;color:var(--body);max-width:64ch;margin-bottom:30px}
+
+  /* ---------- scorecard ---------- */
+  .scorecard{display:grid;gap:0;border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+  .score-row{display:grid;grid-template-columns:248px 132px 1fr;align-items:center;
+    gap:18px;padding:16px 22px;border-top:1px solid var(--line-soft)}
+  .score-row:first-child{border-top:none}
+  .score-dim{font-weight:650;color:var(--ink);font-size:15px}
+  .rating{justify-self:start;font-size:12.5px;font-weight:700;letter-spacing:.02em;
+    padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .r-strong{background:var(--good-bg);color:var(--good);border:1px solid var(--good-line)}
+  .r-good{background:var(--med-bg);color:var(--med);border:1px solid var(--med-line)}
+  .r-watch{background:var(--high-bg);color:var(--high);border:1px solid var(--high-line)}
+  .r-gap{background:var(--crit-bg);color:var(--crit);border:1px solid var(--crit-line)}
+  .score-note{font-size:14px;color:var(--muted)}
+
+  /* ---------- reframe callout ---------- */
+  .reframe{background:linear-gradient(180deg,#f7f7ff,#fbfbfd);
+    border:1px solid var(--accent-soft);border-left:3px solid var(--accent);
+    border-radius:12px;padding:28px 30px;margin-top:6px}
+  .reframe h3{font-size:18px;font-weight:750;margin-bottom:10px;color:var(--accent-ink)}
+  .reframe p{margin-bottom:.7em;color:#33334a;font-size:16px}
+  .reframe p:last-child{margin-bottom:0}
+
+  /* ---------- metric tiles ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px 16px;box-shadow:var(--shadow-sm)}
+  .tile .v{font-size:27px;font-weight:800;letter-spacing:-.03em;color:var(--ink);line-height:1}
+  .tile .v small{font-size:15px;font-weight:700;color:var(--muted)}
+  .tile .k{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.35}
+  .tile.sev-c .v{color:var(--crit)} .tile.sev-h .v{color:var(--high)} .tile.sev-m .v{color:var(--med)}
+
+  /* ---------- matrix ---------- */
+  .matrix-shell{display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:stretch}
+  .y-axis{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;
+    font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .matrix{position:relative;height:440px;border:1px solid var(--line);border-radius:14px;
+    background:var(--card);overflow:hidden;box-shadow:var(--shadow-sm)}
+  .quad{position:absolute;width:50%;height:50%;padding:14px 16px}
+  .quad span{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.75}
+  .q-tl{top:0;left:0;background:var(--good-bg);color:#0b7a5b;border-right:1px dashed var(--line);border-bottom:1px dashed var(--line)}
+  .q-tr{top:0;right:0;background:#fbfcff;color:var(--muted);border-bottom:1px dashed var(--line)}
+  .q-bl{bottom:0;left:0;background:#fcfcfe;color:var(--muted);border-right:1px dashed var(--line)}
+  .q-br{bottom:0;right:0;background:#fffdf8;color:var(--high);text-align:right}
+  .q-tr span,.q-bl span,.q-br span{display:block}
+  .q-br span{text-align:right}
+  .dot{position:absolute;transform:translate(-50%,-50%);z-index:5;display:flex;
+    align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;
+    font-family:var(--mono);font-size:10.5px;font-weight:700;color:#fff;cursor:default;
+    box-shadow:0 2px 6px rgba(20,20,40,.18);border:2px solid #fff}
+  .dot.c{background:var(--crit)} .dot.h{background:var(--high)} .dot.m{background:var(--med)}
+  .dot:hover{z-index:9;transform:translate(-50%,-50%) scale(1.12)}
+  .dot .tip{position:absolute;bottom:130%;left:50%;transform:translateX(-50%);
+    white-space:nowrap;background:var(--ink);color:#fff;font-family:var(--sans);
+    font-weight:500;font-size:12px;padding:5px 9px;border-radius:6px;opacity:0;
+    pointer-events:none;transition:opacity .12s;letter-spacing:0}
+  .dot:hover .tip{opacity:1}
+  .x-axis{text-align:center;font-size:12px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);margin:10px 0 0 38px}
+  .mtx-legend{display:flex;gap:18px;margin:18px 0 0 38px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .mtx-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .mtx-note{font-size:12.5px;color:var(--faint);margin:10px 0 0 38px}
+
+  /* ---------- filter bar ---------- */
+  .filterbar{position:sticky;top:0;z-index:40;background:rgba(251,251,253,.86);
+    backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid var(--line);
+    padding:14px 0;margin-bottom:0}
+  .filterbar .wrap{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:center}
+  .fgroup{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .fgroup .lbl{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-right:2px}
+  .chip{font-size:13px;font-weight:600;color:var(--muted);background:var(--card);
+    border:1px solid var(--line);border-radius:999px;padding:5px 13px;cursor:pointer;
+    transition:all .12s;user-select:none}
+  .chip:hover{border-color:#cfcfe0;color:var(--ink)}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip.on.sev-c{background:var(--crit);border-color:var(--crit)}
+  .chip.on.sev-h{background:var(--high);border-color:var(--high)}
+  .chip.on.sev-m{background:var(--med);border-color:var(--med)}
+  .fcount{margin-left:auto;font-size:13px;color:var(--muted)}
+  .fcount b{color:var(--ink)}
+
+  /* ---------- findings ---------- */
+  .findings{padding-top:40px}
+  .finding{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:26px 28px;margin-bottom:18px;box-shadow:var(--shadow);scroll-margin-top:80px}
+  .finding.lvl-c{border-left:4px solid var(--crit)}
+  .finding.lvl-h{border-left:4px solid var(--high)}
+  .finding.lvl-m{border-left:4px solid var(--med)}
+  .f-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:4px}
+  .f-id{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;
+    padding:3px 9px;border-radius:7px;flex:none;margin-top:3px}
+  .f-id.c{background:var(--crit)} .f-id.h{background:var(--high)} .f-id.m{background:var(--med)}
+  .f-title{font-size:20px;font-weight:730;letter-spacing:-.015em;color:var(--ink);flex:1}
+  .f-tags{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 18px}
+  .tag{font-size:11.5px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;
+    text-transform:uppercase}
+  .tag.sev-c{background:var(--crit-bg);color:var(--crit);border:1px solid var(--crit-line)}
+  .tag.sev-h{background:var(--high-bg);color:var(--high);border:1px solid var(--high-line)}
+  .tag.sev-m{background:var(--med-bg);color:var(--med);border:1px solid var(--med-line)}
+  .tag.th{background:#f5f5fa;border:1px solid var(--line);color:#55556c}
+  .tag.th.over{color:var(--t-over)} .tag.th.perf{color:var(--t-perf)}
+  .tag.th.corr{color:var(--t-corr)} .tag.th.scale{color:var(--t-scale)}
+  .tag.th.struct{color:var(--t-struct)} .tag.th.quality{color:var(--t-quality)}
+  .tag.th.dry{color:var(--t-dry)} .tag.th.sec{color:var(--t-sec)} .tag.th.gov{color:var(--t-gov)}
+  .tag.ok{background:var(--good-bg);color:var(--good);border:1px solid var(--good-line);text-transform:none}
+  .evidence{background:#fafafc;border:1px solid var(--line-soft);border-radius:10px;
+    padding:12px 15px;margin:0 0 18px;font-family:var(--mono);font-size:12.7px;
+    color:#50506a;line-height:1.85}
+  .evidence .path{color:var(--accent-ink);font-weight:600}
+  .evidence .lbl{display:block;font-family:var(--sans);font-size:11px;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .f-block{margin-bottom:15px}
+  .f-block:last-of-type{margin-bottom:0}
+  .f-block h4{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:6px}
+  .f-block p{margin:0;color:var(--body);font-size:15.5px}
+  .f-foot{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line-soft)}
+  .pill{font-size:12.5px;font-weight:600;color:var(--muted);background:#f6f6fa;
+    border:1px solid var(--line);border-radius:8px;padding:4px 11px}
+  .pill b{color:var(--ink);font-weight:700}
+  .pill.imp-high b{color:var(--crit)} .pill.imp-med b{color:var(--high)} .pill.imp-low b{color:var(--med)}
+  .empty{display:none;text-align:center;padding:60px 20px;color:var(--muted);font-size:16px}
+  .empty.show{display:block}
+
+  /* ---------- generic content cards ---------- */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:24px 26px;box-shadow:var(--shadow-sm);margin-bottom:16px}
+  .card h3{font-size:18px;font-weight:720;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+  .card h3 .mk{font-family:var(--mono);font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px}
+  .card p{font-size:15.5px;margin-bottom:0}
+  .card p+p{margin-top:.7em}
+  .mk.dry{background:var(--med-bg);color:var(--med)}
+  .mk.keep{background:var(--good-bg);color:var(--good)}
+
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+  /* ---------- reconciliation ---------- */
+  .recon{background:#fcfcff;border:1px solid var(--line);border-left:3px solid var(--t-gov);
+    border-radius:12px;padding:24px 28px}
+  .recon p{font-size:15.5px;color:#33334a}
+  .recon ul{margin:14px 0 0;padding:0;list-style:none}
+  .recon li{position:relative;padding:10px 0 10px 26px;border-top:1px solid var(--line-soft);font-size:15px;color:var(--body)}
+  .recon li:first-child{border-top:none}
+  .recon li::before{content:"⤷";position:absolute;left:0;top:10px;color:var(--t-gov);font-weight:700}
+  .recon li b{color:var(--ink)}
+
+  /* ---------- action plan ---------- */
+  .phase{display:grid;grid-template-columns:48px 1fr;gap:18px;padding:20px 0;border-top:1px solid var(--line-soft)}
+  .phase:first-child{border-top:none}
+  .phase .pn{font-family:var(--mono);font-size:20px;font-weight:800;color:var(--accent);
+    background:var(--accent-soft);border-radius:10px;width:48px;height:48px;display:flex;
+    align-items:center;justify-content:center}
+  .phase h4{font-size:17px;font-weight:720;margin-bottom:3px}
+  .phase .when{font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .phase ul{margin:0;padding-left:0;list-style:none;display:flex;flex-wrap:wrap;gap:7px}
+  .phase li{font-size:13px;font-weight:600;color:#50506a;background:#f6f6fa;
+    border:1px solid var(--line);border-radius:8px;padding:4px 11px}
+  .phase li .rid{font-family:var(--mono);font-weight:700;color:var(--accent);margin-right:5px}
+
+  /* ---------- preserve ---------- */
+  .keep-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .keep{background:var(--good-bg);border:1px solid var(--good-line);border-radius:12px;padding:18px 20px}
+  .keep h4{font-size:15.5px;font-weight:700;color:#066b4f;margin-bottom:5px;display:flex;align-items:center;gap:8px}
+  .keep h4::before{content:"✓";font-size:13px;color:var(--good);font-weight:800}
+  .keep p{font-size:14px;color:#2f5e50;margin:0}
+  .keep.caveat{background:#fffdf6;border-color:var(--high-line)}
+  .keep.caveat h4{color:#92660a}
+  .keep.caveat h4::before{content:"!";color:var(--high)}
+  .keep.caveat p{color:#6b5318}
+
+  /* ---------- footer ---------- */
+  footer{padding:48px 0 80px;border-top:1px solid var(--line)}
+  footer .lead{font-size:21px}
+  .method-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:8px}
+  .method-grid h4{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .method-grid p{font-size:14.5px;color:var(--body)}
+  .disclaim{margin-top:30px;padding:16px 20px;background:#f7f7fb;border:1px solid var(--line);
+    border-radius:10px;font-size:13.5px;color:var(--muted)}
+  .disclaim b{color:var(--ink)}
+
+  @media(max-width:860px){
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .twocol,.keep-grid,.method-grid{grid-template-columns:1fr}
+    .score-row{grid-template-columns:1fr;gap:8px;align-items:start}
+    .masthead h1{font-size:31px}
+    .matrix{height:360px}
+    .dot{width:26px;height:26px;font-size:10px}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap col">
+    <div class="kicker">AONIK · Backend Code Review · Consolidated Edition</div>
+    <h1>A disciplined codebase, with a short list of gaps that <span class="em">outrank the cleanup.</span></h1>
+    <p class="standfirst">The backend reads like the work of a careful team: a clean modular monolith, a single migration stream, an immutable double-entry ledger, and AI audit records designed in from the start. <strong>It is not broadly over-engineered</strong> — the speculative parts are localized and mostly deletable in an afternoon. But consolidating a second independent review against my own surfaced a cluster that matters more than any simplification: a few places where <strong>money can change state without touching the ledger</strong>, AI mutations that execute without the approval gate the docs promise, and access control looser than a financial platform should run. Fix those first. The over-engineering is real, but small, and it can wait its turn.</p>
+    <div class="meta-row">
+      <span><b>Reviewed</b> 2026-05-31</span>
+      <span><b>Scope</b> src/Aonik.* backend services</span>
+      <span><b>Excludes</b> apps/*, Payabo, AdminUi/Desktop frontends</span>
+      <span><b>Method</b> two independent reviews, consolidated &amp; re-verified</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">01</span><span class="ttl">The verdict, by dimension</span></div>
+    <h2 class="lead">Where the codebase is strong, and where it needs attention.</h2>
+    <p class="sub">Eight lenses, each rated on what I read in source — not on metrics that look alarming from a distance. The architecture earns its top marks; the two red ratings are concrete, enumerable gaps in financial correctness and AI-governance enforcement, not systemic rot.</p>
+    <div class="scorecard">
+      <div class="score-row"><div class="score-dim">Architecture &amp; boundaries</div><span class="rating r-strong">Strong</span><div class="score-note">Module isolation via SharedKernel contracts is real and respected; the ADR-006 boundary holds.</div></div>
+      <div class="score-row"><div class="score-dim">Simplicity / over-engineering</div><span class="rating r-good">Localized</span><div class="score-note">Speculative code is concentrated in a few deletable pockets, not spread through the system.</div></div>
+      <div class="score-row"><div class="score-dim">Performance defaults</div><span class="rating r-watch">Needs attention</span><div class="score-note">Track-by-default, no pooling, and in-memory aggregation are the highest-leverage fixes.</div></div>
+      <div class="score-row"><div class="score-dim">Scalability</div><span class="rating r-watch">Needs attention</span><div class="score-note">A process-local session store and Guid.Empty worker scoping block clean horizontal scale-out.</div></div>
+      <div class="score-row"><div class="score-dim">Financial correctness</div><span class="rating r-gap">Critical gaps</span><div class="score-note">Money can reach Captured / Paid without a ledger post, and nothing structurally blocks double-posting.</div></div>
+      <div class="score-row"><div class="score-dim">AI governance &amp; audit</div><span class="rating r-gap">Enforcement gaps</span><div class="score-note">Audit records are designed in, but the approval wrapper lives only in docs and streaming runs aren't recorded.</div></div>
+      <div class="score-row"><div class="score-dim">Security &amp; tenant isolation</div><span class="rating r-watch">Needs attention</span><div class="score-note">Anonymous webhooks/chat endpoints, read-only roles that can mutate, and a tenant filter that fails open.</div></div>
+      <div class="score-row"><div class="score-dim">Code quality &amp; consistency</div><span class="rating r-strong">High</span><div class="score-note">Consistent patterns, banned-API analyzers, decimal money discipline. A couple of guardrails left loose.</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">02</span><span class="ttl">Reading the signal</span></div>
+    <div class="reframe">
+      <h3>The scary numbers are mostly noise. The real work is specific.</h3>
+      <p>A quick scan turns up things that <em>look</em> like over-engineering: 200-plus interfaces, files past 1,500 lines, five DbContexts over one database, reader/writer interface splits. Read the code and almost all of it is justified — the interfaces are the module-isolation seams the architecture requires, the long files are cohesive vertical slices, and the multi-context design is a deliberate, documented choice with a single migration stream behind it.</p>
+      <p>So this review separates <strong>signal from noise</strong>. The genuine over-engineering is small and nameable: a prompt subsystem with no consumers, a workflow engine that throws on half its node kinds, route-policy columns that enforce nothing, an event seam with no handlers. Each is a clean deletion. But consolidating a second review sharpened where the <em>real</em> risk sits — and it isn't the speculative code. It's a cluster of <strong>financial-correctness, audit, and access-control</strong> gaps that a simplification-only lens would walk straight past. This edition leads with those, then returns to the cleanup.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">03</span><span class="ttl">At a glance</span></div>
+    <div class="tiles">
+      <div class="tile"><div class="v">~165<small>K</small></div><div class="k">lines across the backend</div></div>
+      <div class="tile"><div class="v">17</div><div class="k">backend projects reviewed</div></div>
+      <div class="tile sev-c"><div class="v">5</div><div class="k">Critical — correctness &amp; governance</div></div>
+      <div class="tile sev-h"><div class="v">17</div><div class="k">High — perf, scale &amp; access</div></div>
+      <div class="tile sev-m"><div class="v">15</div><div class="k">Medium — simplify &amp; tidy</div></div>
+      <div class="tile"><div class="v">37</div><div class="k">findings, each read &amp; verified</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">04</span><span class="ttl">Where to spend effort</span></div>
+    <h2 class="lead">Impact against effort.</h2>
+    <p class="sub">A representative slice of findings placed by how much each moves correctness/scalability versus how much work it is. The top-left quadrant is where to start: high payoff, low cost. Hover a dot for its title.</p>
+    <div class="matrix-shell">
+      <div class="y-axis">Impact →</div>
+      <div>
+        <div class="matrix">
+          <div class="quad q-tl"><span>Quick wins · do first</span></div>
+          <div class="quad q-tr"><span>Big bets · plan</span></div>
+          <div class="quad q-bl"><span>Fill-ins · batch</span></div>
+          <div class="quad q-br"><span>Thankless · defer</span></div>
+          <!-- impact: higher = nearer top (smaller top%). effort: higher = nearer right (larger left%). -->
+          <div class="dot c" style="left:15%;top:10%">C1<span class="tip">C1 · Ledger double-post guard</span></div>
+          <div class="dot c" style="left:35%;top:9%">C2<span class="tip">C2 · Capture/mark-paid bypass ledger</span></div>
+          <div class="dot c" style="left:54%;top:15%">C3<span class="tip">C3 · AI mutations not approval-gated</span></div>
+          <div class="dot c" style="left:42%;top:24%">C4<span class="tip">C4 · MCP host grants all permissions</span></div>
+          <div class="dot c" style="left:24%;top:19%">C5<span class="tip">C5 · Tenant filter fails open</span></div>
+          <div class="dot h" style="left:20%;top:33%">H12<span class="tip">H12 · Read-only roles can mutate finance</span></div>
+          <div class="dot h" style="left:31%;top:30%">H2<span class="tip">H2 · Tracking + pooling defaults</span></div>
+          <div class="dot h" style="left:58%;top:25%">H1<span class="tip">H1 · SQL aggregation for insights</span></div>
+          <div class="dot h" style="left:51%;top:34%">H13<span class="tip">H13 · Plaid webhooks anonymous + unsigned</span></div>
+          <div class="dot h" style="left:73%;top:21%">H7<span class="tip">H7 · Shared session store (scale-out)</span></div>
+          <div class="dot h" style="left:22%;top:46%">H5<span class="tip">H5 · Order idempotency holes</span></div>
+          <div class="dot h" style="left:61%;top:42%">H4<span class="tip">H4 · Order mapping N+1</span></div>
+          <div class="dot h" style="left:18%;top:57%">H9<span class="tip">H9 · Guid.Empty sync job sees no data</span></div>
+          <div class="dot h" style="left:35%;top:53%">H14<span class="tip">H14 · Streaming AI runs not audited</span></div>
+          <div class="dot h" style="left:57%;top:50%">H8<span class="tip">H8 · Outbox has no row-claim</span></div>
+          <div class="dot m" style="left:41%;top:69%">M1<span class="tip">M1 · Delete prompt subsystem</span></div>
+          <div class="dot m" style="left:24%;top:78%">M4<span class="tip">M4 · Delete dead abstractions</span></div>
+          <div class="dot m" style="left:27%;top:86%">M6<span class="tip">M6 · Warnings-as-errors</span></div>
+          <div class="dot m" style="left:59%;top:73%">M14<span class="tip">M14 · De-duplicate three pairs</span></div>
+          <div class="dot m" style="left:81%;top:64%">M5<span class="tip">M5 · Split PersonalFinanceTools</span></div>
+        </div>
+        <div class="x-axis">Effort →</div>
+        <div class="mtx-legend">
+          <span><i style="background:var(--crit)"></i>Critical</span>
+          <span><i style="background:var(--high)"></i>High</span>
+          <span><i style="background:var(--med)"></i>Medium</span>
+        </div>
+        <div class="mtx-note">Plots 20 representative findings; the full inventory of 37 is below.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<nav class="filterbar" id="filterbar">
+  <div class="wrap">
+    <div class="fgroup" data-group="severity">
+      <span class="lbl">Severity</span>
+      <span class="chip on" data-sev="all">All</span>
+      <span class="chip sev-c" data-sev="c">Critical</span>
+      <span class="chip sev-h" data-sev="h">High</span>
+      <span class="chip sev-m" data-sev="m">Medium</span>
+    </div>
+    <div class="fgroup" data-group="theme">
+      <span class="lbl">Theme</span>
+      <span class="chip on" data-theme="all">All</span>
+      <span class="chip" data-theme="corr">Correctness</span>
+      <span class="chip" data-theme="gov">Governance</span>
+      <span class="chip" data-theme="sec">Security</span>
+      <span class="chip" data-theme="perf">Performance</span>
+      <span class="chip" data-theme="scale">Scalability</span>
+      <span class="chip" data-theme="over">Over-engineering</span>
+      <span class="chip" data-theme="struct">Structure</span>
+      <span class="chip" data-theme="quality">Code quality</span>
+      <span class="chip" data-theme="dry">Duplication</span>
+    </div>
+    <div class="fcount" id="fcount"><b>37</b> findings shown</div>
+  </div>
+</nav>
+
+<div class="findings"><div class="wrap col" id="findlist">
+<article class="finding lvl-c" data-sev="c" data-theme="corr" id="C1">
+  <div class="f-head"><span class="f-id c">C1</span><h3 class="f-title">The immutable ledger has no uniqueness guard against double-posting a source event</h3></div>
+  <div class="f-tags"><span class="tag sev-c">Critical</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Persistence/Configurations/JournalEntryConfiguration.cs:36</span> — <code>builder.HasIndex(x =&gt; x.SourceId)</code> is <b>non-unique</b>. There is no composite unique index on <code>(TenantId, SourceType, SourceId)</code>, yet every journal entry is keyed to exactly that source event.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>The ledger is your declared source of financial truth: double-entry and immutable. Each entry traces back to a <code>SourceType</code> + <code>SourceId</code> pair, but nothing at the database level stops the same source event from being journalled twice. A retried command, a redelivered integration event, or a double-submitted action posts duplicate entries that both look perfectly valid. Because the ledger is immutable you can't simply delete the duplicate — you're into reversing entries and a reconciliation that no longer ties out. This is the one finding that can silently corrupt financial truth.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Add a composite unique index on <code>(TenantId, SourceType, SourceId)</code> via a tool-generated migration — never hand-authored, per the migration rules. First query for and resolve any existing duplicates, then let the unique index become the structural guarantee that each source event posts exactly once. Pair it with idempotent posting in <code>LedgerService</code> so a duplicate command is a no-op rather than a unique-constraint exception on the hot path.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Theme <b>Financial correctness</b></span></div>
+</article>
+
+<article class="finding lvl-c" data-sev="c" data-theme="corr" id="C2">
+  <div class="f-head"><span class="f-id c">C2</span><h3 class="f-title">Payments reach <em>Captured</em> and invoices reach <em>Paid</em> without ever touching the ledger</h3></div>
+  <div class="f-tags"><span class="tag sev-c">Critical</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Services/Payments/PaymentService.cs:96</span> — <code>CapturePaymentAsync</code> sets <code>Status = Captured</code> and saves; the service takes no <code>ILedgerService</code> dependency at all. <span class="path">src/Aonik.Finance/Services/Billing/BillingService.cs:175</span> — <code>MarkInvoiceAsPaidAsync</code> sets <code>Status = "Paid"</code> and saves. Neither writes a journal entry.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>This is the architecture's own non-negotiable rule — "the ledger is the source of financial truth" — quietly unmet on the two paths where money is supposed to have moved. A captured payment and a paid invoice are exactly the economic events a double-entry ledger exists to record, yet both mutate a status column and stop there. The result is a system that <em>believes</em> it has been paid while the ledger that's meant to prove it stays silent, so balances and reconciliation drift apart by construction. Worse, because the status flips without a ledger post, C1's missing uniqueness guard isn't even the backstop here — there's nothing to double-post against.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Route both transitions through <code>LedgerService</code> inside the same transaction that flips the status, so capture and mark-paid each emit the balanced journal entry they represent (and become idempotent via C1's unique key). If a transition legitimately shouldn't post yet, make that explicit in the status model rather than implicit in a missing call. This is the highest-value correctness fix on the list — it reconnects the money paths to the truth they're supposed to write.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Violates <b>ledger-is-truth</b> rule</span></div>
+</article>
+
+<article class="finding lvl-c" data-sev="c" data-theme="gov" id="C3">
+  <div class="f-head"><span class="f-id c">C3</span><h3 class="f-title">Mutating AI &amp; MCP tools are not approval-gated in code — only by convention</h3></div>
+  <div class="f-tags"><span class="tag sev-c">Critical</span><span class="tag th gov">Governance</span><span class="tag ok">verified ✓ · corrects a draft claim</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <code>ApprovalRequiredAIFunction</code> appears only in markdown/docs — <b>never in any <code>.cs</code> file</b>. The mutating tools register through plain <code>AIFunctionFactory.Create</code>: <span class="path">InvoiceTools.cs:130–141</span>, <span class="path">PaymentTools.cs:67–72</span>, <span class="path">LedgerTools.cs:76–82</span>, and the orchestrator simply <code>AddRange</code>s them (<span class="path">MasterOrchestratorService.cs:547–554</span>). The only "approval" is a frontend <code>confirmAction</code> prompt.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>"Agents propose; systems execute — never bypass human-in-the-loop for mutations" is a stated invariant, and the architecture is documented as enforcing it with an <code>ApprovalRequiredAIFunction</code> wrapper. That wrapper does not exist in the source. So <code>CreateInvoice</code>, <code>CreatePaymentIntent</code>, ledger tools and the rest are exposed to the model as directly-callable functions, and the human gate is a UI convention a different client (or a future server-side agent loop) can skip entirely. An invariant enforced only in prose is an invariant you don't have — and this is the one I most expected to find true. <em>(It corrects a claim in my first-pass draft, which mistook the documented design for the implemented one.)</em></p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Make the gate structural: wrap every mutating tool in a real approval-required decorator at registration time so a tool that mutates state cannot be invoked without a recorded, granted approval — independent of which UI is in front of it. Read tools keep executing directly. Then add a test that fails if a mutating tool is registered un-wrapped, so the invariant can't silently regress again.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium–High</b></span><span class="pill">Invariant in docs, <b>not in code</b></span></div>
+</article>
+
+<article class="finding lvl-c" data-sev="c" data-theme="sec gov" id="C4">
+  <div class="f-head"><span class="f-id c">C4</span><h3 class="f-title">The MCP host grants every permission and auto-clears compliance, ungated</h3></div>
+  <div class="f-tags"><span class="tag sev-c">Critical</span><span class="tag th sec">Security</span><span class="tag th gov">Governance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Ai/Mcp/McpHostingStubs.cs:68–75</span> returns a permission set that grants everything; <span class="path">:131–141</span> auto-approves the compliance check. <span class="path">src/Aonik.Finance.Mcp/Program.cs:26–37</span> hosts the finance tools over this stub with no gate in between.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>The MCP surface is how external/agent callers reach finance tools, and the host that's supposed to authorize them is a permissive stub: it answers "yes" to every permission query and clears every compliance check automatically. Combined with C3 (no approval wrapper on the tools themselves), there is no layer between an MCP client and a state-mutating finance operation that ever says no. On a platform whose autonomy is supposed to be bounded by risk tier and compliance, this is an open door wearing the label of a locked one — the stub <em>looks</em> like governance while implementing none.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Replace the stub permission/compliance provider with the real one before the MCP host is reachable outside local dev, and treat "all permissions granted" as a configuration that only a test profile can select. The compliance check should call the actual compliance service, not return cleared. If the stub is genuinely dev-only, fail fast at startup when it's loaded in any non-development environment so it can never ship enabled.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Pairs with <b>C3</b></span></div>
+</article>
+
+<article class="finding lvl-c" data-sev="c" data-theme="sec corr" id="C5">
+  <div class="f-head"><span class="f-id c">C5</span><h3 class="f-title">The global tenant filter fails open — a missing tenant returns every tenant's rows</h3></div>
+  <div class="f-tags"><span class="tag sev-c">Critical</span><span class="tag th sec">Security</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.SharedKernel/Persistence/AonikDbContextBase.cs:166–172</span> — the global query filter admits <em>all</em> rows when <code>CurrentTenantId</code> is null. The predicate is composed via <code>Expression.Property(Expression.Constant(this), nameof(CurrentTenantId))</code> (152–218), which can also bake a per-instance value into the expression tree and undercut plan caching.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>On a multi-tenant financial platform the safe default for "I don't know whose data this is" must be <em>show nothing</em>. Here it's the opposite: any code path that reaches the database without an established tenant context — a misconfigured background job, an early-pipeline query, a future endpoint that forgets to set tenancy — sees across all tenants. That's a cross-tenant data-exposure waiting for the wrong call site. The expression also captures <code>this</code> as a constant, a shape that can defeat EF/SQL plan reuse (worth confirming against the captured SQL, but the form is a smell). One filter, carrying both a security default and a performance footgun.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Make the filter <b>fail closed</b>: a null tenant yields no rows, and genuinely global entities opt out explicitly through the <code>IsGlobalEntity()</code> hook that already exists. Rewrite the predicate to reference a context property the EF way so the tenant id parameterizes and plans are reused. Both changes live in one place and protect every query that flows through it.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Low–Medium</b></span><span class="pill">Fail-closed + <b>plan caching</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="perf" id="H1">
+  <div class="f-head"><span class="f-id h">H1</span><h3 class="f-title">Spending insights aggregate in C# instead of in SQL</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th perf">Performance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.PersonalFinance/Services/PersonalFinance/PersonalFinanceInsightsService.cs:249</span> — <code>query.ToListAsync()</code> materializes the full period's transactions; the <code>GroupBy</code>/<code>Sum</code> then run in memory (category 73–88, merchant 113–122, dominant-currency 271–277).
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Every spending-summary, category, and merchant call pulls a user's entire transaction range into process memory and rolls it up there. For an active account that's thousands of rows transferred and garbage-collected to produce a handful of totals. The cost scales with <em>history size</em>, not result size — the opposite of what you want on a per-tenant hot path a dashboard hits repeatedly. It's the single biggest in-memory-aggregation offender I found.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Push the aggregation into the database with <code>GROUP BY</code> projections (<code>SUM</code>/<code>COUNT</code>). The correct shape already exists in this codebase — copy <code>BudgetService.GetSpentByCategoryAsync:163–173</code>. Where two groupings are needed (e.g. currency normalization), run two grouped queries rather than one full materialization. This is the template fix wherever the pattern recurs.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Pattern exists in-repo <b>BudgetService</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="perf" id="H2">
+  <div class="f-head"><span class="f-id h">H2</span><h3 class="f-title">A read-heavy platform tracks every query and pools no contexts</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th perf">Performance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    Zero <code>QueryTrackingBehavior</code> overrides anywhere in <code>src</code>; the change tracker is opted out by hand <b>430 times across 108 files</b> (<code>AsNoTracking</code>). All seven contexts register with <code>AddDbContext&lt;T&gt;</code> — none with <code>AddDbContextPool&lt;T&gt;</code>.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Two systemic defaults work against a read-mostly workload. <b>(1) Tracking:</b> EF's default is track-everything, compensated for with 430 hand-placed <code>AsNoTracking</code> calls — pure overhead on the paths that remember it, and a latent bug on the paths that forget, which silently pay change-tracker cost and can even persist accidental mutations on a read path. <b>(2) Pooling:</b> every request constructs a context from scratch; pooling recycles the internal plumbing and measurably cuts per-request allocation under load. Neither is a smell in any one place — they're the wrong global defaults for this system's shape.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Set <code>QueryTrackingBehavior.NoTrackingWithIdentityResolution</code> as the default in each context's options, then delete the 430 <code>AsNoTracking</code> calls and opt <em>into</em> tracking explicitly on the far fewer write paths. Switch registrations to <code>AddDbContextPool&lt;T&gt;</code>. Both are mechanical and high-leverage — the kind of one-time edit that quietly speeds up the whole platform.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low–Medium</b></span><span class="pill">430 <b>AsNoTracking</b> calls to retire</span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="corr" id="H3">
+  <div class="f-head"><span class="f-id h">H3</span><h3 class="f-title">The ledger balance check sums across currencies</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Services/Ledger/LedgerService.cs:246–256</span> — the debit/credit balance validation sums line amounts without grouping by currency, so a multi-currency entry can "balance" while no single currency does.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Double-entry only means something <em>per currency</em>: debits must equal credits in each currency, not in a blind total across them. Summing all lines together lets an entry that is 100 USD debit against 100 EUR credit pass the balance check, posting an entry that is not actually balanced in any real sense. On a cross-border platform (RemitExchange is a stated product) multi-currency entries aren't an edge case, so this validation can wave through genuinely unbalanced postings into the immutable ledger.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Group the lines by currency and assert debits equal credits within each group, rejecting the entry if any currency fails. If cross-currency entries are intended, they need explicit FX legs that balance per currency — not a single summed check that hides the imbalance.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Per-currency invariant</span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="perf" id="H4">
+  <div class="f-head"><span class="f-id h">H4</span><h3 class="f-title">Order mapping loads parties one line item at a time (N+1)</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th perf">Performance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Services/Orders/OrderService.cs:774–811</span> — <code>MapOrderAsync</code> loops the order's items (778–781); <code>MapOrderItemAsync</code> calls <code>LoadPartyAsync</code> per item (811).
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>An order with N line items issues N party lookups on top of the order's own. Render a list of orders and the N+1 compounds into N×M queries. This is the textbook mapping-time N+1: invisible in a three-row demo, a real tail-latency and database-load problem once orders carry many items and lists page through many orders. Orders are the canonical record of a financial service, so this sits on a path that matters.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Collect the distinct party ids across all items first, load them in one <code>Where(p =&gt; ids.Contains(p.Id))</code> round-trip, and resolve each from an in-memory dictionary while mapping. The codebase already does exactly this in <code>PersonalFinanceInsightsService.GetAccountBreakdownAsync</code> (the <code>accountMap</code> pattern) — mirror it.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Pattern exists in-repo <b>accountMap</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="corr" id="H5">
+  <div class="f-head"><span class="f-id h">H5</span><h3 class="f-title">Order idempotency can be defeated by tenant, whitespace, or a race</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Services/Orders/OrderService.cs:191–215</span> — the idempotency lookup omits <code>TenantId</code> and compares an untrimmed incoming key against a trimmed stored one. <span class="path">src/Aonik.Finance/Persistence/Configurations/OrderConfiguration.cs:82</span> — the <code>IdempotencyKey</code> index is <b>non-unique</b>, so two concurrent requests can both pass the check.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Order idempotency is the guard that stops one customer intent from becoming two financial services. Three holes undercut it: the lookup isn't tenant-scoped (so keys can collide or miss across tenants), a trailing space makes "the same" key miss its match, and without a unique index two simultaneous submissions race past the read-then-write check and both create an order. The failure mode is duplicate orders — duplicate transfers, duplicate collections — which is precisely what the key exists to prevent.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Normalize (trim) the key on the way in, scope the lookup by <code>(TenantId, IdempotencyKey)</code>, and make that pair a <b>unique</b> index via a tool-generated migration so the database — not a read-then-write window — enforces single-creation. Treat the unique-constraint violation as "return the existing order," turning a race into a no-op.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low–Medium</b></span><span class="pill">Tenant + trim + <b>unique index</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="corr" id="H6">
+  <div class="f-head"><span class="f-id h">H6</span><h3 class="f-title">Payment intents are created with placeholder payer/method, and capture is unreachable</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Services/Payments/PaymentService.cs:45,49</span> — <code>PayerPartyId = Guid.Empty</code> and <code>PaymentMethodType = "Card"</code> are hardcoded TODOs. Intents start at <code>Pending</code> (42), but <code>CapturePaymentAsync</code> only proceeds when status is <code>Authorized</code> (91–93) — a state nothing in the service ever sets.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Two problems on the core payment path. First, every intent records an empty payer and a hardcoded "Card" method, so the data that should identify <em>who paid, how</em> is fiction — a problem for audit, reconciliation, and any compliance view. Second, the capture guard is a closed loop: intents are born <code>Pending</code>, capture demands <code>Authorized</code>, and no code performs the authorize transition, so by its own state machine capture can never succeed. The path looks implemented but is effectively inert, which is worse than an obvious gap because it passes a glance.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Carry real <code>PayerPartyId</code> and payment-method details on the create request (or resolve them from context) instead of placeholders. Then make the state machine coherent: either add the authorize step that produces <code>Authorized</code>, or allow capture directly from <code>Pending</code> if that's the intended flow. Whichever you choose, the statuses the code checks must be states the code can actually reach. This also unblocks C2 — capture can't post to the ledger until it can run.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium–High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Unreachable <b>Authorized</b> state</span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="scale" id="H7">
+  <div class="f-head"><span class="f-id h">H7</span><h3 class="f-title">Orchestrator sessions live in a static, in-process dictionary</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th scale">Scalability</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Agents/Framework/MasterOrchestratorService.cs:45–51</span> — <code>static ConcurrentDictionary&lt;string, AgentSession&gt;</code>: unbounded and process-local.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>One field, two problems. <b>(1) It blocks scale-out:</b> agent session state is pinned to a single process, so the moment you run two API instances behind a load balancer — or recycle one — sessions vanish or route to the wrong node. Horizontal scalability is a stated goal, and this quietly prevents it. <b>(2) It leaks:</b> nothing evicts entries, so under sustained traffic the dictionary grows without bound. It works perfectly on one box in dev and fails the day you add the second.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Move session state to a shared, evictable store: FusionCache (already in the stack) over the distributed cache, or a DB table keyed by session id with a TTL. If profiling later shows a hot read, keep an in-process dictionary only as an L1 cache in front of the shared store — never as the source of truth.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium–High</b></span><span class="pill">Blocks <b>horizontal scale-out</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="corr scale" id="H8">
+  <div class="f-head"><span class="f-id h">H8</span><h3 class="f-title">The transactional outbox has no row-claim, so it double-dispatches under scale-out</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag th scale">Scalability</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Infrastructure/Outbox/OutboxProcessor.cs:69–76</span> reads unprocessed messages and dispatches without claiming them; <span class="path">src/Aonik.SharedKernel/Outbox/OutboxMessage.cs:33–45</span> has no lock/claim column, and its own XML doc (18–20) admits double-dispatch is possible.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>The outbox is the right pattern for reliable integration events, but with no row-claim two worker instances (or two ticks that overlap) select the same unprocessed rows and dispatch them twice. The code comment already concedes this. For at-least-once consumers that's tolerable; for anything that isn't strictly idempotent downstream, a redelivered <code>OrderCreated</code> or payment event can drive duplicate side effects — and it only manifests once you scale the worker past one instance, which is exactly when you need it to hold.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Claim rows before dispatch: an atomic <code>UPDATE … SET ClaimedBy/ClaimedAt WHERE Processed = 0 AND ClaimedAt IS NULL</code> with <code>OUTPUT</code> (or <code>UPDLOCK, READPAST</code>) so each message is taken by exactly one worker, then mark processed after success and reclaim on timeout. This makes the outbox safe to run on every instance instead of secretly single-writer.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium–High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Safe past <b>one worker</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="corr" id="H9">
+  <div class="f-head"><span class="f-id h">H9</span><h3 class="f-title">A recurring sync job runs under <code>Guid.Empty</code> and so sees no real tenant data</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Worker/Jobs/FinancialConnectionRecurringSyncJob.cs:50–78</span> — the job sets the tenant context to <code>Guid.Empty</code> and never enables an across-tenants mode, so the global tenant filter scopes every query to a tenant that owns nothing.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>This is a live bug, not a latent one: the recurring financial-connection sync executes against tenant <code>Guid.Empty</code>, which matches no real tenant's rows, so it does its work over an empty set and silently accomplishes nothing. Connections that should be refreshed aren't — and because it fails quietly (no error, just no data) it's the kind of gap that surfaces as "why is this account stale?" weeks later. It also shows the flip side of C5: when the filter is the only thing scoping tenancy, a job that sets the wrong tenant id disappears its own data.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Give the job a real cross-tenant execution mode — enumerate tenants and run per-tenant with each tenant's context set, or use the sanctioned across-tenants escape hatch if one exists — rather than a placeholder id. Pair it with H11's enumerator fix so the worker iterates tenants the same disciplined way everywhere.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Live bug · sync does nothing</span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="perf scale" id="H10">
+  <div class="f-head"><span class="f-id h">H10</span><h3 class="f-title">Hot list endpoints return unbounded result sets</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th perf">Performance</span><span class="tag th scale">Scalability</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Services/Billing/BillingService.cs:252–266</span> — <code>ListInvoicesAsync</code> does <code>Include(Lines)</code> with no <code>Take</code> and no <code>AsNoTracking</code>. <span class="path">src/Aonik.Finance/Services/Ledger/LedgerService.cs:317–333</span> — <code>ListJournalEntriesAsync</code> is likewise unbounded.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>List endpoints with no upper bound are fine until the first tenant with real history hits them: the invoice list eager-loads every line of every invoice, and the journal-entry list returns the entire ledger range. Both grow without limit, so a single call can pull tens of thousands of rows, spike memory and latency, and — because these are the screens people leave open — do it repeatedly. The cost is unbounded by design, which is the scalability problem you don't see in testing.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Introduce mandatory pagination (page size + continuation/skip-take) on every list path and add <code>AsNoTracking</code> on the read. A sane default page cap protects the server even when a caller forgets to pass one. This pairs with H2 — once tracking is off by default, these reads only need the paging.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium–High</b></span><span class="pill imp-low">Effort <b>Low–Medium</b></span><span class="pill">Add <b>pagination caps</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="perf scale" id="H11">
+  <div class="f-head"><span class="f-id h">H11</span><h3 class="f-title">Worker tenant/user enumerators materialize everything in memory</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th perf">Performance</span><span class="tag th scale">Scalability</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Worker/Jobs/CustomerInsightSnapshotJobUserEnumerator.cs:29–58</span> and <span class="path">CustomerInsightAiSummaryJobSnapshotEnumerator.cs:35–57</span> load the full cross-tenant set of users/snapshots into memory before iterating.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>These background jobs walk every tenant's users (and snapshots) by pulling the entire population into a list first, then looping. At small scale it's invisible; as the platform grows it becomes a job that allocates proportionally to total users across all tenants on every run — the worst scaling shape for a periodic task, and a memory spike that can starve the worker process. It's the batch-side mirror of H1/H10: aggregate-in-memory instead of stream-from-database.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Stream in tenant-scoped batches: page the query (keyset/skip-take) and process each page, or iterate tenants then users-within-tenant, so working-set stays bounded regardless of total population. Combined with H9, give the worker one disciplined "for each tenant, scoped" iteration helper and route all these jobs through it.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Stream, don't materialize</span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="sec" id="H12">
+  <div class="f-head"><span class="f-id h">H12</span><h3 class="f-title">Read-only and personal roles are admitted to a finance-mutating policy</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th sec">Security</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Api/DependencyInjection.cs:382–385</span> — <code>AdminUserPolicy</code> is satisfied by roles including <code>ReadOnly</code> and <code>PersonalUser</code>; endpoints guarded only by that policy (e.g. the finance admin endpoints at <code>:20</code>) therefore accept those roles.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>A role literally named <code>ReadOnly</code> should never satisfy a policy that authorizes state changes, yet it's enumerated among the principals that pass <code>AdminUserPolicy</code>. Any endpoint relying on that policy as its mutation gate is open to read-only and ordinary personal users — a straightforward privilege-escalation/authorization gap on financial operations. It's the kind of mistake that's easy to make when one broad policy guards endpoints of mixed sensitivity, and easy to miss because everything still "works" for legitimate admins.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Split the policy by intent: a read policy that may include <code>ReadOnly</code>, and a distinct mutation/admin policy that does not. Remove <code>ReadOnly</code> (and <code>PersonalUser</code>, unless deliberate) from anything that authorizes writes, and audit each endpoint to ensure it references the policy matching its actual effect. Add a test asserting <code>ReadOnly</code> is denied on a representative mutating endpoint.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Authorization gap</span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="sec" id="H13">
+  <div class="f-head"><span class="f-id h">H13</span><h3 class="f-title">Plaid account webhooks are anonymous and unverified</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th sec">Security</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/.../AccountLinkEndpoints.cs:313–330</span> and the PersonalFinance equivalent <span class="path">:310–327</span> are <code>AllowAnonymous</code>; <span class="path">src/Aonik.Infrastructure/.../PlaidAccountWebhookProcessor.cs:35–75</span> processes the body without verifying a webhook signature.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>An anonymous, unsigned webhook endpoint that drives financial-connection state is an endpoint anyone on the internet can call with a forged body. Without signature verification there's nothing to distinguish a real Plaid callback from a spoofed one, so an attacker can push fabricated account events into the sync pipeline. Webhooks <em>have</em> to be anonymous (the provider isn't carrying your auth), which is exactly why the signature check is the security boundary — and it's missing.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Verify the Plaid webhook signature (JWT/HMAC per their scheme) before doing any work, reject anything that doesn't validate, and treat the verified payload as the only trusted input. Keep the endpoint anonymous but make signature validation a hard precondition in the processor, not an afterthought.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Verify <b>webhook signature</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="gov" id="H14">
+  <div class="f-head"><span class="f-id h">H14</span><h3 class="f-title">Streaming AI responses complete without an <code>AiRun</code> audit record</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th gov">Governance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Ai/Middleware/AuditMiddleware.cs:30–104</span> — the streaming branch (92–95) returns the stream without writing an <code>AiRun</code>; the non-streaming branch records one. Streaming is the primary path for chat and voice.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>"Every AI action is auditable, recorded as an <code>AiRun</code>" is a non-negotiable rule, and the most-used surface — streamed chat and voice — slips through it. The audit middleware records buffered responses but hands back the streamed ones unrecorded, so the interactions users actually have most often leave no governance trail. That's both a compliance gap (no record of what the AI did or was asked) and a blind spot for cost/usage accounting on the busiest path.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Wrap the streamed response so the run is opened before the first token and finalized when the stream completes or faults — capturing the same fields the non-streaming path records, plus terminal status. The structured metrics writer that already exists (see H17) is the natural place to land the completion, so streaming and non-streaming converge on one audit shape.</p></div>
+  <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low–Medium</b></span><span class="pill">Busiest path is <b>unaudited</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="sec" id="H15">
+  <div class="f-head"><span class="f-id h">H15</span><h3 class="f-title">Chat-thread endpoints are anonymous, with only weak per-user scoping</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th sec">Security</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">ListChatThreadsEndpoint.cs:24</span>, <span class="path">GetChatThreadEndpoint.cs:24</span>, <span class="path">ArchiveChatThreadEndpoint.cs:24</span> are <code>AllowAnonymous</code>. <span class="path">ChatThreadService.cs:155–209</span> scopes by the EF tenant filter but the per-user ownership check is weak.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Worth stating precisely, because my verification refined the second review's claim here: threads <em>are</em> tenant-scoped through the global EF filter, so this is <b>not</b> a cross-tenant leak. The real gap is two-fold — the endpoints are anonymous (no authenticated principal required at all), and within a tenant the per-user ownership check is thin, so one user reading or archiving another's threads isn't firmly prevented. Chat content is sensitive (it can contain financial detail), so "anyone unauthenticated, loosely scoped per user" is the wrong posture even with tenant isolation intact.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Require authentication on these endpoints (drop <code>AllowAnonymous</code>) and enforce ownership explicitly — filter and authorize by the authenticated user id, not only the tenant filter — so a thread is reachable only by its owner (or an admin policy). The tenant scoping stays as defense-in-depth underneath.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium–High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Tenant-safe · <b>user-weak</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="perf" id="H16">
+  <div class="f-head"><span class="f-id h">H16</span><h3 class="f-title">Per-request tenant resolution blocks on async</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th perf">Performance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Infrastructure/Authentication/TenantResolver.cs:48,67</span> — <code>.GetAwaiter().GetResult()</code> on async tenant lookups during subdomain resolution, on the request hot path.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Sync-over-async blocks a thread-pool thread while waiting on I/O, and under load that's the classic path to thread-pool starvation — the failure mode that looks fine in testing and tips over at peak. Tenant resolution runs for every authenticated request, so it's the worst possible place to block: the cost is paid on 100% of traffic.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Make the resolution path async end-to-end (<code>ResolveAsync</code>) and <code>await</code> it from the middleware. If a synchronous interface is forcing the <code>.GetResult()</code>, widen that interface rather than papering over it — the call sites are few.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium–High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">On <b>every request</b></span></div>
+</article>
+
+<article class="finding lvl-h" data-sev="h" data-theme="perf gov" id="H17">
+  <div class="f-head"><span class="f-id h">H17</span><h3 class="f-title">The AI run writer re-reads the row it just inserted — and the middleware skips its metrics</h3></div>
+  <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th perf">Performance</span><span class="tag th gov">Governance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Ai/Services/AiRunWriter.cs:138–227</span> — the common path is insert → save → <code>FirstOrDefaultAsync</code> the same row → update → save. <code>MarkRunCompletedWithMetricsAsync</code> (152–195) writes structured metrics, but <span class="path">AuditMiddleware.cs:140–156</span> completes runs with a plain <code>outputRef</code> string and never calls it.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Two issues on the audit path that sits under <em>every</em> AI interaction. <b>(1) Wasted round-trips:</b> the entity is already tracked from the insert, so the re-fetch issues a query whose result EF discards in favour of the instance it's holding — two or three round-trips where one or two would do. <b>(2) Unused structured metrics:</b> there's a proper metrics-completion method, but the middleware finalizes runs with an unstructured output reference instead, so the richer audit/cost data is written by nobody. The audit path both costs too much and records too little.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Keep the tracked entity from <code>StartRunAsync</code> and mutate it directly (or collapse the terminal write into one <code>ExecuteUpdateAsync</code>) to drop a round-trip per run. Route the middleware's completion through <code>MarkRunCompletedWithMetricsAsync</code> so structured metrics are actually captured — and so the streaming fix in H14 lands on the same code.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium–High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">On every <b>AiRun</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="over" id="M1">
+  <div class="f-head"><span class="f-id m">M1</span><h3 class="f-title">A complete prompt-management subsystem with no runtime consumers</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th over">Over-engineering</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <code>IPromptStore</code> + <code>TenantAwarePromptStore</code> + <code>FileBasedPromptStore</code> + <code>PromptSpecService</code> (~400 LOC) plus a DB table, CRUD, and seeding. Live prompt resolution instead goes through <span class="path">AiTaskProfileResolver.cs:84–92</span> reading the <code>AiTask</code> table. No runtime path calls the prompt store.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Textbook speculative generality: a tenant-aware, file-or-database, versioned prompt store built for a future the <code>AiTask</code> table already serves today. It's not harmless — migrations, seeding, tests, and the "which prompt system is real?" tax all accrue against code that never runs. It's also the clearest single example of the over-engineering this review was asked to find. <em>(A separate concern that "published prompts are mutable" at <code>PromptSpecService.cs:77–106</code> is moot precisely because the subsystem is dead at runtime — there's nothing to guard, only something to delete.)</em></p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Delete the subsystem — store, services, the table (via a tool-generated migration), and its seeding. If the versioning ambition is genuine, capture it in a one-paragraph ADR and bring it back when a consumer actually exists. Net effect: ~400 LOC and a table gone, zero behavior change.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-low">Effort <b>Low–Medium</b></span><span class="pill">~400 LOC <b>deletable</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="over" id="M2">
+  <div class="f-head"><span class="f-id m">M2</span><h3 class="f-title">The workflow engine advertises six node kinds and executes four</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th over">Over-engineering</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Agents/Workflows/Graph/GraphWorkflowFactory.cs:185–201</span> maps <code>tool</code>/<code>decision</code>/<code>loop</code>/<code>human</code>/<code>wait</code> to <code>UnsupportedKindExecutor</code>, which throws <code>NotSupportedException</code> at runtime (<span class="path">UnsupportedKindExecutor.cs:45</span>). Only <code>agent</code>/<code>notify</code>/<code>emit</code>/<code>end</code> run — and this is reachable from a live endpoint.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>A half-built generic engine is worse than a small complete one. The schema and factory <em>imply</em> six capabilities, but exercising five of them throws — so the "extensibility" is a trap for the next caller rather than a feature. You carry the full surface area (node-kind enum, factory branches, schema validation) while delivering two-thirds of it, and a live endpoint can route into a runtime exception.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Decide explicitly. Either <b>(a)</b> shrink the public schema and enum to the four supported kinds and delete the unsupported branches until a real need arrives, or <b>(b)</b> if the roadmap needs them soon, mark them known-unimplemented and gate them out of the live endpoint so they can't be invoked. What you shouldn't do is leave runtime-throwing branches reachable from production.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Decision: <b>shrink or shelve</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="over gov" id="M3">
+  <div class="f-head"><span class="f-id m">M3</span><h3 class="f-title">AI route policy stores governance it never enforces — and models are hard-coded past it</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th over">Over-engineering</span><span class="tag th gov">Governance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Ai/Entities/AiRoutePolicy.cs:11,13</span> — <code>CostCeiling</code> and <code>FallbackModelIdsJson</code> are persisted but <code>AiModelService.ResolveModelNameAsync</code> reads only <code>PrimaryModelId</code>. Meanwhile models are pinned in code: <span class="path">ImprovePromptEndpoint.cs:68</span> (<code>gpt-5-mini</code>), <span class="path">ChatThreadTitleGenerator.cs:22</span> (<code>gpt-5-nano</code>), via <span class="path">ModelPinningChatClient.cs:22–67</span>.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>The dangerous kind of dead code: it looks like a control. An operator who sets a <code>CostCeiling</code> reasonably believes spend is capped — it is not; listed fallback models imply resilience that never executes. And the routing the policy is supposed to centralize is partly bypassed anyway by model ids hard-coded at call sites. On a platform whose rules include "risk tier determines AI autonomy," a governance surface that displays controls it doesn't apply — while real choices live in scattered string literals — is worse than having no field at all.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Pick one source of truth. Either wire the policy columns into resolution (enforce the ceiling, fall back across the listed models) and route the hard-coded call sites through it, or remove the unenforced columns and the UI that sets them. Given the AI-governance posture, enforcing is the likely right call — but until it's wired, don't present an unenforced control.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-med">Effort <b>Low to remove · Medium to enforce</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="over" id="M4">
+  <div class="f-head"><span class="f-id m">M4</span><h3 class="f-title">Four abstractions with no implementations or no consumers</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th over">Over-engineering</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.SharedKernel/Events/IEventHandler.cs:8</span> — <code>IEventHandler&lt;in TEvent&gt;</code> with <b>zero implementations</b>. <span class="path">.../Multitenancy/ICurrentTenant.cs</span> — a no-op (empty <code>Dispose</code>, <code>Name</code> always null). <code>IInsightReader/InsightReader</code> — registered at <span class="path">AiModule.cs:208</span> but never consumed. <span class="path">ToolSpec.cs:5–13</span> — a tool-metadata record with no <code>Version</code>/<code>RiskTier</code>/<code>Approval</code>, disconnected from the tool pipeline.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Dead abstractions are small individually but collectively they're the tax that makes a codebase feel heavier than it is: every reader has to read them, confirm they do nothing, and move on. An event-handler contract with no handlers implies an in-process pattern the codebase doesn't use (the real path is the outbox to a bus); <code>ICurrentTenant</code> is superseded by the real <code>ITenantProvider</code>; <code>IInsightReader</code> is wired into DI but called by nobody; <code>ToolSpec</code> records an intention the tool pipeline ignores. Empty seams erode the signal that "an interface here means a behavior here."</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Delete the ones with no future (<code>ICurrentTenant</code>, <code>IInsightReader</code>, and <code>IEventHandler</code> if the bus is the real path); greps confirm no reflection/resolve-by-name use, so removal is safe. For <code>ToolSpec</code>, either connect it to the tool registration so its metadata does work (it's the natural home for the risk-tier/approval data C3 needs) or remove it. Pure subtraction either way.</p></div>
+  <div class="f-foot"><span class="pill imp-low">Impact <b>Low–Medium</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Mostly <b>subtraction</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="struct" id="M5">
+  <div class="f-head"><span class="f-id m">M5</span><h3 class="f-title">PersonalFinanceTools: 1,372 lines, 19 constructor dependencies, in the wrong module</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th struct">Structure</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Agents/Tools/PersonalFinanceTools.cs</span> — 1,372 lines, 19 injected services, living in the <b>Finance</b> module while delegating to <b>PersonalFinance</b> services.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Two smells stacked. The size and dependency count say one class is doing the work of several tool groups — 19 constructor dependencies is a cohesion and testability liability on its own. And its placement crosses the Finance / PersonalFinance boundary ADR-006 drew: a Finance-module class shouldn't host PersonalFinance agent tools, and the dependency direction runs the wrong way. This is the rare "long file" that's a genuine problem rather than a cohesive slice (contrast the calibration section).</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Split by capability into focused tool classes — accounts, transactions, budgets, insights — each taking only the few dependencies it needs, and move them into the PersonalFinance module (or a <code>PersonalFinance.Agents</code> area) so the dependency direction matches the ADR. This is the one structural refactor on the list with real effort; sequence it after the quick wins.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-high">Effort <b>High</b></span><span class="pill">Crosses <b>ADR-006</b> boundary</span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="quality" id="M6">
+  <div class="f-head"><span class="f-id m">M6</span><h3 class="f-title">Warnings are not errors — a loose guardrail on a tight codebase</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th quality">Code quality</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">Directory.Build.props:16</span> — <code>&lt;TreatWarningsAsErrors&gt;false&lt;/TreatWarningsAsErrors&gt;</code>.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>With it off, nullable-reference warnings, unused symbols, and analyzer findings accumulate silently. For a codebase this disciplined — banned-API analyzers on, nullable enabled globally — this is a loose guardrail, and the longer it stays off the more painful the eventual flip becomes. Warnings that aren't enforced are warnings that get ignored.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Flip it to <code>true</code> (at minimum in CI), fix the backlog once, and hold the bar. If a clean flip is too noisy today, ratchet it: enable per-project starting with <code>SharedKernel</code> and the newest modules, then expand. The <code>.esproj</code> front-end project is already excluded by the <code>.csproj</code> condition, so this won't touch it.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-low">Effort <b>Low–Medium</b></span><span class="pill">CI guardrail</span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="sec" id="M7">
+  <div class="f-head"><span class="f-id m">M7</span><h3 class="f-title">Entity lookups are by id alone, not id-plus-tenant</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th sec">Security</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Finance/Services/Payments/PaymentService.cs:68–69,77–78,107–108</span> — get/capture/cancel resolve the intent by <code>Id</code> only; several order/payment lookups follow the same shape, relying entirely on the global query filter for isolation.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Today these are safe <em>because</em> the global tenant filter scopes them — but that makes the filter the single point of failure for isolation, which is exactly the dependency C5 shows is fragile (it fails open when tenant context is missing). Defense-in-depth says a financial lookup should also constrain by tenant explicitly, so that an id from one tenant can never resolve another's row even if the filter is bypassed, disabled for a query, or absent in a background path. Note the contrast: <code>BillingService</code> already does <code>Id == id &amp;&amp; TenantId == tenantId</code> — the good pattern exists, it's just not applied uniformly.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Add the explicit <code>&amp;&amp; TenantId == tenantId</code> predicate to entity lookups on sensitive paths, matching the existing <code>BillingService</code> shape. It's cheap, it's redundant with the filter by design, and redundancy is the point for tenant isolation on a financial platform.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-low">Effort <b>Low–Medium</b></span><span class="pill">Defense-in-depth for <b>C5</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="perf" id="M8">
+  <div class="f-head"><span class="f-id m">M8</span><h3 class="f-title">Indexes aren't tenant-leading, and the outbox dispatch index is unfiltered</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th perf">Performance</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">InvoiceConfiguration.cs:51–54</span>, <span class="path">OrderConfiguration.cs:79–85</span>, <span class="path">PaymentIntentConfiguration.cs:39–42</span> define single-column indexes that don't lead with <code>TenantId</code>; <span class="path">OutboxMessageConfiguration.cs:22–23</span> indexes dispatch state without a filtered/leading predicate on unprocessed rows.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>On a platform where virtually every query is implicitly <code>WHERE TenantId = @t</code> (the global filter), indexes that don't lead with <code>TenantId</code> force the database to do more work than it should to isolate a tenant's slice — the composite the workload actually wants isn't there. The outbox dispatch index is the mirror image: without a filter on "unprocessed," the poller scans more than the small hot set it cares about. Neither is catastrophic, but both are leaving free performance on the table on the hottest paths.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Make the common indexes tenant-leading composites (<code>(TenantId, …)</code>) matching the real query predicates, and add a filtered index for the outbox poller (<code>WHERE Processed = 0</code>) so dispatch touches only pending rows. All via tool-generated migrations. Confirm against actual query plans before committing the set.</p></div>
+  <div class="f-foot"><span class="pill imp-low">Impact <b>Low–Medium</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Tenant-leading composites</span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="corr" id="M9">
+  <div class="f-head"><span class="f-id m">M9</span><h3 class="f-title">Manual transactions run under an EF retrying execution strategy</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th corr">Correctness</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.PersonalFinance/Services/.../HouseholdService.cs:239</span> and <span class="path">FinancialLifeGraphWriteService.cs:67–68</span> open manual <code>BeginTransaction</code> blocks while the context is configured with <code>EnableRetryOnFailure</code>.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>EF's retrying execution strategy can't safely retry a user-initiated transaction, because on a transient failure it would replay only part of the work — so the documented contract is that manual <code>BeginTransaction</code> must be wrapped in <code>strategy.ExecuteAsync(...)</code>. Used directly under <code>EnableRetryOnFailure</code> it throws <code>InvalidOperationException</code> at runtime, or worse, leaves a half-applied multi-step write if the retry semantics aren't honored. These are multi-entity writes (household, life-graph), exactly where partial application matters.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Wrap each manual transaction in the context's execution strategy (<code>Database.CreateExecutionStrategy().ExecuteAsync(async () =&gt; { using var tx = …; … })</code>) so the whole unit retries atomically, or use the ambient transaction EF manages. Grep for every <code>BeginTransaction</code> and apply the same wrapping uniformly.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Wrap in <b>execution strategy</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="quality" id="M10">
+  <div class="f-head"><span class="f-id m">M10</span><h3 class="f-title">Startup swallows migration and seed failures</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th quality">Code quality</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Infrastructure/.../DatabaseStartupConfiguration.cs:98–114</span> catches and logs migration/seed exceptions but lets startup continue; <span class="path">src/Aonik.Api/Program.cs:67</span> invokes it without treating failure as fatal.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>If a migration or seed fails, the safest outcome is usually <em>don't start</em> — a process that boots on a half-migrated schema serves traffic against a database that doesn't match the model, producing duplicate-column errors, missing-table exceptions, and the schema-drift cascade the project's own migration rules are written to prevent. Swallowing the failure converts a loud, fail-fast startup error into a quiet, intermittent runtime one that's far harder to diagnose.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Let migration failures be fatal in normal operation: log and rethrow so the host exits non-zero and orchestration can halt the rollout. If there's a legitimate "degraded start" scenario, gate it behind explicit configuration rather than making swallow-and-continue the default. Pair with the project rule to verify applied migrations post-deploy.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Fail fast on <b>schema drift</b></span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="quality" id="M11">
+  <div class="f-head"><span class="f-id m">M11</span><h3 class="f-title">Generic exceptions and ad-hoc entity-to-DTO mapping recur across services</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th quality">Code quality</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    Services throw <code>InvalidOperationException</code> for distinct domain conditions (not-found, invalid-state, permission) — e.g. across <code>PaymentService</code>/<code>BillingService</code>/<code>OrderService</code> — and each service hand-maps entities to DTOs in private <code>MapToResponse</code> helpers rather than a shared convention.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Two low-grade but pervasive consistency issues. Using one generic exception type for "not found" vs "invalid state" vs "forbidden" means endpoints can't translate failures into the right HTTP status without string-matching messages, and callers can't distinguish them programmatically. And per-service hand mapping means the same entity gets projected slightly differently in different places, with no single point to change a shape. Neither is urgent; together they're friction the disciplined parts of the codebase don't have.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Introduce a small set of domain exceptions (<code>NotFoundException</code>, <code>InvalidStateException</code>, <code>ForbiddenException</code>) mapped centrally to status codes in one exception handler, and converge mapping on one approach (consistent projection helpers or a mapper) so a DTO shape has a single home. Apply incrementally — this is a tidy-as-you-touch item, not a campaign.</p></div>
+  <div class="f-foot"><span class="pill imp-low">Impact <b>Low–Medium</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Tidy as you touch</span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="sec" id="M12">
+  <div class="f-head"><span class="f-id m">M12</span><h3 class="f-title">CORS and forwarded-headers configuration is broader than it should be</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th sec">Security</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Api/.../CorsConfiguration.cs:61–64,90–93</span> allows a null origin alongside credentials; <span class="path">src/Aonik.Api/Program.cs:81–84</span> enables forwarded headers without restricting <code>KnownProxies</code>/<code>KnownNetworks</code>.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Two hardening gaps. Permitting a <em>null</em> origin while also allowing credentials weakens the same-origin protection CORS exists to provide — null origin is reachable from sandboxed iframes and some redirects, so credentialed cross-origin requests become possible from contexts you didn't intend to trust. And enabling forwarded headers without a known-proxy allowlist lets a client spoof <code>X-Forwarded-For</code>/<code>Proto</code>, which downstream code may trust for client IP, rate limiting, or scheme decisions. Both are "works fine until probed" settings.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Drop null origin from any credentialed CORS policy and enumerate real allowed origins. Restrict forwarded-headers processing to known proxy addresses/networks so only your ingress can set those headers. Neither change affects legitimate traffic; both close a spoofing avenue.</p></div>
+  <div class="f-foot"><span class="pill imp-low">Impact <b>Low–Medium</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Tighten origins + proxies</span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="quality" id="M13">
+  <div class="f-head"><span class="f-id m">M13</span><h3 class="f-title">Document upload advertises formats it rejects and leaks exception detail</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th quality">Code quality</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">src/Aonik.Api/.../DocumentUploadEndpoint.cs:49</span> advertises <code>pdf</code>/<code>docx</code> support; <span class="path">:162–166</span> throws for those types at runtime; <span class="path">:182–202</span> returns <code>ex.Message</code> to the caller on failure.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>The endpoint's contract and behavior disagree: it tells clients it accepts PDF and DOCX, then throws when they send them — a broken promise that surfaces as a confusing runtime error rather than a clear "unsupported." Separately, echoing <code>ex.Message</code> back to the caller leaks internal detail (paths, type names, library internals) that aids an attacker and clutters the client contract. Small issues, but on an externally reachable endpoint.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Make the advertised formats match the implemented ones — either implement PDF/DOCX handling or remove them from the accepted list and return a clean <code>415/400</code> for unsupported types. Replace the raw <code>ex.Message</code> response with a generic client message plus server-side logging of the detail (this folds into M11's central exception handling).</p></div>
+  <div class="f-foot"><span class="pill imp-low">Impact <b>Low</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Contract vs behavior</span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="dry" id="M14">
+  <div class="f-head"><span class="f-id m">M14</span><h3 class="f-title">Three pieces of logic are duplicated rather than shared</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th dry">Duplication</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <b>SSE mapping:</b> the same ~100-line event-to-frame <code>switch</code> in <span class="path">AguiStreamPipeline.cs:82–198</span> and <span class="path">PlaygroundStreamingEndpoint.cs:233–328</span>. <b>Table mapping:</b> the <code>Ank</code>-prefix <code>dbo</code> naming repeated in <code>AonikDbContext</code> and <code>FinanceDbContext</code>. <b>Provider selection:</b> the auth-provider <code>switch</code> repeated across ~4 factory sites.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>Three copy-paste seams that will drift independently. The SSE duplication is the most consequential because it's logic, not boilerplate: a new event type or format tweak must be made in both places, and updating only one yields a streaming bug invisible until a specific event flows through the wrong path. The table-mapping duplication risks a silent divergence between contexts that share the same physical tables, and the provider-selection <code>switch</code> means adding an IdP touches four sites instead of one.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Extract one SSE emitter both endpoints call (they keep their own transport). Hoist the table-prefix convention into <code>AonikDbContextBase</code> or a shared <code>IModelConvention</code> so every context inherits one mapping. Centralize provider dispatch in a single factory the six capability surfaces resolve through. Each is a contained refactor with an obvious home.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">3 seams · one home each</span></div>
+</article>
+
+<article class="finding lvl-m" data-sev="m" data-theme="struct" id="M15">
+  <div class="f-head"><span class="f-id m">M15</span><h3 class="f-title">Module boundaries are crossed by an in-progress extraction</h3></div>
+  <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th struct">Structure</span><span class="tag ok">verified ✓</span></div>
+  <div class="evidence"><span class="lbl">Evidence</span>
+    <span class="path">Aonik.Platform.csproj:27</span> references <code>Aonik.Finance</code>; <span class="path">Aonik.Finance.csproj:39</span> references <code>Aonik.PersonalFinance</code> (marked transitional, Spec 027) with <code>InternalsVisibleTo</code> at <span class="path">:14</span>; <b>236 files</b> under PersonalFinance still use <code>Aonik.Finance.*</code> namespaces; <code>Aonik.Application/Abstractions/Persistence/IAonikDbContext.cs</code> exposes a ~60-<code>DbSet</code> facade.
+  </div>
+  <div class="f-block"><h4>Why it matters</h4><p>The architecture's headline strength is module isolation via SharedKernel contracts — and it mostly holds — but a few direct couplings cut across it. <code>Platform → Finance</code> is a direct reference the contract model is meant to avoid; <code>Finance → PersonalFinance</code> with <code>InternalsVisibleTo</code> is the visible seam of an extraction that's documented as transitional (Spec 027) but not finished, with 236 files still living under Finance's namespaces. The ~60-set <code>IAonikDbContext</code> facade is a convenient handle that also lets any consumer reach any table, quietly eroding the per-module boundaries. None of this is broken; it's unfinished, and unfinished boundaries tend to ossify.</p></div>
+  <div class="f-block"><h4>Suggested fix</h4><p>Treat the extraction as a tracked finish-line: replace the <code>Platform → Finance</code> and <code>Finance → PersonalFinance</code> project references with SharedKernel read contracts (the pattern already proven for PersonalFinance's reads), migrate the 236 files off <code>Aonik.Finance.*</code> namespaces in batches, and narrow <code>IAonikDbContext</code> toward module-scoped surfaces so a module can't accidentally reach another's tables. Sequence last — it's structural and wants its own runway — but don't let "transitional" become permanent.</p></div>
+  <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-high">Effort <b>High</b></span><span class="pill">Finish <b>Spec 027</b></span></div>
+</article>
+
+<div class="empty" id="empty">No findings match this filter. <a href="#" onclick="resetFilters();return false;">Reset</a></div>
+</div></div>
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">05</span><span class="ttl">Calibration</span></div>
+    <h2 class="lead">Looks like over-engineering. Isn't.</h2>
+    <p class="sub">A fair review has to say what's <em>not</em> a problem, or every big number becomes a false alarm. These are the metrics that look damning at a glance and turn out to be sound engineering once you read the code. Both review passes agreed: leaving them alone is the correct call.</p>
+    <div class="twocol">
+      <div class="card">
+        <h3><span class="mk" style="background:#f0f0f6;color:#73738a">NOISE</span>200-plus interfaces</h3>
+        <p>Almost all are the module-isolation seams ADR-006 mandates — cross-module contracts that live in <code>SharedKernel</code> so modules never reference each other directly. That's the price of a modular monolith, not over-abstraction. Only flag the handful with zero implementations (see M4).</p>
+      </div>
+      <div class="card">
+        <h3><span class="mk" style="background:#f0f0f6;color:#73738a">NOISE</span>Files past 1,500 lines</h3>
+        <p>Long, yes — but cohesive vertical slices: one service owning one area. Length here tracks scope, not tangled complexity, and splitting purely for a line count would scatter cohesion across files. The genuine exception is M5, which is long <em>and</em> doing several jobs in the wrong module.</p>
+      </div>
+      <div class="card">
+        <h3><span class="mk" style="background:#f0f0f6;color:#73738a">NOISE</span>Five DbContexts over one database</h3>
+        <p>A deliberate, documented design: module contexts give DI scoping and runtime isolation while a single canonical context owns the only migration stream. This is how the codebase avoids snapshot drift — a strength, not duplication. (The repeated table mapping inside it is the only real tidy-up — M14.)</p>
+      </div>
+      <div class="card">
+        <h3><span class="mk" style="background:#f0f0f6;color:#73738a">NOISE</span>Reader/writer splits &amp; anemic entities</h3>
+        <p>The read/write seams are a sensible CQRS-lite split; the anemic entities are intentional per the platform's own rule that logic lives in services. Both are conventions applied consistently, which is exactly what you want — flag them only where one half has no implementation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">06</span><span class="ttl">Reconciliation with the second review</span></div>
+    <h2 class="lead">What consolidation changed — and what I refused to copy forward unverified.</h2>
+    <p class="sub">This edition merges a second, independent agent review into my own. I treated none of its claims as true on sight: every finding I carried over was read against current source first. In four places that re-verification <em>changed</em> the conclusion — which is the whole value of doing it rather than concatenating two reports.</p>
+    <div class="recon">
+      <p>The two reviews agreed on the architecture's strengths and on the over-engineering shortlist. Consolidation mostly <em>added</em> the correctness, audit, and access-control cluster a simplification-only lens underweights. Where my verification refined the second review:</p>
+      <ul>
+        <li><b>Chat-thread access (H15) is not a cross-tenant leak.</b> The second review framed it that way; reading <code>ChatThreadService</code> shows threads are tenant-scoped through the global EF filter. The real, narrower gap is anonymous endpoints plus weak per-<em>user</em> ownership — so I rated and worded it as that, not as tenant bleed.</li>
+        <li><b>"Mutable published prompts" folds into "delete it" (M1), not "add a guard."</b> The mutable-prompt concern is real on paper, but the prompt subsystem is dead at runtime (<code>AiTaskProfileResolver</code> serves live prompts from <code>AiTask</code>). There's nothing to protect — only something to remove. Guarding it would have been effort spent hardening dead code.</li>
+        <li><b>The extra coupling smell is specifically <code>Platform → Finance</code>.</b> I confirmed the direct reference at <code>Aonik.Platform.csproj:27</code> rather than restating a generic "modules are coupled," so M15 names the exact edges to cut.</li>
+        <li><b>The approval-gate finding (C3) corrects my own first draft.</b> My initial pass credited <code>ApprovalRequiredAIFunction</code> as a pattern to preserve. Verification showed it exists only in documentation — never in <code>.cs</code>. The honest result is a Critical, and the "patterns to preserve" section below is corrected to match.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">07</span><span class="ttl">Sequenced plan</span></div>
+    <h2 class="lead">Order of operations.</h2>
+    <p class="sub">Sequenced so the things that can corrupt money or expose data come first, then the systemic performance defaults, then the satisfying deletions, and the one real structural refactor last. Phases 1–2 are the priority; much of phase 1 is low-effort.</p>
+    <div class="card" style="padding:8px 26px">
+      <div class="phase">
+        <div class="pn">1</div>
+        <div>
+          <h4>Protect financial truth</h4>
+          <div class="when">First · correctness before anything else</div>
+          <ul>
+            <li><span class="rid">C1</span>Ledger unique index</li>
+            <li><span class="rid">C2</span>Post to ledger on capture/mark-paid</li>
+            <li><span class="rid">H3</span>Per-currency balance check</li>
+            <li><span class="rid">H5</span>Idempotency: tenant + trim + unique</li>
+            <li><span class="rid">H6</span>Coherent payment state machine</li>
+            <li><span class="rid">H8</span>Outbox row-claim</li>
+            <li><span class="rid">H9</span>Fix Guid.Empty sync job</li>
+            <li><span class="rid">M9</span>Transactions under execution strategy</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">2</div>
+        <div>
+          <h4>Close access &amp; audit gaps</h4>
+          <div class="when">Next · who can do what, and is it recorded</div>
+          <ul>
+            <li><span class="rid">C3</span>Approval-gate mutating tools in code</li>
+            <li><span class="rid">C4</span>Real MCP permissions/compliance</li>
+            <li><span class="rid">C5</span>Tenant filter fail-closed</li>
+            <li><span class="rid">H12</span>Split read vs mutate policy</li>
+            <li><span class="rid">H13</span>Verify Plaid webhook signatures</li>
+            <li><span class="rid">H14</span>Audit streaming AI runs</li>
+            <li><span class="rid">H15</span>Authenticate chat endpoints</li>
+            <li><span class="rid">M7</span>Id-plus-tenant lookups</li>
+            <li><span class="rid">M12</span>Tighten CORS &amp; forwarded headers</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">3</div>
+        <div>
+          <h4>Flip the performance defaults</h4>
+          <div class="when">Small, systemic, whole-platform</div>
+          <ul>
+            <li><span class="rid">H2</span>NoTracking default + pooling</li>
+            <li><span class="rid">H1</span>SQL aggregation for insights</li>
+            <li><span class="rid">H4</span>Batch party load in order mapping</li>
+            <li><span class="rid">H10</span>Paginate hot lists</li>
+            <li><span class="rid">H16</span>Async tenant resolver</li>
+            <li><span class="rid">H17</span>Drop AiRun re-fetch + structured metrics</li>
+            <li><span class="rid">M8</span>Tenant-leading indexes</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">4</div>
+        <div>
+          <h4>Unblock scale-out</h4>
+          <div class="when">Before the second instance</div>
+          <ul>
+            <li><span class="rid">H7</span>Shared, evictable session store</li>
+            <li><span class="rid">H11</span>Stream worker enumerators per tenant</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">5</div>
+        <div>
+          <h4>Simplify — delete the speculative code</h4>
+          <div class="when">The satisfying part · pure subtraction</div>
+          <ul>
+            <li><span class="rid">M1</span>Delete prompt subsystem</li>
+            <li><span class="rid">M2</span>Shrink workflow node kinds</li>
+            <li><span class="rid">M3</span>Enforce or remove route policy</li>
+            <li><span class="rid">M4</span>Remove dead abstractions</li>
+            <li><span class="rid">M14</span>De-duplicate the three seams</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">6</div>
+        <div>
+          <h4>Structure &amp; polish</h4>
+          <div class="when">The larger moves, done last</div>
+          <ul>
+            <li><span class="rid">M5</span>Split PersonalFinanceTools into PersonalFinance</li>
+            <li><span class="rid">M15</span>Finish the module extraction (Spec 027)</li>
+            <li><span class="rid">M6</span>Warnings-as-errors (ratcheted)</li>
+            <li><span class="rid">M10</span>Fail fast on migration errors</li>
+            <li><span class="rid">M11</span>Domain exceptions + consistent mapping</li>
+            <li><span class="rid">M13</span>Fix document-upload contract</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow"><span class="num">08</span><span class="ttl">Don't touch these</span></div>
+    <h2 class="lead">Patterns worth protecting.</h2>
+    <p class="sub">The spine of this system is good. These are the decisions that make the rest of the review small — keep them, and resist refactors that erode them. One carries a caveat, because the design is right but the enforcement isn't there yet.</p>
+    <div class="keep-grid">
+      <div class="keep"><h4>Single migration stream</h4><p>All schema changes flow through one canonical context, tool-generated. It's why the codebase doesn't suffer snapshot drift — the discipline behind it is doing real work, and the C1/H5 fixes ride on it.</p></div>
+      <div class="keep"><h4>Module isolation via contracts</h4><p>The PersonalFinance ↔ Finance read boundary — Order/Invoice/Payment through SharedKernel contracts with no direct project reference — is genuinely well executed. It's the proven pattern M15 should extend to the last few coupled edges.</p></div>
+      <div class="keep"><h4>Immutable double-entry ledger + Orders as canonical</h4><p>A strong domain spine: financial truth in the ledger, intent in Orders, never collapsed. C1, C2 and H3 <em>protect</em> this invariant where the plumbing currently sidesteps it — they don't replace it.</p></div>
+      <div class="keep caveat"><h4>AI auditability — designed in, not yet enforced</h4><p>The <code>AiRun</code> audit model and risk-tier governance are the right architecture. But the human-in-the-loop approval wrapper exists only in docs (C3) and streaming runs aren't recorded (H14). Keep the design; close the enforcement gap before relying on it.</p></div>
+      <div class="keep"><h4>Transactional outbox</h4><p>The right backbone for reliable integration events. It needs a row-claim to be multi-instance safe (H8) and has an unused in-process handler seam to drop (M4) — but the pattern itself is sound, keep it.</p></div>
+      <div class="keep"><h4>House rules</h4><p>Banned-API analyzers, decimal money discipline, optimistic concurrency via <code>RowVersion</code>, anemic entities. Consistent, enforced conventions — add warnings-as-errors (M6) and the set is complete.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">09</span><span class="ttl">How this review was done</span></div>
+    <h2 class="lead">Method &amp; scope.</h2>
+    <div class="method-grid">
+      <div>
+        <h4>Approach</h4>
+        <p>Module-scoped exploration passes — SharedKernel/Platform, Finance, PersonalFinance, Ai, Agents, Infrastructure/Api/Worker — plus cross-cutting searches for systemic patterns (query tracking, context pooling, interfaces without implementations, sync-over-async, in-memory aggregation, anonymous endpoints). This edition then <em>consolidated</em> a second independent agent review into the findings, rather than presenting them side by side.</p>
+      </div>
+      <div>
+        <h4>Verification</h4>
+        <p>Every consolidated claim was re-checked against current source through four parallel verification passes before earning a place here; each finding cites <code>file:line</code> and carries a <span style="color:var(--good);font-weight:700">verified ✓</span> marker. Where re-verification changed a conclusion, the change is documented in §06 — including a correction to my own first-pass draft (C3).</p>
+      </div>
+      <div>
+        <h4>Scope</h4>
+        <p>Backend services under <code>src/Aonik.*</code> only. Explicitly out of scope: everything in <code>apps/*</code> (including the Payabo app), the AdminUi React frontend, and AdminDesktop. The PersonalFinance backend module <em>is</em> in scope — it's the Payabo substrate, not the Payabo application.</p>
+      </div>
+      <div>
+        <h4>Lens &amp; limits</h4>
+        <p>The brief was architecture, performance, scalability, and — above all — simplification and over-engineering; consolidation widened it to the financial-correctness, audit, and access-control gaps a second pass surfaced. This is a senior-review opinion, not a formal security audit or proof of correctness. Validate each fix against your own benchmarks and production data before shipping.</p>
+      </div>
+    </div>
+    <div class="disclaim"><b>One-line takeaway.</b> This is a well-built platform with a spine worth protecting — but ship Phase 1 and 2 before the cleanup: reconnect the money paths to the ledger (C1, C2, H3), make the AI approval and tenant defaults real in code (C3–C5), then flip the performance defaults and delete the five speculative pockets. Do that and you have a codebase that's not just clean and enterprise-ready but visibly <em>simpler and safer</em> than it was — without rewriting anything that mattered. Line references are accurate as of 2026-05-31 and may shift as the code evolves.</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var state={severity:'all',theme:'all'};
+  var findings=Array.prototype.slice.call(document.querySelectorAll('.finding'));
+  var countEl=document.getElementById('fcount');
+  var emptyEl=document.getElementById('empty');
+
+  function apply(){
+    var shown=0;
+    findings.forEach(function(f){
+      var sev=f.getAttribute('data-sev');
+      var themes=(f.getAttribute('data-theme')||'').split(' ');
+      var okSev=(state.severity==='all'||sev===state.severity);
+      var okTheme=(state.theme==='all'||themes.indexOf(state.theme)!==-1);
+      var vis=okSev&&okTheme;
+      f.style.display=vis?'':'none';
+      if(vis)shown++;
+    });
+    countEl.innerHTML='<b>'+shown+'</b> finding'+(shown===1?'':'s')+' shown';
+    if(emptyEl)emptyEl.classList.toggle('show',shown===0);
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll('.fgroup')).forEach(function(group){
+    var dim=group.getAttribute('data-group');
+    Array.prototype.slice.call(group.querySelectorAll('.chip')).forEach(function(chip){
+      chip.addEventListener('click',function(){
+        Array.prototype.slice.call(group.querySelectorAll('.chip')).forEach(function(c){c.classList.remove('on');});
+        chip.classList.add('on');
+        if(dim==='severity'){state.severity=chip.getAttribute('data-sev');}
+        else{state.theme=chip.getAttribute('data-theme');}
+        apply();
+      });
+    });
+  });
+
+  window.resetFilters=function(){
+    state={severity:'all',theme:'all'};
+    Array.prototype.slice.call(document.querySelectorAll('.fgroup')).forEach(function(group){
+      Array.prototype.slice.call(group.querySelectorAll('.chip')).forEach(function(c){c.classList.remove('on');});
+      var first=group.querySelector('.chip');
+      if(first)first.classList.add('on');
+    });
+    apply();
+  };
+
+  apply();
+})();
+</script>
+
+</body>
+</html>

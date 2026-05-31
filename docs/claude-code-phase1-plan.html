@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AONIK Phase 1 — Protect Financial Truth · Implementation Plan</title>
+<style>
+  :root{
+    --ink:#191927; --body:#3c3c4e; --muted:#73738a; --faint:#9a9aae;
+    --paper:#fbfbfd; --card:#ffffff; --line:#e7e7ef; --line-soft:#f0f0f6;
+    --accent:#4f46e5; --accent-soft:#eef2ff; --accent-ink:#3730a3;
+    --crit:#dc2626; --crit-bg:#fef2f2; --crit-line:#f6cccc;
+    --high:#d97706; --high-bg:#fffbeb; --high-line:#f6e0a8;
+    --med:#2563eb; --med-bg:#eff6ff; --med-line:#c4dafb;
+    --good:#059669; --good-bg:#ecfdf5; --good-line:#aee9d1;
+    --t-corr:#dc2626; --t-scale:#0891b2; --t-perf:#ea580c; --t-struct:#475569; --t-gov:#0d9488;
+    --shadow:0 1px 2px rgba(20,20,40,.04),0 8px 24px rgba(20,20,40,.05);
+    --shadow-sm:0 1px 2px rgba(20,20,40,.05);
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--body);
+    font-family:var(--sans);font-size:16px;line-height:1.62;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  .col{max-width:880px}
+  h1,h2,h3,h4{color:var(--ink);line-height:1.2;letter-spacing:-.018em;margin:0}
+  p{margin:0 0 1em}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.86em;background:var(--line-soft);
+    border:1px solid var(--line);border-radius:5px;padding:.06em .38em;color:#43435a;white-space:nowrap}
+  .mono{font-family:var(--mono)}
+
+  /* masthead */
+  .masthead{padding:72px 0 44px;border-bottom:1px solid var(--line)}
+  .kicker{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:22px}
+  .masthead h1{font-size:40px;font-weight:800;max-width:20ch;margin-bottom:24px}
+  .masthead h1 .em{color:var(--accent)}
+  .standfirst{font-size:19.5px;line-height:1.5;color:#2f2f40;max-width:64ch;font-weight:420}
+  .standfirst strong{color:var(--ink);font-weight:650}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:30px;font-size:13.5px;color:var(--muted)}
+  .meta-row b{color:var(--ink);font-weight:600}
+  .backlink{margin-top:18px;font-size:14px}
+
+  /* section frame */
+  section{padding:52px 0;border-bottom:1px solid var(--line-soft)}
+  .eyebrow{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+  .eyebrow .num{font-family:var(--mono);font-size:12.5px;color:var(--accent);font-weight:600}
+  .eyebrow .ttl{font-size:12.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .lead{font-size:25px;font-weight:750;letter-spacing:-.02em;margin-bottom:14px;max-width:26ch}
+  .sub{font-size:16.5px;color:var(--body);max-width:66ch;margin-bottom:30px}
+
+  /* findings / work items */
+  .finding{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:26px 28px;margin-bottom:18px;box-shadow:var(--shadow);scroll-margin-top:20px}
+  .finding.lvl-c{border-left:4px solid var(--crit)}
+  .finding.lvl-h{border-left:4px solid var(--high)}
+  .finding.lvl-m{border-left:4px solid var(--med)}
+  .f-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:4px}
+  .f-id{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;
+    padding:3px 9px;border-radius:7px;flex:none;margin-top:3px}
+  .f-id.c{background:var(--crit)} .f-id.h{background:var(--high)} .f-id.m{background:var(--med)}
+  .f-title{font-size:20px;font-weight:730;letter-spacing:-.015em;color:var(--ink);flex:1}
+  .f-tags{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 18px}
+  .tag{font-size:11.5px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;text-transform:uppercase}
+  .tag.sev-c{background:var(--crit-bg);color:var(--crit);border:1px solid var(--crit-line)}
+  .tag.sev-h{background:var(--high-bg);color:var(--high);border:1px solid var(--high-line)}
+  .tag.sev-m{background:var(--med-bg);color:var(--med);border:1px solid var(--med-line)}
+  .tag.th{background:#f5f5fa;border:1px solid var(--line);color:#55556c}
+  .tag.th.corr{color:var(--t-corr)} .tag.th.scale{color:var(--t-scale)}
+  .tag.th.perf{color:var(--t-perf)} .tag.th.struct{color:var(--t-struct)} .tag.th.gov{color:var(--t-gov)}
+  .tag.dep{background:var(--accent-soft);color:var(--accent-ink);border:1px solid #c7d2fe;text-transform:none}
+  .tag.mig{background:var(--high-bg);color:#b45309;border:1px solid var(--high-line);text-transform:none}
+  .tag.seed{background:var(--good-bg);color:#066b4f;border:1px solid var(--good-line);text-transform:none}
+  .tag.lock{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;text-transform:none}
+  .evidence{background:#fafafc;border:1px solid var(--line-soft);border-radius:10px;
+    padding:12px 15px;margin:0;font-family:var(--mono);font-size:12.7px;color:#50506a;line-height:1.85}
+  .evidence .path{color:var(--accent-ink);font-weight:600}
+  .evidence .lbl{display:block;font-family:var(--sans);font-size:11px;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .f-block{margin-bottom:16px}
+  .f-block:last-of-type{margin-bottom:0}
+  .f-block h4{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .f-block p{margin:0 0 .55em;color:var(--body);font-size:15.5px}
+  .f-block p:last-child{margin-bottom:0}
+  .f-block ol,.f-block ul{margin:.2em 0 0;padding-left:20px}
+  .f-block li{font-size:15.5px;color:var(--body);margin-bottom:.4em}
+  .f-block li code{white-space:normal}
+  .f-foot{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line-soft)}
+  .pill{font-size:12.5px;font-weight:600;color:var(--muted);background:#f6f6fa;
+    border:1px solid var(--line);border-radius:8px;padding:4px 11px}
+  .pill b{color:var(--ink);font-weight:700}
+  .pill.imp-high b{color:var(--crit)} .pill.imp-med b{color:var(--high)} .pill.imp-low b{color:var(--med)}
+
+  /* generic cards */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:24px 26px;box-shadow:var(--shadow-sm);margin-bottom:16px}
+  .card h3{font-size:18px;font-weight:720;margin-bottom:8px}
+  .card p{font-size:15.5px;margin-bottom:0}
+
+  /* dependency graph */
+  .depgraph{display:flex;flex-direction:column;gap:14px;margin:6px 0 4px}
+  .lane{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .lane.indep{border-style:dashed}
+  .lane-label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:13px}
+  .flow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .flow.sub{margin-top:13px}
+  .node{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:38px;padding:0 13px;
+    border-radius:10px;font-family:var(--mono);font-weight:700;font-size:14px;color:#fff;box-shadow:0 1px 3px rgba(20,20,40,.16)}
+  .node.c{background:var(--crit)} .node.h{background:var(--high)} .node.m{background:var(--med)}
+  .node.ghost{background:#e7e7ef;color:var(--muted);box-shadow:none}
+  .node b{font-weight:600;font-size:11px;opacity:.9;margin-left:7px;letter-spacing:.02em}
+  .arr{color:var(--faint);font-size:17px;font-weight:700}
+  .lane .cap{font-size:13.5px;color:var(--muted);margin:13px 0 0;line-height:1.5}
+  .lane .cap b{color:var(--ink);font-weight:650}
+
+  /* code + command blocks */
+  .codeblock{background:#1d1e2b;color:#e7e7f2;border-radius:10px;padding:14px 16px;margin:2px 0 14px;
+    font-family:var(--mono);font-size:12.7px;line-height:1.75;overflow-x:auto;white-space:pre}
+  .codeblock .c{color:#8b8baa} .codeblock .k{color:#c4b5fd} .codeblock .s{color:#86efac} .codeblock .n{color:#fca5a5}
+  .cmd{background:#0f1020;color:#d8d8ea;border-radius:10px;padding:14px 16px;margin:2px 0 10px;
+    font-family:var(--mono);font-size:12.5px;line-height:1.95;overflow-x:auto;white-space:pre}
+  .cmd .p{color:#6f6f96} .cmd .f{color:#a5b4fc}
+
+  /* migrations table */
+  .mtable{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);font-size:14px}
+  .mtable th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--line);background:#fafafc}
+  .mtable td{padding:13px 16px;border-bottom:1px solid var(--line-soft);color:var(--body);vertical-align:top;font-size:14px}
+  .mtable tr:last-child td{border-bottom:none}
+  .mtable td .rid{font-family:var(--mono);font-weight:700;color:var(--accent)}
+  .mtable td.nm{font-family:var(--mono);font-size:12.4px;color:var(--accent-ink);font-weight:600}
+  .mtable .seedrow td{background:#fcfdfc}
+
+  /* note columns (testing) */
+  .notecols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .notebox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:var(--shadow-sm)}
+  .notebox h4{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:11px}
+  .notebox.mem h4{color:var(--good)} .notebox.rel h4{color:var(--high)}
+  .notebox ul{margin:0;padding:0;list-style:none}
+  .notebox li{position:relative;padding:8px 0 8px 20px;font-size:14px;color:var(--body);border-top:1px solid var(--line-soft);line-height:1.5}
+  .notebox li:first-child{border-top:none}
+  .notebox li::before{content:"";position:absolute;left:0;top:15px;width:7px;height:7px;border-radius:50%}
+  .notebox.mem li::before{background:var(--good)} .notebox.rel li::before{background:var(--high)}
+  .notebox li .rid{font-family:var(--mono);font-weight:700;color:var(--ink);margin-right:5px}
+
+  /* open question */
+  .openq{background:#fffdf6;border:1px solid var(--high-line);border-left:3px solid var(--high);
+    border-radius:12px;padding:22px 26px}
+  .openq h4{font-size:16px;color:#92660a;margin-bottom:9px}
+  .openq p{font-size:15px;color:#5f4a17;margin:0 0 .5em}
+  .openq p:last-child{margin-bottom:0}
+
+  /* phases */
+  .phase{display:grid;grid-template-columns:48px 1fr;gap:18px;padding:20px 0;border-top:1px solid var(--line-soft)}
+  .phase:first-child{border-top:none}
+  .phase .pn{font-family:var(--mono);font-size:19px;font-weight:800;color:var(--accent);
+    background:var(--accent-soft);border-radius:10px;width:48px;height:48px;display:flex;align-items:center;justify-content:center}
+  .phase .pn.par{color:var(--high);background:var(--high-bg)}
+  .phase h4{font-size:17px;font-weight:720;margin-bottom:3px}
+  .phase .when{font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:11px}
+  .phase ul{margin:0;padding-left:0;list-style:none;display:flex;flex-wrap:wrap;gap:7px}
+  .phase li{font-size:13px;font-weight:600;color:#50506a;background:#f6f6fa;
+    border:1px solid var(--line);border-radius:8px;padding:4px 11px}
+  .phase li .rid{font-family:var(--mono);font-weight:700;color:var(--accent);margin-right:5px}
+
+  /* footer */
+  footer{padding:48px 0 80px;border-top:1px solid var(--line)}
+  footer .lead{font-size:21px}
+  .method-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:8px}
+  .method-grid h4{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .method-grid p{font-size:14.5px;color:var(--body)}
+  .disclaim{margin-top:30px;padding:16px 20px;background:#f7f7fb;border:1px solid var(--line);
+    border-radius:10px;font-size:13.5px;color:var(--muted)}
+  .disclaim b{color:var(--ink)}
+
+  @media(max-width:860px){
+    .notecols,.method-grid{grid-template-columns:1fr}
+    .masthead h1{font-size:31px}
+    .phase{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap col">
+    <div class="kicker">AONIK · Phase 1 Implementation Plan</div>
+    <h1>Protect financial truth: <span class="em">reconnect the money paths to the ledger.</span></h1>
+    <p class="standfirst">Phase 1 of the backend review is eight findings that share one theme — places where <strong>money can change state without the ledger ever recording it</strong>, or where it can be recorded twice. This plan sequences all eight into buildable work. Four of them form a single cluster around the ledger and must land in order; the other four are independent and can run in parallel. It is grounded in a fresh read of current source: every "current state" below cites <code>file:line</code> and was re-verified, not recalled. <strong>This is a plan, not a change</strong> — no source under <code>src/</code> was modified to produce it.</p>
+    <div class="meta-row">
+      <span><b>Drafted</b> 2026-05-31</span>
+      <span><b>Scope</b> C1, C2, H3, H5, H6, H8, H9, M9</span>
+      <span><b>Decisions locked</b> two-step auth→capture · minimal chart-of-accounts · one combined plan</span>
+    </div>
+    <p class="backlink">Companion to the full review → <a href="claude-code-analysis.html">claude-code-analysis.html</a></p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">01</span><span class="ttl">What Phase 1 protects</span></div>
+    <h2 class="lead">Eight findings, one invariant.</h2>
+    <p class="sub">The architecture's first non-negotiable rule is that the double-entry ledger is the source of financial truth. Phase 1 is every place that rule is currently sidestepped or unguarded. Two are Critical (a status can flip without a ledger post; nothing structurally blocks a double-post), five are High, one is Medium — but they cluster tightly enough to plan and ship as one body of work.</p>
+    <div class="card">
+      <p style="margin-bottom:.8em"><b>The cluster — must land in order.</b> These four share the ledger and a transaction boundary:</p>
+      <ul style="margin:0 0 1.1em;padding-left:20px">
+        <li><b>H3</b> — the journal balance check nets debits against credits <em>across currencies</em>, so a multi-currency entry can falsely "balance." Fix it before anything new posts through that path.</li>
+        <li><b>C1</b> — every post is hard-coded to <code>SourceType "Manual"</code> / <code>SourceId Guid.Empty</code>, and there is no uniqueness guard, so the same event can be journalled twice. Give posts a real identity and a structural no-double-post guarantee.</li>
+        <li><b>H6</b> — a payment can never reach <em>Authorized</em>, so capture is unreachable dead code. Add the authorize step (two-step auth→capture, as decided) so there is a capture to hook into.</li>
+        <li><b>C2</b> — capture and invoice mark-paid flip a status column and never touch the ledger. Route both through it. This is the payoff, and it depends on the other three.</li>
+      </ul>
+      <p style="margin-bottom:.8em"><b>The independents — parallelizable.</b> No ordering constraint against the cluster or each other:</p>
+      <ul style="margin:0;padding-left:20px">
+        <li><b>H5</b> — order idempotency key is stored trimmed but looked up untrimmed, with no DB uniqueness and no race handling.</li>
+        <li><b>H8</b> — the outbox has no row-claim, so a second worker instance double-dispatches every due message.</li>
+        <li><b>H9</b> — the recurring sync job scopes itself to <code>Guid.Empty</code> and silently processes zero rows.</li>
+        <li><b>M9</b> — user-initiated transactions aren't wrapped in the retrying execution strategy, so the first transient retry throws.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">02</span><span class="ttl">Dependency graph</span></div>
+    <h2 class="lead">Build the cluster in order; run the rest alongside.</h2>
+    <p class="sub">C2 is the goal, but it can't be correct until the balance check is trustworthy (H3), every post has an identity and a uniqueness guard (C1), and a capture is actually reachable (H6). That makes the cluster a straight line. Everything else is free of the cluster and of each other.</p>
+    <div class="depgraph">
+      <div class="lane">
+        <div class="lane-label">Ledger cluster · sequential</div>
+        <div class="flow">
+          <span class="node h">H3</span><span class="arr">&rarr;</span>
+          <span class="node c">C1</span><span class="arr">&rarr;</span>
+          <span class="node c">C2 <b>goal</b></span>
+        </div>
+        <div class="flow sub">
+          <span class="cap" style="margin:0 6px 0 0">feeds C2:</span>
+          <span class="node h">H6 <b>auth&rarr;capture</b></span><span class="arr">&rarr;</span><span class="node ghost">C2</span>
+        </div>
+        <p class="cap"><b>Why this order:</b> H3 makes the per-entry balance assertion correct; C1 lets a post carry a real source identity and adds the filtered unique index C2's idempotency relies on; H6 makes <code>Captured</code> reachable so capture has somewhere to post from; C2 then writes the journal entries inside the same transaction as the status flip.</p>
+      </div>
+      <div class="lane indep">
+        <div class="lane-label">Independent · parallelizable</div>
+        <div class="flow">
+          <span class="node h">H5</span>
+          <span class="node h">H8</span>
+          <span class="node h">H9</span>
+          <span class="node m">M9</span>
+        </div>
+        <p class="cap">Land these in any order against the cluster. One soft link: <b>M9</b> introduces the execution-strategy wrapper that <b>C2</b> also needs for its status-flip-plus-post transaction — do M9 first, or factor the wrapper so both share it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">03</span><span class="ttl">The ledger cluster</span></div>
+    <h2 class="lead">Four findings, one transaction boundary.</h2>
+    <p class="sub">In build order. H3 and C1 harden the ledger's posting path; H6 unlocks the capture that C2 posts from; C2 finally routes capture and mark-paid through the ledger. Each card is the verified current state, the change, the files, any migration or seed, the tests, and what to watch.</p>
+
+    <article class="finding lvl-h" id="H3">
+      <div class="f-head"><span class="f-id h">H3</span><h3 class="f-title">The journal balance check nets debits against credits across currencies</h3></div>
+      <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag dep">no migration</span><span class="tag dep">no deps</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <span class="path">src/Aonik.Finance/Services/Ledger/LedgerService.cs:246&ndash;256</span> &mdash; the guard sums <em>every</em> <code>Debit</code> line and <em>every</em> <code>Credit</code> line with no regard for currency, then asserts the two totals are equal: <code>totalDebit != totalCredit</code>. A 100&nbsp;USD debit against a 100&nbsp;EUR credit passes, because <code>100 == 100</code>. Meanwhile the same file already assumes the opposite: the metric at <span class="path">:295&ndash;298</span> documents that "journal entries are constrained to a single currency," and the balance <em>read</em> path groups by currency (<span class="path">:204</span>). Only the write guard forgets currency.
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — recommended</h4>
+        <p>Enforce the invariant the rest of the file already relies on: <b>reject any entry whose lines span more than one currency</b>, after which the existing <code>debit == credit</code> check is correct for that single currency. One guard, added right after line normalization (the <code>normalizedLines</code> projection ends at <span class="path">:244</span>):</p>
+        <div class="codeblock"><span class="k">if</span> (normalizedLines.Select(l =&gt; l.Currency).Distinct().Count() &gt; 1)
+    <span class="k">throw new</span> InvalidOperationException(<span class="s">"A journal entry must use a single currency."</span>);</div>
+        <p>This also makes the "currency is taken from the first line" assumption at <span class="path">:298</span> actually true, instead of merely hoped-for.</p>
+      </div>
+      <div class="f-block"><h4>The change — alternative (defer unless needed)</h4>
+        <p>If multi-currency journal entries are a genuine domain requirement, instead group lines by currency and assert <code>sum(debit) == sum(credit)</code> and both <code>&gt; 0</code> <em>within each currency group</em>, and record the metric per group rather than off the first line. This is more general but larger, and it contradicts the codebase's current stated single-currency intent — so it should only be taken when a real multi-currency posting exists. Recommendation: ship the single-currency guard now.</p>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>LedgerService.cs</code> only. <b>Migration:</b> none.</li>
+          <li><b>Tests (InMemory):</b> a single-currency balanced entry still posts; a two-currency entry whose totals net to equal is now rejected; (if the alternative is taken) a per-currency-balanced multi-currency entry posts.</li>
+          <li><b>Watch out:</b> this tightens accepted input — grep callers for any entry that today relies on cross-currency aggregate balancing before shipping. <code>PartnerPrefundSeedHelper</code> posts single-currency, so it is unaffected.</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-med">Impact <b>Medium&ndash;High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Order <b>1st in cluster</b></span></div>
+    </article>
+
+    <article class="finding lvl-c" id="C1">
+      <div class="f-head"><span class="f-id c">C1</span><h3 class="f-title">Posts have no real identity and no uniqueness guard against double-posting</h3></div>
+      <div class="f-tags"><span class="tag sev-c">Critical</span><span class="tag th corr">Correctness</span><span class="tag mig">migration</span><span class="tag dep">enables C2</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <span class="path">src/Aonik.Finance/Services/Ledger/LedgerService.cs:275&ndash;276</span> &mdash; every entry built by <code>AddJournalEntryAsync</code> hard-codes <code>SourceType = "Manual"</code> and <code>SourceId = Guid.Empty</code>. The service-layer request it consumes carries no source identity at all: <span class="path">Contracts/Models/Ledger/LedgerModels.cs:18&ndash;22</span> is just <code>(LedgerId, Reference, Description, Lines)</code>. And <span class="path">Persistence/Configurations/JournalEntryConfiguration.cs:36</span> indexes <code>SourceId</code> <b>non-unique</b> with no composite on <code>(TenantId, SourceType, SourceId)</code>. Nothing — not the DTO, not the database — stops the same economic event being journalled twice. The one idempotent-post pattern that exists, <span class="path">PartnerPrefundSeedHelper.cs:126&ndash;222</span>, works around this by hand with an <code>AnyAsync(SourceType &amp;&amp; SourceId)</code> pre-check.
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — three parts</h4>
+        <ol>
+          <li><b>Give posts an identity.</b> Add optional <code>SourceType</code> / <code>SourceId</code> to the service-layer <code>AddJournalEntryRequest</code> (<code>LedgerModels.cs</code>), defaulting to <code>"Manual"</code> / <code>Guid.Empty</code> so the manual API path is unchanged, and persist the supplied values instead of the hard-coded constants at <span class="path">:275&ndash;276</span>.</li>
+          <li><b>Idempotent post.</b> When a real source is supplied (not <code>Manual</code>/<code>Empty</code>), pre-check <code>JournalEntries.AnyAsync(e =&gt; e.SourceType == src.Type &amp;&amp; e.SourceId == src.Id)</code> — generalizing the <code>PartnerPrefundSeedHelper</code> pattern — and return the existing entry rather than posting a second.</li>
+          <li><b>Structural guarantee.</b> A tool-generated <b>filtered</b> unique index on <code>(TenantId, SourceType, SourceId)</code>, filtered <code>WHERE [SourceType] &lt;&gt; 'Manual'</code>. Configure with <code>.HasFilter(...)</code> in <code>JournalEntryConfiguration</code>.</li>
+        </ol>
+      </div>
+      <div class="f-block"><h4>Why the filter is load-bearing</h4>
+        <p>Every legacy and future manual entry shares the pair <code>("Manual", Guid.Empty)</code>. An <em>unfiltered</em> unique index would fail to create against existing data and would block all future manual entries. The <code>WHERE [SourceType] &lt;&gt; 'Manual'</code> predicate exempts them while making every <em>real</em> source event post exactly once. Before applying, query for any existing duplicate non-Manual <code>(SourceType, SourceId)</code> pairs and resolve them, or index creation fails.</p>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>LedgerModels.cs</code> (DTO), <code>LedgerService.cs</code> (persist + pre-check), <code>JournalEntryConfiguration.cs</code> (filtered unique index). The <code>DbSet</code> already lives on <code>AonikDbContext</code>.</li>
+          <li><b>Migration:</b> <code>JournalEntryIdempotencyIndex</code> — tool-generated via <code>AonikDbContext</code>, one index, never hand-authored.</li>
+          <li><b>Tests:</b> app-level idempotency (same source twice &rarr; one entry, second call returns the existing one) is InMemory-testable. The DB-level race (two concurrent posts &rarr; one wins, the other throws <code>DbUpdateException</code>) needs a <b>relational</b> test — InMemory ignores filtered and unique indexes.</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-low">Effort <b>Low&ndash;Medium</b></span><span class="pill">Order <b>2nd in cluster</b></span></div>
+    </article>
+
+    <article class="finding lvl-h" id="H6">
+      <div class="f-head"><span class="f-id h">H6</span><h3 class="f-title">Captured is unreachable — the payment lifecycle has no authorize step</h3></div>
+      <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag lock">decision: two-step auth&rarr;capture</span><span class="tag dep">unblocks C2</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <code>PaymentStatus</code> is <code>Pending / Authorized / Captured / Failed / Cancelled</code>. <span class="path">src/Aonik.Finance/Services/Payments/PaymentService.cs:42&ndash;50</span> — <code>CreatePaymentIntentAsync</code> creates a <code>Pending</code> payment and fills <code>PayerPartyId = Guid.Empty</code> and <code>PaymentMethodType = "Card"</code> as placeholders. <span class="path">:74&ndash;102</span> — <code>CapturePaymentAsync</code> requires status <code>Authorized</code> before moving to <code>Captured</code> — but <b>no method anywhere sets <code>Authorized</code></b>. There is no <code>AuthorizePaymentAsync</code>. So a payment can never leave <code>Pending</code>, and capture is dead code.
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — two-step auth then capture <span style="font-weight:400;color:var(--muted)">(locked decision)</span></h4>
+        <ol>
+          <li><b>Add the authorize step.</b> <code>AuthorizePaymentAsync(Guid paymentId, &hellip;)</code> on <code>IPaymentService</code> / <code>PaymentService</code>: <code>Pending &rarr; Authorized</code>, guarded (must currently be <code>Pending</code>; record who and when). Capture then works unchanged — <code>Authorized &rarr; Captured</code> — and becomes the hook C2 posts from.</li>
+          <li><b>Stop fabricating payer and method.</b> Add real <code>PayerPartyId</code> (Guid) and <code>PaymentMethodType</code> (string) to <code>CreatePaymentIntentRequest</code> and validate them non-empty, instead of defaulting to <code>Guid.Empty</code> / <code>"Card"</code>.</li>
+          <li><b>Endpoint.</b> Add an authorize endpoint (FastEndpoints) mirroring the capture endpoint, using <code>Send.OkAsync()</code> conventions.</li>
+        </ol>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>PaymentService.cs</code>, <code>IPaymentService</code>, <code>Contracts/Models/Payments/CreatePaymentIntentRequest.cs</code>, new <code>AuthorizePaymentEndpoint</code>. <b>Migration:</b> none — <code>Payment</code> already has the columns and status is an enum.</li>
+          <li><b>Tests (InMemory):</b> full lifecycle <code>Pending&rarr;Authorized&rarr;Captured</code>; capture-before-authorize rejected; double-authorize rejected; create-intent rejects an empty <code>PayerPartyId</code>.</li>
+          <li><b>Watch out:</b> adding required fields to <code>CreatePaymentIntentRequest</code> is a breaking DTO change — grep every caller and test that constructs it.</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Order <b>3rd in cluster</b></span></div>
+    </article>
+
+    <article class="finding lvl-c" id="C2">
+      <div class="f-head"><span class="f-id c">C2</span><h3 class="f-title">Capture and invoice mark-paid flip a status and never touch the ledger</h3></div>
+      <div class="f-tags"><span class="tag sev-c">Critical</span><span class="tag th corr">Correctness</span><span class="tag lock">decision: minimal chart-of-accounts</span><span class="tag seed">seed change</span><span class="tag dep">needs H3 &middot; C1 &middot; H6</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <span class="path">PaymentService.cs</span> injects <code>FinanceDbContext</code>, <code>ITenantProvider</code>, <code>IPermissionService</code>, <code>ICurrentUserProvider</code>, <code>FinanceMetrics</code> — <b>no <code>ILedgerService</code></b>; <code>CapturePaymentAsync</code> flips <code>Status</code> to <code>Captured</code> and saves, nothing posts. <span class="path">BillingService.cs:163&ndash;177</span> — <code>MarkInvoiceAsPaidAsync</code> checks <code>Status == "Issued"</code> then sets <code>"Paid"</code> and saves, also with no <code>ILedgerService</code>. Both are exactly the economic events double-entry exists to record. <code>ILedgerService</code> is already registered at <span class="path">FinanceModule.cs:57</span>. The seeded chart (<span class="path">FinanceTenantProvisioningContributor.cs:149&ndash;226</span>) is Cash&nbsp;<code>1000</code>, Accounts&nbsp;Receivable&nbsp;<code>1100</code>, Accounts&nbsp;Payable&nbsp;<code>2000</code>, Retained&nbsp;Earnings&nbsp;<code>3000</code>, Operating&nbsp;Revenue&nbsp;<code>4000</code>, Operating&nbsp;Expenses&nbsp;<code>5000</code> — <b>there is no clearing account</b>, and provisioning validates only that <em>some</em> accounts exist (<span class="path">:142&ndash;146</span>).
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — four parts</h4>
+        <ol>
+          <li><b>Account resolution.</b> Add a small <code>ChartOfAccountsResolver</code> that maps a role (Cash, Receivable, Clearing) to a <code>LedgerAccountId</code> by <code>Code</code>, generalizing <code>PartnerPrefundSeedHelper.ResolveCashLedgerAccountIdAsync</code> (<code>Code == "1000"</code>, fallback by <code>Name</code>). It must <b>throw loudly</b> when a role can't be resolved — never silently post to a wrong account.</li>
+          <li><b>Add the missing Clearing account.</b> Extend <code>CreateDefaultChartOfAccounts</code> with e.g. <code>2100 "Payments Clearing"</code> (Liability). This is a <b>data/seed change, not a schema migration</b>. New tenants get it automatically; existing tenants need a backfill — extend the provisioning repair path (the <span class="path">:142&ndash;146</span> check) to ensure the Clearing account specifically exists, so it self-heals on next provision/validate.</li>
+          <li><b>Post inside the status transition.</b> Inject <code>ILedgerService</code> into both services and post in the same transaction as the status flip:
+            <div class="codeblock"><span class="c">// capture: money received, not yet applied</span>
+Dr Cash <span class="n">1000</span>  /  Cr Payments Clearing <span class="n">2100</span>
+   amount = payment.Amount, currency = payment.Currency
+   SourceType = <span class="s">"PaymentCapture"</span>, SourceId = payment.Id
+
+<span class="c">// invoice paid: collect the receivable</span>
+Dr Cash <span class="n">1000</span>  /  Cr Accounts Receivable <span class="n">1100</span>
+   amount = invoice.Total, currency = invoice.Currency
+   SourceType = <span class="s">"InvoicePaid"</span>, SourceId = invoice.Id</div>
+            Both are single-currency and balanced (so they pass H3) and idempotent via C1's source keys.</li>
+          <li><b>Atomicity under retry.</b> The caller and <code>LedgerService</code> share the scoped <code>FinanceDbContext</code>, so wrap "flip status + post journal" in one transaction. Because <code>FinanceDbContext</code> uses <code>EnableRetryOnFailure</code>, that transaction must run through <code>CreateExecutionStrategy().ExecuteAsync(&hellip;)</code> — the same wrapper M9 introduces. Re-read the payment / invoice inside the delegate so a retry is safe.</li>
+        </ol>
+      </div>
+      <div class="f-block"><h4>One open question — for the finance owner</h4>
+        <div class="openq">
+          <h4>Can capture and mark-paid both fire for the same money?</h4>
+          <p>If a captured payment settles an invoice, posting both <code>Dr Cash / Cr Clearing</code> (capture) and <code>Dr Cash / Cr Receivable</code> (mark-paid) would <b>double-count Cash</b>. The clean pairing is: capture &rarr; <code>Dr Cash / Cr Clearing</code>, then mark-paid &rarr; <code>Dr Clearing / Cr Receivable</code> — net effect <code>Dr Cash / Cr Receivable</code>, no double count. If mark-paid is standalone (no capture step), use <code>Dr Cash / Cr Receivable</code> directly.</p>
+          <p>The mechanism is identical either way; only the credit account on mark-paid differs. The defaults above are my recommendation — this is the single point that is <b>accounting policy, not code</b>, and worth a sign-off before C2 ships.</p>
+        </div>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>PaymentService.cs</code>, <code>BillingService.cs</code>, <code>FinanceModule.cs</code> (inject <code>ILedgerService</code> into both; register the resolver), new <code>ChartOfAccountsResolver.cs</code>, <code>FinanceTenantProvisioningContributor.cs</code> (Clearing seed + repair).</li>
+          <li><b>Migration:</b> none — it rides on C1's index. The Clearing account is a <b>seed</b>, not a schema migration.</li>
+          <li><b>Tests:</b> capture posts a balanced <code>Dr Cash / Cr Clearing</code> entry; mark-paid posts <code>Dr Cash / Cr Receivable</code>; re-capture / re-mark is idempotent (no second entry); the resolver throws when Clearing is absent. App-level postings are InMemory-testable; the idempotency race is relational.</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Order <b>4th — last in cluster</b></span><span class="pill">Restores <b>ledger-is-truth</b></span></div>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">04</span><span class="ttl">The independent fixes</span></div>
+    <h2 class="lead">Four fixes with no ordering constraint.</h2>
+    <p class="sub">None of these depend on the ledger cluster or on each other, so they can be picked up in parallel. M9 has one soft link — it introduces the execution-strategy wrapper C2 also needs.</p>
+
+    <article class="finding lvl-h" id="H5">
+      <div class="f-head"><span class="f-id h">H5</span><h3 class="f-title">Order idempotency key: trim asymmetry, no DB uniqueness, no race handling</h3></div>
+      <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag mig">migration</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <span class="path">src/Aonik.Finance/Services/Orders/OrderService.cs:189&ndash;201</span> — <code>CreateBillPaymentOrderAsync</code> looks up an existing order with the <b>raw, untrimmed</b> <code>request.IdempotencyKey</code>, but stores it <code>.Trim()</code>-ed at <span class="path">:215</span>. A key submitted with surrounding whitespace is stored trimmed, so the next lookup with the same untrimmed value misses it and a duplicate order is created. There is no try/catch around <code>SaveChanges</code> (<span class="path">:248</span>). <span class="path">Persistence/Configurations/OrderConfiguration.cs:82</span> indexes <code>IdempotencyKey</code> non-unique and single-column; only <code>OrderNumber</code> is unique. <code>IdempotencyKey</code> is nullable <code>string?</code> (max 200).
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — three parts</h4>
+        <ol>
+          <li><b>Trim once.</b> Normalize the key at the top of the method and use the trimmed value for <em>both</em> the lookup and the store — symmetry.</li>
+          <li><b>DB uniqueness.</b> A tool-generated <b>filtered</b> unique index on <code>(TenantId, OrderType, IdempotencyKey)</code> filtered <code>WHERE [IdempotencyKey] IS NOT NULL</code>, so orders without a key stay unconstrained.</li>
+          <li><b>Race handling.</b> Wrap <code>SaveChanges</code> in try/catch <code>DbUpdateException</code>; on a unique violation, re-fetch the existing order by the same <code>(tenant, type, key)</code> and return it — a concurrent duplicate becomes an idempotent success, not a 500.</li>
+        </ol>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>OrderService.cs</code>, <code>OrderConfiguration.cs</code>. <b>Migration:</b> <code>OrderIdempotencyUniqueIndex</code> — tool-generated.</li>
+          <li><b>Tests:</b> same key with and without whitespace &rarr; one order (the trim fix is InMemory-testable); concurrent duplicate &rarr; one wins, the other returns the existing order (<b>relational only</b> — InMemory ignores the unique filter).</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-med">Impact <b>Medium&ndash;High</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Independent</span></div>
+    </article>
+
+    <article class="finding lvl-h" id="H8">
+      <div class="f-head"><span class="f-id h">H8</span><h3 class="f-title">The outbox has no row-claim — a second instance double-dispatches every message</h3></div>
+      <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th scale">Scalability</span><span class="tag th corr">Correctness</span><span class="tag mig">migration</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <span class="path">src/Aonik.Infrastructure/Messaging/Outbox/OutboxProcessor.cs:69&ndash;76</span> — <code>ReadDueMessageIdsAsync</code> selects due ids; <span class="path">:84&ndash;108</span> — <code>ProcessMessageAsync</code> re-reads but takes <b>no lock</b>, dispatches, then sets <code>ProcessedAt</code> and saves. The class doc (<span class="path">:18&ndash;20</span>) admits the double-dispatch risk. <span class="path">SharedKernel/Events/Outbox/OutboxMessage.cs</span> has no claim/lease column. Today one <code>OutboxBackgroundService</code> runs in the Worker (<span class="path">src/Aonik.Worker/Program.cs:31</span>, 10&nbsp;s poll, batch 50), so it's latent — but a second instance double-dispatches every due message. Provider is SQL&nbsp;Server (<span class="path">Infrastructure/DependencyInjection.cs:161&ndash;165</span>).
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — claim before dispatch</h4>
+        <ol>
+          <li><b>Lease columns.</b> Add <code>ClaimedAt</code>, <code>ClaimExpiresAt</code> (<code>DateTimeOffset?</code>) and <code>ClaimedBy</code> (<code>string?</code>) to <code>OutboxMessage</code>; update <code>OutboxMessageConfiguration</code>'s dispatch index to include the claim predicate. Tool-generated migration.</li>
+          <li><b>Atomic claim.</b> Replace read-then-process with a single SQL&nbsp;Server <code>UPDATE &hellip; OUTPUT</code> under <code>WITH (READPAST, UPDLOCK, ROWLOCK)</code> that stamps the claim on up to N due rows and returns their ids — peers skip claimed rows via <code>READPAST</code>, so each message is claimed by exactly one worker. Process only what you claimed; on success set <code>ProcessedAt</code>; on failure set <code>Error</code>/<code>NextAttemptAt</code> and clear the claim.</li>
+          <li><b>Crash recovery.</b> Reclaim rows whose <code>ClaimExpiresAt</code> has passed. Guard the raw SQL behind the relational provider.</li>
+        </ol>
+        <p style="margin-top:.6em">Illustrative claim — confirm the mapped table and column names against the generated migration:</p>
+        <div class="codeblock"><span class="k">UPDATE TOP</span> (@batch) m <span class="k">WITH</span> (READPAST, UPDLOCK, ROWLOCK)
+   <span class="k">SET</span> m.ClaimedBy = @worker, m.ClaimedAt = SYSUTCDATETIME(),
+       m.ClaimExpiresAt = DATEADD(SECOND, @lease, SYSUTCDATETIME())
+   <span class="k">OUTPUT</span> inserted.EventId
+<span class="k">FROM</span> &lt;outbox-table&gt; m
+<span class="k">WHERE</span> m.ProcessedAt <span class="k">IS NULL</span> <span class="k">AND</span> m.DeadLetteredAt <span class="k">IS NULL</span>
+  <span class="k">AND</span> (m.NextAttemptAt <span class="k">IS NULL</span> <span class="k">OR</span> m.NextAttemptAt &lt;= SYSUTCDATETIME())
+  <span class="k">AND</span> (m.ClaimExpiresAt <span class="k">IS NULL</span> <span class="k">OR</span> m.ClaimExpiresAt &lt;= SYSUTCDATETIME());</div>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>OutboxMessage.cs</code>, <code>OutboxMessageConfiguration.cs</code>, <code>OutboxProcessor.cs</code>. <b>Migration:</b> <code>OutboxMessageLease</code> — three columns plus the claim-supporting index.</li>
+          <li><b>Tests:</b> <b>integration only</b> — the claim is SQL-Server semantics (<code>READPAST</code>/<code>UPDLOCK</code>) the InMemory provider cannot model. Use LocalDB / Testcontainers and assert two concurrent processors never dispatch the same message, and that an expired lease is reclaimed.</li>
+          <li><b>Good news:</b> the relational harness already exists — <code>tests/Aonik.Finance.IntegrationTests</code> runs against a Testcontainers SQL&nbsp;Server fixture (<code>SqlServerContainerFixture</code>), and <code>LedgerInvariantSqlServerTests</code> already exercises ledger invariants there. H8's claim test and C1/H5's race tests extend that suite rather than needing new infrastructure.</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-high">Impact <b>High</b> (at scale-out)</span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Independent</span></div>
+    </article>
+
+    <article class="finding lvl-h" id="H9">
+      <div class="f-head"><span class="f-id h">H9</span><h3 class="f-title">The recurring sync job scopes itself to Guid.Empty and sees no rows</h3></div>
+      <div class="f-tags"><span class="tag sev-h">High</span><span class="tag th corr">Correctness</span><span class="tag dep">no migration</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <span class="path">src/Aonik.Worker/Jobs/FinancialConnectionRecurringSyncJob.cs:50</span> sets <code>_tenantContext.TenantId = Guid.Empty</code>, then queries <code>.FinancialConnections</code> at <span class="path">:64</span> <b>without</b> <code>.AcrossTenants()</code>. The global tenant filter scopes the query to <code>TenantId == Guid.Empty</code>, which matches no real connection — so the job silently processes nothing. The correct pattern is right next door: <span class="path">CustomerInsightSnapshotJob.cs:49</span> sets <code>TenantId = null</code> with <code>.AcrossTenants()</code> to enumerate, then <span class="path">:83&ndash;84</span> sets <code>TenantId = user.TenantId; ResolutionSource = "system"</code> per item, resetting to null after (<span class="path">:153&ndash;154</span>).
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — mirror the working job</h4>
+        <p>Set <code>_tenantContext.TenantId = null</code> (with <code>ResolutionSource</code>) and add <code>.AcrossTenants()</code> to the enumeration query; then, per connection, set <code>_tenantContext.TenantId = connection.TenantId; ResolutionSource = "system";</code> before doing its work, resetting to null after the loop. <code>.AcrossTenants()</code> is the sanctioned filter bypass — bare <code>IgnoreQueryFilters</code> is banned by <code>BannedSymbols.txt</code>.</p>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>FinancialConnectionRecurringSyncJob.cs</code> only. <b>Migration:</b> none.</li>
+          <li><b>Tests (InMemory):</b> seed connections across two tenants; assert the job enumerates all of them and processes each under its own tenant scope. Covered by <code>TestTenantProvider</code> + the settable <code>ITenantContext</code>.</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-high">Impact <b>High</b> (job is a no-op today)</span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Independent</span></div>
+    </article>
+
+    <article class="finding lvl-m" id="M9">
+      <div class="f-head"><span class="f-id m">M9</span><h3 class="f-title">User-initiated transactions aren't wrapped in the retrying execution strategy</h3></div>
+      <div class="f-tags"><span class="tag sev-m">Medium</span><span class="tag th corr">Correctness</span><span class="tag dep">shares wrapper with C2</span></div>
+      <div class="f-block"><h4>Current state — verified</h4>
+        <div class="evidence"><span class="lbl">Evidence</span>
+          <span class="path">src/Aonik.PersonalFinance/Services/PersonalFinance/HouseholdService.cs:236&ndash;240</span> (and <code>AddMemberAsync</code> near <span class="path">:310</span>) and <span class="path">FinancialLifeGraphWriteService.cs:65&ndash;69</span> open <code>BeginTransactionAsync(IsolationLevel.Serializable)</code> guarded by <code>useTransaction = IsRelational()</code>. <code>PersonalFinanceModule.cs:56</code> registers the context with <code>EnableRetryOnFailure</code>. A retrying execution strategy throws on a user-initiated <code>BeginTransaction</code> unless the whole unit is wrapped in <code>CreateExecutionStrategy().ExecuteAsync(&hellip;)</code> — and there is <b>no such wrap anywhere today</b>. The first transient retry on these paths throws <span class="path">"&hellip;does not support user-initiated transactions."</span>
+        </div>
+      </div>
+      <div class="f-block"><h4>The change — wrap the unit</h4>
+        <p>Wrap each begin&rarr;work&rarr;commit block in the execution strategy, keeping the <code>useTransaction = IsRelational()</code> branch so the InMemory path stays transaction-less:</p>
+        <div class="codeblock"><span class="k">var</span> strategy = _dbContext.Database.CreateExecutionStrategy();
+<span class="k">await</span> strategy.ExecuteAsync(<span class="k">async</span> () =&gt;
+{
+    <span class="k">await using var</span> tx = useTransaction
+        ? <span class="k">await</span> _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
+        : <span class="k">null</span>;
+    <span class="c">// re-read entities here — the delegate may run more than once</span>
+    <span class="c">// &hellip; work &hellip;</span>
+    <span class="k">if</span> (tx is not null) <span class="k">await</span> tx.CommitAsync(ct);
+});</div>
+        <p>The delegate must be <b>re-runnable</b>: re-read entities inside it and don't depend on state mutated before the boundary, because the strategy may invoke it more than once.</p>
+      </div>
+      <div class="f-block"><h4>Files &middot; migration &middot; tests</h4>
+        <ul>
+          <li><b>Files:</b> <code>HouseholdService.cs</code>, <code>FinancialLifeGraphWriteService.cs</code>. <b>Migration:</b> none. C2's new transaction uses this same wrapper — do M9 first, or factor a shared helper.</li>
+          <li><b>Tests:</b> behavior unchanged on InMemory (transaction skipped); the retry-safety itself is only observable on SQL&nbsp;Server — note it rather than over-asserting in a unit test.</li>
+        </ul>
+      </div>
+      <div class="f-foot"><span class="pill imp-med">Impact <b>Medium</b></span><span class="pill imp-low">Effort <b>Low</b></span><span class="pill">Independent &middot; do before C2</span></div>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">05</span><span class="ttl">Migrations &amp; seed</span></div>
+    <h2 class="lead">Three schema migrations, one seed addition.</h2>
+    <p class="sub">Every migration is generated by the EF&nbsp;Core CLI against the single canonical <code>AonikDbContext</code> — never hand-authored, per the migration rules. Generate, review that the <code>.cs</code> contains only the intended change, apply locally, commit both the <code>.cs</code> and the <code>.Designer.cs</code>.</p>
+    <table class="mtable">
+      <thead><tr><th>#</th><th>Finding</th><th>Name</th><th>Adds</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td><td><span class="rid">C1</span></td><td class="nm">JournalEntryIdempotencyIndex</td>
+          <td>Filtered unique index on <code>(TenantId, SourceType, SourceId)</code> <code>WHERE [SourceType] &lt;&gt; 'Manual'</code></td>
+          <td>Resolve any existing non-Manual duplicate keys <em>first</em>, or creation fails</td>
+        </tr>
+        <tr>
+          <td>2</td><td><span class="rid">H5</span></td><td class="nm">OrderIdempotencyUniqueIndex</td>
+          <td>Filtered unique index on <code>(TenantId, OrderType, IdempotencyKey)</code> <code>WHERE [IdempotencyKey] IS NOT NULL</code></td>
+          <td>Orders without a key stay unconstrained</td>
+        </tr>
+        <tr>
+          <td>3</td><td><span class="rid">H8</span></td><td class="nm">OutboxMessageLease</td>
+          <td>Columns <code>ClaimedAt</code>, <code>ClaimExpiresAt</code>, <code>ClaimedBy</code> + claim-supporting index</td>
+          <td>Enables the atomic <code>READPAST</code>/<code>UPDLOCK</code> claim</td>
+        </tr>
+        <tr class="seedrow">
+          <td>&mdash;</td><td><span class="rid">C2</span></td><td class="nm">(not a migration)</td>
+          <td>Add <code>2100 "Payments Clearing"</code> (Liability) to <code>CreateDefaultChartOfAccounts</code> + repair-backfill</td>
+          <td>Data/seed change; existing tenants self-heal via provisioning validate</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="card" style="margin-top:18px">
+      <h3>Commands — generate each separately</h3>
+      <div class="cmd"><span class="p">$</span> dotnet ef migrations add JournalEntryIdempotencyIndex <span class="f">--project</span> src/Aonik.Infrastructure <span class="f">--startup-project</span> src/Aonik.Api
+<span class="p">$</span> dotnet ef migrations add OrderIdempotencyUniqueIndex   <span class="f">--project</span> src/Aonik.Infrastructure <span class="f">--startup-project</span> src/Aonik.Api
+<span class="p">$</span> dotnet ef migrations add OutboxMessageLease            <span class="f">--project</span> src/Aonik.Infrastructure <span class="f">--startup-project</span> src/Aonik.Api
+<span class="p">$</span> dotnet ef database update <span class="f">--project</span> src/Aonik.Infrastructure <span class="f">--startup-project</span> src/Aonik.Api</div>
+      <p style="margin-top:.4em"><b>Review checklist.</b> Each migration touches only its one table; both filtered indexes carry the <code>WHERE</code> filter (EF <code>.HasFilter(&hellip;)</code>); no unintended column drops from snapshot drift; confirm applied with <code>dotnet ef migrations list</code>. <b>The C1 filter is load-bearing</b> — an unfiltered unique index fails immediately because every legacy row is <code>("Manual", Guid.Empty)</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">06</span><span class="ttl">Testing strategy</span></div>
+    <h2 class="lead">What the InMemory provider can prove — and what it can't.</h2>
+    <p class="sub">The pure-logic fixes are unit-testable with the existing InMemory + <code>TestTenantProvider</code> patterns. The database-level guarantees are not: the InMemory provider does not enforce unique or filtered indexes and cannot execute raw SQL. Anything whose correctness lives in the database needs a relational test (SQL&nbsp;Server LocalDB or Testcontainers).</p>
+    <div class="notecols">
+      <div class="notebox mem">
+        <h4>InMemory-testable (existing patterns)</h4>
+        <ul>
+          <li><span class="rid">H3</span> rejects a cross-currency / multi-currency entry</li>
+          <li><span class="rid">C1</span> app-level idempotency — second post returns the existing entry</li>
+          <li><span class="rid">H6</span> lifecycle transitions and guard rejections</li>
+          <li><span class="rid">C2</span> postings land on the right accounts/amounts/source keys; resolver throws when Clearing is absent</li>
+          <li><span class="rid">H5</span> trim symmetry — same key, with/without whitespace, &rarr; one order</li>
+          <li><span class="rid">H9</span> enumerates all tenants, scopes per connection</li>
+          <li><span class="rid">M9</span> behavior unchanged (transaction skipped on InMemory)</li>
+        </ul>
+      </div>
+      <div class="notebox rel">
+        <h4>Relational / integration only</h4>
+        <ul>
+          <li><span class="rid">C1</span> unique-index race — concurrent posts, one wins</li>
+          <li><span class="rid">H5</span> unique-index race — concurrent duplicate returns existing</li>
+          <li><span class="rid">H8</span> the <code>READPAST</code>/<code>UPDLOCK</code> claim + expired-lease reclaim</li>
+          <li><span class="rid">C2</span> the posting idempotency race</li>
+          <li><span class="rid">M9</span> the actual retry semantics under <code>EnableRetryOnFailure</code></li>
+        </ul>
+      </div>
+    </div>
+    <p style="margin-top:18px;font-size:14.5px;color:var(--muted)">The relational harness already exists: <code>tests/Aonik.Finance.IntegrationTests</code> runs against a Testcontainers SQL&nbsp;Server fixture (<code>SqlServerContainerFixture</code> / <code>SqlServerCollection</code>), and <code>LedgerInvariantSqlServerTests</code> already locks ledger invariants there. The right-hand column extends that suite — there's no new harness to stand up, which lowers the cost of the race and claim tests considerably.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">07</span><span class="ttl">Sequencing</span></div>
+    <h2 class="lead">Order of operations.</h2>
+    <p class="sub">Build the cluster in dependency order; run the four independents alongside. Suggested as discrete PRs so each stays reviewable and individually revertible.</p>
+    <div class="card" style="padding:8px 26px">
+      <div class="phase">
+        <div class="pn">1</div>
+        <div>
+          <h4>H3 — per-currency balance guard</h4>
+          <div class="when">Cluster &middot; first &middot; no migration</div>
+          <ul><li><span class="rid">H3</span>Reject multi-currency entries</li><li>+ unit tests</li></ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">2</div>
+        <div>
+          <h4>C1 — identity + idempotency + unique index</h4>
+          <div class="when">Cluster &middot; needs nothing, enables C2 &middot; migration</div>
+          <ul><li><span class="rid">C1</span>Source keys on the DTO</li><li>Idempotent post</li><li>Filtered unique index</li><li>+ relational race test</li></ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">3</div>
+        <div>
+          <h4>H6 — authorize step + real payer/method</h4>
+          <div class="when">Cluster &middot; unblocks capture &middot; no migration</div>
+          <ul><li><span class="rid">H6</span>AuthorizePaymentAsync</li><li>Payer/method fields</li><li>Authorize endpoint</li><li>+ lifecycle tests</li></ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">4</div>
+        <div>
+          <h4>C2 — post to the ledger on capture &amp; mark-paid</h4>
+          <div class="when">Cluster &middot; depends on 1&ndash;3 (and M9's wrapper) &middot; seed change</div>
+          <ul><li><span class="rid">C2</span>Inject ILedgerService</li><li>ChartOfAccountsResolver</li><li>Clearing seed + backfill</li><li>Same-transaction post</li><li>+ posting &amp; idempotency tests</li></ul>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn par">∥</div>
+        <div>
+          <h4>Parallel track — the four independents</h4>
+          <div class="when">Any time against the cluster · M9 before/with C2</div>
+          <ul>
+            <li><span class="rid">M9</span>Execution-strategy wrap <span style="color:var(--high)">(do first — C2 reuses it)</span></li>
+            <li><span class="rid">H5</span>Trim + filtered unique index + DbUpdateException catch</li>
+            <li><span class="rid">H9</span>Tenant scoping fix</li>
+            <li><span class="rid">H8</span>Lease columns + atomic claim + reclaim <span style="color:var(--high)">(needs relational harness)</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:18px;font-size:15px;color:var(--body)"><b>The critical path is 1&nbsp;&rarr;&nbsp;2&nbsp;&rarr;&nbsp;4</b>, with H6 (step&nbsp;3) and M9 both landing before C2. H5, H9, and H8 can be picked up by anyone at any point. The shortest route to "money can no longer reach a paid state without a ledger entry" is the four cluster cards in order; the independents harden the surrounding plumbing while that lands.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap col">
+    <div class="eyebrow"><span class="num">08</span><span class="ttl">How this plan was built</span></div>
+    <h2 class="lead">Method &amp; standing constraints.</h2>
+    <div class="method-grid">
+      <div>
+        <h4>Grounding</h4>
+        <p>Every "current state" was re-read against current source before it was written here — the balance check and entry construction in <code>LedgerService</code>, the empty source identity on <code>AddJournalEntryRequest</code>, the seeded chart of accounts (which has no clearing account), the payment lifecycle gap, and each independent finding's touch-points. Where a line number is cited, it was verified, not recalled.</p>
+      </div>
+      <div>
+        <h4>Constraints honoured</h4>
+        <p>This is a plan: <b>no source under <code>src/</code> was modified.</b> All three migrations are tool-generated against the single canonical <code>AonikDbContext</code> — never hand-authored. The three decisions you set are applied as locked: two-step auth&rarr;capture (H6), a minimal chart-of-accounts resolved by <code>Code</code> (C2), and one combined dependency-ordered plan.</p>
+      </div>
+    </div>
+    <div class="disclaim">
+      <b>One open decision before C2 ships.</b> Whether a capture and an invoice mark-paid can both fire for the same money is accounting policy, not code — it changes only the credit account on mark-paid (Clearing vs Receivable). The recommended defaults and the no-double-count pairing are in the C2 card; this is the single point worth a finance-owner sign-off. The proposed Clearing code <code>2100</code> is a suggestion — confirm it fits the existing chart numbering.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
