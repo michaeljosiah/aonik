@@ -17,7 +17,7 @@ public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, 
     public override void Configure()
     {
         Post("/payments/intents");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a payment intent";

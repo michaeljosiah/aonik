@@ -17,7 +17,7 @@ public class AuthorizePaymentEndpoint : EndpointWithoutRequest<PaymentIntentResp
     public override void Configure()
     {
         Post("/payments/intents/{id}/authorize");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Authorize a payment intent";

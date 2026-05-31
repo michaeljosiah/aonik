@@ -17,7 +17,7 @@ public class UpdateFxQuoteEndpoint : Endpoint<UpdateFxQuoteRequest, FxQuoteDetai
     public override void Configure()
     {
         Put("/fx-quotes/{id}");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update an FX quote";

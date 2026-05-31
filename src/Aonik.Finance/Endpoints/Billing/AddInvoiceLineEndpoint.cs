@@ -17,7 +17,7 @@ public class AddInvoiceLineEndpoint : Endpoint<AddInvoiceLineRequest, InvoiceRes
     public override void Configure()
     {
         Post("/billing/invoices/{id}/lines");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Add a line item to an invoice";

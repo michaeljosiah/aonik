@@ -17,7 +17,7 @@ public class AddJournalEntryEndpoint : Endpoint<AddJournalEntryRequest, JournalE
     public override void Configure()
     {
         Post("/ledger/journal-entries");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Add a journal entry";

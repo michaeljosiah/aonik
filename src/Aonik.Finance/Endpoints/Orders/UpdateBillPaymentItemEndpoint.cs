@@ -17,7 +17,7 @@ public class UpdateBillPaymentItemEndpoint : Endpoint<UpdateBillPaymentItemReque
     public override void Configure()
     {
         Put("/orders/{orderId:guid}/items/{orderItemId:guid}");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update a bill payment item";

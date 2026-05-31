@@ -16,7 +16,7 @@ public class DeleteFxQuoteEndpoint : EndpointWithoutRequest
     public override void Configure()
     {
         Delete("/fx-quotes/{id}");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete an FX quote";

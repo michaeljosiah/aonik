@@ -384,6 +384,18 @@ public static class DependencyInjection
                     ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations", "ReadOnly"],
                     Array.Empty<string>())));
 
+            // Write variant of AdminUserPolicy: the same role set MINUS the read-only
+            // role. RoleOrPermissionAuthorizationHandler succeeds on any role match, so
+            // a principal named ReadOnly would otherwise satisfy AdminUserPolicy and reach
+            // state-changing finance endpoints (H12 privilege-escalation gap). Mutating
+            // endpoints reference this policy; read/compute-only endpoints stay on
+            // AdminUserPolicy so ReadOnly keeps its read access. PersonalUser is retained
+            // here because Payabo (B2C) self-service legitimately mutates its own orders.
+            options.AddPolicy("AdminUserWritePolicy", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations"],
+                    Array.Empty<string>())));
+
             // Mobile voice policy — Payabo end users + admin smoke testers. Originally
             // PersonalUser-only (spec 022 Phase 1); spec 024 Phase E* added an in-admin "Live
             // voice test" card on the Voice Mode tab that needs admin tokens to connect. The

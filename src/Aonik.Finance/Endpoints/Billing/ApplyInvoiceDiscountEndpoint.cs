@@ -17,7 +17,7 @@ public class ApplyInvoiceDiscountEndpoint : Endpoint<ApplyDiscountRequest, Invoi
     public override void Configure()
     {
         Post("/billing/invoices/{id}/discount");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Apply a discount to an invoice";

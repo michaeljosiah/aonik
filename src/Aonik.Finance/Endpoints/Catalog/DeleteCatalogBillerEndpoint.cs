@@ -16,7 +16,7 @@ internal class DeleteCatalogBillerEndpoint : EndpointWithoutRequest
     public override void Configure()
     {
         Delete("/catalog/billers/{billerId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete biller";

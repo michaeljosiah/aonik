@@ -17,7 +17,7 @@ public class CancelPaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespons
     public override void Configure()
     {
         Post("/payments/intents/{id}/cancel");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Cancel a payment intent";

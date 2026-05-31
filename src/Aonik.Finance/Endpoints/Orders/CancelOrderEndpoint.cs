@@ -17,7 +17,7 @@ public class CancelOrderEndpoint : Endpoint<CancelOrderRequest, BillPaymentOrder
     public override void Configure()
     {
         Post("/orders/{orderId:guid}/cancel");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Cancel an order";

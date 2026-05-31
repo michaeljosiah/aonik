@@ -18,7 +18,7 @@ public class CreateInvoiceEndpoint : Endpoint<CreateInvoiceRequest, InvoiceRespo
     public override void Configure()
     {
         Post("/billing/invoices");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         // Declarative permission gate — cannot be silently bypassed by
         // forgetting to call EnsurePermissionAsync inside the service.
         this.RequiresPermission("Invoice.Create");

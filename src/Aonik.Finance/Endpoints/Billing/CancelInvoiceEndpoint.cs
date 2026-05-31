@@ -17,7 +17,7 @@ public class CancelInvoiceEndpoint : EndpointWithoutRequest<InvoiceResponse>
     public override void Configure()
     {
         Post("/billing/invoices/{id}/cancel");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Cancel an invoice";

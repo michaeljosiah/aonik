@@ -17,7 +17,7 @@ public class CreateBillPaymentOrderEndpoint : Endpoint<CreateBillPaymentOrderReq
     public override void Configure()
     {
         Post("/orders/bill-payments");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a bill payment order";

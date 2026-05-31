@@ -16,7 +16,7 @@ public class RemoveBillPaymentItemEndpoint : EndpointWithoutRequest
     public override void Configure()
     {
         Delete("/orders/{orderId:guid}/items/{orderItemId:guid}");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Remove a bill payment item";

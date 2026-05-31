@@ -17,7 +17,7 @@ public class MarkInvoicePaidEndpoint : EndpointWithoutRequest<InvoiceResponse>
     public override void Configure()
     {
         Post("/billing/invoices/{id}/mark-paid");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Mark an invoice as paid";

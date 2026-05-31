@@ -17,7 +17,7 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
     public override void Configure()
     {
         Post("/payments/intents/{id}/capture");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Capture a payment intent";

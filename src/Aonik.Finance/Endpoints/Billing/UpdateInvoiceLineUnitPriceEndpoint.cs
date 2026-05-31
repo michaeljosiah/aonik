@@ -17,7 +17,7 @@ public class UpdateInvoiceLineUnitPriceEndpoint : Endpoint<UpdateLineUnitPriceRe
     public override void Configure()
     {
         Put("/billing/invoices/{id}/lines/{lineId}/unit-price");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update a line item unit price";

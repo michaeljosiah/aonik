@@ -17,7 +17,7 @@ public class SubmitOrderEndpoint : EndpointWithoutRequest<BillPaymentOrderRespon
     public override void Configure()
     {
         Post("/orders/{orderId:guid}/submit");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Submit an order for processing";

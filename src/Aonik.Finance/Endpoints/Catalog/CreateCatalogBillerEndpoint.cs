@@ -17,7 +17,7 @@ internal class CreateCatalogBillerEndpoint : Endpoint<CreateCatalogBillerRequest
     public override void Configure()
     {
         Post("/catalog/billers");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create biller";

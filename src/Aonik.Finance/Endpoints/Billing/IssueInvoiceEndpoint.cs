@@ -17,7 +17,7 @@ public class IssueInvoiceEndpoint : EndpointWithoutRequest<InvoiceResponse>
     public override void Configure()
     {
         Post("/billing/invoices/{id}/issue");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Issue a draft invoice";

@@ -17,7 +17,7 @@ public class AddBillPaymentItemEndpoint : Endpoint<CreateBillPaymentItemRequest,
     public override void Configure()
     {
         Post("/orders/{orderId:guid}/items/bill-payments");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Add a bill payment item to an order";

@@ -17,7 +17,7 @@ public class UpdateInvoiceLineQuantityEndpoint : Endpoint<UpdateLineQuantityRequ
     public override void Configure()
     {
         Put("/billing/invoices/{id}/lines/{lineId}/quantity");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update a line item quantity";

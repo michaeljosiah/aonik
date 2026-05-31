@@ -17,7 +17,7 @@ public class CreateLedgerAccountEndpoint : Endpoint<CreateLedgerAccountRequest, 
     public override void Configure()
     {
         Post("/ledger/accounts");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a ledger account";

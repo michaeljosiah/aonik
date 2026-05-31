@@ -17,7 +17,7 @@ internal class UpdateCatalogBillerEndpoint : Endpoint<UpdateCatalogBillerRequest
     public override void Configure()
     {
         Put("/catalog/billers/{billerId}");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update biller";

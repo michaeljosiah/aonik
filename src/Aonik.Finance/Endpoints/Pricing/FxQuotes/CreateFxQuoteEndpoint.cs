@@ -17,7 +17,7 @@ public class CreateFxQuoteEndpoint : Endpoint<CreateFxQuoteRequest, FxQuoteDetai
     public override void Configure()
     {
         Post("/fx-quotes");
-        Policies("AdminUserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create an FX quote";
