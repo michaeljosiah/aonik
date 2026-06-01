@@ -1,347 +1,256 @@
-// Partners — visual port of ScreenPartners in
-// templates/aonik-admin-starterkit/screens/journal-partners.jsx, wired to
-// the existing /admin/partners endpoint.
+// Partner Network hub — operator surface for Spec 031 (partners: B2B /
+// cross-border money plumbing). Upgrades the former simple /catalog/partners
+// list into a six-tab hub with an internal left sub-nav, modelled on
+// Templates/aonik-admin-starterkit/screens/partner-hub.jsx.
 //
-// Differences from the template, called out so they don't read as gaps:
-//   • Throughput / error rate / fee / latency / heartbeat are runtime
-//     metrics that aren't on PartnerListItem. We surface real DTO
-//     fields instead — branch / connector / routing-rule / linked-biller
-//     counts. Same "scannable card with four numbers" shape.
-//   • Coverage countries map to the template's "rails" pill row (mono,
-//     teal-tinted), capped at first 6 with overflow indicator.
-//   • "Trace" action button is dropped — needs a partner-level trace
-//     viewer that doesn't exist yet.
+// Data fidelity = "real data, honest gaps":
+//   • Overview / Partners / Coverage aggregate partnerService.list (one page,
+//     up to PARTNER_LOAD_CAP) client-side.
+//   • Routing / Activity stitch together per-partner partnerService.get detail
+//     via a single bounded fan-out (usePartnerDetails), latched on first use.
+//   • Updates is an honest "awaiting backend" surface — there is no webhook
+//     inbox endpoint yet (gap C4).
+// No throughput / settlement / fee telemetry is invented; where a metric has no
+// backing field we either omit it or say so.
+//
+// The export name `CatalogPartnersPage` is preserved so the finance module's
+// route + workspace-panel registration need no changes. The standalone partner
+// detail page (/catalog/partners/:partnerId) is unchanged.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { AlertCircle, Plus, RefreshCw } from 'lucide-react';
-
 import {
-  AgentAvatar,
-  Card as AonikCard,
-  FilterBar,
-  type FilterBarTab,
-  PageHeader,
-  Pill,
-  type PillTone,
-} from '@/components/layout/aonik';
+  Activity as ActivityIcon,
+  AlertCircle,
+  Globe,
+  Inbox,
+  LayoutDashboard,
+  Network,
+  Plus,
+  RefreshCw,
+  Route as RouteIcon,
+  type LucideIcon,
+} from 'lucide-react';
+
+import { PageHeader } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
 import { CreatePartnerDialog } from '@/components/dialogs/CreatePartnerDialog';
-import { DataTablePagination } from '@/components/ui/data-table';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
+import { cn } from '@/lib/utils';
 import { partnerService } from '@/services/partnerService';
-import type { PagedResult } from '@/types';
-import type { CreatePartnerRequest, PartnerListItem } from '@/types/partners';
+import type { CreatePartnerRequest } from '@/types/partners';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────
+import { usePartnerDetails, usePartnerNetwork } from './partner-network/usePartnerNetwork';
+import { OverviewTab } from './partner-network/OverviewTab';
+import { PartnersTab } from './partner-network/PartnersTab';
+import { CoverageTab } from './partner-network/CoverageTab';
+import { RoutingTab } from './partner-network/RoutingTab';
+import { ActivityTab } from './partner-network/ActivityTab';
+import { UpdatesTab } from './partner-network/UpdatesTab';
 
-const STATUS_TONE: Record<string, PillTone> = {
-  Active: 'success',
-  Pending: 'warning',
-  Suspended: 'danger',
-  Inactive: 'muted',
-  Healthy: 'success',
-  Degraded: 'warning',
-  Incident: 'danger',
-};
+type HubTabId = 'overview' | 'partners' | 'coverage' | 'routing' | 'activity' | 'updates';
 
-const FILTER_TABS: FilterBarTab[] = [
-  { value: '', label: 'All' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Suspended', label: 'Suspended' },
-  { value: 'Inactive', label: 'Inactive' },
+interface HubNavItem {
+  id: HubTabId;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAV_GROUPS: { label: string; items: HubNavItem[] }[] = [
+  {
+    label: 'Network',
+    items: [
+      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+      { id: 'partners', label: 'Partners', icon: Network },
+      { id: 'coverage', label: 'Coverage', icon: Globe },
+    ],
+  },
+  {
+    label: 'Money movement',
+    items: [
+      { id: 'routing', label: 'Routing', icon: RouteIcon },
+      { id: 'activity', label: 'Activity', icon: ActivityIcon },
+      { id: 'updates', label: 'Updates', icon: Inbox },
+    ],
+  },
 ];
 
-function formatDate(value?: string | null): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function formatRelative(value?: string | null): string {
-  if (!value) return '—';
-  const diff = Date.now() - new Date(value).getTime();
-  const minutes = Math.round(diff / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
-}
-
-// ─── Page ────────────────────────────────────────────────────────────────
+const TAB_TITLE: Record<HubTabId, { title: string; subtitle: string }> = {
+  overview: { title: 'Partner Network', subtitle: '' },
+  partners: { title: 'Partners', subtitle: 'Every connected partner and its configuration' },
+  coverage: { title: 'Coverage', subtitle: 'Which markets each partner serves' },
+  routing: { title: 'Routing', subtitle: 'How money-movement instructions are routed to connectors' },
+  activity: { title: 'Activity', subtitle: 'Recent partner transmission attempts' },
+  updates: { title: 'Updates', subtitle: 'Inbound partner webhook events' },
+};
 
 export function CatalogPartnersPage() {
   const navigate = useNavigate();
-
-  const [partners, setPartners] = useState<PartnerListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize, setPageSize] = useState(24);
-  const [totalCount, setTotalCount] = useState(0);
+  const data = usePartnerNetwork();
+  const [activeTab, setActiveTab] = useState<HubTabId>('overview');
   const [createOpen, setCreateOpen] = useState(false);
-  const requestIdRef = useRef(0);
 
-  const loadPartners = useCallback(async () => {
-    const requestId = ++requestIdRef.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const result: PagedResult<PartnerListItem> = await partnerService.list({
-        pageNumber,
-        pageSize,
-        status: statusFilter || undefined,
-        search: searchQuery || undefined,
-      });
-      if (requestIdRef.current !== requestId) return;
-      setPartners(result.items);
-      setTotalCount(result.totalCount);
-    } catch (err: unknown) {
-      if (requestIdRef.current !== requestId) return;
-      const message =
-        err && typeof err === 'object' && 'userMessage' in err
-          ? String((err as { userMessage?: string }).userMessage ?? '')
-          : '';
-      setError(message || 'Failed to load partners.');
-    } finally {
-      if (requestIdRef.current === requestId) {
-        setLoading(false);
-        setInitialLoad(false);
-      }
-    }
-  }, [pageNumber, pageSize, statusFilter, searchQuery]);
-
+  // The Routing/Activity per-partner fan-out is lazy and latched: it is not paid
+  // until the operator first opens one of those tabs, and stays armed afterwards
+  // so toggling between them (or away and back) doesn't refetch.
+  const [detailsArmed, setDetailsArmed] = useState(false);
   useEffect(() => {
-    void loadPartners();
-  }, [loadPartners]);
+    if (activeTab === 'routing' || activeTab === 'activity') setDetailsArmed(true);
+  }, [activeTab]);
+  const details = usePartnerDetails(data.partners, detailsArmed);
 
-  useEffect(() => {
-    setPageNumber(1);
-  }, [searchQuery, statusFilter]);
+  const onOpenPartner = useCallback(
+    (partnerId: string) => navigate(`/catalog/partners/${partnerId}`),
+    [navigate],
+  );
 
   const handleCreate = useCallback(
-    async (data: CreatePartnerRequest) => {
+    async (req: CreatePartnerRequest) => {
       try {
-        await partnerService.create(data);
+        await partnerService.create(req);
         toast.success('Partner created');
-        await loadPartners();
+        data.reload();
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to create partner';
         toast.error(message);
         throw err;
       }
     },
-    [loadPartners],
+    [data],
   );
 
-  // ─── Header counts ────────────────────────────────────────────────────
+  const overviewSubtitle = useMemo(
+    () =>
+      data.totalCount === 1
+        ? '1 partner moving money on your behalf'
+        : `${data.totalCount} partners moving money on your behalf`,
+    [data.totalCount],
+  );
 
-  const statusCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of partners) counts.set(p.status, (counts.get(p.status) ?? 0) + 1);
-    return counts;
-  }, [partners]);
-
-  const subtitle = (() => {
-    if (totalCount === 0) {
-      return 'Payment-rail and processor partners';
-    }
-    const fragments: string[] = [`${totalCount.toLocaleString()} total`];
-    if (statusCounts.has('Suspended')) {
-      fragments.push(`${statusCounts.get('Suspended')} suspended`);
-    }
-    if (statusCounts.has('Pending')) {
-      fragments.push(`${statusCounts.get('Pending')} pending`);
-    }
-    return fragments.join(' · ');
-  })();
-
-  if (initialLoad) {
-    return <PageLoadingScreen message="Loading partners" />;
+  // Full-screen loader only on the very first load, matching prior behaviour.
+  if (data.loading && data.partners.length === 0 && !data.error) {
+    return <PageLoadingScreen message="Loading partner network" />;
   }
 
+  const meta = TAB_TITLE[activeTab];
+  const subtitle = activeTab === 'overview' ? overviewSubtitle : meta.subtitle;
+
   return (
-    <div className="flex flex-col gap-5 p-6 md:px-8">
-      <PageHeader
-        eyebrow="Finance · Network"
-        title="Partners"
-        subtitle={subtitle}
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={() => void loadPartners()} disabled={loading}>
-              <RefreshCw className={'h-3 w-3 ' + (loading ? 'animate-spin' : '')} />
-              Re-sync
-            </Button>
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3 w-3" />
-              Add partner
-            </Button>
-          </>
-        }
-      />
-
-      {error && (
-        <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-          <AlertCircle className="h-4 w-4 flex-none" />
-          <span className="flex-1">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadPartners()}>
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </Button>
-        </div>
-      )}
-
-      <FilterBar
-        tabs={FILTER_TABS}
-        active={statusFilter}
-        onTabChange={setStatusFilter}
-        search={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Filter partners by name, country…"
-        hideFilterButton
-      />
-
-      {loading && partners.length === 0 ? (
-        <AonikCard>
-          <div className="flex items-center justify-center py-10">
-            <RefreshCw className="h-5 w-5 animate-spin text-[var(--color-brand-primary)]" />
-          </div>
-        </AonikCard>
-      ) : partners.length === 0 ? (
-        <AonikCard>
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <p className="text-sm font-medium text-[var(--color-text-primary)]">
-              No partners found
-            </p>
-            <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
-              {searchQuery || statusFilter
-                ? 'Try adjusting the active tab or search.'
-                : 'Add the first partner to start routing payments.'}
-            </p>
-          </div>
-        </AonikCard>
-      ) : (
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
-          {partners.map((partner) => (
-            <PartnerCard
-              key={partner.partnerId}
-              partner={partner}
-              onClick={() => navigate(`/catalog/partners/${partner.partnerId}`)}
-            />
-          ))}
-        </div>
-      )}
-
-      {totalCount > pageSize && (
-        <AonikCard padding={0}>
-          <DataTablePagination
-            pageNumber={pageNumber}
-            pageSize={pageSize}
-            totalCount={totalCount}
-            onPageChange={setPageNumber}
-            onPageSizeChange={(n) => {
-              setPageSize(n);
-              setPageNumber(1);
-            }}
-            pageSizeOptions={[12, 24, 48, 96]}
+    <div className="flex min-h-full flex-col">
+      {/* Mobile sub-nav (the left rail is hidden below md). */}
+      <div className="flex gap-1 overflow-x-auto border-b border-[var(--color-border-light)] px-4 py-2 md:hidden">
+        {NAV_GROUPS.flatMap((g) => g.items).map((item) => (
+          <HubNavButton
+            key={item.id}
+            item={item}
+            active={activeTab === item.id}
+            onClick={() => setActiveTab(item.id)}
+            compact
           />
-        </AonikCard>
-      )}
+        ))}
+      </div>
 
-      <CreatePartnerDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSave={handleCreate}
-      />
+      <div className="flex min-h-full flex-1">
+        <aside className="hidden w-52 flex-none border-r border-[var(--color-border-light)] md:block">
+          <nav className="sticky top-0 flex flex-col gap-5 p-4">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.label} className="flex flex-col gap-1">
+                <p className="px-3 pb-1 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  {group.label}
+                </p>
+                {group.items.map((item) => (
+                  <HubNavButton
+                    key={item.id}
+                    item={item}
+                    active={activeTab === item.id}
+                    onClick={() => setActiveTab(item.id)}
+                  />
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="min-w-0 flex-1">
+          <div className="flex flex-col gap-5 p-6 md:px-8">
+            <PageHeader
+              eyebrow="Finance · Network"
+              title={meta.title}
+              subtitle={subtitle}
+              actions={
+                <>
+                  <Button variant="outline" size="sm" onClick={data.reload} disabled={data.loading}>
+                    <RefreshCw className={cn('h-3 w-3', data.loading && 'animate-spin')} />
+                    Re-sync
+                  </Button>
+                  <Button size="sm" onClick={() => setCreateOpen(true)}>
+                    <Plus className="h-3 w-3" />
+                    Add partner
+                  </Button>
+                </>
+              }
+            />
+
+            {data.error && (
+              <div className="flex items-center gap-3 rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+                <AlertCircle className="h-4 w-4 flex-none" />
+                <span className="flex-1">{data.error}</span>
+                <Button variant="outline" size="sm" onClick={data.reload}>
+                  <RefreshCw className="h-3 w-3" />
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {activeTab === 'overview' && (
+              <OverviewTab
+                data={data}
+                onOpenPartner={onOpenPartner}
+                onViewAllPartners={() => setActiveTab('partners')}
+              />
+            )}
+            {activeTab === 'partners' && <PartnersTab data={data} onOpenPartner={onOpenPartner} />}
+            {activeTab === 'coverage' && <CoverageTab data={data} onOpenPartner={onOpenPartner} />}
+            {activeTab === 'routing' && <RoutingTab details={details} onOpenPartner={onOpenPartner} />}
+            {activeTab === 'activity' && <ActivityTab details={details} onOpenPartner={onOpenPartner} />}
+            {activeTab === 'updates' && <UpdatesTab />}
+          </div>
+        </main>
+      </div>
+
+      <CreatePartnerDialog open={createOpen} onOpenChange={setCreateOpen} onSave={handleCreate} />
     </div>
   );
 }
 
-// ─── Partner card ────────────────────────────────────────────────────────
-
-interface PartnerCardProps {
-  partner: PartnerListItem;
+function HubNavButton({
+  item,
+  active,
+  onClick,
+  compact = false,
+}: {
+  item: HubNavItem;
+  active: boolean;
   onClick: () => void;
-}
-
-function PartnerCard({ partner, onClick }: PartnerCardProps) {
-  const tone = STATUS_TONE[partner.status] ?? 'default';
-  const visibleCountries = partner.coverageCountries.slice(0, 6);
-  const overflowCount = partner.coverageCountries.length - visibleCountries.length;
-
-  const stats: Array<[string, string | number]> = [
-    ['Branches', partner.branchCount],
-    ['Connectors', partner.connectorCount],
-    ['Routing rules', partner.activeRoutingRuleCount],
-    ['Linked billers', partner.linkedBillerCount],
-  ];
-
+  compact?: boolean;
+}) {
+  const Icon = item.icon;
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col gap-3.5 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] p-[18px] text-left transition-colors hover:border-[var(--color-brand-primary-20)] hover:bg-[var(--color-surface-inset)]"
-    >
-      <div className="flex items-center gap-3">
-        <AgentAvatar name={partner.name} size={36} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[14px] font-semibold text-[var(--color-text-primary)]">
-            {partner.name}
-          </div>
-          <div className="truncate font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
-            {partner.partnerId.slice(0, 8).toUpperCase()}
-          </div>
-        </div>
-        <Pill tone={tone} dot>
-          {partner.status}
-        </Pill>
-      </div>
-
-      {partner.coverageCountries.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {visibleCountries.map((country) => (
-            <span
-              key={country}
-              className="rounded bg-[var(--color-brand-primary-10)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[10px] font-semibold text-[var(--color-brand-primary)]"
-            >
-              {country}
-            </span>
-          ))}
-          {overflowCount > 0 && (
-            <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 font-[family-name:var(--font-mono)] text-[10px] font-semibold text-[var(--color-text-tertiary)]">
-              +{overflowCount}
-            </span>
-          )}
-        </div>
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-2.5 rounded-lg text-[13px] font-medium transition-colors',
+        compact ? 'flex-none px-3 py-1.5' : 'w-full px-3 py-2',
+        active
+          ? 'bg-[var(--color-brand-primary-10)] text-[var(--color-brand-primary)]'
+          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-text-primary)]',
       )}
-
-      <div className="grid grid-cols-2 gap-2.5 border-t border-[var(--color-border-light)] pt-2.5">
-        {stats.map(([label, value]) => (
-          <div key={label}>
-            <div className="text-[10px] uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
-              {label}
-            </div>
-            <div className="font-[family-name:var(--font-mono)] text-[13px] font-medium text-[var(--color-text-primary)]">
-              {value}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between font-[family-name:var(--font-mono)] text-[11px] text-[var(--color-text-tertiary)]">
-        <span>added · {formatDate(partner.createdAt)}</span>
-        {partner.updatedAt && <span>updated · {formatRelative(partner.updatedAt)}</span>}
-      </div>
+    >
+      <Icon size={15} className={cn('flex-none', !active && 'text-[var(--color-text-tertiary)]')} />
+      <span className="whitespace-nowrap">{item.label}</span>
     </button>
   );
 }
