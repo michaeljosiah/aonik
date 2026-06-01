@@ -182,7 +182,10 @@ export function EmptyState({ icon: Icon, title, description, action, className }
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
         <Icon size={20} />
       </div>
-      <div className="w-full max-w-md space-y-1">
+      {/* Arbitrary max-width: this project's Tailwind theme mis-resolves the named
+          `max-w-*` container scale (e.g. `max-w-md` computes to 16px), so the
+          literal value is used to keep the copy block at a sane reading width. */}
+      <div className="w-full max-w-[28rem] space-y-1">
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</p>
         {description && (
           <p className="text-[12.5px] leading-relaxed text-[var(--color-text-tertiary)]">{description}</p>
