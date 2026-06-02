@@ -31,6 +31,9 @@ Each ADR includes:
 | [003](003-no-generic-repository.md) | No Generic Repository Pattern Over EF Core | 2026-01-08 | Accepted |
 | [004](004-adopt-microsoft-agent-framework.md) | Adopt Microsoft Agent Framework (MAF) | 2026-02-22 | Accepted |
 | [005](005-adopt-module-first-modular-monolith.md) | Adopt Module-First Modular Monolith | 2026-02-24 | Accepted |
+| [006](006-extract-personal-finance-module.md) | Extract PersonalFinance into Its Own Sibling Module | 2026-05-19 | In Progress |
+| [007](007-keycloak-as-auth-provider.md) | Keycloak as a First-Class Operator-Choice Auth Provider | 2026-05-21 | Accepted |
+| [008](008-task-work-item-scheduling.md) | General-Purpose Task Primitive (WorkItem) in Platform | 2026-06-02 | Proposed |
 
 ### Superseded/Deprecated
 
