@@ -48,6 +48,7 @@ public sealed class ScopedDocumentVectorIndexTests
             DocumentType: "bank_statement", Purpose: null, Chunks: new[] { "alpha", "beta" });
 
         var upsertedIds = new List<string>();
+        StubEmptyScroll();
         StubBatchEmbeddings();
         _vectorStore
             .Setup(v => v.UpsertVectorAsync(
@@ -83,6 +84,7 @@ public sealed class ScopedDocumentVectorIndexTests
             new[] { "alpha", "beta" });
 
         var payloads = new List<Dictionary<string, object>>();
+        StubEmptyScroll();
         StubBatchEmbeddings();
         _vectorStore
             .Setup(v => v.UpsertVectorAsync(
@@ -98,6 +100,45 @@ public sealed class ScopedDocumentVectorIndexTests
         payloads[0]["document_id"].Should().Be(documentId.ToString());
         payloads[0]["chunk_index"].Should().Be(0);
         payloads[1]["chunk_index"].Should().Be(1);
+    }
+
+    [Fact]
+    public async Task IndexDocumentAsync_Should_Purge_Stale_Vectors_Before_Re_Indexing_Fewer_Chunks()
+    {
+        // Prior extraction left three chunks; the new extraction has only one. The two trailing
+        // chunks must be removed, not orphaned as still-searchable vectors.
+        var request = new DocumentIndexRequest(
+            Guid.NewGuid(), Guid.NewGuid(), DocumentClassification.Internal, "statement", null,
+            new[] { "the-only-remaining-chunk" });
+
+        var calls = new List<string>();
+        _vectorStore
+            .Setup(v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new VectorScrollPage(
+                new List<VectorPointResult> { new("stale-0"), new("stale-1"), new("stale-2") }, null));
+        _vectorStore
+            .Setup(v => v.DeleteAsync(
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, Dictionary<string, object>, CancellationToken>(
+                (_, id, _, _) => calls.Add($"delete:{id}"))
+            .Returns(Task.CompletedTask);
+        StubBatchEmbeddings();
+        _vectorStore
+            .Setup(v => v.UpsertVectorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float[]>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, float[], Dictionary<string, object>, CancellationToken>(
+                (_, _, _, _, _) => calls.Add("upsert"))
+            .Returns(Task.CompletedTask);
+
+        var indexed = await _sut.IndexDocumentAsync(request);
+
+        indexed.Should().Be(1);
+        calls.Should().ContainInOrder("delete:stale-0", "delete:stale-1", "delete:stale-2", "upsert");
+        calls.Count(c => c == "upsert").Should().Be(1, "the single new chunk is written once, after the purge");
     }
 
     // ── Fix #2: fail closed on under-scoped Personal/Sensitive retrieval ─────────
@@ -159,6 +200,35 @@ public sealed class ScopedDocumentVectorIndexTests
             .Should().Contain("owner_party_id").And.Contain(partyId.ToString());
     }
 
+    [Fact]
+    public async Task SearchAsync_Without_Owner_Or_Classifications_Should_Restrict_To_TenantWide_Classifications()
+    {
+        // No owner party and no classification filter: a tenant-wide search must NOT be able to
+        // reach another party's Personal/Sensitive chunks that share the per-tenant collection.
+        var scope = new DocumentSearchScope(Guid.NewGuid());
+
+        Dictionary<string, object>? capturedFilter = null;
+        _embeddings
+            .Setup(e => e.GetEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { 0.1f });
+        _vectorStore
+            .Setup(v => v.SearchAsync(
+                It.IsAny<string>(), It.IsAny<float[]>(), It.IsAny<int>(), It.IsAny<float>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, float[], int, float, Dictionary<string, object>, CancellationToken>(
+                (_, _, _, _, filter, _) => capturedFilter = filter)
+            .ReturnsAsync(new List<VectorSearchResult>());
+
+        await _sut.SearchAsync("anything in this tenant", scope);
+
+        capturedFilter.Should().NotBeNull("a tenant-wide search must still constrain classification");
+        var json = JsonSerializer.Serialize(capturedFilter);
+        json.Should().Contain(nameof(DocumentClassification.Public));
+        json.Should().Contain(nameof(DocumentClassification.Internal));
+        json.Should().NotContain(nameof(DocumentClassification.Personal));
+        json.Should().NotContain(nameof(DocumentClassification.Sensitive));
+    }
+
     // ── Fix #3: purge pages past the first scroll page ──────────────────────────
 
     [Fact]
@@ -208,4 +278,13 @@ public sealed class ScopedDocumentVectorIndexTests
             .Setup(e => e.GetEmbeddingsBatchAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((IEnumerable<string> texts, CancellationToken _) =>
                 texts.Select(_ => new[] { 0.1f }).ToList());
+
+    // IndexDocumentAsync purges before writing, so index-path tests must stub the scroll the
+    // purge issues; an empty page means "no existing vectors".
+    private void StubEmptyScroll()
+        => _vectorStore
+            .Setup(v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new VectorScrollPage(new List<VectorPointResult>(), null));
 }

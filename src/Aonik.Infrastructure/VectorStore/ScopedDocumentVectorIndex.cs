@@ -27,6 +27,15 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
     private const float SearchScoreThreshold = 0.2f;
     private const int PurgeScrollLimit = 1000;
 
+    /// <summary>
+    /// Classifications that are tenant-scoped rather than party-scoped, and therefore safe to
+    /// return for a tenant-wide retrieval that supplies no owner party. Personal/Sensitive are
+    /// deliberately excluded — reaching those requires an owner-party scope (see
+    /// <see cref="ValidateScope"/> / <see cref="BuildScopeFilter"/>).
+    /// </summary>
+    private static readonly DocumentClassification[] TenantWideClassifications =
+        { DocumentClassification.Public, DocumentClassification.Internal };
+
     private readonly IVectorStore _vectorStore;
     private readonly IEmbeddingService _embeddingService;
     private readonly QdrantConfiguration _config;
@@ -48,6 +57,13 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         DocumentIndexRequest request,
         CancellationToken cancellationToken = default)
     {
+        // Re-index is a full replace: purge any existing vectors for this document before
+        // writing the new chunks. Deterministic ids overwrite chunks that still exist, but a
+        // re-extraction yielding FEWER chunks would otherwise leave the previous higher-index
+        // chunks behind as stale, still-searchable vectors. Purging first also handles a
+        // re-index to an empty extraction (the document's vectors are simply removed).
+        await PurgeDocumentAsync(request.DocumentId, cancellationToken);
+
         if (request.Chunks.Count == 0)
             return 0;
 
@@ -172,8 +188,9 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
 
     /// <summary>
     /// Builds the additional <c>must</c> clauses layered on top of the store's tenant clause.
-    /// Returns null when the scope adds no constraints (tenant-wide admin scope), in which case
-    /// tenant isolation still applies.
+    /// When no owner party is supplied, retrieval is constrained to tenant-scoped classifications
+    /// (Public/Internal) so a tenant-wide search can never surface another party's Personal or
+    /// Sensitive chunks; reaching those requires an owner-party scope (see <see cref="ValidateScope"/>).
     /// </summary>
     private static Dictionary<string, object>? BuildScopeFilter(DocumentSearchScope scope)
     {
@@ -183,7 +200,20 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
             must.Add(MatchClause("owner_party_id", partyId.ToString()));
 
         if (scope.Classifications is { Count: > 0 } classifications)
+        {
             must.Add(MatchAnyClause("classification", classifications.Select(c => (object)c.ToString())));
+        }
+        else if (scope.OwnerPartyId is null)
+        {
+            // No owner party and no explicit classification filter: this is a tenant-wide
+            // retrieval. Personal/Sensitive chunks live in the same per-tenant collection, so a
+            // tenant-only filter would surface every party's private chunks. Constrain to the
+            // tenant-scoped classifications instead — an allow-list, so any future party-scoped
+            // classification is excluded by default rather than leaking.
+            must.Add(MatchAnyClause(
+                "classification",
+                TenantWideClassifications.Select(c => (object)c.ToString())));
+        }
 
         if (scope.Purposes is { Count: > 0 } purposes)
             must.Add(MatchAnyClause("purpose", purposes.Select(p => (object)p)));
