@@ -243,7 +243,9 @@
     <code>SharedKernel</code> contracts. Verification stays in Compliance as a consumer.
     Every indexable document is auto-ingested into the vector store via integration events so
     the platform&rsquo;s agents can search a customer&rsquo;s evidence by default &mdash; under a
-    mandatory tenant + owner-party retrieval filter that does not exist today.
+    mandatory <em>owner-party</em> retrieval filter that does not exist today. (Tenant isolation
+    already exists fail-closed in the vector store; party-level isolation &mdash; the real B2C
+    gap &mdash; does not.)
   </p>
 </header>
 
@@ -300,8 +302,9 @@
     A <strong>RAG upload endpoint</strong> (<code>POST /ai/documents/upload</code>) in
     <code>Aonik.Api</code> that chunks, embeds, and upserts text into a single Qdrant
     <code>documents</code> collection &mdash; completely disconnected from the compliance model,
-    text-only, synchronous, and (critically) <em>storing no tenant or owner-party identifier on
-    the vector</em>.
+    text-only, synchronous, and (critically) applying <em>no owner-party isolation</em>: the
+    vector store stamps and filters <code>tenant_id</code> fail-closed, but within a tenant one
+    customer&rsquo;s agent could retrieve another customer&rsquo;s documents.
   </li>
 </ul>
 
@@ -322,7 +325,8 @@
   Every indexable document is auto-ingested into the vector store by an asynchronous,
   event-driven pipeline (Worker / Quartz), so agents can search a customer&rsquo;s documents by
   default &mdash; gated by a <code>DocumentClassification</code> and protected by a
-  <strong>mandatory tenant + owner-party retrieval filter</strong> on every vector. The scoping
+  <strong>mandatory owner-party retrieval filter</strong> layered on the vector store&rsquo;s
+  existing fail-closed tenant filter. The scoping
   fix is non-negotiable and ships in the same change: routing tax returns, bank statements, and
   KYC evidence through an unscoped shared collection is a privacy incident waiting to happen.
 </p>
@@ -367,8 +371,8 @@
       <td><code>DocumentService</code> (blob) and <code>DocumentUploadEndpoint</code> (vector) share a name and nothing else. A file in blob storage is never searchable; a vector has no durable document of record.</td>
     </tr>
     <tr>
-      <td>RAG vectors are not tenant-scoped</td>
-      <td><a href="../../src/Aonik.Api/Endpoints/DocumentUploadEndpoint.cs">DocumentUploadEndpoint.cs</a> lines 121&ndash;129 write payload keys <code>document_id, chunk_index, source, content, created_at, filename</code> &mdash; no <code>tenant_id</code>, no <code>owner_party_id</code>. The tenant is logged (line 145) but never stored or filtered on. One shared <code>documents</code> collection for all tenants.</td>
+      <td>RAG vectors are not party-scoped</td>
+      <td><code>QdrantVectorStore</code> already injects and filters <code>tenant_id</code> fail-closed (<a href="../../src/Aonik.Infrastructure/VectorStore/Qdrant/QdrantVectorStore.cs">QdrantVectorStore.cs</a> <code>EnhancePayloadWithTenant</code> / <code>BuildMergedFilter</code>), but the <a href="../../src/Aonik.Api/Endpoints/DocumentUploadEndpoint.cs">DocumentUploadEndpoint.cs</a> payload (lines 121&ndash;129) carries no <code>owner_party_id</code>, <code>classification</code>, or <code>purpose</code>. In a shared-tenant B2C product (Payabo) one customer&rsquo;s agent could retrieve another&rsquo;s documents. Separately, <code>DeleteAsync</code> ignores its <code>filter</code> argument, so document-level purge needs a scroll-then-delete pass.</td>
     </tr>
     <tr>
       <td>No path for &ldquo;AI knows my documents&rdquo;</td>
@@ -727,30 +731,33 @@ Worker: DocumentIngestionJob  (Quartz, consumes DocumentUploadedEvent)
 
 <div class="callout p0">
   <span class="callout-label">Blocker</span>
-  Today&rsquo;s vectors carry no tenant or party identity and live in one shared collection.
-  Routing personal documents (tax returns, statements, KYC scans) through that as-is would let
-  one customer&rsquo;s agent retrieve another customer&rsquo;s evidence. This fix ships in the
-  same change as RAG-by-default &mdash; it is not a follow-up.
+  The vector store <em>already</em> isolates by tenant fail-closed (<code>QdrantVectorStore.EnhancePayloadWithTenant</code> stamps <code>tenant_id</code> on every upsert and <code>BuildMergedFilter</code> adds a <code>tenant_id</code> clause to every search). What it lacks is <strong>owner-party</strong> isolation: in a shared-tenant B2C product (Payabo), routing personal documents through it as-is would let one customer&rsquo;s agent retrieve another customer&rsquo;s evidence within the same tenant. That sub-tenant filter is the real fix, and it ships in the same change as RAG-by-default &mdash; not as a follow-up.
 </div>
 
-<p>Every vector upsert MUST include, and every retrieval MUST filter on:</p>
+<p>
+  Implemented additively as <code>ScopedDocumentVectorIndex</code> (in
+  <code>Aonik.Infrastructure.VectorStore</code>, implementing <code>IDocumentSearch</code> +
+  <code>IDocumentVectorIndex</code>) <em>on top of</em> the existing <code>IVectorStore</code>, so
+  the tenant guarantee is reused, not re-implemented. Every chunk it upserts carries:
+</p>
 <pre><code>payload = {
-  "tenant_id":      &lt;Guid&gt;,        // NEW — mandatory
-  "owner_party_id": &lt;Guid&gt;,        // NEW — mandatory for Personal/Sensitive
+  // tenant_id is injected fail-closed by the vector store (existing behaviour)
+  "owner_party_id": &lt;Guid&gt;,        // NEW — the missing sub-tenant key
   "document_id":    &lt;Guid&gt;,
   "classification": "Personal",    // NEW
   "purpose":        "tax|kyc|...", // NEW (nullable)
+  "document_type":  "TaxReturn",   // NEW
   "chunk_index":    i,
   "content":        "...",
-  "content_type":   "application/pdf",
   "created_at":     &lt;utc&gt;
 }</code></pre>
 
 <ul>
-  <li><strong>Mandatory filter.</strong> <code>IDocumentSearch.SearchAsync</code> takes a non-optional <code>DocumentSearchScope</code> and always issues a Qdrant filter on <code>tenant_id</code> (and <code>owner_party_id</code> when the scope targets personal data). There is no unscoped search method.</li>
+  <li><strong>Mandatory filter.</strong> <code>IDocumentSearch.SearchAsync</code> takes a non-optional <code>DocumentSearchScope</code> and adds an <code>owner_party_id</code> <code>must</code> clause (plus optional classification/purpose <code>match.any</code> clauses) on top of the store&rsquo;s tenant clause. There is no unscoped search method.</li>
   <li><strong>Scope derivation.</strong> Agent search tools derive the scope from the authenticated <code>ITenantProvider</code> + <code>ICurrentUserProvider</code> / owner party &mdash; never from model-supplied arguments &mdash; so a prompt cannot widen its own scope.</li>
-  <li><strong>Collection strategy.</strong> Keep a single Qdrant collection but enforce the filter (operationally simpler), or partition per tenant. Decision deferred to &sect;21; the payload + filter contract is identical either way, so the choice is reversible.</li>
-  <li><strong>Defence in depth.</strong> A test asserts that a search scoped to tenant B returns zero hits for a document uploaded under tenant A, and likewise across owner parties within a tenant.</li>
+  <li><strong>Erasure.</strong> Because <code>IVectorStore.DeleteAsync</code> ignores its <code>filter</code> argument, <code>PurgeDocumentAsync</code> scrolls by <code>document_id</code> (tenant clause auto-merged) and deletes each returned point id &mdash; a document-level purge that can never reach across tenants.</li>
+  <li><strong>Collection strategy.</strong> Keep a single Qdrant collection but enforce the filter (operationally simpler), or partition per tenant. Decision deferred to &sect;26; the payload + filter contract is identical either way, so the choice is reversible.</li>
+  <li><strong>Defence in depth.</strong> A test asserts that a search scoped to party Y returns zero hits for a document indexed under party X within the same tenant (and the existing store tests already cover cross-tenant isolation).</li>
 </ul>
 
 <h2 id="erasure">15. Deletion &amp; right-to-erasure</h2>
@@ -762,7 +769,7 @@ Worker: DocumentIngestionJob  (Quartz, consumes DocumentUploadedEvent)
 <ul>
   <li>Soft-deletes the <code>Document</code> + <code>DocumentFile</code> rows (existing soft-delete infra).</li>
   <li>Removes the blob object(s) via <code>IDocumentFileStore</code>.</li>
-  <li>Purges all vectors for that <code>document_id</code> under the tenant filter (Qdrant delete-by-filter).</li>
+  <li>Purges all vectors for that <code>document_id</code> via <code>IDocumentVectorIndex.PurgeDocumentAsync</code> (scroll-then-delete under the auto-merged tenant filter).</li>
   <li>Publishes <code>DocumentDeletedEvent</code> so Compliance and other consumers react.</li>
   <li>Is governed by the approval tiers in <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> when initiated by an agent &mdash; deletion is not an in-band AI action.</li>
 </ul>
@@ -965,7 +972,7 @@ Worker: DocumentIngestionJob  (Quartz, consumes DocumentUploadedEvent)
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
-    <tr><td>Cross-tenant/party leakage via unscoped vectors</td><td class="status-gap">High</td><td>Phase 0 ships scoping fix before any personal data is routed; mandatory filter with no unscoped overload; isolation tests gate merge.</td></tr>
+    <tr><td>Cross-party leakage within a tenant (tenant isolation already exists; party does not)</td><td class="status-gap">High</td><td>Phase 0 ships the owner-party scoping layer before any personal data is routed; mandatory <code>DocumentSearchScope</code> with no unscoped overload; party-isolation test gates merge.</td></tr>
     <tr><td>Embedding cost explosion from &ldquo;index all&rdquo;</td><td>Medium</td><td>Classification gate (<code>Restricted</code> never indexed); async batching; per-tenant cost recorded on <code>DocumentIngestion</code>; backfill is opt-in.</td></tr>
     <tr><td>PII embedded into vectors</td><td>Medium</td><td><code>Sensitive</code> defaults to metadata-only pending OCR + redaction policy; deletion purges vectors; <code>ReferenceNumber</code> masked at rest.</td></tr>
     <tr><td>Migration snapshot drift during entity move</td><td>Medium</td><td>Tool-generated migration only; keep <code>Ank</code> table names; review diff is new columns/tables + FK drop, nothing else.</td></tr>
