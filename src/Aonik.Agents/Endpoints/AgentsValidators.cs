@@ -161,6 +161,19 @@ public sealed class GetProposalRequestValidator : Validator<GetProposalRequest>
     public GetProposalRequestValidator() => RuleFor(x => x.Id).RequiredId();
 }
 
+public sealed class DecideToolApprovalRequestValidator : Validator<DecideToolApprovalRequest>
+{
+    public DecideToolApprovalRequestValidator()
+    {
+        // Structural validation only. Whether Decision is a recognised value ("Approve"/"Reject")
+        // is enforced by the endpoint's HandleAsync (400 + "invalid_decision"), so we deliberately
+        // do not duplicate the enum-membership check here and change that error contract.
+        RuleFor(x => x.Id).RequiredId();
+        RuleFor(x => x.Decision).RequiredText(32);
+        RuleFor(x => x.Reason).MaximumLength(2048);
+    }
+}
+
 public sealed class ArchiveChatThreadRequestValidator : Validator<ArchiveChatThreadRequest>
 {
     public ArchiveChatThreadRequestValidator() => RuleFor(x => x.ThreadId).RequiredId();
