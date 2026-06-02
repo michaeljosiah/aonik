@@ -28,10 +28,11 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
     private const int PurgeScrollLimit = 1000;
 
     /// <summary>
-    /// Classifications that are tenant-scoped rather than party-scoped, and therefore safe to
-    /// return for a tenant-wide retrieval that supplies no owner party. Personal/Sensitive are
-    /// deliberately excluded — reaching those requires an owner-party scope (see
-    /// <see cref="ValidateScope"/> / <see cref="BuildScopeFilter"/>).
+    /// Tenant-scoped (non-party) classifications: safe to return without an owner-party scope.
+    /// Used as the default classification allow-list when a search names none — on its own for a
+    /// tenant-wide search, or with <see cref="DocumentClassification.Personal"/> added for an
+    /// owner-scoped search. <see cref="DocumentClassification.Sensitive"/> is never in the default;
+    /// it requires an explicit purpose scope (see <see cref="ValidateScope"/>).
     /// </summary>
     private static readonly DocumentClassification[] TenantWideClassifications =
         { DocumentClassification.Public, DocumentClassification.Internal };
@@ -188,9 +189,10 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
 
     /// <summary>
     /// Builds the additional <c>must</c> clauses layered on top of the store's tenant clause.
-    /// When no owner party is supplied, retrieval is constrained to tenant-scoped classifications
-    /// (Public/Internal) so a tenant-wide search can never surface another party's Personal or
-    /// Sensitive chunks; reaching those requires an owner-party scope (see <see cref="ValidateScope"/>).
+    /// When no classification filter is supplied, retrieval defaults to a fail-closed, non-Sensitive
+    /// allow-list (Public/Internal, plus Personal when an owner party is set), so a generic lookup
+    /// can never surface another party's chunks or any Sensitive content. Reaching Sensitive
+    /// requires an explicit, purpose-scoped request (see <see cref="ValidateScope"/>).
     /// </summary>
     private static Dictionary<string, object>? BuildScopeFilter(DocumentSearchScope scope)
     {
@@ -203,16 +205,18 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         {
             must.Add(MatchAnyClause("classification", classifications.Select(c => (object)c.ToString())));
         }
-        else if (scope.OwnerPartyId is null)
+        else
         {
-            // No owner party and no explicit classification filter: this is a tenant-wide
-            // retrieval. Personal/Sensitive chunks live in the same per-tenant collection, so a
-            // tenant-only filter would surface every party's private chunks. Constrain to the
-            // tenant-scoped classifications instead — an allow-list, so any future party-scoped
-            // classification is excluded by default rather than leaking.
-            must.Add(MatchAnyClause(
-                "classification",
-                TenantWideClassifications.Select(c => (object)c.ToString())));
+            // No explicit classification filter. Apply a fail-closed default that never includes
+            // Sensitive — it requires an explicit purpose scope (see ValidateScope), so a generic
+            // lookup (even an owner-scoped one) must not surface it. Public/Internal are
+            // tenant-wide; Personal is added only when an owner party scopes the search. Using a
+            // positive allow-list means any future party-scoped/sensitive classification is
+            // excluded by default rather than leaking through a no-classification lookup.
+            var defaults = TenantWideClassifications.Select(c => (object)c.ToString()).ToList();
+            if (scope.OwnerPartyId is not null)
+                defaults.Add(DocumentClassification.Personal.ToString());
+            must.Add(MatchAnyClause("classification", defaults));
         }
 
         if (scope.Purposes is { Count: > 0 } purposes)

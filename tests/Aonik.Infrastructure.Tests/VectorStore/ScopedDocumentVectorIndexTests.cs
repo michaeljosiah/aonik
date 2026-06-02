@@ -229,6 +229,69 @@ public sealed class ScopedDocumentVectorIndexTests
         json.Should().NotContain(nameof(DocumentClassification.Sensitive));
     }
 
+    [Fact]
+    public async Task SearchAsync_With_Owner_But_No_Classifications_Should_Exclude_Sensitive()
+    {
+        // The natural "general party RAG lookup": owner-scoped, no classification filter, no
+        // purpose. It must include the party's non-sensitive content (Public/Internal/Personal)
+        // but NOT Sensitive, which is only reachable via an explicit purpose-scoped request.
+        var partyId = Guid.NewGuid();
+        var scope = new DocumentSearchScope(Guid.NewGuid(), OwnerPartyId: partyId);
+
+        Dictionary<string, object>? capturedFilter = null;
+        _embeddings
+            .Setup(e => e.GetEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { 0.1f });
+        _vectorStore
+            .Setup(v => v.SearchAsync(
+                It.IsAny<string>(), It.IsAny<float[]>(), It.IsAny<int>(), It.IsAny<float>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, float[], int, float, Dictionary<string, object>, CancellationToken>(
+                (_, _, _, _, filter, _) => capturedFilter = filter)
+            .ReturnsAsync(new List<VectorSearchResult>());
+
+        await _sut.SearchAsync("what did I upload", scope);
+
+        capturedFilter.Should().NotBeNull();
+        var json = JsonSerializer.Serialize(capturedFilter);
+        json.Should().Contain("owner_party_id").And.Contain(partyId.ToString());
+        json.Should().Contain(nameof(DocumentClassification.Public));
+        json.Should().Contain(nameof(DocumentClassification.Internal));
+        json.Should().Contain(nameof(DocumentClassification.Personal));
+        json.Should().NotContain(
+            nameof(DocumentClassification.Sensitive),
+            "Sensitive requires an explicit purpose scope and must not surface in a generic owner lookup");
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Allow_Sensitive_When_Owner_And_Purpose_Provided()
+    {
+        // The escape hatch: Sensitive IS reachable, but only when explicitly named with an owner
+        // party and a purpose. Confirms the fail-closed default does not over-block.
+        var scope = new DocumentSearchScope(
+            Guid.NewGuid(), OwnerPartyId: Guid.NewGuid(),
+            Purposes: new[] { "kyc-review" },
+            Classifications: new[] { DocumentClassification.Sensitive });
+
+        Dictionary<string, object>? capturedFilter = null;
+        _embeddings
+            .Setup(e => e.GetEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { 0.1f });
+        _vectorStore
+            .Setup(v => v.SearchAsync(
+                It.IsAny<string>(), It.IsAny<float[]>(), It.IsAny<int>(), It.IsAny<float>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, float[], int, float, Dictionary<string, object>, CancellationToken>(
+                (_, _, _, _, filter, _) => capturedFilter = filter)
+            .ReturnsAsync(new List<VectorSearchResult>());
+
+        var act = async () => await _sut.SearchAsync("passport scan", scope);
+
+        await act.Should().NotThrowAsync();
+        JsonSerializer.Serialize(capturedFilter)
+            .Should().Contain(nameof(DocumentClassification.Sensitive)).And.Contain("kyc-review");
+    }
+
     // ── Fix #3: purge pages past the first scroll page ──────────────────────────
 
     [Fact]
