@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 035 · Extract Documents into its own module (Aonik.Documents) with RAG-by-default ingestion</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2784; }
+    .meta-tag.priority-p1 { background: #fff0d6; color: #8a5510; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.move { background: #f3e8fb; color: #5a2784; }
+    .status-row td:first-child { font-weight: 600; }
+    .status-ok { color: #2a7f3c; }
+    .status-gap { color: #8a2a15; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 {
+      margin: 0 0 6px;
+      color: var(--accent);
+    }
+    .phase-card .phase-summary {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 035</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Architecture / Platform / AI</span>
+  <h1>Extract Documents into its own module (Aonik.Documents) with RAG-by-default ingestion</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Promotes the document capability &mdash; today a compliance-shaped folder hierarchy inside
+    <code>Aonik.Platform</code>, plus a second, disconnected RAG upload path in
+    <code>Aonik.Api</code> &mdash; into a first-class sibling module
+    <code>Aonik.Documents</code>. Documents become a tenant-and-party-scoped substrate that any
+    module (Finance, PersonalFinance, Platform/Compliance, Ai, Agents) can consume through
+    <code>SharedKernel</code> contracts. Verification stays in Compliance as a consumer.
+    Every indexable document is auto-ingested into the vector store via integration events so
+    the platform&rsquo;s agents can search a customer&rsquo;s evidence by default &mdash; under a
+    mandatory <em>owner-party</em> retrieval filter that does not exist today. (Tenant isolation
+    already exists fail-closed in the vector store; party-level isolation &mdash; the real B2C
+    gap &mdash; does not.)
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#current-state">Current-state inventory</a></li>
+    <li><a href="#two-concerns">The two-concern split</a></li>
+    <li><a href="#target-layout">Target module layout</a></li>
+    <li><a href="#dep-graph">Dependency graph (before / after)</a></li>
+    <li><a href="#domain-model">Domain model</a></li>
+    <li><a href="#classification">Classification &amp; index policy</a></li>
+    <li><a href="#read-contracts">SharedKernel contracts &amp; events</a></li>
+    <li><a href="#compliance-refactor">Compliance refactor</a></li>
+    <li><a href="#rag-pipeline">RAG ingestion pipeline</a></li>
+    <li><a href="#vector-scoping">Vector-store scoping fix (P0)</a></li>
+    <li><a href="#erasure">Deletion &amp; right-to-erasure</a></li>
+    <li><a href="#code-csproj">Project file (csproj)</a></li>
+    <li><a href="#code-module">Module class</a></li>
+    <li><a href="#code-dbcontext">DocumentsDbContext</a></li>
+    <li><a href="#migrations">Migration &amp; data strategy</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  Aonik has <em>two</em> unrelated things both called &ldquo;documents&rdquo; today, and neither
+  lives where it should:
+</p>
+
+<ul>
+  <li>
+    A <strong>compliance evidence model</strong> &mdash; <code>Document</code>,
+    <code>DocumentFile</code>, <code>DocumentUsage</code>, <code>DocumentVerification</code>,
+    <code>DocumentVersion</code> &mdash; buried inside the Compliance slice of
+    <code>Aonik.Platform</code>. It conflates generic file storage with KYC verification, so a
+    customer&rsquo;s tax document has nowhere natural to live: it is a document, but it has no
+    <code>DocumentUsage</code> and no <code>DocumentVerification</code>.
+  </li>
+  <li>
+    A <strong>RAG upload endpoint</strong> (<code>POST /ai/documents/upload</code>) in
+    <code>Aonik.Api</code> that chunks, embeds, and upserts text into a single Qdrant
+    <code>documents</code> collection &mdash; completely disconnected from the compliance model,
+    text-only, synchronous, and (critically) applying <em>no owner-party isolation</em>: the
+    vector store stamps and filters <code>tenant_id</code> fail-closed, but within a tenant one
+    customer&rsquo;s agent could retrieve another customer&rsquo;s documents.
+  </li>
+</ul>
+
+<p>
+  This spec unifies and relocates both. It extracts a first-class
+  <code>Aonik.Documents</code> module &mdash; a sibling to <code>Aonik.Finance</code> and
+  <code>Aonik.PersonalFinance</code>, following the precedent set by
+  <a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> /
+  <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> &mdash; that owns the
+  <strong>generic</strong> document concern: a file exists, it is owned by a party, it carries
+  metadata and a classification, it is retrievable, and (when indexable) it is searchable by AI.
+  Compliance is refactored into a <em>consumer</em>: <code>DocumentUsage</code> and
+  <code>DocumentVerification</code> stay in Platform/Compliance and reference a document by id
+  through a <code>SharedKernel</code> contract, never by project reference.
+</p>
+
+<p>
+  Every indexable document is auto-ingested into the vector store by an asynchronous,
+  event-driven pipeline (Worker / Quartz), so agents can search a customer&rsquo;s documents by
+  default &mdash; gated by a <code>DocumentClassification</code> and protected by a
+  <strong>mandatory owner-party retrieval filter</strong> layered on the vector store&rsquo;s
+  existing fail-closed tenant filter. The scoping
+  fix is non-negotiable and ships in the same change: routing tax returns, bank statements, and
+  KYC evidence through an unscoped shared collection is a privacy incident waiting to happen.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  <code>dotnet build Aonik.sln</code> succeeds with <code>Aonik.Platform</code> containing no
+  generic-document entities and no <code>Aonik.Infrastructure.VectorStore</code> coupling for
+  document RAG; any module can create and search documents through
+  <code>SharedKernel.Abstractions.Documents</code> with zero project reference to
+  <code>Aonik.Documents</code>; a document uploaded by tenant A / party X is provably
+  un-retrievable by an agent acting for tenant B or party Y; the legacy
+  <code>POST /ai/documents/upload</code> path is removed in favour of the unified ingestion
+  pipeline; <code>dotnet test Aonik.sln</code> stays green.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  AONIK is an AI-native platform powering three products (Payabo B2C, MyBillAfrica B2B,
+  RemitExchange remittance). Documents are not a finance concept &mdash; they are a customer
+  concept. An individual may upload a tax return, a payslip, a contract, a letter, or an ID
+  scan. Some of those feed compliance (KYC); most do not. Today the only home for a document is
+  the Compliance slice, which forces a compliance shape onto purely personal evidence.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Symptom</th><th>Evidence</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Documents are mis-homed under Compliance</td>
+      <td>Entities live in <a href="../../src/Aonik.Platform/Entities/Compliance/">src/Aonik.Platform/Entities/Compliance/</a>; endpoints are routed under <code>/compliance/documents</code> behind <code>AdminUserPolicy</code> &mdash; unreachable for an end customer uploading a personal tax document.</td>
+    </tr>
+    <tr>
+      <td>Storage and verification are conflated</td>
+      <td>A <code>Document</code> cannot exist usefully without the <code>DocumentUsage</code> / <code>DocumentVerification</code> compliance machinery, even when no verification is wanted.</td>
+    </tr>
+    <tr>
+      <td>Two parallel, disconnected document systems</td>
+      <td><code>DocumentService</code> (blob) and <code>DocumentUploadEndpoint</code> (vector) share a name and nothing else. A file in blob storage is never searchable; a vector has no durable document of record.</td>
+    </tr>
+    <tr>
+      <td>RAG vectors are not party-scoped</td>
+      <td><code>QdrantVectorStore</code> already injects and filters <code>tenant_id</code> fail-closed (<a href="../../src/Aonik.Infrastructure/VectorStore/Qdrant/QdrantVectorStore.cs">QdrantVectorStore.cs</a> <code>EnhancePayloadWithTenant</code> / <code>BuildMergedFilter</code>), but the <a href="../../src/Aonik.Api/Endpoints/DocumentUploadEndpoint.cs">DocumentUploadEndpoint.cs</a> payload (lines 121&ndash;129) carries no <code>owner_party_id</code>, <code>classification</code>, or <code>purpose</code>. In a shared-tenant B2C product (Payabo) one customer&rsquo;s agent could retrieve another&rsquo;s documents. Separately, <code>DeleteAsync</code> ignores its <code>filter</code> argument, so document-level purge needs a scroll-then-delete pass.</td>
+    </tr>
+    <tr>
+      <td>No path for &ldquo;AI knows my documents&rdquo;</td>
+      <td>For an AI-native platform, an agent should be able to answer &ldquo;what did my last tax return say&rdquo; &mdash; impossible while uploads and embeddings are two manual, unlinked actions.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> anticipated
+  selective extraction once a subdomain earns its own boundary, and
+  <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> established the mechanics
+  (csproj, module class, scoped DbContext, <code>SharedKernel</code> read contracts, migrations
+  staying with <code>AonikDbContext</code>). Documents now meet that bar: a clear bounded
+  vocabulary, cross-cutting consumers, and an expanding AI surface (ingestion, extraction,
+  classification, search) that does not belong to any one product.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>In scope</h3>
+<ul>
+  <li>Create the <code>Aonik.Documents</code> module project and register it in the composition root.</li>
+  <li>Move the <strong>generic</strong> document entities (<code>Document</code>, <code>DocumentFile</code>, <code>DocumentVersion</code>) and their EF configurations into the new module; add ingestion/extraction state.</li>
+  <li>Add a <code>DocumentClassification</code> and an index-policy gate.</li>
+  <li>Define <code>SharedKernel.Abstractions.Documents</code> read / write / search contracts and integration events.</li>
+  <li>Refactor Compliance so <code>DocumentUsage</code> / <code>DocumentVerification</code> consume documents by id through the contract.</li>
+  <li>Build the asynchronous, event-driven RAG ingestion pipeline (extract &rarr; chunk &rarr; embed &rarr; upsert) in the Worker.</li>
+  <li>Fix vector-store scoping: stamp <code>tenant_id</code>, <code>owner_party_id</code>, <code>document_id</code>, <code>classification</code>, <code>purpose</code> on every vector and enforce a mandatory retrieval filter. <span class="tag p0" style="background:var(--p0-bg);color:#8a2a15;">P0</span></li>
+  <li>Provide a scoped <code>IDocumentSearch</code> for agents, plus a document deletion path that purges vectors.</li>
+  <li>Replace <code>POST /ai/documents/upload</code> with unified document upload + automatic indexing.</li>
+  <li>Expose customer-facing upload endpoints (not just <code>AdminUserPolicy</code>) so end users can upload personal documents.</li>
+</ul>
+
+<h3>Out of scope</h3>
+<ul>
+  <li>Changing the physical SQL database, table names (<code>Ank</code> prefix), or migration ownership &mdash; migrations continue through <code>AonikDbContext</code> per <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>.</li>
+  <li>Swapping the vector store (Qdrant stays) or the embedding provider.</li>
+  <li>OCR vendor selection for image-only documents (interface defined; a real adapter is a follow-up).</li>
+  <li>The compliance verification <em>workflow</em> itself (KYC decisioning logic is unchanged; only its document linkage moves to a contract).</li>
+  <li>Document e-signing, redaction tooling UI, or a document-bundle concept (noted as extensions).</li>
+</ul>
+
+<h2 id="guardrails">4. Constraints &amp; guardrails</h2>
+
+<ul>
+  <li><strong>No direct cross-module references.</strong> Finance, PersonalFinance, Compliance, Ai and Agents consume documents only through <code>SharedKernel.Abstractions.Documents</code> and integration events &mdash; never a <code>ProjectReference</code> to <code>Aonik.Documents</code>.</li>
+  <li><strong>Single migration stream.</strong> All schema changes are generated by the EF CLI against <code>AonikDbContext</code> in <code>Aonik.Infrastructure</code>. <code>DocumentsDbContext</code> is a read/write scoping context with <em>no</em> migrations. Agents never hand-author migrations.</li>
+  <li><strong>Anemic entities.</strong> All logic lives in services returning DTOs; entities stay <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> and inheriting <code>AuditableEntity</code>.</li>
+  <li><strong>Tenant + party isolation is an invariant, not a feature.</strong> Every blob path, every vector payload, and every retrieval query is scoped by <code>TenantId</code> and (for personal classifications) <code>OwnerPartyId</code>. There is no code path that reads documents or vectors without a scope.</li>
+  <li><strong>Agents propose; systems execute.</strong> Search and read are direct, low-risk agent tools. Document <em>deletion</em> and any mutation of compliance state remain governed by the approval tiers in <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a>.</li>
+  <li><strong>Every AI contribution is auditable.</strong> Extraction and AI-assisted classification record an <code>AiRun</code> and carry the <code>AiRunId</code> forward, consistent with the existing <code>DocumentVerification.AiRunId</code> field.</li>
+  <li><strong>HTTP contract care.</strong> The legacy <code>/ai/documents/upload</code> route is removed only after the unified path is live; existing <code>/compliance/documents/*</code> routes keep working for admin/compliance callers.</li>
+</ul>
+
+<h2 id="current-state">5. Current-state inventory</h2>
+
+<p>Everything that touches &ldquo;documents&rdquo; today, and where it goes:</p>
+
+<table>
+  <thead>
+    <tr><th>Artifact</th><th>Location today</th><th>Disposition</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Document</code>, <code>DocumentFile</code>, <code>DocumentVersion</code></td><td>Aonik.Platform/Entities/Compliance/</td><td><span class="tag move">move</span> &rarr; Aonik.Documents/Entities/</td></tr>
+    <tr><td><code>DocumentUsage</code>, <code>DocumentVerification</code></td><td>Aonik.Platform/Entities/Compliance/</td><td><span class="tag existing">stay</span> Compliance; reference doc by id</td></tr>
+    <tr><td>5 &times; <code>*Configuration</code></td><td>Aonik.Platform/Persistence/Configurations/</td><td><span class="tag move">split</span> doc configs move; usage/verification configs stay</td></tr>
+    <tr><td><code>DocumentService</code> / <code>IDocumentService</code></td><td>Aonik.Platform/Services + Contracts/Compliance/</td><td><span class="tag move">split</span> generic ops &rarr; Documents; usage/verification ops stay in a Compliance service</td></tr>
+    <tr><td><code>IDocumentFileStore</code> / <code>DocumentFileStore</code></td><td>Platform contract + Aonik.Infrastructure/Storage/</td><td><span class="tag move">move</span> contract to Documents/SharedKernel; impl stays in Infrastructure</td></tr>
+    <tr><td>7 endpoints under <code>/compliance/documents</code></td><td>Aonik.Platform/Endpoints/Compliance/</td><td><span class="tag move">re-home</span> generic upload/list/get &rarr; Documents (<code>/documents/*</code>); usage/verification endpoints stay under <code>/compliance/*</code></td></tr>
+    <tr><td>API + model DTOs (<code>DocumentRequests/Responses/Models</code>)</td><td>Aonik.Platform/Contracts/{Api,Models}/Compliance/</td><td><span class="tag move">split</span> by concern</td></tr>
+    <tr><td><code>DocumentUploadEndpoint</code> (RAG)</td><td>Aonik.Api/Endpoints/</td><td><span class="tag mutate">replace</span> by event-driven pipeline; route removed</td></tr>
+    <tr><td><code>IVectorStore</code>, <code>IEmbeddingService</code>, <code>QdrantConfiguration</code></td><td>Aonik.Infrastructure/VectorStore/</td><td><span class="tag existing">reuse</span> via a scoped document-search adapter</td></tr>
+    <tr><td>5 &times; <code>DbSet</code></td><td>PlatformDbContext + AonikDbContext</td><td><span class="tag new">re-scope</span> generic sets to DocumentsDbContext; all sets remain on AonikDbContext</td></tr>
+    <tr><td>Design doc</td><td><a href="../architecture/Document-Model.md">docs/architecture/Document-Model.md</a></td><td><span class="tag existing">update</span> to point at this spec &amp; the new module</td></tr>
+  </tbody>
+</table>
+
+<h2 id="two-concerns">6. The two-concern split</h2>
+
+<p>
+  The core design move is recognizing that today&rsquo;s model fuses two responsibilities that
+  have different owners, lifecycles, and access policies:
+</p>
+
+<table>
+  <thead>
+    <tr><th></th><th>Generic document capability</th><th>Compliance verification</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Question it answers</td><td>&ldquo;A file exists, who owns it, where is it, can the AI read it?&rdquo;</td><td>&ldquo;Does this evidence satisfy a KYC purpose?&rdquo;</td></tr>
+    <tr><td>Owner</td><td><code>Aonik.Documents</code> (new)</td><td><code>Aonik.Platform</code> / Compliance (existing)</td></tr>
+    <tr><td>Entities</td><td><code>Document</code>, <code>DocumentFile</code>, <code>DocumentVersion</code>, <code>DocumentIngestion</code>, <code>DocumentExtraction</code></td><td><code>DocumentUsage</code>, <code>DocumentVerification</code></td></tr>
+    <tr><td>Applies to a tax return?</td><td>Yes &mdash; stored, classified, indexed</td><td>No &mdash; no usage/verification needed</td></tr>
+    <tr><td>Consumers</td><td>Everyone, via <code>SharedKernel</code></td><td>Compliance workflow, KYC cases</td></tr>
+  </tbody>
+</table>
+
+<p>
+  This mirrors the platform&rsquo;s existing <strong>Order vs Payment vs Ledger</strong>
+  discipline: distinct concepts are never collapsed just because they often co-occur. A
+  document is the durable record of a file; a verification is a compliance decision that happens
+  to <em>reference</em> a document. Compliance keeps its <code>DocumentUsage</code> /
+  <code>DocumentVerification</code> tables but stores the document id as a plain <code>Guid</code>
+  (the same pattern <code>DocumentUsage</code> already uses for <code>RelatedEntityId</code>),
+  resolving document detail through <code>IDocumentReader</code>.
+</p>
+
+<h2 id="target-layout">7. Target module layout</h2>
+
+<div class="ascii-diagram">src/Aonik.Documents/
+├── Aonik.Documents.csproj
+├── DocumentsModule.cs                         # IModule registration
+├── Entities/
+│   ├── Document.cs                            # generic evidence record (+ Classification, IndexStatus)
+│   ├── DocumentFile.cs                        # blob reference
+│   ├── DocumentVersion.cs                     # re-submission snapshots
+│   ├── DocumentIngestion.cs        [new]      # per-file RAG ingestion run + status
+│   └── DocumentExtraction.cs       [new]      # OCR / structured extraction output (AiRunId)
+├── Services/
+│   ├── IDocumentService.cs / DocumentService.cs        # create, addFile, upload, get, list
+│   ├── IDocumentIndexer.cs / DocumentIndexer.cs        # extract→chunk→embed→upsert
+│   └── IDocumentSearch.cs / DocumentSearch.cs          # scoped retrieval for agents
+├── Endpoints/
+│   ├── UploadDocumentEndpoint.cs              # POST /documents (customer + admin)
+│   ├── ListDocumentsEndpoint.cs              # GET  /documents
+│   ├── GetDocumentEndpoint.cs                # GET  /documents/{id}
+│   └── SearchDocumentsEndpoint.cs            # POST /documents/search (scoped)
+├── Contracts/
+│   ├── Api/      (request/response records)
+│   └── Models/   (service DTOs)
+├── Persistence/
+│   ├── DocumentsDbContext.cs                  # scoping context, NO migrations
+│   └── Configurations/  (Document, DocumentFile, DocumentVersion, Ingestion, Extraction)
+└── IntegrationEvents/  (handlers for DocumentUploadedEvent, DocumentDeletedEvent)
+
+src/Aonik.SharedKernel/Abstractions/Documents/
+├── IDocumentReader.cs        # GetDocument, ListDocuments, GetFiles, GetReadUrl
+├── IDocumentWriter.cs        # CreateDocument, AddFile, UploadFile
+├── IDocumentSearch.cs        # SearchAsync(query, DocumentSearchScope)
+├── DocumentSearchScope.cs    # TenantId + OwnerPartyId + purposes/classifications
+├── DocumentClassification.cs # enum
+└── Events: DocumentUploadedEvent, DocumentIndexedEvent, DocumentDeletedEvent
+
+src/Aonik.Platform/  (Compliance, refactored)
+├── Entities/Compliance/DocumentUsage.cs           # stores DocumentId : Guid
+├── Entities/Compliance/DocumentVerification.cs
+└── Services/Compliance/DocumentVerificationService.cs   # consumes IDocumentReader
+
+src/Aonik.Worker/  (or Documents IntegrationEvents)
+└── Jobs/DocumentIngestionJob.cs                   # Quartz consumer of DocumentUploadedEvent
+
+src/Aonik.Infrastructure/
+├── Storage/DocumentFileStore.cs                   # unchanged impl of IDocumentFileStore
+└── VectorStore/ScopedDocumentVectorAdapter.cs     # stamps + filters tenant/party/classification</div>
+
+<h2 id="dep-graph">8. Dependency graph (before / after)</h2>
+
+<div class="ascii-diagram">BEFORE
+  Aonik.Platform ──owns──▶ Document* entities + DocumentService + 7 endpoints
+  Aonik.Api      ──owns──▶ DocumentUploadEndpoint ──▶ Aonik.Infrastructure.VectorStore (Qdrant)
+  (the two never meet; Finance/PersonalFinance cannot reach either cleanly)
+
+AFTER
+  Aonik.SharedKernel.Abstractions.Documents   (IDocumentReader/Writer/Search + events)
+        ▲            ▲              ▲                 ▲
+        │            │              │                 │
+  Aonik.Finance  Aonik.Personal  Aonik.Platform   Aonik.Agents / Aonik.Ai
+                 Finance         (Compliance)      (search tools)
+        │ implemented by
+        ▼
+  Aonik.Documents ──▶ Aonik.Infrastructure (DocumentFileStore, ScopedDocumentVectorAdapter)
+        │ emits DocumentUploadedEvent
+        ▼
+  Aonik.Worker (DocumentIngestionJob) ──▶ extract → chunk → embed → upsert (scoped)</div>
+
+<h2 id="domain-model">9. Domain model</h2>
+
+<p>
+  Entities stay anemic, <code>ITenantScoped</code>, and inherit <code>AuditableEntity</code>.
+  Fields carried over from <a href="../architecture/Document-Model.md">the existing model</a>
+  are unchanged; new fields are marked <span class="tag new">new</span>.
+</p>
+
+<h3>Document</h3>
+<ul>
+  <li><code>Id</code>, <code>TenantId</code>, <code>OwnerPartyId</code></li>
+  <li><code>DocumentType</code> (string) &mdash; e.g. <code>TaxReturn</code>, <code>BankStatement</code>, <code>NationalId</code>, <code>UtilityBill</code>, <code>Contract</code>, <code>Other</code></li>
+  <li><code>Classification</code> (enum) <span class="tag new">new</span> &mdash; drives indexing &amp; access; see &sect;10</li>
+  <li><code>Status</code> (string) &mdash; <code>Draft</code>, <code>Submitted</code>, <code>Verified</code>, <code>Rejected</code>, <code>Expired</code>, <code>Revoked</code></li>
+  <li><code>Source</code> (string) <span class="tag new">new</span> &mdash; <code>CustomerUpload</code>, <code>AdminUpload</code>, <code>StatementImport</code>, <code>PartnerCallback</code></li>
+  <li><code>IndexStatus</code> (enum) <span class="tag new">new</span> &mdash; <code>NotIndexable</code>, <code>Pending</code>, <code>Indexed</code>, <code>Failed</code></li>
+  <li><code>IndexedAt</code> (DateTime?) <span class="tag new">new</span></li>
+  <li><code>IssuedOn</code>, <code>ExpiresOn</code>, <code>IssuerName</code>, <code>CountryCode</code>, <code>ReferenceNumber</code> (masked/hashed per policy)</li>
+  <li><code>TagsJson</code>, <code>AttributesJson</code></li>
+</ul>
+
+<h3>DocumentFile</h3>
+<ul>
+  <li><code>Id</code>, <code>DocumentId</code>, <code>StorageProvider</code>, <code>StorageContainer</code>, <code>StorageKey</code></li>
+  <li><code>ContentType</code>, <code>FileName</code>, <code>FileSizeBytes</code>, <code>Sha256</code></li>
+  <li><code>PageIndex</code>, <code>Side</code> (<code>Front</code>/<code>Back</code>), <code>CapturedAt</code>, <code>CapturedBy</code>, <code>MetadataJson</code></li>
+  <li><code>ExtractedTextStatus</code> (enum) <span class="tag new">new</span> &mdash; tracks whether text is available for embedding (<code>Native</code>, <code>OcrRequired</code>, <code>OcrDone</code>, <code>Unsupported</code>)</li>
+</ul>
+
+<h3>DocumentIngestion <span class="tag new">new</span></h3>
+<ul>
+  <li><code>Id</code>, <code>DocumentId</code>, <code>DocumentFileId</code></li>
+  <li><code>VectorCollection</code>, <code>ChunkCount</code>, <code>EmbeddingModel</code>, <code>EmbeddingCost</code></li>
+  <li><code>Status</code> (<code>Pending</code>/<code>Running</code>/<code>Succeeded</code>/<code>Failed</code>), <code>Attempts</code>, <code>LastError</code>, <code>CompletedAt</code></li>
+  <li><code>AiRunId</code> (Guid?) &mdash; embedding run is auditable</li>
+</ul>
+
+<h3>DocumentExtraction <span class="tag new">new</span></h3>
+<ul>
+  <li><code>Id</code>, <code>DocumentId</code>, <code>ExtractionType</code> (<code>OcrText</code>, <code>StructuredFields</code>)</li>
+  <li><code>OutputJson</code>, <code>Confidence</code>, <code>AiRunId</code></li>
+</ul>
+
+<h3>DocumentUsage / DocumentVerification (stay in Compliance)</h3>
+<p>
+  Unchanged fields, except <code>DocumentUsage.DocumentId</code> is now a cross-module reference
+  resolved through <code>IDocumentReader</code> rather than an EF navigation property. The
+  cascade delete from <code>Document</code> is replaced by a <code>DocumentDeletedEvent</code>
+  handler in Compliance that decides how to treat orphaned usages (default: mark
+  <code>Expired</code>, never silently delete a compliance record).
+</p>
+
+<h2 id="classification">10. Classification &amp; index policy</h2>
+
+<p>
+  &ldquo;Auto-ingest all documents&rdquo; is the intent, but <em>all</em> is gated by a
+  classification so the pipeline never blindly embeds something it shouldn&rsquo;t. The default
+  for every common type is <strong>indexable</strong>; the gate exists to handle the sharp
+  edges (raw ID images, anything explicitly restricted).
+</p>
+
+<table>
+  <thead>
+    <tr><th>Classification</th><th>Examples</th><th>Default index behaviour</th><th>Retrieval scope</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Public</code></td><td>Product terms, public notices</td><td>Indexed</td><td>Tenant</td></tr>
+    <tr><td><code>Internal</code></td><td>Operational docs</td><td>Indexed</td><td>Tenant</td></tr>
+    <tr><td><code>Personal</code></td><td>Tax return, payslip, statement, letter</td><td>Indexed</td><td>Tenant + OwnerPartyId</td></tr>
+    <tr><td><code>Sensitive</code></td><td>ID scans, proof-of-address images</td><td>Metadata-only by default; text indexed only after OCR + redaction policy passes</td><td>Tenant + OwnerPartyId + purpose</td></tr>
+    <tr><td><code>Restricted</code></td><td>Explicitly excluded evidence</td><td>Never indexed</td><td>Direct read only, no vector</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Classification is assigned at upload (caller-supplied, defaulted by <code>DocumentType</code>)
+  and may be refined by an AI classifier that records an <code>AiRun</code>. The pipeline reads
+  the classification to decide <code>IndexStatus</code>: <code>Personal</code>/<code>Internal</code>/<code>Public</code>
+  &rarr; <code>Pending</code> (will index); <code>Restricted</code> &rarr; <code>NotIndexable</code>;
+  <code>Sensitive</code> &rarr; <code>Pending</code> only once text extraction + redaction are available.
+</p>
+
+<h2 id="read-contracts">11. SharedKernel contracts &amp; events</h2>
+
+<p>
+  All consumption flows through <code>Aonik.SharedKernel.Abstractions.Documents</code>. Shapes
+  are illustrative; final signatures accept <code>CancellationToken cancellationToken = default</code>
+  and return DTOs (records), never entities.
+</p>
+
+<pre><code>namespace Aonik.SharedKernel.Abstractions.Documents;
+
+public enum DocumentClassification { Public, Internal, Personal, Sensitive, Restricted }
+
+public sealed record DocumentSearchScope(
+    Guid TenantId,
+    Guid? OwnerPartyId,                          // required for Personal/Sensitive
+    IReadOnlyList&lt;string&gt;? Purposes = null,
+    IReadOnlyList&lt;DocumentClassification&gt;? Classifications = null);
+
+public sealed record DocumentChunkHit(
+    Guid DocumentId, int ChunkIndex, string Content, double Score,
+    string DocumentType, Guid OwnerPartyId);
+
+public interface IDocumentReader
+{
+    Task&lt;DocumentDto?&gt; GetDocumentAsync(Guid documentId, CancellationToken ct = default);
+    Task&lt;PagedResult&lt;DocumentListItem&gt;&gt; ListDocumentsAsync(ListDocumentsQuery query, CancellationToken ct = default);
+    Task&lt;IReadOnlyList&lt;DocumentFileDto&gt;&gt; GetFilesAsync(Guid documentId, CancellationToken ct = default);
+    Task&lt;Uri&gt; GetReadUrlAsync(Guid documentFileId, TimeSpan ttl, CancellationToken ct = default);
+}
+
+public interface IDocumentWriter
+{
+    Task&lt;DocumentDto&gt; CreateDocumentAsync(CreateDocumentCommand cmd, CancellationToken ct = default);
+    Task&lt;DocumentFileDto&gt; UploadFileAsync(UploadFileCommand cmd, Stream content, CancellationToken ct = default);
+}
+
+public interface IDocumentSearch
+{
+    // Scope is mandatory; there is no overload that omits it.
+    Task&lt;IReadOnlyList&lt;DocumentChunkHit&gt;&gt; SearchAsync(
+        string query, DocumentSearchScope scope, int topK = 8, CancellationToken ct = default);
+}</code></pre>
+
+<p><strong>Integration events</strong> (in <code>SharedKernel</code>, raised by Documents):</p>
+<ul>
+  <li><code>DocumentUploadedEvent(TenantId, DocumentId, DocumentFileId, Classification, ContentType)</code> &mdash; triggers ingestion.</li>
+  <li><code>DocumentIndexedEvent(TenantId, DocumentId, ChunkCount)</code> &mdash; lets consumers react when a doc becomes searchable.</li>
+  <li><code>DocumentDeletedEvent(TenantId, DocumentId, OwnerPartyId)</code> &mdash; triggers vector purge and Compliance orphan handling.</li>
+</ul>
+
+<h2 id="compliance-refactor">12. Compliance refactor</h2>
+
+<p>
+  Compliance loses ownership of generic documents but keeps verification. The mechanical changes:
+</p>
+<ul>
+  <li><code>DocumentUsage</code> and <code>DocumentVerification</code> entities + configs stay in <code>Aonik.Platform</code>; the EF navigation from <code>Document</code> is removed and <code>DocumentId</code> becomes an indexed <code>Guid</code> column (no cross-module FK).</li>
+  <li>A trimmed <code>DocumentVerificationService</code> (renamed from the verification half of today&rsquo;s <code>DocumentService</code>) injects <code>IDocumentReader</code> to resolve document detail when presenting a usage.</li>
+  <li>Compliance endpoints stay under <code>/compliance/document-usages/*</code> and <code>/compliance/documents/{id}/usages</code>; the upload + list + get generic endpoints are removed from Compliance and re-homed under <code>/documents/*</code>.</li>
+  <li>A <code>DocumentDeletedEvent</code> handler in Compliance marks dependent usages <code>Expired</code> rather than deleting them, preserving the audit trail.</li>
+</ul>
+
+<h2 id="rag-pipeline">13. RAG ingestion pipeline</h2>
+
+<p>
+  Ingestion is asynchronous and event-driven &mdash; upload never blocks on embedding. This
+  decouples cost and latency from the request path, makes embedding failures retryable, and fits
+  the platform&rsquo;s integration-event model.
+</p>
+
+<div class="ascii-diagram">POST /documents (multipart)
+  └─▶ DocumentService.UploadFileAsync
+        1. DocumentFileStore.UploadDocumentFileAsync  → blob (tenant-scoped key, Sha256)
+        2. persist Document + DocumentFile (IndexStatus per classification)
+        3. publish DocumentUploadedEvent
+        4. return 201 immediately
+
+Worker: DocumentIngestionJob  (Quartz, consumes DocumentUploadedEvent)
+        1. load file; resolve text:
+             native (txt/pdf/docx)  → extract
+             image/scan             → OCR (DocumentExtraction, AiRunId) or defer if unavailable
+        2. chunk (512 words / 100 overlap)   [reuse existing chunker]
+        3. IEmbeddingService.GetEmbeddingsBatchAsync
+        4. ScopedDocumentVectorAdapter.UpsertAsync  → Qdrant with full scoped payload
+        5. record DocumentIngestion (ChunkCount, cost, AiRunId); set Document.IndexStatus=Indexed
+        6. publish DocumentIndexedEvent
+   on failure: IndexStatus=Failed, Attempts++, LastError; retry with backoff; dead-letter after N</div>
+
+<p>
+  The chunking logic and the embedding service already exist (today inline in
+  <code>DocumentUploadEndpoint</code>); they are lifted into the indexer service unchanged in
+  behaviour. PDF/DOCX extraction &mdash; currently a <code>NotImplementedException</code> stub
+  &mdash; is implemented here (or routed through OCR), since &ldquo;index all documents&rdquo;
+  requires more than <code>text/plain</code>.
+</p>
+
+<h2 id="vector-scoping">14. Vector-store scoping fix <span class="tag p0" style="background:var(--p0-bg);color:#8a2a15;">P0</span></h2>
+
+<div class="callout p0">
+  <span class="callout-label">Blocker</span>
+  The vector store <em>already</em> isolates by tenant fail-closed (<code>QdrantVectorStore.EnhancePayloadWithTenant</code> stamps <code>tenant_id</code> on every upsert and <code>BuildMergedFilter</code> adds a <code>tenant_id</code> clause to every search). What it lacks is <strong>owner-party</strong> isolation: in a shared-tenant B2C product (Payabo), routing personal documents through it as-is would let one customer&rsquo;s agent retrieve another customer&rsquo;s evidence within the same tenant. That sub-tenant filter is the real fix, and it ships in the same change as RAG-by-default &mdash; not as a follow-up.
+</div>
+
+<p>
+  Implemented additively as <code>ScopedDocumentVectorIndex</code> (in
+  <code>Aonik.Infrastructure.VectorStore</code>, implementing <code>IDocumentSearch</code> +
+  <code>IDocumentVectorIndex</code>) <em>on top of</em> the existing <code>IVectorStore</code>, so
+  the tenant guarantee is reused, not re-implemented. Every chunk it upserts carries:
+</p>
+<pre><code>payload = {
+  // tenant_id is injected fail-closed by the vector store (existing behaviour)
+  "owner_party_id": &lt;Guid&gt;,        // NEW — the missing sub-tenant key
+  "document_id":    &lt;Guid&gt;,
+  "classification": "Personal",    // NEW
+  "purpose":        "tax|kyc|...", // NEW (nullable)
+  "document_type":  "TaxReturn",   // NEW
+  "chunk_index":    i,
+  "content":        "...",
+  "created_at":     &lt;utc&gt;
+}</code></pre>
+
+<ul>
+  <li><strong>Mandatory filter.</strong> <code>IDocumentSearch.SearchAsync</code> takes a non-optional <code>DocumentSearchScope</code> and adds an <code>owner_party_id</code> <code>must</code> clause (plus optional classification/purpose <code>match.any</code> clauses) on top of the store&rsquo;s tenant clause. There is no unscoped search method.</li>
+  <li><strong>Scope derivation.</strong> Agent search tools derive the scope from the authenticated <code>ITenantProvider</code> + <code>ICurrentUserProvider</code> / owner party &mdash; never from model-supplied arguments &mdash; so a prompt cannot widen its own scope.</li>
+  <li><strong>Erasure.</strong> Because <code>IVectorStore.DeleteAsync</code> ignores its <code>filter</code> argument, <code>PurgeDocumentAsync</code> scrolls by <code>document_id</code> (tenant clause auto-merged) and deletes each returned point id &mdash; a document-level purge that can never reach across tenants.</li>
+  <li><strong>Collection strategy.</strong> Keep a single Qdrant collection but enforce the filter (operationally simpler), or partition per tenant. Decision deferred to &sect;26; the payload + filter contract is identical either way, so the choice is reversible.</li>
+  <li><strong>Defence in depth.</strong> A test asserts that a search scoped to party Y returns zero hits for a document indexed under party X within the same tenant (and the existing store tests already cover cross-tenant isolation).</li>
+</ul>
+
+<h2 id="erasure">15. Deletion &amp; right-to-erasure</h2>
+
+<p>
+  &ldquo;All documents in a vector store&rdquo; is a compliance liability without a delete story
+  (NDPR / GDPR right-to-erasure). Deleting a document:
+</p>
+<ul>
+  <li>Soft-deletes the <code>Document</code> + <code>DocumentFile</code> rows (existing soft-delete infra).</li>
+  <li>Removes the blob object(s) via <code>IDocumentFileStore</code>.</li>
+  <li>Purges all vectors for that <code>document_id</code> via <code>IDocumentVectorIndex.PurgeDocumentAsync</code> (scroll-then-delete under the auto-merged tenant filter).</li>
+  <li>Publishes <code>DocumentDeletedEvent</code> so Compliance and other consumers react.</li>
+  <li>Is governed by the approval tiers in <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> when initiated by an agent &mdash; deletion is not an in-band AI action.</li>
+</ul>
+<p>
+  Document deletion ties into the user-lifecycle closure flow
+  (<a href="026.user-lifecycle-closure.html">Spec&nbsp;026</a>): account closure must enumerate
+  and erase a party&rsquo;s documents and their vectors.
+</p>
+
+<h2 id="code-csproj">16. Project file (csproj)</h2>
+
+<pre><code>&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
+  &lt;/PropertyGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" /&gt;
+    &lt;!-- NO reference to Aonik.Platform, Aonik.Finance, Aonik.PersonalFinance --&gt;
+  &lt;/ItemGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include="Microsoft.EntityFrameworkCore" /&gt;
+    &lt;PackageReference Include="FastEndpoints" /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;</code></pre>
+
+<p>
+  <code>Aonik.Documents</code> depends only on <code>SharedKernel</code>. The blob store and the
+  scoped vector adapter are interfaces in <code>SharedKernel</code>/Documents, implemented in
+  <code>Aonik.Infrastructure</code> (which already references all modules) and injected at the
+  composition root &mdash; so Documents never references Infrastructure directly either.
+</p>
+
+<h2 id="code-module">17. Module class</h2>
+
+<pre><code>internal sealed class DocumentsModule : IModule
+{
+    public IServiceCollection RegisterModule(IServiceCollection services, IConfiguration config)
+    {
+        services.AddScoped&lt;IDocumentService, DocumentService&gt;();
+        services.AddScoped&lt;IDocumentReader&gt;(sp =&gt; sp.GetRequiredService&lt;DocumentService&gt;());
+        services.AddScoped&lt;IDocumentWriter&gt;(sp =&gt; sp.GetRequiredService&lt;DocumentService&gt;());
+        services.AddScoped&lt;IDocumentIndexer, DocumentIndexer&gt;();
+        services.AddScoped&lt;IDocumentSearch, DocumentSearch&gt;();
+        services.AddDbContext&lt;DocumentsDbContext&gt;(/* shared connection string, no migrations */);
+        return services;
+    }
+}</code></pre>
+
+<h2 id="code-dbcontext">18. DocumentsDbContext</h2>
+
+<p>
+  A module-scoped context over the same physical database, exposing only the generic-document
+  sets. It inherits <code>AonikDbContextBase</code> (tenancy, audit, soft-delete) and declares
+  <strong>no migrations</strong> &mdash; <code>AonikDbContext</code> remains the single migration
+  stream and continues to own every <code>DbSet</code>.
+</p>
+
+<pre><code>public sealed class DocumentsDbContext : AonikDbContextBase
+{
+    public DbSet&lt;Document&gt; Documents =&gt; Set&lt;Document&gt;();
+    public DbSet&lt;DocumentFile&gt; DocumentFiles =&gt; Set&lt;DocumentFile&gt;();
+    public DbSet&lt;DocumentVersion&gt; DocumentVersions =&gt; Set&lt;DocumentVersion&gt;();
+    public DbSet&lt;DocumentIngestion&gt; DocumentIngestions =&gt; Set&lt;DocumentIngestion&gt;();
+    public DbSet&lt;DocumentExtraction&gt; DocumentExtractions =&gt; Set&lt;DocumentExtraction&gt;();
+
+    protected override void OnModelCreating(ModelBuilder b)
+    {
+        base.OnModelCreating(b);
+        b.ApplyConfigurationsFromAssembly(typeof(DocumentsDbContext).Assembly);
+    }
+}</code></pre>
+
+<h2 id="migrations">19. Migration &amp; data strategy</h2>
+
+<p>
+  Tables keep their <code>Ank</code>-prefixed names (<code>AnkDocuments</code>,
+  <code>AnkDocumentFiles</code>, &hellip;) so the move is project-structure-only for existing
+  data. The schema deltas are limited to new columns and new tables:
+</p>
+<ul>
+  <li><code>AnkDocuments</code>: add <code>Classification</code>, <code>Source</code>, <code>IndexStatus</code>, <code>IndexedAt</code>.</li>
+  <li><code>AnkDocumentFiles</code>: add <code>ExtractedTextStatus</code>.</li>
+  <li>New tables: <code>AnkDocumentIngestions</code>, <code>AnkDocumentExtractions</code>.</li>
+  <li><code>AnkDocumentUsages</code>: <code>DocumentId</code> becomes a plain indexed column (drop the cross-entity FK constraint; data unchanged).</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Migration rule</span>
+  These deltas are generated <strong>only</strong> by the EF CLI against <code>AonikDbContext</code>:
+  <code>dotnet ef migrations add DocumentsModuleExtraction --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>,
+  then reviewed and applied with <code>dotnet ef database update</code>. No hand-authored
+  migrations; no edits to the <code>.Designer.cs</code> snapshot. The entity configs move first
+  (so the model compiles), the <code>DbSet</code>s remain on <code>AonikDbContext</code>, and the
+  migration is regenerated from the changed model.
+</div>
+
+<p>
+  A one-time backfill (optional, Worker job) can publish <code>DocumentUploadedEvent</code> for
+  existing indexable documents so historical evidence becomes searchable; classification for
+  legacy rows defaults from <code>DocumentType</code>.
+</p>
+
+<h2 id="phases">20. Phased rollout</h2>
+
+<div class="phase-card">
+  <h4>Phase 0 &mdash; Contracts &amp; scoping fix (P0, shippable alone)</h4>
+  <div class="phase-summary">De-risk the privacy gap before anything else moves.</div>
+  <ul>
+    <li>Add <code>SharedKernel.Abstractions.Documents</code> contracts + events + <code>DocumentClassification</code>.</li>
+    <li>Introduce <code>ScopedDocumentVectorAdapter</code>; stamp <code>tenant_id</code>/<code>owner_party_id</code> on upsert and enforce the retrieval filter; add isolation tests.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 1 &mdash; Create Aonik.Documents, move generic entities</h4>
+  <div class="phase-summary">Project, module class, DbContext, configs; entities relocated; build green.</div>
+  <ul>
+    <li>Move <code>Document</code>/<code>DocumentFile</code>/<code>DocumentVersion</code> + configs; add ingestion/extraction entities &amp; new columns.</li>
+    <li>Generate the tool-made migration against <code>AonikDbContext</code>.</li>
+    <li>Re-home generic upload/list/get endpoints under <code>/documents/*</code> with customer-accessible policies.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 &mdash; Refactor Compliance to consume documents</h4>
+  <div class="phase-summary">Verification keeps working through the contract.</div>
+  <ul>
+    <li>Drop the EF navigation; <code>DocumentUsage.DocumentId</code> becomes a scalar resolved via <code>IDocumentReader</code>.</li>
+    <li>Split <code>DocumentVerificationService</code> out; wire <code>DocumentDeletedEvent</code> orphan handling.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 &mdash; Event-driven ingestion pipeline</h4>
+  <div class="phase-summary">RAG-by-default goes live.</div>
+  <ul>
+    <li><code>DocumentIngestionJob</code> consumes <code>DocumentUploadedEvent</code>; implement PDF/DOCX extraction + OCR hook.</li>
+    <li>Lift chunker + embedding into <code>DocumentIndexer</code>; record <code>DocumentIngestion</code> with <code>AiRunId</code>.</li>
+    <li>Expose <code>IDocumentSearch</code> as a scoped agent tool.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 4 &mdash; Decommission legacy &amp; backfill</h4>
+  <div class="phase-summary">One document system.</div>
+  <ul>
+    <li>Remove <code>POST /ai/documents/upload</code> and <code>DocumentUploadEndpoint</code>.</li>
+    <li>Optional backfill of existing indexable documents; update <a href="../architecture/Document-Model.md">Document-Model.md</a>.</li>
+  </ul>
+</div>
+
+<h2 id="requirements">21. Requirements</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td><code>Aonik.Documents</code> exists as a sibling module referencing only <code>SharedKernel</code>; no module holds a <code>ProjectReference</code> to it.</td></tr>
+    <tr><td>R2</td><td>Generic document entities live in <code>Aonik.Documents</code>; <code>DocumentUsage</code>/<code>DocumentVerification</code> stay in Compliance and reference documents by id via <code>IDocumentReader</code>.</td></tr>
+    <tr><td>R3</td><td>Any module can create, read, list, and search documents exclusively through <code>SharedKernel.Abstractions.Documents</code>.</td></tr>
+    <tr><td>R4</td><td>End customers (not only admins) can upload personal documents; tax/personal documents require no compliance usage.</td></tr>
+    <tr><td>R5</td><td>Indexable documents are auto-ingested into the vector store asynchronously via <code>DocumentUploadedEvent</code>; upload returns before embedding completes.</td></tr>
+    <tr><td>R6</td><td>Every vector carries <code>tenant_id</code>, <code>owner_party_id</code>, <code>document_id</code>, <code>classification</code>; every search enforces a tenant (+party) filter with no unscoped overload.</td></tr>
+    <tr><td>R7</td><td>Search scope is derived from authenticated context, never from model/agent input.</td></tr>
+    <tr><td>R8</td><td>Document deletion removes blob + vectors and emits <code>DocumentDeletedEvent</code>; agent-initiated deletion is approval-gated per Spec&nbsp;032.</td></tr>
+    <tr><td>R9</td><td>Ingestion and AI classification/extraction record an <code>AiRun</code> and propagate <code>AiRunId</code>.</td></tr>
+    <tr><td>R10</td><td>All schema changes are EF-CLI-generated against <code>AonikDbContext</code>; tables keep <code>Ank</code> prefixes; no hand-authored migrations.</td></tr>
+    <tr><td>R11</td><td>The legacy <code>/ai/documents/upload</code> endpoint is removed once the unified path is live.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">22. Tasks</h2>
+
+<ol>
+  <li>Add <code>SharedKernel.Abstractions.Documents</code> (contracts, <code>DocumentSearchScope</code>, <code>DocumentClassification</code>, events).</li>
+  <li>Implement <code>ScopedDocumentVectorAdapter</code> over <code>IVectorStore</code>; add tenant/party stamping + mandatory filter; isolation tests. <span class="tag p0" style="background:var(--p0-bg);color:#8a2a15;">P0</span></li>
+  <li>Scaffold <code>Aonik.Documents.csproj</code>, <code>DocumentsModule</code>, <code>DocumentsDbContext</code>; register in AppHost/Api composition root.</li>
+  <li>Move <code>Document</code>/<code>DocumentFile</code>/<code>DocumentVersion</code> + configs; add <code>DocumentIngestion</code>/<code>DocumentExtraction</code> and new columns.</li>
+  <li>Split <code>DocumentService</code>: generic ops to Documents (implementing reader/writer); verification ops to a Compliance <code>DocumentVerificationService</code>.</li>
+  <li>Re-home generic endpoints under <code>/documents/*</code>; add customer-facing upload policy; keep <code>/compliance/*</code> usage/verification routes.</li>
+  <li>Generate the tool-made migration against <code>AonikDbContext</code>; review; apply locally.</li>
+  <li>Implement <code>DocumentIndexer</code> (lift chunker + embeddings) and PDF/DOCX text extraction + OCR hook.</li>
+  <li>Implement <code>DocumentIngestionJob</code> (Quartz) consuming <code>DocumentUploadedEvent</code>; retry/back-off/dead-letter.</li>
+  <li>Implement <code>IDocumentSearch</code> + scoped agent search tool; wire scope from auth context.</li>
+  <li>Implement deletion (blob + vector purge) and <code>DocumentDeletedEvent</code> handlers (Compliance orphan handling, lifecycle closure).</li>
+  <li>Remove <code>DocumentUploadEndpoint</code>; optional backfill job; update <code>Document-Model.md</code> and add an ADR for the extraction.</li>
+</ol>
+
+<h2 id="verification">23. Verification</h2>
+
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; <code>Aonik.Platform</code> has no generic-document entity and no document-RAG vector coupling.</li>
+  <li><strong>Isolation test:</strong> a document uploaded as tenant A / party X yields zero search hits for a scope of tenant B, and zero for tenant A / party Y.</li>
+  <li><strong>End-to-end:</strong> upload a PDF tax return as a customer &rarr; 201 immediately &rarr; <code>DocumentUploadedEvent</code> &rarr; job indexes &rarr; agent search for that customer returns chunks; a different customer&rsquo;s agent returns nothing.</li>
+  <li><strong>Compliance intact:</strong> KYC usage + verification flows pass against documents resolved through <code>IDocumentReader</code>.</li>
+  <li><strong>Deletion:</strong> deleting a document removes blob + vectors; subsequent search returns nothing; <code>DocumentDeletedEvent</code> observed.</li>
+  <li><strong>Auditability:</strong> each ingestion has a <code>DocumentIngestion</code> row with an <code>AiRunId</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">24. Risk register</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Cross-party leakage within a tenant (tenant isolation already exists; party does not)</td><td class="status-gap">High</td><td>Phase 0 ships the owner-party scoping layer before any personal data is routed; mandatory <code>DocumentSearchScope</code> with no unscoped overload; party-isolation test gates merge.</td></tr>
+    <tr><td>Embedding cost explosion from &ldquo;index all&rdquo;</td><td>Medium</td><td>Classification gate (<code>Restricted</code> never indexed); async batching; per-tenant cost recorded on <code>DocumentIngestion</code>; backfill is opt-in.</td></tr>
+    <tr><td>PII embedded into vectors</td><td>Medium</td><td><code>Sensitive</code> defaults to metadata-only pending OCR + redaction policy; deletion purges vectors; <code>ReferenceNumber</code> masked at rest.</td></tr>
+    <tr><td>Migration snapshot drift during entity move</td><td>Medium</td><td>Tool-generated migration only; keep <code>Ank</code> table names; review diff is new columns/tables + FK drop, nothing else.</td></tr>
+    <tr><td>Compliance breakage when FK navigation is dropped</td><td>Medium</td><td>Phase 2 isolated; <code>IDocumentReader</code> resolves detail; orphan handling marks <code>Expired</code>, never deletes.</td></tr>
+    <tr><td>OCR/PDF extraction gaps block &ldquo;all&rdquo;</td><td>Low</td><td>Native text first; image docs defer to <code>OcrRequired</code> rather than failing; OCR adapter is a clean follow-up behind an interface.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">25. Decisions baked in</h2>
+<ul>
+  <li><strong>New first-class module</strong> (<code>Aonik.Documents</code>), not a Platform sub-feature &mdash; per the ADR-006 precedent.</li>
+  <li><strong>Verification split out</strong> &mdash; generic documents vs compliance verification are separate concerns; Compliance consumes documents.</li>
+  <li><strong>RAG-by-default via events</strong> &mdash; all indexable documents auto-ingested asynchronously, gated only by classification.</li>
+  <li><strong>One unified change</strong> &mdash; module extraction, verification split, ingestion pipeline, and the vector-scoping fix land together (scoping fix is non-negotiable).</li>
+  <li><strong>Migrations stay with <code>AonikDbContext</code></strong>; tables keep <code>Ank</code> names; no physical DB change.</li>
+</ul>
+
+<h2 id="open">26. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Single Qdrant collection + filter vs per-tenant collections.</strong> Filter-on-shared
+  is simpler operationally and is assumed by default; per-tenant collections give harder
+  isolation and easier per-tenant purge at the cost of collection sprawl. The payload + filter
+  contract is identical either way, so this is reversible &mdash; decide based on tenant scale.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Where the ingestion job lives.</strong> <code>Aonik.Worker</code> (Quartz, consistent
+  with existing background jobs) vs an in-process integration-event handler inside
+  <code>Aonik.Documents</code>. Worker is preferred for retry/back-off and cost isolation.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>OCR provider</strong> for <code>Sensitive</code>/image documents &mdash; interface
+  defined now, adapter (Azure AI Document Intelligence / Textract / open-source) chosen later.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Embedding re-index on model change.</strong> Whether to version the embedding model on
+  <code>DocumentIngestion</code> and support bulk re-embedding when the model upgrades.
+</div>
+
+<h2 id="refs">27. References</h2>
+<ul>
+  <li><a href="../architecture/Document-Model.md">docs/architecture/Document-Model.md</a> &mdash; the existing flexible-evidence design (to be updated).</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> &mdash; module-first modular monolith.</li>
+  <li><a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> / <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> &mdash; module-extraction precedent.</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> &mdash; anemic domain entities.</li>
+  <li><a href="026.user-lifecycle-closure.html">Spec&nbsp;026</a> &mdash; user lifecycle closure (document erasure on account closure).</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> &amp; <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> &mdash; agent mutation governance (document deletion).</li>
+  <li><a href="../../src/Aonik.Api/Endpoints/DocumentUploadEndpoint.cs">DocumentUploadEndpoint.cs</a> &mdash; legacy RAG path being replaced.</li>
+  <li><a href="../../src/Aonik.Platform/Entities/Compliance/">Aonik.Platform/Entities/Compliance/</a> &mdash; current document entities.</li>
+</ul>
+
+<footer>
+  Spec 035 &middot; Extract Documents into its own module (Aonik.Documents) with RAG-by-default
+  ingestion &middot; Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>

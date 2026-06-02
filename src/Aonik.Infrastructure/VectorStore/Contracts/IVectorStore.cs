@@ -70,6 +70,27 @@ public interface IVectorStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieve a single page of points by payload filter, returning a continuation
+    /// <paramref name="offset"/> for the next page (null once the final page has been
+    /// returned). Unlike <see cref="ScrollAsync"/>, which returns only the first page,
+    /// this lets callers iterate the entire result set for documents whose chunk count
+    /// exceeds one page (e.g. erasure/re-index). Scoped to the current tenant fail-closed.
+    /// </summary>
+    /// <param name="collectionName">Collection name</param>
+    /// <param name="additionalFilter">Additional payload filter constraints merged with tenant isolation</param>
+    /// <param name="limit">Maximum number of points to return in this page</param>
+    /// <param name="offset">Continuation cursor from a prior page, or null to start at the beginning</param>
+    /// <param name="withPayload">Include point payloads; pass false for cheaper id-only sweeps like purge</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task<VectorScrollPage> ScrollPageAsync(
+        string collectionName,
+        Dictionary<string, object>? additionalFilter,
+        int limit,
+        string? offset,
+        bool withPayload = true,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Update payload fields on existing points without re-uploading vectors.
     /// </summary>
     /// <param name="collectionName">Collection name</param>
@@ -117,3 +138,12 @@ public record VectorSearchResult(
 public record VectorPointResult(
     string Id,
     Dictionary<string, object>? Payload = null);
+
+/// <summary>
+/// One page of a scroll: the points in this page and the continuation offset to pass as
+/// <c>offset</c> on the next <see cref="IVectorStore.ScrollPageAsync"/> call. <see cref="NextOffset"/>
+/// is null when this was the final page.
+/// </summary>
+public record VectorScrollPage(
+    IReadOnlyList<VectorPointResult> Points,
+    string? NextOffset = null);
