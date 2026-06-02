@@ -141,6 +141,81 @@ public sealed class ScopedDocumentVectorIndexTests
         calls.Count(c => c == "upsert").Should().Be(1, "the single new chunk is written once, after the purge");
     }
 
+    // ── Write-side scope guard: reject mis-scoped writes; skip non-embeddable classes ───────────
+
+    [Theory]
+    [InlineData(DocumentClassification.Personal)]
+    [InlineData(DocumentClassification.Sensitive)]
+    public async Task IndexDocumentAsync_Should_Reject_PartyScoped_Classification_With_Empty_Owner(
+        DocumentClassification classification)
+    {
+        var request = new DocumentIndexRequest(
+            Guid.NewGuid(), OwnerPartyId: Guid.Empty, classification, "tax_return",
+            Purpose: "filing", Chunks: new[] { "chunk" });
+
+        var act = async () => await _sut.IndexDocumentAsync(request);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*OwnerPartyId is required*");
+        // Rejected before any side effect: nothing purged, nothing embedded or written.
+        _vectorStore.Verify(
+            v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "an invalid request must not destructively purge the document's existing vectors");
+        _vectorStore.Verify(
+            v => v.UpsertVectorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float[]>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task IndexDocumentAsync_Should_Reject_Sensitive_Without_Purpose()
+    {
+        var request = new DocumentIndexRequest(
+            Guid.NewGuid(), OwnerPartyId: Guid.NewGuid(), DocumentClassification.Sensitive,
+            "id_scan", Purpose: null, Chunks: new[] { "chunk" });
+
+        var act = async () => await _sut.IndexDocumentAsync(request);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*Purpose is required*");
+    }
+
+    [Theory]
+    [InlineData(DocumentClassification.Sensitive)]
+    [InlineData(DocumentClassification.Restricted)]
+    public async Task IndexDocumentAsync_Should_Not_Embed_NonIndexable_Classifications(
+        DocumentClassification classification)
+    {
+        // Sensitive is metadata-only until OCR + redaction; Restricted is never indexed. Neither
+        // is embedded, but the document's existing vectors are still purged (replace semantics).
+        var request = new DocumentIndexRequest(
+            Guid.NewGuid(), OwnerPartyId: Guid.NewGuid(), classification, "id_scan",
+            Purpose: "kyc", Chunks: new[] { "raw-unredacted-content" });
+        StubEmptyScroll();
+
+        var indexed = await _sut.IndexDocumentAsync(request);
+
+        indexed.Should().Be(0);
+        // The raw content never reaches the embedding service, and no vector is written.
+        _embeddings.Verify(
+            e => e.GetEmbeddingsBatchAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "non-indexable content must not be embedded");
+        _vectorStore.Verify(
+            v => v.UpsertVectorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float[]>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        // The purge still ran, so any previously-indexed vectors for the document are removed.
+        _vectorStore.Verify(
+            v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     // ── Fix #2: fail closed on under-scoped Personal/Sensitive retrieval ─────────
 
     [Fact]

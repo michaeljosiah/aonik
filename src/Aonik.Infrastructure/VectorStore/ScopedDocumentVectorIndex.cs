@@ -58,6 +58,13 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         DocumentIndexRequest request,
         CancellationToken cancellationToken = default)
     {
+        // Fail closed BEFORE any side effect (the write-side mirror of ValidateScope): a
+        // mis-scoped request must not destructively purge the document's existing vectors and
+        // then fail. Rejecting party-scoped content without a real owner — or Sensitive without a
+        // purpose — also guarantees we never write chunks stamped owner_party_id = Guid.Empty,
+        // which would be orphaned from scoped searches yet reachable by a tenant-wide scope.
+        ValidateIndexRequest(request);
+
         // Re-index is a full replace: purge any existing vectors for this document before
         // writing the new chunks. Deterministic ids overwrite chunks that still exist, but a
         // re-extraction yielding FEWER chunks would otherwise leave the previous higher-index
@@ -67,6 +74,21 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
 
         if (request.Chunks.Count == 0)
             return 0;
+
+        // Classification gate: not every classification is embedded into the vector store.
+        // Restricted is never indexed (direct read only); Sensitive is metadata-only until OCR +
+        // redaction can safely process it (ADR-009 / DocumentClassification). The raw content is
+        // therefore never sent to the embedding service. The purge above still applied, so any
+        // previously-indexed vectors are removed; the search side already supports Sensitive
+        // retrieval for when indexing is later enabled.
+        if (request.Classification is DocumentClassification.Restricted or DocumentClassification.Sensitive)
+        {
+            _logger.LogInformation(
+                "Skipped vector indexing for document {DocumentId}: classification {Classification} is not " +
+                "embedded (Restricted is never indexed; Sensitive is metadata-only until OCR + redaction).",
+                request.DocumentId, request.Classification);
+            return 0;
+        }
 
         var collection = _config.GetCollectionName(CollectionType);
         var embeddings = (await _embeddingService
@@ -252,6 +274,30 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
             throw new ArgumentException(
                 "At least one Purpose is required to search Sensitive documents.",
                 nameof(scope));
+    }
+
+    /// <summary>
+    /// Write-side fail-closed validation, the mirror of <see cref="ValidateScope"/>. Party-scoped
+    /// content (Personal/Sensitive) must carry a real owner party, and Sensitive must carry a
+    /// purpose. Rejecting here prevents writing chunks stamped with an empty <c>owner_party_id</c>,
+    /// which would be orphaned from properly-scoped searches yet reachable by a tenant-wide scope.
+    /// See <see cref="DocumentClassification"/>.
+    /// </summary>
+    private static void ValidateIndexRequest(DocumentIndexRequest request)
+    {
+        var partyScoped = request.Classification
+            is DocumentClassification.Personal or DocumentClassification.Sensitive;
+        if (partyScoped && request.OwnerPartyId == Guid.Empty)
+            throw new ArgumentException(
+                $"OwnerPartyId is required to index {request.Classification} documents; party-scoped " +
+                "content must have a real owner party.",
+                nameof(request));
+
+        if (request.Classification is DocumentClassification.Sensitive
+            && string.IsNullOrWhiteSpace(request.Purpose))
+            throw new ArgumentException(
+                "A Purpose is required to index Sensitive documents.",
+                nameof(request));
     }
 
     /// <summary>
