@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 033 · Tenant-managed agent extensibility</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2c82; }
+    .meta-tag.priority-p1 { background: #e0f0ff; color: #144d7a; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tier {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .tier.low { background: #ecf6ee; color: #1f6b3a; }
+    .tier.medium { background: #fff5d9; color: #7a5a10; }
+    .tier.high { background: #fbe2dd; color: #b3261e; }
+    .tier.ro { background: #eef0f2; color: #5a6a76; }
+    .role {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .role.tenant { background: #e7f0fb; color: #1d4e89; }
+    .role.platform { background: #f3e7fb; color: #6a2c8a; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 033</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Agents / Platform / Finance</span>
+  <h1>Tenant-managed agent extensibility</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Lets a tenant administrator <strong>extend</strong> their agents &mdash; not just
+    re-prompt and toggle them &mdash; by uploading <strong>MAF Agent Skills</strong>,
+    registering <strong>remote MCP servers</strong>, and declaring <strong>HTTP/OpenAPI
+    tools</strong>, then testing each in a sandboxed harness before it goes live. Every
+    extension is built on the framework-native primitives that already ship in
+    <code>Microsoft.Agents.AI 1.5.0</code> (<code>AgentSkillsProvider</code>,
+    <code>AgentSkillsSource</code>, the <code>AIContextProvider</code> seam) and on the
+    existing storage / secret-protection abstractions &mdash; and <em>every</em>
+    tenant-contributed tool is routed through the <a
+    href="032.tiered-ai-mutation-approval.html">Spec 032</a> fail-closed approval gate, so
+    a tenant can add capability but can never add an ungated mutation. Tenant-contributed
+    mutating tools default to <span class="tier high">High</span> (durable proposal); only a
+    platform administrator may lower a tier or enable code execution.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem: configurable, not extensible</a></li>
+    <li><a href="#native">What MAF gives us natively</a></li>
+    <li><a href="#surfaces">Three extension surfaces</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Guardrails</a></li>
+    <li><a href="#trust">Trust &amp; authorization model</a></li>
+    <li><a href="#design">Component design</a></li>
+    <li><a href="#data">Data model &amp; migrations</a></li>
+    <li><a href="#adminui">Admin UI: manage &amp; test</a></li>
+    <li><a href="#security">Security &amp; audit</a></li>
+    <li><a href="#preconditions">Preconditions</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK already lets a tenant <em>configure</em> agents: the
+  <a href="../../src/Aonik.Agents/Entities/Agent.cs"><code>Agent</code></a> entity supports a
+  two-level override model (a global row plus a per-tenant copy) so a tenant can change an
+  agent's instructions, model, and which of the <em>existing</em> code-defined tools are
+  enabled (<code>ToolsetIdsJson</code> is an allow-list). What a tenant <strong>cannot</strong>
+  do today is add a capability the platform did not compile in. Tools are
+  <code>AIFunctionFactory.Create(...)</code> calls in C#; MCP servers are read from
+  <code>appsettings</code> (<code>Agents:McpServers</code>) as a process-global,
+  stdio-only list; and there is no skills surface wired into any agent at all. The
+  &ldquo;add additional tools / add additional skills&rdquo; capability the platform's
+  story implies simply isn't there for a tenant operator.
+</p>
+
+<p>
+  This spec adds that capability on top of two things that already exist and must not be
+  weakened: the framework-native <strong>Agent Skills</strong> API that ships in our pinned
+  <code>Microsoft.Agents.AI 1.5.0</code>, and the Spec 032 <strong>fail-closed approval
+  gate</strong> (<code>IToolApprovalGate.GateAll</code>) that every agent tool already
+  passes through. The design has one spine:
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">The spine</span>
+  A tenant may add <em>where a capability comes from</em> (an uploaded skill, a remote MCP
+  server, a declared HTTP tool) but never <em>how a mutation is authorised</em>. Every
+  tenant-contributed tool is composed at the same descriptor seam and routed through
+  <code>IToolApprovalGate.GateAll(...)</code>, exactly like the built-in Finance tools.
+  An unclassified, mutating-looking tenant tool throws
+  <code>ToolNotClassifiedException</code> at agent-build time &mdash; so &ldquo;a tenant
+  added an ungated money tool&rdquo; is structurally impossible, not merely discouraged.
+</div>
+
+<p>Three extension surfaces, one safety model, one test harness:</p>
+
+<table>
+  <thead>
+    <tr><th>Surface</th><th>What a tenant adds</th><th>Framework / platform basis</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Agent Skills</strong></td>
+      <td>A <code>SKILL.md</code> package (instructions + optional references / assets / scripts) that teaches an agent a procedure via progressive disclosure.</td>
+      <td><code>AgentSkillsProvider</code> + a tenant <code>AgentSkillsSource</code> over <code>IFileStore</code>, attached via <code>ChatClientAgentOptions.AIContextProviders</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Remote MCP servers</strong></td>
+      <td>An HTTP/SSE Model Context Protocol endpoint whose tools become callable by the tenant's agents.</td>
+      <td><code>HttpClientTransport</code> (replacing stdio) + a tenant-scoped MCP resolver; tools routed through the gate.</td>
+    </tr>
+    <tr>
+      <td><strong>HTTP / OpenAPI tools</strong></td>
+      <td>A declared REST call (method, URL template, parameter schema, auth) exposed as a single tool &mdash; no code, no server to run.</td>
+      <td>A declarative <code>AIFunction</code> factory; tools routed through the gate.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  All three are inert until a tenant administrator activates them, and a mutating tool from
+  any of them defaults to <span class="tier high">High</span> &mdash; it becomes a durable
+  <code>Proposal</code> and never runs in-band. Lowering a tier, or enabling a skill's
+  executable scripts, requires a <span class="role platform">PlatformAdmin</span> review.
+  The Admin UI gains a management surface and a sandboxed test harness so a tenant can
+  validate a skill's frontmatter, dry-run an MCP connection and see the tools it exposes
+  (and how each was auto-classified), preview the exact instruction text a skill injects,
+  and exercise a new tool in the playground before it touches production data.
+</p>
+
+<h2 id="problem">2. Problem: configurable, not extensible</h2>
+
+<p>
+  The as-is state, confirmed by reading the code:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Capability</th><th>What exists today</th><th>Gap for a tenant operator</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Re-prompt / re-model an agent</td>
+      <td><a href="../../src/Aonik.Agents/Entities/Agent.cs"><code>Agent</code></a> supports a per-tenant override row (instructions, <code>ModelId</code>, <code>IsActive</code>).</td>
+      <td>&mdash; works. This is the <em>configuration</em> ceiling.</td>
+    </tr>
+    <tr>
+      <td>Choose which tools an agent has</td>
+      <td><code>ToolsetIdsJson</code> is an allow-list; <code>FinanceAgentDescriptor.Build(&hellip;, allowedToolNames)</code> filters the compiled tools.</td>
+      <td>Can only toggle tools the platform <em>already compiled</em>. A tenant cannot introduce a new one.</td>
+    </tr>
+    <tr>
+      <td>Add a new function tool</td>
+      <td>Tools are <code>AIFunctionFactory.Create(tools.CapturePayment, name: "finance_capture_payment")</code> in module C#.</td>
+      <td>Requires a code change + deploy. Not a tenant action by design &mdash; arbitrary in-process code on a money-handling monolith is a non-starter.</td>
+    </tr>
+    <tr>
+      <td>Add an MCP server</td>
+      <td><a href="../../src/Aonik.Agents/Framework/McpToolProvider.cs"><code>McpToolProvider</code></a> binds <code>Agents:McpServers</code> from <code>IConfiguration</code>; registered as a <strong>singleton</strong>; <code>StdioClientTransport</code> only.</td>
+      <td>Process-global (not tenant-scoped), config-file-only (not an admin action), and stdio means spawning a local child process &mdash; unacceptable for tenant-supplied servers.</td>
+    </tr>
+    <tr>
+      <td>Add a skill</td>
+      <td>Nothing. No <code>AIContextProvider</code> / <code>AgentSkillsProvider</code> is wired into any descriptor's <code>Build</code>.</td>
+      <td>The entire skills surface is unused, even though the API ships in our pinned MAF version.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Two consequences:</p>
+
+<ul>
+  <li>
+    <strong>Tenants outgrow the platform.</strong> A tenant with a bespoke billing
+    procedure, an internal pricing API, or a domain playbook has no path to teach their
+    agent without filing a platform feature request. The product promises an
+    <em>AI-native</em> platform; today the AI surface is closed at the tenant boundary.
+  </li>
+  <li>
+    <strong>The one extension point that exists is unsafe to open to tenants.</strong>
+    MCP-by-appsettings is global and stdio-based. Naively letting tenants write to it would
+    let one tenant's server affect all tenants and would run tenant-controlled local
+    processes inside the API host. The safe version is a different shape entirely
+    (tenant-scoped, remote-only, gated), which is most of this spec.
+  </li>
+</ul>
+
+<h2 id="native">3. What MAF gives us natively</h2>
+
+<p>
+  A guiding constraint from the outset: build on Microsoft's own approach, not a bespoke
+  re-implementation. The pinned <code>Microsoft.Agents.AI 1.5.0</code> assembly already
+  contains the entire skills surface &mdash; verified by enumerating the public types in
+  the shipped <code>Microsoft.Agents.AI.xml</code>. We adopt these directly:
+</p>
+
+<table>
+  <thead>
+    <tr><th>MAF type (1.5.0)</th><th>Role</th><th>How we use it</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>AgentSkillsProvider</code></td>
+      <td>An <code>AIContextProvider</code> that performs progressive disclosure: injects a skills catalogue and exposes <code>load_skill</code> / <code>read_skill_resource</code> / <code>run_skill_script</code>.</td>
+      <td>One per agent build, composed from the tenant's enabled skills; attached via <code>AIContextProviders</code>.</td>
+    </tr>
+    <tr>
+      <td><code>AgentSkillsSource</code> (abstract; <code>GetSkillsAsync</code>)</td>
+      <td>Where skills come from. Concrete: <code>AgentFileSkillsSource</code>, <code>AgentInMemorySkillsSource</code>, <code>AggregatingAgentSkillsSource</code>, <code>DeduplicatingAgentSkillsSource</code>, <code>FilteringAgentSkillsSource</code>.</td>
+      <td>We add a <code>TenantBlobSkillsSource : AgentSkillsSource</code> that reads tenant <code>SKILL.md</code> packages from <code>IFileStore</code>, and aggregate it with the global source.</td>
+    </tr>
+    <tr>
+      <td><code>AgentSkillsProviderBuilder</code></td>
+      <td>Fluent composition: <code>UseSource</code>, <code>UseSkills</code>, <code>UseFilter(Func&lt;AgentSkill,bool&gt;)</code>, <code>UseScriptApproval(bool)</code>, <code>UseFileScriptRunner</code>, <code>UsePromptTemplate</code>, <code>UseOptions</code>, <code>Build</code>.</td>
+      <td>The assembly point for a tenant's provider; <code>UseFilter</code> enforces the per-tenant enabled set, <code>UseScriptApproval</code> gates scripts.</td>
+    </tr>
+    <tr>
+      <td><code>AgentSkillFrontmatter</code></td>
+      <td><code>Name</code>, <code>Description</code>, <code>License</code>, <code>Compatibility</code>, <code>Metadata</code>, <code>AllowedTools</code>; ships <code>ValidateName</code> / <code>ValidateDescription</code> / <code>ValidateCompatibility</code> + max-length constants.</td>
+      <td>Server-side upload validation reuses these validators verbatim; <code>AllowedTools</code> is intersected with the agent's tool allow-list (&sect;8.1).</td>
+    </tr>
+    <tr>
+      <td><code>AgentSkillsProviderOptions</code></td>
+      <td><code>ScriptApproval</code>, <code>DisableCaching</code>, <code>SkillsInstructionPrompt</code>.</td>
+      <td><code>ScriptApproval</code> is on unless a <span class="role platform">PlatformAdmin</span> enabled scripts for the tenant skill.</td>
+    </tr>
+    <tr>
+      <td><code>ChatClientAgentOptions.AIContextProviders</code></td>
+      <td>The list of <code>AIContextProvider</code>s attached to a <code>ChatClientAgent</code>.</td>
+      <td>The single seam where the skills provider attaches &mdash; the only change to the descriptor's <code>Build</code> path (&sect;8.6).</td>
+    </tr>
+    <tr>
+      <td><code>HttpClientTransport</code> / <code>HttpClientTransportOptions</code> (<code>ModelContextProtocol.Client</code>)</td>
+      <td>Remote (streamable-HTTP / SSE) MCP client transport.</td>
+      <td>Replaces <code>StdioClientTransport</code> for tenant MCP servers &mdash; no local process spawn (&sect;8.3).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">We do <em>not</em> adopt the framework's passive approval</span>
+  MAF 1.5.0 also ships <code>ToolApprovalAgent</code> / <code>ToolApprovalRule</code> /
+  <code>UseToolApproval(&hellip;)</code> &mdash; a <em>passive</em> approval marker the model
+  can be steered around, analogous to the <code>confirmAction</code> honour system Spec 032
+  replaced. We deliberately keep AONIK's <em>enforcing</em>
+  <code>ApprovalGatedAIFunction</code> / <code>IToolApprovalGate</code> as the boundary and
+  route tenant tools through it, rather than swapping in the framework's softer surface.
+  Building on Microsoft's primitives does not mean downgrading our enforcement.
+</div>
+
+<h2 id="surfaces">4. Three extension surfaces</h2>
+
+<p>
+  These three were chosen as the safe, framework-aligned surfaces. The deliberately
+  excluded fourth &mdash; uploading arbitrary in-process .NET function tools &mdash; is out
+  of scope for the money-handling monolith (&sect;5.2). Each surface trades capability for a
+  different containment story:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Surface</th><th>Capability</th><th>Containment</th><th>Default mutation tier</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Skill (instructions only)</strong></td>
+      <td>Procedural knowledge; can reference existing tools via <code>allowed-tools</code>.</td>
+      <td>No code runs; injects text + can only invoke tools the agent already has.</td>
+      <td>n/a (adds no new tool)</td>
+    </tr>
+    <tr>
+      <td><strong>Skill (with scripts)</strong></td>
+      <td>Executable helper scripts (data transforms, deterministic calculations).</td>
+      <td><code>ScriptApproval</code> on; disabled until <span class="role platform">PlatformAdmin</span> review; sandboxed runner, extension allow-list.</td>
+      <td>script run = approval-gated event</td>
+    </tr>
+    <tr>
+      <td><strong>Remote MCP server</strong></td>
+      <td>A whole toolset from an external HTTP/SSE server.</td>
+      <td>Remote-only (no local process); tenant-scoped; per-server egress allow-list; all tools gated.</td>
+      <td><span class="tier high">High</span> for any mutating tool</td>
+    </tr>
+    <tr>
+      <td><strong>Declarative HTTP / OpenAPI tool</strong></td>
+      <td>One external REST call as a tool.</td>
+      <td>No code; fixed method + URL template; declared parameter schema; gated.</td>
+      <td><span class="tier high">High</span> unless an obvious read</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="scope">5. Scope (in / out)</h2>
+
+<h3 id="scope-in">5.1 In scope</h3>
+
+<ul>
+  <li><span class="tag new">New</span> <code>TenantBlobSkillsSource : AgentSkillsSource</code> &mdash; reads a tenant's active <code>SKILL.md</code> packages from <code>IFileStore</code> and yields <code>AgentSkill</code>s. Composed with the existing global source via <code>AggregatingAgentSkillsSource</code> + <code>DeduplicatingAgentSkillsSource</code>.</li>
+  <li><span class="tag new">New</span> Per-request <code>ITenantSkillsProviderFactory</code> &mdash; builds the tenant's <code>AgentSkillsProvider</code> (filtered to enabled skills, <code>ScriptApproval</code> set from platform review) via <code>AgentSkillsProviderBuilder</code>, cached per tenant + invalidated on edit.</li>
+  <li><span class="tag mutate">Edit</span> <a href="../../src/Aonik.Finance/Agents/FinanceAgentRegistration.cs"><code>FinanceAgentDescriptor.Build</code></a> (and the shared descriptor build path): switch to the <code>ChatClientAgentOptions</code> overload and set <code>AIContextProviders</code> to include the tenant skills provider. No change to the <code>GateAll</code> tool composition.</li>
+  <li><span class="tag new">New</span> <code>ITenantMcpToolProvider</code> (scoped) + tenant remote-MCP connection management using <code>HttpClientTransport</code>; tools discovered per tenant and routed through <code>IToolApprovalGate.GateAll</code>.</li>
+  <li><span class="tag new">New</span> Declarative HTTP/OpenAPI tool factory that turns a <code>TenantHttpTool</code> row into a gated <code>AIFunction</code> with the declared JSON schema.</li>
+  <li><span class="tag new">New</span> <code>TenantToolApprovalManifest : IToolApprovalManifest</code> &mdash; classifies tenant-contributed tools (MCP + HTTP) from their DB registry so they flow through the <em>same</em> gate as built-ins. Mutating-by-default; tier read from the (platform-reviewed) row.</li>
+  <li><span class="tag new">New</span> Tenant-scoped entities: <code>TenantSkill</code>, <code>TenantMcpServer</code>, <code>TenantHttpTool</code> (+ EF configs, <code>DbSet</code>s on <code>AonikDbContext</code>, tool-generated migration in the single stream).</li>
+  <li><span class="tag new">New</span> FastEndpoints under <code>/ai/tenant-skills</code>, <code>/ai/tenant-mcp-servers</code>, <code>/ai/tenant-http-tools</code> for CRUD, validate, test, submit-for-review, and (PlatformAdmin) approve.</li>
+  <li><span class="tag new">New</span> Encrypted credential handling for MCP/HTTP auth via <code>ISettingValueProtector</code> (write-only from the frontend's perspective).</li>
+  <li><span class="tag new">New</span> Admin UI workspace panel(s) for managing the three surfaces + a test harness (validate frontmatter, dry-run MCP connect &amp; list, preview injected skill text, sandbox tool invocation), registered in <code>workspace/registry.ts</code> + <code>panelComponents.ts</code>.</li>
+  <li><span class="tag new">New</span> Unit + integration tests (gate routing for tenant tools, fail-closed on unclassified tenant tools, frontmatter validation, tenant isolation, credential non-exposure).</li>
+</ul>
+
+<h3 id="scope-out">5.2 Out of scope</h3>
+
+<ul>
+  <li><strong>Tenant-uploaded in-process .NET tools.</strong> Arbitrary compiled code in the API host is excluded for a money-handling monolith. New native function tools remain a platform code change. (Skills scripts are the one narrow, sandboxed, PlatformAdmin-gated exception &mdash; and they are off by default.)</li>
+  <li><strong>Local / stdio MCP for tenants.</strong> Tenant servers are remote (HTTP/SSE) only; no tenant may cause a local child process to spawn. The existing <code>appsettings</code> stdio path stays for first-party platform servers (e.g. <code>Aonik.Finance.Mcp</code>) and is unchanged.</li>
+  <li><strong>Lowering a tenant mutating tool below <span class="tier high">High</span> by the tenant.</strong> Only a <span class="role platform">PlatformAdmin</span> may reclassify after review (&sect;7). A tenant can request, not grant.</li>
+  <li><strong>A general code sandbox.</strong> v1 ships skill-script execution as &ldquo;off by default + PlatformAdmin enable + extension allow-list + the framework <code>ScriptApproval</code> hook.&rdquo; A hardened isolation runtime (container / WASM / seccomp) is its own spec; until it lands, scripts stay opt-in per skill.</li>
+  <li><strong>A public skill marketplace / cross-tenant sharing.</strong> Skills are tenant-scoped. Curation, publishing, and ratings are later work.</li>
+  <li><strong>Changing the Spec 032 gate or the proposal pipeline.</strong> This spec <em>produces</em> tools for the existing gate; it does not modify <code>ApprovalGatedAIFunction</code>, <code>IToolApprovalService</code>, or the dispatcher.</li>
+</ul>
+
+<h2 id="guardrails">6. Guardrails</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Must&nbsp;not&nbsp;change</th>
+      <th>Must&nbsp;follow</th>
+      <th>Ask&nbsp;before</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>The Spec 032 gate contracts (<code>IToolApprovalGate</code>, <code>IToolApprovalManifest</code>, <code>ToolClassification</code>, <code>ApprovalGatedAIFunction</code>) &mdash; tenant tools <em>use</em> them, they are not forked.</li>
+          <li>The descriptor's <code>GateAll(&hellip;)</code> tool-composition seam &mdash; tenant tools join the same sequence; nothing bypasses the gate.</li>
+          <li>The single migration stream (<code>AonikDbContext</code> only); the three new entities ship as one tool-generated migration.</li>
+          <li>The existing first-party stdio MCP path and <code>Agents:McpServers</code> config &mdash; untouched for platform servers.</li>
+          <li>Ledger / payment / order invariants &mdash; tenant tools sit in front of, never inside, domain services.</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Every tenant-contributed tool passes through <code>IToolApprovalGate.GateAll</code>; an unclassified mutating-looking one throws <code>ToolNotClassifiedException</code> &mdash; fail closed.</li>
+          <li>Tenant-contributed mutating tools default to <span class="tier high">High</span> (durable proposal). Only <span class="role platform">PlatformAdmin</span> may lower a tier.</li>
+          <li>A skill's <code>allowed-tools</code> is <strong>intersected</strong> with the agent's existing tool allow-list &mdash; a skill never grants a tool the agent lacks.</li>
+          <li>Skill scripts are off by default; enabling requires <span class="role platform">PlatformAdmin</span> review; <code>ScriptApproval</code> stays on for tenant skills.</li>
+          <li>MCP/HTTP credentials are stored <code>ISettingValueProtector</code>-encrypted, decrypted only server-side at call time, and never returned to any client.</li>
+          <li>Everything is tenant-scoped: a tenant sees and uses only its own extensions; <code>ITenantScoped</code> + tenant filter on every entity and connection cache key.</li>
+        </ul>
+      </td>
+      <td>
+        <ul style="margin:0;padding-left:18px;">
+          <li>Allowing any tenant MCP/HTTP egress to a host not on the platform allow-list.</li>
+          <li>Enabling skill-script execution for a tenant skill (PlatformAdmin action, audited).</li>
+          <li>Classifying a tenant mutating tool below <span class="tier high">High</span>.</li>
+          <li>Letting a skill or MCP server reference a money-moving built-in tool via <code>allowed-tools</code>.</li>
+          <li>Caching a tenant MCP connection across tenants or beyond a credential rotation.</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="trust">7. Trust &amp; authorization model</h2>
+
+<p>
+  Authority is tiered by risk, mapped onto the existing roles
+  (<span class="role platform">PlatformAdmin</span>,
+  <span class="role tenant">TenantAdmin</span>, Operations, ReadOnly, &hellip;). The rule:
+  a tenant administrator may add and test capability for their own tenant, but anything
+  that runs code, moves money, or reaches a new network destination needs platform review.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Action</th><th>Required role</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Create / edit / upload / delete a tenant skill, MCP server, or HTTP tool (own tenant)</td><td><span class="role tenant">TenantAdmin</span></td><td>Tenant owns its own agent surface.</td></tr>
+    <tr><td>Validate a skill, dry-run an MCP connection, sandbox-test a tool</td><td><span class="role tenant">TenantAdmin</span></td><td>Read-only / sandboxed; no production effect.</td></tr>
+    <tr><td>Activate a skill / MCP server / HTTP tool (make it live for agents)</td><td><span class="role tenant">TenantAdmin</span>, after the row is <code>Approved</code></td><td>Activation is a tenant choice; eligibility is gated by review.</td></tr>
+    <tr><td>Approve a tenant MCP server / HTTP tool for activation (validates egress host, default tiers)</td><td><span class="role platform">PlatformAdmin</span></td><td>New network egress + tool surface crosses the tenant trust boundary.</td></tr>
+    <tr><td>Enable executable scripts on a tenant skill</td><td><span class="role platform">PlatformAdmin</span></td><td>Code execution on the host; the one narrow exception to &ldquo;no tenant code.&rdquo;</td></tr>
+    <tr><td>Lower a tenant mutating tool below <span class="tier high">High</span></td><td><span class="role platform">PlatformAdmin</span></td><td>Tiers are a security artefact (Spec 032 &sect;4.2); a tenant cannot self-grant a faster money path.</td></tr>
+  </tbody>
+</table>
+
+<h3>7.1 Approval state machine</h3>
+
+<div class="ascii-diagram">Tenant extension lifecycle (skill / MCP server / HTTP tool)
+───────────────────────────────────────────────────────────
+Draft ──submit──▶ PendingPlatformReview ──approve──▶ Approved ──(TenantAdmin)──▶ Active
+   ▲                      │                                                        │
+   │                      └──reject──▶ Rejected (reason recorded)                  │
+   └──────────────────────── edit (any change re-enters Draft) ◀──── deactivate ───┘</div>
+
+<p>
+  A skill that adds <em>no new tool</em> and <em>no scripts</em> (pure instructions
+  referencing already-allowed tools) MAY auto-approve to <code>Approved</code> on a clean
+  frontmatter validation &mdash; it carries no capability the agent didn't already have. A
+  skill with scripts, any MCP server, and any HTTP tool always requires explicit platform
+  review. Editing an <code>Active</code> extension returns it to <code>Draft</code> and
+  deactivates it until re-reviewed (an edit can change behaviour, so prior approval no
+  longer holds).
+</p>
+
+<h2 id="design">8. Component design</h2>
+
+<h3 id="design-skills">8.1 Agent Skills: upload &rarr; store &rarr; source &rarr; provider</h3>
+
+<p>
+  A skill is a <code>SKILL.md</code> package: YAML frontmatter (<code>name</code>,
+  <code>description</code>, optional <code>license</code>, <code>compatibility</code>,
+  <code>metadata</code>, <code>allowed-tools</code>) plus optional <code>references/</code>,
+  <code>assets/</code>, and <code>scripts/</code> directories. Lifecycle:
+</p>
+
+<div class="ascii-diagram">Upload (TenantAdmin)
+  ↓
+Validate frontmatter server-side  →  AgentSkillFrontmatter.ValidateName / ValidateDescription / ValidateCompatibility
+  │                                    + MaxNameLength / MaxDescriptionLength / MaxCompatibilityLength
+  ├─ allowed-tools ∩ agent tool allow-list  (reject tools the agent doesn't have; reject money-moving built-ins)
+  └─ scripts present? → require PlatformAdmin enable; default ScriptsEnabled = false
+  ↓
+Store package bytes:  IFileStore.UploadAsync(tenantId, skillId, stream, "SKILL.md", contentType)  → FileUploadResult (StorageKey, Sha256)
+  ↓
+Persist TenantSkill row (FrontmatterJson, AllowedToolsJson, StorageKey, Sha256, ApprovalState=Draft|Approved)
+  ↓
+At agent build:  TenantBlobSkillsSource.GetSkillsAsync()  reads active skills for the tenant from IFileStore
+  ↓
+AggregatingAgentSkillsSource(globalSource, tenantSource) → DeduplicatingAgentSkillsSource
+  ↓
+AgentSkillsProviderBuilder
+   .UseSource(deduped)
+   .UseFilter(skill => tenantEnabledNames.Contains(skill.Name))
+   .UseScriptApproval(true)               // off only if PlatformAdmin enabled scripts for the skill
+   .Build()  →  AgentSkillsProvider  (an AIContextProvider)
+  ↓
+Attached via ChatClientAgentOptions.AIContextProviders  (§8.6)</div>
+
+<p>
+  The provider performs MAF's standard progressive disclosure: it injects a compact
+  catalogue of available skills into the agent's context and exposes
+  <code>load_skill</code> / <code>read_skill_resource</code> / <code>run_skill_script</code>
+  so the model pulls detail on demand rather than front-loading every skill body.
+</p>
+
+<div class="callout">
+  <span class="callout-label">The <code>allowed-tools</code> intersection is the key safety property</span>
+  A skill cannot widen an agent's authority. At validation, the frontmatter's
+  <code>allowed-tools</code> is intersected with the agent's existing tool allow-list
+  (<code>Agent.ToolsetIdsJson</code>); any tool the agent doesn't already have is rejected
+  with a clear error, and any money-moving built-in (e.g. <code>finance_capture_payment</code>)
+  is rejected outright. A skill is procedural knowledge over <em>existing</em> capability,
+  never a back door to new capability. New capability comes only from the MCP/HTTP surfaces
+  &mdash; which are themselves gated.
+</div>
+
+<h3 id="design-scripts">8.2 Skill scripts: sandboxed &amp; platform-gated</h3>
+
+<p>
+  Scripts are the only place a tenant artefact can <em>execute</em>. Containment is layered:
+</p>
+
+<ul>
+  <li><strong>Off by default.</strong> A freshly uploaded skill has <code>ScriptsEnabled = false</code>; its <code>run_skill_script</code> calls are refused. The skill's instructions and references still work.</li>
+  <li><strong>PlatformAdmin enable.</strong> Turning scripts on is a reviewed, audited <span class="role platform">PlatformAdmin</span> action recorded on the row &mdash; the operator has read the scripts.</li>
+  <li><strong>Framework <code>ScriptApproval</code> stays on</strong> for tenant skills (<code>AgentSkillsProviderOptions.ScriptApproval</code> / <code>builder.UseScriptApproval(true)</code>), so even an enabled script's execution is an approval event, not silent.</li>
+  <li><strong>Extension allow-list.</strong> <code>AgentFileSkillsSourceOptions.AllowedScriptExtensions</code> / <code>AllowedResourceExtensions</code> constrain what is treated as a runnable script vs an inert resource.</li>
+  <li><strong>Constrained runner.</strong> The <code>AgentFileSkillScriptRunner</code> used for tenant skills runs with no implicit network egress, a wall-clock + output-size limit, and a working directory scoped to the skill &mdash; never the host filesystem.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Hard limit for v1</span>
+  Until a hardened isolation runtime lands (its own spec &mdash; &sect;14), skill scripts are
+  a <strong>deliberately small, opt-in, platform-reviewed</strong> surface. If a tenant's
+  need can be met by a declarative HTTP tool or by referencing an existing tool from
+  instructions, prefer that &mdash; it runs no tenant code at all.
+</div>
+
+<h3 id="design-mcp">8.3 Tenant-scoped remote MCP servers</h3>
+
+<p>
+  The existing <a href="../../src/Aonik.Agents/Framework/McpToolProvider.cs"><code>McpToolProvider</code></a>
+  is a singleton that binds <code>Agents:McpServers</code> and uses
+  <code>StdioClientTransport</code>. Tenant MCP needs a different shape on three axes:
+  <strong>scoped</strong> (per tenant, not global), <strong>persisted</strong> (DB rows, not
+  config), and <strong>remote</strong> (HTTP/SSE, not a spawned process).
+</p>
+
+<pre><code>// New: scoped resolver alongside the unchanged singleton McpToolProvider.
+internal sealed class TenantMcpToolProvider : ITenantMcpToolProvider
+{
+    private readonly ITenantProvider _tenant;
+    private readonly ITenantMcpServerStore _store;          // reads TenantMcpServer rows
+    private readonly ISettingValueProtector _protector;     // decrypts auth at connect time
+    private readonly IToolApprovalGate _gate;               // §8.5 — gate every discovered tool
+
+    public async Task&lt;IReadOnlyList&lt;AITool&gt;&gt; GetToolsAsync(IServiceProvider sp, CancellationToken ct)
+    {
+        var servers = await _store.GetActiveApprovedAsync(_tenant.TenantId, ct);
+        var tools = new List&lt;AITool&gt;();
+        foreach (var s in servers)
+        {
+            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            {
+                Name = s.Name,
+                Endpoint = new Uri(s.Endpoint),                        // remote — no process spawn
+                AdditionalHeaders = BuildAuthHeaders(s, _protector),   // decrypted here, never sent to a client
+            });
+            var client = await McpClient.CreateAsync(transport, cancellationToken: ct);
+            var discovered = (await client.ListToolsAsync(cancellationToken: ct)).Cast&lt;AITool&gt;();
+            // Every MCP tool is classified + wrapped exactly like a built-in (§8.5).
+            tools.AddRange(_gate.GateAll(discovered, sp));
+        }
+        return tools;
+    }
+}</code></pre>
+
+<ul>
+  <li><strong>Remote only.</strong> <code>HttpClientTransport</code> (verified present in <code>ModelContextProtocol.Client</code>, Core 0.9.0-preview.2) connects to a URL. No tenant input ever becomes a local command line.</li>
+  <li><strong>Egress allow-list.</strong> A server's <code>Endpoint</code> host must be on a platform-curated allow-list, checked at PlatformAdmin approval and re-checked at connect. This is the network half of &ldquo;ask before&rdquo; in &sect;6.</li>
+  <li><strong>Tenant-scoped lifecycle.</strong> Connections are cached per <code>(tenantId, serverId, credentialVersion)</code>; a credential rotation or edit invalidates the cache. Never shared across tenants.</li>
+  <li><strong>All tools gated.</strong> Discovered MCP tools are passed straight into <code>IToolApprovalGate.GateAll</code> with the tenant manifest (&sect;8.5). An MCP tool whose name looks mutating and isn't classified throws &mdash; fail closed, same as a built-in.</li>
+</ul>
+
+<h3 id="design-http">8.4 Declarative HTTP / OpenAPI tools</h3>
+
+<p>
+  The lightest surface: a tenant declares one external REST call &mdash; method, URL
+  template with typed parameters, a JSON parameter schema, and an auth reference &mdash; and
+  it becomes a single tool. No server to run, no code to upload. A factory turns the
+  <code>TenantHttpTool</code> row into an <code>AIFunction</code> whose <code>JsonSchema</code>
+  is the declared parameter schema and whose invocation performs the HTTP call (auth
+  injected server-side from the encrypted reference), then the tool is routed through the
+  gate like any other.
+</p>
+
+<p>
+  Default classification is <span class="tier high">High</span> for any method that is not a
+  plainly read-only <code>GET</code>; a <code>GET</code> with no side effects may be
+  <span class="tier ro">Read&nbsp;only</span> after PlatformAdmin review. Because the schema
+  is declared, the parameter surface the model sees is fixed &mdash; the model cannot smuggle
+  arbitrary fields into the call.
+</p>
+
+<h3 id="design-gate">8.5 Reconciling every tenant tool with the Spec 032 gate</h3>
+
+<p>
+  This is the spine. The gate already aggregates module manifests and wraps classified
+  mutating tools; we add one manifest for tenant-contributed tools, populated from the DB
+  registry, so tenant MCP/HTTP tools are indistinguishable from built-ins at the gate:
+</p>
+
+<pre><code>internal sealed class TenantToolApprovalManifest : IToolApprovalManifest
+{
+    private readonly ITenantToolClassificationStore _store;   // reads tier per (tenant, toolName)
+    public string Module =&gt; "Tenant";
+
+    public ToolClassification? Classify(string toolName)
+    {
+        var row = _store.Find(toolName);          // tenant-scoped lookup
+        if (row is null) return null;             // not ours → gate's default rules apply (fail closed if mutating-looking)
+
+        return row.IsReadOnly
+            ? ToolClassification.ReadOnly
+            // Tenant mutating tools default High; only a PlatformAdmin review can set Medium/Low.
+            : ToolClassification.Mutating(new ToolApprovalOptions(row.Tier, row.ActionKind, row.ProposalType));
+    }
+}</code></pre>
+
+<p>The resulting behaviour matches the built-in Finance tools exactly:</p>
+
+<table>
+  <thead>
+    <tr><th>Tenant tool</th><th>Classification</th><th>Runtime behaviour (via existing gate)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Read-only MCP/HTTP tool (e.g. a lookup)</td><td><span class="tier ro">Read&nbsp;only</span></td><td>Passes through; executes directly.</td></tr>
+    <tr><td>Everyday write, PlatformAdmin-approved down</td><td><span class="tier medium">Medium</span></td><td>Persists a Pending <code>ToolApprovalRequest</code>; runs in-band once after a server-validated confirm (args-hash bound).</td></tr>
+    <tr><td>Mutating tool, default</td><td><span class="tier high">High</span></td><td>Marshalled into a durable <code>Proposal</code>; never runs in-band; executes only after approval.</td></tr>
+    <tr><td>Mutating-looking, unclassified</td><td>&mdash;</td><td><code>ToolNotClassifiedException</code> at build &mdash; the agent won't start exposing it. Fail closed.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-label">Why this is the whole safety argument</span>
+  Because tenant tools enter through the same <code>GateAll</code> seam and the same
+  manifest contract, the Spec 032 invariant &mdash; &ldquo;no mutating agent tool reaches a
+  domain service without a recorded approval decision&rdquo; &mdash; extends to tenant tools
+  for free. We did not build a second approval path for tenant extensions; we made tenant
+  extensions feed the one that already exists and fails closed.
+</div>
+
+<h3 id="design-build">8.6 Wiring into the agent build seam</h3>
+
+<p>
+  The descriptor's <code>Build</code> currently calls
+  <code>new ChatClientAgent(chatClient, name, instructions, tools)</code> with no context
+  providers. Two additive changes, both at the one composition point:
+</p>
+
+<ol>
+  <li><strong>Tools:</strong> concatenate the tenant MCP + HTTP tools into the same sequence already passed to <code>gate.GateAll(&hellip;)</code>. No new gating path &mdash; they ride the existing one.</li>
+  <li><strong>Skills:</strong> switch to the <code>ChatClientAgentOptions</code> overload and set <code>AIContextProviders</code> to include the tenant's <code>AgentSkillsProvider</code>.</li>
+</ol>
+
+<pre><code>// FinanceAgentRegistration.Build (shape; instructions/model unchanged)
+var skills = tenantSkillsProviderFactory.Create(serviceProvider);   // null/empty → no providers added
+var options = new ChatClientAgentOptions
+{
+    Name = Name,
+    // existing instructions/model resolution unchanged
+    AIContextProviders = skills is null ? [] : [ skills ],
+};
+var tools = gate.GateAll(
+    InvoiceTools.CreateAll(sp)
+        .Concat(LedgerTools.CreateAll(sp))
+        .Concat(PaymentTools.CreateAll(sp))
+        .Concat(tenantMcp.GetTools(sp))        // §8.3 — already gated inside, but GateAll is idempotent for RO/wrapped
+        .Concat(tenantHttp.GetTools(sp)),      // §8.4
+    sp);
+return new ChatClientAgent(chatClient, options /* + tools wired per the options' ChatOptions */);</code></pre>
+
+<div class="callout">
+  <span class="callout-label">Keep the change at one seam</span>
+  Both additions live where tools are already assembled. Agents with no tenant skills and no
+  tenant tools build exactly as today (empty provider list, unchanged tool sequence), so the
+  change is inert for tenants that don't use it &mdash; and there is still only one place a
+  reviewer must look to confirm gating is applied.
+</div>
+
+<h2 id="data">9. Data model &amp; migrations</h2>
+
+<p>
+  Three new tenant-scoped entities, all <code>AuditableEntity</code> +
+  <code>ITenantScoped</code>, all <code>Ank</code>-prefixed tables, all added as
+  <code>DbSet</code>s on <code>AonikDbContext</code> and shipped in <strong>one</strong>
+  tool-generated migration (single stream &mdash; never hand-authored, per CLAUDE.md).
+</p>
+
+<table>
+  <thead>
+    <tr><th>Entity</th><th>Key fields</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>TenantSkill</code></td>
+      <td><code>TenantId</code>, <code>Name</code>, <code>Version</code>, <code>Description</code>, <code>StorageKey</code>, <code>Sha256</code>, <code>FrontmatterJson</code>, <code>AllowedToolsJson</code>, <code>ScriptsEnabled</code>, <code>ApprovalState</code>, <code>ReviewedByUserId?</code>, <code>IsActive</code></td>
+      <td>Package bytes in <code>IFileStore</code>; row holds metadata + review state. <code>ScriptsEnabled</code> flips only via PlatformAdmin.</td>
+    </tr>
+    <tr>
+      <td><code>TenantMcpServer</code></td>
+      <td><code>TenantId</code>, <code>Name</code>, <code>Endpoint</code>, <code>TransportType</code> (Http/Sse), <code>AuthKind</code>, <code>ProtectedAuthJson</code>, <code>AllowedToolPrefixesJson</code>, <code>DefaultRiskTier</code>, <code>ApprovalState</code>, <code>IsActive</code>, <code>CredentialVersion</code></td>
+      <td><code>ProtectedAuthJson</code> is <code>ISettingValueProtector</code>-encrypted. <code>CredentialVersion</code> keys the connection cache.</td>
+    </tr>
+    <tr>
+      <td><code>TenantHttpTool</code></td>
+      <td><code>TenantId</code>, <code>Name</code>, <code>Description</code>, <code>Method</code>, <code>UrlTemplate</code>, <code>ParameterSchemaJson</code>, <code>AuthKind</code>, <code>ProtectedAuthJson</code>, <code>RiskTier</code>, <code>ActionKind</code>, <code>ProposalType?</code>, <code>ApprovalState</code>, <code>IsActive</code></td>
+      <td>One row = one tool. <code>RiskTier</code> defaults High for non-GET; PlatformAdmin may set RO/Medium.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The per-tool classification the <code>TenantToolApprovalManifest</code> reads (&sect;8.5)
+  is derived from <code>TenantMcpServer</code> (its discovered tools inherit
+  <code>DefaultRiskTier</code> unless individually overridden) and <code>TenantHttpTool</code>
+  (its own <code>RiskTier</code>). No separate classification table is needed in v1; if
+  per-MCP-tool overrides prove necessary, a child table is the seam.
+</p>
+
+<h2 id="adminui">10. Admin UI: manage &amp; test</h2>
+
+<p>
+  A new workspace app &mdash; &ldquo;Agent extensions&rdquo; &mdash; registered in
+  <a href="../../src/Aonik.AdminUi/src/workspace/registry.ts"><code>workspace/registry.ts</code></a>
+  and <a href="../../src/Aonik.AdminUi/src/workspace/panelComponents.ts"><code>panelComponents.ts</code></a>,
+  alongside the existing <code>AgentConfigPanel</code> / <code>AgentFleetPanel</code> /
+  <code>AiPlaygroundPanel</code>. Three managed lists (Skills, MCP servers, HTTP tools) plus
+  a shared test harness.
+</p>
+
+<h3>10.1 Management</h3>
+<ul>
+  <li><strong>Skills:</strong> upload a <code>SKILL.md</code> package; see parsed frontmatter, the <code>allowed-tools</code> intersection result, scripts-present + enablement state, and approval state; activate/deactivate.</li>
+  <li><strong>MCP servers:</strong> add endpoint + transport + auth (auth is a write-only field &mdash; shows &ldquo;configured&rdquo;, never the value); see approval state and the discovered toolset with each tool's auto-classification.</li>
+  <li><strong>HTTP tools:</strong> declare method / URL template / parameter schema / auth; see the proposed risk tier.</li>
+</ul>
+
+<h3>10.2 Test harness (before anything goes live)</h3>
+<ul>
+  <li><strong>Validate skill:</strong> runs <code>AgentSkillFrontmatter</code> validators + the allowed-tools intersection server-side; shows pass/fail with field-level errors. No persistence required.</li>
+  <li><strong>Dry-run MCP connect:</strong> connects with the supplied credentials, lists tools, and renders each tool's name, description, and the tier the gate would assign &mdash; without activating the server.</li>
+  <li><strong>Preview injected text:</strong> renders the exact skills catalogue / instruction text the <code>AgentSkillsProvider</code> would inject, so the admin sees what the model sees (and can spot prompt-injection-shaped content before it ships).</li>
+  <li><strong>Sandbox invoke:</strong> reuses the existing playground (<code>AiPlaygroundPanel</code> / <code>IPlaygroundScenarioService</code>) to call the new tool in a throwaway thread and observe the gate's behaviour &mdash; a High tool returns the &ldquo;queued / requires approval&rdquo; result rather than mutating, proving the gate is in force.</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Testing parity with house workflow</span>
+  The harness is server-truthful: validation, connection, classification, and gating all run
+  the <em>same</em> server code paths that production will, so a &ldquo;passes in the
+  harness&rdquo; result means the real wiring works &mdash; not a mock. UI verification of
+  these panels follows the project's AppHost + browser workflow.
+</div>
+
+<h2 id="security">11. Security &amp; audit</h2>
+
+<ul>
+  <li><strong>Fail-closed gating is the primary control.</strong> Every tenant tool routes through <code>IToolApprovalGate.GateAll</code>; unclassified mutating-looking tools throw at build (<code>ToolNotClassifiedException</code>), and tenant mutating tools default <span class="tier high">High</span>. A tenant cannot add an ungated or self-lowered money tool.</li>
+  <li><strong>Tenant isolation everywhere.</strong> Entities are <code>ITenantScoped</code>; skills sources, MCP connections, and tool registries are keyed by tenant; the source factory only ever reads the current tenant's active rows. No cross-tenant skill, tool, or connection reuse.</li>
+  <li><strong>Credentials never leave the server.</strong> MCP/HTTP auth is <code>ISettingValueProtector</code>-encrypted at rest, decrypted only at connect/call time, and the API never returns the value &mdash; the UI shows a configured/not-configured flag and accepts writes only.</li>
+  <li><strong>Egress is allow-listed.</strong> Remote MCP/HTTP destinations must be on a platform-curated host allow-list, checked at approval and re-checked at call, preventing SSRF-style use of a tenant tool to reach internal services.</li>
+  <li><strong>Code execution is the narrow, reviewed exception.</strong> Skill scripts are off by default, enabled only by a PlatformAdmin who has read them, kept under the framework <code>ScriptApproval</code> hook and a constrained runner. Enabling is audited on the row.</li>
+  <li><strong>The <code>allowed-tools</code> ceiling.</strong> A skill is intersected down to the agent's existing tools and can never name a money-moving built-in, so &ldquo;upload a skill&rdquo; can't become &ldquo;grant the agent capture-payment.&rdquo;</li>
+  <li><strong>Audit.</strong> Upload, edit, submit, approve/reject, activate/deactivate, script-enable, and credential rotation are recorded against the existing audit substrate; gated tool invocations from tenant tools already produce a <code>ToolApprovalRequest</code> / proposal like any other.</li>
+</ul>
+
+<h2 id="preconditions">12. Preconditions</h2>
+
+<p>
+  Two dependencies must be acknowledged because tenant mutating tools rely on the Spec 032
+  enforcement paths actually executing end-to-end:
+</p>
+
+<ul>
+  <li>
+    <strong>High execution path.</strong> Tenant mutating tools default to High &rarr;
+    durable <code>Proposal</code>. Per the shipped <code>ToolApprovalTier.High</code> doc
+    comment, the durable-proposal <em>execution</em> path is deferred from the focused Spec
+    032 slice (it depends on the Spec 030 dispatcher integration + the <code>ProposalStatus</code>
+    split). Tenant High tools can be <em>created and queued</em> regardless, but they will not
+    <em>execute</em> until that path lands. This spec should ship its High classification
+    behind the same milestone, or explicitly accept &ldquo;queued but not yet executable&rdquo;
+    for tenant High tools in an interim.
+  </li>
+  <li>
+    <strong>Medium confirm presentation.</strong> The Medium in-session confirm card +
+    <code>DecideAsync</code> routing is the still-pending Spec 032 transport/presentation
+    slice (per CLAUDE.md). A PlatformAdmin-lowered Medium tenant tool depends on it to be
+    approvable in-session; until then a tenant tool classified Medium behaves as a
+    persisted-but-unpresented request. High (queued) and Read-only need nothing further.
+  </li>
+</ul>
+
+<div class="callout open">
+  <span class="callout-label">Verify before implementing</span>
+  Pin the exact remote MCP transport surface in the project's referenced
+  <code>ModelContextProtocol</code> version (the Core 0.9.0-preview.2 client exposes
+  <code>HttpClientTransport</code> / <code>HttpClientTransportOptions</code>; older lines
+  expose <code>SseClientTransport</code>). Confirm the property names
+  (<code>Endpoint</code>, <code>AdditionalHeaders</code>) against the referenced assembly
+  before writing the connection code in &sect;8.3.
+</div>
+
+<h2 id="tasks">13. Phasing &amp; tasks</h2>
+
+<table>
+  <thead>
+    <tr><th>Phase</th><th>#</th><th>Task</th><th>Files / area</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="2"><strong>A. Data &amp; manifest</strong></td>
+      <td>1</td><td>Add <code>TenantSkill</code>, <code>TenantMcpServer</code>, <code>TenantHttpTool</code> entities + EF configs; <code>DbSet</code>s on <code>AonikDbContext</code> (+ <code>AgentsDbContext</code> read path); one tool-generated migration.</td><td><code>src/Aonik.Agents/Entities/</code>, <code>Persistence/Configurations/</code>, <code>src/Aonik.Infrastructure/Migrations/</code></td></tr>
+    <tr><td>2</td><td><code>TenantToolApprovalManifest : IToolApprovalManifest</code> + classification store; register so the gate aggregates it.</td><td><code>src/Aonik.Agents/Agents/</code>, <code>AgentsModule.cs</code></td></tr>
+    <tr><td rowspan="2"><strong>B. Skills</strong></td>
+      <td>3</td><td><code>TenantBlobSkillsSource : AgentSkillsSource</code> over <code>IFileStore</code>; <code>ITenantSkillsProviderFactory</code> (aggregate + dedupe + filter + script-approval); per-tenant cache + invalidation.</td><td><code>src/Aonik.Agents/Skills/</code></td></tr>
+    <tr><td>4</td><td>Attach the provider via <code>ChatClientAgentOptions.AIContextProviders</code> in the descriptor <code>Build</code> path; frontmatter validation + <code>allowed-tools</code> intersection at upload.</td><td><code>src/Aonik.Finance/Agents/FinanceAgentRegistration.cs</code>, shared descriptor build</td></tr>
+    <tr><td rowspan="2"><strong>C. MCP &amp; HTTP tools</strong></td>
+      <td>5</td><td><code>ITenantMcpToolProvider</code> using <code>HttpClientTransport</code>; egress allow-list check; gate discovered tools; scoped connection cache keyed by credential version.</td><td><code>src/Aonik.Agents/Framework/</code></td></tr>
+    <tr><td>6</td><td>Declarative HTTP/OpenAPI tool factory → gated <code>AIFunction</code>; concat both into the descriptor tool sequence.</td><td><code>src/Aonik.Agents/Framework/</code>, descriptor build</td></tr>
+    <tr><td rowspan="2"><strong>D. API &amp; authz</strong></td>
+      <td>7</td><td>FastEndpoints: CRUD + validate + test + submit + approve for the three surfaces; TenantAdmin vs PlatformAdmin policies; encrypted-credential write path via <code>ISettingValueProtector</code>.</td><td><code>src/Aonik.Agents/Endpoints/</code></td></tr>
+    <tr><td>8</td><td>Approval state machine + review actions (script-enable, tier-lower, egress approve) as PlatformAdmin-only, audited.</td><td><code>src/Aonik.Agents/Services/</code></td></tr>
+    <tr><td rowspan="2"><strong>E. Admin UI</strong></td>
+      <td>9</td><td>&ldquo;Agent extensions&rdquo; workspace app: three managed lists + write-only credential fields; register in <code>registry.ts</code> + <code>panelComponents.ts</code>.</td><td><code>src/Aonik.AdminUi/src/workspace/</code></td></tr>
+    <tr><td>10</td><td>Test harness: validate skill, dry-run MCP connect+list+classify, preview injected text, sandbox invoke via the playground.</td><td><code>src/Aonik.AdminUi/src/workspace/apps/</code>, <code>pages/ai/playground/</code></td></tr>
+    <tr><td><strong>F. Verification</strong></td>
+      <td>11</td><td>Unit + integration tests (gate routing for tenant tools, fail-closed unclassified, frontmatter + intersection, tenant isolation, credential non-exposure, dry-run classification).</td><td><code>tests/Aonik.Application.Tests/</code>, <code>tests/Aonik.Api.Tests/</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+
+<ul>
+  <li><code>dotnet build Aonik.sln</code> and <code>dotnet test Aonik.sln</code> succeed; the migration applies cleanly from the single stream.</li>
+  <li><strong>Skills upload &amp; inject:</strong> a TenantAdmin uploads a valid <code>SKILL.md</code>; it validates, stores via <code>IFileStore</code>, and (when active) appears in the agent's injected skills catalogue via <code>AgentSkillsProvider</code> &mdash; verified by the preview showing the injected text.</li>
+  <li><strong>allowed-tools ceiling:</strong> a skill naming a tool the agent lacks, or any money-moving built-in, is rejected at validation with a field-level error.</li>
+  <li><strong>MCP remote + gated:</strong> a tenant remote MCP server connects via <code>HttpClientTransport</code>, its tools are discovered, and a mutating one is classified <span class="tier high">High</span> by default and marshalled to a proposal (never run in-band) &mdash; proven in the sandbox invoke.</li>
+  <li><strong>Fail-closed for tenant tools:</strong> a tenant MCP/HTTP tool whose name looks mutating with no classification causes <code>ToolNotClassifiedException</code> at agent build &mdash; the agent does not expose it.</li>
+  <li><strong>HTTP tool:</strong> a declared non-GET HTTP tool defaults to <span class="tier high">High</span>; a PlatformAdmin can reclassify a side-effect-free GET to <span class="tier ro">Read&nbsp;only</span>; a TenantAdmin cannot lower any tier.</li>
+  <li><strong>Scripts gated:</strong> an uploaded skill's scripts are inert until a PlatformAdmin enables them; <code>ScriptApproval</code> remains on for tenant skills; enabling is audited.</li>
+  <li><strong>Credentials hidden:</strong> no endpoint returns a stored MCP/HTTP credential; the value round-trips through <code>ISettingValueProtector</code> and is usable at connect time only.</li>
+  <li><strong>Tenant isolation:</strong> tenant A cannot see, test, or invoke tenant B's skills/servers/tools; the source factory and connection cache never cross tenants.</li>
+  <li><strong>No regression for non-users:</strong> an agent with no tenant extensions builds and runs identically to today (empty provider list, unchanged gated tool sequence).</li>
+  <li><strong>Built on MAF:</strong> the implementation uses <code>AgentSkillsProvider</code> / <code>AgentSkillsSource</code> / <code>AgentSkillsProviderBuilder</code> and <code>HttpClientTransport</code> directly &mdash; no bespoke re-implementation of skills or MCP transport.</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Surfaces.</strong> Skills + remote MCP + declarative HTTP tools; no tenant in-process .NET code.
+  <strong>MCP mode.</strong> Remote HTTP/SSE only (no tenant-spawned local processes).
+  <strong>Trust.</strong> Tiered &mdash; TenantAdmin adds/tests; PlatformAdmin approves egress, enables scripts, and lowers tiers; tenant mutating tools default High.
+  <strong>Shape.</strong> One phased spec (033) on top of the Spec 032 gate, reusing the shipped contracts.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Egress allow-list governance.</strong> Who curates the permitted MCP/HTTP host
+  list, at what grain (global vs per-tenant), and how a tenant requests an addition? A
+  global list is simplest for v1; per-tenant lists are more flexible but need an approval
+  workflow of their own.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Skill-script isolation runtime.</strong> v1 is &ldquo;off by default + PlatformAdmin
+  enable + constrained runner.&rdquo; The hardened sandbox (process/container/WASM, seccomp,
+  egress policy, resource caps) is deferred to its own spec. Confirm the interim is
+  acceptable, or gate scripts off entirely until the sandbox lands.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Skill versioning &amp; rollback.</strong> <code>TenantSkill.Version</code> exists,
+  but the upgrade/rollback story (keep N versions? pin an agent to a version? diff on
+  re-upload?) is unspecified. Likely a follow-up once the single-version path is proven.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Provider cache invalidation granularity.</strong> The per-tenant
+  <code>AgentSkillsProvider</code> and MCP connections are cached for performance. Confirm
+  the invalidation triggers (edit, activate/deactivate, credential rotation, review-state
+  change) and whether invalidation is push (on write) or TTL-based.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Can <code>allowed-tools</code> reference tenant MCP/HTTP tools?</strong> v1
+  intersects against built-ins the agent already has. Whether a skill may also reference a
+  tenant's own (gated) MCP/HTTP tool &mdash; and how that composes with activation order
+  &mdash; needs a decision; default to &ldquo;built-ins only&rdquo; unless required.
+</div>
+
+<h2 id="refs">16. References</h2>
+
+<ul>
+  <li><a href="032.tiered-ai-mutation-approval.html">Spec 032 &mdash; Tiered AI mutation approval</a> &mdash; the fail-closed gate every tenant tool routes through; this spec produces tools for it.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec 030 &mdash; Proposal execution dispatcher</a> &mdash; the durable execution path a tenant High tool's proposal feeds (precondition, &sect;12).</li>
+  <li><a href="../../src/Aonik.SharedKernel/Abstractions/Agents/IToolApprovalGate.cs"><code>IToolApprovalGate</code></a>, <a href="../../src/Aonik.SharedKernel/Abstractions/Agents/IToolApprovalManifest.cs"><code>IToolApprovalManifest</code></a>, <a href="../../src/Aonik.SharedKernel/Abstractions/Agents/ToolApprovalContracts.cs"><code>ToolClassification</code> / <code>ToolApprovalOptions</code> / <code>ToolApprovalTier</code></a> &mdash; the shipped contracts the tenant manifest implements.</li>
+  <li><a href="../../src/Aonik.Finance/Agents/FinanceToolApprovalManifest.cs"><code>FinanceToolApprovalManifest</code></a> &mdash; the built-in manifest the tenant manifest mirrors.</li>
+  <li><a href="../../src/Aonik.Finance/Agents/FinanceAgentRegistration.cs"><code>FinanceAgentDescriptor</code></a> &mdash; the <code>GateAll</code> + <code>Build</code> seam where tenant tools and the skills provider attach.</li>
+  <li><a href="../../src/Aonik.Agents/Framework/McpToolProvider.cs"><code>McpToolProvider</code></a> / <a href="../../src/Aonik.Agents/Framework/McpServerConfig.cs"><code>McpServerConfig</code></a> / <a href="../../src/Aonik.Agents/Contracts/Services/IMcpToolProvider.cs"><code>IMcpToolProvider</code></a> &mdash; today's global stdio MCP path; the tenant resolver is its scoped, remote sibling.</li>
+  <li><a href="../../src/Aonik.SharedKernel/Abstractions/Storage/IFileStore.cs"><code>IFileStore</code></a> &mdash; tenant skill package storage.</li>
+  <li><a href="../../src/Aonik.Platform/Contracts/Services/Settings/ISettingValueProtector.cs"><code>ISettingValueProtector</code></a> &mdash; MCP/HTTP credential encryption.</li>
+  <li><a href="../../src/Aonik.Agents/Entities/Agent.cs"><code>Agent</code></a> &mdash; the existing two-level (global/tenant) override model this spec extends from configuration to extension.</li>
+  <li>Microsoft Agent Framework &mdash; <a href="https://learn.microsoft.com/en-us/agent-framework/agents/skills?pivots=programming-language-csharp">Agent Skills</a> and <a href="https://learn.microsoft.com/en-us/agent-framework/agents/tools/?pivots=programming-language-csharp">Tools</a> (the native primitives: <code>AgentSkillsProvider</code>, <code>AgentSkillsSource</code>, <code>AgentSkillsProviderBuilder</code>, <code>AIContextProvider</code>, function/MCP tools), verified present in the pinned <code>Microsoft.Agents.AI 1.5.0</code>.</li>
+  <li>CLAUDE.md &mdash; &ldquo;Agents propose; systems execute,&rdquo; &ldquo;Risk tier determines AI autonomy,&rdquo; the single migration stream, and the agent-tools approval-tier rules this spec operates within.</li>
+</ul>
+
+<footer>
+  Spec 033 · Tenant-managed agent extensibility · Draft
+</footer>
+
+</body>
+</html>
