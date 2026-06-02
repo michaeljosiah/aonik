@@ -165,17 +165,21 @@ internal class QdrantHttpClient
     /// Retrieve points by payload filter (no vector similarity — exact match scroll).
     /// POST /collections/{name}/points/scroll
     /// </summary>
-    public async Task<IEnumerable<QdrantScrollPoint>> ScrollAsync(
+    public async Task<QdrantScrollResult> ScrollAsync(
         string collectionName,
         Dictionary<string, object> filter,
         int limit = 100,
+        string? offset = null,
+        bool withPayload = true,
         CancellationToken cancellationToken = default)
     {
         var request = new
         {
             filter = filter,
             limit = limit,
-            with_payload = true
+            // null on the first page; Qdrant resumes (inclusively) at this point id otherwise.
+            offset = offset,
+            with_payload = withPayload
         };
 
         var response = await _httpClient.PostAsJsonAsync(
@@ -186,7 +190,7 @@ internal class QdrantHttpClient
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<QdrantScrollResponse>(cancellationToken);
-        return result?.Result?.Points ?? Enumerable.Empty<QdrantScrollPoint>();
+        return result?.Result ?? new QdrantScrollResult(new List<QdrantScrollPoint>());
     }
 
     /// <summary>
@@ -298,9 +302,13 @@ internal record QdrantScrollResponse(QdrantScrollResult? Result);
 
 /// <summary>
 /// Qdrant scroll result containing points and optional next page offset.
+/// <c>NextPageOffset</c> is the point id to resume from; it is null on the final page.
+/// (Modelled as a string because document chunk points use UUID ids; a uint64-id
+/// collection would return a numeric offset.)
 /// </summary>
 internal record QdrantScrollResult(
     List<QdrantScrollPoint>? Points,
+    [property: JsonPropertyName("next_page_offset")]
     string? NextPageOffset = null);
 
 /// <summary>

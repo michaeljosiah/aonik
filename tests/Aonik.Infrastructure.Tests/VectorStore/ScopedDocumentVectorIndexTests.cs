@@ -1,0 +1,211 @@
+namespace Aonik.Infrastructure.Tests.VectorStore;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Aonik.Infrastructure.VectorStore;
+using Aonik.Infrastructure.VectorStore.Contracts;
+using Aonik.Infrastructure.VectorStore.Qdrant;
+using Aonik.SharedKernel.Abstractions.Documents;
+using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Moq;
+using Xunit;
+
+/// <summary>
+/// Covers the three correctness/isolation invariants of the party-scoped document index:
+/// (1) chunk point ids must be valid, deterministic Qdrant ids; (2) Personal/Sensitive
+/// retrieval must fail closed without an owner party (and purpose for Sensitive); and
+/// (3) purge must remove every chunk, paging past the first scroll page.
+/// </summary>
+public sealed class ScopedDocumentVectorIndexTests
+{
+    private readonly Mock<IVectorStore> _vectorStore = new();
+    private readonly Mock<IEmbeddingService> _embeddings = new();
+    private readonly ScopedDocumentVectorIndex _sut;
+
+    public ScopedDocumentVectorIndexTests()
+    {
+        _sut = new ScopedDocumentVectorIndex(
+            _vectorStore.Object,
+            _embeddings.Object,
+            Options.Create(new QdrantConfiguration()),
+            NullLogger<ScopedDocumentVectorIndex>.Instance);
+    }
+
+    // ── Fix #1: valid, deterministic UUID point ids ─────────────────────────────
+
+    [Fact]
+    public async Task IndexDocumentAsync_Should_Upsert_Chunks_With_Deterministic_Valid_Uuid_Point_Ids()
+    {
+        var documentId = Guid.NewGuid();
+        var request = new DocumentIndexRequest(
+            documentId, OwnerPartyId: Guid.NewGuid(), DocumentClassification.Internal,
+            DocumentType: "bank_statement", Purpose: null, Chunks: new[] { "alpha", "beta" });
+
+        var upsertedIds = new List<string>();
+        StubBatchEmbeddings();
+        _vectorStore
+            .Setup(v => v.UpsertVectorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float[]>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, float[], Dictionary<string, object>, CancellationToken>(
+                (_, id, _, _, _) => upsertedIds.Add(id))
+            .Returns(Task.CompletedTask);
+
+        // Index the same document twice to assert determinism (re-index overwrites in place).
+        await _sut.IndexDocumentAsync(request);
+        await _sut.IndexDocumentAsync(request);
+
+        upsertedIds.Should().HaveCount(4);
+        foreach (var id in upsertedIds)
+        {
+            Guid.TryParse(id, out _).Should()
+                .BeTrue($"'{id}' must be a valid UUID — Qdrant rejects ids like '<guid>:chunk:0'");
+            id.Should().NotContain(":chunk:");
+        }
+
+        upsertedIds.Take(2).Should().OnlyHaveUniqueItems("each chunk gets its own point id");
+        upsertedIds[0].Should().Be(upsertedIds[2], "chunk 0's id is stable across re-index");
+        upsertedIds[1].Should().Be(upsertedIds[3], "chunk 1's id is stable across re-index");
+    }
+
+    [Fact]
+    public async Task IndexDocumentAsync_Should_Carry_DocumentId_And_ChunkIndex_In_Payload()
+    {
+        var documentId = Guid.NewGuid();
+        var request = new DocumentIndexRequest(
+            documentId, Guid.NewGuid(), DocumentClassification.Internal, "bank_statement", null,
+            new[] { "alpha", "beta" });
+
+        var payloads = new List<Dictionary<string, object>>();
+        StubBatchEmbeddings();
+        _vectorStore
+            .Setup(v => v.UpsertVectorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float[]>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, float[], Dictionary<string, object>, CancellationToken>(
+                (_, _, _, payload, _) => payloads.Add(payload))
+            .Returns(Task.CompletedTask);
+
+        await _sut.IndexDocumentAsync(request);
+
+        payloads.Should().HaveCount(2);
+        payloads[0]["document_id"].Should().Be(documentId.ToString());
+        payloads[0]["chunk_index"].Should().Be(0);
+        payloads[1]["chunk_index"].Should().Be(1);
+    }
+
+    // ── Fix #2: fail closed on under-scoped Personal/Sensitive retrieval ─────────
+
+    [Fact]
+    public async Task SearchAsync_Should_Reject_Personal_Scope_Without_OwnerParty()
+    {
+        var scope = new DocumentSearchScope(
+            Guid.NewGuid(), Classifications: new[] { DocumentClassification.Personal });
+
+        var act = async () => await _sut.SearchAsync("find my tax return", scope);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*OwnerPartyId is required*");
+        _vectorStore.Verify(
+            v => v.SearchAsync(
+                It.IsAny<string>(), It.IsAny<float[]>(), It.IsAny<int>(), It.IsAny<float>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "retrieval must not run when the scope is rejected");
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Reject_Sensitive_Scope_Without_Purpose()
+    {
+        var scope = new DocumentSearchScope(
+            Guid.NewGuid(), OwnerPartyId: Guid.NewGuid(),
+            Classifications: new[] { DocumentClassification.Sensitive });
+
+        var act = async () => await _sut.SearchAsync("find my id scan", scope);
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*Purpose is required*");
+    }
+
+    [Fact]
+    public async Task SearchAsync_Should_Apply_OwnerParty_Filter_For_Valid_Personal_Scope()
+    {
+        var partyId = Guid.NewGuid();
+        var scope = new DocumentSearchScope(
+            Guid.NewGuid(), OwnerPartyId: partyId,
+            Classifications: new[] { DocumentClassification.Personal });
+
+        Dictionary<string, object>? capturedFilter = null;
+        _embeddings
+            .Setup(e => e.GetEmbeddingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { 0.1f });
+        _vectorStore
+            .Setup(v => v.SearchAsync(
+                It.IsAny<string>(), It.IsAny<float[]>(), It.IsAny<int>(), It.IsAny<float>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, float[], int, float, Dictionary<string, object>, CancellationToken>(
+                (_, _, _, _, filter, _) => capturedFilter = filter)
+            .ReturnsAsync(new List<VectorSearchResult>());
+
+        var results = await _sut.SearchAsync("find my tax return", scope);
+
+        results.Should().BeEmpty();
+        capturedFilter.Should().NotBeNull();
+        JsonSerializer.Serialize(capturedFilter)
+            .Should().Contain("owner_party_id").And.Contain(partyId.ToString());
+    }
+
+    // ── Fix #3: purge pages past the first scroll page ──────────────────────────
+
+    [Fact]
+    public async Task PurgeDocumentAsync_Should_Delete_All_Vectors_Across_Multiple_Pages()
+    {
+        var page1 = new VectorScrollPage(
+            new List<VectorPointResult> { new("id-1"), new("id-2") }, NextOffset: "cursor-1");
+        var page2 = new VectorScrollPage(
+            new List<VectorPointResult> { new("id-3") }, NextOffset: null);
+
+        _vectorStore
+            .SetupSequence(v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(page1)
+            .ReturnsAsync(page2);
+
+        var deletedIds = new List<string>();
+        _vectorStore
+            .Setup(v => v.DeleteAsync(
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, Dictionary<string, object>, CancellationToken>(
+                (_, id, _, _) => deletedIds.Add(id))
+            .Returns(Task.CompletedTask);
+
+        var purged = await _sut.PurgeDocumentAsync(Guid.NewGuid());
+
+        purged.Should().Be(3, "every chunk across both pages is removed, not just the first page");
+        deletedIds.Should().Equal("id-1", "id-2", "id-3");
+
+        // The first scroll starts at a null offset; the second resumes from the returned cursor.
+        _vectorStore.Verify(
+            v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                null, It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _vectorStore.Verify(
+            v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                "cursor-1", It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private void StubBatchEmbeddings()
+        => _embeddings
+            .Setup(e => e.GetEmbeddingsBatchAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<string> texts, CancellationToken _) =>
+                texts.Select(_ => new[] { 0.1f }).ToList());
+}

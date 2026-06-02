@@ -185,13 +185,13 @@ internal class QdrantVectorStore : IVectorStore
 
         try
         {
-            var points = await _httpClient.ScrollAsync(
+            var page = await _httpClient.ScrollAsync(
                 collectionName,
                 filter,
                 limit,
-                cancellationToken);
+                cancellationToken: cancellationToken);
 
-            var results = points
+            var results = (page.Points ?? new List<QdrantScrollPoint>())
                 .Select(p => new VectorPointResult(p.Id, p.Payload))
                 .ToList();
 
@@ -210,6 +210,56 @@ internal class QdrantVectorStore : IVectorStore
             _logger.LogError(
                 ex,
                 "Scroll failed in collection {Collection}",
+                collectionName);
+            throw;
+        }
+    }
+
+    public async Task<VectorScrollPage> ScrollPageAsync(
+        string collectionName,
+        Dictionary<string, object>? additionalFilter,
+        int limit,
+        string? offset,
+        bool withPayload = true,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = _metrics.ActivitySource.StartActivity("qdrant.vector.scroll", ActivityKind.Client);
+        activity?.SetTag("db.system", "qdrant");
+        activity?.SetTag("db.collection.name", collectionName);
+        activity?.SetTag("aonik.vector.limit", limit);
+
+        if (string.IsNullOrWhiteSpace(collectionName))
+            throw new ArgumentException("Collection name required", nameof(collectionName));
+        if (limit <= 0)
+            throw new ArgumentException("Limit must be > 0", nameof(limit));
+
+        // Merge tenant isolation — fail-closed: throws if no tenant context.
+        var filter = BuildMergedFilter(additionalFilter);
+
+        try
+        {
+            var page = await _httpClient.ScrollAsync(
+                collectionName,
+                filter,
+                limit,
+                offset,
+                withPayload,
+                cancellationToken);
+
+            var points = (page.Points ?? new List<QdrantScrollPoint>())
+                .Select(p => new VectorPointResult(p.Id, p.Payload))
+                .ToList();
+
+            activity?.SetTag("aonik.vector.result_count", points.Count);
+
+            return new VectorScrollPage(points, page.NextPageOffset);
+        }
+        catch (Exception ex)
+        {
+            AiTelemetry.MarkError(activity, ex);
+            _logger.LogError(
+                ex,
+                "Scroll page failed in collection {Collection}",
                 collectionName);
             throw;
         }

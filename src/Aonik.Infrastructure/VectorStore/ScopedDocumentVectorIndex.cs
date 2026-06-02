@@ -1,5 +1,7 @@
 namespace Aonik.Infrastructure.VectorStore;
 
+using System.Security.Cryptography;
+using System.Text;
 using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.Infrastructure.VectorStore.Qdrant;
 using Aonik.SharedKernel.Abstractions.Documents;
@@ -60,7 +62,7 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
 
         for (var i = 0; i < request.Chunks.Count; i++)
         {
-            var vectorId = $"{request.DocumentId:N}:chunk:{i}";
+            var vectorId = ChunkPointId(request.DocumentId, i);
             var payload = new Dictionary<string, object>
             {
                 ["document_id"] = request.DocumentId.ToString(),
@@ -95,6 +97,10 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
             throw new ArgumentException("Query is required.", nameof(query));
         if (topK <= 0)
             topK = 8;
+
+        // Fail closed before any retrieval: Personal/Sensitive documents are party-scoped
+        // by contract, so a missing owner party must be rejected, not silently widened.
+        ValidateScope(scope);
 
         var collection = _config.GetCollectionName(CollectionType);
         var queryEmbedding = await _embeddingService.GetEmbeddingAsync(query, cancellationToken);
@@ -134,14 +140,34 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
             },
         };
 
-        // tenant_id clause is merged in fail-closed by the vector store, so a purge can
-        // never reach across tenants even with a shared collection.
-        var points = (await _vectorStore.ScrollAsync(collection, filter, PurgeScrollLimit, cancellationToken)).ToList();
-        foreach (var point in points)
-            await _vectorStore.DeleteAsync(collection, filterId: point.Id, cancellationToken: cancellationToken);
+        // Page through the entire result set. A document can have more chunks than a single
+        // scroll page, so stopping at the first page would silently leave the remaining
+        // vectors searchable (a right-to-erasure / re-index correctness hole). Collect the
+        // ids first (payload not needed), then delete. tenant_id is merged in fail-closed by
+        // the vector store, so a purge can never reach across tenants even on a shared
+        // collection.
+        var pointIds = new List<string>();
+        string? offset = null;
+        while (true)
+        {
+            var page = await _vectorStore.ScrollPageAsync(
+                collection, filter, PurgeScrollLimit, offset, withPayload: false, cancellationToken);
 
-        _logger.LogDebug("Purged {Count} vectors for document {DocumentId}", points.Count, documentId);
-        return points.Count;
+            if (page.Points.Count == 0)
+                break;
+
+            pointIds.AddRange(page.Points.Select(p => p.Id));
+
+            offset = page.NextOffset;
+            if (offset is null)
+                break;
+        }
+
+        foreach (var id in pointIds)
+            await _vectorStore.DeleteAsync(collection, filterId: id, cancellationToken: cancellationToken);
+
+        _logger.LogDebug("Purged {Count} vectors for document {DocumentId}", pointIds.Count, documentId);
+        return pointIds.Count;
     }
 
     /// <summary>
@@ -165,6 +191,48 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         return must.Count == 0
             ? null
             : new Dictionary<string, object> { ["must"] = must.ToArray() };
+    }
+
+    /// <summary>
+    /// Fail-closed scope validation. Personal and Sensitive documents are party-scoped by
+    /// contract (see <see cref="DocumentSearchScope"/> / <see cref="DocumentClassification"/>),
+    /// so the caller must supply an owner party; Sensitive additionally requires a purpose.
+    /// Without these we refuse rather than fall back to a tenant-wide filter that would return
+    /// every matching party's chunks — the leak this adapter exists to prevent.
+    /// </summary>
+    private static void ValidateScope(DocumentSearchScope scope)
+    {
+        if (scope.Classifications is not { Count: > 0 } classifications)
+            return;
+
+        var requiresOwnerParty = classifications.Any(c =>
+            c is DocumentClassification.Personal or DocumentClassification.Sensitive);
+        if (requiresOwnerParty && scope.OwnerPartyId is null)
+            throw new ArgumentException(
+                "OwnerPartyId is required to search Personal or Sensitive documents; the sub-tenant " +
+                "isolation boundary will not widen retrieval across parties within a tenant.",
+                nameof(scope));
+
+        if (classifications.Contains(DocumentClassification.Sensitive)
+            && scope.Purposes is not { Count: > 0 })
+            throw new ArgumentException(
+                "At least one Purpose is required to search Sensitive documents.",
+                nameof(scope));
+    }
+
+    /// <summary>
+    /// Builds a stable Qdrant point id for a chunk. Qdrant only accepts a UUID or uint64 as a
+    /// point id, so the readable "&lt;document&gt;:chunk:&lt;n&gt;" form is invalid and is kept in the
+    /// payload (document_id / chunk_index) instead. The id is derived deterministically from
+    /// (documentId, chunkIndex) so re-indexing a chunk overwrites its point in place rather than
+    /// creating a duplicate. Qdrant requires only a well-formed UUID (no particular version), so
+    /// the hash bytes are used directly.
+    /// </summary>
+    private static string ChunkPointId(Guid documentId, int chunkIndex)
+    {
+        var seed = Encoding.UTF8.GetBytes($"{documentId:N}:{chunkIndex}");
+        var hash = SHA256.HashData(seed);
+        return new Guid(hash.AsSpan(0, 16)).ToString();
     }
 
     private static Dictionary<string, object> MatchClause(string key, string value) => new()
