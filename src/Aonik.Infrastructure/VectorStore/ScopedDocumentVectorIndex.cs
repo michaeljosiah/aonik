@@ -65,24 +65,23 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         // which would be orphaned from scoped searches yet reachable by a tenant-wide scope.
         ValidateIndexRequest(request);
 
-        // Re-index is a full replace: purge any existing vectors for this document before
-        // writing the new chunks. Deterministic ids overwrite chunks that still exist, but a
-        // re-extraction yielding FEWER chunks would otherwise leave the previous higher-index
-        // chunks behind as stale, still-searchable vectors. Purging first also handles a
-        // re-index to an empty extraction (the document's vectors are simply removed).
-        await PurgeDocumentAsync(request.DocumentId, cancellationToken);
-
+        // Explicit delete: a re-index to an empty extraction simply removes the document's
+        // vectors. There is nothing to embed, so purge immediately.
         if (request.Chunks.Count == 0)
+        {
+            await PurgeDocumentAsync(request.DocumentId, cancellationToken);
             return 0;
+        }
 
         // Classification gate: not every classification is embedded into the vector store.
         // Restricted is never indexed (direct read only); Sensitive is metadata-only until OCR +
         // redaction can safely process it (ADR-009 / DocumentClassification). The raw content is
-        // therefore never sent to the embedding service. The purge above still applied, so any
-        // previously-indexed vectors are removed; the search side already supports Sensitive
-        // retrieval for when indexing is later enabled.
+        // never sent to the embedding service. Like the empty case there is no embedding step, so
+        // purge immediately to drop any previously-indexed vectors; the search side already
+        // supports Sensitive retrieval for when indexing is later enabled.
         if (request.Classification is DocumentClassification.Restricted or DocumentClassification.Sensitive)
         {
+            await PurgeDocumentAsync(request.DocumentId, cancellationToken);
             _logger.LogInformation(
                 "Skipped vector indexing for document {DocumentId}: classification {Classification} is not " +
                 "embedded (Restricted is never indexed; Sensitive is metadata-only until OCR + redaction).",
@@ -91,6 +90,11 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         }
 
         var collection = _config.GetCollectionName(CollectionType);
+
+        // Generate AND validate the new embeddings BEFORE touching the existing index. The
+        // embedding provider is a remote call that can time out, throw, or return the wrong count;
+        // if it does, we must fail with the document's current vectors intact — it stays
+        // searchable until a retry succeeds — rather than having already purged it into a gap.
         var embeddings = (await _embeddingService
             .GetEmbeddingsBatchAsync(request.Chunks, cancellationToken)).ToList();
 
@@ -98,6 +102,12 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
             throw new InvalidOperationException(
                 $"Embedding count {embeddings.Count} does not match chunk count {request.Chunks.Count} " +
                 $"for document {request.DocumentId}.");
+
+        // Embeddings are ready and valid — only now is it safe to replace. Purge the document's
+        // existing vectors (a re-extraction with FEWER chunks would otherwise leave stale
+        // higher-index chunks behind), then upsert the new ones. The vector store merges the
+        // tenant clause into the purge fail-closed.
+        await PurgeDocumentAsync(request.DocumentId, cancellationToken);
 
         for (var i = 0; i < request.Chunks.Count; i++)
         {

@@ -216,6 +216,62 @@ public sealed class ScopedDocumentVectorIndexTests
             Times.Once);
     }
 
+    [Fact]
+    public async Task IndexDocumentAsync_Should_Not_Purge_When_Embedding_Provider_Throws()
+    {
+        // Durability: if the embedding provider times out / throws, the existing index must be
+        // left intact so the document stays searchable until a retry — never purged into a gap.
+        var request = new DocumentIndexRequest(
+            Guid.NewGuid(), Guid.NewGuid(), DocumentClassification.Internal, "statement", null,
+            new[] { "chunk-a", "chunk-b" });
+        _embeddings
+            .Setup(e => e.GetEmbeddingsBatchAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TimeoutException("embedding provider timed out"));
+
+        var act = async () => await _sut.IndexDocumentAsync(request);
+
+        await act.Should().ThrowAsync<TimeoutException>();
+        VerifyExistingIndexUntouched();
+    }
+
+    [Fact]
+    public async Task IndexDocumentAsync_Should_Not_Purge_When_Embedding_Count_Mismatches()
+    {
+        // A corrupt provider response (one embedding for two chunks) must also fail BEFORE the
+        // purge, leaving the existing vectors in place.
+        var request = new DocumentIndexRequest(
+            Guid.NewGuid(), Guid.NewGuid(), DocumentClassification.Internal, "statement", null,
+            new[] { "chunk-a", "chunk-b" });
+        _embeddings
+            .Setup(e => e.GetEmbeddingsBatchAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<float[]> { new[] { 0.1f } });
+
+        var act = async () => await _sut.IndexDocumentAsync(request);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        VerifyExistingIndexUntouched();
+    }
+
+    private void VerifyExistingIndexUntouched()
+    {
+        _vectorStore.Verify(
+            v => v.ScrollPageAsync(
+                It.IsAny<string>(), It.IsAny<Dictionary<string, object>>(), It.IsAny<int>(),
+                It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "embeddings must be generated and validated before the replace-purge");
+        _vectorStore.Verify(
+            v => v.DeleteAsync(
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _vectorStore.Verify(
+            v => v.UpsertVectorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float[]>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     // ── Fix #2: fail closed on under-scoped Personal/Sensitive retrieval ─────────
 
     [Fact]
