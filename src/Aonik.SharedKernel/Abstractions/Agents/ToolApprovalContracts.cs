@@ -11,9 +11,10 @@ public enum ToolApprovalTier
     Low,
 
     /// <summary>
-    /// Everyday domain write (e.g. create invoice). Requires an in-session confirmation
-    /// before it may run. (The in-band confirm path is deferred from the focused slice;
-    /// until it lands, Medium fails closed exactly like High.)
+    /// Everyday domain write (e.g. create invoice). Requires an explicit, server-validated
+    /// confirmation before it may run: the gate persists a Pending <c>ToolApprovalRequest</c> and
+    /// refuses the call; once the user approves (via <c>DecideAsync</c>) and the agent re-invokes,
+    /// the gate consumes the approval — bound by args-hash — and the inner tool runs in-band once.
     /// </summary>
     Medium,
 
@@ -74,9 +75,11 @@ public sealed class ToolClassification
 /// change was made, so the agent reports a pending action rather than a success.
 /// </summary>
 /// <remarks>
-/// Focused Spec 032 slice: the in-band Medium confirm and durable High proposal-execution
-/// paths are deferred. Until they land, both Medium and High surface this result instead of
-/// mutating. Low-tier tools are audited and run in-band, so they never return this.
+/// Medium returns this carrying an <see cref="ApprovalRequestId"/>: a durable
+/// <c>ToolApprovalRequest</c> was created in the Pending state, and the agent should surface it for
+/// the user to approve, then re-invoke. The parameterless-request <see cref="For(string, ToolApprovalOptions)"/>
+/// overload is the fail-closed result used when no gate service is available (no request was
+/// persisted). Low-tier tools are audited and run in-band, so they never return this.
 /// </remarks>
 public sealed record ToolApprovalRequiredResult(
     string Tool,
@@ -84,12 +87,13 @@ public sealed record ToolApprovalRequiredResult(
     string ActionKind,
     bool Executed,
     string Status,
-    string Message)
+    string Message,
+    Guid? ApprovalRequestId = null)
 {
     /// <summary>The <see cref="Status"/> value used for a gated-but-not-executed action.</summary>
     public const string RequiresApprovalStatus = "RequiresApproval";
 
-    /// <summary>Builds a refusal result for the given tool + options.</summary>
+    /// <summary>Builds a fail-closed refusal result for the given tool + options (no persisted request).</summary>
     public static ToolApprovalRequiredResult For(string tool, ToolApprovalOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -104,6 +108,28 @@ public sealed record ToolApprovalRequiredResult(
                 $"The '{action}' action is a {options.Tier}-risk mutation and was NOT executed. " +
                 "It requires explicit human approval before it can run. No changes were made. " +
                 "Tell the user the action is pending their approval — do not claim it succeeded.");
+    }
+
+    /// <summary>
+    /// Builds a requires-approval result for a Medium action that has been persisted as a Pending
+    /// <c>ToolApprovalRequest</c>. Carries the <paramref name="approvalRequestId"/> so the
+    /// presentation layer can route the user's decision to <c>DecideAsync</c>.
+    /// </summary>
+    public static ToolApprovalRequiredResult For(string tool, ToolApprovalOptions options, Guid approvalRequestId)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var action = options.ActionKind ?? tool;
+        return new ToolApprovalRequiredResult(
+            Tool: tool,
+            Tier: options.Tier.ToString(),
+            ActionKind: action,
+            Executed: false,
+            Status: RequiresApprovalStatus,
+            Message:
+                $"The '{action}' action is a {options.Tier}-risk mutation and was NOT executed. " +
+                $"It is prepared and awaiting the user's approval (request {approvalRequestId}). No changes were made. " +
+                "Ask the user to approve it; once they do, retry the same action. Do not claim it succeeded.",
+            ApprovalRequestId: approvalRequestId);
     }
 }
 
@@ -151,11 +177,21 @@ public sealed record ToolApprovalQueuedResult(
 /// <summary>How <see cref="IToolApprovalService.GateAsync"/> routed a gated mutating tool.</summary>
 public enum ToolGateDecision
 {
-    /// <summary>Run the inner tool in-band (Low, or Medium once approved). The caller invokes the domain call.</summary>
+    /// <summary>Run the inner tool in-band now. Low (auto-approved), or Medium when a matching
+    /// server-validated approval already exists and was consumed for this call. The caller invokes
+    /// the domain call.</summary>
     ApprovedInline,
 
     /// <summary>A durable <c>Proposal</c> was created (High). The inner tool is never invoked in-band.</summary>
     Queued,
+
+    /// <summary>
+    /// Medium: no approved decision exists yet, so a <c>ToolApprovalRequest</c> was created in the
+    /// Pending state. The inner tool must NOT run; the caller surfaces an approval card carrying the
+    /// <see cref="ToolGateOutcome.ApprovalRequestId"/>, and the agent re-invokes the tool after the
+    /// user decides (the gate then consumes the approval and returns <see cref="ApprovedInline"/>).
+    /// </summary>
+    PendingApproval,
 
     /// <summary>The action was refused (rejected / expired / failed to gate). The inner tool must not run.</summary>
     Refused,
@@ -173,31 +209,138 @@ public sealed record ToolGateContext(
 
 /// <summary>Uniform outcome of <see cref="IToolApprovalService.GateAsync"/>.</summary>
 /// <param name="Decision">How the call was routed.</param>
+/// <param name="ApprovalRequestId">The durable <c>ToolApprovalRequest</c> id created for this call.
+/// Null only on the pre-persist fail-closed paths (no resolvable tenant / misconfigured tool) where
+/// no tenant-scoped row could be written.</param>
 /// <param name="ProposalId">The durable proposal id — set only when <see cref="Decision"/> is <see cref="ToolGateDecision.Queued"/>.</param>
-/// <param name="Summary">Short human label for the action (used in the queued result message).</param>
+/// <param name="Summary">Short human label for the action (used in the queued / requires-approval message).</param>
 /// <param name="Reason">Refusal reason — set only when <see cref="Decision"/> is <see cref="ToolGateDecision.Refused"/>.</param>
 public sealed record ToolGateOutcome(
     ToolGateDecision Decision,
+    Guid? ApprovalRequestId = null,
+    Guid? ProposalId = null,
+    string? Summary = null,
+    string? Reason = null);
+
+/// <summary>Whether a <see cref="IToolApprovalService.DecideAsync"/> caller is approving or rejecting.</summary>
+public enum ToolApprovalDecisionType
+{
+    /// <summary>Approve the pending request so the gate may run the inner tool on the agent's resubmit.</summary>
+    Approve,
+
+    /// <summary>Reject the pending request; the inner tool will never run for it.</summary>
+    Reject,
+}
+
+/// <summary>
+/// Input to <see cref="IToolApprovalService.DecideAsync"/>: the decision and an optional
+/// human-supplied reason (recorded on the request / proposal).
+/// </summary>
+public sealed record ToolApprovalDecisionInput(
+    ToolApprovalDecisionType Decision,
+    string? Reason = null);
+
+/// <summary>How <see cref="IToolApprovalService.DecideAsync"/> resolved a decision attempt.</summary>
+public enum ToolApprovalDecisionOutcome
+{
+    /// <summary>The request was approved and recorded. The gate will run the inner tool on resubmit.</summary>
+    Approved,
+
+    /// <summary>The request was rejected and recorded. The inner tool will never run for it.</summary>
+    Rejected,
+
+    /// <summary>No request with that id is visible to the caller (wrong id or cross-tenant). Map to 404.</summary>
+    NotFound,
+
+    /// <summary>The caller is not allowed to decide this request (identity / tenant / policy). Map to 403.</summary>
+    Forbidden,
+
+    /// <summary>The request had already expired before the decision. Map to 409.</summary>
+    Expired,
+
+    /// <summary>The request was already decided (Approved/Rejected) and cannot be decided again. Map to 409.</summary>
+    AlreadyDecided,
+}
+
+/// <summary>Uniform result of <see cref="IToolApprovalService.DecideAsync"/>.</summary>
+/// <param name="ApprovalRequestId">The request that was decided (or attempted).</param>
+/// <param name="Outcome">How the attempt resolved.</param>
+/// <param name="ProposalId">For an approved High request, the durable proposal that executed (or was queued).</param>
+/// <param name="Message">Human-readable explanation, surfaced to the deciding client.</param>
+public sealed record ToolApprovalDecisionResult(
+    Guid ApprovalRequestId,
+    ToolApprovalDecisionOutcome Outcome,
     Guid? ProposalId,
-    string? Summary,
-    string? Reason);
+    string? Message);
+
+/// <summary>
+/// Canonical hash of model-supplied tool arguments, used to bind an approval decision to the exact
+/// arguments it was shown (Spec 032 §11 replay guard). The gate consumes an Approved
+/// <c>ToolApprovalRequest</c> only when the re-invoked call's hash matches, so a decision never
+/// authorises a call with changed arguments.
+/// </summary>
+public static class ToolArgumentsHash
+{
+    /// <summary>
+    /// Computes a stable SHA-256 hex hash over <paramref name="arguments"/>. Keys are ordered so
+    /// the hash is independent of enumeration order; values are serialized to their JSON form, so
+    /// the same logical arguments produce the same hash across the create and the resubmit call.
+    /// </summary>
+    public static string Compute(IDictionary<string, object?>? arguments)
+    {
+        var ordered = new SortedDictionary<string, object?>(StringComparer.Ordinal);
+        if (arguments is not null)
+        {
+            foreach (var kvp in arguments)
+            {
+                ordered[kvp.Key] = kvp.Value;
+            }
+        }
+
+        var json = System.Text.Json.JsonSerializer.Serialize(ordered);
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(json));
+        return Convert.ToHexString(bytes);
+    }
+}
 
 /// <summary>
 /// Server-side front door that routes a gated mutating tool by tier (Spec 032 §7.5). The
-/// <c>ApprovalGatedAIFunction</c> decorator delegates to this so the routing lives in one
-/// testable place rather than in the decorator.
+/// <c>ApprovalGatedAIFunction</c> decorator delegates to this so the routing — and the
+/// identity / tenant / expiry / replay enforcement — lives in one testable place rather than in
+/// the decorator or any transport adapter.
 /// <para>
-/// Focused Spec 032 slice: only the High branch is wired through here — it creates a durable
-/// <c>Proposal</c> and returns <see cref="ToolGateDecision.Queued"/>, so the inner money call is
-/// never reached in-band. Low (run in-band) and Medium (in-band confirm) are still handled
-/// directly by the decorator; calling <see cref="GateAsync"/> for them returns
-/// <see cref="ToolGateDecision.ApprovedInline"/>. The unified Medium <c>DecideAsync</c> path is deferred.
+/// <see cref="GateAsync"/> persists a durable <c>ToolApprovalRequest</c> for every gated call and
+/// routes by tier: Low is auto-approved and run in-band; Medium creates a Pending request (or
+/// consumes an already-approved one, bound by args-hash) so the agent re-invokes after the user
+/// decides; High marshals the call into a durable <c>Proposal</c> and returns
+/// <see cref="ToolGateDecision.Queued"/> so the money call never runs in-band.
+/// </para>
+/// <para>
+/// <see cref="DecideAsync"/> is the single, transport-neutral decision authority: a decision
+/// arriving over any transport is validated here for identity, tenant, freshness/expiry, and
+/// status before it has any effect. For a High request it routes through the policy-checked
+/// proposal-approval path; the inner domain call is never reached from a transport.
 /// </para>
 /// </summary>
 public interface IToolApprovalService
 {
-    /// <summary>Routes a gated invocation by tier. For High, persists a durable proposal and returns its id.</summary>
+    /// <summary>
+    /// Routes a gated invocation by tier and persists a <c>ToolApprovalRequest</c>. Medium returns
+    /// <see cref="ToolGateDecision.PendingApproval"/> until a matching approval is consumed; High
+    /// persists a durable proposal and returns <see cref="ToolGateDecision.Queued"/> with its id.
+    /// </summary>
     Task<ToolGateOutcome> GateAsync(ToolGateContext context, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records a server-validated decision for a pending request (Medium), or routes a High
+    /// request's decision through the policy-checked proposal-approval path. Enforces identity,
+    /// tenant, freshness/expiry, and single-use status. Never runs the inner tool itself: an
+    /// approved Medium request is consumed by <see cref="GateAsync"/> on the agent's resubmit.
+    /// </summary>
+    Task<ToolApprovalDecisionResult> DecideAsync(
+        Guid approvalRequestId,
+        ToolApprovalDecisionInput decision,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>One audit record for a gated mutating-tool invocation.</summary>

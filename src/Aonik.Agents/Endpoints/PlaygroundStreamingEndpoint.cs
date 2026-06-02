@@ -269,6 +269,10 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                             var toolName = functionCall.Name ?? string.Empty;
                             requiresVisualAttention |= _toolClassifier.IsDisplay(toolName)
                                 || clientToolNames.Contains(toolName);
+                            // Spec 032 demotion: `confirmAction` is now pure presentation, not the
+                            // approval authority. The authoritative requiresApproval signal comes from
+                            // the server gate's result (see the FunctionResultContent case below);
+                            // this line is retained only for not-yet-gated confirmAction flows.
                             requiresApproval |= _toolClassifier.RequiresApproval(toolName);
 
                             await WriteSseEventAsync(response, new
@@ -307,6 +311,21 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                                 content = functionResult.Result?.ToString(),
                                 role = "tool",
                             }, cancellationToken);
+
+                            // Spec 032: surface a gated Medium/High approval result as a
+                            // machine-parseable CUSTOM event (see ToolApprovalStreamEvents) so the
+                            // playground client renders an approval card and routes the decision to
+                            // POST /ai/tool-approvals/{id}/decide. Mirrors AguiStreamPipeline.
+                            var approvalSignal = ToolApprovalStreamEvents.Inspect(
+                                functionResult.Result, functionResult.CallId);
+                            if (approvalSignal.RequiresApproval)
+                            {
+                                requiresApproval = true;
+                                if (approvalSignal.CustomEvent is { } approvalEvent)
+                                {
+                                    await WriteSseEventAsync(response, approvalEvent, cancellationToken);
+                                }
+                            }
                             break;
 
                         case TextReasoningContent reasoningContent

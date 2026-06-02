@@ -138,6 +138,11 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                         var toolCallId = _classifier.ResolveCallId(functionCall);
                         var toolName = functionCall.Name ?? string.Empty;
                         requiresVisualAttention |= _classifier.IsDisplay(toolName);
+                        // Spec 032 demotion: the legacy `confirmAction` frontend tool is now a pure
+                        // presentation convention, not the approval authority. The authoritative
+                        // requiresApproval signal comes from the server gate's result (see the
+                        // FunctionResultContent case below). This line is retained only so any
+                        // not-yet-gated flow that still calls confirmAction keeps its guidance speech.
                         requiresApproval |= _classifier.RequiresApproval(toolName);
 
                         await WriteSseEventAsync(writer, new
@@ -176,6 +181,23 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                             content = functionResult.Result?.ToString(),
                             role = "tool",
                         }, cancellationToken);
+
+                        // Spec 032: a gated Medium/High mutation returns a structured approval result
+                        // instead of running in-band. Surface it as a machine-parseable CUSTOM event
+                        // (carrying the durable approvalRequestId / proposalId) so the client can render
+                        // an approval card and route the decision to POST /ai/tool-approvals/{id}/decide.
+                        // The gate's result — not the model happening to call the legacy confirmAction
+                        // frontend tool — is the authoritative source of requiresApproval.
+                        var approvalSignal = ToolApprovalStreamEvents.Inspect(
+                            functionResult.Result, functionResult.CallId);
+                        if (approvalSignal.RequiresApproval)
+                        {
+                            requiresApproval = true;
+                            if (approvalSignal.CustomEvent is { } approvalEvent)
+                            {
+                                await WriteSseEventAsync(writer, approvalEvent, cancellationToken);
+                            }
+                        }
                         break;
 
                     case TextReasoningContent reasoningContent

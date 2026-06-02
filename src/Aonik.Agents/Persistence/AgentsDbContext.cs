@@ -19,6 +19,7 @@ internal class AgentsDbContext : AonikDbContextBase
     public DbSet<AgentRun> AgentRuns { get; set; } = null!;
     public DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; } = null!;
     public DbSet<Proposal> Proposals { get; set; } = null!;
+    public DbSet<ToolApprovalRequest> ToolApprovalRequests { get; set; } = null!;
     public DbSet<ChatThread> ChatThreads { get; set; } = null!;
     public DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
     public DbSet<ConversationSummary> ConversationSummaries { get; set; } = null!;
@@ -70,6 +71,7 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<AgentRun>(modelBuilder, "AgentRuns");
         MapTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
         MapTable<Proposal>(modelBuilder, "Proposals");
+        MapTable<ToolApprovalRequest>(modelBuilder, "ToolApprovalRequests");
         MapTable<ChatThread>(modelBuilder, "ChatThreads");
         MapTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
 

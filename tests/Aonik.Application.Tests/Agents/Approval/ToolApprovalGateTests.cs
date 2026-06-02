@@ -55,6 +55,15 @@ public class ToolApprovalGateTests
             LastContext = context;
             return Task.FromResult(_outcome);
         }
+
+        // The decorator never calls DecideAsync (that is the transport endpoint's job), so the gate
+        // tests only need it to satisfy the interface. Returns a benign Approved result.
+        public Task<ToolApprovalDecisionResult> DecideAsync(
+            Guid approvalRequestId,
+            ToolApprovalDecisionInput decision,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ToolApprovalDecisionResult(
+                approvalRequestId, ToolApprovalDecisionOutcome.Approved, ProposalId: null, Message: null));
     }
 
     /// <summary>Minimal provider that resolves only <see cref="IToolApprovalService"/> — mirrors how the
@@ -166,6 +175,70 @@ public class ToolApprovalGateTests
     }
 
     [Fact]
+    public async Task GatedMediumTool_Should_ReturnRequiresApprovalCarryingRequestId_When_GatePendsApproval()
+    {
+        var invoked = 0;
+        var tool = AIFunctionFactory.Create(() => { invoked++; return "created"; }, "finance_create_invoice");
+        var gate = CreateGate(
+            new Dictionary<string, ToolClassification>(StringComparer.Ordinal)
+            {
+                ["finance_create_invoice"] = ToolClassification.Mutating(
+                    new ToolApprovalOptions(ToolApprovalTier.Medium, "Create a draft invoice")),
+            },
+            out var sink);
+
+        // The gate persisted a Pending request and handed back its id — the decorator must surface it
+        // (so the user can approve via DecideAsync) and must NOT run the inner domain call.
+        var requestId = Guid.NewGuid();
+        var approvals = new StubApprovalService(
+            new ToolGateOutcome(ToolGateDecision.PendingApproval, ApprovalRequestId: requestId, Summary: "Create a draft invoice"));
+        var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals));
+
+        var result = await gated.InvokeAsync(new AIFunctionArguments(), CancellationToken.None);
+
+        invoked.Should().Be(0, "a pending Medium confirm must not run its inner domain call");
+        approvals.Calls.Should().Be(1);
+        result.Should().BeOfType<ToolApprovalRequiredResult>();
+        var approval = (ToolApprovalRequiredResult)result!;
+        approval.ApprovalRequestId.Should().Be(requestId, "the presentation layer routes the user's decision to DecideAsync by this id");
+        approval.Executed.Should().BeFalse();
+
+        sink.Entries.Should().ContainSingle();
+        sink.Entries[0].Outcome.Should().Be("pending-approval");
+        sink.Entries[0].Executed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GatedMediumTool_Should_RunInnerOnce_When_GateConsumesAnExistingApproval()
+    {
+        var invoked = 0;
+        var tool = AIFunctionFactory.Create(() => { invoked++; return "created"; }, "finance_create_invoice");
+        var gate = CreateGate(
+            new Dictionary<string, ToolClassification>(StringComparer.Ordinal)
+            {
+                ["finance_create_invoice"] = ToolClassification.Mutating(
+                    new ToolApprovalOptions(ToolApprovalTier.Medium, "Create a draft invoice")),
+            },
+            out var sink);
+
+        // The gate found and consumed a matching server-validated approval (args-hash bound) →
+        // ApprovedInline. The decorator must run the inner domain call exactly once.
+        var approvals = new StubApprovalService(
+            new ToolGateOutcome(ToolGateDecision.ApprovedInline, ApprovalRequestId: Guid.NewGuid(), Summary: "Create a draft invoice"));
+        var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals));
+
+        var result = await gated.InvokeAsync(new AIFunctionArguments(), CancellationToken.None);
+
+        invoked.Should().Be(1, "a consumed approval lets the Medium tool run in-band, once");
+        (result?.ToString() ?? string.Empty).Should().Contain("created");
+
+        sink.Entries.Should().ContainSingle();
+        sink.Entries[0].Tier.Should().Be(ToolApprovalTier.Medium);
+        sink.Entries[0].Outcome.Should().Be("executed-inline-approved");
+        sink.Entries[0].Executed.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GatedHighTool_Should_RefuseWithoutInvokingInner_When_Invoked()
     {
         var invoked = 0;
@@ -207,7 +280,7 @@ public class ToolApprovalGateTests
 
         var proposalId = Guid.NewGuid();
         var approvals = new StubApprovalService(
-            new ToolGateOutcome(ToolGateDecision.Queued, proposalId, "Capture a payment", Reason: null));
+            new ToolGateOutcome(ToolGateDecision.Queued, ProposalId: proposalId, Summary: "Capture a payment"));
         var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals));
 
         var paymentIntentId = Guid.NewGuid();

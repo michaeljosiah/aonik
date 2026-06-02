@@ -97,10 +97,16 @@ public sealed class AgentsModule : IModule
         services.TryAddSingleton<IToolApprovalAuditSink, LoggingToolApprovalAuditSink>();
         services.TryAddSingleton<IToolApprovalGate, ToolApprovalGate>();
 
-        // Spec 032 §7.5 — server-side router the ApprovalGatedAIFunction decorator delegates to
-        // for High-tier tools: it marshals the call into a durable Proposal and returns Queued so
-        // the money call never runs in-band. Scoped because it creates a tenant-scoped proposal
-        // through the (scoped) IAgentProposalStore. TryAdd so a host/test can substitute its own.
+        // Spec 032 §7.5 — durable audit/correlation row store for every gated mutating-tool call.
+        // Module-internal (only ToolApprovalService uses it); backed by the scoped AgentsDbContext.
+        services.AddScoped<Services.IToolApprovalRequestStore, Services.ToolApprovalRequestStore>();
+
+        // Spec 032 §7.5 — server-side front door the ApprovalGatedAIFunction decorator delegates to.
+        // Low is auto-approved and run in-band; Medium persists a Pending ToolApprovalRequest and is
+        // consumed (args-hash bound) on the agent's resubmit after DecideAsync approves; High marshals
+        // the call into a durable Proposal and returns Queued so the money call never runs in-band.
+        // Scoped because it touches the (scoped) request store, proposal store, tenant/user providers,
+        // and the proposal-approval path. TryAdd so a host/test can substitute its own.
         services.TryAddScoped<IToolApprovalService, Services.ToolApprovalService>();
 
         // MCP tool provider — connects to MCP servers and exposes their tools as AITool

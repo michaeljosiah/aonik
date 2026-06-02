@@ -143,6 +143,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<ChatThread> ChatThreads { get; set; } = null!;
     public virtual DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
 
+    // Tool approval requests (Agents module — Spec 032 §7.5 durable audit/correlation row)
+    public virtual DbSet<ToolApprovalRequest> ToolApprovalRequests { get; set; } = null!;
+
     // Playground Scenarios (Agents module)
     public virtual DbSet<PlaygroundScenario> PlaygroundScenarios { get; set; } = null!;
     public virtual DbSet<PlaygroundScenarioTurn> PlaygroundScenarioTurns { get; set; } = null!;
@@ -423,6 +426,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<AgentRun>(modelBuilder, "AgentRuns");
         MapAgentsTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
         MapAgentsTable<Proposal>(modelBuilder, "Proposals");
+        MapAgentsTable<ToolApprovalRequest>(modelBuilder, "ToolApprovalRequests");
         MapAgentsTable<ChatThread>(modelBuilder, "ChatThreads");
         MapAgentsTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
         MapAgentsTable<PlaygroundScenario>(modelBuilder, "PlaygroundScenarios");
