@@ -1,3 +1,4 @@
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Platform.Entities.Compliance;
@@ -18,5 +19,9 @@ public class DocumentFile : AuditableEntity, ITenantScoped
     public DateTime? CapturedAt { get; set; }
     public string? CapturedBy { get; set; }
     public string MetadataJson { get; set; } = "{}";
+
+    // Spec 035 §9 — whether embeddable text is available for this file.
+    public ExtractedTextStatus ExtractedTextStatus { get; set; } = ExtractedTextStatus.Unsupported;
+
     public Document? Document { get; set; }
 }

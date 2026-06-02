@@ -42,3 +42,22 @@ public enum DocumentIndexStatus
     /// <summary>Ingestion failed after retries; see the owning <c>DocumentIngestion</c> record.</summary>
     Failed = 3,
 }
+
+/// <summary>
+/// Availability of embeddable text for a document file (Spec 035 §9). Drives whether the
+/// ingestion pipeline can embed a file directly or must route it through OCR first.
+/// </summary>
+public enum ExtractedTextStatus
+{
+    /// <summary>Text is natively available (txt/pdf/docx) and ready to chunk + embed.</summary>
+    Native = 0,
+
+    /// <summary>An image/scan that needs OCR before any text can be embedded.</summary>
+    OcrRequired = 1,
+
+    /// <summary>OCR has produced text (recorded as a <c>DocumentExtraction</c>); ready to embed.</summary>
+    OcrDone = 2,
+
+    /// <summary>No supported text-extraction path; the file is not embeddable.</summary>
+    Unsupported = 3,
+}

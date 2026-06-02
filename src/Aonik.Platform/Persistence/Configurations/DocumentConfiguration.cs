@@ -1,4 +1,5 @@
 using Aonik.Platform.Entities.Compliance;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -36,6 +37,19 @@ public class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.Property(d => d.AttributesJson)
             .IsRequired()
             .HasDefaultValue("{}");
+
+        // Spec 035 — RAG/classification columns. Enums stored as int; existing rows
+        // default to Internal/NotIndexable so legacy compliance docs are not auto-indexed.
+        builder.Property(d => d.Classification)
+            .HasDefaultValue(DocumentClassification.Internal);
+
+        builder.Property(d => d.Source)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("AdminUpload");
+
+        builder.Property(d => d.IndexStatus)
+            .HasDefaultValue(DocumentIndexStatus.NotIndexable);
 
         builder.HasMany(d => d.Files)
             .WithOne(f => f.Document)

@@ -1,4 +1,5 @@
 using Aonik.Platform.Entities.Compliance;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -42,6 +43,10 @@ public class DocumentFileConfiguration : IEntityTypeConfiguration<DocumentFile>
         builder.Property(f => f.MetadataJson)
             .IsRequired()
             .HasDefaultValue("{}");
+
+        // Spec 035 §9 — embeddable-text availability (enum stored as int).
+        builder.Property(f => f.ExtractedTextStatus)
+            .HasDefaultValue(ExtractedTextStatus.Unsupported);
 
         builder.HasIndex(f => f.DocumentId);
     }

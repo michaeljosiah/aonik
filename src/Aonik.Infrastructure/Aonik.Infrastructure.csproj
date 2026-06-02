@@ -23,6 +23,12 @@
       migrations land in this project's canonical AonikDbContext per AONIK convention.
     -->
     <ProjectReference Include="..\Aonik.Voice\Aonik.Voice.csproj" />
+    <!--
+      Spec 035 — Documents entity types live in Aonik.Documents but AonikDbContext
+      (this project) keeps owning their DbSets so the canonical migration stream
+      stays intact. Mirrors the PersonalFinance arrangement above.
+    -->
+    <ProjectReference Include="..\Aonik.Documents\Aonik.Documents.csproj" />
   </ItemGroup>
 
   <ItemGroup>
