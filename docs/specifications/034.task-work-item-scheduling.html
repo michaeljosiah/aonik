@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 034 · Task &amp; WorkItem scheduling</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2c82; }
+    .meta-tag.priority-p0 { background: #fbe2dd; color: #b3261e; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tier {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .tier.low { background: #ecf6ee; color: #1f6b3a; }
+    .tier.medium { background: #fff5d9; color: #7a5a10; }
+    .tier.high { background: #fbe2dd; color: #b3261e; }
+    .tier.ro { background: #eef0f2; color: #5a6a76; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 034</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Priority: P1</span>
+  <span class="meta-tag">Domain: Platform (+ Finance / PersonalFinance / Agents)</span>
+  <h1>Task &amp; WorkItem scheduling</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    A general-purpose, data-defined <strong>task primitive</strong> any module can use to say
+    &ldquo;<em>do this thing, about this subject, at this time (or on this cadence)</em>&rdquo; &mdash;
+    remind a customer their insurance is due, nudge them before a recurring family-support payment,
+    or hand an agent a standing job set by the system owner. A durable <code>WorkItem</code> row is the
+    source of truth; a single Quartz heartbeat in the Worker is the clock; and the <em>action</em> a
+    due task performs is dispatched to a keyed <code>ITaskActionHandler</code> that each module
+    contributes &mdash; the same extensibility shape as the shipped <code>IProposalHandler</code>
+    pipeline (<a href="030.proposal-execution-dispatcher.html">Spec 030</a>). High-risk actions never
+    run in-band: they marshal into a <code>Proposal</code> and execute only after approval, preserving
+    &ldquo;agents propose; systems execute.&rdquo; The system lives inside the <strong>Platform</strong>
+    module, beside Notifications, and is consumed cross-module through one
+    <code>SharedKernel.Abstractions.Tasks.ITaskService</code> contract.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem: no task primitive</a></li>
+    <li><a href="#shape">One shape behind three scenarios</a></li>
+    <li><a href="#model">Domain model</a></li>
+    <li><a href="#seam">The action-handler seam</a></li>
+    <li><a href="#dispatch">Scheduling &amp; dispatch</a></li>
+    <li><a href="#safety">The propose-don't-execute guarantee</a></li>
+    <li><a href="#contracts">Cross-module contract</a></li>
+    <li><a href="#scenarios">Walking the three scenarios</a></li>
+    <li><a href="#placement">Placement &amp; module wiring</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security, tenancy &amp; audit</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK can schedule <em>code</em> (Quartz jobs, <a href="014.background-jobs-quartz-persistence-admin.html">Spec 014</a>),
+  send <em>notifications</em> (Platform <code>INotificationService</code>), run <em>agents</em>, and
+  marshal high-risk mutations into <em>proposals</em> (<a href="030.proposal-execution-dispatcher.html">Spec
+  030</a>). What it cannot do today is let a user, a module, or the system owner declare a
+  <strong>data-defined unit of future work</strong> &mdash; &ldquo;remind me 14 days before this policy
+  renews,&rdquo; &ldquo;every month, two days before payday, prompt me to send money home,&rdquo;
+  &ldquo;every Monday have the finance agent draft a cash-position summary.&rdquo; Each of those is a
+  row a non-engineer should be able to create at runtime, not a cron-wired <code>IJob</code> a
+  developer compiles.
+</p>
+
+<p>
+  This spec introduces that primitive: a <strong><code>WorkItem</code></strong> &mdash; an objective,
+  about a subject, due on a schedule, that fires an <em>action</em> when due. It is deliberately
+  <em>not</em> a workflow engine and <em>not</em> a replacement for Quartz jobs. It is the thin,
+  reusable &ldquo;what should happen, and when&rdquo; layer that sits <em>above</em> notifications,
+  proposals, and agents and routes due work to them. Three pieces make it general:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Piece</th><th>Responsibility</th><th>Reuses</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>WorkItem</code> / <code>WorkItemRun</code> entities</td>
+      <td>Durable, tenant-scoped record of the task and each execution occurrence.</td>
+      <td>Anemic entity + <code>AonikDbContext</code> migration stream conventions.</td>
+    </tr>
+    <tr>
+      <td><code>ITaskActionHandler</code> (keyed by <code>ActionType</code>)</td>
+      <td>The pluggable &ldquo;what to do when due.&rdquo; Each module registers its own.</td>
+      <td>Exact shape of <code>IProposalHandler</code> keyed-DI dispatch.</td>
+    </tr>
+    <tr>
+      <td><code>WorkItemDispatchJob</code> (one Quartz heartbeat)</td>
+      <td>Polls due rows, leases them, dispatches to the handler, re-arms recurrences.</td>
+      <td>Worker host + lease pattern from <code>OutboxProcessor</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  A module schedules future work with one <code>ITaskService.ScheduleAsync</code> call and never
+  touches Quartz. A due reminder posts a notification; a due &ldquo;pay the bill&rdquo; task produces a
+  <code>Proposal</code> a human approves &mdash; money never moves from the scheduler itself; a due agent
+  job runs the agent and records an <code>AiRun</code>. Adding a new kind of task action is one new
+  <code>ITaskActionHandler</code> in the owning module, with no change to the scheduler.
+</div>
+
+<h2 id="problem">2. Problem: no task primitive</h2>
+
+<p>
+  Everything needed to <em>act</em> on future work already exists; what is missing is the durable,
+  user-/module-authored declaration of the work itself. The current building blocks and why none of
+  them is the primitive:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Existing capability</th><th>What it gives</th><th>Why it isn't a task primitive</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Quartz scheduled jobs (<a href="014.background-jobs-quartz-persistence-admin.html">Spec 014</a>)</td>
+      <td>Cron-driven recurring <em>code</em>, clustered, persisted.</td>
+      <td>A job is compiled by a developer and runs the same logic for the whole platform. There is no per-tenant, per-user, runtime-created instance with its own subject and payload.</td>
+    </tr>
+    <tr>
+      <td>Notifications (Platform <code>INotificationService</code>)</td>
+      <td>Deliver an in-app/push/email/SMS message <em>now</em>.</td>
+      <td>No notion of &ldquo;later&rdquo; or &ldquo;repeating.&rdquo; It is the delivery channel a reminder task would call when due, not the schedule.</td>
+    </tr>
+    <tr>
+      <td>Proposals (<a href="030.proposal-execution-dispatcher.html">Spec 030</a>)</td>
+      <td>Durable approve-then-execute boundary for a mutation.</td>
+      <td>A proposal is created <em>reactively</em> by an agent turn. There is no time/recurrence dimension and nothing creates one on a schedule.</td>
+    </tr>
+    <tr>
+      <td>Agent workflows (graph executors)</td>
+      <td>Orchestrate multi-step agent runs.</td>
+      <td>Heavyweight, agent-centric, and triggered, not a lightweight &ldquo;remind me&rdquo; row a customer creates in Payabo.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The three concrete asks that motivate this &mdash; an <strong>insurance-due reminder</strong>, a
+  <strong>recurring family-support payment nudge</strong>, and a <strong>system-owner-assigned agent
+  job</strong> &mdash; today would each require bespoke entities, bespoke jobs, and bespoke endpoints in
+  three different modules. They are the same shape. Building it three times is the problem.
+</p>
+
+<h2 id="shape">3. One shape behind three scenarios</h2>
+
+<p>
+  Strip the three scenarios to their dimensions and they coincide:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Dimension</th><th>Insurance reminder</th><th>Family-support payment</th><th>Agent job</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>About</strong> (subject)</td><td>a policy / bill</td><td>a payee / order</td><td>anything, or nothing</td></tr>
+    <tr><td><strong>When</strong> (schedule)</td><td>one-off, lead-time before due</td><td>recurring, monthly</td><td>now, or recurring</td></tr>
+    <tr><td><strong>Who acts</strong> (assignee)</td><td><span class="tag existing">System</span></td><td><span class="tag existing">System</span> &rarr; human</td><td><span class="tag existing">Agent</span></td></tr>
+    <tr><td><strong>What happens</strong> (action)</td><td>notify the customer</td><td>notify, <em>or</em> raise a payment proposal</td><td>run the agent; agent proposes mutations</td></tr>
+  </tbody>
+</table>
+
+<p>
+  So a <strong>task</strong> is fully described by four fields &mdash; <em>subject</em>, <em>schedule</em>,
+  <em>assignee</em>, <em>action</em> &mdash; plus lifecycle. That is the entire conceptual model. The
+  variation between scenarios collapses into different <em>values</em> of <code>ActionType</code> and
+  different action handlers, not different entities.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Naming</span>
+  The CLR entity is named <code>WorkItem</code>, not <code>Task</code>, to avoid colliding with
+  <code>System.Threading.Tasks.Task</code> in every service signature. The <em>product / API</em>
+  vocabulary remains &ldquo;task&rdquo; (routes are <code>/tasks/*</code>, the contract is
+  <code>ITaskService</code>, DTOs are <code>ScheduleTaskRequest</code>/<code>TaskResponse</code>).
+  &ldquo;WorkItem&rdquo; is an internal implementation name.
+</div>
+
+<h2 id="model">4. Domain model</h2>
+
+<p>
+  Two anemic, tenant-scoped entities (<code>AuditableEntity, ITenantScoped</code>), following the
+  Finance/PersonalFinance grain. They live in the Platform module under
+  <code>src/Aonik.Platform/Entities/Tasks/</code>.
+</p>
+
+<h3><span class="tag new">new</span> <code>WorkItem</code> &mdash; the durable task</h3>
+
+<pre><code>public class WorkItem : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+
+    // What &amp; why
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Kind { get; set; } = string.Empty;        // Reminder | ScheduledAction | AgentAssignment
+
+    // About (polymorphic soft reference — NOT a cross-module FK)
+    public string? SubjectType { get; set; }                // "Bill" | "Order" | "Party" | ...
+    public Guid? SubjectId { get; set; }
+
+    // Who acts
+    public string AssigneeType { get; set; } = string.Empty; // System | User | Agent
+    public Guid? AssigneeId { get; set; }                    // userId, or null for System
+    public string? AssigneeKey { get; set; }                 // agent descriptor name when Agent
+
+    // What happens when due — the extensibility seam
+    public string ActionType { get; set; } = string.Empty;   // "notify_user" | "create_payment_proposal" | "run_agent" | ...
+    public string ActionPayloadJson { get; set; } = "{}";    // handler-specific arguments
+
+    // When
+    public string ScheduleType { get; set; } = string.Empty; // OneOff | Recurring
+    public DateTime? NextRunAtUtc { get; set; }              // null once terminal
+    public string? RecurrenceCron { get; set; }              // Quartz/cron expression when Recurring
+    public string? Timezone { get; set; }                    // IANA id for cron evaluation
+    public DateTime? StartAtUtc { get; set; }
+    public DateTime? EndAtUtc { get; set; }
+    public int RunCount { get; set; }
+    public int? MaxRuns { get; set; }
+
+    // Lifecycle
+    public string Status { get; set; } = string.Empty;       // Scheduled | InProgress | Completed | Cancelled | Failed | Paused
+    public int Priority { get; set; }
+    public string SourceModule { get; set; } = string.Empty; // origin: "PersonalFinance", "Platform", ...
+    public string? CorrelationId { get; set; }
+
+    // Clustering safety (claim-before-execute lease — mirrors OutboxMessage)
+    public DateTime? LeasedUntilUtc { get; set; }
+    public string? LeasedBy { get; set; }
+    public int AttemptCount { get; set; }
+    public string? LastError { get; set; }
+}</code></pre>
+
+<h3><span class="tag new">new</span> <code>WorkItemRun</code> &mdash; one execution occurrence</h3>
+
+<p>
+  Every dispatch writes a run row (mirrors <code>WorkflowRun</code> / <code>AiRun</code>): the audit
+  trail and the idempotency anchor for recurring items.
+</p>
+
+<pre><code>public class WorkItemRun : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid WorkItemId { get; set; }
+    public DateTime ScheduledForUtc { get; set; }            // the occurrence instant this run satisfies
+    public DateTime StartedAtUtc { get; set; }
+    public DateTime? CompletedAtUtc { get; set; }
+    public string Outcome { get; set; } = string.Empty;      // Succeeded | Failed | Skipped | Proposed
+    public string? ResultJson { get; set; }                  // handler result summary
+    public string? Error { get; set; }
+    public Guid? AiRunId { get; set; }                       // set when the action invoked AI
+    public Guid? ProposalId { get; set; }                    // set when the action raised a Proposal
+}</code></pre>
+
+<p>
+  <code>(WorkItemId, ScheduledForUtc)</code> is unique &mdash; the dispatcher will not create two runs for
+  the same occurrence even if two workers race or the heartbeat double-fires.
+</p>
+
+<h2 id="seam">5. The action-handler seam</h2>
+
+<p>
+  The one design choice that makes this general rather than three special cases: a due task does not
+  contain its own execution logic. It carries an <code>ActionType</code> string, and the dispatcher
+  resolves a keyed <code>ITaskActionHandler</code> for it &mdash; the identical pattern AONIK already uses
+  for <code>IProposalHandler</code> (keyed by <code>ProposalType</code>). The contract lives in
+  SharedKernel so any module can implement one without depending on the Tasks code:
+</p>
+
+<pre><code>// src/Aonik.SharedKernel/Abstractions/Tasks/ITaskActionHandler.cs
+public interface ITaskActionHandler
+{
+    string ActionType { get; }   // DI key, e.g. "notify_user"
+
+    Task&lt;TaskActionResult&gt; ExecuteAsync(TaskActionContext context, CancellationToken cancellationToken = default);
+}
+
+public sealed record TaskActionContext(
+    Guid TenantId,
+    Guid WorkItemId,
+    Guid RunId,
+    string Kind,
+    string? SubjectType,
+    Guid? SubjectId,
+    string AssigneeType,
+    Guid? AssigneeId,
+    string? AssigneeKey,
+    DateTime ScheduledForUtc,
+    string ActionPayloadJson);
+
+public sealed record TaskActionResult(
+    TaskActionOutcome Outcome,           // Succeeded | Failed | Skipped | Proposed
+    string? ResultJson = null,
+    string? Error = null,
+    Guid? AiRunId = null,
+    Guid? ProposalId = null);</code></pre>
+
+<p>
+  Handlers register as keyed scoped services in their owning module. The dispatcher resolves by the
+  row's <code>ActionType</code>:
+</p>
+
+<pre><code>// Platform module
+services.AddKeyedScoped&lt;ITaskActionHandler, NotifyUserTaskActionHandler&gt;("notify_user");
+// Finance module
+services.AddKeyedScoped&lt;ITaskActionHandler, CreatePaymentProposalTaskActionHandler&gt;("create_payment_proposal");
+// Agents module
+services.AddKeyedScoped&lt;ITaskActionHandler, RunAgentTaskActionHandler&gt;("run_agent");</code></pre>
+
+<div class="callout">
+  <span class="callout-label">Why handlers, not events</span>
+  A due task could simply publish a <code>WorkItemDueEvent</code> on the outbox and let modules
+  subscribe. We chose <strong>direct keyed dispatch</strong> as the primary path because it returns a
+  <em>structured result</em> (so the run row records what happened, including a spawned proposal /
+  AI run), supports <strong>retry with attempt counting</strong>, and gives clear failure semantics &mdash;
+  none of which fire-and-forget events provide. A <code>WorkItemDueEvent</code> <em>may</em> additionally
+  be published for passive observers (see <a href="#open">Open decisions</a>), but it is not the
+  execution mechanism.
+</div>
+
+<h2 id="dispatch">6. Scheduling &amp; dispatch</h2>
+
+<p>
+  Two layers: the durable rows are the source of truth for <em>what is due</em>; one Quartz job is the
+  <em>clock</em>. We deliberately do <strong>not</strong> create one Quartz trigger per task &mdash; that
+  does not scale to many tenants &times; many reminders and complicates clustering.
+</p>
+
+<div class="ascii-diagram">  WorkItemDispatchJob  (Quartz, every 1 min, [DisallowConcurrentExecution], system-tenant context)
+        │
+        │ 1. SELECT due: Status = Scheduled AND NextRunAtUtc &lt;= now AND (LeasedUntilUtc IS NULL OR expired)
+        ▼
+  ┌───────────────────────────────────────────────────────────────┐
+  │ for each due WorkItem (batched):                                │
+  │   2. CLAIM lease  (LeasedUntilUtc = now+N, LeasedBy = instance) │ ── clustering-safe, like OutboxProcessor
+  │   3. INSERT WorkItemRun (WorkItemId, ScheduledForUtc) [unique]  │ ── idempotent per occurrence
+  │   4. resolve ITaskActionHandler by ActionType  ───────────────▶ │ NotifyUser / CreatePaymentProposal / RunAgent ...
+  │   5. ExecuteAsync(context) ──▶ TaskActionResult                 │
+  │   6. record outcome on run; bump RunCount/AttemptCount          │
+  │   7. RE-ARM: if Recurring &amp; under MaxRuns/EndAt →               │
+  │        NextRunAtUtc = nextCronFire(now);   Status = Scheduled   │
+  │      else → Status = Completed; NextRunAtUtc = null             │
+  └───────────────────────────────────────────────────────────────┘</div>
+
+<p>
+  Key behaviours:
+</p>
+<ul>
+  <li><strong>Lease before execute.</strong> A claimed row is invisible to other workers until the lease
+    expires, so a clustered Worker fleet never double-fires. On crash mid-execution the lease lapses and
+    the occurrence is retried (bounded by <code>AttemptCount</code> / a max-attempts option).</li>
+  <li><strong>Occurrence idempotency.</strong> The unique <code>(WorkItemId, ScheduledForUtc)</code> run row
+    is the dedupe key; a handler that itself mutates must still be idempotent (GET-before-act), exactly as
+    proposal handlers are.</li>
+  <li><strong>Recurrence.</strong> <code>RecurrenceCron</code> + <code>Timezone</code> drive the next fire
+    time, computed with Quartz's <code>CronExpression</code> (already a dependency). One-off tasks complete
+    after a single successful run. <code>MaxRuns</code> / <code>EndAtUtc</code> bound recurrences.</li>
+  <li><strong>System-tenant scan.</strong> The job seeds null tenant context to see all tenants' due rows
+    (the established pattern in <code>FinancialConnectionRecurringSyncJob</code>), then sets the row's
+    <code>TenantId</code> into context before invoking the handler so all downstream writes are correctly
+    tenant-scoped.</li>
+  <li><strong>Granularity.</strong> Minute-level. Reminders and nudges do not need sub-minute precision; if
+    a future case does, that case is a Quartz job, not a WorkItem.</li>
+</ul>
+
+<h2 id="safety">7. The propose-don't-execute guarantee</h2>
+
+<p>
+  The scheduler is a powerful new thing that can fire <em>on its own clock</em> with no human in the loop
+  at the moment of firing. The non-negotiable rule (&ldquo;Agents propose; systems execute &mdash; never
+  bypass human-in-the-loop for mutations&rdquo;) therefore applies with full force. The discipline:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Action risk</th><th>Examples</th><th>What the handler does when due</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tier low">Low</span></td>
+      <td>Send a reminder/notification, dismiss a stale item, write an audited personal-state flag</td>
+      <td>Runs <strong>in-band</strong>; writes an audit/run record. Safe &mdash; reversible, no money.</td>
+    </tr>
+    <tr>
+      <td><span class="tier medium">Medium</span></td>
+      <td>Create a draft invoice/bill on a schedule</td>
+      <td>Runs in-band but writes a <em>draft</em> requiring downstream confirmation; never auto-finalised.</td>
+    </tr>
+    <tr>
+      <td><span class="tier high">High</span></td>
+      <td>Capture a payment, pay a bill, payout, post to the ledger, partner call</td>
+      <td><strong>Never runs in-band.</strong> The handler creates a <code>Proposal</code> (Spec 030) and
+        returns <code>Outcome = Proposed</code>; the money moves only when a human approves it and the
+        Spec 030 dispatcher executes the <code>IProposalHandler</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Hard rule</span>
+  A <code>WorkItem</code> action handler <strong>must not</strong> call a high-risk domain service
+  (payment capture, payout, ledger posting, partner API) directly. Its only permitted effect for such
+  actions is to <em>create a Proposal</em>. This keeps the scheduler from becoming a backdoor around the
+  Spec 030 / Spec 032 mutation boundary. The &ldquo;pay mum's bill automatically&rdquo; case is therefore
+  &ldquo;<em>on schedule, raise a proposal the customer (or an autonomy-tiered policy) approves</em>&rdquo;
+  &mdash; not &ldquo;the scheduler moved money.&rdquo;
+</div>
+
+<h2 id="contracts">8. Cross-module contract</h2>
+
+<p>
+  Modules schedule and manage tasks through one contract in
+  <code>SharedKernel.Abstractions.Tasks</code> &mdash; they never reference Platform's task entities,
+  mirroring how PersonalFinance reads Finance only through SharedKernel contracts (ADR-006).
+</p>
+
+<pre><code>// src/Aonik.SharedKernel/Abstractions/Tasks/ITaskService.cs
+public interface ITaskService
+{
+    Task&lt;TaskResponse&gt; ScheduleAsync(ScheduleTaskRequest request, CancellationToken ct = default);
+    Task&lt;TaskResponse?&gt; GetAsync(Guid taskId, CancellationToken ct = default);
+    Task&lt;IReadOnlyList&lt;TaskResponse&gt;&gt; ListForSubjectAsync(string subjectType, Guid subjectId, CancellationToken ct = default);
+    Task&lt;IReadOnlyList&lt;TaskResponse&gt;&gt; ListForAssigneeAsync(string assigneeType, Guid? assigneeId, CancellationToken ct = default);
+    Task PauseAsync(Guid taskId, CancellationToken ct = default);
+    Task ResumeAsync(Guid taskId, CancellationToken ct = default);
+    Task CancelAsync(Guid taskId, CancellationToken ct = default);
+}
+
+public sealed record ScheduleTaskRequest(
+    string Title,
+    string Kind,                       // Reminder | ScheduledAction | AgentAssignment
+    string ActionType,                 // must match a registered ITaskActionHandler
+    string ActionPayloadJson,
+    string AssigneeType,
+    Guid? AssigneeId = null,
+    string? AssigneeKey = null,
+    string? SubjectType = null,
+    Guid? SubjectId = null,
+    DateTime? RunAtUtc = null,         // OneOff
+    string? RecurrenceCron = null,     // Recurring
+    string? Timezone = null,
+    DateTime? StartAtUtc = null,
+    DateTime? EndAtUtc = null,
+    int? MaxRuns = null,
+    string? Description = null,
+    int Priority = 0,
+    string? CorrelationId = null);</code></pre>
+
+<p>
+  Implemented by <code>WorkItemService</code> in Platform and registered <code>Scoped</code>. A consumer
+  example &mdash; PersonalFinance arming an insurance reminder when a bill with a due date is created:
+</p>
+
+<pre><code>await _taskService.ScheduleAsync(new ScheduleTaskRequest(
+    Title: $"Insurance due: {bill.Name}",
+    Kind: "Reminder",
+    ActionType: "notify_user",
+    ActionPayloadJson: JsonSerializer.Serialize(new {
+        userId, severity = "Warning",
+        title = "Insurance renewal coming up",
+        body  = $"{bill.Name} is due on {bill.DueDate:d}." }),
+    AssigneeType: "System",
+    SubjectType: "Bill", SubjectId: bill.Id,
+    RunAtUtc: bill.DueDate.AddDays(-14).ToUniversalTime(),
+    CorrelationId: bill.Id.ToString()), ct);</code></pre>
+
+<h2 id="scenarios">9. Walking the three scenarios</h2>
+
+<h3>9.1 &ldquo;Remind me when my insurance is due&rdquo;</h3>
+<ul>
+  <li><strong>Row:</strong> <code>Kind=Reminder</code>, <code>ScheduleType=OneOff</code>,
+    <code>NextRunAtUtc = dueDate − leadTime</code>, <code>AssigneeType=System</code>,
+    <code>ActionType="notify_user"</code>, payload = <code>{ userId, title, body }</code>.</li>
+  <li><strong>When due:</strong> dispatcher &rarr; <code>NotifyUserTaskActionHandler</code> &rarr;
+    <code>INotificationService.CreateForUserAsync(...)</code>. Outcome <code>Succeeded</code>; one-off, so
+    the WorkItem completes.</li>
+  <li>Annual policy? Set <code>ScheduleType=Recurring</code>, <code>RecurrenceCron</code> for the yearly
+    lead-time date; it re-arms after each run.</li>
+</ul>
+
+<h3>9.2 &ldquo;Nudge me before mum's monthly payment&rdquo;</h3>
+<ul>
+  <li><strong>Reminder flavour:</strong> identical to 9.1 but <code>Recurring</code> monthly &mdash; the
+    customer is prompted and acts manually.</li>
+  <li><strong>Scheduled-payment flavour:</strong> <code>ActionType="create_payment_proposal"</code>,
+    <code>SubjectType="Order"</code>. When due, the Finance handler creates a <code>Proposal</code> (high
+    risk) and returns <code>Outcome=Proposed</code> with the <code>ProposalId</code> stamped on the run.
+    The customer approves it (in Payabo / approvals queue) and the Spec 030 dispatcher captures the
+    payment. <em>The scheduler never moved money.</em></li>
+</ul>
+
+<h3>9.3 &ldquo;System owner assigns an agent a standing job&rdquo;</h3>
+<ul>
+  <li><strong>Row:</strong> <code>Kind=AgentAssignment</code>, <code>AssigneeType=Agent</code>,
+    <code>AssigneeKey="finance-agent"</code>, <code>ActionType="run_agent"</code>,
+    payload = <code>{ agentName, brief, inputRefs }</code>; <code>Recurring</code> (e.g. weekly).</li>
+  <li><strong>When due:</strong> dispatcher &rarr; <code>RunAgentTaskActionHandler</code> &rarr; resolves the
+    <code>IDomainAgentDescriptor</code>, runs the agent, records an <code>AiRun</code> (stamped on the run
+    via <code>AiRunId</code>). Any mutation the agent wants flows through the normal proposal path &mdash; the
+    agent task does not get a privileged execution route.</li>
+</ul>
+
+<h2 id="placement">10. Placement &amp; module wiring</h2>
+
+<p>
+  The system lives <strong>inside the Platform module</strong>, beside Notifications &mdash; it is
+  cross-cutting platform infrastructure consumed by many modules, and reuses
+  <code>PlatformDbContext</code> rather than standing up a new module + DbContext. Layout follows the
+  vertical-slice convention:
+</p>
+
+<pre><code>src/Aonik.Platform/
+├── Entities/Tasks/{WorkItem.cs, WorkItemRun.cs}
+├── Services/Tasks/{WorkItemService.cs, WorkItemDispatcher.cs, RecurrenceCalculator.cs}
+├── Contracts/Services/Tasks/   (Platform-internal extras, if any)
+├── Contracts/Models/Tasks/     (API DTOs)
+├── Endpoints/Tasks/{ScheduleTaskEndpoint.cs, ListTasksEndpoint.cs, CancelTaskEndpoint.cs, PauseResumeTaskEndpoint.cs}
+└── Persistence/Configurations/Tasks/{WorkItemConfiguration.cs, WorkItemRunConfiguration.cs}
+
+src/Aonik.SharedKernel/Abstractions/Tasks/
+├── ITaskService.cs            (+ ScheduleTaskRequest, TaskResponse)
+└── ITaskActionHandler.cs      (+ TaskActionContext, TaskActionResult, TaskActionOutcome)
+
+src/Aonik.Worker/Jobs/WorkItemDispatchJob.cs   (the heartbeat)</code></pre>
+
+<p>
+  Registration in <code>PlatformModule.ConfigureServices</code>: bind
+  <code>ITaskService &rarr; WorkItemService</code>, <code>WorkItemDispatcher</code>, the
+  <code>"notify_user"</code> keyed handler, and add <code>WorkItem</code>/<code>WorkItemRun</code> DbSets to
+  <code>PlatformDbContext</code>. The dispatch job registers in the Worker via the existing
+  <code>ScheduledJobDefinitions</code> factory with a cron of <code>0 * * * * ?</code> (every minute) and a
+  <code>ScheduledJobOptions</code> entry so it can be tuned/disabled per environment (Spec 014 pattern).
+</p>
+
+<h2 id="persistence">11. Persistence &amp; migration</h2>
+
+<p>
+  Per CLAUDE.md's single-migration-stream rule:
+</p>
+<ul>
+  <li>Add <code>DbSet&lt;WorkItem&gt;</code> and <code>DbSet&lt;WorkItemRun&gt;</code> to the canonical
+    <code>AonikDbContext</code> <em>and</em> to <code>PlatformDbContext</code> (runtime read/write path).</li>
+  <li>Configurations as <code>IEntityTypeConfiguration&lt;T&gt;</code> in
+    <code>Aonik.Platform/Persistence/Configurations/Tasks/</code> &mdash; not inlined.</li>
+  <li>Tables <code>dbo.AnkWorkItems</code>, <code>dbo.AnkWorkItemRuns</code> (the <code>Ank</code> prefix
+    convention).</li>
+  <li>Indexes: <code>(Status, NextRunAtUtc)</code> for the due-scan (the hot query),
+    <code>(SubjectType, SubjectId)</code>, <code>(AssigneeType, AssigneeId)</code>, <code>CorrelationId</code>;
+    unique <code>(WorkItemId, ScheduledForUtc)</code> on runs.</li>
+  <li>Migration is <strong>tool-generated only</strong> against <code>AonikDbContext</code>
+    (<code>dotnet ef migrations add AddWorkItems --project src/Aonik.Infrastructure --startup-project
+    src/Aonik.Api</code>), reviewed, and the <code>.cs</code> + <code>.Designer.cs</code> committed together.
+    No hand-authored migrations.</li>
+</ul>
+
+<h2 id="security">12. Security, tenancy &amp; audit</h2>
+<ul>
+  <li><strong>Tenancy.</strong> Both entities are <code>ITenantScoped</code>; query filters apply.
+    The dispatch job scans across tenants under system context but stamps the row's <code>TenantId</code>
+    into the ambient context before invoking a handler, so every downstream write is tenant-correct.</li>
+  <li><strong>Authorisation.</strong> User-facing endpoints are policy-gated. A user may schedule/cancel
+    only their own tasks; <code>AgentAssignment</code> tasks set by the system owner require an admin policy.
+    <code>ActionType</code> is validated against the set of registered handlers at schedule time &mdash; an
+    unknown action is rejected, not stored.</li>
+  <li><strong>Audit.</strong> Every occurrence yields a <code>WorkItemRun</code>; high-risk actions
+    additionally produce a <code>Proposal</code> and (for agents) an <code>AiRun</code>, so the full chain
+    &ldquo;task &rarr; run &rarr; proposal/AI run &rarr; approval &rarr; execution&rdquo; is traceable by
+    <code>CorrelationId</code>.</li>
+  <li><strong>Payload safety.</strong> <code>ActionPayloadJson</code> is opaque to the scheduler and is
+    handler-validated; handlers must treat it as untrusted input (it may originate from an agent or an
+    end-user).</li>
+</ul>
+
+<h2 id="scope">13. Scope (in / out)</h2>
+<table>
+  <thead><tr><th>In scope</th><th>Out of scope</th></tr></thead>
+  <tbody>
+    <tr><td><code>WorkItem</code>/<code>WorkItemRun</code> entities, <code>ITaskService</code>, <code>ITaskActionHandler</code> seam.</td><td>A visual workflow/DAG builder &mdash; that is the existing agent-workflow graph.</td></tr>
+    <tr><td>One Quartz heartbeat dispatcher with leasing + recurrence.</td><td>Sub-minute / real-time scheduling.</td></tr>
+    <tr><td><code>notify_user</code> handler (Platform) as the reference action.</td><td>Replacing existing code-defined Quartz jobs (Spec 014) &mdash; they stay as is.</td></tr>
+    <tr><td>CRUD + pause/resume/cancel endpoints; admin list view.</td><td>Per-task dynamic Quartz triggers.</td></tr>
+    <tr><td>The <code>create_payment_proposal</code> / <code>run_agent</code> handler <em>contracts</em>.</td><td>Full build-out of those two handlers (follow-on, owned by Finance / Agents).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">14. Phasing &amp; tasks</h2>
+<table>
+  <thead><tr><th>Phase</th><th>Deliverable</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>SharedKernel contracts: <code>ITaskService</code>, <code>ITaskActionHandler</code>, DTOs. No behaviour &mdash; compiles, unblocks consumers.</td></tr>
+    <tr><td>2</td><td>Entities + EF configs; DbSets on <code>AonikDbContext</code> + <code>PlatformDbContext</code>; tool-generated migration; <code>WorkItemService</code> (schedule/get/list/cancel/pause/resume).</td></tr>
+    <tr><td>3</td><td><code>WorkItemDispatcher</code> + keyed-handler resolution + <code>NotifyUserTaskActionHandler</code>; unit tests (InMemory) for dispatch, leasing, recurrence re-arm, idempotency.</td></tr>
+    <tr><td>4</td><td><code>WorkItemDispatchJob</code> in the Worker + <code>ScheduledJobOptions</code> entry; clustered-lease integration test.</td></tr>
+    <tr><td>5</td><td>FastEndpoints (<code>/tasks/*</code>) + admin list page; first real consumer (PersonalFinance bill-due reminder) wired through <code>ITaskService</code>.</td></tr>
+    <tr><td>6</td><td>Follow-on (separate specs): <code>create_payment_proposal</code> handler (Finance) and <code>run_agent</code> handler (Agents).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">15. Acceptance criteria</h2>
+<ul>
+  <li>A module schedules future work via a single <code>ITaskService.ScheduleAsync</code> call without referencing Platform task entities or Quartz.</li>
+  <li>A one-off reminder fires once at its time and the WorkItem becomes <code>Completed</code>; a recurring one re-arms to the next cron occurrence.</li>
+  <li>In a clustered Worker, a due task executes <strong>exactly once</strong> per occurrence (lease + unique run row verified under concurrent dispatch).</li>
+  <li>A high-risk action (<code>create_payment_proposal</code>) produces a <code>Proposal</code> and moves no money until approved; the run records <code>Outcome=Proposed</code> + <code>ProposalId</code>.</li>
+  <li>Scheduling an unknown <code>ActionType</code> is rejected at the API boundary.</li>
+  <li>Migration is tool-generated, applies cleanly, and tables are <code>dbo.AnkWorkItems</code> / <code>dbo.AnkWorkItemRuns</code>.</li>
+</ul>
+
+<h2 id="open">16. Open decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O1 &mdash; Also emit <code>WorkItemDueEvent</code>?</strong> Handler dispatch is the execution path;
+  do we <em>additionally</em> publish a due event on the outbox for passive observers (analytics, other
+  modules)? Leaning yes, but only after Phase 5 if a consumer needs it.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O2 &mdash; Recurrence expression.</strong> Quartz <code>CronExpression</code> (zero new deps, but no
+  &ldquo;every 2 weeks from date X&rdquo;) vs. an RRULE library (richer calendar recurrence). Proposal: start
+  with cron; add RRULE only if a product needs it.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O3 &mdash; Autonomy for high-risk recurring tasks.</strong> Should a customer be able to pre-authorise
+  a recurring payment so the proposal auto-approves under a risk-tier policy (Spec 032), or must every
+  occurrence be approved? Default to per-occurrence approval; revisit with the autonomy-tier work.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O4 &mdash; Retry/back-off policy.</strong> Max attempts and back-off curve for failed occurrences
+  (and whether a failed occurrence blocks the next recurrence or is skipped). Proposal: bounded attempts,
+  skip-and-continue for recurring, surface failures in the admin list.
+</div>
+
+<h2 id="refs">17. References</h2>
+<ul>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec 030</a> &mdash; Proposal execution dispatcher (the <code>IProposalHandler</code> pattern this mirrors, and the high-risk execution path).</li>
+  <li><a href="032.tiered-ai-mutation-approval.html">Spec 032</a> &mdash; Tiered AI mutation approval (the risk-tier model the propose-don't-execute rule aligns to).</li>
+  <li><a href="014.background-jobs-quartz-persistence-admin.html">Spec 014</a> &mdash; Background jobs / Quartz persistence (the Worker host + <code>ScheduledJobOptions</code> the heartbeat reuses).</li>
+  <li><a href="016.admin-notifications-realtime-inbox.html">Spec 016</a> &mdash; Notifications inbox (the delivery channel <code>notify_user</code> calls).</li>
+  <li><a href="../decisions/008-task-work-item-scheduling.md">ADR-008</a> &mdash; the decision record for this design.</li>
+  <li><a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> &mdash; the SharedKernel-contract / no-cross-module-reference pattern this follows.</li>
+</ul>
+
+<footer>
+  AONIK &middot; Spec 034 &middot; Task &amp; WorkItem scheduling &middot; Draft
+</footer>
+
+</body>
+</html>
