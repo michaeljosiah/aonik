@@ -5,7 +5,7 @@ namespace Aonik.SharedKernel.Abstractions.Documents;
 /// (see <see cref="DocumentIndexStatus"/>) and the retrieval scope enforced by
 /// <see cref="IDocumentSearch"/>. Assigned at upload (defaulted from document type) and
 /// optionally refined by an AI classifier that records an <c>AiRun</c>.
-/// See <a href="../../../docs/specifications/033.extract-documents-module.html">Spec 033 §10</a>.
+/// See <a href="../../../docs/specifications/035.extract-documents-module.html">Spec 035 §10</a>.
 /// </summary>
 public enum DocumentClassification
 {

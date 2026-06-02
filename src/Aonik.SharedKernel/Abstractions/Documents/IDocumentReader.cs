@@ -8,7 +8,7 @@ using Aonik.SharedKernel.Abstractions;
 /// <c>DocumentUsage</c>) must not reference the Documents entity types directly;
 /// they read through this contract instead. Tenant scope is enforced inside the
 /// implementation via the ambient tenant provider.
-/// See <a href="../../../docs/specifications/033.extract-documents-module.html">Spec 033 §11</a>.
+/// See <a href="../../../docs/specifications/035.extract-documents-module.html">Spec 035 §11</a>.
 /// </summary>
 public interface IDocumentReader
 {

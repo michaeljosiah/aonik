@@ -4,7 +4,7 @@ namespace Aonik.SharedKernel.Abstractions.Documents;
 // Consumers (Finance, PersonalFinance, Platform/Compliance, Ai, Agents) talk to
 // the Documents module exclusively through these shapes — never through the
 // Aonik.Documents entity types. DTOs carry only what consumers actually use.
-// See docs/specifications/033.extract-documents-module.html.
+// See docs/specifications/035.extract-documents-module.html.
 
 /// <summary>A document's metadata view (the generic evidence record, no compliance fields).</summary>
 public sealed record DocumentDto(

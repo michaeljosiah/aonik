@@ -5,7 +5,7 @@ using Aonik.SharedKernel.Abstractions.Documents;
 // ── Documents-originated integration events ─────────────────────────────────
 // Published by the Documents module. The Worker (ingestion pipeline) and
 // Platform/Compliance subscribe to react to document lifecycle transitions.
-// See docs/specifications/033.extract-documents-module.html §11.
+// See docs/specifications/035.extract-documents-module.html §11.
 
 /// <summary>
 /// Raised when a file is uploaded into a document. The async ingestion pipeline

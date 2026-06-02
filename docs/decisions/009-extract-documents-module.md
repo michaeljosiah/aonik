@@ -1,9 +1,9 @@
-# ADR-008: Extract Documents into Its Own Sibling Module
+# ADR-009: Extract Documents into Its Own Sibling Module
 
 **Status**: Proposed (Phase 0 — SharedKernel contracts, events, and party-scoped vector index — landed; Phases 1–4 pending toolchain)
 **Date**: 2026-06-02
 **Decision Makers**: Development Team
-**Related**: [ADR-005](005-adopt-module-first-modular-monolith.md), [ADR-006](006-extract-personal-finance-module.md), [Spec 033](../specifications/033.extract-documents-module.html)
+**Related**: [ADR-005](005-adopt-module-first-modular-monolith.md), [ADR-006](006-extract-personal-finance-module.md), [Spec 035](../specifications/035.extract-documents-module.html)
 
 ## Context
 
@@ -55,7 +55,7 @@ Every **indexable** document (gated by `DocumentClassification`) is auto-ingeste
 
 ## The vector-scoping correction (important)
 
-The original Spec 033 draft claimed RAG vectors carried "no `tenant_id`". **That is wrong**, and this ADR records the correction. `QdrantVectorStore` already enforces **tenant** isolation fail-closed:
+The original Spec 035 draft claimed RAG vectors carried "no `tenant_id`". **That is wrong**, and this ADR records the correction. `QdrantVectorStore` already enforces **tenant** isolation fail-closed:
 
 - `EnhancePayloadWithTenant` injects `tenant_id` on every upsert and throws if there is no tenant context.
 - `BuildMergedFilter` always adds a `tenant_id` `must` clause on every search and scroll.
@@ -97,6 +97,6 @@ Phase 0 closes (1)–(3) additively via a `ScopedDocumentVectorIndex` in `Aonik.
 
 ## See Also
 
-- [Spec 033](../specifications/033.extract-documents-module.html) — full specification (current-state inventory, classification policy, risk register).
+- [Spec 035](../specifications/035.extract-documents-module.html) — full specification (current-state inventory, classification policy, risk register).
 - [ADR-006](006-extract-personal-finance-module.md) — the module-extraction precedent this follows.
 - [ADR-005](005-adopt-module-first-modular-monolith.md) — module-first modular monolith.

@@ -17,7 +17,7 @@ using Microsoft.Extensions.Options;
 /// filters on <c>owner_party_id</c> at retrieval, so within a tenant one party's documents
 /// are not retrievable by another party's agent. Search scope is supplied by the caller from
 /// authenticated context — never from model input.
-/// See <a href="../../../docs/specifications/033.extract-documents-module.html">Spec 033 §14</a>.
+/// See <a href="../../../docs/specifications/035.extract-documents-module.html">Spec 035 §14</a>.
 /// </summary>
 internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVectorIndex
 {

@@ -297,7 +297,7 @@ public static class DependencyInjection
         services.AddScoped<Aonik.Infrastructure.VectorStore.Contracts.IEmbeddingService,
             Aonik.Infrastructure.VectorStore.Providers.OpenAiEmbeddingService>();
 
-        // Party-scoped document RAG index (Spec 033 §14). Layers owner_party_id /
+        // Party-scoped document RAG index (Spec 035 §14). Layers owner_party_id /
         // classification / purpose scoping on top of the vector store's fail-closed
         // tenant isolation, and supplies the scroll-then-delete purge for erasure.
         services.AddScoped<Aonik.Infrastructure.VectorStore.ScopedDocumentVectorIndex>();

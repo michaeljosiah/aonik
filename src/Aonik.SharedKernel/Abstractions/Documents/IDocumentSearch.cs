@@ -6,7 +6,7 @@ namespace Aonik.SharedKernel.Abstractions.Documents;
 /// overload that omits it — so a prompt cannot widen its own retrieval scope.
 /// Tenant isolation is applied beneath the scope by the vector store (fail-closed);
 /// this contract adds owner-party / classification / purpose constraints on top.
-/// See <a href="../../../docs/specifications/033.extract-documents-module.html">Spec 033 §14</a>.
+/// See <a href="../../../docs/specifications/035.extract-documents-module.html">Spec 035 §14</a>.
 /// </summary>
 public interface IDocumentSearch
 {
