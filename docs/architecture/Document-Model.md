@@ -1,5 +1,7 @@
 # Document & File Model (Flexible Evidence)
 
+> **Status — implemented in `Aonik.Documents`.** Per [Spec 035](../specifications/035.extract-documents-module.html) / [ADR-009](../decisions/009-extract-documents-module.md), the **generic** document capability (`Document`, `DocumentFile`, `DocumentVersion`, plus `DocumentIngestion`/`DocumentExtraction`) now lives in the first-class sibling module **`Aonik.Documents`**, consumed everywhere through `SharedKernel.Abstractions.Documents` (`IDocumentReader`/`IDocumentWriter`/`IDocumentSearch`) — no module references `Aonik.Documents` directly. Compliance keeps **`DocumentUsage`/`DocumentVerification`** and resolves documents by id through `IDocumentReader`. Indexable documents are auto-ingested into the party-scoped vector store by an event-driven pipeline (`DocumentUploadedEvent` → Worker), and are searchable by agents under a mandatory tenant + owner-party scope. The original "suggested placement in `Aonik.Platform`" below is **superseded**; this file is retained as the conceptual model. See the [Module placement](#module-placement-implemented) section for the current home.
+
 This document proposes a flexible, purpose-agnostic structure for representing documents composed of one or more files (e.g., ID cards, proof of address, bank statements, contracts, invoices, or any other evidence). The model is designed for multi-tenant, multi-purpose use with blob/object storage and strong auditability.
 
 ## Goals
@@ -39,6 +41,12 @@ A Document is a logical container representing the “evidence” concept, indep
 - `CreatedByUserId` (Guid?)
 - `CreatedAt`, `UpdatedAt` (DateTime)
 
+**RAG / classification fields (Spec 035):**
+- `Classification` (enum) — `Public`, `Internal`, `Personal`, `Sensitive`, `Restricted`. Drives the index decision and the retrieval scope (Personal → tenant + owner-party; Sensitive → + purpose; Restricted → never indexed).
+- `Source` (string) — `CustomerUpload`, `AdminUpload`, `StatementImport`, `PartnerCallback`.
+- `IndexStatus` (enum) — `NotIndexable`, `Pending`, `Indexed`, `Failed`.
+- `IndexedAt` (DateTime?) — when the document last became searchable.
+
 **Notes:**
 - Avoid embedding business logic in the entity. Business rules should live in application services.
 - Keep PII handling policy-driven (hash, encrypt, mask). Prefer IDs and references.
@@ -61,6 +69,7 @@ A DocumentFile represents a physical file stored in blob/object storage.
 - `CapturedAt` (DateTime?)
 - `CapturedBy` (string?) — device/app info.
 - `MetadataJson` (string?) — OCR hints, image dimensions, etc.
+- `ExtractedTextStatus` (enum, Spec 035) — `Native`, `OcrRequired`, `OcrDone`, `Unsupported`. Tells the ingestion pipeline whether embeddable text is available now or must be deferred to OCR.
 - `CreatedAt` (DateTime)
 
 **Notes:**
@@ -150,14 +159,19 @@ A DocumentVerification captures the decisioning record for a usage/purpose.
 - Keep **audit logs** for uploads, updates, and verification decisions.
 - Consider **retention policies** and `ExpiresOn` for regulatory compliance.
 
-## Module Placement (Suggestion)
+## Module Placement (Implemented)
 
-- **Platform module** (`Aonik.Platform`): `Document`, `DocumentFile`, `DocumentUsage`, `DocumentVerification`, `DocumentVersion` entities, plus services for upload, linking usages, and verification decisions.
-- **Infrastructure**: Storage provider integration (Azure Blob/S3), OCR/verification vendors.
-- **API endpoints**: In Platform module endpoints for upload, status, and usage linking.
+Superseding the original Platform-centric suggestion (Spec 035 / ADR-009):
+
+- **`Aonik.Documents`** (new sibling module): the **generic** document capability — `Document`, `DocumentFile`, `DocumentVersion`, `DocumentIngestion`, `DocumentExtraction`; `DocumentService` (create/upload/list/get via `IDocumentReader`/`IDocumentWriter`); `DocumentIndexer` + `DocumentIngestionHandler` (the async extract→chunk→embed→upsert pipeline); `/documents/*` endpoints with customer-accessible policies. References only `SharedKernel`.
+- **`Aonik.Platform` / Compliance** (consumer): keeps `DocumentUsage` and `DocumentVerification` (+ `DocumentVerificationService`), storing the document id as a plain `Guid` and resolving detail through `IDocumentReader`. No EF navigation to `Document`.
+- **`SharedKernel.Abstractions.Documents`**: the cross-module boundary — `IDocumentReader`/`IDocumentWriter`/`IDocumentSearch`/`IDocumentVectorIndex`/`IDocumentFileStore`/`IDocumentTextExtractor`, the DTOs, `DocumentClassification`/`DocumentIndexStatus`/`ExtractedTextStatus` enums, and the `DocumentUploaded`/`DocumentIndexed`/`DocumentDeleted` integration events.
+- **`Aonik.Infrastructure`**: `DocumentFileStore` (blob), `ScopedDocumentVectorIndex` (party-scoped RAG over Qdrant), `DocumentTextExtractor` (+ deferred OCR hook) — all injected at the composition root; Documents never references Infrastructure.
+- **`Aonik.Worker`**: hosts the outbox dispatcher that runs the ingestion handler, plus the opt-in `DocumentIngestionBackfillJob`.
+- **Migrations** stay in the single `AonikDbContext` stream; `DocumentsDbContext` is runtime-only DI scoping with no migrations (ADR-005/006).
 
 ## Notes on Extensions
 
 - Add `DocumentBundle` if you want grouped evidence across multiple parties (e.g., business + directors).
 - Add `DocumentPolicy` for validation requirements per `Purpose` and `DocumentType`.
-- Add `DocumentExtraction` for OCR or structured extraction outputs (with `AiRunId`).
+- `DocumentExtraction` (OCR / structured extraction outputs with `AiRunId`) is now a first-class entity in `Aonik.Documents`; a real OCR adapter behind `IDocumentOcrExtractor` is the remaining follow-up.

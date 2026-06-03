@@ -115,6 +115,13 @@ internal static class ScheduledJobDefinitions
                 "Polls AiCallCompleted spend and emits a high-priority alert when the configured threshold is exceeded.",
                 options.AiCostGuard.CronExpression,
                 options.AiCostGuard.Enabled),
+            new ScheduledJobDefinition<DocumentIngestionBackfillJob>(
+                DocumentIngestionBackfillJob.Key,
+                new TriggerKey("DocumentIngestionBackfillJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Document Ingestion Backfill",
+                "Re-publishes DocumentUploadedEvent for indexable documents that never completed ingestion (opt-in catch-up; disabled by default).",
+                options.DocumentIngestionBackfill.CronExpression,
+                options.DocumentIngestionBackfill.Enabled),
         ];
     }
 }
