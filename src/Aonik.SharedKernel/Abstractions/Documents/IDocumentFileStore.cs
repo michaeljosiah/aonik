@@ -33,4 +33,10 @@ public interface IDocumentFileStore
     /// blocking the upload request path. The caller owns disposing the returned stream.
     /// </summary>
     Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently removes a file's bytes from blob storage by its storage key (right-to-erasure,
+    /// Spec 035 §15). Idempotent — deleting an already-absent object is a no-op.
+    /// </summary>
+    Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default);
 }

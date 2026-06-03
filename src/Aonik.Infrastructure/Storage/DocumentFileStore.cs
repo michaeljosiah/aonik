@@ -95,6 +95,18 @@ public class DocumentFileStore : IDocumentFileStore
             $"Document blob '{storageKey}' was not found in storage.");
     }
 
+    public async Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            throw new ArgumentException("Storage key is required.", nameof(storageKey));
+        }
+
+        // FluentStorage's batch delete is idempotent — a missing object is a no-op — so the
+        // erasure path can re-run safely after a partial failure.
+        await _blobStorage.DeleteAsync(new[] { storageKey }, cancellationToken);
+    }
+
     private static string BuildDocumentBlobPath(
         Guid tenantId,
         Guid documentId,

@@ -22,4 +22,15 @@ public interface IDocumentWriter
         UploadFileCommand command,
         Stream content,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Erases a document (right-to-erasure, Spec 035 §15): purges its vectors from the index,
+    /// removes its blob object(s), soft-deletes the <c>Document</c> + <c>DocumentFile</c> rows, and
+    /// publishes <c>DocumentDeletedEvent</c> so Compliance and lifecycle consumers react. Scoped to
+    /// the ambient tenant. Agent-initiated deletion must be approval-gated per Spec 032 — it is not
+    /// exposed as an in-band agent tool.
+    /// </summary>
+    Task DeleteDocumentAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default);
 }

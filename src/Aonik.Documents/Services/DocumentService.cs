@@ -25,15 +25,18 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
     private readonly DocumentsDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IDocumentFileStore _documentFileStore;
+    private readonly IDocumentVectorIndex _vectorIndex;
 
     public DocumentService(
         DocumentsDbContext dbContext,
         ITenantProvider tenantProvider,
-        IDocumentFileStore documentFileStore)
+        IDocumentFileStore documentFileStore,
+        IDocumentVectorIndex vectorIndex)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _documentFileStore = documentFileStore;
+        _vectorIndex = vectorIndex;
     }
 
     // ── IDocumentWriter ──────────────────────────────────────────────────
@@ -132,6 +135,42 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapFile(file);
+    }
+
+    public async Task DeleteDocumentAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var document = await _dbContext.Documents
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException($"Document {documentId} not found.");
+
+        var files = await _dbContext.DocumentFiles
+            .Where(f => f.DocumentId == documentId && f.TenantId == tenantId)
+            .ToListAsync(cancellationToken);
+
+        // Erasure ordering prioritises the privacy invariant (Spec 035 §15). Purge the vectors
+        // FIRST so retrieval can never return this document again, then remove the blob object(s),
+        // then soft-delete the rows + publish DocumentDeletedEvent atomically. Each external step is
+        // idempotent (purge re-scrolls to empty; blob delete no-ops on a missing object), so a
+        // failure between steps is safe to retry — and the worst interrupted state leaves vectors
+        // already gone, never an orphaned searchable vector.
+        await _vectorIndex.PurgeDocumentAsync(documentId, cancellationToken);
+
+        foreach (var file in files)
+        {
+            await _documentFileStore.DeleteAsync(file.StorageKey, cancellationToken);
+        }
+
+        // Remove → soft-delete (the base converts the delete to IsDeleted/DeletedAt).
+        _dbContext.DocumentFiles.RemoveRange(files);
+        _dbContext.Documents.Remove(document);
+
+        _dbContext.EnqueueIntegrationEvent(
+            new DocumentDeletedEvent(tenantId, documentId, document.OwnerPartyId));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     // ── IDocumentReader ──────────────────────────────────────────────────
