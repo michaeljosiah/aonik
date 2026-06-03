@@ -140,7 +140,9 @@ Everything cross-module flows through `Aonik.SharedKernel.Abstractions.Documents
 | `Sensitive` | ID scans, proof-of-address images | Metadata-only until OCR + redaction | Tenant + `OwnerPartyId` + purpose |
 | `Restricted` | Explicitly excluded evidence | Never indexed | Direct read only |
 
-`DocumentService.ResolveInitialIndexStatus` sets `IndexStatus` at upload: `Restricted`/`Sensitive` → `NotIndexable`; everything else → `Pending`. Only `Pending` documents raise `DocumentUploadedEvent`, so `Restricted`/`Sensitive`/`NotIndexable` documents cost nothing — no event, no embedding, no handler work.
+Classification is caller-supplied at upload and **defaults from `DocumentType` when omitted** (`DocumentService.DefaultClassificationForType`): identity / proof images (`NationalId`, `Passport`, proof-of-address, …) → `Sensitive`; explicitly tenant-wide types (`ProductTerms`, …) → `Internal`; **every other type — and any unrecognised one — defaults to `Personal`**, so an unclassified customer upload such as a tax return or statement is owner-scoped and never indexed tenant-wide. This fail-closed default is deliberate: defaulting to a tenant-wide class would let one customer's evidence surface in another's tenant-wide search.
+
+`DocumentService.ResolveInitialIndexStatus` then sets `IndexStatus`: `Restricted`/`Sensitive` → `NotIndexable`; everything else → `Pending`. Only `Pending` documents raise `DocumentUploadedEvent`, so `Restricted`/`Sensitive`/`NotIndexable` documents cost nothing — no event, no embedding, no handler work.
 
 ---
 
@@ -273,9 +275,32 @@ Agent-initiated deletion is **not** exposed as an in-band tool; per Spec 032 / R
 | `GET` | `/documents` | `UserPolicy` | List documents (paged, filterable by type/status/owner/classification/tag/search) |
 | `DELETE` | `/documents/{id}` | `AdminPolicy` | Erase a document (purge vectors + blobs, soft-delete, emit event) |
 
-`/documents/*` are customer-accessible (`UserPolicy`), so an end user can upload personal documents — unlike the old admin-only `/compliance/documents`. Deletion is admin-gated; customer self-service erasure goes through the lifecycle-closure flow.
+`/documents/*` are customer-accessible (`UserPolicy`), so an end user can upload and manage their **own** personal documents — unlike the old admin-only `/compliance/documents`. Deletion is admin-gated; customer self-service erasure goes through the lifecycle-closure flow.
 
 > The legacy one-shot RAG endpoint `POST /ai/documents/upload` has been **removed** — the unified `/documents/*` path plus the async pipeline replaces it.
+
+---
+
+## Authorization & owner-party scoping
+
+`UserPolicy` admits both end customers and staff, so the `/documents/*` routes must not expose tenant-wide document metadata to a customer. Enforcement lives in **`DocumentService`** (not just the endpoints), so it applies uniformly to the HTTP routes *and* to any agent tool that reads through `IDocumentReader` — and cannot be bypassed by adding a new endpoint.
+
+`DocumentService.ResolveCallerScopeAsync` classifies the caller from `ICurrentUserContext.Roles`:
+
+| Caller | Roles | Document scope |
+|--------|-------|----------------|
+| Staff / operations / admin | any of `PlatformAdmin`, `TenantAdmin`, `Operations`, `ReadOnly` | **Tenant-wide** — may list across the tenant and filter by any `OwnerPartyId` |
+| System / Worker | no roles (no HTTP principal) | **Tenant-wide** — trusted internal context (no external request reaches the service without a policy-gated role) |
+| Customer | `PersonalUser` only (no staff role) | **Own party only** — restricted to the `OwnerPartyId` resolved from auth via `IUserPartyResolver`; a customer with no linked party is denied |
+
+For a customer caller the owner party is derived from authenticated context (`ICurrentUserContext.UserId` → `IUserPartyResolver`), **never from request input**, so:
+
+- `ListDocumentsAsync` forces the customer's own party; a request-supplied `OwnerPartyId` cannot widen the result set.
+- `GetDocumentAsync` / `GetFilesAsync` return `null` / empty for another party's document (a 404 for the customer — they cannot probe for others' documents).
+- `CreateDocumentAsync` forces the owner party to the customer's own; they cannot create a document "owned" by another party.
+- `UploadFileAsync` rejects uploading into another party's document (surfaced as "not found").
+
+This mirrors the vector-search rule (`documents_search` and `IDocumentSearch` derive scope from auth, never model input), so a customer is confined to their own evidence at **both** the SQL-metadata layer and the vector layer.
 
 ---
 

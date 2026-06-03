@@ -8,7 +8,9 @@ using System.Threading.Tasks;
 using Aonik.Documents.Persistence;
 using Aonik.Documents.Services;
 using Aonik.Platform.Entities.Compliance; // Document/DocumentFile — namespace preserved (Spec 035)
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Events.Outbox;
 using Aonik.SharedKernel.Persistence;
 using Aonik.TestSupport.Multitenancy;
@@ -40,7 +42,8 @@ public sealed class DocumentServiceDeleteTests
     }
 
     private DocumentService CreateService(DocumentsDbContext context) =>
-        new(context, _tenantProvider, _fileStore.Object, _vectorIndex.Object);
+        new(context, _tenantProvider, _fileStore.Object, _vectorIndex.Object,
+            Mock.Of<ICurrentUserContext>(), Mock.Of<IUserPartyResolver>());
 
     [Fact]
     public async Task DeleteDocumentAsync_Should_Purge_Vectors_Delete_Blobs_SoftDelete_And_Publish()

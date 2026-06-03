@@ -4,6 +4,7 @@ using Aonik.Platform.Entities.Compliance; // Document/DocumentFile — namespace
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Events.Integration;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,21 +23,35 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    // Roles that may read/write documents tenant-wide (staff / operations / admin). A caller who is
+    // a PersonalUser WITHOUT any of these is a customer, scoped to their own owner party. A caller
+    // with no roles at all (a trusted system/Worker context — no external request reaches here
+    // without a role, since the endpoints gate on a policy) is also treated as tenant-wide.
+    private static readonly string[] TenantWideRoles =
+        { "PlatformAdmin", "TenantAdmin", "Operations", "ReadOnly" };
+    private const string CustomerRole = "PersonalUser";
+
     private readonly DocumentsDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IDocumentFileStore _documentFileStore;
     private readonly IDocumentVectorIndex _vectorIndex;
+    private readonly ICurrentUserContext _currentUserContext;
+    private readonly IUserPartyResolver _userPartyResolver;
 
     public DocumentService(
         DocumentsDbContext dbContext,
         ITenantProvider tenantProvider,
         IDocumentFileStore documentFileStore,
-        IDocumentVectorIndex vectorIndex)
+        IDocumentVectorIndex vectorIndex,
+        ICurrentUserContext currentUserContext,
+        IUserPartyResolver userPartyResolver)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _documentFileStore = documentFileStore;
         _vectorIndex = vectorIndex;
+        _currentUserContext = currentUserContext;
+        _userPartyResolver = userPartyResolver;
     }
 
     // ── IDocumentWriter ──────────────────────────────────────────────────
@@ -49,13 +64,30 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             throw new ArgumentException("Document type is required.", nameof(command));
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var classification = command.Classification ?? DocumentClassification.Internal;
+        var scope = await ResolveCallerScopeAsync(tenantId, cancellationToken);
+
+        // A customer can only create documents owned by themselves — the owner party is taken from
+        // authenticated context, never from request input, so they cannot create a document "owned"
+        // by another party. Staff/system callers create on behalf of the supplied owner party.
+        var ownerPartyId = command.OwnerPartyId;
+        if (!scope.TenantWide)
+        {
+            if (scope.OwnerPartyId is null)
+                throw new InvalidOperationException(
+                    "The current user is not linked to a party and cannot create documents.");
+            ownerPartyId = scope.OwnerPartyId.Value;
+        }
+
+        // Classification defaults from DocumentType when omitted (Spec 035 §10). The fallback is
+        // Personal (owner-scoped), never a tenant-wide class — so an unclassified customer upload
+        // such as a tax return or statement is never indexed tenant-wide.
+        var classification = command.Classification ?? DefaultClassificationForType(command.DocumentType);
 
         var document = new Document
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
-            OwnerPartyId = command.OwnerPartyId,
+            OwnerPartyId = ownerPartyId,
             DocumentType = command.DocumentType.Trim(),
             Status = string.IsNullOrWhiteSpace(command.Status) ? "Draft" : command.Status!.Trim(),
             Classification = classification,
@@ -87,9 +119,15 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             throw new ArgumentException("Content type is required.", nameof(command));
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
+        var scope = await ResolveCallerScopeAsync(tenantId, cancellationToken);
         var document = await _dbContext.Documents
             .FirstOrDefaultAsync(d => d.Id == command.DocumentId && d.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException($"Document {command.DocumentId} not found.");
+
+        // A customer may only upload into their own documents. Surface "not found" rather than a
+        // distinct "forbidden" so a customer cannot probe for the existence of others' documents.
+        if (!scope.TenantWide && document.OwnerPartyId != scope.OwnerPartyId)
+            throw new InvalidOperationException($"Document {command.DocumentId} not found.");
 
         var upload = await _documentFileStore.UploadDocumentFileAsync(
             tenantId, document.Id, content, command.FileName, command.ContentType, cancellationToken);
@@ -180,9 +218,20 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
+        var scope = await ResolveCallerScopeAsync(tenantId, cancellationToken);
+        if (scope.IsDeniedCustomer)
+            return null;
+
         var document = await _dbContext.Documents.AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == documentId && d.TenantId == tenantId, cancellationToken);
-        return document is null ? null : MapDocument(document);
+        if (document is null)
+            return null;
+
+        // A customer can only read their own documents; another party's id is a 404 for them.
+        if (!scope.TenantWide && document.OwnerPartyId != scope.OwnerPartyId)
+            return null;
+
+        return MapDocument(document);
     }
 
     public async Task<PagedResult<DocumentListItem>> ListDocumentsAsync(
@@ -192,6 +241,10 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         var pageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
         var pageSize = query.PageSize is < 1 or > 100 ? 20 : query.PageSize;
         var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var scope = await ResolveCallerScopeAsync(tenantId, cancellationToken);
+        if (scope.IsDeniedCustomer)
+            return new PagedResult<DocumentListItem>(new List<DocumentListItem>(), 0, pageNumber, pageSize);
 
         var q = _dbContext.Documents.AsNoTracking().Where(d => d.TenantId == tenantId);
 
@@ -205,8 +258,13 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             var s = query.Status.Trim();
             q = q.Where(d => d.Status == s);
         }
-        if (query.OwnerPartyId.HasValue)
-            q = q.Where(d => d.OwnerPartyId == query.OwnerPartyId.Value);
+
+        // A customer is forced to their own owner party; a request-supplied OwnerPartyId is ignored
+        // for them and can never widen the result set. Staff/system callers may filter by the
+        // requested owner party (or omit it for a tenant-wide listing).
+        var effectiveOwnerPartyId = scope.TenantWide ? query.OwnerPartyId : scope.OwnerPartyId;
+        if (effectiveOwnerPartyId.HasValue)
+            q = q.Where(d => d.OwnerPartyId == effectiveOwnerPartyId.Value);
         if (query.Classification.HasValue)
             q = q.Where(d => d.Classification == query.Classification.Value);
         if (!string.IsNullOrWhiteSpace(query.Tag))
@@ -256,6 +314,20 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
+        var scope = await ResolveCallerScopeAsync(tenantId, cancellationToken);
+        if (scope.IsDeniedCustomer)
+            return Array.Empty<DocumentFileDto>();
+
+        // A customer may only read files of their own documents.
+        if (!scope.TenantWide)
+        {
+            var owns = await _dbContext.Documents.AsNoTracking().AnyAsync(
+                d => d.Id == documentId && d.TenantId == tenantId && d.OwnerPartyId == scope.OwnerPartyId,
+                cancellationToken);
+            if (!owns)
+                return Array.Empty<DocumentFileDto>();
+        }
+
         var files = await _dbContext.DocumentFiles.AsNoTracking()
             .Where(f => f.DocumentId == documentId && f.TenantId == tenantId)
             .OrderBy(f => f.PageIndex)
@@ -271,6 +343,59 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             "Signed read URLs are wired in a later phase of Spec 035 (§11).");
 
     // ── helpers ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The effective document scope for the current caller. Staff/system callers see the whole
+    /// tenant; a customer (a <c>PersonalUser</c> with no staff role) is restricted to their own
+    /// owner party — derived from authenticated context, never from request input (Spec 035 §14 /
+    /// R7). A customer who is not linked to a party is denied (reads return empty; writes throw).
+    /// </summary>
+    private readonly record struct CallerScope(bool TenantWide, Guid? OwnerPartyId)
+    {
+        public bool IsDeniedCustomer => !TenantWide && OwnerPartyId is null;
+    }
+
+    private async Task<CallerScope> ResolveCallerScopeAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var roles = _currentUserContext.Roles ?? Array.Empty<string>();
+        var isStaff = roles.Any(role => TenantWideRoles.Contains(role, StringComparer.Ordinal));
+
+        // Staff (or a trusted system/Worker context with no roles) → tenant-wide.
+        if (isStaff || !roles.Contains(CustomerRole, StringComparer.Ordinal))
+            return new CallerScope(TenantWide: true, OwnerPartyId: null);
+
+        // Customer → their own owner party, resolved from auth (never request input).
+        var userId = _currentUserContext.UserId;
+        if (userId is null || userId.Value == Guid.Empty)
+            return new CallerScope(TenantWide: false, OwnerPartyId: null);
+
+        var partyId = await _userPartyResolver.GetPartyIdForUserAsync(tenantId, userId.Value, cancellationToken);
+        return new CallerScope(TenantWide: false, OwnerPartyId: partyId);
+    }
+
+    /// <summary>
+    /// Default classification for a document when the caller omits one (Spec 035 §10). Identity /
+    /// proof images are <see cref="DocumentClassification.Sensitive"/>; explicitly tenant-wide
+    /// operational content is <see cref="DocumentClassification.Internal"/>; everything else — every
+    /// common personal upload and any unrecognised type — defaults to
+    /// <see cref="DocumentClassification.Personal"/>, so it is owner-scoped and never indexed
+    /// tenant-wide. This is the fail-closed default.
+    /// </summary>
+    private static DocumentClassification DefaultClassificationForType(string documentType)
+    {
+        var normalized = new string((documentType ?? string.Empty)
+            .Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+
+        return normalized switch
+        {
+            "nationalid" or "passport" or "driverslicense" or "driverslicence" or "driverlicense"
+                or "idcard" or "idscan" or "identitydocument" or "proofofaddress" or "selfie" or "biometric"
+                => DocumentClassification.Sensitive,
+            "productterms" or "termsofservice" or "terms" or "publicnotice" or "policy" or "faq"
+                => DocumentClassification.Internal,
+            _ => DocumentClassification.Personal,
+        };
+    }
 
     private static DocumentIndexStatus ResolveInitialIndexStatus(DocumentClassification classification)
         => classification is DocumentClassification.Restricted or DocumentClassification.Sensitive
