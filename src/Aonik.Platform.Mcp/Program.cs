@@ -51,7 +51,7 @@ builder.Services.AddSingleton<ICurrentUserContext>(new McpCurrentUserContext(use
 builder.Services.AddSingleton<ICorrelationContext, McpCorrelationContext>();
 builder.Services.AddSingleton<ICurrencyMetadataProvider, McpCurrencyMetadataProvider>();
 builder.Services.AddSingleton<IProfilePhotoStore, McpProfilePhotoStore>();
-builder.Services.AddSingleton<IDocumentFileStore, McpDocumentFileStore>();
+builder.Services.AddSingleton<Aonik.SharedKernel.Abstractions.Documents.IDocumentFileStore, McpDocumentFileStore>();
 
 // ── MCP Server ───────────────────────────────────────────────────────
 // Uses stdio transport for communication with MCP clients (agents, IDEs, etc.).

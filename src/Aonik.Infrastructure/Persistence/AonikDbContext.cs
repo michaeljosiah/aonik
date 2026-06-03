@@ -4,6 +4,7 @@ using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
+using Aonik.Documents.Entities;
 using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
@@ -93,6 +94,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<DocumentUsage> DocumentUsages { get; set; } = null!;
     public virtual DbSet<DocumentVerification> DocumentVerifications { get; set; } = null!;
     public virtual DbSet<DocumentVersion> DocumentVersions { get; set; } = null!;
+
+    // Documents (Spec 035) — new module entities; canonical migration stream stays here.
+    public virtual DbSet<DocumentIngestion> DocumentIngestions { get; set; } = null!;
+    public virtual DbSet<DocumentExtraction> DocumentExtractions { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -208,6 +213,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Apply Voice configurations (spec 024 — speech provider library)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SpeechProviderEntity).Assembly);
 
+        // Apply Documents configurations from Aonik.Documents assembly (Spec 035).
+        // The canonical migration stream stays in AonikDbContext; this scan keeps the
+        // model in sync with the module's EF configs.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Documents.DocumentsModule).Assembly);
+
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);
 
@@ -310,6 +320,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<DocumentUsage>(modelBuilder, "DocumentUsages");
         MapPlatformTable<DocumentVerification>(modelBuilder, "DocumentVerifications");
         MapPlatformTable<DocumentVersion>(modelBuilder, "DocumentVersions");
+        MapPlatformTable<DocumentIngestion>(modelBuilder, "DocumentIngestions");
+        MapPlatformTable<DocumentExtraction>(modelBuilder, "DocumentExtractions");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

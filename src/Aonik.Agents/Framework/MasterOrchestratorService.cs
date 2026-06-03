@@ -441,6 +441,19 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                 memoryTools.Count);
         }
 
+        // ── Cross-cutting document search (Spec 035 §13) ───────────────
+        // The signed-in user's own documents are searchable mid-conversation. The tool derives its
+        // tenant + owner-party retrieval scope from authenticated context (never model input), so
+        // RAG-by-default reaches the orchestrator without routing through a domain sub-agent.
+        var documentTools = DocumentSearchTools.CreateAll(_serviceProvider).ToList();
+        tools.AddRange(documentTools);
+        if (documentTools.Count > 0)
+        {
+            _logger.LogDebug(
+                "Added {ToolCount} cross-cutting document-search tool(s) to orchestrator",
+                documentTools.Count);
+        }
+
         // Build domain agents as tools, applying any configuration overrides
         foreach (var descriptor in _descriptors)
         {

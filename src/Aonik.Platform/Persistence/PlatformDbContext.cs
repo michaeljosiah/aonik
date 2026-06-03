@@ -59,11 +59,10 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
     public DbSet<ComplianceCase> ComplianceCases { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
-    public DbSet<Document> Documents { get; set; } = null!;
-    public DbSet<DocumentFile> DocumentFiles { get; set; } = null!;
+    // Spec 035 — generic Document/DocumentFile/DocumentVersion moved to Aonik.Documents.
+    // Compliance keeps usage + verification, which reference the document by id via IDocumentReader.
     public DbSet<DocumentUsage> DocumentUsages { get; set; } = null!;
     public DbSet<DocumentVerification> DocumentVerifications { get; set; } = null!;
-    public DbSet<DocumentVersion> DocumentVersions { get; set; } = null!;
 
     // Notifications
     public DbSet<Notification> Notifications { get; set; } = null!;
@@ -183,11 +182,8 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<ScreeningCheck>(modelBuilder, "ScreeningChecks");
         MapTable<ComplianceCase>(modelBuilder, "ComplianceCases");
         MapTable<AuditLog>(modelBuilder, "AuditLogs");
-        MapTable<Document>(modelBuilder, "Documents");
-        MapTable<DocumentFile>(modelBuilder, "DocumentFiles");
         MapTable<DocumentUsage>(modelBuilder, "DocumentUsages");
         MapTable<DocumentVerification>(modelBuilder, "DocumentVerifications");
-        MapTable<DocumentVersion>(modelBuilder, "DocumentVersions");
 
         MapTable<Notification>(modelBuilder, "Notifications");
         MapTable<NotificationDevice>(modelBuilder, "NotificationDevices");

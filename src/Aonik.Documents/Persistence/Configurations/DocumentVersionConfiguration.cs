@@ -2,7 +2,7 @@ using Aonik.Platform.Entities.Compliance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Platform.Persistence.Configurations;
+namespace Aonik.Documents.Persistence.Configurations;
 
 public class DocumentVersionConfiguration : IEntityTypeConfiguration<DocumentVersion>
 {

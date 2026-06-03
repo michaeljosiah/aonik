@@ -67,6 +67,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.IntegrationTests.Supp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Finance.IntegrationTests", "tests\Aonik.Finance.IntegrationTests\Aonik.Finance.IntegrationTests.csproj", "{E4F4AC6B-B191-4A44-8F06-FC15E807771D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Documents", "src\Aonik.Documents\Aonik.Documents.csproj", "{B4382700-AC08-40B4-A0D9-F28CE6F13612}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -437,6 +439,18 @@ Global
 		{E4F4AC6B-B191-4A44-8F06-FC15E807771D}.Release|x64.Build.0 = Release|Any CPU
 		{E4F4AC6B-B191-4A44-8F06-FC15E807771D}.Release|x86.ActiveCfg = Release|Any CPU
 		{E4F4AC6B-B191-4A44-8F06-FC15E807771D}.Release|x86.Build.0 = Release|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Debug|x64.Build.0 = Debug|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Debug|x86.Build.0 = Debug|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Release|x64.ActiveCfg = Release|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Release|x64.Build.0 = Release|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Release|x86.ActiveCfg = Release|Any CPU
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -472,5 +486,6 @@ Global
 		{9234D4C2-557A-4D95-8685-E87B13C1247A} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{30F25653-CBCC-4053-B7B3-A37E89087F1F} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{E4F4AC6B-B191-4A44-8F06-FC15E807771D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{B4382700-AC08-40B4-A0D9-F28CE6F13612} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

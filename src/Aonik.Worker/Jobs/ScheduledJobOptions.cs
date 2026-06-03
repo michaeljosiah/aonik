@@ -11,6 +11,23 @@ public sealed class ScheduledJobOptions
     public CustomerInsightSnapshotJobOptions CustomerInsightSnapshot { get; set; } = new();
     public CustomerInsightAiSummaryJobOptions CustomerInsightAiSummary { get; set; } = new();
     public AiCostGuardJobOptions AiCostGuard { get; set; } = new();
+    public DocumentIngestionBackfillJobOptions DocumentIngestionBackfill { get; set; } = new();
+}
+
+public sealed class DocumentIngestionBackfillJobOptions
+{
+    /// <summary>
+    /// Disabled by default (Spec 035 Phase 4, optional). An operator enables this to drain
+    /// documents that never completed ingestion, then disables it again — the job is self-limiting.
+    /// </summary>
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: every 10 minutes (only fires when enabled).
+    /// </summary>
+    public string CronExpression { get; set; } = "0 0/10 * * * ?";
+
+    public int BatchSize { get; set; } = 200;
 }
 
 public sealed class AiCostGuardJobOptions

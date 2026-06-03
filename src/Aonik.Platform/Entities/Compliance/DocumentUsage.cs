@@ -14,6 +14,8 @@ public class DocumentUsage : AuditableEntity, ITenantScoped
     public Guid? VerifiedByUserId { get; set; }
     public DateTime? VerifiedAt { get; set; }
     public string? Notes { get; set; }
-    public Document? Document { get; set; }
+
+    // Spec 035 — DocumentId is a cross-module reference resolved via IDocumentReader; the EF
+    // navigation to Document (now in Aonik.Documents) is intentionally absent (no FK).
     public List<DocumentVerification> Verifications { get; set; } = new();
 }

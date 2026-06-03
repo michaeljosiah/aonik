@@ -54,7 +54,7 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         _logger = logger;
     }
 
-    public async Task<int> IndexDocumentAsync(
+    public async Task<DocumentIndexResult> IndexDocumentAsync(
         DocumentIndexRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -70,7 +70,7 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
         if (request.Chunks.Count == 0)
         {
             await PurgeDocumentAsync(request.DocumentId, cancellationToken);
-            return 0;
+            return new DocumentIndexResult(0, _embeddingService.ModelName, 0m);
         }
 
         // Classification gate: not every classification is embedded into the vector store.
@@ -86,7 +86,7 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
                 "Skipped vector indexing for document {DocumentId}: classification {Classification} is not " +
                 "embedded (Restricted is never indexed; Sensitive is metadata-only until OCR + redaction).",
                 request.DocumentId, request.Classification);
-            return 0;
+            return new DocumentIndexResult(0, _embeddingService.ModelName, 0m);
         }
 
         var collection = _config.GetCollectionName(CollectionType);
@@ -129,11 +129,17 @@ internal sealed class ScopedDocumentVectorIndex : IDocumentSearch, IDocumentVect
             await _vectorStore.UpsertVectorAsync(collection, vectorId, embeddings[i], payload, cancellationToken);
         }
 
+        // Cost estimate (mirrors the legacy DocumentUploadEndpoint heuristic): embedding spend
+        // scales with the total number of vector components produced. Surfaced up so the
+        // ingestion pipeline can record per-tenant embedding cost on its DocumentIngestion row
+        // (Spec 035 §9 risk register) without the Documents module reaching the embedding layer.
+        var estimatedCost = (decimal)(embeddings.Sum(e => (long)e.Length) / 1_000_000.0 * 0.02);
+
         _logger.LogDebug(
             "Indexed {ChunkCount} chunks for document {DocumentId} (party {PartyId}, {Classification})",
             request.Chunks.Count, request.DocumentId, request.OwnerPartyId, request.Classification);
 
-        return request.Chunks.Count;
+        return new DocumentIndexResult(request.Chunks.Count, _embeddingService.ModelName, estimatedCost);
     }
 
     public async Task<IReadOnlyList<DocumentChunkHit>> SearchAsync(

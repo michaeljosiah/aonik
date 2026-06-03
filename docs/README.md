@@ -39,6 +39,7 @@ Welcome to the AONIK documentation. This guide covers the architecture, features
 - [Payabo Registration Journey](features/payabo-registration-journey.md) - B2C onboarding flow
 - [AI Integration](features/ai-integration.md) - AI workflows and agent framework
 - [AI Observability](features/ai-observability.md) - AI execution monitoring and metrics
+- [Documents](features/documents.md) - Document substrate with party-scoped RAG-by-default ingestion, search, and erasure
 - [Financial Life Graph](features/financial-life-graph.md) - Personal-finance graph context and reasoning
 - [Insight Generation Pipeline](features/insight-generation-pipeline.md) - AI-driven customer insights
 - [Transaction Classification](features/transaction-classification.md) - Spending categorisation

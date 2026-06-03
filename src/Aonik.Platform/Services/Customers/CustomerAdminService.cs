@@ -12,6 +12,7 @@ using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Documents;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 namespace Aonik.Platform.Services.Customers;
@@ -29,6 +30,7 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly ICustomerFinanceStatsProvider _financeStatsProvider;
     private readonly ICustomerActivityProvider _activityProvider;
+    private readonly IDocumentReader _documentReader;
 
     public CustomerAdminService(
         PlatformDbContext dbContext,
@@ -38,7 +40,8 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         ICurrentUserProvider currentUserProvider,
         IPermissionService permissionService,
         ICustomerFinanceStatsProvider financeStatsProvider,
-        ICustomerActivityProvider activityProvider)
+        ICustomerActivityProvider activityProvider,
+        IDocumentReader documentReader)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -47,6 +50,7 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         _auditLogWriter = auditLogWriter;
         _financeStatsProvider = financeStatsProvider;
         _activityProvider = activityProvider;
+        _documentReader = documentReader;
     }
 
     public async Task<PagedResult<CustomerListItem>> ListCustomersAsync(
@@ -465,20 +469,12 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             })
             .ToListAsync(cancellationToken);
 
-        var documentRows = await _dbContext.Documents
-            .AsNoTracking()
-            .Where(doc => doc.TenantId == tenantId && doc.OwnerPartyId == partyId)
-            .OrderByDescending(doc => doc.CreatedAt)
-            .Take(perSource)
-            .Select(doc => new
-            {
-                doc.Id,
-                doc.CreatedAt,
-                doc.DocumentType,
-                doc.Status,
-                doc.ReferenceNumber,
-            })
-            .ToListAsync(cancellationToken);
+        // Spec 035 — documents are owned by Aonik.Documents; read the party's documents through
+        // the SharedKernel reader contract instead of a direct DbSet (tenant scope is applied inside).
+        var documentList = await _documentReader.ListDocumentsAsync(
+            new ListDocumentsQuery(PageNumber: 1, PageSize: perSource, OwnerPartyId: partyId),
+            cancellationToken);
+        var documentRows = documentList.Items;
 
         var merged = new List<CustomerActivityEntryDto>(
             financeEntries.Count + auditRows.Count + documentRows.Count);
@@ -505,15 +501,12 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
 
         foreach (var doc in documentRows)
         {
-            var subtitle = string.IsNullOrWhiteSpace(doc.ReferenceNumber)
-                ? doc.Status
-                : $"{doc.Status} · {doc.ReferenceNumber}";
             merged.Add(new CustomerActivityEntryDto(
                 doc.CreatedAt,
                 "document_uploaded",
                 $"Document · {doc.DocumentType}",
-                subtitle,
-                $"/compliance/documents/{doc.Id}"));
+                doc.Status,
+                $"/documents/{doc.DocumentId}"));
         }
 
         return merged

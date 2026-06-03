@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Messaging.Outbox;
 using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.Platform;
 using Aonik.Finance;
+using Aonik.Documents;
 using Aonik.PersonalFinance;
 using Aonik.Ai;
 using Aonik.Agents;
@@ -25,6 +26,7 @@ builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
+builder.Services.AddDocumentsModule(builder.Configuration);
 
 // Drain the transactional outbox here only — a single drainer in the Worker host
 // avoids double-dispatch. Event types live in SharedKernel and are auto-discovered.

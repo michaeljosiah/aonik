@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 using Aonik.Application.Abstractions.Storage;
 using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
-using Aonik.Platform.Contracts.Services.Storage;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.Application.Options;
 
 namespace Aonik.Infrastructure.Storage;
@@ -78,6 +78,33 @@ public class DocumentFileStore : IDocumentFileStore
             fileName,
             fileSizeBytes,
             sha256);
+    }
+
+    public async Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            throw new ArgumentException("Storage key is required.", nameof(storageKey));
+        }
+
+        // The async ingestion pipeline re-loads the uploaded bytes from their tenant-scoped
+        // storage key. FluentStorage returns null when the blob is absent (e.g. erased) — surface
+        // that as a clear error rather than a NullReferenceException downstream.
+        var stream = await _blobStorage.OpenReadAsync(storageKey, cancellationToken);
+        return stream ?? throw new InvalidOperationException(
+            $"Document blob '{storageKey}' was not found in storage.");
+    }
+
+    public async Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            throw new ArgumentException("Storage key is required.", nameof(storageKey));
+        }
+
+        // FluentStorage's batch delete is idempotent — a missing object is a no-op — so the
+        // erasure path can re-run safely after a partial failure.
+        await _blobStorage.DeleteAsync(new[] { storageKey }, cancellationToken);
     }
 
     private static string BuildDocumentBlobPath(

@@ -7,9 +7,9 @@ namespace Aonik.Platform.Endpoints.Compliance;
 
 public class AddDocumentUsageEndpoint : Endpoint<AddDocumentUsageRequest, DocumentUsageResponse>
 {
-    private readonly IDocumentService _documentService;
+    private readonly IDocumentVerificationService _documentService;
 
-    public AddDocumentUsageEndpoint(IDocumentService documentService)
+    public AddDocumentUsageEndpoint(IDocumentVerificationService documentService)
     {
         _documentService = documentService;
     }

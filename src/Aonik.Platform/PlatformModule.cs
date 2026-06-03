@@ -31,6 +31,7 @@ using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Services.UserBrief;
 using Aonik.SharedKernel.Modules;
 using Aonik.SharedKernel.Abstractions.UserBrief;
+using Aonik.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -120,9 +121,15 @@ public sealed class PlatformModule : IModule
         // Platform's Party / User aggregates via SharedKernel without
         // a direct project reference on Aonik.Platform.
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyResolver, Services.Party.UserPartyResolver>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
+
+        // Compliance reacts to document erasure (Spec 035 §12/§15) by marking dependent usages
+        // Expired. Registering the assembly's IEventHandler implementations lets the Worker's outbox
+        // dispatcher resolve them; only the Worker drains the outbox, so the handler runs there.
+        services.AddEventHandlersFromAssembly(typeof(PlatformModule).Assembly);
         services.AddScoped<IComplianceService, ComplianceService>();
-        services.AddScoped<IDocumentService, DocumentService>();
+        services.AddScoped<IDocumentVerificationService, DocumentVerificationService>();
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();
         services.AddScoped<ICustomerDataService, CustomerDataService>();
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();

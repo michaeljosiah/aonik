@@ -66,11 +66,11 @@ public interface IAonikDbContext
     DbSet<ScreeningCheck> ScreeningChecks { get; set; }
     DbSet<ComplianceCase> ComplianceCases { get; set; }
     DbSet<AuditLog> AuditLogs { get; set; }
-    DbSet<Document> Documents { get; set; }
-    DbSet<DocumentFile> DocumentFiles { get; set; }
+    // Spec 035 — Document/DocumentFile/DocumentVersion moved to Aonik.Documents (accessed via
+    // DocumentsDbContext / IDocumentReader). AonikDbContext still owns their DbSets for the
+    // canonical migration stream; they are no longer exposed on this Application-layer abstraction.
     DbSet<DocumentUsage> DocumentUsages { get; set; }
     DbSet<DocumentVerification> DocumentVerifications { get; set; }
-    DbSet<DocumentVersion> DocumentVersions { get; set; }
 
     // Features
     DbSet<TenantFeature> TenantFeatures { get; set; }

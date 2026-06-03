@@ -1,8 +1,9 @@
 using Aonik.Platform.Entities.Compliance;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Platform.Persistence.Configurations;
+namespace Aonik.Documents.Persistence.Configurations;
 
 public class DocumentConfiguration : IEntityTypeConfiguration<Document>
 {
@@ -37,16 +38,27 @@ public class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .IsRequired()
             .HasDefaultValue("{}");
 
+        // Spec 035 — RAG/classification columns. Enums stored as int; existing rows
+        // default to Internal/NotIndexable so legacy compliance docs are not auto-indexed.
+        builder.Property(d => d.Classification)
+            .HasDefaultValue(DocumentClassification.Internal);
+
+        builder.Property(d => d.Source)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("AdminUpload");
+
+        builder.Property(d => d.IndexStatus)
+            .HasDefaultValue(DocumentIndexStatus.NotIndexable);
+
         builder.HasMany(d => d.Files)
             .WithOne(f => f.Document)
             .HasForeignKey(f => f.DocumentId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasMany(d => d.Usages)
-            .WithOne(u => u.Document)
-            .HasForeignKey(u => u.DocumentId)
-            .OnDelete(DeleteBehavior.Cascade);
-
+        // Spec 035 — the Document↔DocumentUsage FK is dropped: DocumentUsage (Compliance,
+        // stays in Aonik.Platform) now references the document by a plain Guid resolved through
+        // IDocumentReader, so there is no cross-module navigation/FK.
         builder.HasMany(d => d.Versions)
             .WithOne(v => v.Document)
             .HasForeignKey(v => v.DocumentId)

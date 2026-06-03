@@ -4,6 +4,7 @@ using Aonik.Ai;
 using Aonik.Api.Configuration;
 using Aonik.Api.Middleware;
 using Aonik.Application;
+using Aonik.Documents;
 using Aonik.Finance;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.VectorStore;
@@ -31,6 +32,7 @@ builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
 builder.Services.AddAonikVoiceModule(builder.Configuration);
+builder.Services.AddDocumentsModule(builder.Configuration);
 
 builder.Services.AddAonikCors(builder.Configuration);
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
@@ -49,6 +51,7 @@ builder.Services.AddFastEndpoints(o =>
         typeof(AiModule).Assembly,
         typeof(AgentsModule).Assembly,
         typeof(AonikVoiceModule).Assembly,
+        typeof(DocumentsModule).Assembly,
     ];
 });
 

@@ -30,6 +30,7 @@ public sealed class ScopedDocumentVectorIndexTests
 
     public ScopedDocumentVectorIndexTests()
     {
+        _embeddings.Setup(e => e.ModelName).Returns("text-embedding-3-small");
         _sut = new ScopedDocumentVectorIndex(
             _vectorStore.Object,
             _embeddings.Object,
@@ -136,9 +137,32 @@ public sealed class ScopedDocumentVectorIndexTests
 
         var indexed = await _sut.IndexDocumentAsync(request);
 
-        indexed.Should().Be(1);
+        indexed.ChunkCount.Should().Be(1);
         calls.Should().ContainInOrder("delete:stale-0", "delete:stale-1", "delete:stale-2", "upsert");
         calls.Count(c => c == "upsert").Should().Be(1, "the single new chunk is written once, after the purge");
+    }
+
+    [Fact]
+    public async Task IndexDocumentAsync_Should_Return_EmbeddingModel_And_Cost_For_Ingestion_Audit()
+    {
+        // The result surfaces the embedding model and a cost estimate up to the ingestion pipeline
+        // so it can record them on the DocumentIngestion audit row (Spec 035 §9 / R9).
+        var request = new DocumentIndexRequest(
+            Guid.NewGuid(), Guid.NewGuid(), DocumentClassification.Personal, "tax_return",
+            Purpose: null, Chunks: new[] { "alpha", "beta", "gamma" });
+        StubEmptyScroll();
+        StubBatchEmbeddings();
+        _vectorStore
+            .Setup(v => v.UpsertVectorAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float[]>(),
+                It.IsAny<Dictionary<string, object>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.IndexDocumentAsync(request);
+
+        result.ChunkCount.Should().Be(3);
+        result.EmbeddingModel.Should().Be("text-embedding-3-small");
+        result.EstimatedCost.Should().BeGreaterThan(0m, "cost scales with the vectors produced");
     }
 
     // ── Write-side scope guard: reject mis-scoped writes; skip non-embeddable classes ───────────
@@ -197,7 +221,7 @@ public sealed class ScopedDocumentVectorIndexTests
 
         var indexed = await _sut.IndexDocumentAsync(request);
 
-        indexed.Should().Be(0);
+        indexed.ChunkCount.Should().Be(0);
         // The raw content never reaches the embedding service, and no vector is written.
         _embeddings.Verify(
             e => e.GetEmbeddingsBatchAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),

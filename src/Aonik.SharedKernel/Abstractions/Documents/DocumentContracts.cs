@@ -121,3 +121,15 @@ public sealed record DocumentIndexRequest(
     string DocumentType,
     string? Purpose,
     IReadOnlyList<string> Chunks);
+
+/// <summary>
+/// Outcome of an indexing run. Surfaces the embedding model and a cost estimate up from the
+/// Infrastructure embedding layer so the ingestion pipeline can record them on its
+/// <c>DocumentIngestion</c> audit row (Spec 035 §9 / R9) — the Documents module never sees the
+/// embedding service directly. <see cref="ChunkCount"/> is zero for a skip (Restricted/Sensitive)
+/// or an explicit empty-chunk purge.
+/// </summary>
+public sealed record DocumentIndexResult(
+    int ChunkCount,
+    string EmbeddingModel,
+    decimal EstimatedCost);

@@ -11,9 +11,10 @@ public interface IDocumentVectorIndex
 {
     /// <summary>
     /// Embeds and upserts the supplied chunks, stamping the scope fields on every vector.
-    /// Returns the number of chunks indexed.
+    /// Returns the number of chunks indexed plus the embedding model and cost estimate so the
+    /// caller can record them on its ingestion audit row (Spec 035 §9).
     /// </summary>
-    Task<int> IndexDocumentAsync(
+    Task<DocumentIndexResult> IndexDocumentAsync(
         DocumentIndexRequest request,
         CancellationToken cancellationToken = default);
 
