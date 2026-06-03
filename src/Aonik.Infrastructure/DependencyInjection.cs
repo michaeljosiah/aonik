@@ -115,7 +115,7 @@ public static class DependencyInjection
         // Profile Photo Store abstraction
         services.AddScoped<IProfilePhotoStore, ProfilePhotoStore>();
         
-        services.AddScoped<IDocumentFileStore, DocumentFileStore>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentFileStore, DocumentFileStore>();
 
         // Generic file store for attachments (transaction receipts, etc.)
         services.AddScoped<Aonik.SharedKernel.Abstractions.Storage.IFileStore>(sp =>

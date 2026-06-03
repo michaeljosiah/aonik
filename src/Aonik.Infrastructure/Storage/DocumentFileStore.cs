@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 using Aonik.Application.Abstractions.Storage;
 using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
-using Aonik.Platform.Contracts.Services.Storage;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.Application.Options;
 
 namespace Aonik.Infrastructure.Storage;

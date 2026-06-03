@@ -1,4 +1,5 @@
 using Aonik.Documents.Entities;
+using Aonik.Platform.Entities.Compliance; // Document/DocumentFile/DocumentVersion — namespace preserved per Spec 035 to protect the EF snapshot FQN
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -19,6 +20,9 @@ namespace Aonik.Documents.Persistence;
 /// </summary>
 internal sealed class DocumentsDbContext : AonikDbContextBase
 {
+    public DbSet<Document> Documents { get; set; } = null!;
+    public DbSet<DocumentFile> DocumentFiles { get; set; } = null!;
+    public DbSet<DocumentVersion> DocumentVersions { get; set; } = null!;
     public DbSet<DocumentIngestion> DocumentIngestions { get; set; } = null!;
     public DbSet<DocumentExtraction> DocumentExtractions { get; set; } = null!;
 
@@ -48,6 +52,9 @@ internal sealed class DocumentsDbContext : AonikDbContextBase
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
     {
+        MapTable<Document>(modelBuilder, "Documents");
+        MapTable<DocumentFile>(modelBuilder, "DocumentFiles");
+        MapTable<DocumentVersion>(modelBuilder, "DocumentVersions");
         MapTable<DocumentIngestion>(modelBuilder, "DocumentIngestions");
         MapTable<DocumentExtraction>(modelBuilder, "DocumentExtractions");
     }

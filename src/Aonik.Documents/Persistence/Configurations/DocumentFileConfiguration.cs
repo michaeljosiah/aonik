@@ -3,7 +3,7 @@ using Aonik.SharedKernel.Abstractions.Documents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Platform.Persistence.Configurations;
+namespace Aonik.Documents.Persistence.Configurations;
 
 public class DocumentFileConfiguration : IEntityTypeConfiguration<DocumentFile>
 {

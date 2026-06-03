@@ -3,7 +3,7 @@ using Aonik.SharedKernel.Abstractions.Documents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Platform.Persistence.Configurations;
+namespace Aonik.Documents.Persistence.Configurations;
 
 public class DocumentConfiguration : IEntityTypeConfiguration<Document>
 {
@@ -56,11 +56,9 @@ public class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .HasForeignKey(f => f.DocumentId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasMany(d => d.Usages)
-            .WithOne(u => u.Document)
-            .HasForeignKey(u => u.DocumentId)
-            .OnDelete(DeleteBehavior.Cascade);
-
+        // Spec 035 — the Document↔DocumentUsage FK is dropped: DocumentUsage (Compliance,
+        // stays in Aonik.Platform) now references the document by a plain Guid resolved through
+        // IDocumentReader, so there is no cross-module navigation/FK.
         builder.HasMany(d => d.Versions)
             .WithOne(v => v.Document)
             .HasForeignKey(v => v.DocumentId)

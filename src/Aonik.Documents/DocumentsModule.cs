@@ -1,4 +1,6 @@
 using Aonik.Documents.Persistence;
+using Aonik.Documents.Services;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +38,12 @@ public sealed class DocumentsModule
                 options.UseSqlServer(connectionString, o => o.EnableRetryOnFailure());
             }
         });
+
+        // Generic document read/write contracts (Spec 035 §11). One service implements both;
+        // search/index (IDocumentSearch/IDocumentVectorIndex) are registered in Infrastructure.
+        services.AddScoped<DocumentService>();
+        services.AddScoped<IDocumentReader>(sp => sp.GetRequiredService<DocumentService>());
+        services.AddScoped<IDocumentWriter>(sp => sp.GetRequiredService<DocumentService>());
 
         return services;
     }

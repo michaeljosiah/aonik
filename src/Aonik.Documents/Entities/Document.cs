@@ -26,6 +26,5 @@ public class Document : AuditableEntity, ITenantScoped
     public string TagsJson { get; set; } = "[]";
     public string AttributesJson { get; set; } = "{}";
     public List<DocumentFile> Files { get; set; } = new();
-    public List<DocumentUsage> Usages { get; set; } = new();
     public List<DocumentVersion> Versions { get; set; } = new();
 }

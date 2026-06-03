@@ -143,9 +143,9 @@ internal sealed class McpProfilePhotoStore : IProfilePhotoStore
 /// No-op document file store for MCP context. File uploads are not supported
 /// via MCP tools — they require file streams.
 /// </summary>
-internal sealed class McpDocumentFileStore : IDocumentFileStore
+internal sealed class McpDocumentFileStore : Aonik.SharedKernel.Abstractions.Documents.IDocumentFileStore
 {
-    public Task<DocumentFileUploadResult> UploadDocumentFileAsync(
+    public Task<Aonik.SharedKernel.Abstractions.Documents.DocumentFileUploadResult> UploadDocumentFileAsync(
         Guid tenantId, Guid documentId, Stream fileStream, string fileName,
         string contentType, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Document file upload is not available via MCP.");

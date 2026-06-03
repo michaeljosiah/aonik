@@ -122,7 +122,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
         services.AddScoped<IComplianceService, ComplianceService>();
-        services.AddScoped<IDocumentService, DocumentService>();
+        services.AddScoped<IDocumentVerificationService, DocumentVerificationService>();
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();
         services.AddScoped<ICustomerDataService, CustomerDataService>();
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
