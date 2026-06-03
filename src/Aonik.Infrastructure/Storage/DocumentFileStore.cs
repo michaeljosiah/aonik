@@ -80,6 +80,21 @@ public class DocumentFileStore : IDocumentFileStore
             sha256);
     }
 
+    public async Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            throw new ArgumentException("Storage key is required.", nameof(storageKey));
+        }
+
+        // The async ingestion pipeline re-loads the uploaded bytes from their tenant-scoped
+        // storage key. FluentStorage returns null when the blob is absent (e.g. erased) — surface
+        // that as a clear error rather than a NullReferenceException downstream.
+        var stream = await _blobStorage.OpenReadAsync(storageKey, cancellationToken);
+        return stream ?? throw new InvalidOperationException(
+            $"Document blob '{storageKey}' was not found in storage.");
+    }
+
     private static string BuildDocumentBlobPath(
         Guid tenantId,
         Guid documentId,

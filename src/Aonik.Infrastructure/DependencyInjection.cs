@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
@@ -305,6 +306,14 @@ public static class DependencyInjection
             sp => sp.GetRequiredService<Aonik.Infrastructure.VectorStore.ScopedDocumentVectorIndex>());
         services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentVectorIndex>(
             sp => sp.GetRequiredService<Aonik.Infrastructure.VectorStore.ScopedDocumentVectorIndex>());
+
+        // Document text extraction for the RAG ingestion pipeline (Spec 035 §13). Native text +
+        // DOCX are handled in-process (BCL only); the OCR hook is a deferred no-op by default —
+        // TryAdd so a real document-intelligence adapter can replace it without touching this line.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentTextExtractor,
+            Aonik.Infrastructure.Documents.DocumentTextExtractor>();
+        services.TryAddSingleton<Aonik.SharedKernel.Abstractions.Documents.IDocumentOcrExtractor,
+            Aonik.Infrastructure.Documents.DeferredDocumentOcrExtractor>();
 
         // Collection initializer
         services.AddHostedService<Aonik.Infrastructure.VectorStore.Qdrant.QdrantCollectionInitializer>();

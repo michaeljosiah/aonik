@@ -4,6 +4,7 @@ using Aonik.Platform.Entities.Compliance; // Document/DocumentFile — namespace
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Events.Integration;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Documents.Services;
@@ -111,10 +112,25 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         };
 
         _dbContext.DocumentFiles.Add(file);
+
+        // Phase 3 (Spec 035 §13): for an indexable document, raise DocumentUploadedEvent in the
+        // same transaction via the outbox so the async ingestion pipeline embeds the file without
+        // blocking this upload. Restricted/Sensitive/NotIndexable documents are never auto-indexed,
+        // so they raise no event — no embedding cost and no handler work. Enqueue BEFORE
+        // SaveChanges so the outbox row commits atomically with the file.
+        if (document.IndexStatus == DocumentIndexStatus.Pending)
+        {
+            _dbContext.EnqueueIntegrationEvent(new DocumentUploadedEvent(
+                TenantId: tenantId,
+                DocumentId: document.Id,
+                DocumentFileId: file.Id,
+                OwnerPartyId: document.OwnerPartyId,
+                Classification: document.Classification,
+                ContentType: file.ContentType));
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // Phase 3 (Spec 035 §13): publish DocumentUploadedEvent here so the async ingestion
-        // pipeline embeds indexable files. Wired when the Worker job lands.
         return MapFile(file);
     }
 

@@ -149,4 +149,7 @@ internal sealed class McpDocumentFileStore : Aonik.SharedKernel.Abstractions.Doc
         Guid tenantId, Guid documentId, Stream fileStream, string fileName,
         string contentType, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Document file upload is not available via MCP.");
+
+    public Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Document file read is not available via MCP.");
 }

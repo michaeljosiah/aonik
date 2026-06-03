@@ -1,6 +1,7 @@
 using Aonik.Documents.Persistence;
 using Aonik.Documents.Services;
 using Aonik.SharedKernel.Abstractions.Documents;
+using Aonik.SharedKernel.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,15 @@ public sealed class DocumentsModule
         services.AddScoped<DocumentService>();
         services.AddScoped<IDocumentReader>(sp => sp.GetRequiredService<DocumentService>());
         services.AddScoped<IDocumentWriter>(sp => sp.GetRequiredService<DocumentService>());
+
+        // Async RAG ingestion pipeline (Spec 035 §13). The indexer orchestrates
+        // extract→chunk→embed→upsert; DocumentIngestionHandler consumes DocumentUploadedEvent.
+        // Handlers are registered by assembly scan so the outbox dispatcher can resolve them — the
+        // Api registers them too, but only the Worker drains the outbox, so ingestion runs exactly
+        // once, in the Worker. The text extractor and scoped vector index are supplied by
+        // Infrastructure at the composition root.
+        services.AddScoped<IDocumentIndexer, DocumentIndexer>();
+        services.AddEventHandlersFromAssembly(typeof(DocumentsModule).Assembly);
 
         return services;
     }

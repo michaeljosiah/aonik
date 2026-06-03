@@ -26,4 +26,11 @@ public interface IDocumentFileStore
         string fileName,
         string contentType,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Opens a previously-uploaded file's bytes for reading by its storage key. Used by the
+    /// async ingestion pipeline (Spec 035 §13) to re-load a file for text extraction without
+    /// blocking the upload request path. The caller owns disposing the returned stream.
+    /// </summary>
+    Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default);
 }
