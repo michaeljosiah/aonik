@@ -120,6 +120,7 @@ public sealed class PlatformModule : IModule
         // Platform's Party / User aggregates via SharedKernel without
         // a direct project reference on Aonik.Platform.
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyResolver, Services.Party.UserPartyResolver>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
         services.AddScoped<IComplianceService, ComplianceService>();
         services.AddScoped<IDocumentVerificationService, DocumentVerificationService>();
