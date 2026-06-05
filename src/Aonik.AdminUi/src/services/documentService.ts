@@ -55,13 +55,16 @@ export const documentService = {
     return api.get<PagedResult<DocumentListItem>>(`/documents${query ? `?${query}` : ''}`);
   },
   get: async (documentId: string): Promise<DocumentDetailsResponse> => {
-    // Spec 035 — the decoupled Documents module's GET /documents/{id} returns the flat
-    // document metadata (DocumentDto). It carries no compliance usages/versions, and the
-    // module exposes no per-document files-list endpoint yet. Wrap the metadata in the
-    // composite shape the detail page expects so the page renders instead of crashing on
-    // the missing `document` wrapper. File listing on the detail page is a known follow-up.
-    const document = await api.get<DocumentResponse>(`/documents/${documentId}`);
-    return { document, files: [], usages: [], versions: [] };
+    // Spec 035 — the decoupled Documents module returns the flat document metadata
+    // (DocumentDto) from GET /documents/{id} and its attached files from a separate
+    // GET /documents/{id}/files; it has no compliance usages/versions. Compose them into
+    // the composite shape the detail page expects. Owner-scoping is enforced server-side,
+    // so a customer only sees their own document and its files.
+    const [document, files] = await Promise.all([
+      api.get<DocumentResponse>(`/documents/${documentId}`),
+      api.get<DocumentFileResponse[]>(`/documents/${documentId}/files`),
+    ]);
+    return { document, files, usages: [], versions: [] };
   },
   create: async (data: CreateDocumentRequest): Promise<DocumentResponse> => {
     return api.post<DocumentResponse>('/documents', data);
