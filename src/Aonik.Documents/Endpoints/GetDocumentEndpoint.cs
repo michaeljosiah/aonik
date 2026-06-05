@@ -14,7 +14,7 @@ public sealed class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDto>
     public override void Configure()
     {
         Get("/documents/{id}");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "Get a document by id";

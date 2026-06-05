@@ -14,7 +14,35 @@ var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOpt
 
 const string LocalDbConnectionString = @"Server=(localdb)\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
 
-// Add Qdrant vector store
+// Local-dev blob storage must be a single shared directory. The API writes uploaded
+// document blobs and the Worker reads them back during async RAG ingestion, but the two
+// run as separate processes with different working directories. The default relative
+// "App_Data" base path therefore resolves to a different folder per process, so the Worker
+// cannot find what the API just wrote (DocumentIngestion fails with "blob not found in
+// storage"). Pin both processes to one absolute path under the repo root so uploaded files
+// are visible across processes. (In deployed environments BlobStorage:Provider is Azure and
+// this override is unused.)
+var sharedBlobBasePath = Path.GetFullPath(
+    Path.Combine(builder.AppHostDirectory, "..", "..", ".localstore", "blobs"));
+
+// OpenAI API key forwarded to the Worker. The Worker process has no AI appsettings of its own,
+// and the key is an encrypted Settings-store value (IsEncrypted) so it cannot be planted as
+// plaintext in the DB. Without this, once AI:Provider is OpenAI the Worker resolves a null key
+// and RAG ingestion fails with "OpenAI API key is required". Read from the AppHost's own
+// configuration (env var / user-secrets in dev) so the secret is never hardcoded here; the API
+// already reads it from its own appsettings. Forwarded to the Worker below only when present.
+var openAiApiKey = builder.Configuration["AI:OpenAI:ApiKey"];
+
+// Add Qdrant vector store.
+//
+// The API and Worker below connect to Qdrant over its host-published REST endpoint
+// (http://localhost:6333), NOT the container name "qdrant". These are plain .NET host
+// processes, not containers, so the Docker-internal hostname "qdrant" does not resolve
+// for them ("No such host is known (qdrant:6333)"). Because the Qdrant HTTP client wraps
+// its calls in a retrying resilience handler, that DNS failure surfaces only after the
+// 30 s total-request timeout — silently breaking RAG ingestion (Worker → Qdrant upsert)
+// and document search (API → Qdrant). The fixed host port below keeps localhost:6333
+// stable across restarts.
 var qdrant = builder
     .AddContainer("qdrant", "qdrant/qdrant", "v1.13.2")
     .WithHttpEndpoint(6333, 6333, name: "rest")
@@ -87,9 +115,10 @@ var api = builder.AddProject<Projects.Aonik_Api>("api")
     .WithEnvironment("Database__AutoMigrate", "true")
     .WithEnvironment("Database__SeedData", "true")
     .WaitFor(qdrant)
-    .WithEnvironment("Qdrant__Endpoint", "http://qdrant:6333")
+    .WithEnvironment("Qdrant__Endpoint", "http://localhost:6333")
     .WithEnvironment("Qdrant__ApiKey", "qdrant-dev-key")
     .WithEnvironment("Qdrant__CollectionPrefix", "aonik-dev")
+    .WithEnvironment("BlobStorage__LocalBasePath", sharedBlobBasePath)
     .WithExternalHttpEndpoints();
 
 if (enableKeycloak)
@@ -108,9 +137,16 @@ var worker = builder.AddProject<Projects.Aonik_Worker>("worker")
     .WithEnvironment("ConnectionStrings__DefaultConnection", LocalDbConnectionString)
     .WithEnvironment("ConnectionStrings__AonikDb", LocalDbConnectionString)
     .WaitFor(qdrant)
-    .WithEnvironment("Qdrant__Endpoint", "http://qdrant:6333")
+    .WithEnvironment("Qdrant__Endpoint", "http://localhost:6333")
     .WithEnvironment("Qdrant__ApiKey", "qdrant-dev-key")
-    .WithEnvironment("Qdrant__CollectionPrefix", "aonik-dev");
+    .WithEnvironment("Qdrant__CollectionPrefix", "aonik-dev")
+    .WithEnvironment("BlobStorage__LocalBasePath", sharedBlobBasePath);
+
+// Forward the OpenAI key to the Worker only when the AppHost actually has it (env / user-secrets
+// in dev). When unset, the Worker keeps its existing "OpenAI API key is required" failure mode
+// rather than receiving an empty key that would fail later as an opaque 401.
+if (!string.IsNullOrWhiteSpace(openAiApiKey))
+    worker.WithEnvironment("AI__OpenAI__ApiKey", openAiApiKey);
 
 // Add Admin UI (React/Vite frontend)
 var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
