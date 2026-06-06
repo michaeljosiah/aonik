@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 036 · RemittanceOrderService quote-confirm-settlement flow</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2784; }
+    .meta-tag.priority-p1 { background: #fff0d6; color: #8a5510; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.deferred { background: #eef5fa; color: #386b84; }
+    .status-row td:first-child { font-weight: 600; }
+    .status-ok { color: #2a7f3c; }
+    .status-gap { color: #8a2a15; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 036</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Finance / Payabo / Remittance</span>
+  <h1>RemittanceOrderService quote-confirm-settlement flow</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Implements the Payabo B2C remittance path as a Finance orchestration service:
+    <strong>quote &rarr; lock &rarr; debit ledger &rarr; call connector &rarr; record
+    transmission &rarr; settle on webhook</strong>. Remittance remains an
+    <code>OrderType</code> business intent; execution uses the existing payout connector port from
+    <a href="031.partner-integration-abstraction.html">Spec&nbsp;031</a>, not a new connector port.
+    The public API surface is <code>POST /payabo/remittance/quote</code>,
+    <code>POST /payabo/remittance/confirm</code>, and
+    <code>GET /payabo/remittance/{id}</code>.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#current-state">Current-state grounding</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#flow">Target flow</a></li>
+    <li><a href="#domain">Domain model</a></li>
+    <li><a href="#service">Service design</a></li>
+    <li><a href="#ledger">Ledger postings</a></li>
+    <li><a href="#connector">Connector and transmission</a></li>
+    <li><a href="#webhooks">Webhook settlement</a></li>
+    <li><a href="#api">Public API contracts</a></li>
+    <li><a href="#security">Security, tenancy, idempotency</a></li>
+    <li><a href="#persistence">Persistence and migrations</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  Payabo needs a customer-facing remittance flow that is financially safe and traceable. The service
+  must quote the corridor, lock the quote before commitment, debit the tenant ledger before sending
+  the external instruction, dispatch a payout connector call, persist the connector attempt, and later
+  post settlement from the partner webhook. That sequence preserves AONIK's core discipline:
+  <strong>orders capture intent, connector payouts execute fulfilment, and the ledger proves money
+  movement</strong>.
+</p>
+
+<p>
+  The implementation is a new <code>RemittanceOrderService</code> in <code>Aonik.Finance</code>. It
+  composes existing shipped primitives rather than creating a separate remittance bounded context:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Concern</th><th>Use</th><th>Current artifact</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Business intent</td>
+      <td>Create an <code>Order</code> with <code>OrderType = "Remittance"</code> and a remittance-shaped <code>OrderItem</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Orders/Order.cs"><code>Order</code></a>, <a href="../../src/Aonik.Finance/Entities/Orders/OrderType.cs"><code>OrderType.Remittance</code></a></td>
+    </tr>
+    <tr>
+      <td>Quote</td>
+      <td>Reuse the pricing engine, but persist <code>PricingQuote.QuoteType = "Remittance"</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Services/Pricing/PricingService.cs"><code>PricingService</code></a>, <a href="../../src/Aonik.Finance/Entities/Pricing/PricingQuote.cs"><code>PricingQuote</code></a></td>
+    </tr>
+    <tr>
+      <td>Beneficiary rail</td>
+      <td>Use a saved, customer-owned <code>ExternalPayoutAccount</code> as the destination reference.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount</code></a></td>
+    </tr>
+    <tr>
+      <td>Connector execution</td>
+      <td>Call <code>IPartnerPayoutConnector.InitiatePayoutAsync</code> selected through <code>IPartnerConnectorResolver</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerPayoutConnector.cs"><code>IPartnerPayoutConnector</code></a></td>
+    </tr>
+    <tr>
+      <td>Attempt record</td>
+      <td>Persist the outbound call in <code>Transmission</code>, targeted to the <code>Payout</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Partners/Transmission.cs"><code>Transmission</code></a></td>
+    </tr>
+    <tr>
+      <td>Async settlement</td>
+      <td>Ingest partner callbacks into <code>PartnerWebhookEvent</code>, then idempotently settle the order and ledger.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Partners/PartnerWebhookEvent.cs"><code>PartnerWebhookEvent</code></a></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  A Payabo user can request a quote, confirm it once, and retrieve the remittance state. Confirming
+  writes exactly one <code>Remittance</code> order, one payout fulfilment record, one debit journal
+  entry, and one transmission per idempotency key; retrying the same confirm returns the same order.
+  The connector call is not made unless the quote is locked and the ledger debit succeeds. A duplicate
+  webhook is stored or deduped without double-posting settlement. <code>dotnet build Aonik.sln</code>
+  and focused service / endpoint tests pass.
+</div>
+
+<h2 id="current-state">2. Current-state grounding</h2>
+
+<p>
+  This spec is intentionally grounded in what the repository already ships after Spec&nbsp;031:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Area</th><th>Status today</th><th>Implication for this spec</th></tr>
+  </thead>
+  <tbody>
+    <tr class="status-row">
+      <td><span class="status-ok">Order intent</span></td>
+      <td><code>OrderType</code> already includes <code>Remittance</code>, and <code>Order</code> has totals, countries, <code>FxQuoteId</code>, <code>FeesJson</code>, <code>ProvenanceJson</code>, and compatibility shadow columns (<code>OrderNumber</code>, <code>ServiceCode</code>, <code>OrderDetailsJson</code>).</td>
+      <td>Do not add a separate <code>RemittanceOrder</code> entity. Use <code>Order</code> + remittance details JSON.</td>
+    </tr>
+    <tr class="status-row">
+      <td><span class="status-gap">Public route</span></td>
+      <td>No <code>/payabo/remittance/*</code> endpoints exist. Payabo-facing endpoints currently use regular FastEndpoints with user policies, e.g. <code>/personal-finance/setup-profile</code>; public bill-payment drafts live under <code>/public/orders/*</code>.</td>
+      <td>Add explicit Payabo remittance endpoints under Finance. They are authenticated customer endpoints, not anonymous guest checkout endpoints.</td>
+    </tr>
+    <tr class="status-row">
+      <td><span class="status-gap">Pricing method</span></td>
+      <td><code>IPricingService</code> exposes only <code>GetBillPaymentQuoteAsync</code>; it persists <code>QuoteType = "BillPayment"</code>.</td>
+      <td>Add a remittance quote path rather than overloading bill-payment quote type in storage.</td>
+    </tr>
+    <tr class="status-row">
+      <td><span class="status-ok">Payout execution</span></td>
+      <td><code>Payout</code> carries <code>ConnectorId</code>, <code>ClientReference</code>, <code>ProviderReference</code>, FX / fee fields, <code>DestinationExternalAccountId</code>, <code>OrderItemId</code>, raw response, and <code>PartnerTransactionStatus</code> string status.</td>
+      <td>Use <code>Payout</code> as the execution record for remittance fulfilment.</td>
+    </tr>
+    <tr class="status-row">
+      <td><span class="status-ok">Connector port</span></td>
+      <td><code>PartnerServiceCategory</code> has <code>Payout</code>, <code>Collection</code>, <code>BillPayment</code>, and <code>AirtimeTopup</code>. There is no <code>Remittance</code> connector category.</td>
+      <td>Route remittance by <code>PartnerServiceCategory.Payout</code>. Remittance is the order intent, payout is the connector interaction shape.</td>
+    </tr>
+    <tr class="status-row">
+      <td><span class="status-gap">Ledger poster</span></td>
+      <td><code>LedgerPostingService</code> posts payment capture and invoice settlement only. Journal entry idempotency is enforced by <code>(TenantId, SourceType, SourceId)</code> for non-manual sources.</td>
+      <td>Add remittance-specific ledger posting methods with new source types and account-resolution rules.</td>
+    </tr>
+    <tr class="status-row">
+      <td><span class="status-gap">Webhook dispatch</span></td>
+      <td><code>PartnerWebhookEvent</code> and <code>IPartnerWebhookTranslator</code> exist, but there is no partner webhook endpoint or processor that updates payout/order/ledger state.</td>
+      <td>Add a processor and either a generic partner webhook endpoint or a remittance-specific dispatch path. Settlement must be server-side and idempotent.</td>
+    </tr>
+    <tr class="status-row">
+      <td><span class="status-gap">Routing seed</span></td>
+      <td>Cross-border seed data creates partners/connectors/routing rules, but conditions still use <code>quoteContext = "BillPayment"</code> and <code>capability = "BILLPAY"</code>.</td>
+      <td>Seed or update payout connector capability/routing lanes for remittance corridors.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Naming rule</span>
+  Use <code>RemittanceOrderService</code> for the application orchestration service. Use
+  <code>RemittanceQuote*</code>, <code>ConfirmRemittance*</code>, and <code>RemittanceOrder*</code>
+  for DTOs. Do <strong>not</strong> introduce a <code>RemittanceConnector</code> or
+  <code>PartnerServiceCategory.Remittance</code>; the existing payout port is the correct connector
+  abstraction.
+</div>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+
+<ul>
+  <li><span class="tag new">New</span> <code>IRemittanceOrderService</code> and <code>RemittanceOrderService</code> under Finance contracts/services.</li>
+  <li><span class="tag new">New</span> Payabo-facing API contracts and endpoints for <code>POST /payabo/remittance/quote</code>, <code>POST /payabo/remittance/confirm</code>, and <code>GET /payabo/remittance/{id}</code>.</li>
+  <li><span class="tag mutate">Edit</span> <code>IPricingService</code> / <code>PricingService</code> to support remittance quote persistence with <code>QuoteType = "Remittance"</code> while reusing the current pricing calculation.</li>
+  <li><span class="tag new">New</span> Remittance order details JSON shape stored on the order compatibility shadow column and / or <code>ProvenanceJson</code>, plus a remittance <code>OrderItem</code> details shape.</li>
+  <li><span class="tag mutate">Edit</span> <code>LedgerPostingService</code> to support remittance debit, connector settlement, and failure reversal source types.</li>
+  <li><span class="tag new">New</span> Payout connector orchestration: resolve route, create <code>Payout</code>, call <code>IPartnerPayoutConnector</code>, and record <code>Transmission</code>.</li>
+  <li><span class="tag new">New</span> Partner webhook processing for payout events that updates <code>PartnerWebhookEvent</code>, <code>Payout</code>, <code>Transmission</code>, <code>Order</code>, and remittance ledger settlement idempotently.</li>
+  <li><span class="tag mutate">Edit</span> Cross-border seed data to add remittance / payout capability lanes and routing-rule conditions for seeded corridors.</li>
+  <li><span class="tag new">New</span> Unit/integration tests for quote, confirm idempotency, connector failure handling, webhook settlement idempotency, and endpoint routing/policies.</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+
+<ul>
+  <li>Real Flutterwave / eTranzact / Interswitch remittance adapters. The existing simulated connector remains the first executable connector.</li>
+  <li>Building a full wallet product or customer balance ledger beyond the accounts needed to safely debit and settle this remittance flow.</li>
+  <li>Agent-triggered remittance execution. Remittance confirmation is high-risk money movement and must remain explicit user/system execution; agent support would marshal through Spec&nbsp;032/030 proposals.</li>
+  <li>Changing the global orders principle. Orders remain business intent and do not become payment or payout rows.</li>
+  <li>Persisting raw account numbers, MSISDNs, wallet IDs, or unredacted partner payloads.</li>
+</ul>
+
+<h2 id="flow">4. Target flow</h2>
+
+<div class="ascii-diagram">POST /payabo/remittance/quote
+  1. Validate customer, corridor, amount, destination, and service code
+  2. Resolve pricing policy + FX + fees through PricingService
+  3. Persist PricingQuote with QuoteType = "Remittance"
+  4. Return quote snapshot + expiresAt + supported destination rails
+
+POST /payabo/remittance/confirm
+  1. Normalize Idempotency-Key and request body
+  2. Load unexpired remittance PricingQuote and saved ExternalPayoutAccount
+  3. Resolve remittance payout route / connector
+  4. Create Order(OrderType = "Remittance") + OrderItem + party roles
+  5. Lock quote to the order by copying a pricing snapshot into order details
+  6. Create Payout(status = Pending, ClientReference = idempotency key/ref)
+  7. Post remittance debit ledger entry (idempotent, before connector call)
+  8. Call IPartnerPayoutConnector.InitiatePayoutAsync
+  9. Update Payout + Order status and persist Transmission
+ 10. Return order detail
+
+Partner webhook
+  1. Verify signature + translate with IPartnerWebhookTranslator
+  2. Insert/dedupe PartnerWebhookEvent
+  3. Locate Payout by ClientReference or ProviderReference
+  4. Update Payout / Transmission / Order status
+  5. If Succeeded, post settlement ledger entry exactly once
+  6. If Failed/Reversed, post debit reversal exactly once</div>
+
+<h3>4.1 State vocabulary</h3>
+
+<table>
+  <thead>
+    <tr><th>Object</th><th>Statuses</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Order.Status</code></td>
+      <td><code>Draft</code>, <code>PendingFunding</code>, <code>Transmitted</code>, <code>Complete</code>, <code>Failed</code>, <code>Expired</code>, <code>Cancelled</code></td>
+      <td>Use existing string convention. <code>Transmitted</code> already exists in <code>OrderStatuses</code>. <code>PendingFunding</code> is already used by public bill-payment payment intent flow.</td>
+    </tr>
+    <tr>
+      <td><code>OrderItem.Status</code></td>
+      <td><code>QuoteLocked</code>, <code>DebitPosted</code>, <code>Transmitted</code>, <code>Settled</code>, <code>Failed</code></td>
+      <td>Item status tracks the single remittance line fulfilment.</td>
+    </tr>
+    <tr>
+      <td><code>Payout.Status</code></td>
+      <td><code>PartnerTransactionStatus</code> string values</td>
+      <td>Use <code>Pending</code> before connector, then connector/webhook result values.</td>
+    </tr>
+    <tr>
+      <td><code>Transmission.Status</code></td>
+      <td><code>PartnerTransactionStatus</code> string values</td>
+      <td>One outbound connector attempt for the payout. Initial status is connector result.</td>
+    </tr>
+    <tr>
+      <td><code>PartnerWebhookEvent.ProcessingStatus</code></td>
+      <td><code>Received</code>, <code>Processed</code>, <code>Duplicate</code>, <code>Failed</code></td>
+      <td>Processing status is local inbox state, not partner transaction status.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="domain">5. Domain model</h2>
+
+<h3>5.1 Reused entities</h3>
+
+<p>
+  No new persisted remittance entity is required for the first slice. The flow reuses the current
+  Finance entities and records remittance-specific details in JSON fields, matching the existing order
+  pattern.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Entity</th><th>Role in remittance</th><th>Key fields</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Order</code></td>
+      <td>Business intent: customer wants to send money to a beneficiary.</td>
+      <td><code>OrderType = "Remittance"</code>, <code>PayerPartyId</code>, <code>OriginCountry</code>, <code>DestinationCountry</code>, <code>AmountIn</code>, <code>CurrencyIn</code>, <code>AmountOut</code>, <code>CurrencyOut</code>, <code>FeesJson</code>, <code>FxQuoteId</code>, <code>Status</code>, <code>ProvenanceJson</code>.</td>
+    </tr>
+    <tr>
+      <td><code>OrderItem</code></td>
+      <td>Single remittance line. Keeps quote snapshot and destination summary immutable after confirm.</td>
+      <td><code>ItemType = "RemittancePayout"</code>, <code>ReceiverPartyId</code>, amounts, fees, <code>PricingQuoteId</code>, <code>DetailsJson</code>.</td>
+    </tr>
+    <tr>
+      <td><code>OrderPartyRole</code></td>
+      <td>Payer and beneficiary party references.</td>
+      <td><code>Role = "Payer"</code> and <code>Role = "Receiver"</code>, soft references to Platform parties.</td>
+    </tr>
+    <tr>
+      <td><code>ExternalPayoutAccount</code></td>
+      <td>Saved destination rail owned by the Payabo customer.</td>
+      <td><code>CustomerPartyId</code>, <code>BeneficiaryPartyId</code>, <code>DestinationType</code>, <code>MaskedAccountIdentifier</code>, <code>ProviderBeneficiaryId</code>, <code>VaultRef</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Payout</code></td>
+      <td>Connector execution record that fulfils the order item.</td>
+      <td><code>DestinationExternalAccountId</code>, <code>ConnectorId</code>, <code>ClientReference</code>, <code>ProviderReference</code>, <code>OrderItemId</code>, fee / FX fields, <code>Status</code>.</td>
+    </tr>
+    <tr>
+      <td><code>OrderFulfilmentRef</code></td>
+      <td>Links the remittance order to the payout execution.</td>
+      <td><code>OrderId</code>, <code>PayoutId</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Transmission</code></td>
+      <td>Outbound connector attempt.</td>
+      <td><code>PayoutId</code>, <code>ConnectorId</code>, <code>IdempotencyKey</code>, <code>ProviderReference</code>, <code>Status</code>, <code>RawResponseJson</code>.</td>
+    </tr>
+    <tr>
+      <td><code>PartnerWebhookEvent</code></td>
+      <td>Inbound connector callback inbox.</td>
+      <td><code>ProviderCode</code>, <code>Category = "Payout"</code>, references, payload hash, signature validity, processing state.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.2 Remittance details JSON</h3>
+
+<p>
+  Store only immutable intent and non-sensitive destination summary. Raw rail values stay transient in
+  connector DTOs or behind <code>VaultRef</code>; responses expose masked identifiers only.
+</p>
+
+<pre><code>public sealed record RemittanceOrderDetails(
+    Guid PricingQuoteId,
+    Guid CustomerPartyId,
+    Guid BeneficiaryPartyId,
+    Guid DestinationExternalAccountId,
+    string DestinationType,
+    string MaskedAccountIdentifier,
+    string OriginCountry,
+    string DestinationCountry,
+    string OriginCurrency,
+    string DestinationCurrency,
+    decimal OriginAmount,
+    decimal DestinationAmount,
+    decimal FeesTotal,
+    decimal TotalAmount,
+    decimal ExchangeRate,
+    decimal RateMarkup,
+    Guid PricingPolicyId,
+    string PricingPolicyVersion,
+    DateTime QuoteExpiresAt,
+    string PurposeCode,
+    string? Narration,
+    Guid ConnectorId,
+    string ProviderCode);</code></pre>
+
+<h2 id="service">6. Service design</h2>
+
+<h3>6.1 Interface</h3>
+
+<pre><code>namespace Aonik.Finance.Contracts.Services.Remittance;
+
+public interface IRemittanceOrderService
+{
+    Task&lt;RemittanceQuoteResponse&gt; QuoteAsync(
+        RemittanceQuoteRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task&lt;RemittanceOrderResponse&gt; ConfirmAsync(
+        ConfirmRemittanceRequest request,
+        string? idempotencyKey,
+        CancellationToken cancellationToken = default);
+
+    Task&lt;RemittanceOrderResponse?&gt; GetAsync(
+        Guid orderId,
+        CancellationToken cancellationToken = default);
+
+    Task ProcessWebhookAsync(
+        PartnerWebhookEnvelope envelope,
+        CancellationToken cancellationToken = default);
+}</code></pre>
+
+<h3>6.2 Dependencies</h3>
+
+<table>
+  <thead>
+    <tr><th>Dependency</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>FinanceDbContext</code></td><td>Read/write orders, quotes, payout destinations, payouts, transmissions, webhooks, ledger rows.</td></tr>
+    <tr><td><code>ITenantProvider</code>, <code>ICurrentUserProvider</code></td><td>Tenant and Payabo customer scoping; audit actor.</td></tr>
+    <tr><td><code>IPricingService</code></td><td>Quote calculation. Add remittance-specific method or generic quote type parameter.</td></tr>
+    <tr><td><code>IPartnerConnectorResolver</code></td><td>Resolve payout connector by selected route/provider.</td></tr>
+    <tr><td><code>LedgerPostingService</code></td><td>Post remittance debit, settlement, and failure reversal entries.</td></tr>
+    <tr><td><code>IAuditLogWriter</code></td><td>Record quote creation, confirmation, connector dispatch, webhook settlement/failure.</td></tr>
+    <tr><td><code>IClock</code></td><td>Quote expiry, event timestamps, idempotency-safe created/updated values.</td></tr>
+  </tbody>
+</table>
+
+<h3>6.3 Quote method</h3>
+
+<ol>
+  <li>Validate exactly one of <code>originAmount</code> or <code>destinationAmount</code>.</li>
+  <li>Normalize country and currency codes to uppercase ISO values.</li>
+  <li>Require <code>customerPartyId</code>; verify the party belongs to the current tenant/user context before returning a quote.</li>
+  <li>Use service code <code>REMITTANCE.PAYOUT</code> unless a narrower corridor code is supplied by product configuration.</li>
+  <li>Call the remittance pricing path and persist <code>PricingQuote.QuoteType = "Remittance"</code>.</li>
+  <li>Optionally resolve available payout lanes from <code>ConnectorCapability</code> for the destination country/currency.</li>
+  <li>Return the quote values, expiry, fee breakdown, and supported destination methods.</li>
+</ol>
+
+<h3>6.4 Confirm method</h3>
+
+<ol>
+  <li>Require and normalize <code>Idempotency-Key</code>. Missing or blank keys are rejected at the endpoint.</li>
+  <li>Look up an existing <code>Order</code> with <code>(TenantId, OrderType = "Remittance", IdempotencyKey)</code>; if found, return its current remittance response.</li>
+  <li>Load the <code>PricingQuote</code> and require <code>QuoteType = "Remittance"</code>, current tenant, not expired, and matching request customer/corridor fields.</li>
+  <li>Load <code>ExternalPayoutAccount</code> by id and require <code>CustomerPartyId</code> matches the requester, currency/country/rail are compatible, and the rail is verified or permitted by policy.</li>
+  <li>Resolve connector route using <code>ConnectorCapability.Category = "Payout"</code>, destination country/currency, and rail method; if persistent routing is not ready, fall back to <code>IPartnerConnectorResolver.TryResolvePayoutConnector</code> for the simulated provider.</li>
+  <li>Create <code>Order</code>, one <code>OrderItem</code>, payer/receiver roles, history events, <code>Payout</code>, and <code>OrderFulfilmentRef</code> in the pre-dispatch database transaction.</li>
+  <li>Lock the quote by copying all price, FX, fee, route, and destination summary fields into <code>OrderItem.DetailsJson</code> and <code>Order.ProvenanceJson</code>.</li>
+  <li>Post the remittance debit ledger entry in that same pre-dispatch transaction. If debit posting fails, roll back and do not call the connector.</li>
+  <li>Build a <code>PayoutInstruction</code> from the locked quote and destination. If a raw account/MSISDN is needed, resolve it from <code>VaultRef</code> or a short-lived request field; do not persist it.</li>
+  <li>Commit the pre-dispatch transaction before making the external connector call.</li>
+  <li>Call <code>InitiatePayoutAsync</code>. Update <code>Payout</code> and <code>Order</code> based on the normalized result in a post-dispatch save.</li>
+  <li>Persist <code>Transmission</code> with the connector result, provider reference, redacted raw response, and idempotency key in the post-dispatch save.</li>
+</ol>
+
+<div class="callout p0">
+  <span class="callout-label">Ordering invariant</span>
+  The connector call happens only after the quote is locked and the debit journal entry has been
+  posted. The ledger debit is the source of proof that customer value was reserved/spent before AONIK
+  asks a partner to pay the beneficiary. If any pre-connector step fails, no partner instruction is
+  sent.
+</div>
+
+<div class="callout">
+  <span class="callout-label">Transaction boundary</span>
+  Do <strong>not</strong> hold a SQL transaction open while calling the connector. Commit the
+  quote-lock/order/payout/debit state first, then call the connector, then persist the transmission and
+  final initiation status. If the connector fails after the debit committed, record the failed
+  transmission and post an idempotent failure reversal.
+</div>
+
+<h2 id="ledger">7. Ledger postings</h2>
+
+<p>
+  Extend <code>LedgerPostingService</code> with remittance source types. The helper writes directly to
+  <code>JournalEntry</code> like payment capture / invoice settlement and relies on the existing unique
+  non-manual source index for idempotency.
+</p>
+
+<h3>7.1 Source types</h3>
+
+<table>
+  <thead>
+    <tr><th>SourceType</th><th>SourceId</th><th>When</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>RemittanceDebit</code></td>
+      <td><code>Order.Id</code></td>
+      <td>During confirm, before connector call.</td>
+      <td>Reserve/debit customer value and move it into remittance clearing.</td>
+    </tr>
+    <tr>
+      <td><code>RemittanceSettlement</code></td>
+      <td><code>Payout.Id</code></td>
+      <td>On succeeded payout webhook.</td>
+      <td>Move the beneficiary payout amount from remittance clearing to partner prefund / due-from-partner settlement.</td>
+    </tr>
+    <tr>
+      <td><code>RemittanceFailureReversal</code></td>
+      <td><code>Payout.Id</code></td>
+      <td>On failed/reversed payout after debit posted.</td>
+      <td>Undo the customer debit and clear the remittance liability.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>7.2 Account model</h3>
+
+<p>
+  The exact chart account names can be refined, but the first implementation needs explicit,
+  deterministic accounts. Reuse the seeded partner prefund accounts where possible, lazily create the
+  remittance clearing account like the current payments clearing path, and avoid pretending that
+  <code>Cash</code> is a customer wallet. If the customer has stored Payabo value, the debit reduces a
+  customer-funds liability. If this flow also captures external funding, cash / settlement receivable is
+  debited only for the actual funding receipt.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Code / role</th><th>Name</th><th>Type</th><th>Use</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>1000</code></td><td>Cash / settlement receivable</td><td>Asset</td><td>Used only when the remittance flow also records an actual funding receipt.</td></tr>
+    <tr><td><code>2150</code></td><td>Remittance Clearing</td><td>Liability</td><td>Temporary liability between customer debit and partner settlement.</td></tr>
+    <tr><td><code>2200</code></td><td>Customer Funds Liability</td><td>Liability</td><td>Stored Payabo value owed to customers; debited when a wallet-funded remittance is confirmed.</td></tr>
+    <tr><td><code>1300-{partner}-{currency}</code></td><td>Due From Partner ...</td><td>Asset</td><td>Partner prefund / settlement asset from <code>PartnerFundingAccount</code>.</td></tr>
+    <tr><td><code>4000</code></td><td>Operating Revenue</td><td>Income</td><td>Optional fee recognition if fees are recognized at confirm.</td></tr>
+  </tbody>
+</table>
+
+<h3>7.3 Postings</h3>
+
+<table>
+  <thead>
+    <tr><th>Event</th><th>Debit</th><th>Credit</th><th>Amount / currency</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Confirm debit (stored balance)</td>
+      <td><code>Customer Funds Liability</code></td>
+      <td><code>Remittance Clearing</code></td>
+      <td><code>PricingQuote.TotalAmount</code> in origin currency</td>
+    </tr>
+    <tr>
+      <td>Confirm funding receipt (cash/card/bank-funded)</td>
+      <td><code>Cash / settlement receivable</code></td>
+      <td><code>Remittance Clearing</code></td>
+      <td><code>PricingQuote.TotalAmount</code> in origin currency; only if funding is captured inside this flow</td>
+    </tr>
+    <tr>
+      <td>Fee recognition (if split at confirm)</td>
+      <td><code>Remittance Clearing</code></td>
+      <td><code>Operating Revenue</code></td>
+      <td><code>PricingQuote.FeesTotal</code> in origin currency</td>
+    </tr>
+    <tr>
+      <td>Settlement succeeded</td>
+      <td><code>Remittance Clearing</code></td>
+      <td><code>Partner prefund / due-from-partner</code></td>
+      <td><code>Payout.Amount</code> in destination currency or a configured settlement currency</td>
+    </tr>
+    <tr>
+      <td>Failure reversal (stored balance)</td>
+      <td><code>Remittance Clearing</code></td>
+      <td><code>Customer Funds Liability</code></td>
+      <td>Original debited amount in origin currency</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout open">
+  <span class="callout-label">Open accounting detail</span>
+  The current ledger helper enforces a single currency per journal entry. Cross-currency remittance
+  settlement therefore needs either separate origin/destination entries linked by source metadata, or a
+  settlement-currency policy. The implementation must not create a mixed-currency balanced entry. See
+  <a href="#open">Open decisions</a>.
+</div>
+
+<h2 id="connector">8. Connector and transmission</h2>
+
+<h3>8.1 Routing</h3>
+
+<p>
+  Remittance execution resolves a payout connector. The persistent route should use
+  <code>ConnectorCapability</code> and <code>RoutingRule</code> where available:
+</p>
+
+<pre><code>new PartnerConnectorQuery(
+    PartnerServiceCategory.Payout,
+    country: quote.DestinationCountry,
+    currency: quote.DestinationCurrency,
+    method: destination.DestinationType)</code></pre>
+
+<p>
+  The route result gives <code>ConnectorId</code>, <code>PartnerId</code>, and <code>ProviderCode</code>. The
+  in-memory connector is resolved by <code>ProviderCode</code>. For the simulated connector, provider
+  code remains <code>"Simulated"</code>.
+</p>
+
+<h3>8.2 Payout instruction</h3>
+
+<p>
+  <code>PayoutInstruction</code> maps from the locked order state, not from mutable request fields:
+</p>
+
+<table>
+  <thead>
+    <tr><th>PayoutInstruction field</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>ClientReference</code></td><td>Normalized idempotency key or generated <code>REM-{orderId:N}</code>.</td></tr>
+    <tr><td><code>Amount</code></td><td>Destination payout amount and currency from locked quote.</td></tr>
+    <tr><td><code>DebitCurrency</code></td><td>Origin currency from locked quote.</td></tr>
+    <tr><td><code>Destination</code></td><td>Constructed from the saved destination rail. Raw value comes from <code>VaultRef</code> or transient request input only.</td></tr>
+    <tr><td><code>Narration</code></td><td>Request narration or default <code>Payabo remittance</code>.</td></tr>
+    <tr><td><code>CallbackUrl</code></td><td>Configured partner webhook callback URL.</td></tr>
+    <tr><td><code>Metadata</code></td><td><code>tenantId</code>, <code>orderId</code>, <code>orderItemId</code>, <code>payoutId</code>, <code>quoteId</code>, never raw PII.</td></tr>
+  </tbody>
+</table>
+
+<h3>8.3 Transmission record</h3>
+
+<p>
+  Always write a <code>Transmission</code> after a connector call returns or throws. If the connector
+  throws before returning a provider reference, persist <code>Status = "Failed"</code>,
+  <code>LastError</code>, and a null <code>ProviderReference</code>; set the payout/order to failed and
+  post a debit reversal if the debit entry had already posted.
+</p>
+
+<pre><code>new Transmission
+{
+    TenantId = tenantId,
+    PayoutId = payout.Id,
+    ConnectorId = connectorId,
+    IdempotencyKey = clientReference,
+    ProviderReference = result.Reference.ProviderReference,
+    Status = result.Status.ToString(),
+    RetryCount = 0,
+    RawResponseJson = Redact(result.Raw.PayloadJson)
+};</code></pre>
+
+<h2 id="webhooks">9. Webhook settlement</h2>
+
+<p>
+  Partner callbacks are asynchronous and may repeat. The webhook path must be an idempotent inbox +
+  processor, not direct status mutation from raw HTTP.
+</p>
+
+<h3>9.1 Endpoint shape</h3>
+
+<p>
+  Add a partner webhook endpoint if one does not already exist in the implementation slice:
+  <code>POST /partners/webhooks/{providerCode}</code>. It is not part of the Payabo public API, but it
+  is required to satisfy the settlement requirement. The endpoint reads raw body + headers, resolves
+  <code>IPartnerWebhookTranslator</code>, verifies signature, stores <code>PartnerWebhookEvent</code>,
+  and dispatches processing. Signature failure stores the event with <code>SignatureValid = false</code>
+  and does not mutate financial state.
+</p>
+
+<h3>9.2 Processing logic</h3>
+
+<ol>
+  <li>Translate to normalized <code>PartnerServiceCategory</code>, references, and <code>PartnerTransactionStatus</code>.</li>
+  <li>Ignore non-<code>Payout</code> events in <code>RemittanceOrderService</code>; other processors handle bill/collection categories.</li>
+  <li>Find the payout by <code>ProviderReference</code> first, then <code>ClientReference</code>.</li>
+  <li>Require the payout to belong to an order item whose parent order has <code>OrderType = "Remittance"</code>.</li>
+  <li>For <code>Succeeded</code>: update payout/transmission to <code>Succeeded</code>, set order item <code>Settled</code>, set order <code>Complete</code>, and call <code>PostRemittanceSettlementAsync</code>.</li>
+  <li>For <code>Failed</code> / <code>Reversed</code> / <code>Expired</code>: update payout/transmission/order as failed and call <code>PostRemittanceFailureReversalAsync</code> if the debit was posted.</li>
+  <li>Mark the webhook event <code>Processed</code> only after all state and ledger updates commit.</li>
+</ol>
+
+<div class="callout p0">
+  <span class="callout-label">No double settlement</span>
+  Settlement and reversal use <code>JournalEntry.SourceType + SourceId</code> idempotency. The webhook
+  inbox dedupes by provider event id or payload hash, but ledger idempotency is still required because
+  partners can send different event ids for the same final payout state.
+</div>
+
+<h2 id="api">10. Public API contracts</h2>
+
+<p>
+  Contract records live under <code>src/Aonik.Finance/Contracts/Api/Remittance/</code> for HTTP
+  shape and <code>src/Aonik.Finance/Contracts/Models/Remittance/</code> for service models, following
+  the existing API/app model split used by Orders and Pricing.
+</p>
+
+<h3>10.1 <code>POST /payabo/remittance/quote</code></h3>
+
+<table>
+  <thead>
+    <tr><th>Concern</th><th>Value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Policy</td><td><code>UserPolicy</code> or stricter Payabo customer policy if introduced.</td></tr>
+    <tr><td>Mutation</td><td>Persists a quote only. It does not create an order, payout, transmission, or ledger entry.</td></tr>
+    <tr><td>Validation</td><td>Exactly one amount, valid ISO country/currency codes, customer party, destination country/currency, service code.</td></tr>
+  </tbody>
+</table>
+
+<pre><code>public record RemittanceQuoteRequest(
+    Guid CustomerPartyId,
+    string OriginCountry,
+    string DestinationCountry,
+    string OriginCurrency,
+    string DestinationCurrency,
+    decimal? OriginAmount,
+    decimal? DestinationAmount,
+    string? CustomerTier,
+    string? PurposeCode,
+    string? ServiceCode);
+
+public record RemittanceQuoteResponse(
+    Guid PricingQuoteId,
+    string QuoteType,
+    string OriginCountry,
+    string DestinationCountry,
+    string OriginCurrency,
+    string DestinationCurrency,
+    decimal OriginAmount,
+    decimal DestinationAmount,
+    decimal FeesTotal,
+    decimal TotalAmount,
+    decimal ExchangeRate,
+    decimal RateMarkup,
+    Guid PricingPolicyId,
+    string PricingPolicyVersion,
+    Guid FxRateId,
+    DateTimeOffset RateTimestamp,
+    DateTimeOffset ExpiresAt,
+    IReadOnlyCollection&lt;FeeBreakdownItem&gt; FeeBreakdown,
+    IReadOnlyCollection&lt;RemittanceDestinationMethod&gt; SupportedDestinationMethods);
+
+public record RemittanceDestinationMethod(
+    string DestinationType,
+    string CountryCode,
+    string Currency,
+    string? Network);</code></pre>
+
+<h4>Example</h4>
+
+<pre><code>{
+  "customerPartyId": "11111111-1111-1111-1111-111111111111",
+  "originCountry": "NG",
+  "destinationCountry": "KE",
+  "originCurrency": "NGN",
+  "destinationCurrency": "KES",
+  "destinationAmount": 12000,
+  "purposeCode": "FamilySupport"
+}</code></pre>
+
+<h3>10.2 <code>POST /payabo/remittance/confirm</code></h3>
+
+<table>
+  <thead>
+    <tr><th>Concern</th><th>Value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Policy</td><td><code>AdminUserWritePolicy</code> currently includes <code>PersonalUser</code>; prefer a future <code>PayaboMoneyMovementPolicy</code>. This endpoint is authenticated, never anonymous.</td></tr>
+    <tr><td>Idempotency</td><td>Requires <code>Idempotency-Key</code> header. Persist on <code>Order.IdempotencyKey</code> and <code>Transmission.IdempotencyKey</code>.</td></tr>
+    <tr><td>Mutation</td><td>Creates order/payout/transmission and posts ledger debit; calls connector.</td></tr>
+  </tbody>
+</table>
+
+<pre><code>public record ConfirmRemittanceRequest(
+    Guid PricingQuoteId,
+    Guid CustomerPartyId,
+    Guid DestinationExternalAccountId,
+    string PurposeCode,
+    string? Narration,
+    string? ProviderCode,
+    Dictionary&lt;string, string&gt;? Metadata);
+
+public record RemittanceOrderResponse(
+    Guid OrderId,
+    string OrderNumber,
+    string Status,
+    Guid CustomerPartyId,
+    Guid? BeneficiaryPartyId,
+    Guid DestinationExternalAccountId,
+    string DestinationType,
+    string MaskedAccountIdentifier,
+    string OriginCountry,
+    string DestinationCountry,
+    string OriginCurrency,
+    string DestinationCurrency,
+    decimal OriginAmount,
+    decimal DestinationAmount,
+    decimal FeesTotal,
+    decimal TotalAmount,
+    decimal ExchangeRate,
+    Guid PricingQuoteId,
+    Guid? PayoutId,
+    string? ProviderCode,
+    string? ClientReference,
+    string? ProviderReference,
+    string? TransmissionStatus,
+    DateTime CreatedAt,
+    DateTime? SubmittedAt,
+    DateTime? SettledAt);
+</code></pre>
+
+<h4>Example</h4>
+
+<pre><code>// Header: Idempotency-Key: rem-2026-06-06-000001
+{
+  "pricingQuoteId": "22222222-2222-2222-2222-222222222222",
+  "customerPartyId": "11111111-1111-1111-1111-111111111111",
+  "destinationExternalAccountId": "33333333-3333-3333-3333-333333333333",
+  "purposeCode": "FamilySupport",
+  "narration": "June family support"
+}</code></pre>
+
+<h3>10.3 <code>GET /payabo/remittance/{id}</code></h3>
+
+<table>
+  <thead>
+    <tr><th>Concern</th><th>Value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Policy</td><td><code>UserPolicy</code>.</td></tr>
+    <tr><td>Scope</td><td>Returns only remittance orders for the current tenant and current user's customer party context.</td></tr>
+    <tr><td>Response</td><td><code>RemittanceOrderResponse</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="security">11. Security, tenancy, idempotency</h2>
+
+<ul>
+  <li><strong>Authentication.</strong> All Payabo remittance endpoints require an authenticated user. Quote is read/compute with quote persistence; confirm is money movement and must not be anonymous.</li>
+  <li><strong>Customer ownership.</strong> <code>CustomerPartyId</code> must resolve from the current user/tenant. Do not trust an arbitrary party id in the body without ownership verification.</li>
+  <li><strong>Destination ownership.</strong> <code>ExternalPayoutAccount.CustomerPartyId</code> must match the customer; never authorize by <code>BeneficiaryPartyId</code> alone.</li>
+  <li><strong>Idempotency.</strong> <code>POST /payabo/remittance/confirm</code> requires <code>Idempotency-Key</code>. Existing order uniqueness <code>(TenantId, OrderType, IdempotencyKey)</code> is the authority for replay.</li>
+  <li><strong>Quote expiry.</strong> Confirm rejects expired quotes. Locking means copying quote values into order/item details; it does not extend the quote.</li>
+  <li><strong>PII control.</strong> API responses expose masked rails only. Raw connector payloads are redacted before <code>RawResponseJson</code> or <code>RawPayload</code> persistence.</li>
+  <li><strong>Webhook trust.</strong> Unsigned or invalidly signed callbacks are stored for audit but never mutate payout/order/ledger state.</li>
+  <li><strong>AI safety.</strong> If agents later initiate remittance, confirmation is a high-risk mutation and must marshal through Spec&nbsp;032/030 durable proposal execution, not direct in-band tool execution.</li>
+</ul>
+
+<h2 id="persistence">12. Persistence and migrations</h2>
+
+<p>
+  The lean first implementation should avoid new tables. It can use existing shipped tables and only add
+  columns/indexes if the implementation cannot safely express a required state with current fields.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Table</th><th>Change</th><th>Reason</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>AnkPricingQuotes</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Persist remittance quotes with <code>QuoteType = "Remittance"</code>.</td>
+    </tr>
+    <tr>
+      <td><code>AnkOrders</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Order intent with existing remittance enum value and shadow compatibility columns.</td>
+    </tr>
+    <tr>
+      <td><code>AnkOrderItems</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Single remittance payout line with immutable details JSON.</td>
+    </tr>
+    <tr>
+      <td><code>AnkPayouts</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Execution record for payout connector.</td>
+    </tr>
+    <tr>
+      <td><code>AnkOrderFulfilmentRefs</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Links remittance order to payout.</td>
+    </tr>
+    <tr>
+      <td><code>AnkTransmissions</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Outbound connector attempt.</td>
+    </tr>
+    <tr>
+      <td><code>AnkPartnerWebhookEvents</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Inbound callback inbox.</td>
+    </tr>
+    <tr>
+      <td><code>AnkJournalEntries</code> / <code>AnkJournalEntryLines</code></td>
+      <td><span class="tag existing">Reuse</span></td>
+      <td>Debit, settlement, and reversal postings using new source-type values.</td>
+    </tr>
+    <tr>
+      <td><code>AnkConnectorCapabilities</code> / <code>AnkRoutingRules</code></td>
+      <td><span class="tag mutate">Data</span></td>
+      <td>Seed payout/remittance capability lanes and route conditions for supported corridors.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout p0">
+  <span class="callout-label">Migration rule</span>
+  If implementation discovers a schema change is required, generate the migration only with EF CLI
+  against <code>AonikDbContext</code>:<br />
+  <code>dotnet ef migrations add &lt;Name&gt; --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>.
+  Do not hand-author migration files.
+</div>
+
+<h2 id="tasks">13. Tasks</h2>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Task</th><th>Files</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Add remittance API and service model records.</td>
+      <td><code>Contracts/Api/Remittance/*</code>, <code>Contracts/Models/Remittance/*</code></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Add <code>IRemittanceOrderService</code>.</td>
+      <td><code>Contracts/Services/Remittance/IRemittanceOrderService.cs</code></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Refactor pricing calculation so quote type can be <code>BillPayment</code> or <code>Remittance</code>; add <code>GetRemittanceQuoteAsync</code>.</td>
+      <td><code>IPricingService.cs</code>, <code>PricingService.cs</code></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Implement <code>RemittanceOrderService.QuoteAsync</code>.</td>
+      <td><code>Services/Remittance/RemittanceOrderService.cs</code></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Add route resolution for payout connector using persistent capabilities/rules, with simulated fallback where necessary.</td>
+      <td><code>Services/Remittance/</code>, <code>Services/Partners/</code></td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Extend <code>LedgerPostingService</code> with remittance debit, settlement, and reversal methods.</td>
+      <td><code>Services/Ledger/LedgerPostingService.cs</code></td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Implement <code>ConfirmAsync</code>: idempotency lookup, quote lock, order/item creation, payout creation, debit post, connector call, transmission persistence.</td>
+      <td><code>Services/Remittance/RemittanceOrderService.cs</code></td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>Implement remittance read model mapping for <code>GET /payabo/remittance/{id}</code>.</td>
+      <td><code>Services/Remittance/RemittanceOrderService.cs</code></td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>Add Payabo remittance endpoints using FastEndpoints and <code>Send.*Async</code> methods.</td>
+      <td><code>Endpoints/Remittance/*</code></td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>Add partner webhook endpoint/processor if absent, and route payout webhook events into remittance settlement.</td>
+      <td><code>Endpoints/Partners/*</code>, <code>Services/Remittance/*</code></td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>Register the service in <code>FinanceModule.ConfigureServices</code>.</td>
+      <td><code>FinanceModule.cs</code></td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>Seed/update remittance payout connector capabilities and routing conditions for demo cross-border corridors.</td>
+      <td><code>Services/Seeding/Phases/CrossBorderPartnerNetworkSeedPhase.cs</code></td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td>Add validators for remittance quote and confirm contracts.</td>
+      <td><code>Endpoints/Remittance/RemittanceValidators.cs</code></td>
+    </tr>
+    <tr>
+      <td>14</td>
+      <td>Add application and endpoint tests.</td>
+      <td><code>tests/Aonik.Application.Tests/Remittance/</code>, <code>tests/Aonik.Api.Tests/</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+
+<ul>
+  <li><code>POST /payabo/remittance/quote</code> returns a persisted remittance quote with <code>QuoteType = "Remittance"</code>, fee breakdown, FX metadata, and expiry.</li>
+  <li><code>POST /payabo/remittance/confirm</code> rejects expired quotes, mismatched customer/destination ownership, unsupported routes, and missing idempotency keys.</li>
+  <li>Confirm creates one <code>Order</code> with <code>OrderType = "Remittance"</code>, one <code>OrderItem</code>, one <code>Payout</code>, one <code>OrderFulfilmentRef</code>, and one <code>Transmission</code>.</li>
+  <li>Confirm posts <code>RemittanceDebit</code> before calling the connector; connector is not called when debit posting fails.</li>
+  <li>Retrying confirm with the same <code>Idempotency-Key</code> returns the existing order and does not create a second payout, transmission, ledger entry, or connector call.</li>
+  <li>Connector success sets order to <code>Transmitted</code> or <code>Complete</code> depending on whether the connector result is final; pending results remain non-terminal until webhook.</li>
+  <li>A succeeded payout webhook posts <code>RemittanceSettlement</code> exactly once and marks the order <code>Complete</code>.</li>
+  <li>A failed/reversed payout webhook posts <code>RemittanceFailureReversal</code> exactly once and marks the order <code>Failed</code>.</li>
+  <li>Duplicate webhooks do not double-post settlement or reversal.</li>
+  <li>Raw destination identifiers and unredacted provider payloads are never persisted or returned.</li>
+  <li><code>GET /payabo/remittance/{id}</code> returns only orders owned by the current customer/tenant and returns <code>404</code> for other tenants/customers.</li>
+  <li><code>dotnet build Aonik.sln</code> succeeds and the new remittance tests pass.</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+
+<table>
+  <thead>
+    <tr><th>Decision</th><th>Default for first implementation</th><th>Why it remains open</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Customer funding account</td>
+      <td>Use existing cash / clearing model in <code>LedgerPostingService</code> until a wallet/customer-liability account model lands.</td>
+      <td>A true Payabo wallet or stored-value ledger may require per-customer liability accounts.</td>
+    </tr>
+    <tr>
+      <td>Cross-currency settlement entries</td>
+      <td>Do not mix currencies in one journal entry. Post separate idempotent origin and destination entries or settle in one configured currency.</td>
+      <td>The current ledger service enforces single-currency balancing. Final accounting policy needs finance review.</td>
+    </tr>
+    <tr>
+      <td>Provider routing source</td>
+      <td>Use persistent <code>ConnectorCapability</code> / <code>RoutingRule</code> where seeded; otherwise fallback to simulated resolver.</td>
+      <td>Spec&nbsp;031 introduced the capability model, but a full routing engine is not yet broadly used by application services.</td>
+    </tr>
+    <tr>
+      <td>Webhook endpoint route</td>
+      <td><code>POST /partners/webhooks/{providerCode}</code>.</td>
+      <td>A provider-specific route may be required by real vendor callback URL constraints.</td>
+    </tr>
+    <tr>
+      <td>Quote lock field</td>
+      <td>Copy quote snapshot into <code>OrderItem.DetailsJson</code> and <code>Order.ProvenanceJson</code>.</td>
+      <td>The <code>OrderDetailsJson</code> compatibility shadow column exists but is not a CLR property today.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="refs">16. References</h2>
+
+<ul>
+  <li><a href="031.partner-integration-abstraction.html">Spec 031 · Partner integration abstraction layer</a></li>
+  <li><a href="032.tiered-ai-mutation-approval.html">Spec 032 · Tiered AI mutation approval</a></li>
+  <li><a href="005.orders-intent.md">Spec 005 · Orders intent</a></li>
+  <li><a href="004.pricing-fx.md">Spec 004 · Pricing FX</a></li>
+  <li><a href="../../src/Aonik.Finance/Services/Orders/OrderService.cs"><code>OrderService.cs</code></a></li>
+  <li><a href="../../src/Aonik.Finance/Services/Pricing/PricingService.cs"><code>PricingService.cs</code></a></li>
+  <li><a href="../../src/Aonik.Finance/Services/Ledger/LedgerPostingService.cs"><code>LedgerPostingService.cs</code></a></li>
+  <li><a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerPayoutConnector.cs"><code>IPartnerPayoutConnector.cs</code></a></li>
+  <li><a href="../../src/Aonik.Finance/Entities/Payments/Payout.cs"><code>Payout.cs</code></a></li>
+  <li><a href="../../src/Aonik.Finance/Entities/Partners/Transmission.cs"><code>Transmission.cs</code></a></li>
+  <li><a href="../../src/Aonik.Finance/Entities/Partners/PartnerWebhookEvent.cs"><code>PartnerWebhookEvent.cs</code></a></li>
+</ul>
+
+<footer>
+  Spec 036 is intentionally implementation-facing. It narrows remittance to a Finance orchestration
+  slice over existing order, pricing, ledger, payout, transmission, and webhook primitives.
+</footer>
+
+</body>
+</html>
