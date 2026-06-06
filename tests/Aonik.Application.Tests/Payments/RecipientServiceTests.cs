@@ -49,6 +49,17 @@ public class RecipientServiceTests
             MaskedAccountIdentifier: masked,
             BankCode: bankCode);
 
+    // A rail for an explicitly-shared beneficiary party — two customers pointing at the same payee.
+    private static SavePayoutBeneficiaryRequest SharedRail(Guid customerId, Guid sharedPayeePartyId, string masked, string bankCode)
+        => new(
+            CustomerPartyId: customerId,
+            DestinationType: "Bank",
+            AccountName: "Shared Payee",
+            Currency: "NGN",
+            MaskedAccountIdentifier: masked,
+            BankCode: bankCode,
+            BeneficiaryPartyId: sharedPayeePartyId);
+
     [Fact]
     public async Task CreateAsync_Should_ProjectRecipientWithRail_When_NewRecipient()
     {
@@ -192,6 +203,89 @@ public class RecipientServiceTests
         await recipients
             .Invoking(s => s.UploadPhotoAsync(otherCustomerId, created.RecipientPartyId, "image/jpeg", photoStream))
             .Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task ListAsync_Should_NotLeakAnotherCustomersRails_When_RecipientPartyShared()
+    {
+        // Two customers in the same tenant save a rail for the SAME payee party.
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var (recipients, party, _) = CreateService(tenantId, context);
+        var customerA = party.SeedParty("Customer A");
+        var customerB = party.SeedParty("Customer B");
+        var sharedPayee = party.SeedParty("Shared Payee");
+
+        await recipients.CreateAsync(SharedRail(customerA, sharedPayee, "****AAAA", "044"));
+        await recipients.CreateAsync(SharedRail(customerB, sharedPayee, "****BBBB", "058"));
+
+        // Each customer sees only their own rail for the shared payee — never the other's.
+        var aList = await recipients.ListAsync(customerA, new RecipientQuery());
+        aList.Recipients.Should().ContainSingle()
+            .Which.Rails.Should().ContainSingle().Which.MaskedAccountIdentifier.Should().Be("****AAAA");
+
+        var bList = await recipients.ListAsync(customerB, new RecipientQuery());
+        bList.Recipients.Should().ContainSingle()
+            .Which.Rails.Should().ContainSingle().Which.MaskedAccountIdentifier.Should().Be("****BBBB");
+    }
+
+    [Fact]
+    public async Task RemoveAsync_Should_OnlyRemoveOwnRails_When_RecipientPartySharedAcrossCustomers()
+    {
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var (recipients, party, _) = CreateService(tenantId, context);
+        var customerA = party.SeedParty("Customer A");
+        var customerB = party.SeedParty("Customer B");
+        var sharedPayee = party.SeedParty("Shared Payee");
+
+        await recipients.CreateAsync(SharedRail(customerA, sharedPayee, "****AAAA", "044"));
+        await recipients.CreateAsync(SharedRail(customerB, sharedPayee, "****BBBB", "058"));
+
+        // Customer A removes the shared payee.
+        await recipients.RemoveAsync(customerA, sharedPayee);
+
+        // A no longer sees the recipient; B is entirely unaffected.
+        (await recipients.GetAsync(customerA, sharedPayee)).Should().BeNull();
+        var bView = await recipients.GetAsync(customerB, sharedPayee);
+        bView.Should().NotBeNull();
+        bView!.Rails.Should().ContainSingle().Which.MaskedAccountIdentifier.Should().Be("****BBBB");
+
+        // Exactly A's rail is soft-deleted; B's remains live.
+        var rails = await context.ExternalPayoutAccounts
+            .IncludeSoftDeleted()
+            .Where(account => account.BeneficiaryPartyId == sharedPayee)
+            .ToListAsync();
+        rails.Should().HaveCount(2);
+        rails.Single(account => account.CustomerPartyId == customerA).IsDeleted.Should().BeTrue();
+        rails.Single(account => account.CustomerPartyId == customerB).IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_Should_NotTouchRails_When_CustomerDoesNotOwnRecipient()
+    {
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var (recipients, party, _) = CreateService(tenantId, context);
+        var owner = party.SeedParty("Owner");
+        var stranger = party.SeedParty("Stranger");
+
+        var created = await recipients.CreateAsync(BankRail(owner, "Jane Doe", "****1234"));
+        var recipientId = created.RecipientPartyId;
+
+        // A stranger with no edge to the recipient attempts removal by supplying the party id.
+        await recipients.RemoveAsync(stranger, recipientId);
+
+        // The owner's rail and recipient are untouched — nothing was deleted.
+        var ownerView = await recipients.GetAsync(owner, recipientId);
+        ownerView.Should().NotBeNull();
+        ownerView!.Rails.Should().ContainSingle();
+
+        var rails = await context.ExternalPayoutAccounts
+            .IncludeSoftDeleted()
+            .Where(account => account.BeneficiaryPartyId == recipientId)
+            .ToListAsync();
+        rails.Should().ContainSingle().Which.IsDeleted.Should().BeFalse();
     }
 
     /// <summary>

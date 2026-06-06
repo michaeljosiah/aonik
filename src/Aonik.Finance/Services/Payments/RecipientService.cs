@@ -123,13 +123,30 @@ internal sealed class RecipientService : IRecipientService
             throw new ArgumentException("Recipient party id is required.", nameof(recipientPartyId));
         }
 
+        // 1) Resolve ownership FIRST. If this customer does not own an active edge to the recipient,
+        //    there is nothing to remove — and we must never touch the rails of another customer who
+        //    happens to share the same payee party. A non-owner's call is a silent no-op (idempotent,
+        //    leaks nothing).
+        var relationships = await _partyService.GetRelationshipsAsync(customerPartyId, cancellationToken);
+        var ownsRecipient = relationships.Any(relationship =>
+            relationship.FromPartyId == customerPartyId
+            && relationship.ToPartyId == recipientPartyId
+            && relationship.IsActive);
+
+        if (!ownsRecipient)
+        {
+            return;
+        }
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        // 1) Soft-delete the customer's saved rails for this recipient. Remove() on an AuditableEntity
-        //    is converted to a soft-delete (IsDeleted = true) by the SaveChanges interceptor, so the
-        //    rail disappears from every query (the global filter excludes IsDeleted) without losing it.
+        // 2) Soft-delete ONLY this customer's rails for the recipient — scoped by CustomerPartyId, never
+        //    by beneficiary party alone. Remove() on an AuditableEntity becomes a soft-delete (IsDeleted)
+        //    via the SaveChanges interceptor, so the rail disappears from every query without being lost.
         var rails = await _dbContext.ExternalPayoutAccounts
-            .Where(account => account.TenantId == tenantId && account.BeneficiaryPartyId == recipientPartyId)
+            .Where(account => account.TenantId == tenantId
+                              && account.CustomerPartyId == customerPartyId
+                              && account.BeneficiaryPartyId == recipientPartyId)
             .ToListAsync(cancellationToken);
 
         if (rails.Count > 0)
@@ -138,9 +155,9 @@ internal sealed class RecipientService : IRecipientService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        // 2) Deactivate the owning Recipient edge. Kinship edges (Mother, Spouse, …) are left intact —
-        //    removing someone as a payout recipient does not unmake them as a relative.
-        var relationships = await _partyService.GetRelationshipsAsync(customerPartyId, cancellationToken);
+        // 3) Deactivate this customer's Recipient edge. Kinship edges (Mother, Spouse, …) and any other
+        //    customer's edge to the same party are left intact — removing someone as a payout recipient
+        //    does not unmake them as a relative, nor remove them for a different customer.
         var recipientEdge = relationships.FirstOrDefault(relationship =>
             relationship.FromPartyId == customerPartyId
             && relationship.ToPartyId == recipientPartyId
@@ -210,6 +227,7 @@ internal sealed class RecipientService : IRecipientService
         var rails = await _dbContext.ExternalPayoutAccounts
             .AsNoTracking()
             .Where(account => account.TenantId == tenantId
+                              && account.CustomerPartyId == customerPartyId
                               && account.BeneficiaryPartyId != null
                               && recipientPartyIds.Contains(account.BeneficiaryPartyId.Value))
             .OrderByDescending(account => account.CreatedAt)

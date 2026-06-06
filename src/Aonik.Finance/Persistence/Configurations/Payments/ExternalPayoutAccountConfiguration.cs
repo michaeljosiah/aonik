@@ -24,6 +24,9 @@ internal class ExternalPayoutAccountConfiguration : IEntityTypeConfiguration<Ext
 
         builder.HasIndex(x => new { x.TenantId, x.BeneficiaryPartyId });
         builder.HasIndex(x => new { x.TenantId, x.ConnectorId });
+        // The owning-customer scope: every rail read/write filters by (tenant, customer) so a shared
+        // beneficiary party never lets one customer reach another's rails.
+        builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId, x.BeneficiaryPartyId });
 
         // PartnerId / ConnectorId are real Finance FKs; BeneficiaryPartyId is a soft Guid
         // reference to the Platform Party (cross-module), so it gets no FK.
