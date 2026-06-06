@@ -123,6 +123,15 @@ internal sealed class McpPartyService : IPartyService
 
     public Task AssignPartyRoleAsync(Guid partyId, string role, string contextType, Guid contextId, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Party role assignment is not available via the Finance MCP server. Use the Platform MCP server.");
+
+    public Task<IReadOnlyList<PartyPhotoUrls>> GetPartyPhotosAsync(IReadOnlyCollection<Guid> partyIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<PartyPhotoUrls>>(Array.Empty<PartyPhotoUrls>());
+
+    public Task<PartyPhotoUrls> SetPartyPhotoAsync(Guid partyId, string contentType, Stream photo, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Party photo upload is not available via the Finance MCP server. Use the Platform MCP server.");
+
+    public Task<bool> UpdateRelationshipAsync(Guid relationshipId, string? relationshipTypeCode = null, string? notes = null, bool? isActive = null, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Party relationship updates are not available via the Finance MCP server. Use the Platform MCP server.");
 }
 
 // ── Compliance Service ───────────────────────────────────────────────

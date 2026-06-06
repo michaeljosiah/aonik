@@ -5,6 +5,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Platform.Entities.Party;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.SharedKernel.Abstractions;
@@ -24,19 +25,22 @@ internal class PartyService : IPartyService
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly ICacheInvalidationPublisher _cacheInvalidationPublisher;
+    private readonly IProfilePhotoStore _profilePhotoStore;
 
     public PartyService(
         PlatformDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
         IAuditLogWriter auditLogWriter,
-        ICacheInvalidationPublisher cacheInvalidationPublisher)
+        ICacheInvalidationPublisher cacheInvalidationPublisher,
+        IProfilePhotoStore profilePhotoStore)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _auditLogWriter = auditLogWriter;
         _cacheInvalidationPublisher = cacheInvalidationPublisher;
+        _profilePhotoStore = profilePhotoStore;
     }
 
     public async Task<PartyResponse> CreatePartyAsync(
@@ -338,6 +342,121 @@ internal class PartyService : IPartyService
         });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PartyPhotoUrls>> GetPartyPhotosAsync(
+        IReadOnlyCollection<Guid> partyIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (partyIds is null || partyIds.Count == 0)
+        {
+            return Array.Empty<PartyPhotoUrls>();
+        }
+
+        var ids = partyIds.Distinct().ToList();
+
+        return await _dbContext.PersonProfiles
+            .AsNoTracking()
+            .Where(profile => ids.Contains(profile.PartyId))
+            .Select(profile => new PartyPhotoUrls(
+                profile.PartyId,
+                profile.PhotoUrl,
+                profile.PhotoUrlMedium,
+                profile.PhotoUrlSmall,
+                profile.PhotoUrlTiny))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PartyPhotoUrls> SetPartyPhotoAsync(
+        Guid partyId,
+        string contentType,
+        Stream photo,
+        CancellationToken cancellationToken = default)
+    {
+        if (partyId == Guid.Empty)
+        {
+            throw new ArgumentException("Party id is required.", nameof(partyId));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var profile = await _dbContext.PersonProfiles
+            .FirstOrDefaultAsync(entity => entity.PartyId == partyId, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Party {partyId} has no person profile, so a photo cannot be attached.");
+
+        var upload = await _profilePhotoStore.UploadCustomerPhotoAsync(
+            tenantId,
+            partyId,
+            contentType,
+            photo,
+            cancellationToken);
+
+        profile.PhotoUrl = upload.OriginalUrl;
+        profile.PhotoUrlMedium = upload.MediumThumbnailUrl;
+        profile.PhotoUrlSmall = upload.SmallThumbnailUrl;
+        profile.PhotoUrlTiny = upload.TinyThumbnailUrl;
+        profile.UpdatedAt = _clock.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new PartyPhotoUrls(
+            partyId,
+            profile.PhotoUrl,
+            profile.PhotoUrlMedium,
+            profile.PhotoUrlSmall,
+            profile.PhotoUrlTiny);
+    }
+
+    public async Task<bool> UpdateRelationshipAsync(
+        Guid relationshipId,
+        string? relationshipTypeCode = null,
+        string? notes = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (relationshipId == Guid.Empty)
+        {
+            throw new ArgumentException("Relationship id is required.", nameof(relationshipId));
+        }
+
+        var normalizedTypeCode = relationshipTypeCode?.Trim();
+        if (!string.IsNullOrWhiteSpace(normalizedTypeCode)
+            && !PartyRelationshipTypes.Codes.Contains(normalizedTypeCode))
+        {
+            throw new InvalidOperationException($"Unknown relationship type '{normalizedTypeCode}'.");
+        }
+
+        // PartyRelationship is ITenantScoped, so the query filter restricts this to the current tenant.
+        var relationship = await _dbContext.PartyRelationships
+            .FirstOrDefaultAsync(entity => entity.Id == relationshipId, cancellationToken);
+
+        if (relationship is null)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedTypeCode))
+        {
+            relationship.RelationshipTypeCode = normalizedTypeCode;
+        }
+
+        if (notes is not null)
+        {
+            relationship.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        }
+
+        if (isActive.HasValue)
+        {
+            relationship.IsActive = isActive.Value;
+        }
+
+        relationship.UpdatedAt = _clock.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _cacheInvalidationPublisher.PublishAsync(new CacheInvalidationEvent("personal-finance-graph"), cancellationToken);
+
+        return true;
     }
 
     private async Task<(string FromPartyName, string ToPartyName)> LoadPartyNamesAsync(

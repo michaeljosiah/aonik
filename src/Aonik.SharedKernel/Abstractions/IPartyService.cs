@@ -37,7 +37,48 @@ public interface IPartyService
         string contextType,
         Guid contextId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads the profile-photo URLs (original + thumbnails) for a set of parties in one round-trip.
+    /// Parties without a person profile or photo come back with null URLs. Lets a consumer (e.g. the
+    /// recipient projection) enrich a list with photos without widening the lean <see cref="PartyResponse"/>.
+    /// </summary>
+    Task<IReadOnlyList<PartyPhotoUrls>> GetPartyPhotosAsync(
+        IReadOnlyCollection<Guid> partyIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Uploads a party's profile photo (original + thumbnails via the profile-photo store) and persists
+    /// the resulting URLs on the party's person profile. The party must have a person profile
+    /// (Person/Individual) — a business party has no photo. Returns the stored URLs.
+    /// </summary>
+    Task<PartyPhotoUrls> SetPartyPhotoAsync(
+        Guid partyId,
+        string contentType,
+        Stream photo,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the mutable fields of a directed relationship edge — its type code, notes, and/or active
+    /// flag. A null argument leaves that field unchanged. Returns false when no edge with that id exists
+    /// in the current tenant. Setting <paramref name="isActive"/> to false is how a recipient is
+    /// soft-removed: the edge is deactivated without deleting the party or any history.
+    /// </summary>
+    Task<bool> UpdateRelationshipAsync(
+        Guid relationshipId,
+        string? relationshipTypeCode = null,
+        string? notes = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>Profile-photo URLs for a party: original plus the three thumbnail sizes.</summary>
+public record PartyPhotoUrls(
+    Guid PartyId,
+    string? PhotoUrl,
+    string? PhotoUrlMedium,
+    string? PhotoUrlSmall,
+    string? PhotoUrlTiny);
 
 public record CreatePartyRequest(
     string DisplayName,
