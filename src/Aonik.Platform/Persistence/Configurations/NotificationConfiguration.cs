@@ -52,6 +52,9 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         builder.Property(x => x.CorrelationId)
             .HasMaxLength(500);
 
+        builder.Property(x => x.IdempotencyKey)
+            .HasMaxLength(200);
+
         builder.Property(x => x.MetadataJson)
             .IsRequired()
             .HasColumnType("nvarchar(max)");
@@ -61,5 +64,13 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.CreatedAt })
             .HasDatabaseName("IX_Notification_Tenant_User_CreatedAt");
+
+        // Atomic dedupe backstop: at most one notification per (tenant, user, idempotency key). Filtered
+        // so the common null-key notifications are unconstrained. This is what makes CreateForUserAsync's
+        // idempotency race-proof under concurrency — a check-before-insert alone cannot.
+        builder.HasIndex(x => new { x.TenantId, x.UserId, x.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL")
+            .HasDatabaseName("IX_Notification_Tenant_User_IdempotencyKey");
     }
 }

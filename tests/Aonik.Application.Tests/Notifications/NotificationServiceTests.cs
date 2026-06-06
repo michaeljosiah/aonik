@@ -47,6 +47,57 @@ public class NotificationServiceTests
     }
 
     [Fact]
+    public async Task CreateForUserAsync_ShouldDeduplicate_When_SameIdempotencyKey()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var clock = new TestClock(new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc));
+        using var context = CreateDbContext(tenantId, userId, clock);
+        var service = CreateService(context, tenantId, userId, clock);
+
+        var key = Guid.NewGuid().ToString();
+        CreateNotificationRequest Request() => new(
+            tenantId, userId,
+            Type: "task.reminder", Source: "TaskScheduler",
+            Title: "Reminder", Body: "Due soon.",
+            Severity: NotificationSeverities.Info,
+            ActionUrl: null, CorrelationId: "work-item-1", AiRunId: null,
+            IdempotencyKey: key);
+
+        var first = await service.CreateForUserAsync(Request());
+        var second = await service.CreateForUserAsync(Request());
+
+        // The duplicate dispatch returns the SAME notification; only one row is ever persisted.
+        second.Id.Should().Be(first.Id, "a second create with the same idempotency key must return the original");
+        (await context.Notifications.CountAsync(x => x.IdempotencyKey == key)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateForUserAsync_ShouldNotDeduplicate_When_NoIdempotencyKey()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var clock = new TestClock(new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc));
+        using var context = CreateDbContext(tenantId, userId, clock);
+        var service = CreateService(context, tenantId, userId, clock);
+
+        // Producers like AzureMonitor reuse a CorrelationId across events and pass no IdempotencyKey;
+        // they must remain free to create multiple notifications (the filtered index excludes null keys).
+        CreateNotificationRequest Request() => new(
+            tenantId, userId,
+            Type: "InfrastructureAlert", Source: "AzureMonitor",
+            Title: "CPU spike", Body: "Threshold exceeded.",
+            Severity: NotificationSeverities.Warning,
+            ActionUrl: null, CorrelationId: "shared-correlation-key", AiRunId: null);
+
+        var first = await service.CreateForUserAsync(Request());
+        var second = await service.CreateForUserAsync(Request());
+
+        second.Id.Should().NotBe(first.Id);
+        (await context.Notifications.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
     public async Task ListForCurrentUserAsync_ShouldExcludeDismissedByDefault()
     {
         var tenantId = Guid.NewGuid();

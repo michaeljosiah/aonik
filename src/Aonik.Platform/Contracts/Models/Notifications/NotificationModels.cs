@@ -43,7 +43,10 @@ public record CreateNotificationRequest(
     string? CorrelationId,
     Guid? AiRunId,
     string? MetadataJson = null,
-    string Channel = Aonik.Platform.Notifications.NotificationChannels.InApp);
+    string Channel = Aonik.Platform.Notifications.NotificationChannels.InApp,
+    // Optional dedupe key. When set, creation is idempotent — at most one notification per
+    // (tenant, user, key), enforced by a unique index. Leave null when duplicates are acceptable.
+    string? IdempotencyKey = null);
 
 public record CreateNotificationsRequest(
     Guid TenantId,
