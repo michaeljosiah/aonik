@@ -1,27 +1,39 @@
+using System.Text.Json;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class BillService : IBillService
 {
+    /// <summary>Days before a bill's due date to remind the customer (Spec 034 scenario 9.1).</summary>
+    private const int ReminderLeadDays = 14;
+
     private readonly PersonalFinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ITaskService _taskService;
+    private readonly ILogger<BillService> _logger;
 
     public BillService(
         PersonalFinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ITaskService taskService,
+        ILogger<BillService> logger)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _taskService = taskService;
+        _logger = logger;
     }
 
     public async Task<BillResponse> CreateBillAsync(
@@ -52,7 +64,48 @@ internal sealed class BillService : IBillService
         _financeDbContext.Bills.Add(bill);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
+        // Spec 034 — the first real consumer: arm a one-off reminder ahead of the due date,
+        // routed entirely through the SharedKernel ITaskService (no Quartz, no Platform reference).
+        await ScheduleDueReminderAsync(bill, userId, cancellationToken);
+
         return MapToResponse(bill);
+    }
+
+    private async Task ScheduleDueReminderAsync(Bill bill, Guid userId, CancellationToken cancellationToken)
+    {
+        // Treat the stored due date as a UTC calendar date and remind a lead-time before it.
+        var dueAtUtc = DateTime.SpecifyKind(bill.NextDueDate, DateTimeKind.Utc);
+        var reminderAtUtc = dueAtUtc.AddDays(-ReminderLeadDays);
+
+        var payloadJson = JsonSerializer.Serialize(new
+        {
+            userId,
+            severity = "Warning",
+            title = "Upcoming bill",
+            body = $"{bill.Payee} is due on {bill.NextDueDate:d} ({bill.ExpectedAmount} {bill.Currency}).",
+        });
+
+        try
+        {
+            await _taskService.ScheduleAsync(
+                new ScheduleTaskRequest(
+                    Title: $"Bill due: {bill.Payee}",
+                    Kind: TaskKinds.Reminder,
+                    ActionType: TaskActionTypes.NotifyUser,
+                    ActionPayloadJson: payloadJson,
+                    AssigneeType: TaskAssigneeTypes.System,
+                    SubjectType: "Bill",
+                    SubjectId: bill.Id,
+                    RunAtUtc: reminderAtUtc,
+                    CorrelationId: bill.Id.ToString(),
+                    SourceModule: "PersonalFinance"),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // A reminder is a best-effort side benefit; never fail bill creation because of it.
+            _logger.LogWarning(ex, "Failed to schedule bill-due reminder for bill {BillId}.", bill.Id);
+        }
     }
 
     public async Task<IReadOnlyList<BillResponse>> ListBillsAsync(

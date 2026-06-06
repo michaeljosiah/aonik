@@ -10,6 +10,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.Party;
+using Aonik.Platform.Entities.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
@@ -75,8 +76,11 @@ public interface IAonikDbContext
     // Features
     DbSet<TenantFeature> TenantFeatures { get; set; }
 
-    // Operations
+    // Tasks (Spec 034 — Task/WorkItem scheduling)
     DbSet<WorkItem> WorkItems { get; set; }
+    DbSet<WorkItemRun> WorkItemRuns { get; set; }
+
+    // Operations
     DbSet<Job> Jobs { get; set; }
     DbSet<AzureMonitorAlertEvent> AzureMonitorAlertEvents { get; set; }
 

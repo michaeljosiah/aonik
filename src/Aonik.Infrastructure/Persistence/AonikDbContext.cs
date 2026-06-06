@@ -10,6 +10,7 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Entities.Party;
+using Aonik.Platform.Entities.Tasks;
 using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Entities.Ledger;
@@ -102,8 +103,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
 
-    // Operations
+    // Tasks (Spec 034 — Task/WorkItem scheduling)
     public virtual DbSet<WorkItem> WorkItems { get; set; } = null!;
+    public virtual DbSet<WorkItemRun> WorkItemRuns { get; set; } = null!;
+
+    // Operations
     public virtual DbSet<Job> Jobs { get; set; } = null!;
     public virtual DbSet<ScheduledJobProjection> ScheduledJobProjections { get; set; } = null!;
     public virtual DbSet<ScheduledJobAdminCommand> ScheduledJobAdminCommands { get; set; } = null!;
@@ -325,6 +329,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
+        MapPlatformTable<WorkItemRun>(modelBuilder, "WorkItemRuns");
         MapPlatformTable<Job>(modelBuilder, "Jobs");
         MapPlatformTable<ScheduledJobProjection>(modelBuilder, "ScheduledJobProjections");
         MapPlatformTable<ScheduledJobAdminCommand>(modelBuilder, "ScheduledJobAdminCommands");

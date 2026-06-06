@@ -122,6 +122,13 @@ internal static class ScheduledJobDefinitions
                 "Re-publishes DocumentUploadedEvent for indexable documents that never completed ingestion (opt-in catch-up; disabled by default).",
                 options.DocumentIngestionBackfill.CronExpression,
                 options.DocumentIngestionBackfill.Enabled),
+            new ScheduledJobDefinition<WorkItemDispatchJob>(
+                WorkItemDispatchJob.Key,
+                new TriggerKey("WorkItemDispatchJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Work Item Dispatch",
+                "Fires due Spec 034 tasks (reminders, scheduled actions, agent jobs) across all tenants every minute.",
+                options.WorkItemDispatch.CronExpression,
+                options.WorkItemDispatch.Enabled),
         ];
     }
 }

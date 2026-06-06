@@ -151,6 +151,21 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 
         Do NOT save transient conversation details, greetings, or information
         already captured in domain entities (accounts, transactions, bills).
+
+        Reminders & Scheduling:
+        You can schedule reminders for the user directly with these tools:
+
+        - `create_reminder`: schedule an in-app reminder for the user. Use `inMinutes` for
+          relative times ("remind me in 30 minutes"), `recurrenceCron` for repeats
+          ("every morning" -> "0 0 9 * * ?"), or `runAtUtc` only when you know the absolute
+          UTC time. The reminder fires from the platform's scheduler and notifies the user.
+        - `list_reminders`: show the reminders the user has set, with status and next run time.
+        - `cancel_reminder`: cancel a reminder by its reminderId (from `list_reminders`).
+
+        Like the memory tools, reminder tools are NOT subject to confirmAction — they only
+        create reversible, self-targeted notifications and each is a durable audited record, so
+        call them DIRECTLY. After scheduling, confirm what you set in one short sentence (e.g.
+        "Done — I'll remind you in 2 minutes."). Never claim a reminder fired; only that it is set.
         """;
 
     public MasterOrchestratorService(
@@ -452,6 +467,21 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
             _logger.LogDebug(
                 "Added {ToolCount} cross-cutting document-search tool(s) to orchestrator",
                 documentTools.Count);
+        }
+
+        // ── Cross-cutting reminders / task scheduling (Spec 034) ───────
+        // Like the memory tools, the orchestrator owns the user-facing chat thread, so it can
+        // schedule reminders directly rather than routing through a domain sub-agent. Added the
+        // same way as memory: they only create self-targeted notify_user reminders (reversible via
+        // cancel), and every reminder is a durable, audited WorkItem row, so they are exempt from
+        // confirmAction (see instructions). The platform dispatcher fires them on its own clock.
+        var reminderTools = TaskSchedulingTools.CreateAll(_serviceProvider).ToList();
+        tools.AddRange(reminderTools);
+        if (reminderTools.Count > 0)
+        {
+            _logger.LogDebug(
+                "Added {ToolCount} cross-cutting reminder tool(s) to orchestrator",
+                reminderTools.Count);
         }
 
         // Build domain agents as tools, applying any configuration overrides
