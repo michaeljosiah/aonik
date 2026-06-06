@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/auth';
 import { api } from '@/lib/api';
@@ -199,6 +199,13 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
   const threadIdRef = useRef<string | null>(null);
   const pendingApprovalResolversRef = useRef<Map<string, (result: string) => void>>(new Map());
   const pendingSelectionResolversRef = useRef<Map<string, (result: string) => void>>(new Map());
+  // Spec 032 — a Medium approval card can be approved while the original run is still streaming (the
+  // gate emits the card before RUN_FINISHED). sendInternal drops messages mid-run, so we stash the
+  // retry prompt here and flush it the moment streaming ends — otherwise the approval is recorded but
+  // the gated tool never reruns to consume it. isStreamingRef gives the flush the live stream state.
+  const pendingApprovalRetryRef = useRef<string | null>(null);
+  const isStreamingRef = useRef(isStreaming);
+  isStreamingRef.current = isStreaming;
   const { getAccessToken } = useAuth();
 
   const updateToolCall = useCallback((toolCallId: string, updater: (toolCall: ChatToolCall) => ChatToolCall) => {
@@ -283,12 +290,13 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     enabled: true,
     confirmAction,
     selectOptions,
-    // Spec 032: the server gate is the approval boundary and surfaces its own card
-    // (ServerApprovalCard). Do NOT declare the legacy `confirmAction` frontend tool to the
-    // model — leaving it available made the orchestrator emit a redundant confirmAction card
-    // alongside the server card (double-prompt). The confirmAction rendering path is retained
-    // in ChatMessageList only to display historical threads that already contain such calls.
-    includeConfirmAction: false,
+    // confirmAction stays declared. PersonalFinance + Platform agents are NOT yet behind the
+    // Spec 032 server gate — their mutating pf_*/platform_* tools are returned ungated and their
+    // instructions still mandate confirmAction — so it remains their ONLY approval mechanism;
+    // dropping it would let those agents either mutate with no approval or fail the confirm step
+    // their instructions require. It is redundant for (gated) Finance, so the orchestrator can emit
+    // both a confirmAction card and the server card (a double-prompt) — the lesser evil until every
+    // mutating descriptor is gated, after which this tool can be dropped. See #97.
     includeDisplayTools: enablePersonalFinanceFeatures,
     includeOptionSelector: enablePersonalFinanceFeatures,
     includeNavigation: enablePersonalFinanceFeatures,
@@ -793,6 +801,23 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     [sendInternal],
   );
 
+  // Sends a queued Medium approval retry — but only when idle, since sendInternal drops messages
+  // while a run is in flight. Called both directly (on approve) and from the effect below when the
+  // active stream ends, so the retry fires regardless of whether the card was approved mid-stream.
+  const flushPendingApprovalRetry = useCallback(() => {
+    if (pendingApprovalRetryRef.current && !isStreamingRef.current) {
+      const text = pendingApprovalRetryRef.current;
+      pendingApprovalRetryRef.current = null;
+      void sendInternal(text);
+    }
+  }, [sendInternal]);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      flushPendingApprovalRetry();
+    }
+  }, [isStreaming, flushPendingApprovalRetry]);
+
   // Spec 032 — record a decision for a server-owned approval card. Medium routes
   // through the tool-approvals decide endpoint and, on approval, nudges the agent
   // to re-invoke the gated tool (the gate consumes the approval, bound by
@@ -840,7 +865,12 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
           // gate consumes the args-hash-bound approval and runs the tool once). High already executed
           // synchronously inside the decide call — the money has moved — so no retry is needed.
           if (approval.kind === 'medium') {
-            void sendInternal(`I approved "${approval.actionKind}". Please go ahead and complete that action now.`);
+            // Queue the retry and flush it now if idle, or as soon as the active stream ends — the
+            // card can be approved while the original run is still streaming, in which case a direct
+            // sendInternal would be dropped by its isStreaming guard, leaving the approval unconsumed.
+            pendingApprovalRetryRef.current =
+              `I approved "${approval.actionKind}". Please go ahead and complete that action now.`;
+            flushPendingApprovalRetry();
           }
         } else {
           setApprovalStatus('rejected', result?.message ?? `${approval.actionKind} was rejected. Nothing was changed.`);
@@ -852,7 +882,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
         setApprovalStatus('error', message);
       }
     },
-    [sendInternal],
+    [flushPendingApprovalRetry],
   );
 
   return {
