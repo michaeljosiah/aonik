@@ -264,6 +264,15 @@ public class PayoutBeneficiaryServiceTests
             return Task.CompletedTask;
         }
 
+        public Task<IReadOnlyList<PartyPhotoUrls>> GetPartyPhotosAsync(IReadOnlyCollection<Guid> partyIds, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<PartyPhotoUrls>>(Array.Empty<PartyPhotoUrls>());
+
+        public Task<PartyPhotoUrls> SetPartyPhotoAsync(Guid partyId, string contentType, Stream photo, CancellationToken cancellationToken = default)
+            => Task.FromResult(new PartyPhotoUrls(partyId, null, null, null, null));
+
+        public Task<bool> UpdateRelationshipAsync(Guid relationshipId, string? relationshipTypeCode = null, string? notes = null, bool? isActive = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(true);
+
         private PartyRelationshipResponse BuildRelationship(Guid fromPartyId, Guid toPartyId, string typeCode)
             => new(
                 Guid.NewGuid(),

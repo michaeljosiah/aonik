@@ -67,6 +67,9 @@ public sealed class FinanceModule : IModule
         // Saves payout destinations and stitches the customer→recipient party graph
         // (relationship edge + Beneficiary role) via the cross-module IPartyService seam.
         services.AddScoped<Contracts.Services.Payments.IPayoutBeneficiaryService, Services.Payments.PayoutBeneficiaryService>();
+        // Spec 008 — customer-facing recipient surface (CRUD + photo) projected over the
+        // payout-beneficiary party graph. A façade: no recipient table of its own.
+        services.AddScoped<Contracts.Services.Payments.IRecipientService, Services.Payments.RecipientService>();
 
         // Pay Activity (mobile BFF)
         services.AddScoped<Contracts.Services.PayActivity.IPayActivityService, Services.PayActivity.PayActivityService>();

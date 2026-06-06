@@ -93,6 +93,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         {
             Id = Guid.NewGuid(),
             TenantId = _tenantProvider.GetCurrentTenantId(),
+            CustomerPartyId = request.CustomerPartyId,
             BeneficiaryPartyId = beneficiaryPartyId,
             PartnerId = request.PartnerId,
             ConnectorId = request.ConnectorId,
@@ -153,6 +154,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         var accounts = await _dbContext.ExternalPayoutAccounts
             .AsNoTracking()
             .Where(account => account.TenantId == tenantId
+                              && account.CustomerPartyId == customerPartyId
                               && account.BeneficiaryPartyId != null
                               && recipientPartyIds.Contains(account.BeneficiaryPartyId.Value))
             .OrderByDescending(account => account.CreatedAt)

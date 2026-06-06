@@ -20,6 +20,14 @@ public class ExternalPayoutAccount : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
 
+    /// <summary>
+    /// Soft Guid reference to the Platform Party of the CUSTOMER who saved this destination — the owner
+    /// for authorization. A beneficiary party can be shared across customers (the same payee), so rails
+    /// MUST be scoped by this, never by <see cref="BeneficiaryPartyId"/> alone, or one customer could
+    /// read or remove another customer's saved rails.
+    /// </summary>
+    public Guid CustomerPartyId { get; set; }
+
     /// <summary>Soft Guid reference to the Platform Party that owns this destination; null until tied to a party.</summary>
     public Guid? BeneficiaryPartyId { get; set; }
 
