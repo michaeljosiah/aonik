@@ -95,13 +95,27 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
             request.Headers.TryAddWithoutValidation(key, value);
         }
 
-        using var client = _httpClientFactory?.CreateClient("TenantHttpTool") ?? new HttpClient();
+        // The named "TenantHttpTool" client disables auto-redirect (registered in AgentsModule); the
+        // fallback (no factory, e.g. tests) does the same so a 30x is never auto-followed past the
+        // single egress check above — which would otherwise allow a bounce to an internal host and
+        // forward the auth headers cross-host.
+        using var client = _httpClientFactory?.CreateClient("TenantHttpTool")
+            ?? new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false });
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(CallTimeout);
 
         try
         {
             using var response = await client.SendAsync(request, cts.Token).ConfigureAwait(false);
+
+            // Redirects are not followed: the allow-list was validated on the original URL only, so a
+            // cross-host 30x would be an egress bypass. Surface it instead of chasing it.
+            if ((int)response.StatusCode is >= 300 and < 400)
+            {
+                return $"The '{_tool.Name}' tool received an HTTP {(int)response.StatusCode} redirect, " +
+                    "which is not followed for security (a redirect could leave the allow-listed host). No data was returned.";
+            }
+
             var content = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
             if (content.Length > MaxResponseChars)
             {

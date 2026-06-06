@@ -112,7 +112,13 @@ public sealed class AgentsModule : IModule
         // them into its single GateAll(...) call (§8.6). Egress is platform-curated; credentials are
         // Data-Protection encrypted at rest and decrypted only at connect/call.
         services.Configure<TenantExtensionOptions>(configuration.GetSection(TenantExtensionOptions.SectionName));
-        services.AddHttpClient(); // ensures IHttpClientFactory for declarative HTTP tools
+        services.AddHttpClient(); // ensures IHttpClientFactory is available
+        // Spec 033 §8.4/§11 — the declarative HTTP tool client must NOT auto-follow redirects. The
+        // egress allow-list is checked once on the final URL, so following a 30x to another host would
+        // bypass it (SSRF) and could forward custom auth headers cross-host. Disable auto-redirect on
+        // this named client; a 3xx is surfaced to the model unfollowed (DeclarativeHttpAIFunction).
+        services.AddHttpClient("TenantHttpTool")
+            .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler { AllowAutoRedirect = false });
         services.TryAddSingleton<ITenantCredentialProtector, TenantCredentialProtector>();
         services.TryAddSingleton<ITenantEgressAllowList, TenantEgressAllowList>();
         services.AddSingleton<TenantMcpConnectionCache>();
