@@ -48,14 +48,22 @@ public sealed class TenantToolRiskMappingTests
         classification.Options!.Tier.Should().Be(expected);
     }
 
-    [Fact]
-    public void ClassifyMcpTool_Should_BeReadOnly_When_NameLooksReadOnly()
+    [Theory]
+    // A read-LOOKING name on a mutating-default server must still be gated — the remote's name is not
+    // trusted (fail closed). Includes side-effecting names a verb heuristic would miss.
+    [InlineData("acme_get_quote")]
+    [InlineData("send_invoice")]
+    [InlineData("charge_card")]
+    [InlineData("email_customer")]
+    [InlineData("anything")]
+    public void ClassifyMcpTool_Should_InheritServerMutatingTier_RegardlessOfName(string toolName)
     {
         var server = new TenantMcpServer { Name = "acme", DefaultRiskTier = TenantToolRiskTier.High };
 
-        var classification = TenantToolRiskMapping.ClassifyMcpTool("acme_get_quote", server);
+        var classification = TenantToolRiskMapping.ClassifyMcpTool(toolName, server);
 
-        classification.IsReadOnly.Should().BeTrue("a read-looking discovered tool passes through even on a High-default server");
+        classification.IsMutating.Should().BeTrue("a tenant MCP tool is never assumed read-only from its name");
+        classification.Options!.Tier.Should().Be(ToolApprovalTier.High);
     }
 
     [Fact]
@@ -67,6 +75,19 @@ public sealed class TenantToolRiskMappingTests
 
         classification.IsMutating.Should().BeTrue();
         classification.Options!.Tier.Should().Be(ToolApprovalTier.High);
+    }
+
+    [Fact]
+    public void ClassifyMcpTool_Should_InheritLoweredServerTier_RegardlessOfName()
+    {
+        // A PlatformAdmin lowered the server to Medium → all its tools are Medium (still gated), even
+        // read-looking ones. Read-only requires the explicit ReadOnly server tier.
+        var server = new TenantMcpServer { Name = "acme", DefaultRiskTier = TenantToolRiskTier.Medium };
+
+        var classification = TenantToolRiskMapping.ClassifyMcpTool("acme_get_quote", server);
+
+        classification.IsMutating.Should().BeTrue();
+        classification.Options!.Tier.Should().Be(ToolApprovalTier.Medium);
     }
 
     [Fact]

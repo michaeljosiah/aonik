@@ -36,19 +36,24 @@ internal static class TenantToolRiskMapping
     }
 
     /// <summary>
-    /// Classify a discovered MCP tool. If the server's default tier is ReadOnly the PlatformAdmin has
-    /// vouched the whole server is safe, so every tool passes through. Otherwise a read-looking name
-    /// is read-only and a mutating-looking name inherits the server's (mutating) default tier — so a
-    /// server defaulted to High exposes its reads directly and gates its writes as High.
+    /// Classify a discovered MCP tool — fail closed. A remote tenant MCP server can advertise arbitrary
+    /// tool names, so the tool name is NOT trusted to imply read-only: a side-effecting tool named
+    /// <c>send_invoice</c> / <c>charge_card</c> / <c>email_customer</c> would not trip a verb heuristic
+    /// yet must still be gated. The only way a tenant MCP tool runs ungated is an explicit PlatformAdmin
+    /// read-only classification — today that means the whole server's <see cref="TenantMcpServer.DefaultRiskTier"/>
+    /// is <see cref="TenantToolRiskTier.ReadOnly"/> (a per-tool override is the future seam, Spec 033 §9).
+    /// Otherwise every discovered tool inherits the server's (mutating) tier — High by default → durable
+    /// proposal — so an unknown tool can never bypass the Spec 032 gate.
     /// </summary>
     public static ToolClassification ClassifyMcpTool(string toolName, TenantMcpServer server)
     {
-        if (server.DefaultRiskTier == TenantToolRiskTier.ReadOnly
-            || !MutatingToolNameHeuristic.LooksMutating(toolName))
+        // Only an explicit PlatformAdmin "this server is read-only" lets its tools execute directly.
+        if (server.DefaultRiskTier == TenantToolRiskTier.ReadOnly)
         {
             return ToolClassification.ReadOnly;
         }
 
+        // Every other discovered tool — regardless of name — inherits the server's mutating tier.
         return ToolClassification.Mutating(new ToolApprovalOptions(
             ToApprovalTier(server.DefaultRiskTier),
             ActionKind: $"{server.Name}: {toolName}",
