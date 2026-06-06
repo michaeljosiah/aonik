@@ -201,6 +201,19 @@ internal sealed class NotificationService : INotificationService
     {
         ValidateCreateRequest(request.TenantId, request.UserId, request.Type, request.Source, request.Title, request.Body, request.Severity, request.Channel);
 
+        var idempotencyKey = TrimNullable(request.IdempotencyKey);
+
+        // Fast path: an already-created notification for this key short-circuits without an insert
+        // (the common crash-recovery retry), avoiding a guaranteed unique-violation exception.
+        if (idempotencyKey is not null)
+        {
+            var alreadyCreated = await FindByIdempotencyKeyAsync(request.TenantId, request.UserId, idempotencyKey, cancellationToken);
+            if (alreadyCreated is not null)
+            {
+                return MapResponse(alreadyCreated);
+            }
+        }
+
         var notification = new Notification
         {
             TenantId = request.TenantId,
@@ -214,17 +227,55 @@ internal sealed class NotificationService : INotificationService
             Status = NotificationStatuses.Unread,
             ActionUrl = TrimNullable(request.ActionUrl),
             CorrelationId = TrimNullable(request.CorrelationId),
+            IdempotencyKey = idempotencyKey,
             AiRunId = request.AiRunId,
             MetadataJson = string.IsNullOrWhiteSpace(request.MetadataJson) ? "{}" : request.MetadataJson.Trim(),
         };
 
         _dbContext.Notifications.Add(notification);
-        await SaveChangesForTenantAsync(request.TenantId, cancellationToken);
+        try
+        {
+            await SaveChangesForTenantAsync(request.TenantId, cancellationToken);
+        }
+        catch (DbUpdateException) when (idempotencyKey is not null)
+        {
+            // Lost the race: a concurrent worker inserted the same (tenant, user, idempotency key)
+            // first and the unique index rejected our duplicate. Return the winner — the side effect
+            // happened exactly once. (A check-before-insert alone cannot guarantee this; the index can.)
+            _dbContext.Entry(notification).State = EntityState.Detached;
+            var winner = await FindByIdempotencyKeyAsync(request.TenantId, request.UserId, idempotencyKey, cancellationToken);
+            if (winner is not null)
+            {
+                return MapResponse(winner);
+            }
+
+            throw; // not a dedupe collision — surface the original failure
+        }
 
         var response = MapResponse(notification);
         await _realtimePublisher.PublishAsync(new NotificationRealtimeEvent("NOTIFICATION_CREATED", response, 1), cancellationToken);
         await SendPushNotificationsAsync([notification], cancellationToken);
         return response;
+    }
+
+    private async Task<Notification?> FindByIdempotencyKeyAsync(
+        Guid tenantId,
+        Guid userId,
+        string idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        if (userId == Guid.Empty || string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return null;
+        }
+
+        return await _dbContext.Notifications
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.UserId == userId
+                    && x.IdempotencyKey == idempotencyKey
+                    && (x.TenantId == tenantId || x.TenantId == Guid.Empty),
+                cancellationToken);
     }
 
     public async Task<NotificationBulkActionResponse> CreateForUsersAsync(

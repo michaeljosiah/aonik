@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    partial class AonikDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260606033823_AddWorkItemScheduling")]
+    partial class AddWorkItemScheduling
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -17951,10 +17954,6 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<DateTime?>("DismissedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("IdempotencyKey")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -18012,11 +18011,6 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "UserId", "CreatedAt")
                         .HasDatabaseName("IX_Notification_Tenant_User_CreatedAt");
-
-                    b.HasIndex("TenantId", "UserId", "IdempotencyKey")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Notification_Tenant_User_IdempotencyKey")
-                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.HasIndex("TenantId", "UserId", "Status", "CreatedAt")
                         .HasDatabaseName("IX_Notification_Tenant_User_Status_CreatedAt");

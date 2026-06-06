@@ -114,6 +114,24 @@ public sealed class PlatformModule : IModule
         services.AddScoped<INotificationDeviceService, NotificationDeviceService>();
         services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
         services.AddSingleton<NotificationRealtimePublisher>();
+
+        // ── Task / WorkItem Scheduling (Spec 034) ────────────────────
+        // The data-defined task primitive lives in Platform beside Notifications and is
+        // consumed cross-module via the SharedKernel ITaskService contract. The dispatcher
+        // and the keyed notify_user action handler are registered with the dispatch wiring.
+        services.AddScoped<Services.Tasks.WorkItemService>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Tasks.ITaskService>(
+            sp => sp.GetRequiredService<Services.Tasks.WorkItemService>());
+        services.AddScoped<Aonik.Platform.Contracts.Services.Tasks.IWorkItemAdminService>(
+            sp => sp.GetRequiredService<Services.Tasks.WorkItemService>());
+        services.AddScoped<Aonik.Platform.Contracts.Services.Tasks.IWorkItemDispatcher, Services.Tasks.WorkItemDispatcher>();
+        services.AddSingleton<Services.Tasks.RecurrenceCalculator>();
+        services.AddSingleton<Services.Tasks.ITaskActionHandlerCatalog, Services.Tasks.TaskActionHandlerCatalog>();
+        // The reference low-risk action handler. Other modules register their own keyed handlers
+        // (e.g. Finance → create_payment_proposal, Agents → run_agent) against the same gate.
+        services.AddKeyedScoped<Aonik.SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Tasks.NotifyUserTaskActionHandler>(
+            Aonik.SharedKernel.Abstractions.Tasks.TaskActionTypes.NotifyUser);
+
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
         services.AddScoped<IPartyService, PartyService>();
         // ── Cross-Module Read Contracts (Spec 027 boundary) ─────────

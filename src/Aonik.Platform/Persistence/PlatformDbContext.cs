@@ -7,6 +7,7 @@ using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.ReferenceData;
+using Aonik.Platform.Entities.Tasks;
 using Aonik.Platform.Entities.Settings;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
@@ -71,8 +72,11 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; } = null!;
     public DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
 
-    // Operations
+    // Tasks (Spec 034 — Task/WorkItem scheduling)
     public DbSet<WorkItem> WorkItems { get; set; } = null!;
+    public DbSet<WorkItemRun> WorkItemRuns { get; set; } = null!;
+
+    // Operations
     public DbSet<Job> Jobs { get; set; } = null!;
     public DbSet<ScheduledJobProjection> ScheduledJobProjections { get; set; } = null!;
     public DbSet<ScheduledJobAdminCommand> ScheduledJobAdminCommands { get; set; } = null!;
@@ -192,6 +196,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<WebhookSubscription>(modelBuilder, "WebhookSubscriptions");
 
         MapTable<WorkItem>(modelBuilder, "WorkItems");
+        MapTable<WorkItemRun>(modelBuilder, "WorkItemRuns");
         MapTable<Job>(modelBuilder, "Jobs");
         MapTable<ScheduledJobProjection>(modelBuilder, "ScheduledJobProjections");
         MapTable<ScheduledJobAdminCommand>(modelBuilder, "ScheduledJobAdminCommands");

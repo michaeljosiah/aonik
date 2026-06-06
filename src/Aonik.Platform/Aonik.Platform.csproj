@@ -33,6 +33,10 @@
 
   <ItemGroup>
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
+    <!-- Quartz is used purely as a cron-expression evaluator (CronExpression) by the
+         Task/WorkItem RecurrenceCalculator (Spec 034); the Quartz scheduler itself runs
+         only in the Worker. Same version as the Worker/Infrastructure references. -->
+    <PackageReference Include="Quartz" Version="3.14.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <!--

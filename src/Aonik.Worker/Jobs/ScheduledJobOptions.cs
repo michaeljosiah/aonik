@@ -12,6 +12,27 @@ public sealed class ScheduledJobOptions
     public CustomerInsightAiSummaryJobOptions CustomerInsightAiSummary { get; set; } = new();
     public AiCostGuardJobOptions AiCostGuard { get; set; } = new();
     public DocumentIngestionBackfillJobOptions DocumentIngestionBackfill { get; set; } = new();
+    public WorkItemDispatchJobOptions WorkItemDispatch { get; set; } = new();
+}
+
+public sealed class WorkItemDispatchJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: every 60 seconds — the
+    /// minute-level granularity the task scheduler targets (Spec 034).
+    /// </summary>
+    public string CronExpression { get; set; } = "0 * * * * ?";
+
+    /// <summary>Max due work items claimed per sweep.</summary>
+    public int BatchSize { get; set; } = 100;
+
+    /// <summary>How long a claimed work item is hidden from other workers (lease window, seconds).</summary>
+    public int LeaseSeconds { get; set; } = 300;
+
+    /// <summary>Attempts per occurrence before it is failed (one-off) or skipped (recurring).</summary>
+    public int MaxAttempts { get; set; } = 5;
 }
 
 public sealed class DocumentIngestionBackfillJobOptions

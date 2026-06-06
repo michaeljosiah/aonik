@@ -27,6 +27,7 @@ import {
   GlobalSettingsPage,
 } from '@/pages/settings';
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
+import { TasksPage } from '@/pages/tasks';
 import {
   ObservabilityPage,
   ObservabilityTopologyPage,
@@ -85,6 +86,7 @@ const navigation: NavigationSection[] = [
               { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
               { id: 'platform-alerts', label: 'Platform Alerts', icon: 'Bell', href: '/admin/alerts' },
               { id: 'background-jobs', label: 'Background Jobs', icon: 'Timer', href: '/settings/background-jobs' },
+              { id: 'tasks', label: 'Tasks', icon: 'ClipboardList', href: '/tasks' },
               // System Tools intentionally removed from main menu — it's
               // already exposed as a card on the /settings landing page
               // (SettingsLandingPage.tsx). The route, page, and panel
@@ -143,6 +145,7 @@ const routes = [
   { path: '/tenants/:id', element: TenantDetailPage, isDynamic: true },
   { path: '/admin/alerts', element: AlertsPage },
   { path: '/admin/alerts/:id', element: AlertDetailPage, isDynamic: true },
+  { path: '/tasks', element: TasksPage },
   { path: '/settings', element: SettingsLandingPage },
   { path: '/settings/general', element: GlobalSettingsPage },
   { path: '/settings/global', element: GlobalSettingsPage },
@@ -181,6 +184,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'access-permissions', title: 'Permissions', type: 'internal', category: 'page', componentKey: 'access-permissions', route: '/access/permissions' },
   { id: 'tenants', title: 'Tenants', type: 'internal', category: 'page', componentKey: 'tenants', route: '/tenants' },
   { id: 'platform-alerts', title: 'Platform Alerts', type: 'internal', category: 'page', componentKey: 'platform-alerts', route: '/admin/alerts' },
+  { id: 'tasks', title: 'Tasks', type: 'internal', category: 'page', componentKey: 'tasks', route: '/tasks' },
   { id: 'settings', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-home', route: '/settings' },
   { id: 'settings-global', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-global', route: '/settings/global' },
   { id: 'settings-authentication', title: 'Authentication', type: 'internal', category: 'page', componentKey: 'settings-authentication', route: '/settings/authentication' },
@@ -207,6 +211,7 @@ const panelComponents = {
   'access-permissions': wrapPage(AccessPermissionsPage),
   tenants: wrapPage(TenantsListPage),
   'platform-alerts': wrapPage(AlertsPage),
+  tasks: wrapPage(TasksPage),
   'settings-home': wrapPage(SettingsLandingPage),
   'settings-global': wrapPage(GlobalSettingsPage),
   'settings-authentication': wrapPage(SettingsAuthenticationPage),
