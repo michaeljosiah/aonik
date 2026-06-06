@@ -72,3 +72,72 @@ public sealed class SaveMcpServerRequestValidator : Validator<SaveMcpServerReque
             .WithMessage("Endpoint must be an absolute URL.");
     }
 }
+
+// ── Skills: validate / upload (Spec 033 §8.1) ───────────────────────────────
+// The SKILL.md body must be present and size-bounded at the boundary; the service does the real
+// frontmatter + allowed-tools validation.
+
+public sealed class ValidateSkillRequestValidator : Validator<ValidateSkillRequest>
+{
+    public ValidateSkillRequestValidator()
+    {
+        RuleFor(x => x.Markdown)
+            .NotEmpty().WithMessage("SKILL.md content is required.")
+            .MaximumLength(512_000).WithMessage("SKILL.md content is too large.");
+    }
+}
+
+public sealed class UploadSkillRequestValidator : Validator<UploadSkillRequest>
+{
+    public UploadSkillRequestValidator()
+    {
+        RuleFor(x => x.Markdown)
+            .NotEmpty().WithMessage("SKILL.md content is required.")
+            .MaximumLength(512_000).WithMessage("SKILL.md content is too large.");
+    }
+}
+
+// ── PlatformAdmin review decisions (Spec 033 §7.1) ──────────────────────────
+// Approve is a bool; the free-text / classification fields are bounded so a review can't smuggle an
+// oversized note or tier string past the boundary.
+
+public sealed class ReviewMcpServerRequestValidator : Validator<ReviewMcpServerRequest>
+{
+    public ReviewMcpServerRequestValidator()
+    {
+        RuleFor(x => x.Notes).MaximumLength(2000);
+        RuleFor(x => x.DefaultRiskTier).MaximumLength(100);
+    }
+}
+
+public sealed class ReviewHttpToolRequestValidator : Validator<ReviewHttpToolRequest>
+{
+    public ReviewHttpToolRequestValidator()
+    {
+        RuleFor(x => x.Notes).MaximumLength(2000);
+        RuleFor(x => x.RiskTier).MaximumLength(100);
+        RuleFor(x => x.ActionKind).MaximumLength(100);
+        RuleFor(x => x.ProposalType).MaximumLength(200);
+    }
+}
+
+// ── Skill transitions carrying a body (Spec 033 §7.1 / §8.2) ────────────────
+// The target skill id is required; notes are bounded.
+
+public sealed class ReviewTenantSkillRequestValidator : Validator<ReviewTenantSkillRequest>
+{
+    public ReviewTenantSkillRequestValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty().WithMessage("Skill id is required.");
+        RuleFor(x => x.Notes).MaximumLength(2000);
+    }
+}
+
+public sealed class EnableTenantSkillScriptsRequestBodyValidator : Validator<EnableTenantSkillScriptsRequestBody>
+{
+    public EnableTenantSkillScriptsRequestBodyValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty().WithMessage("Skill id is required.");
+        RuleFor(x => x.Notes).MaximumLength(2000);
+    }
+}
