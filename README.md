@@ -360,9 +360,9 @@ GitHub Actions workflows handle the full lifecycle:
 | Document | Description |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | Claude Code guidelines, architecture rules, and build commands |
-| [Architecture Overview](docs/architecture/overview.md) | System design and module boundaries |
-| [Module Organization](docs/architecture/module-organization.md) | How code is structured within modules |
-| [Technology Stack](docs/architecture/technology-stack.md) | Detailed technology choices and rationale |
+| [Architecture Overview](docs/architecture.html#overview) | System design and module boundaries |
+| [Module Organization](docs/architecture.html#module-organization) | How code is structured within modules |
+| [Technology Stack](docs/architecture.html#technology) | Detailed technology choices and rationale |
 | [ADR-005: Modular Monolith](docs/decisions/005-adopt-module-first-modular-monolith.md) | Why and how AONIK is module-first |
 | [ADR-006: Extract PersonalFinance](docs/decisions/006-extract-personal-finance-module.md) | Splitting PersonalFinance out of Finance as a sibling module |
 | [Financial Life Graph](docs/features/financial-life-graph.md) | Personal-finance node-edge graph and inferred proposals |

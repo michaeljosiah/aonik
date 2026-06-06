@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AONIK Architecture — Technical Documentation</title>
+<style>
+  :root{
+    --bg:#fcfcfd; --surface:#ffffff; --surface-2:#f8f8fb;
+    --ink:#15151d; --body:#3a3a47; --muted:#6a6a7a; --faint:#9696a6;
+    --line:#e8e8f0; --line-soft:#f1f1f7;
+    --accent:#4f46e5; --accent-ink:#3730a3; --accent-soft:#eef0fe;
+    --info:#1d4ed8; --info-bg:#eff5ff; --info-line:#c7dbfb;
+    --low:#047857; --low-bg:#ecfdf5; --low-line:#b3e6d0;
+    --med:#b45309; --med-bg:#fffbeb; --med-line:#f3e0ad;
+    --high:#b91c1c; --high-bg:#fef2f2; --high-line:#f4cccc;
+    --shadow:0 1px 2px rgba(20,20,45,.04),0 10px 30px rgba(20,20,45,.05);
+    --shadow-sm:0 1px 2px rgba(20,20,45,.05);
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--sans);font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  h1,h2,h3,h4{color:var(--ink);line-height:1.18;letter-spacing:-.018em;margin:0}
+  p{margin:0 0 1em}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  strong{color:var(--ink);font-weight:650}
+  code{font-family:var(--mono);font-size:.85em;background:var(--line-soft);border:1px solid var(--line);border-radius:5px;padding:.05em .36em;color:#414158;white-space:nowrap}
+  .shell{display:grid;grid-template-columns:282px minmax(0,1fr);max-width:1320px;margin:0 auto}
+  .sidebar{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;border-right:1px solid var(--line);padding:30px 22px 50px;background:var(--surface)}
+  .content{min-width:0;padding:0 0 90px}
+  .col{max-width:960px;margin:0 auto;padding:0 40px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+  .brand .mark{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;background:linear-gradient(135deg,var(--accent),#7c69f5);box-shadow:0 2px 8px rgba(79,70,229,.35)}
+  .brand .bt{font-weight:750;color:var(--ink);font-size:15px;letter-spacing:-.01em}
+  .brand .bs{font-size:11.5px;color:var(--faint);font-weight:600;letter-spacing:.04em}
+  .toc{margin-top:24px}
+  .toc .grp{font-size:10.5px;font-weight:750;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin:20px 0 8px}
+  .toc a{display:block;font-size:13.5px;color:var(--muted);padding:5px 11px;border-radius:7px;line-height:1.35;border-left:2px solid transparent;margin-left:-2px}
+  .toc a:hover{background:var(--surface-2);color:var(--ink);text-decoration:none}
+  .toc a .n{font-family:var(--mono);font-size:11px;color:var(--faint);margin-right:7px}
+  .masthead{padding:66px 0 38px;border-bottom:1px solid var(--line)}
+  .kicker{font-size:12px;font-weight:750;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:20px}
+  .masthead h1{font-size:42px;font-weight:820;letter-spacing:-.028em;max-width:18ch;margin-bottom:22px;color:var(--ink)}
+  .masthead h1 .em{color:var(--accent)}
+  .standfirst{font-size:19px;line-height:1.55;color:#34343f;max-width:68ch;font-weight:420}
+  .meta-row{display:flex;flex-wrap:wrap;gap:9px 24px;margin-top:30px;font-size:13px;color:var(--muted)}
+  .meta-row .mi b{color:var(--ink);font-weight:650}
+  section{padding:50px 0;border-bottom:1px solid var(--line-soft);scroll-margin-top:18px}
+  .eyebrow{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+  .eyebrow .num{font-family:var(--mono);font-size:12.5px;color:var(--accent);font-weight:700}
+  .eyebrow .lbl{font-size:11.5px;font-weight:750;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+  section h2{font-size:28px;font-weight:780;letter-spacing:-.022em;margin-bottom:14px;max-width:32ch}
+  section h3{font-size:18.5px;font-weight:720;margin:34px 0 10px;letter-spacing:-.012em}
+  section p,section ul,section ol{max-width:78ch}
+  ul,ol{padding-left:22px;margin:0 0 1em}
+  li{margin:5px 0}
+  li::marker{color:var(--faint)}
+  .cards{display:grid;gap:14px;margin:22px 0}
+  .cards.c2{grid-template-columns:repeat(2,1fr)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:20px 20px;box-shadow:var(--shadow-sm)}
+  .card .ic{font-size:18px;margin-bottom:9px;display:block}
+  .card h4{margin:0 0 6px;font-size:15px}
+  .card p{font-size:14px;color:var(--muted);margin:0;max-width:none}
+  .callout{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 11px 11px 0;padding:16px 20px;margin:22px 0}
+  .callout p{margin:0;max-width:none;font-size:15px}
+  .callout .ct{font-weight:700;color:var(--ink);font-size:13px;letter-spacing:.02em;display:block;margin-bottom:5px}
+  .callout.note{border-left-color:var(--info);background:var(--info-bg)}
+  .callout.note .ct{color:var(--info)}
+  .callout.warn{border-left-color:var(--high-line);background:var(--high-bg)}
+  .callout.warn .ct{color:var(--high)}
+  .callout.key{border-left-color:var(--accent);background:linear-gradient(180deg,#f6f6ff,#fbfbfe)}
+  .callout.key .ct{color:var(--accent-ink)}
+  .code{margin:18px 0;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fbfbfe;box-shadow:var(--shadow-sm)}
+  .code .cap{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--surface-2);padding:8px 14px;border-bottom:1px solid var(--line)}
+  .code .cap .fp{color:var(--accent-ink);font-weight:600}
+  .code .cap .tg{color:var(--faint);text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+  pre{margin:0;padding:15px 16px;overflow-x:auto;font-family:var(--mono);font-size:12.6px;line-height:1.62;color:#2b2b3c}
+  .tbl{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .tbl th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);padding:10px 13px;border-bottom:1px solid var(--line)}
+  .tbl td{padding:10px 13px;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--body)}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl tr:hover td{background:#fcfcff}
+  .anchor{color:var(--faint);font-weight:400;margin-left:8px;opacity:0;font-size:.7em;text-decoration:none}
+  h2:hover .anchor,h3:hover .anchor{opacity:1}
+  .heroimg{display:block;width:100%;border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow-sm);background:var(--surface)}
+  .center{text-align:center}
+  .muted{color:var(--muted)}
+  footer{padding:42px 0 20px;color:var(--faint);font-size:13px}
+  @media (max-width:1000px){.shell{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);padding:22px 24px}.toc{margin-top:14px;columns:2;column-gap:18px}.col{padding:0 26px}.cards.c2{grid-template-columns:1fr}.masthead h1{font-size:34px}}
+  @media (max-width:560px){.toc{columns:1}.col{padding:0 18px}.masthead h1{font-size:29px}pre{font-size:12px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="mark">A</div><div><div class="bt">AONIK</div><div class="bs">Architecture</div></div></div>
+    <nav class="toc" id="toc">
+      <div class="grp">Overview</div>
+      <a href="#overview"><span class="n">01</span>Overview</a>
+      <a href="#conceptual-layers"><span class="n">02</span>Conceptual layers</a>
+      <a href="#module-map"><span class="n">03</span>Module map</a>
+      <div class="grp">Implementation</div>
+      <a href="#module-organization"><span class="n">04</span>Module organization</a>
+      <a href="#dbcontexts"><span class="n">05</span>DbContexts</a>
+      <a href="#data-flow"><span class="n">06</span>Data flow</a>
+      <a href="#technology"><span class="n">07</span>Technology stack</a>
+      <div class="grp">Reference</div>
+      <a href="#document-model"><span class="n">08</span>Document model</a>
+      <a href="#legacy-reference"><span class="n">09</span>Legacy reference</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="col">
+      <header class="masthead">
+        <div class="kicker">Technical Documentation</div>
+        <h1>AONIK <span class="em">Architecture</span></h1>
+        <p class="standfirst">This page consolidates the architecture markdown set into one reference: the platform overview, module organization, data flow, technology stack, document model, and the legacy architecture note.</p>
+        <div class="meta-row"><span class="mi"><b>Scope</b> docs/architecture/*.md</span><span class="mi"><b>Pattern</b> single-page technical reference</span></div>
+      </header>
+
+      <section id="overview">
+        <div class="eyebrow"><span class="num">01</span><span class="lbl">Overview</span></div>
+        <h2>Architecture overview<a class="anchor" href="#overview">#</a></h2>
+        <p>AONIK is a module-first modular monolith implementation of a modular AI intelligence platform. AONIK Core provides shared identity, memory, workflows, governance, AI routing, agents, approvals, notifications, and shared human primitives. Finance and PersonalFinance are the first shipped domain modules.</p>
+        <div class="callout key"><span class="ct">Core principles</span><p>Ledger is the source of financial truth. Orders represent business intent, not payments. Payments execute intent; ledger proves it. Agents propose; systems execute. Every AI action is auditable and policy-governed. Risk tier determines AI autonomy. Human approval is explicit for high-risk actions.</p></div>
+        <table class="tbl"><thead><tr><th>Layer</th><th>Role</th></tr></thead><tbody><tr><td><strong>AONIK Core</strong></td><td>Domain-agnostic intelligence and orchestration substrate: identity, memory, workflows, governance, AI routing, agents, approvals, tasks, notifications, and shared human primitives.</td></tr><tr><td><strong>Domain Modules</strong></td><td>Specialised systems that own domain truth, operations, workflows, policies, agents, and intelligence. Finance and PersonalFinance are the first shipped modules.</td></tr><tr><td><strong>Product Experiences</strong></td><td>Curated applications such as Payabo, MyBillAfrica, and RemitExchange that package Core and one or more domain modules.</td></tr></tbody></table>
+      </section>
+
+      <section id="conceptual-layers">
+        <div class="eyebrow"><span class="num">02</span><span class="lbl">Overview</span></div>
+        <h2>Conceptual layers and module map<a class="anchor" href="#conceptual-layers">#</a></h2>
+        <table class="tbl"><thead><tr><th>Module</th><th>Project</th><th>DbContext</th><th>Purpose</th></tr></thead><tbody><tr><td>Platform</td><td><code>Aonik.Platform</code></td><td><code>PlatformDbContext</code></td><td>Identity, tenancy, party/profile, compliance, notifications, operations</td></tr><tr><td>Finance</td><td><code>Aonik.Finance</code></td><td><code>FinanceDbContext</code></td><td>Ledger, payments, billing, orders, pricing, partner network</td></tr><tr><td>PersonalFinance</td><td><code>Aonik.PersonalFinance</code></td><td><code>PersonalFinanceDbContext</code></td><td>Households, transactions, bills, budgets, goals, financial life graph, customer insights</td></tr><tr><td>AI</td><td><code>Aonik.Ai</code></td><td><code>AiDbContext</code></td><td>AI routing, prompts, model management, execution records</td></tr><tr><td>Agents</td><td><code>Aonik.Agents</code></td><td><code>AgentsDbContext</code></td><td>Agent definitions, orchestration, proposals, workflows</td></tr></tbody></table>
+        <div class="cards c2">
+          <div class="card"><span class="ic">🏗️</span><h4>Host / composition projects</h4><p><code>Aonik.Api</code>, <code>Aonik.Worker</code>, <code>Aonik.Migrator</code>, <code>Aonik.AppHost</code>, <code>Aonik.ServiceDefaults</code>, plus shared kernel and application shims.</p></div>
+          <div class="card"><span class="ic">🔌</span><h4>AI / MCP projects</h4><p><code>Aonik.Finance.Mcp</code> and <code>Aonik.Platform.Mcp</code> host domain-specific MCP servers.</p></div>
+          <div class="card"><span class="ic">🖥️</span><h4>Admin UI</h4><p><code>Aonik.AdminUi</code> is the React workspace UI with module extension support.</p></div>
+          <div class="card"><span class="ic">📚</span><h4>Further reading</h4><p><a href="#module-organization">Module Organization</a>, <a href="#data-flow">Data Flow</a>, <a href="#technology">Technology Stack</a>.</p></div>
+        </div>
+      </section>
+
+      <section id="module-organization">
+        <div class="eyebrow"><span class="num">03</span><span class="lbl">Implementation</span></div>
+        <h2>Module organization<a class="anchor" href="#module-organization">#</a></h2>
+        <p>Each module is a self-contained .NET project that owns its entities, services, endpoints, and persistence. Public APIs live in <code>Contracts/</code>; everything else is internal by default.</p>
+        <div class="code"><div class="cap"><span class="fp">Module anatomy</span><span class="tg">text</span></div><pre>Aonik.{Module}/
+├── Contracts/                   # PUBLIC surface
+│   ├── Events/                  # Integration events
+│   ├── Services/                # Service interfaces
+│   └── Models/                  # Shared DTOs / read models
+├── Entities/                    # internal — anemic EF entities
+├── Services/                    # internal — business logic
+├── Endpoints/                   # internal — FastEndpoints
+├── Persistence/
+│   ├── {Module}DbContext.cs     # internal — module-scoped DbContext
+│   └── Configurations/          # internal — EF configurations
+├── Agents/                      # internal — MAF agents & tools
+└── {Module}Module.cs            # PUBLIC — Add{Module}() extension</pre></div>
+        <h3>Boundary rules</h3>
+        <ol><li>Types in <code>Contracts/</code> are public.</li><li>Everything else is internal by default.</li><li>Modules reference each other only through contracts.</li><li>Cross-module data access uses integration events, service interfaces, or SharedKernel read contracts.</li></ol>
+        <table class="tbl"><thead><tr><th>SharedKernel read contract</th><th>Owner</th><th>Consumed by</th></tr></thead><tbody><tr><td><code>ICustomerOrderHistoryReader</code></td><td>Finance</td><td>PersonalFinance</td></tr><tr><td><code>ICustomerInvoiceHistoryReader</code></td><td>Finance</td><td>PersonalFinance</td></tr><tr><td><code>ICustomerPaymentHistoryReader</code></td><td>Finance</td><td>PersonalFinance</td></tr><tr><td><code>IFxQuoteReader</code></td><td>Finance</td><td>PersonalFinance</td></tr><tr><td><code>IPartyReader</code></td><td>Platform</td><td>Finance, PersonalFinance</td></tr><tr><td><code>IUserDirectoryReader</code></td><td>Platform</td><td>PersonalFinance</td></tr></tbody></table>
+      </section>
+
+      <section id="dbcontexts">
+        <div class="eyebrow"><span class="num">04</span><span class="lbl">Implementation</span></div>
+        <h2>Module-scoped DbContexts<a class="anchor" href="#dbcontexts">#</a></h2>
+        <p>Each module owns a DbContext that maps only its tables. The contexts share the same physical SQL Server database, but they do not own separate migration histories.</p>
+        <div class="code"><div class="cap"><span class="fp">DbContext pattern</span><span class="tg">csharp</span></div><pre>internal class FinanceDbContext : DbContext
+{
+    public DbSet&lt;Invoice&gt; Invoices =&gt; Set&lt;Invoice&gt;();
+    public DbSet&lt;LedgerAccount&gt; LedgerAccounts =&gt; Set&lt;LedgerAccount&gt;();
+    // ... finance entities only
+}</pre></div>
+        <div class="callout note"><span class="ct">Migration rule</span><p><code>AonikDbContext</code> in <code>Aonik.Infrastructure</code> is the canonical migration stream. Module-scoped DbContexts exist for runtime DI scoping only.</p></div>
+        <p>Multi-tenancy is enforced via <code>ITenantScoped</code> and global query filters, with tenant context resolved in <code>Aonik.Api</code>.</p>
+      </section>
+
+      <section id="data-flow">
+        <div class="eyebrow"><span class="num">05</span><span class="lbl">Implementation</span></div>
+        <h2>Data flow<a class="anchor" href="#data-flow">#</a></h2>
+        <h3>Request path</h3>
+        <ol><li>HTTP request arrives at <code>Aonik.Api</code>.</li><li>Middleware runs: authentication and tenant resolution.</li><li>The owning module endpoint validates and maps the request.</li><li>The module service performs business logic using the module DbContext.</li><li>The DbContext persists changes.</li></ol>
+        <h3>Response path</h3>
+        <ol><li>Service returns a DTO.</li><li>Endpoint maps or returns the DTO using <code>Send.*Async()</code> helpers.</li></ol>
+        <h3>AI agent execution</h3>
+        <div class="code"><div class="cap"><span class="fp">Agent execution flow</span><span class="tg">text</span></div><pre>[Client] → POST /api/agents/orchestrator/chat
+[Aonik.Agents/Endpoints/ChatEndpoint]
+→ [MasterOrchestratorService]
+→ builds ChatClientAgent orchestrator with domain agents as tools
+→ creates/resumes AgentSession for conversation history
+→ routes to domain agent descriptor (e.g. FinanceAgentDescriptor)
+→ Read tools execute directly
+→ Mutating tools gated by ApprovalRequiredAIFunction
+→ [BillingService / LedgerService / PaymentService]
+→ [AuditMiddleware] records AiRun with token usage</pre></div>
+        <div class="callout key"><span class="ct">Key details</span><p>Domain agents are registered as <code>IDomainAgentDescriptor</code> implementations and composed into the orchestrator via <code>agent.AsAIFunction()</code>. MCP tools are available through <code>McpToolProvider</code>. <code>AgentSession</code> manages conversation history natively.</p></div>
+        <h3>Pricing quote flow</h3>
+        <div class="code"><div class="cap"><span class="fp">Quote flow</span><span class="tg">mermaid</span></div><pre>Client → PricingQuoteEndpoint → PricingService → PricingPolicyService → FxRateService → AuditLogWriter → Client</pre></div>
+      </section>
+
+      <section id="technology">
+        <div class="eyebrow"><span class="num">06</span><span class="lbl">Implementation</span></div>
+        <h2>Technology stack<a class="anchor" href="#technology">#</a></h2>
+        <table class="tbl"><thead><tr><th>Area</th><th>Stack</th></tr></thead><tbody><tr><td>Runtime</td><td>.NET 10, C# latest, nullable reference types enabled</td></tr><tr><td>API</td><td>FastEndpoints, Swagger/OpenAPI</td></tr><tr><td>Persistence</td><td>Entity Framework Core 10, SQL Server, InMemory provider for tests</td></tr><tr><td>AI &amp; Agents</td><td>Microsoft Agent Framework, Microsoft.Extensions.AI, MCP</td></tr><tr><td>Orchestration</td><td>.NET Aspire, Quartz</td></tr><tr><td>Admin UI</td><td>React 19, Vite, Tailwind CSS, Dockview</td></tr><tr><td>Testing</td><td>xUnit, FluentAssertions, WebApplicationFactory</td></tr></tbody></table>
+        <table class="tbl"><thead><tr><th>NuGet package</th><th>Version</th><th>Purpose</th></tr></thead><tbody><tr><td>FastEndpoints</td><td>7.1.1</td><td>HTTP endpoints</td></tr><tr><td>Microsoft.EntityFrameworkCore</td><td>10.0.1</td><td>ORM</td></tr><tr><td>Microsoft.Agents.AI</td><td>RC</td><td>MAF agent framework</td></tr><tr><td>Microsoft.Extensions.AI</td><td>latest</td><td>AI abstractions</td></tr><tr><td>ModelContextProtocol</td><td>latest</td><td>MCP server/client</td></tr><tr><td>Quartz</td><td>latest</td><td>Job scheduling</td></tr><tr><td>FluentAssertions</td><td>8.8.0</td><td>Test assertions</td></tr></tbody></table>
+      </section>
+
+      <section id="document-model">
+        <div class="eyebrow"><span class="num">07</span><span class="lbl">Reference</span></div>
+        <h2>Document &amp; file model<a class="anchor" href="#document-model">#</a></h2>
+        <div class="callout warn"><span class="ct">Status</span><p>The generic document capability now lives in <code>Aonik.Documents</code>. The original platform-centric placement is superseded; this file remains as the conceptual model.</p></div>
+        <p>The model represents evidence composed of one or more files, with the purpose kept separate from the document itself. It is designed for multi-tenant, multi-purpose use with blob storage and strong auditability.</p>
+        <h3>Core concepts</h3>
+        <table class="tbl"><thead><tr><th>Concept</th><th>Role</th></tr></thead><tbody><tr><td><strong>Document</strong></td><td>Logical evidence container with tenant, owner party, type, status, dates, issuer, country, tags, attributes, and RAG classification fields.</td></tr><tr><td><strong>DocumentFile</strong></td><td>Physical file reference with storage metadata, hash, page/side info, capture metadata, and extracted-text status.</td></tr><tr><td><strong>DocumentVersion</strong></td><td>Immutable snapshot for re-submission or updates.</td></tr><tr><td><strong>DocumentUsage</strong></td><td>Purpose/workflow link for reuse of the same evidence across multiple workflows.</td></tr><tr><td><strong>DocumentVerification</strong></td><td>Decisioning record, including AI-run linkage when AI contributed.</td></tr></tbody></table>
+        <h3>Relationships</h3>
+        <ol><li>One Document has many DocumentFiles.</li><li>One Document can serve many DocumentUsages.</li><li>One DocumentUsage can have many DocumentVerifications.</li><li>One Document can have many DocumentVersions.</li></ol>
+        <h3>Module placement</h3>
+        <ul><li><code>Aonik.Documents</code> owns the generic document capability.</li><li><code>Aonik.Platform</code> / Compliance keeps <code>DocumentUsage</code> and <code>DocumentVerification</code>.</li><li><code>SharedKernel.Abstractions.Documents</code> defines the cross-module boundary.</li><li><code>Aonik.Infrastructure</code> hosts blob, vector index, and extraction adapters.</li><li><code>Aonik.Worker</code> runs ingestion/backfill jobs.</li></ul>
+      </section>
+
+      <section id="legacy-reference">
+        <div class="eyebrow"><span class="num">08</span><span class="lbl">Reference</span></div>
+        <h2>Legacy architecture reference<a class="anchor" href="#legacy-reference">#</a></h2>
+        <p><code>Architecture.md</code> is a legacy reference that points readers to the current architecture files. Its key principles remain aligned with the platform rules used throughout this page.</p>
+        <div class="cards c2">
+          <div class="card"><span class="ic">📄</span><h4>Current docs</h4><p>Architecture Overview, Module Organization, Data Flow, Technology Stack, and the document model.</p></div>
+          <div class="card"><span class="ic">🧭</span><h4>Project structure</h4><p>SharedKernel, Platform, Finance, AI, Agents, Application, Infrastructure, API, Worker, Migrator, Aspire, and Admin UI.</p></div>
+        </div>
+        <div class="callout note"><span class="ct">Reference note</span><p>The legacy file is retained conceptually only; this page now centralizes the architecture material in a single HTML document.</p></div>
+      </section>
+
+      <footer><div class="muted">Consolidated from docs/architecture/*.md into one HTML reference.</div></footer>
+    </div>
+  </main>
+</div>
+</body>
+</html>
