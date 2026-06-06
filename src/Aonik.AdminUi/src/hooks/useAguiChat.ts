@@ -283,6 +283,12 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     enabled: true,
     confirmAction,
     selectOptions,
+    // Spec 032: the server gate is the approval boundary and surfaces its own card
+    // (ServerApprovalCard). Do NOT declare the legacy `confirmAction` frontend tool to the
+    // model — leaving it available made the orchestrator emit a redundant confirmAction card
+    // alongside the server card (double-prompt). The confirmAction rendering path is retained
+    // in ChatMessageList only to display historical threads that already contain such calls.
+    includeConfirmAction: false,
     includeDisplayTools: enablePersonalFinanceFeatures,
     includeOptionSelector: enablePersonalFinanceFeatures,
     includeNavigation: enablePersonalFinanceFeatures,
