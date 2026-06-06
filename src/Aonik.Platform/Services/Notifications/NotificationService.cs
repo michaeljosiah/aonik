@@ -227,6 +227,27 @@ internal sealed class NotificationService : INotificationService
         return response;
     }
 
+    public async Task<bool> ExistsForUserByCorrelationAsync(
+        Guid tenantId,
+        Guid userId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty || string.IsNullOrWhiteSpace(correlationId))
+        {
+            return false;
+        }
+
+        var key = correlationId.Trim();
+        return await _dbContext.Notifications
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.UserId == userId
+                    && x.CorrelationId == key
+                    && (x.TenantId == tenantId || x.TenantId == Guid.Empty),
+                cancellationToken);
+    }
+
     public async Task<NotificationBulkActionResponse> CreateForUsersAsync(
         CreateNotificationsRequest request,
         CancellationToken cancellationToken = default)

@@ -132,6 +132,21 @@ public sealed class WorkItemDispatcherTests
             .Where(r => r.WorkItemId == workItemId).ToListAsync();
     }
 
+    /// <summary>
+    /// Simulates a *different* worker reclaiming a work item's lease — overwriting the lease owner —
+    /// from inside another worker's running handler, to exercise the fenced outcome write.
+    /// </summary>
+    private static void StealLease(IServiceProvider root, Guid tenantId, Guid workItemId, string newOwner, DateTime leaseUntil)
+    {
+        using var scope = root.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var workItem = db.WorkItems.First(w => w.Id == workItemId);
+        workItem.LeasedBy = newOwner;
+        workItem.LeasedUntilUtc = leaseUntil;
+        db.SaveChanges();
+    }
+
     private static async Task<WorkItemDispatchSummary> DispatchAsync(
         IServiceProvider root, WorkItemDispatchOptions? options = null)
     {
@@ -384,6 +399,43 @@ public sealed class WorkItemDispatcherTests
 
         summary.Considered.Should().Be(0);
         handler.Invocations.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DispatchDueAsync_Should_AbandonBookkeeping_When_LeaseStolenMidExecution()
+    {
+        // The dangerous window: this worker's lease lapses (slow handler / stall) and a *different*
+        // worker reclaims the in-flight occurrence. When our handler finally returns, the fenced
+        // outcome write must notice our lease token is gone and abandon its bookkeeping — it must not
+        // re-complete the item or overwrite the new owner's lease. (The handler's own side effects in
+        // this rare window are deduplicated by handler idempotency, not by the dispatcher.)
+        var clock = new TestClock();
+        var tenant = Guid.NewGuid();
+        ServiceProvider root = null!;
+
+        var handler = new StubHandler(TestAction, ctx =>
+        {
+            // Mid-execution, another worker steals the lease.
+            StealLease(root, tenant, ctx.WorkItemId, "other-worker", clock.UtcNow.AddMinutes(5));
+            return new TaskActionResult(TaskActionOutcome.Succeeded);
+        });
+        root = BuildProvider(clock, handler);
+        var id = await SeedAsync(root, tenant, w => w.NextRunAtUtc = clock.UtcNow.AddMinutes(-1));
+
+        var summary = await DispatchAsync(root);
+
+        summary.Skipped.Should().Be(1, "the worker lost its lease mid-flight and must abandon bookkeeping");
+        summary.Succeeded.Should().Be(0);
+        handler.Invocations.Should().Be(1);
+
+        var workItem = await GetWorkItemAsync(root, id);
+        workItem!.Status.Should().Be(TaskStatuses.InProgress, "the reclaiming worker now owns the occurrence — we must not complete it");
+        workItem.LeasedBy.Should().Be("other-worker", "the fenced write must not overwrite the new lease holder");
+        workItem.RunCount.Should().Be(0, "our abandoned run must not be counted");
+
+        var runs = await GetRunsAsync(root, id);
+        runs.Should().ContainSingle();
+        runs[0].Outcome.Should().BeNullOrEmpty("the occurrence stays in-flight for the reclaiming worker to finalize");
     }
 
     [Fact]

@@ -57,6 +57,22 @@ internal sealed class NotifyUserTaskActionHandler : ITaskActionHandler
             return new TaskActionResult(TaskActionOutcome.Failed, Error: "notify_user requires a title and body.");
         }
 
+        // Idempotency (GET-before-act). The dispatcher's lease makes concurrent execution rare, but a
+        // crash-recovery retry — or the residual window where a worker stalls past its lease and a
+        // replacement reclaims the in-flight occurrence — can invoke this handler twice for the SAME
+        // occurrence. Both invocations share the run id, so keying the notification on it lets us skip
+        // a duplicate post. (This is the handler-idempotency contract the dispatcher relies on; see
+        // WorkItemDispatcher remarks.)
+        var correlationId = context.RunId.ToString();
+        if (await _notificationService
+                .ExistsForUserByCorrelationAsync(context.TenantId, userId, correlationId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return new TaskActionResult(
+                TaskActionOutcome.Succeeded,
+                ResultJson: JsonSerializer.Serialize(new { deduplicated = true }));
+        }
+
         var notification = await _notificationService.CreateForUserAsync(
             new CreateNotificationRequest(
                 TenantId: context.TenantId,
@@ -67,7 +83,7 @@ internal sealed class NotifyUserTaskActionHandler : ITaskActionHandler
                 Body: payload.Body,
                 Severity: NormalizeSeverity(payload.Severity),
                 ActionUrl: payload.ActionUrl,
-                CorrelationId: context.WorkItemId.ToString(),
+                CorrelationId: correlationId,
                 AiRunId: null),
             cancellationToken).ConfigureAwait(false);
 

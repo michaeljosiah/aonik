@@ -12,15 +12,24 @@ using Microsoft.Extensions.Logging;
 namespace Aonik.Platform.Services.Tasks;
 
 /// <summary>
-/// Dispatches due <see cref="WorkItem"/>s (Spec 034). Cluster-safety rests on two
-/// independent guarantees: (1) a claim-before-execute lease (mirrors
-/// <c>OutboxProcessor</c>) — concurrent claims race on the row's optimistic
-/// concurrency token, so only one worker wins; and (2) the unique
-/// <c>(WorkItemId, ScheduledForUtc)</c> run row — the hard exactly-once backstop
-/// even if a lease check is somehow bypassed. The cross-tenant due-scan runs under
-/// a system (see-all) context; every item is then processed under its own tenant so
-/// all writes are tenant-correct and the propose-don't-execute boundary is preserved
-/// (a handler's only effect for a high-risk action is to create a Proposal).
+/// Dispatches due <see cref="WorkItem"/>s (Spec 034). Cluster-safety is layered:
+/// <list type="number">
+/// <item>A claim-before-execute lease with a per-claim <em>fencing token</em> (mirrors
+///   <c>OutboxProcessor</c>): concurrent claims race on the row's optimistic-concurrency token,
+///   so only one worker wins.</item>
+/// <item><em>Lease renewal</em>: while a handler runs, the holder heart-beats its lease, so a slow
+///   handler is never reclaimed — a lapsed lease means the worker is genuinely gone, not just busy.</item>
+/// <item>A <em>fenced outcome write</em>: a worker that lost its lease (it stalled past the lease and
+///   was reclaimed) re-reads the token and abandons its bookkeeping instead of double-recording.</item>
+/// <item>The unique <c>(WorkItemId, ScheduledForUtc)</c> run row dedupes occurrence <em>rows</em>.</item>
+/// </list>
+/// The lease does not by itself guarantee exactly-once <em>execution</em>: a worker that stalls past
+/// its (un-renewed) lease and later resumes can briefly run a handler concurrently with its
+/// replacement. Handlers must therefore be idempotent for their side effects (GET-before-act) —
+/// exactly as proposal handlers are, and as the outbox relies on inbox idempotency — so a duplicate
+/// invocation produces no duplicate effect. The cross-tenant due-scan runs under a system (see-all)
+/// context; every item is processed under its own tenant so all writes are tenant-correct and the
+/// propose-don't-execute boundary holds (a handler's only effect for a high-risk action is a Proposal).
 /// </summary>
 internal sealed class WorkItemDispatcher : IWorkItemDispatcher
 {
@@ -144,10 +153,14 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
             return TaskActionOutcome.Skipped;
         }
 
-        // Claim the lease. On SQL Server a concurrent claim loses on the rowversion token.
+        // Claim the lease with a unique fencing token. On SQL Server a concurrent claim loses on the
+        // rowversion token; the token additionally lets the fenced outcome write below detect, after a
+        // long handler, whether THIS worker still owns the occurrence before recording anything.
+        var leaseSeconds = Math.Max(options.LeaseSeconds, 1);
+        var leaseToken = $"{InstanceId}:{Guid.NewGuid():N}";
         workItem.Status = TaskStatuses.InProgress;
-        workItem.LeasedBy = InstanceId;
-        workItem.LeasedUntilUtc = now.AddSeconds(Math.Max(options.LeaseSeconds, 1));
+        workItem.LeasedBy = leaseToken;
+        workItem.LeasedUntilUtc = now.AddSeconds(leaseSeconds);
         try
         {
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -157,7 +170,7 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
             return TaskActionOutcome.Skipped; // another worker claimed it first
         }
 
-        // One run per occurrence (idempotency anchor).
+        // One run per occurrence (the run-row idempotency anchor).
         var run = existingRun;
         if (run is null)
         {
@@ -185,12 +198,99 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
             run.StartedAtUtc = now; // crash-recovery retry of an in-flight occurrence
         }
 
-        var result = await ExecuteHandlerAsync(dueRef.TenantId, workItem, run, scheduledFor, cancellationToken)
-            .ConfigureAwait(false);
+        // Execute the handler while heart-beating the lease, so a slow handler keeps its claim and is
+        // never reclaimed mid-flight by another worker. A lapsed lease then means the worker is gone.
+        using var renewalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var renewalTask = RenewLeaseLoopAsync(dueRef.TenantId, workItem.Id, leaseToken, leaseSeconds, renewalCts.Token);
 
-        ApplyResult(workItem, run, result, options.MaxAttempts, now);
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        TaskActionResult result;
+        try
+        {
+            result = await ExecuteHandlerAsync(dueRef.TenantId, workItem, run, scheduledFor, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await renewalCts.CancelAsync().ConfigureAwait(false);
+            try { await renewalTask.ConfigureAwait(false); } catch { /* heartbeat shutdown is best-effort */ }
+        }
+
+        // Fenced outcome write: refresh the row (renewals advanced it in a separate context) and only
+        // finalize if we STILL hold our lease token. If we lost it, a replacement worker reclaimed this
+        // occurrence while we stalled — abandon our bookkeeping so we never double-record or re-arm.
+        // (A side effect the handler already performed in that rare window relies on handler
+        // idempotency; see class remarks.)
+        await db.Entry(workItem).ReloadAsync(cancellationToken).ConfigureAwait(false);
+        if (workItem.LeasedBy != leaseToken)
+        {
+            _logger.LogWarning(
+                "Work item {WorkItemId} occurrence {ScheduledFor:o} was reclaimed by another worker mid-execution; abandoning this run's bookkeeping.",
+                workItem.Id, scheduledFor);
+            return TaskActionOutcome.Skipped;
+        }
+
+        ApplyResult(workItem, run, result, options.MaxAttempts, _clock.UtcNow);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Lost a final race with a reclaiming worker — safe to abandon; it owns the outcome.
+            return TaskActionOutcome.Skipped;
+        }
+
         return result.Outcome;
+    }
+
+    /// <summary>
+    /// Heart-beats the lease on <paramref name="workItemId"/> every half-lease while a handler runs,
+    /// but only while THIS worker still holds <paramref name="leaseToken"/>. Stops as soon as the
+    /// token is no longer ours (another worker reclaimed) or on cancellation. Runs in its own scope
+    /// so its writes don't disturb the dispatcher's bookkeeping context.
+    /// </summary>
+    private async Task RenewLeaseLoopAsync(
+        Guid tenantId,
+        Guid workItemId,
+        string leaseToken,
+        int leaseSeconds,
+        CancellationToken cancellationToken)
+    {
+        var interval = TimeSpan.FromSeconds(Math.Max(leaseSeconds / 2.0, 0.5));
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+
+                using var scope = _scopeFactory.CreateScope();
+                SetTenant(scope.ServiceProvider, tenantId);
+                var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+
+                var workItem = await db.WorkItems
+                    .FirstOrDefaultAsync(w => w.Id == workItemId && w.LeasedBy == leaseToken, cancellationToken)
+                    .ConfigureAwait(false);
+                if (workItem is null)
+                {
+                    return; // lease lost (reclaimed) or row gone — stop heart-beating
+                }
+
+                workItem.LeasedUntilUtc = _clock.UtcNow.AddSeconds(leaseSeconds);
+                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                // A renewal failure (e.g. a concurrent reclaim) just stops the heartbeat; the fenced
+                // outcome write then detects the lost lease and abandons this worker's bookkeeping.
+                _logger.LogDebug(ex, "Lease renewal stopped for work item {WorkItemId}.", workItemId);
+                return;
+            }
+        }
     }
 
     /// <summary>

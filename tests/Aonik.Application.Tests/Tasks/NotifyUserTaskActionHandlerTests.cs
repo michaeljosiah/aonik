@@ -86,8 +86,36 @@ public sealed class NotifyUserTaskActionHandlerTests
                 && r.UserId == userId
                 && r.Title == "Insurance renewal coming up"
                 && r.Severity == NotificationSeverities.Warning
-                && r.CorrelationId == context.WorkItemId.ToString()),
+                && r.CorrelationId == context.RunId.ToString()),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_Should_BeIdempotent_When_OccurrenceAlreadyNotified()
+    {
+        var (handler, service) = CreateHandler();
+        var userId = Guid.NewGuid();
+        var payload = JsonSerializer.Serialize(new { userId, title = "Renewal", body = "Due soon." });
+        var context = Context(payload); // same RunId across both invocations = same occurrence
+
+        // First dispatch posts the notification; a duplicate dispatch then sees it already exists.
+        service
+            .SetupSequence(s => s.ExistsForUserByCorrelationAsync(
+                context.TenantId, userId, context.RunId.ToString(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false)
+            .ReturnsAsync(true);
+
+        var first = await handler.ExecuteAsync(context);
+        var second = await handler.ExecuteAsync(context);
+
+        first.Outcome.Should().Be(TaskActionOutcome.Succeeded);
+        second.Outcome.Should().Be(TaskActionOutcome.Succeeded, "a deduplicated re-run is still a success, not a failure");
+        second.ResultJson.Should().Contain("deduplicated");
+
+        // The side effect (the actual notification) happens exactly once despite two invocations.
+        service.Verify(
+            s => s.CreateForUserAsync(It.IsAny<CreateNotificationRequest>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
