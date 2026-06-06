@@ -7,9 +7,9 @@
     <RootNamespace>Aonik.Agents</RootNamespace>
     <!--
       Spec 033 builds on MAF's Agent Skills API (AgentSkillsProvider / AgentSkillsProviderBuilder /
-      AgentSkillFrontmatter), which ships in the pinned Microsoft.Agents.AI 1.5.0 marked
-      [Experimental("MAAI001")]. The spec mandates building on these framework-native primitives, so
-      we opt in to the evaluation diagnostic here.
+      AgentSkillFrontmatter), which remains marked [Experimental("MAAI001")] in Microsoft.Agents.AI
+      1.9.0 (verified — still evaluation-only at GA). The spec mandates building on these
+      framework-native primitives, so we opt in to the evaluation diagnostic here.
     -->
     <NoWarn>$(NoWarn);MAAI001</NoWarn>
   </PropertyGroup>
@@ -41,10 +41,10 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.5.0" />
-    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.5.0" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
-    <PackageReference Include="ModelContextProtocol" Version="0.9.0-preview.2" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.9.0" />
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.9.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.6.0" />
+    <PackageReference Include="ModelContextProtocol" Version="1.4.0" />
     <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.3.0" />
   </ItemGroup>
 

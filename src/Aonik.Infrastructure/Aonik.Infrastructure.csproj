@@ -67,10 +67,10 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
-    <!-- 10.0.7 (was 10.0.4): required floor of the DataProtection 10.0.7 security pin above. -->
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
+    <!-- 10.0.8: required floor of Microsoft.Extensions.AI 10.6.0's transitive abstractions graph. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />
     <PackageReference Include="Mjml.Net" Version="4.11.0" />
     <PackageReference Include="Polly" Version="8.4.0" />
     <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
