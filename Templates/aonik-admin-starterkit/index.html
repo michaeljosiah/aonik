@@ -74,6 +74,7 @@
 <script type="text/babel" src="screens/forms.jsx"></script>
 <script type="text/babel" src="screens/agents-page.jsx"></script>
 <script type="text/babel" src="screens/agent-detail.jsx"></script>
+<script type="text/babel" src="screens/agent-detail-page.jsx"></script>
 <script type="text/babel" src="screens/workflows.jsx"></script>
 <script type="text/babel" src="screens/workflow-editor.jsx"></script>
 <script type="text/babel" src="screens/workflow-editor-chrome.jsx"></script>
@@ -311,8 +312,8 @@ function App() {
           <DCArtboard id="agents-page" label="Agents · profile cards + slide-out edit panel" width={W} height={H}>
             {mkShell('agents', ['AI', 'Agents'], ScreenAgentsPage)}
           </DCArtboard>
-          <DCArtboard id="agent-detail" label="Agent detail · Billing Agent · sub-agents, tools, skills, MCP servers + edit slide-out" width={W} height={H}>
-            {mkShell('agents', ['AI', 'Agents', 'Billing Agent'], ScreenAgentDetail)}
+          <DCArtboard id="agent-detail" label="Agent detail · Billing Agent · Profile default + Gallery⇄Map toggle · node inspector · deep drawer · edit slide-out" width={W} height={H}>
+            {mkShell('agents', ['AI', 'Agents', 'Billing Agent'], ScreenAgentDetailBlend)}
           </DCArtboard>
           <DCArtboard id="workflows" label="Agent Workflows · reusable procedures · step rails + detail pane" width={W} height={H}>
             {mkShell('workflows', ['AI', 'Workflows'], ScreenWorkflows)}
