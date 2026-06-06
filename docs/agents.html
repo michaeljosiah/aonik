@@ -242,10 +242,13 @@
       <a href="#extensibility"><span class="n">08</span>Tenant extensibility</a>
       <a href="#audit"><span class="n">09</span>Audit &amp; observability</a>
       <a href="#guardrails"><span class="n">10</span>Guardrails summary</a>
+      <div class="grp">Memory &amp; Jobs</div>
+      <a href="#memory"><span class="n">11</span>Memory &amp; retrieval</a>
+      <a href="#workers"><span class="n">12</span>Background workers</a>
       <div class="grp">Reference</div>
-      <a href="#workflows"><span class="n">11</span>Workflows</a>
-      <a href="#codemap"><span class="n">12</span>Code &amp; endpoint map</a>
-      <a href="#status"><span class="n">13</span>Status &amp; caveats</a>
+      <a href="#workflows"><span class="n">13</span>Workflows</a>
+      <a href="#codemap"><span class="n">14</span>Code &amp; endpoint map</a>
+      <a href="#status"><span class="n">15</span>Status &amp; caveats</a>
     </nav>
   </aside>
 
@@ -372,7 +375,9 @@
           <tr><td><code>src/Aonik.Agents</code></td><td>The runtime: orchestrator, agent resolution, AG-UI streaming, threads, proposals &amp; tool-approval services, tenant extensibility, workflows, and the Admin-facing endpoints.</td></tr>
           <tr><td><code>src/Aonik.Finance/Agents</code></td><td>The Finance, Financial-Life-Graph and Personal-Finance agent descriptors, their tools, and their tool-approval manifests.</td></tr>
           <tr><td><code>src/Aonik.Platform/Agents</code></td><td>The Platform agent descriptor (tenants, users, roles, compliance — read-only).</td></tr>
-          <tr><td><code>src/Aonik.Ai</code></td><td>The <code>IChatClient</code> pipeline, provider selection, model/route resolution, prompt storage, the <code>AiRun</code> audit record, telemetry and the kill-switch.</td></tr>
+          <tr><td><code>src/Aonik.Ai</code></td><td>The <code>IChatClient</code> pipeline, provider selection, model/route resolution, prompt storage, the user-memory store, the <code>AiRun</code> audit record, telemetry and the kill-switch.</td></tr>
+          <tr><td><code>src/Aonik.Infrastructure/VectorStore</code></td><td>Qdrant vector store, embeddings, and the user-memory &amp; document-RAG indexes the agent tools read and write.</td></tr>
+          <tr><td><code>src/Aonik.Worker</code></td><td>The background host — Quartz scheduled jobs and the outbox drainer that build the memory, insights and document embeddings agents consume.</td></tr>
         </tbody>
       </table>
 
@@ -396,7 +401,7 @@
       <p>
         Provider selection is per-deployment (<code>Ai.Provider</code>): <code>Stub</code> for tests
         and <code>OpenAI</code> for real calls. (<code>AzureOpenAI</code> is wired in the switch but
-        currently throws <code>NotSupportedException</code> — see <a href="#status">§13</a>.)
+        currently throws <code>NotSupportedException</code> — see <a href="#status">§15</a>.)
       </p>
 
       <h3>Two orchestration surfaces</h3>
@@ -495,7 +500,8 @@
         orchestrator's LLM reads its routing instructions and decides which specialist to call;
         results are synthesised back into one answer. Cross-cutting tools the user always needs —
         long-term memory, document search (RAG-by-default), and reminders — are attached directly to
-        the orchestrator rather than buried in a sub-agent.
+        the orchestrator rather than buried in a sub-agent. The memory and retrieval machinery is
+        detailed in §11.
       </p>
     </section>
 
@@ -981,9 +987,172 @@ reason = $<span class="st">"Host '{uri.Host}' is not on the egress allow-list."<
       </table>
     </section>
 
-    <!-- ===== 11 WORKFLOWS ===== -->
+    <!-- ===== 11 MEMORY ===== -->
+    <section id="memory">
+      <div class="eyebrow"><span class="num">11</span><span class="lbl">Memory &amp; Jobs</span></div>
+      <h2>Memory &amp; retrieval<a class="anchor" href="#memory">#</a></h2>
+      <p>
+        Agents work against three distinct retrieval subsystems. They are logically separate, but when
+        the vector backend is enabled they share one Qdrant instance.
+      </p>
+      <table class="tbl">
+        <thead><tr><th>Subsystem</th><th>Holds</th><th>Backend</th></tr></thead>
+        <tbody>
+          <tr><td><b>User long-term memory</b></td><td>AI-learned facts, preferences and corrections about a user, persisted across sessions.</td><td>SQL Server (default) <em>or</em> Qdrant</td></tr>
+          <tr><td><b>Document RAG</b> <span class="sub">Spec 035</span></td><td>Semantic search over the user's own uploaded documents.</td><td>Qdrant (<code>…-documents</code>)</td></tr>
+          <tr><td><b>User Brief</b></td><td>A compact, per-session snapshot of the user's current financial context, injected into the prompt.</td><td>Relational projection (folds in current memory)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Long-term memory</h3>
+      <p>
+        A memory is a <code>UserMemoryEntry</code> — a namespaced dot-key
+        (<code>finance.preferred_currency</code>, <code>identity.household_size</code>,
+        <code>communication.reminder_time</code>) with a JSON value, an <code>EntryType</code>
+        (<code>Identity</code>, <code>Preference</code>, <code>Correction</code>, <code>Fact</code>), a
+        <code>Confidence</code>, and a <code>Source</code> (<code>UserStated</code> /
+        <code>AiInferred</code>). Entries are <strong>never deleted</strong>: an update supersedes the
+        prior entry through a <code>SupersededById</code> chain, so the whole history stays auditable.
+        Inferred entries <em>decay</em> in confidence over time (floored, then filtered); user-stated
+        facts never decay.
+      </p>
+      <p>
+        Two backends sit behind one <code>IUserMemoryService</code>, chosen globally by the
+        <code>Ai.UserMemory.Backend</code> setting:
+      </p>
+      <div class="cards c2">
+        <div class="card"><h4>SQL Server <span class="pill neu">default</span></h4><p>Durable relational store with the full supersede + decay model. <strong>Semantic search is a no-op stub</strong> — recall returns nothing, and the agent leans on the User Brief instead.</p></div>
+        <div class="card"><h4>Qdrant <span class="pill ro">semantic</span></h4><p>Every entry is embedded and stored as a Qdrant point; CRUD, supersession and semantic recall all happen in vector payloads. This is what makes <code>user_memory_recall</code> meaningful.</p></div>
+      </div>
+
+      <h4>The two memory tools an agent sees</h4>
+      <div class="dl">
+        <dt>user_memory_save</dt>
+        <dd><span class="pill low">Low</span> Persists a fact the user stated or a correction. The <code>userId</code> comes from authenticated context, never the model. No approval gate — the AG-UI stream <em>is</em> its audit trail. The orchestrator prompt explicitly forbids wrapping it in a confirm or delegating it to a sub-agent.</dd>
+        <dt>user_memory_recall</dt>
+        <dd><span class="pill ro">Read-only</span> Semantic lookup the agent calls mid-conversation when the User Brief isn't enough. Guarded by a hard 2-second timeout that fails open to “empty”, so a slow or unreachable Qdrant can never stall chat.</dd>
+      </div>
+      <p>Both tools live on SharedKernel and self-disable if their providers aren't registered, so any
+        agent can attach them. Today the master orchestrator and Simi both do.</p>
+
+      <h3>Where Qdrant fits</h3>
+      <p>
+        Qdrant is AONIK's vector database, reached through <code>QdrantVectorStore</code> over a
+        hand-rolled REST client (<code>QdrantHttpClient</code> — no vendor SDK; cosine distance). It is
+        the backend for both user memory and document RAG, with collections named from
+        <code>Qdrant:CollectionPrefix</code> (e.g. <code>aonik-dev-user-memory</code>,
+        <code>aonik-dev-documents</code>). Two properties matter for safety:
+      </p>
+      <ul>
+        <li><strong>Fail-closed tenant isolation.</strong> Every upsert injects <code>tenant_id</code> and every search merges a <code>tenant_id</code> filter; both <em>throw</em> if there is no tenant context, so vectors can never cross tenants.</li>
+        <li><strong>Dimension-validated &amp; resilient.</strong> Embeddings whose length ≠ the configured <code>VectorDimensions</code> (1536) are rejected; a startup initializer pre-creates the memory collection and its payload indexes. A Qdrant outage reports <em>Degraded</em> (drops the pod from readiness) rather than crashing the process.</li>
+      </ul>
+      <p>
+        Embeddings come from an <code>IEmbeddingGenerator</code> selected — like the chat model — by
+        <code>Ai.Provider</code>: OpenAI (<code>text-embedding-3-small</code>) in production, or a
+        deterministic <strong>stub</strong> (hash-seeded vectors) otherwise. The stub is internally
+        consistent but not semantically meaningful.
+      </p>
+      <div class="callout warn">
+        <span class="ct">The default deployment has no real semantic recall</span>
+        <p>Out of the box, <code>Ai.UserMemory.Backend = SqlServer</code> (whose semantic search is a
+          stub) <em>and</em> <code>Ai.Provider = Stub</code> (hash-based embeddings). Meaningful
+          <code>user_memory_recall</code> and document RAG require <em>both</em>
+          <code>Ai.Provider = OpenAI</code> and the Qdrant memory backend. The User Brief path still
+          works on SQL because it's a relational query, not a vector search.</p>
+      </div>
+
+      <h3>Document RAG (Spec 035)</h3>
+      <p>
+        The user-facing RAG tool is <code>documents_search</code>, backed by
+        <code>ScopedDocumentVectorIndex</code>. Its <strong>retrieval scope is derived entirely from
+        authenticated context</strong> — tenant plus the caller's owner-party id — never from a model
+        argument, so an agent cannot widen its own reach. On top of tenant isolation it enforces document
+        classification and purpose: <code>Restricted</code> content is never embedded and
+        <code>Sensitive</code> content is metadata-only, so raw sensitive text never reaches the embedding
+        service. The tool is attached directly to the orchestrator (“RAG-by-default”).
+      </p>
+
+      <h3>Memory vs the User Brief</h3>
+      <p>
+        These are complementary. The <strong>User Brief</strong> is a proactive, per-session digest (cash
+        position, flows, top categories, risks) projected fresh at session start and injected into the
+        prompt of agents that require it (Simi). It <em>includes</em> the highest-value current memory
+        entries — read with their own 2-second timeout. Long-term <strong>memory</strong> is the reactive,
+        durable layer the agent reads on demand (<code>user_memory_recall</code>) and writes back to
+        (<code>user_memory_save</code>, plus a background extraction pass — see §12).
+      </p>
+      <div class="flow">
+        <div class="ft">Memory data flow · Qdrant backend</div>
+        <div class="rail">
+          <div class="step ok"><div class="dot">S</div><div class="bd"><div class="t">Save</div><div class="d"><code>user_memory_save</code> → resolve the user from auth → supersede the prior entry → embed <code>"{type}: {key} = {value}"</code> → upsert a tenant-stamped Qdrant point.</div></div></div>
+          <div class="step"><div class="dot">R</div><div class="bd"><div class="t">Recall</div><div class="d"><code>user_memory_recall</code> → embed the query → vector search filtered to <em>this user, current entries only</em> (+ tenant) → re-score with decay → ranked results (≤ 2 s, fail-open).</div></div></div>
+          <div class="step"><div class="dot">B</div><div class="bd"><div class="t">Brief</div><div class="d">At session start the projector reads current memory entries relationally and folds them into the injected User Brief.</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 12 BACKGROUND WORKERS ===== -->
+    <section id="workers">
+      <div class="eyebrow"><span class="num">12</span><span class="lbl">Memory &amp; Jobs</span></div>
+      <h2>Background workers for agents &amp; memory<a class="anchor" href="#workers">#</a></h2>
+      <p>
+        A dedicated <strong>Worker</strong> host (<code>src/Aonik.Worker</code>) runs the platform's
+        background work. It is the <em>only</em> host that runs the Quartz scheduler and the <em>only</em>
+        one that drains the transactional outbox — so every integration-event handler (including document
+        ingestion into Qdrant) and every scheduled job executes there. The Aspire AppHost starts it and
+        waits for Qdrant to be ready.
+      </p>
+      <p>
+        Two background-work mechanisms exist (<a href="specifications/014.background-jobs-quartz-persistence-admin.md">Spec&nbsp;014</a>):
+        cron-scheduled jobs, and an on-demand “enqueue a job now” abstraction
+        (<code>IBackgroundJobManager</code>). This section is scoped to the jobs that build or feed the
+        <strong>agent and memory</strong> layers; the platform runs other background jobs (transaction
+        sync, AI cost alarms, and so on) that are out of scope here. The relevant ones:
+      </p>
+      <table class="tbl">
+        <thead><tr><th>Job</th><th>Cadence</th><th>What it does</th><th>LLM?</th></tr></thead>
+        <tbody>
+          <tr><td><code>StaleSessionDetectorJob</code></td><td>5 min</td><td><b>The conversation-memory engine.</b> For idle chat threads it writes a summary and extracts learnable facts into long-term memory (Qdrant) — see below.</td><td><span class="pill med">yes</span></td></tr>
+          <tr><td><code>CustomerInsightSnapshotJob</code></td><td>15 min</td><td>Builds a deterministic per-user spending snapshot (no LLM). <span class="sub">Spec 015</span></td><td><span class="pill neu">no</span></td></tr>
+          <tr><td><code>CustomerInsightAiSummaryJob</code></td><td>30 min</td><td>Interprets each snapshot into a structured narrative that the <code>pf-insights</code> agent (and Simi) consume. Writes an explicit <code>AiRun</code>. <span class="sub">Spec 015</span></td><td><span class="pill med">yes</span></td></tr>
+          <tr><td><code>WorkItemDispatchJob</code></td><td>60 s</td><td>Fires due work items — reminders and scheduled agent actions; high-risk ones land as <code>Proposal</code>s, never executed inline. <span class="sub">Spec 034</span></td><td>indirect</td></tr>
+          <tr><td><code>DocumentIngestionBackfillJob</code></td><td>10 min · <span class="pill neu">off by default</span></td><td>Opt-in catch-up that re-triggers ingestion for documents that never finished indexing into Qdrant. <span class="sub">Spec 035</span></td><td><span class="pill neu">no</span></td></tr>
+        </tbody>
+      </table>
+
+      <h3>The conversation → memory pipeline</h3>
+      <p>
+        This is how memory accumulates without the user explicitly telling the agent to “remember”
+        things. <code>StaleSessionDetectorJob</code> hands stale threads (idle ≥ 15 min) to
+        <code>ConversationSummaryGenerator</code>, which makes two LLM calls per thread: one writes a
+        <code>ConversationSummary</code> (<code>use_case = conversation-summary</code>), the second
+        extracts durable user facts (<code>use_case = conversation-memory-extraction</code>) and saves
+        each through the same <code>IUserMemorySaveProvider</code> the live <code>user_memory_save</code>
+        tool uses — i.e. into Qdrant. Spend guards keep it safe: a per-thread attempt cap (×3) and a hard
+        ceiling of 20 memories per session (each memory costs an embedding).
+      </p>
+      <div class="callout warn">
+        <span class="ct">Biggest gotcha: this job no-ops by default</span>
+        <p><code>StaleSessionDetectorJob</code> only processes threads whose agent is on an
+          <strong>allow-list that ships empty</strong>
+          (<code>Quartz:ScheduledJobs:StaleSessionDetector:AgentNames</code>). Until an operator
+          populates it, the job runs every 5 minutes but produces no summaries and no memories — automatic
+          conversation memory simply will not appear.</p>
+      </div>
+
+      <h3>Other agent-relevant facts</h3>
+      <ul>
+        <li><strong>Document → Qdrant is event-driven, not cron.</strong> On upload, an outbox event drives <code>DocumentIngestionHandler</code> → <code>DocumentIndexer</code> (chunk → embed → upsert), all inside the Worker, under the originating tenant. The backfill job above only mops up stragglers.</li>
+        <li><strong>Every job that calls the LLM produces an <code>AiRun</code></strong> via the same <code>AuditMiddleware</code> as interactive chat — so background AI is auditable too.</li>
+        <li><strong>Jobs run with no HTTP context</strong>, so each sets tenancy explicitly: either a system “see-all” context (a <code>null</code> tenant sentinel that opens the query filter) or a per-item tenant set inside the loop.</li>
+        <li><strong>Transaction auto-categorization is <em>not</em> a background job</strong> — it runs inline in user/agent request flows (rules first, AI fallback), despite the “background classification” framing in <a href="specifications/028.finance-account-transaction-auto-categorization.html">Spec&nbsp;028</a>.</li>
+      </ul>
+    </section>
+
+    <!-- ===== 13 WORKFLOWS ===== -->
     <section id="workflows">
-      <div class="eyebrow"><span class="num">11</span><span class="lbl">Reference</span></div>
+      <div class="eyebrow"><span class="num">13</span><span class="lbl">Reference</span></div>
       <h2>Workflows — graph orchestration<a class="anchor" href="#workflows">#</a></h2>
       <p>
         Beyond conversational agents, the module hosts a <strong>workflow</strong> subsystem: a
@@ -1012,9 +1181,9 @@ reason = $<span class="st">"Host '{uri.Host}' is not on the egress allow-list."<
       </div>
     </section>
 
-    <!-- ===== 12 CODE MAP ===== -->
+    <!-- ===== 14 CODE MAP ===== -->
     <section id="codemap">
-      <div class="eyebrow"><span class="num">12</span><span class="lbl">Reference</span></div>
+      <div class="eyebrow"><span class="num">14</span><span class="lbl">Reference</span></div>
       <h2>Code &amp; endpoint map<a class="anchor" href="#codemap">#</a></h2>
 
       <h3>Where things live</h3>
@@ -1030,6 +1199,9 @@ reason = $<span class="st">"Host '{uri.Host}' is not on the egress allow-list."<
           <tr><td>Tenant extensibility</td><td><code>TenantAgentToolProvider</code>, <code>DeclarativeHttpAIFunction</code>, <code>TenantMcpToolProvider</code>, <code>TenantSkill*</code>, <code>TenantEgressAllowList</code>, <code>TenantCredentialProtector</code></td></tr>
           <tr><td>Model / prompt / audit</td><td><code>AiModule</code>, <code>AiModelService</code>, <code>AiTaskProfileResolver</code>, <code>AuditMiddleware</code>, <code>TelemetryChatClient</code>, <code>AiRunWriter</code></td></tr>
           <tr><td>Workflows</td><td><code>WorkflowService</code>, <code>GraphWorkflowFactory</code>, <code>Workflows/Graph/Executors/*</code></td></tr>
+          <tr><td>Memory &amp; providers</td><td><code>UserMemoryEntry</code>, <code>UserMemoryService</code> / <code>QdrantUserMemoryService</code>, <code>IUserMemory{Save,Recall}Provider</code>, <code>UserMemory{Save,Recall}Tools</code></td></tr>
+          <tr><td>Vector store &amp; RAG</td><td><code>QdrantVectorStore</code>, <code>QdrantHttpClient</code>, <code>ScopedDocumentVectorIndex</code>, <code>DocumentSearchTools</code>, <code>IEmbeddingService</code></td></tr>
+          <tr><td>Background jobs</td><td><code>src/Aonik.Worker</code> (Quartz), <code>StaleSessionDetectorJob</code>, <code>ConversationSummaryGenerator</code>, <code>CustomerInsightAiSummaryJob</code></td></tr>
         </tbody>
       </table>
 
@@ -1054,9 +1226,9 @@ reason = $<span class="st">"Host '{uri.Host}' is not on the egress allow-list."<
       </table>
     </section>
 
-    <!-- ===== 13 STATUS ===== -->
+    <!-- ===== 15 STATUS ===== -->
     <section id="status">
-      <div class="eyebrow"><span class="num">13</span><span class="lbl">Reference</span></div>
+      <div class="eyebrow"><span class="num">15</span><span class="lbl">Reference</span></div>
       <h2>Status &amp; honest caveats<a class="anchor" href="#status">#</a></h2>
       <p>
         The agent platform is production-shaped, but a few areas are intentionally narrower than the
@@ -1073,6 +1245,9 @@ reason = $<span class="st">"Host '{uri.Host}' is not on the egress allow-list."<
           <tr><td>Skill script sandbox</td><td><span class="pill med">partial</span></td><td>Containment = always-on script-approval hook + no auto-approve for script skills; the constrained runner / extension allow-list is not wired in this slice.</td></tr>
           <tr><td>Tenant egress hardening</td><td><span class="pill med">allow-list only</span></td><td>Curated host allow-list + HTTPS + final-URL re-check; no IP/metadata/DNS-rebinding denylist yet.</td></tr>
           <tr><td>Workflow branching &amp; tool nodes</td><td><span class="pill med">deferred</span></td><td>Conditional edges and <code>tool</code>/<code>decision</code>/<code>loop</code>/<code>human</code>/<code>wait</code> executors are not yet runnable.</td></tr>
+          <tr><td>Semantic memory recall</td><td><span class="pill med">off by default</span></td><td>Requires both <code>Ai.Provider = OpenAI</code> and <code>Ai.UserMemory.Backend = Qdrant</code>; the SQL default returns no semantic results.</td></tr>
+          <tr><td>Automatic conversation memory</td><td><span class="pill med">opt-in</span></td><td><code>StaleSessionDetectorJob</code>'s agent allow-list ships empty, so it no-ops until an operator configures it.</td></tr>
+          <tr><td><code>RagContextProvider</code></td><td><span class="pill med">vestigial</span></td><td>Registered only in the Worker, uses a duplicate interface pair, and ignores the collection prefix. The live RAG path is <code>documents_search</code>.</td></tr>
         </tbody>
       </table>
     </section>
@@ -1093,7 +1268,7 @@ reason = $<span class="st">"Host '{uri.Host}' is not on the egress allow-list."<
       </p>
       <p style="color:var(--faint)">This document reflects the implementation on branch
         <code>feat/spec-033-tenant-agent-extensibility</code> as of 2026-06-06. Where code and spec
-        diverge, the code is described as shipped and the difference is flagged in §13.</p>
+        diverge, the code is described as shipped and the difference is flagged in §15.</p>
     </footer>
 
   </div>
