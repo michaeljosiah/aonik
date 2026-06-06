@@ -50,6 +50,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
     pendingApprovals,
     approveAction,
     rejectAction,
+    decideServerApproval,
     selectToolCallOptions,
   } = useAguiChat();
   const chatRunState = resolveChatRunState(messages, isStreaming);
@@ -202,6 +203,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
                   pendingApprovals={pendingApprovals}
                   onApproveAction={approveAction}
                   onRejectAction={rejectAction}
+                  onDecideApproval={decideServerApproval}
                   onSelectToolCallOptions={selectToolCallOptions}
                   onSelectFollowUpSuggestion={(prompt) => void sendMessage(prompt)}
                 />

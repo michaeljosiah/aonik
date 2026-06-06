@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
 
 using Microsoft.Agents.AI;
@@ -28,13 +29,16 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
 
     private readonly IToolCallClassifier _classifier;
     private readonly ISpeechRenderer _speechRenderer;
+    private readonly IToolApprovalStreamNotifier _approvalNotifier;
 
     public AguiStreamPipeline(
         IToolCallClassifier classifier,
-        ISpeechRenderer speechRenderer)
+        ISpeechRenderer speechRenderer,
+        IToolApprovalStreamNotifier approvalNotifier)
     {
         _classifier = classifier;
         _speechRenderer = speechRenderer;
+        _approvalNotifier = approvalNotifier;
     }
 
     public async Task<AguiStreamPipelineResult> StreamAsync(
@@ -53,6 +57,9 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
         var messageStarted = false;
         var requiresVisualAttention = false;
         var requiresApproval = false;
+        // Spec 032: ids of approval cards already emitted inline, so the end-of-run notifier drain
+        // (which also catches nested sub-agent approvals) does not emit a duplicate for a top-level call.
+        var emittedApprovalKeys = new HashSet<string>(StringComparer.Ordinal);
         var speechBuffer = new SpeechStreamBuffer();
         var speechChunksEmittedDuringStream = 0;
         var speechChunkTailEmitted = false;
@@ -193,7 +200,9 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                         if (approvalSignal.RequiresApproval)
                         {
                             requiresApproval = true;
-                            if (approvalSignal.CustomEvent is { } approvalEvent)
+                            if (approvalSignal.CustomEvent is { } approvalEvent
+                                && (approvalSignal.ApprovalKey is null
+                                    || emittedApprovalKeys.Add(approvalSignal.ApprovalKey)))
                             {
                                 await WriteSseEventAsync(writer, approvalEvent, cancellationToken);
                             }
@@ -226,6 +235,27 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                 type = "TEXT_MESSAGE_END",
                 messageId,
             }, cancellationToken);
+        }
+
+        // Spec 032: drain approvals raised by gated tools that ran NESTED inside a sub-agent
+        // (agent-as-tool). Their structured result is consumed one level down and never reaches the
+        // top-level FunctionResultContent inspection above, so without this drain the approval card
+        // is silently dropped on the orchestrator surface. The decorator records every gated approval
+        // into the request-scoped notifier; emit any not already sent inline (dedup by approval id).
+        foreach (var pendingApproval in _approvalNotifier.Drain())
+        {
+            var nestedSignal = ToolApprovalStreamEvents.Inspect(pendingApproval, toolCallId: null);
+            if (!nestedSignal.RequiresApproval)
+            {
+                continue;
+            }
+
+            requiresApproval = true;
+            if (nestedSignal.CustomEvent is { } nestedEvent
+                && (nestedSignal.ApprovalKey is null || emittedApprovalKeys.Add(nestedSignal.ApprovalKey)))
+            {
+                await WriteSseEventAsync(writer, nestedEvent, cancellationToken);
+            }
         }
 
         // Tail chunk — text-only path. Voice mode emits one consolidated

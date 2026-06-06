@@ -66,16 +66,42 @@ public class ToolApprovalGateTests
                 approvalRequestId, ToolApprovalDecisionOutcome.Approved, ProposalId: null, Message: null));
     }
 
-    /// <summary>Minimal provider that resolves only <see cref="IToolApprovalService"/> — mirrors how the
-    /// decorator pulls the router lazily from the agent-build-time <see cref="IServiceProvider"/>.</summary>
+    /// <summary>Records the approval results the decorator hands to the stream notifier so a test can
+    /// assert a gated (and not-run) mutation is surfaced to the client even when nested in a sub-agent.</summary>
+    private sealed class RecordingStreamNotifier : IToolApprovalStreamNotifier
+    {
+        public List<object> Recorded { get; } = new();
+
+        public void Record(object approvalResult) => Recorded.Add(approvalResult);
+
+        public IReadOnlyList<object> Drain()
+        {
+            var copy = Recorded.ToArray();
+            Recorded.Clear();
+            return copy;
+        }
+    }
+
+    /// <summary>Minimal provider that resolves the <see cref="IToolApprovalService"/> and (optionally) the
+    /// <see cref="IToolApprovalStreamNotifier"/> — mirrors how the decorator pulls them lazily from the
+    /// agent-build-time <see cref="IServiceProvider"/>.</summary>
     private sealed class StubServiceProvider : IServiceProvider
     {
         private readonly object? _approvalService;
+        private readonly object? _streamNotifier;
 
-        public StubServiceProvider(object? approvalService) => _approvalService = approvalService;
+        public StubServiceProvider(object? approvalService, object? streamNotifier = null)
+        {
+            _approvalService = approvalService;
+            _streamNotifier = streamNotifier;
+        }
 
-        public object? GetService(Type serviceType) =>
-            serviceType == typeof(IToolApprovalService) ? _approvalService : null;
+        public object? GetService(Type serviceType)
+        {
+            if (serviceType == typeof(IToolApprovalService)) return _approvalService;
+            if (serviceType == typeof(IToolApprovalStreamNotifier)) return _streamNotifier;
+            return null;
+        }
     }
 
     private static ToolApprovalGate CreateGate(
@@ -338,6 +364,58 @@ public class ToolApprovalGateTests
         sink.Entries.Should().ContainSingle();
         sink.Entries[0].Executed.Should().BeFalse();
         sink.Entries[0].Outcome.Should().Be("blocked-requires-approval");
+    }
+
+    [Fact]
+    public async Task GatedMediumTool_Should_RecordPendingResultInStreamNotifier_When_GatePendsApproval()
+    {
+        var tool = AIFunctionFactory.Create(() => "created", "finance_create_invoice");
+        var gate = CreateGate(
+            new Dictionary<string, ToolClassification>(StringComparer.Ordinal)
+            {
+                ["finance_create_invoice"] = ToolClassification.Mutating(
+                    new ToolApprovalOptions(ToolApprovalTier.Medium, "Create a draft invoice")),
+            },
+            out _);
+
+        var requestId = Guid.NewGuid();
+        var approvals = new StubApprovalService(
+            new ToolGateOutcome(ToolGateDecision.PendingApproval, ApprovalRequestId: requestId, Summary: "Create a draft invoice"));
+        var notifier = new RecordingStreamNotifier();
+        var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals, notifier));
+
+        await gated.InvokeAsync(new AIFunctionArguments(), CancellationToken.None);
+
+        // The card must reach the client even when this tool ran nested in a sub-agent and its result
+        // never surfaces on the top-level stream — so the decorator records it for the pipeline to drain.
+        notifier.Recorded.Should().ContainSingle()
+            .Which.Should().BeOfType<ToolApprovalRequiredResult>()
+            .Which.ApprovalRequestId.Should().Be(requestId);
+    }
+
+    [Fact]
+    public async Task GatedHighTool_Should_RecordQueuedResultInStreamNotifier_When_Marshalled()
+    {
+        var tool = AIFunctionFactory.Create(() => "captured", "finance_capture_payment");
+        var gate = CreateGate(
+            new Dictionary<string, ToolClassification>(StringComparer.Ordinal)
+            {
+                ["finance_capture_payment"] = ToolClassification.Mutating(
+                    new ToolApprovalOptions(ToolApprovalTier.High, "Capture a payment", "Finance.CapturePayment")),
+            },
+            out _);
+
+        var proposalId = Guid.NewGuid();
+        var approvals = new StubApprovalService(
+            new ToolGateOutcome(ToolGateDecision.Queued, ProposalId: proposalId, Summary: "Capture a payment"));
+        var notifier = new RecordingStreamNotifier();
+        var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals, notifier));
+
+        await gated.InvokeAsync(new AIFunctionArguments(), CancellationToken.None);
+
+        notifier.Recorded.Should().ContainSingle()
+            .Which.Should().BeOfType<ToolApprovalQueuedResult>()
+            .Which.ProposalId.Should().Be(proposalId);
     }
 
     [Fact]

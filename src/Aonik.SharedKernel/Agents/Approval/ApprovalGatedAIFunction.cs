@@ -113,7 +113,11 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                     _auditSink.Record(new ToolApprovalAuditEntry(
                         Name, _options.Tier, Executed: false, Outcome: "pending-approval"));
 
-                    return ToolApprovalRequiredResult.For(Name, _options, requestId);
+                    var pendingResult = ToolApprovalRequiredResult.For(Name, _options, requestId);
+                    // Record for the stream pipeline so the approval card is emitted even when this
+                    // tool ran nested in a sub-agent and its result never reaches the top-level stream.
+                    ResolveStreamNotifier()?.Record(pendingResult);
+                    return pendingResult;
                 }
 
                 // Any other outcome (refused / misconfigured) → fail closed via the refusal below.
@@ -137,7 +141,11 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                     _auditSink.Record(new ToolApprovalAuditEntry(
                         Name, _options.Tier, Executed: false, Outcome: "queued-for-approval"));
 
-                    return ToolApprovalQueuedResult.For(Name, _options, proposalId, outcome.Summary);
+                    var queuedResult = ToolApprovalQueuedResult.For(Name, _options, proposalId, outcome.Summary);
+                    // Record for the stream pipeline so the queued-money card is emitted even when this
+                    // tool ran nested in a sub-agent and its result never reaches the top-level stream.
+                    ResolveStreamNotifier()?.Record(queuedResult);
+                    return queuedResult;
                 }
 
                 // Any non-Queued outcome on the High path (refused / misconfigured) → fail closed.
@@ -161,4 +169,12 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
     /// </summary>
     private IToolApprovalService? ResolveApprovalService() =>
         _serviceProvider?.GetService(typeof(IToolApprovalService)) as IToolApprovalService;
+
+    /// <summary>
+    /// Resolves the request-scoped <see cref="IToolApprovalStreamNotifier"/> from the captured
+    /// provider, or null if unavailable. Shared with the AG-UI stream pipeline so a gated tool's
+    /// approval card is surfaced even when this tool ran nested inside a sub-agent.
+    /// </summary>
+    private IToolApprovalStreamNotifier? ResolveStreamNotifier() =>
+        _serviceProvider?.GetService(typeof(IToolApprovalStreamNotifier)) as IToolApprovalStreamNotifier;
 }

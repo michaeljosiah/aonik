@@ -109,6 +109,13 @@ public sealed class AgentsModule : IModule
         // and the proposal-approval path. TryAdd so a host/test can substitute its own.
         services.TryAddScoped<IToolApprovalService, Services.ToolApprovalService>();
 
+        // Spec 032 §7.7 — request-scoped bridge that lets a gated tool's approval card reach the
+        // active client even when the tool ran nested inside a sub-agent (agent-as-tool), where its
+        // structured result never surfaces on the top-level stream. The decorator records into it;
+        // AguiStreamPipeline drains it at end-of-run. Scoped so the decorator (resolving from the
+        // request-scoped provider) and the pipeline share one buffer per AG-UI request.
+        services.TryAddScoped<IToolApprovalStreamNotifier, Services.ToolApprovalStreamNotifier>();
+
         // MCP tool provider — connects to MCP servers and exposes their tools as AITool
         // instances for use by agents. Registered as singleton since it manages long-lived
         // stdio connections to MCP server processes.

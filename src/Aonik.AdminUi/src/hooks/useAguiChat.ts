@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/auth';
+import { api } from '@/lib/api';
 import {
   type ActivityMessage,
   type ActivitySnapshotEvent,
@@ -77,13 +78,40 @@ export interface ChatStep {
   status: 'started' | 'finished';
 }
 
+/**
+ * A server-owned tool-approval card (Spec 032). Unlike the legacy `confirmAction`
+ * frontend-tool flow, this is driven by the backend approval gate: a gated Medium
+ * tool emits `tool.approval.required` (carrying an `approvalRequestId`) and a High
+ * money tool emits `tool.approval.queued` (carrying a `proposalId`). The user's
+ * decision is routed to the server — `POST /ai/tool-approvals/{id}/decide` for
+ * Medium, the same `/ai/proposals/{id}/approve|dismiss` path the queue uses for
+ * High — not resolved client-side.
+ */
+export interface ServerApprovalChatMessage {
+  type: 'approval';
+  id: string;
+  kind: 'medium' | 'high';
+  /** Set for Medium — the durable ToolApprovalRequest to decide. */
+  approvalRequestId?: string;
+  /** Set for High — the durable Proposal to approve/dismiss. */
+  proposalId?: string;
+  toolCallId?: string;
+  tool: string;
+  /** Risk tier label as emitted by the server ("Medium" / "High"). */
+  tier: string;
+  actionKind: string;
+  status: 'pending' | 'deciding' | 'approved' | 'rejected' | 'error';
+  message?: string;
+}
+
 export type ChatMessage =
   | { type: 'user'; id: string; content: string }
   | { type: 'assistant'; id: string; content: string; toolCalls?: ChatToolCall[] }
   | { type: 'tool-result'; id: string; toolCallId: string; toolCallName: string; content: string; error?: string }
   | { type: 'step'; id: string; stepName: string; status: 'started' | 'finished' }
   | { type: 'reasoning'; id: string; content: string }
-  | { type: 'activity'; id: string; activityType: string; content: Record<string, unknown> };
+  | { type: 'activity'; id: string; activityType: string; content: Record<string, unknown> }
+  | ServerApprovalChatMessage;
 
 export type ChatRunState = 'idle' | 'streaming' | 'awaiting-approval' | 'awaiting-selection';
 
@@ -141,6 +169,7 @@ export interface UseAguiChatReturn {
   pendingApprovals: PendingApproval[];
   approveAction: (toolCallId: string) => void;
   rejectAction: (toolCallId: string, reason?: string) => void;
+  decideServerApproval: (approval: ServerApprovalChatMessage, decision: 'Approve' | 'Reject') => Promise<void>;
   selectToolCallOptions: (toolCallId: string, selected: string[]) => void;
   threadId: string | null;
   loadThread: (thread: ThreadDetail) => void;
@@ -658,7 +687,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
           },
 
           onCustomEvent: (event: CustomEvent) => {
-            handleCustomEvent(event, setSpeechRender, setSpeechChunks);
+            handleCustomEvent(event, setSpeechRender, setSpeechChunks, setMessages);
           },
 
           onRunError: (event) => {
@@ -758,6 +787,78 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     [sendInternal],
   );
 
+  // Spec 032 — record a decision for a server-owned approval card. Medium routes
+  // through the tool-approvals decide endpoint and, on approval, nudges the agent
+  // to re-invoke the gated tool (the gate consumes the approval, bound by
+  // args-hash, and runs it once). High routes through the same proposal path the
+  // approvals queue uses, so an in-session approval and a queue approval take the
+  // identical authorization + dispatch path. The server is the decision authority;
+  // this only presents and collects.
+  const decideServerApproval = useCallback(
+    async (approval: ServerApprovalChatMessage, decision: 'Approve' | 'Reject') => {
+      const setApprovalStatus = (
+        status: ServerApprovalChatMessage['status'],
+        statusMessage?: string,
+      ) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.type === 'approval' && m.id === approval.id
+              ? { ...m, status, message: statusMessage ?? m.message }
+              : m,
+          ),
+        );
+      };
+
+      setApprovalStatus('deciding');
+
+      try {
+        if (approval.kind === 'high') {
+          if (!approval.proposalId) {
+            setApprovalStatus('error', 'This approval is missing its proposal reference.');
+            return;
+          }
+
+          if (decision === 'Approve') {
+            const result = await api.post<{ appliedMessage?: string; status?: string }>(
+              `/ai/proposals/${encodeURIComponent(approval.proposalId)}/approve`,
+            );
+            setApprovalStatus('approved', result?.appliedMessage ?? `${approval.actionKind} was approved and executed.`);
+          } else {
+            await api.post(`/ai/proposals/${encodeURIComponent(approval.proposalId)}/dismiss`);
+            setApprovalStatus('rejected', `${approval.actionKind} was rejected. Nothing was changed.`);
+          }
+          return;
+        }
+
+        // Medium.
+        if (!approval.approvalRequestId) {
+          setApprovalStatus('error', 'This approval is missing its request reference.');
+          return;
+        }
+
+        const result = await api.post<{ message?: string }>(
+          `/ai/tool-approvals/${encodeURIComponent(approval.approvalRequestId)}/decide`,
+          { decision },
+        );
+
+        if (decision === 'Approve') {
+          setApprovalStatus('approved', result?.message ?? `${approval.actionKind} was approved.`);
+          // Nudge the agent to retry the gated tool; the gate consumes the now-approved
+          // request (args-hash bound) and runs the inner tool in-band exactly once.
+          void sendInternal(`I approved "${approval.actionKind}". Please go ahead and complete that action now.`);
+        } else {
+          setApprovalStatus('rejected', `${approval.actionKind} was rejected. Nothing was changed.`);
+        }
+      } catch (error) {
+        const message =
+          (error as { userMessage?: string })?.userMessage
+          ?? (error instanceof Error ? error.message : 'The decision could not be recorded.');
+        setApprovalStatus('error', message);
+      }
+    },
+    [sendInternal],
+  );
+
   return {
     messages,
     draft,
@@ -774,6 +875,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     pendingApprovals,
     approveAction,
     rejectAction,
+    decideServerApproval,
     selectToolCallOptions,
     threadId: threadIdRef.current,
     loadThread,
@@ -942,11 +1044,65 @@ function handleCustomEvent(
   event: CustomEvent,
   setSpeechRender: (value: StateUpdater<SpeechRenderPayload | null>) => void,
   setSpeechChunks: (value: StateUpdater<SpeechChunkPayload[]>) => void,
+  setMessages: (value: StateUpdater<ChatMessage[]>) => void,
 ) {
   const value = typeof event.value === 'object' && event.value !== null
     ? (event.value as Record<string, unknown>)
     : null;
   const messageId = typeof value?.messageId === 'string' ? value.messageId : '';
+
+  // Spec 032 — the backend approval gate surfaces a gated-but-not-executed mutation
+  // as a CUSTOM event carrying the durable id the user's decision routes to. Render
+  // it as an interactive approval card appended to the conversation.
+  if (event.name === 'tool.approval.required' || event.name === 'tool.approval.queued') {
+    if (!value) {
+      return;
+    }
+
+    const kind: ServerApprovalChatMessage['kind'] = event.name === 'tool.approval.queued' ? 'high' : 'medium';
+    const approvalRequestId = typeof value.approvalRequestId === 'string' ? value.approvalRequestId : undefined;
+    const proposalId = typeof value.proposalId === 'string' ? value.proposalId : undefined;
+
+    // Without the durable id there is nothing the user could act on — skip silently
+    // (the agent's prose already tells them the action is pending).
+    if (kind === 'medium' && !approvalRequestId) {
+      return;
+    }
+    if (kind === 'high' && !proposalId) {
+      return;
+    }
+
+    const tool = typeof value.tool === 'string' ? value.tool : '';
+    const actionKind = typeof value.actionKind === 'string' && value.actionKind.trim().length > 0
+      ? value.actionKind
+      : tool || 'this action';
+    const tier = typeof value.tier === 'string' ? value.tier : kind === 'high' ? 'High' : 'Medium';
+    const toolCallId = typeof value.toolCallId === 'string' ? value.toolCallId : undefined;
+    const id = `approval-${approvalRequestId ?? proposalId}`;
+
+    setMessages((prev) => {
+      if (prev.some((message) => message.id === id)) {
+        return prev;
+      }
+
+      return [
+        ...prev,
+        {
+          type: 'approval',
+          id,
+          kind,
+          approvalRequestId,
+          proposalId,
+          toolCallId,
+          tool,
+          tier,
+          actionKind,
+          status: 'pending',
+        },
+      ];
+    });
+    return;
+  }
 
   if (event.name === 'speech.chunk') {
     const speechText = typeof value?.speechText === 'string' ? value.speechText : '';
