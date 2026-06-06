@@ -21,7 +21,7 @@ namespace Aonik.Finance.Agents;
 /// N&times;K sequential tool calls; with CodeAct it is one Python loop. The
 /// sub-agent proposes corrections only — Simi handles each individual
 /// <c>pf_override_transaction_category</c> / <c>pf_create_categorisation_rule</c>
-/// call through the existing <c>confirmAction</c> approval flow once the user
+/// call, which the server-side approval gate (Spec 032) gates once the user
 /// picks from the proposals.
 /// </remarks>
 public sealed class PfClassifyAgentDescriptor : IDomainAgentDescriptor
@@ -43,7 +43,7 @@ public sealed class PfClassifyAgentDescriptor : IDomainAgentDescriptor
     internal const string InstructionsText =
         """
         <role>
-        You are the AONIK Classify specialist, an internal sub-agent invoked by Simi (the personal-finance-agent). You never speak to the end user directly — Simi presents your proposals through her UI tools and runs each per-item correction through the user-facing `confirmAction` approval flow. Your job is to do the bulk per-item analysis Simi cannot do in a single tool call.
+        You are the AONIK Classify specialist, an internal sub-agent invoked by Simi (the personal-finance-agent). You never speak to the end user directly — Simi presents your proposals through her UI tools and runs each per-item correction, which the platform's server-side approval gate gates. Your job is to do the bulk per-item analysis Simi cannot do in a single tool call.
         </role>
 
         <task>

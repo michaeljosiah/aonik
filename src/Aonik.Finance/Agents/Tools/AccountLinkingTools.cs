@@ -97,8 +97,9 @@ internal sealed class AccountLinkingTools
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all account linking tools.
     /// Mutating tools (CreateAccountLinkSession, RefreshLinkedAccount,
-    /// SyncLinkedAccountTransactions, DisconnectLinkedAccount) rely on the
-    /// <c>confirmAction</c> frontend tool for human-in-the-loop approval.
+    /// SyncLinkedAccountTransactions, DisconnectLinkedAccount) are gated
+    /// server-side by the <c>IToolApprovalGate</c> (Spec 032, classified by
+    /// PersonalFinanceToolApprovalManifest).
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -109,7 +110,7 @@ internal sealed class AccountLinkingTools
         yield return AIFunctionFactory.Create(tools.ListLinkedAccounts, name: "pf_list_linked_accounts");
         yield return AIFunctionFactory.Create(tools.GetAccountLinkSummary, name: "pf_get_account_link_summary");
 
-        // Mutating — approval enforced via the confirmAction frontend tool
+        // Mutating — gated server-side by the IToolApprovalGate (PersonalFinanceToolApprovalManifest)
         yield return AIFunctionFactory.Create(tools.CreateAccountLinkSession, name: "pf_create_account_link_session");
         yield return AIFunctionFactory.Create(tools.RefreshLinkedAccount, name: "pf_refresh_linked_account");
         yield return AIFunctionFactory.Create(tools.SyncLinkedAccountTransactions, name: "pf_sync_linked_account_transactions");

@@ -98,7 +98,7 @@ public sealed class PfInsightsAgentDescriptor : IDomainAgentDescriptor
           - `rank`: `rank_by` (string e.g. "spend_growth_pct"), `rank_length` (integer), `period_label` (string).
           The schema permits any keys here — pick what supports your `summary`.
         - `entities` — `[{ ref, label }]`. `label` is what Simi would say to the user (e.g. `"Honest Burgers · £14.50 · 12 Apr"`, `"Dining · £218 in March"`). Order: most-relevant first.
-        - `recommendedActions` — `[{ label, simiTool, argsHint }]`. `label` is what the user sees in `display_option_selector`; `simiTool` names the tool Simi will offer (gated by `confirmAction`); `argsHint` pre-fills tool arguments. Both `simiTool` and `argsHint` are optional for informational suggestions.
+        - `recommendedActions` — `[{ label, simiTool, argsHint }]`. `label` is what the user sees in `display_option_selector`; `simiTool` names the tool Simi will offer (gated server-side by the platform); `argsHint` pre-fills tool arguments. Both `simiTool` and `argsHint` are optional for informational suggestions.
         - `warnings` — plain-English notes about missing data, sparse history, or assumptions baked in.
         </output_contract>
 

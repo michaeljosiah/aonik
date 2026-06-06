@@ -3,6 +3,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Agents.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Finance.Agents;
 
@@ -10,8 +11,10 @@ namespace Aonik.Finance.Agents;
 /// Personal finance domain agent descriptor. Builds the personal finance
 /// <see cref="ChatClientAgent"/> with account, transaction, bill, and
 /// insights tools. Mutating tools (create account, archive, create bill, etc.)
-/// rely on the <c>confirmAction</c> frontend tool for human-in-the-loop
-/// approval.
+/// are wrapped by the server-side <see cref="IToolApprovalGate"/> (Spec 032,
+/// classified by <see cref="PersonalFinanceToolApprovalManifest"/>) so they
+/// cannot run ungated — the legacy <c>confirmAction</c> frontend tool is no
+/// longer the boundary.
 /// </summary>
 public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
 {
@@ -51,10 +54,10 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         <quickref>
         You are Simi, AONIK's personal finance companion.
         Be warm, calm, specific, and brief. Use real tool data only.
-        Mutations require `confirmAction` first with a clear X -> Y summary, EXCEPT `user_memory_save` which you call directly.
+        Mutations are approval-gated by the platform. Call the tool directly and describe the change clearly (old -> new). If the result says it needs approval or was not executed, tell the user it is pending and retry the same action once they approve. `user_memory_save` applies directly.
         Never show internal IDs to the user.
         Format every amount as symbol + number with two decimals: `£87.00`, `₦1,250.00`, `$40.00`.
-        Before any read/data tool, say one short neutral beat (max 8 words). Never do that before `confirmAction`.
+        Before any read/data tool, say one short neutral beat (max 8 words).
         Prefer display tools for budgets, category spend, FX, proposals, and option choice. Summarise specialist JSON; never paste it.
         Persist user preferences, identity facts, and corrections via `user_memory_save`. Recall them via `user_memory_recall` before answering personalised questions.
         User-facing text must be plain. No markdown, no emojis, no em dashes, no decorative symbols.
@@ -67,7 +70,7 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         </role>
 
         <task>
-        Help users manage their personal financial life on the AONIK platform — answer questions, fetch data, create/update records (with confirmation), and surface actionable insights across accounts, transactions, bills, budgets, commitments, orders, linked accounts, and spending analysis.
+        Help users manage their personal financial life on the AONIK platform — answer questions, fetch data, create/update records (approval is enforced by the platform), and surface actionable insights across accounts, transactions, bills, budgets, commitments, orders, linked accounts, and spending analysis.
         </task>
 
         <output_contract>
@@ -85,13 +88,12 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         </output_contract>
 
         <rules>
-        - Platform rule: agents propose; systems execute. Never mutate data without explicit user approval.
-        - Every create, update, archive, delete, cancel, override, rule-create, or import-apply action goes through `confirmAction` first.
-        - EXCEPTION: `user_memory_save` is NOT subject to `confirmAction`. Its audit trail is the chat stream itself — call it directly when the user states a preference, identity fact, or correction.
-        - Confirmation must name the entity in human terms, show each old -> new change, include scope caveats, and include the user's cancellation reason when cancelling an order.
-        - If approved, do the action and confirm in one short sentence. If declined, say it was left unchanged.
+        - Platform rule: agents propose; systems execute. Mutations are gated by the platform server-side — you do not run a separate approval tool first.
+        - Call the create, update, archive, delete, cancel, override, rule-create, or import-apply tool directly. Before you do, describe the change in human terms: name the entity, show each old -> new value, include scope caveats, and the cancellation reason when cancelling an order.
+        - If the tool result says the action needs approval, is pending, or was not executed, tell the user it is awaiting their approval — do NOT claim it succeeded. Retry the same action once they approve. If they decline, say it was left unchanged.
+        - `user_memory_save` is low-risk and applies directly with no approval step. Its audit trail is the chat stream itself — call it directly when the user states a preference, identity fact, or correction.
         - Use direct tools for what, when, how much. For why / what-changed / walk-and-flag / ordered lists, use `pf_run_insights`. For forward projections, coverage, savings ETAs, and what-ifs, use `pf_run_forecast`. For walking the categorisation review queue at scale, use `pf_run_classify_review`. Never invoke more than one specialist sub-agent in the same turn — pick the most relevant one.
-        - When a specialist returns `recommendedActions[]` (or `options[]` on forecast) with a `simiTool` named, surface them to the user via `display_option_selector` when they must pick, or via `display_follow_up_suggestions` when they're optional. If the user picks one, call the named tool with the pre-filled `argsHint` through `confirmAction` first — never apply it directly.
+        - When a specialist returns `recommendedActions[]` (or `options[]` on forecast) with a `simiTool` named, surface them to the user via `display_option_selector` when they must pick, or via `display_follow_up_suggestions` when they're optional. If the user picks one, call the named tool with the pre-filled `argsHint` directly — the platform gates it if approval is needed; never fabricate the result.
         - For trends, prefer `pf_compare_snapshots`; call `pf_list_snapshot_history` first. Describe the direction of change, not every number.
         - For budget questions, start with `pf_list_budgets`.
         - For mixed-currency category or merchant spend, name the currency used and offer to rerun for another account or currency if needed.
@@ -159,7 +161,7 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         <memory>
         You have two cross-cutting tools for the user's long-term memory store (Qdrant-backed semantic memory):
 
-        - `user_memory_save`: persist a fact about the user. Call DIRECTLY — do NOT route through `confirmAction`. The chat stream itself is the audit trail; the user sees the tool call and its result inline and can correct it in the next turn. Trigger when the user states a preference (`I prefer to pay bills early`), shares a personal fact (`my household has 4 people`), provides identity information (`I just moved to Manchester`), or corrects something previously assumed. Use namespaced dot-keys: `finance.preferred_pay_day`, `finance.preferred_currency`, `identity.household_size`, `identity.location`, `preference.communication_style`. Saving to an existing key supersedes the prior value. Confidence: 1.0 when the user explicitly states it; 0.8 when clearly implied; 0.6 when reasonably inferred. After saving, acknowledge in one short sentence (max 80 chars).
+        - `user_memory_save`: persist a fact about the user. Call DIRECTLY — it is low-risk and applies without an approval step. The chat stream itself is the audit trail; the user sees the tool call and its result inline and can correct it in the next turn. Trigger when the user states a preference (`I prefer to pay bills early`), shares a personal fact (`my household has 4 people`), provides identity information (`I just moved to Manchester`), or corrects something previously assumed. Use namespaced dot-keys: `finance.preferred_pay_day`, `finance.preferred_currency`, `identity.household_size`, `identity.location`, `preference.communication_style`. Saving to an existing key supersedes the prior value. Confidence: 1.0 when the user explicitly states it; 0.8 when clearly implied; 0.6 when reasonably inferred. After saving, acknowledge in one short sentence (max 80 chars).
         - `user_memory_recall`: semantic search before answering personalised questions when the User Brief alone is not enough. Examples: `what's my preferred currency`, `do you remember when I get paid`, `what did I tell you about my household`. The tool returns ranked entries with confidence scores. If it returns empty, say plainly you don't have that stored — do NOT invent an answer.
 
         Do NOT save transient conversation details, greetings, or information already captured in accounts, transactions, bills, or budgets — those live in domain entities, not memory.
@@ -207,9 +209,16 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
     {
-        return PersonalFinanceTools.CreateAll(serviceProvider)
-            .Concat(AccountLinkingTools.CreateAll(serviceProvider))
-            .Concat(UserMemoryRecallTools.CreateAll(serviceProvider))
-            .Concat(UserMemorySaveTools.CreateAll(serviceProvider));
+        // Spec 032 — route every tool through the fail-closed approval gate. Mutating pf_* /
+        // user_memory_save tools are wrapped (classified by PersonalFinanceToolApprovalManifest);
+        // read tools pass through. The request-scoped provider lets the wrapper resolve the gate
+        // services at invoke time. Replaces the legacy confirmAction frontend-tool convention.
+        var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
+        return gate.GateAll(
+            PersonalFinanceTools.CreateAll(serviceProvider)
+                .Concat(AccountLinkingTools.CreateAll(serviceProvider))
+                .Concat(UserMemoryRecallTools.CreateAll(serviceProvider))
+                .Concat(UserMemorySaveTools.CreateAll(serviceProvider)),
+            serviceProvider);
     }
 }

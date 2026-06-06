@@ -290,13 +290,13 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     enabled: true,
     confirmAction,
     selectOptions,
-    // confirmAction stays declared. PersonalFinance + Platform agents are NOT yet behind the
-    // Spec 032 server gate — their mutating pf_*/platform_* tools are returned ungated and their
-    // instructions still mandate confirmAction — so it remains their ONLY approval mechanism;
-    // dropping it would let those agents either mutate with no approval or fail the confirm step
-    // their instructions require. It is redundant for (gated) Finance, so the orchestrator can emit
-    // both a confirmAction card and the server card (a double-prompt) — the lesser evil until every
-    // mutating descriptor is gated, after which this tool can be dropped. See #97.
+    // Spec 032: every mutating domain agent is now behind the server-side approval gate — Finance
+    // and PersonalFinance classify their mutating tools, and the read-only FLG / Platform / Pf*
+    // agents route through IToolApprovalGate too — and the gate surfaces its own ServerApprovalCard.
+    // The legacy confirmAction frontend tool is therefore redundant, so we do not declare it to the
+    // model (which otherwise emitted a duplicate confirmAction card alongside the server card). The
+    // confirmAction rendering path is kept in ChatMessageList only to display historical threads.
+    includeConfirmAction: false,
     includeDisplayTools: enablePersonalFinanceFeatures,
     includeOptionSelector: enablePersonalFinanceFeatures,
     includeNavigation: enablePersonalFinanceFeatures,

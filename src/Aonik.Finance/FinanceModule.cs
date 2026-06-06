@@ -218,6 +218,12 @@ public sealed class FinanceModule : IModule
         // uses this one to wrap the finance agent's mutating tools before they reach the model.
         services.AddSingleton<IToolApprovalManifest, FinanceToolApprovalManifest>();
 
+        // Spec 032 — PersonalFinance ("Simi") tool-approval classification. Same gate, second
+        // manifest: gates the personal-finance agent's mutating pf_* / user_memory_save tools (all
+        // Medium/Low — PersonalFinance moves no money) so they no longer rely on the legacy
+        // confirmAction frontend tool.
+        services.AddSingleton<IToolApprovalManifest, PersonalFinanceToolApprovalManifest>();
+
         // Spec 032 §7.4 — durable-execution handlers for the High-tier money tools. The approval
         // gate marshals finance_capture_payment / finance_cancel_payment / finance_create_payment_intent
         // / finance_mark_invoice_paid into a Proposal; these keyed handlers are the ONLY path that
