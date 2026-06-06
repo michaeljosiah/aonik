@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 008 · Recipients</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e6f0f6; color: #1d5a7a; }
+    .meta-tag.priority-p1 { background: #e0f0ff; color: #144d7a; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #ecf6ee; color: #1f6b3a; }
+    .tag.gap { background: #fff5d9; color: #7a5a10; }
+    .verb {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .verb.get { background: #e7f0fb; color: #1d4e89; }
+    .verb.post { background: #ecf6ee; color: #1f6b3a; }
+    .verb.put { background: #fff5d9; color: #7a5a10; }
+    .verb.del { background: #fbe2dd; color: #b3261e; }
+    .tier {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .tier.low { background: #ecf6ee; color: #1f6b3a; }
+    .tier.medium { background: #fff5d9; color: #7a5a10; }
+    .tier.high { background: #fbe2dd; color: #b3261e; }
+    .tier.ro { background: #eef0f2; color: #5a6a76; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 008</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Finance / Platform</span>
+  <h1>Recipients</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    A <strong>recipient</strong> is who a customer sends money to &mdash; the person or
+    business on the receiving end of a transfer, remittance, or payout. This spec defines the
+    recipient surface (create, read, list, update, remove, photo) as a thin façade over the
+    party graph that <em>already exists</em> in the codebase: a recipient is a
+    <strong>Party</strong> reached by a directed <code>Recipient</code> relationship edge,
+    marked <code>Beneficiary</code> for its owning customer, with one or more saved
+    <strong>payout destinations</strong>. It is <em>not</em> a standalone table. The original
+    08-line stub proposed a generic <code>Recipient</code> CRUD entity; the platform has since
+    chosen the party-graph model, and this spec is rewritten to match the code as built.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#principle">A recipient is a party, not a record</a></li>
+    <li><a href="#state">Current state &amp; the gap</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">Domain model</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#service">Service design</a></li>
+    <li><a href="#photos">Recipient photos</a></li>
+    <li><a href="#lifecycle">Lifecycle, tenancy &amp; deletion</a></li>
+    <li><a href="#agents">Agent exposure &amp; approval tier</a></li>
+    <li><a href="#data">Data model &amp; migrations</a></li>
+    <li><a href="#tasks">Phasing &amp; tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  Recipients are the address book of a money-movement product. Before a customer can send a
+  remittance (Payabo's UK&rarr;NG launch wedge), pay a bill on someone's behalf, or schedule a
+  payout, the platform needs a durable, reusable record of <em>who is being paid</em> and
+  <em>how to reach them</em> &mdash; a name, a relationship, optionally a face, and one or more
+  payout rails (a bank account, a mobile-money wallet). This is the concept the legacy
+  MyBillAfrica/MTM products called &ldquo;friends&rdquo; or &ldquo;recipients.&rdquo;
+</p>
+
+<p>
+  AONIK already models this, but not as a <code>Recipient</code> entity. It is assembled from
+  primitives that exist for good architectural reasons:
+</p>
+
+<ul>
+  <li>the <a href="../../src/Aonik.Platform/Entities/Party/Party.cs"><code>Party</code></a> /
+    <a href="../../src/Aonik.Platform/Entities/Party/PersonProfile.cs"><code>PersonProfile</code></a>
+    subsystem in Platform (identity, display name, photo);</li>
+  <li>a directed <a href="../../src/Aonik.Platform/Entities/Party/PartyRelationship.cs"><code>PartyRelationship</code></a>
+    edge of type <code>Recipient</code> from the customer to the payee;</li>
+  <li>a <a href="../../src/Aonik.Platform/Entities/Party/PartyRoleAssignment.cs"><code>PartyRoleAssignment</code></a>
+    of <code>Beneficiary</code> scoped to that customer;</li>
+  <li>one or more <a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount</code></a>
+    rows in Finance holding the <em>masked</em> destination + the connector's reusable token.</li>
+</ul>
+
+<p>
+  Two operations are already shipped &mdash;
+  <a href="../../src/Aonik.Finance/Services/Payments/PayoutBeneficiaryService.cs"><code>PayoutBeneficiaryService</code></a>'s
+  <code>SaveBeneficiaryAsync</code> (<span class="verb post">POST</span>
+  <code>/payments/payout-beneficiaries</code>) and <code>ListBeneficiariesAsync</code>
+  (<span class="verb get">GET</span> <code>/payments/payout-beneficiaries/{customerPartyId}</code>).
+  This spec keeps that substrate exactly as-is and defines the rest of the recipient
+  surface on top of it: a customer-facing <code>/recipients</code> resource with get-one,
+  update, remove, search + paging, and photo upload &mdash; the parts the original stub named
+  but the code has not yet grown.
+</p>
+
+<div class="callout">
+  <span class="callout-label">The reframing</span>
+  The stub asked for a <code>Recipient</code> CRUD service over a new table. The platform
+  answered with a <em>party graph</em>: reusable identity in Platform, payable rails in
+  Finance, joined by a relationship edge and a role. This spec ratifies that decision and
+  closes the surface gap &mdash; it does <strong>not</strong> introduce a competing
+  <code>Recipient</code> table.
+</div>
+
+<h2 id="principle">2. A recipient is a party, not a record</h2>
+
+<p>
+  The single most important constraint, already honoured in code, is that a recipient has no
+  identity of its own. &ldquo;Recipient&rdquo; is a <em>role a party plays relative to a
+  customer</em>, not a thing that exists in isolation. This buys three properties the platform
+  depends on:
+</p>
+
+<ul>
+  <li><strong>Reuse &amp; dedup.</strong> The same underlying party can be a customer's
+    recipient, a household member, and the payee on a historical order &mdash; one identity,
+    many relationships. <code>SaveBeneficiaryAsync</code> already takes an optional
+    <code>BeneficiaryPartyId</code> to reuse an existing party rather than minting a duplicate.</li>
+  <li><strong>History integrity.</strong> Orders reference parties by a <em>soft</em> Guid
+    (<a href="../../src/Aonik.Finance/Entities/Orders/Order.cs"><code>Order.PayerPartyId</code></a>,
+    <a href="../../src/Aonik.Finance/Entities/Orders/OrderPartyRole.cs"><code>OrderPartyRole.PartyId</code></a>)
+    with no foreign key. &ldquo;Removing a recipient&rdquo; can therefore deactivate the
+    <em>relationship</em> without ever touching, cascading into, or invalidating a past order.</li>
+  <li><strong>One graph, many products.</strong> The same edge powers Payabo remittance,
+    MyBillAfrica bill-collection payees, and RemitExchange beneficiaries. A bespoke
+    <code>Recipient</code> table would fork that graph per product.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Already true in the code</span>
+  <code>PayoutBeneficiaryService</code> writes the party, the customer&rarr;recipient edge, and
+  the <code>Beneficiary</code> role through the cross-module
+  <a href="../../src/Aonik.SharedKernel/Abstractions/IPartyService.cs"><code>IPartyService</code></a>
+  seam, then persists the rail in Finance &mdash; and makes the edge/role idempotent so saving a
+  second rail for the same recipient does not duplicate the relationship. This spec's
+  <code>IRecipientService</code> is a façade over exactly these moves.
+</div>
+
+<h2 id="state">3. Current state &amp; the gap</h2>
+
+<p>What the original stub listed, against what exists in the codebase today:</p>
+
+<table>
+  <thead>
+    <tr><th>Stub operation</th><th>Status</th><th>Where it lives / what's missing</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>POST /recipients</code> (create)</td>
+      <td><span class="tag existing">Shipped</span></td>
+      <td>Realised as <span class="verb post">POST</span> <code>/payments/payout-beneficiaries</code> &rarr; <code>SaveBeneficiaryAsync</code>. Creates party + edge + role + rail; reuses a party when <code>BeneficiaryPartyId</code> is supplied.</td>
+    </tr>
+    <tr>
+      <td><code>GET /recipients</code> (list)</td>
+      <td><span class="tag existing">Shipped</span> <span class="tag gap">no search/paging</span></td>
+      <td><span class="verb get">GET</span> <code>/payments/payout-beneficiaries/{customerPartyId}</code> &rarr; <code>ListBeneficiariesAsync</code>. Returns all of a customer's saved rails; has <em>no</em> search, paging, or sort yet.</td>
+    </tr>
+    <tr>
+      <td><code>GET /recipients/{recipientId}</code> (get one)</td>
+      <td><span class="tag gap">Gap</span></td>
+      <td>No single-recipient read. Needs to project party + profile (incl. photo) + saved rails for one recipient party id, scoped to the owning customer.</td>
+    </tr>
+    <tr>
+      <td><code>PUT /recipients/{recipientId}</code> (update)</td>
+      <td><span class="tag gap">Gap</span></td>
+      <td>No update path. Editing display name / relationship / notes is a party + edge update; editing a rail is an <code>ExternalPayoutAccount</code> update. (Re-saving the same rail is idempotent today, but there is no field-level edit.)</td>
+    </tr>
+    <tr>
+      <td><code>DELETE /recipients/{recipientId}</code> (remove)</td>
+      <td><span class="tag gap">Gap</span></td>
+      <td>No removal path. Must be a soft removal: deactivate the relationship edge (and optionally soft-delete the rail), never delete the party or historical orders (&sect;9).</td>
+    </tr>
+    <tr>
+      <td><code>POST /recipients/{recipientId}/photo</code></td>
+      <td><span class="tag gap">Gap</span> <span class="tag existing">machinery exists</span></td>
+      <td>No recipient photo path, but the <em>mechanism</em> exists: <a href="../../src/Aonik.Platform/Contracts/Services/Storage/IProfilePhotoStore.cs"><code>IProfilePhotoStore</code></a> already uploads a party photo (original + 3 thumbnails) keyed by <code>(tenantId, partyId)</code> onto <code>PersonProfile.PhotoUrl*</code> (&sect;8).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout open">
+  <span class="callout-label">Route convergence is a real decision</span>
+  Today the operator route is <code>/payments/payout-beneficiaries</code>. The product noun is
+  <em>recipient</em>. This spec introduces a customer-facing <code>/recipients</code> resource
+  as the canonical surface and treats the two shipped beneficiary endpoints as the same
+  operations under an operator-flavoured route. Whether to <em>alias</em>, <em>redirect</em>,
+  or <em>retire</em> the older route is an open decision (&sect;14) &mdash; not a forced rename in
+  this spec.
+</div>
+
+<h2 id="scope">4. Scope</h2>
+
+<h3>In scope</h3>
+<ul>
+  <li>An <code>IRecipientService</code> façade composing <code>IPartyService</code> +
+    <code>IPayoutBeneficiaryService</code> + the party-photo seam, returning a unified
+    <code>RecipientResponse</code> (identity + relationship + photo URLs + saved rails).</li>
+  <li>The full <code>/recipients</code> REST surface: create, get-one, list (with search +
+    paging), update, remove, and photo upload.</li>
+  <li>Search + paging on the list (by display name; page/pageSize; stable sort).</li>
+  <li>Recipient photo upload reusing <code>IProfilePhotoStore</code>, plus a read-contract
+    addition so a recipient projection can return the photo URL.</li>
+  <li>Soft-removal semantics that preserve the party and all historical orders.</li>
+</ul>
+
+<h3>Out of scope</h3>
+<ul>
+  <li>A new <code>Recipient</code> table or entity. Explicitly rejected (&sect;2).</li>
+  <li>Payout <em>execution</em> / money movement &mdash; that is Orders + Payments
+    (<a href="005.orders-intent.md">Spec 005</a>, <a href="006.payments-intents.md">Spec 006</a>),
+    not this resource. A recipient is a destination, not a transaction.</li>
+  <li>Beneficiary verification (name-match / penny-drop) &mdash; <code>ExternalPayoutAccount.IsVerified</code>
+    exists as a flag, but the verification flow is a connector concern
+    (<a href="031.partner-integration-abstraction.html">Spec 031</a>).</li>
+  <li>Storing raw account numbers / MSISDNs / wallet ids. Only the masked identifier + the
+    connector's reusable token are ever persisted (Spec 031 sensitive-data rule).</li>
+  <li>Sharing recipients across customers/tenants. The <code>Beneficiary</code> role is scoped
+    to one owning customer; there is no global address book.</li>
+</ul>
+
+<h2 id="model">5. Domain model</h2>
+
+<p>
+  Nothing here is new. A recipient is the composition of five existing entities across two
+  modules, joined by soft Guid references:
+</p>
+
+<div class="ascii-diagram">Platform module                                  Finance module
+─────────────────────────────────                ─────────────────────────────
+Party (Person|Business)  ◀───┐                   ExternalPayoutAccount
+  · DisplayName              │ ToPartyId            · BeneficiaryPartyId ─────┐ (soft Guid,
+  · Status                   │                      · DestinationType          │  no FK —
+PersonProfile (1:1)          │                      · MaskedAccountIdentifier  │  cross-module)
+  · FirstName / LastName     │                      · AccountName / Currency   │
+  · PhotoUrl / *Medium       │                      · BankCode | MobileNetwork │
+    / *Small / *Tiny         │                      · ProviderBeneficiaryId    │
+                             │                      · IsVerified               │
+PartyRelationship  ─────▶────┘                      · PartnerId / ConnectorId  │
+  · FromPartyId = customer                                                     │
+  · ToPartyId   = recipient  ◀──────────────────────────────────────────────-─┘
+  · RelationshipTypeCode = "Recipient"             (the recipient party is the
+  · IsActive                                        join key on both sides)
+PartyRoleAssignment
+  · PartyId = recipient
+  · Role = "Beneficiary"
+  · ContextType = "Customer"
+  · ContextId = customer PartyId</div>
+
+<h3>5.1 The entities (all existing)</h3>
+
+<table>
+  <thead>
+    <tr><th>Entity</th><th>Module</th><th>Role in a recipient</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><a href="../../src/Aonik.Platform/Entities/Party/Party.cs"><code>Party</code></a></td><td>Platform</td><td>The recipient's identity: <code>PartyType</code> (Person|Business), <code>DisplayName</code>, <code>Status</code>. <code>ITenantScoped</code>.</td></tr>
+    <tr><td><a href="../../src/Aonik.Platform/Entities/Party/PersonProfile.cs"><code>PersonProfile</code></a></td><td>Platform</td><td>1:1 detail for a Person recipient: names, country, and the four photo URLs (<code>PhotoUrl</code>, <code>PhotoUrlMedium</code>, <code>PhotoUrlSmall</code>, <code>PhotoUrlTiny</code>).</td></tr>
+    <tr><td><a href="../../src/Aonik.Platform/Entities/Party/PartyRelationship.cs"><code>PartyRelationship</code></a></td><td>Platform</td><td>Directed edge customer&rarr;recipient with <code>RelationshipTypeCode = "Recipient"</code> (or a kinship code) and an <code>IsActive</code> flag &mdash; the removal hook.</td></tr>
+    <tr><td><a href="../../src/Aonik.Platform/Entities/Party/PartyRoleAssignment.cs"><code>PartyRoleAssignment</code></a></td><td>Platform</td><td>Marks the recipient <code>Beneficiary</code> in the <code>Customer</code> context of its owner &mdash; &ldquo;payable by this customer.&rdquo;</td></tr>
+    <tr><td><a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount</code></a></td><td>Finance</td><td>A saved rail: masked identifier + <code>AccountName</code> + <code>Currency</code> + bank/mobile metadata + the connector's reusable <code>ProviderBeneficiaryId</code> token. A recipient may have several.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Relationship codes come from
+  <a href="../../src/Aonik.Platform/Entities/Party/PartyRelationshipTypes.cs"><code>PartyRelationshipTypes</code></a>
+  (validated set: <code>Self, Mother, Father, Spouse, Sibling, Child, Friend, Business, Other,
+  Recipient</code>). The neutral <code>Recipient</code> code is the cross-module constant
+  <a href="../../src/Aonik.SharedKernel/Abstractions/PartyClassificationCodes.cs"><code>PartyRelationshipTypeCodes.Recipient</code></a>
+  so Finance creates the edge with the exact code Platform's validator accepts. A recipient
+  that is also kin (e.g. you remit to your mother) carries the kinship edge <em>and</em> is
+  payable &mdash; the list de-dups by recipient party and keeps the display edge.
+</p>
+
+<h2 id="api">6. API surface</h2>
+
+<p>
+  The canonical resource is <code>/recipients</code>, scoped to a customer party. The two
+  shipped operations are noted against their current operator route.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Method &amp; route</th><th>Status</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="verb post">POST</span> <code>/recipients</code></td>
+      <td><span class="tag existing">core shipped</span></td>
+      <td>Create/save a recipient + a rail. Body is the recipient identity (reuse <code>partyId</code> or create) plus the masked destination. Maps to <code>SaveBeneficiaryAsync</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="verb get">GET</span> <code>/recipients</code></td>
+      <td><span class="tag gap">extend</span></td>
+      <td>List a customer's recipients with <code>?search=&amp;page=&amp;pageSize=</code>. Generalises <code>ListBeneficiariesAsync</code> with a name filter + paging envelope.</td>
+    </tr>
+    <tr>
+      <td><span class="verb get">GET</span> <code>/recipients/{recipientPartyId}</code></td>
+      <td><span class="tag new">new</span></td>
+      <td>One recipient: identity + relationship + photo URLs + saved rails, scoped to the requesting customer.</td>
+    </tr>
+    <tr>
+      <td><span class="verb put">PUT</span> <code>/recipients/{recipientPartyId}</code></td>
+      <td><span class="tag new">new</span></td>
+      <td>Update display fields / relationship / notes (party + edge), and/or a named rail (<code>ExternalPayoutAccount</code>).</td>
+    </tr>
+    <tr>
+      <td><span class="verb del">DELETE</span> <code>/recipients/{recipientPartyId}</code></td>
+      <td><span class="tag new">new</span></td>
+      <td>Soft-remove: deactivate the relationship edge (and soft-delete its rails). Party + history untouched (&sect;9).</td>
+    </tr>
+    <tr>
+      <td><span class="verb post">POST</span> <code>/recipients/{recipientPartyId}/photo</code></td>
+      <td><span class="tag new">new</span></td>
+      <td>Multipart photo upload &rarr; original + 3 thumbnails on the recipient's <code>PersonProfile</code>; returns the photo URLs (&sect;8).</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>Scoping &amp; identity.</strong> &ldquo;Which customer&rdquo; is resolved
+  server-side: in Payabo the customer party is the authenticated user's party; on the admin
+  surface it is supplied (as the existing list route does with <code>{customerPartyId}</code>).
+  Every read filters to the caller's owned edges &mdash; a recipient party id alone is never
+  enough to read another customer's recipient. Routes use the <em>recipient party id</em> as
+  the public identifier (there is no separate recipient id), consistent with the party-graph
+  model.
+</p>
+
+<h2 id="service">7. Service design</h2>
+
+<p>
+  <code>IRecipientService</code> lives in Finance (alongside <code>IPayoutBeneficiaryService</code>),
+  because the saved rail and the customer-ownership question are Finance concerns and the
+  party seam is already consumed there. It composes three existing seams &mdash; it adds no new
+  storage of its own beyond what <code>PayoutBeneficiaryService</code> already writes.
+</p>
+
+<pre><code>// src/Aonik.Finance/Contracts/Services/Payments/IRecipientService.cs   (new — façade)
+public interface IRecipientService
+{
+    // POST /recipients — delegates to IPayoutBeneficiaryService.SaveBeneficiaryAsync,
+    // then projects the unified view.
+    Task&lt;RecipientResponse&gt; CreateAsync(SaveRecipientRequest request, CancellationToken ct = default);
+
+    // GET /recipients/{id}
+    Task&lt;RecipientResponse?&gt; GetAsync(Guid customerPartyId, Guid recipientPartyId, CancellationToken ct = default);
+
+    // GET /recipients?search=&amp;page=&amp;pageSize=
+    Task&lt;RecipientListResponse&gt; ListAsync(Guid customerPartyId, RecipientQuery query, CancellationToken ct = default);
+
+    // PUT /recipients/{id} — party/edge fields and/or a named rail
+    Task&lt;RecipientResponse&gt; UpdateAsync(Guid customerPartyId, Guid recipientPartyId, UpdateRecipientRequest request, CancellationToken ct = default);
+
+    // DELETE /recipients/{id} — soft-remove (deactivate edge + soft-delete rails)
+    Task RemoveAsync(Guid customerPartyId, Guid recipientPartyId, CancellationToken ct = default);
+
+    // POST /recipients/{id}/photo — party-photo seam (§8)
+    Task&lt;RecipientPhotoResponse&gt; UploadPhotoAsync(
+        Guid customerPartyId, Guid recipientPartyId, string contentType, Stream photo, CancellationToken ct = default);
+}
+
+// The unified projection the API returns — identity + relationship + photo + rails.
+public record RecipientResponse(
+    Guid RecipientPartyId,
+    string DisplayName,
+    string PartyType,                         // Person | Business
+    string RelationshipTypeCode,              // Recipient | Mother | …
+    string? PhotoUrl,                         // from PersonProfile (§8)
+    string? PhotoUrlSmall,
+    bool IsActive,
+    IReadOnlyList&lt;RecipientRailResponse&gt; Rails);
+
+public record RecipientRailResponse(
+    Guid ExternalPayoutAccountId,
+    string DestinationType,                   // Bank | MobileMoney | Wallet
+    string AccountName,
+    string MaskedAccountIdentifier,           // never the raw value
+    string Currency,
+    string? BankCode,
+    string? MobileNetwork,
+    bool IsVerified);</code></pre>
+
+<p>
+  <code>CreateAsync</code> and the rail half of <code>UpdateAsync</code> delegate straight to
+  the shipped <code>PayoutBeneficiaryService</code> (idempotent edge/role + rail upsert).
+  <code>GetAsync</code> / <code>ListAsync</code> read the customer's relationship edges via
+  <code>IPartyService.GetRelationshipsAsync</code>, join the Finance rails (as
+  <code>ListBeneficiariesAsync</code> already does), and enrich with the recipient's profile +
+  photo (&sect;8). <code>RemoveAsync</code> is the only genuinely new write path and is a
+  party-edge deactivation (&sect;9).
+</p>
+
+<div class="callout">
+  <span class="callout-label">Reuse, don't re-derive</span>
+  The customer&rarr;recipient join, the masked-identifier discipline, and the idempotent
+  edge/role writes already live in <code>PayoutBeneficiaryService</code>. <code>IRecipientService</code>
+  must call into them, not reimplement the graph stitching &mdash; otherwise two code paths can
+  drift on the &ldquo;recipient = party + edge + role + rail&rdquo; invariant.
+</div>
+
+<h2 id="photos">8. Recipient photos</h2>
+
+<p>
+  Because a recipient <em>is</em> a party, a recipient photo is a party photo &mdash; the exact
+  machinery customer profile photos already use. No new storage abstraction is needed:
+</p>
+
+<ul>
+  <li><a href="../../src/Aonik.Platform/Contracts/Services/Storage/IProfilePhotoStore.cs"><code>IProfilePhotoStore.UploadCustomerPhotoAsync(tenantId, partyId, contentType, stream)</code></a>
+    already buffers the upload, validates the image, and produces an original (max 1920&times;1920)
+    plus 512 / 128 / 64 thumbnails via <a href="../../src/Aonik.Platform/Contracts/Services/Storage/IImageProcessingService.cs"><code>IImageProcessingService</code></a>,
+    storing them through the <a href="../../src/Aonik.Application/Abstractions/Storage/IBlobStorageFactory.cs"><code>IBlobStorageFactory</code></a>
+    (local filesystem or Azure Blob) and returning a <code>PhotoUploadResult</code> with all four URLs.</li>
+  <li>The recipient's four <code>PersonProfile.PhotoUrl*</code> columns are the existing landing
+    place for those URLs &mdash; no schema change for the photo itself.</li>
+  <li>The upload endpoint mirrors
+    <a href="../../src/Aonik.Platform/Endpoints/Identity/UploadCustomerPhotoEndpoint.cs"><code>UploadCustomerPhotoEndpoint</code></a>:
+    <code>AllowFileUploads()</code>, 422 on missing/empty/invalid image, 502 on storage I/O failure.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">The one real seam to add</span>
+  The cross-module <a href="../../src/Aonik.SharedKernel/Abstractions/IPartyService.cs"><code>IPartyService.GetPartyAsync</code></a>
+  returns a <em>lean</em> <code>PartyResponse(PartyId, DisplayName, PartyType, Status)</code> &mdash;
+  <strong>no photo URLs</strong>. For a recipient projection to return an <code>imageUrl</code>, and
+  for Finance to set a recipient's photo without reaching into Platform's DbContext, the party
+  contract needs a small, additive extension: either a richer read
+  (<code>PartyProfileResponse</code> carrying the photo URLs) or a dedicated
+  <code>SetPartyPhotoAsync(partyId, …)</code> / <code>GetPartyPhotoAsync(partyId)</code> on the
+  Platform-owned seam. Ownership stays in Platform (it owns <code>PersonProfile</code> and
+  <code>IProfilePhotoStore</code>); Finance calls the seam. Pick one shape in &sect;14 before
+  building &mdash; this is the only piece that crosses a module boundary.
+</div>
+
+<p>
+  <strong>Secure storage &amp; signed URLs.</strong> The blob factory already supports a private
+  Azure container; <code>IProfilePhotoStore.GetPhotoUrl</code> is the indirection point where a
+  short-lived SAS / signed URL is minted when the container is not public. Recipient photos
+  ride the same policy as customer photos &mdash; no separate signing path.
+</p>
+
+<h2 id="lifecycle">9. Lifecycle, tenancy &amp; deletion</h2>
+
+<ul>
+  <li><strong>Tenant-scoped throughout.</strong> <code>Party</code>, <code>PartyRelationship</code>,
+    <code>PartyRoleAssignment</code>, and <code>ExternalPayoutAccount</code> are all
+    <code>ITenantScoped</code>; every query filters by the ambient tenant. The acceptance
+    criterion &ldquo;recipient records are tenant scoped&rdquo; is satisfied by construction.</li>
+  <li><strong>Removal is soft and edge-level.</strong> <code>DELETE /recipients/{id}</code> sets
+    <code>PartyRelationship.IsActive = false</code> for the customer&rarr;recipient edge and
+    soft-deletes the recipient's <code>ExternalPayoutAccount</code> rows. The <em>party</em> is
+    never deleted &mdash; it may still be kin, another customer's recipient, or the payee on a
+    closed order.</li>
+  <li><strong>Historical orders are untouchable from here.</strong> Orders hold soft Guid
+    references to parties with <em>no</em> foreign key
+    (<code>Order.PayerPartyId</code>, <code>OrderPartyRole.PartyId</code>), so removing a
+    recipient cannot cascade into, null out, or invalidate any past order. This is the
+    structural guarantee behind the stub's &ldquo;deleting a recipient does not delete historical
+    orders.&rdquo;</li>
+  <li><strong>Re-adding is reactivation.</strong> Saving a recipient that maps to an existing
+    edge re-activates it rather than minting a duplicate &mdash; consistent with the existing
+    idempotent <code>EnsureRelationshipAsync</code> behaviour.</li>
+</ul>
+
+<h2 id="agents">10. Agent exposure &amp; approval tier</h2>
+
+<p>
+  When a domain agent (e.g. Payabo's assistant: &ldquo;add my mum as a recipient&rdquo;) creates
+  or edits a recipient, the operation is a mutating tool and must route through the
+  <a href="032.tiered-ai-mutation-approval.html">Spec 032</a> fail-closed gate like any other.
+  Suggested classification:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Recipient tool</th><th>Tier</th><th>Rationale</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Read a recipient / list recipients</td><td><span class="tier ro">Read&nbsp;only</span></td><td>No state change; executes directly.</td></tr>
+    <tr><td>Create / update a recipient (incl. add a rail)</td><td><span class="tier medium">Medium</span></td><td>An everyday domain write that introduces a payable destination &mdash; reversible, but it shapes where money <em>can</em> later go. Persists a <code>ToolApprovalRequest</code>; runs in-band once after a server-validated confirm.</td></tr>
+    <tr><td>Remove a recipient</td><td><span class="tier low">Low</span>–<span class="tier medium">Medium</span></td><td>Reversible soft-removal; Low if treated as personal-state, Medium if the product wants an explicit confirm.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">A recipient never moves money</span>
+  Creating a recipient is <em>not</em> a <span class="tier high">High</span> action &mdash; no
+  funds move, no ledger posts, no partner is called. Money movement happens only when an
+  <a href="005.orders-intent.md">Order</a> later references the recipient and a
+  <a href="006.payments-intents.md">Payment</a> executes; those are the High,
+  proposal-marshalled actions. The recipient surface stays on the address-book side of the
+  &ldquo;agents propose, systems execute&rdquo; line.
+</div>
+
+<h2 id="data">11. Data model &amp; migrations</h2>
+
+<p>
+  The headline is that <strong>almost nothing new is stored.</strong> The five entities all
+  exist with shipped EF configurations and the <code>Ank</code>-prefixed tables
+  (<code>ExternalPayoutAccount</code> &rarr; <code>AnkExternalPayoutAccounts</code>, indexed on
+  <code>(TenantId, BeneficiaryPartyId)</code> and <code>(TenantId, ConnectorId)</code>). Likely
+  changes are small and additive:
+</p>
+
+<ul>
+  <li><strong>Soft-delete on the rail.</strong> If <code>ExternalPayoutAccount</code> does not
+    already carry the base soft-delete column from <code>AuditableEntity</code> /
+    <code>AonikDbContextBase</code>, removal relies on it; confirm before adding anything.</li>
+  <li><strong>Party photo read contract.</strong> The &sect;8 seam is a <em>contract</em> change
+    (a richer <code>PartyProfileResponse</code> or a <code>SetPartyPhotoAsync</code>), not
+    necessarily a schema change &mdash; the photo columns already exist on
+    <code>PersonProfile</code>.</li>
+  <li><strong>List index.</strong> Search-by-name + paging may want an index supporting the
+    name filter; measure against <code>Party.DisplayName</code> before adding.</li>
+</ul>
+
+<div class="callout p0">
+  <span class="callout-label">Migrations are tool-generated, single-stream — no exceptions</span>
+  If any schema change <em>is</em> needed, it goes through one
+  <code>dotnet ef migrations add &lt;Name&gt; --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>
+  against <code>AonikDbContext</code> only, with the entity configuration in its module's
+  <code>Persistence/Configurations/</code> folder. No hand-written migration files, no edits to
+  module-scoped contexts' migration streams (per CLAUDE.md). The expectation for this spec is
+  <em>zero or one</em> tiny migration &mdash; most of the work is service + endpoint + contract,
+  not schema.
+</div>
+
+<h2 id="tasks">12. Phasing &amp; tasks</h2>
+
+<table>
+  <thead>
+    <tr><th>Phase</th><th>#</th><th>Task</th><th>Files / area</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="2"><strong>A. Contract &amp; seam</strong></td>
+      <td>1</td><td>Define <code>IRecipientService</code> + <code>RecipientResponse</code> / <code>RecipientRailResponse</code> / <code>SaveRecipientRequest</code> / <code>UpdateRecipientRequest</code> / <code>RecipientQuery</code> records.</td><td><code>src/Aonik.Finance/Contracts/Services/Payments/</code></td></tr>
+    <tr><td>2</td><td>Add the party-photo read/write seam to <code>IPartyService</code> (richer profile read <em>or</em> <code>Set/GetPartyPhotoAsync</code>); implement in Platform's <code>PartyService</code> over <code>IProfilePhotoStore</code> + <code>PersonProfile</code>.</td><td><code>src/Aonik.SharedKernel/Abstractions/IPartyService.cs</code>, <code>src/Aonik.Platform/Services/Party/PartyService.cs</code></td></tr>
+    <tr><td rowspan="2"><strong>B. Service</strong></td>
+      <td>3</td><td><code>RecipientService : IRecipientService</code> &mdash; delegate create/rail-upsert to <code>PayoutBeneficiaryService</code>; implement get-one, list (search + paging), update, and soft-remove; enrich with profile + photo. Register in the Finance module.</td><td><code>src/Aonik.Finance/Services/Payments/RecipientService.cs</code>, <code>FinanceModule.cs</code></td></tr>
+    <tr><td>4</td><td>Soft-remove path: deactivate the customer&rarr;recipient edge + soft-delete its rails; assert no order side-effects.</td><td><code>RecipientService</code>, <code>IPartyService</code></td></tr>
+    <tr><td rowspan="2"><strong>C. API</strong></td>
+      <td>5</td><td>FastEndpoints: <code>Create/Get/List/Update/Remove</code> recipient endpoints under <code>/recipients</code>; reuse <code>Send.CreatedAtAsync&lt;GetRecipientEndpoint&gt;</code>, <code>Send.NotFoundAsync</code>; customer-scoping resolution.</td><td><code>src/Aonik.Finance/Endpoints/Recipients/</code></td></tr>
+    <tr><td>6</td><td><code>UploadRecipientPhotoEndpoint</code> mirroring <code>UploadCustomerPhotoEndpoint</code> (file upload, 422/502 handling) &rarr; party-photo seam.</td><td><code>src/Aonik.Finance/Endpoints/Recipients/</code></td></tr>
+    <tr><td><strong>D. Convergence</strong></td>
+      <td>7</td><td>Decide &amp; apply the route story for <code>/payments/payout-beneficiaries</code> (alias / redirect / retain); update Admin UI + any Payabo callers.</td><td><code>src/Aonik.Finance/Endpoints/Payments/</code>, callers</td></tr>
+    <tr><td><strong>E. Verification</strong></td>
+      <td>8</td><td>Unit tests (mirror <a href="../../tests/Aonik.Application.Tests/Payments/PayoutBeneficiaryServiceTests.cs"><code>PayoutBeneficiaryServiceTests</code></a>: in-memory <code>FinanceDbContext</code> + fake <code>IPartyService</code>): create reuses/creates party + edge + role + rail; list filters/pages; soft-remove deactivates edge and leaves a seeded order intact; photo upload returns URLs; tenant isolation.</td><td><code>tests/Aonik.Application.Tests/Payments/</code>, <code>tests/Aonik.Api.Tests/</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="acceptance">13. Acceptance criteria</h2>
+
+<ul>
+  <li><code>dotnet build Aonik.sln</code> and <code>dotnet test Aonik.sln</code> succeed; any schema change is one tool-generated migration that applies cleanly from the single stream.</li>
+  <li><strong>No new <code>Recipient</code> table.</strong> A recipient remains Party + <code>Recipient</code> edge + <code>Beneficiary</code> role + <code>ExternalPayoutAccount</code>; the service composes the existing seams and does not reimplement the graph stitching.</li>
+  <li><strong>Create</strong> reuses an existing party when a party id is supplied and creates one otherwise, idempotently ensuring the edge + role (verified against the shipped <code>SaveBeneficiaryAsync</code> behaviour).</li>
+  <li><strong>Get-one &amp; list</strong> return identity + relationship + photo URLs + saved rails, scoped to the owning customer; list supports <code>search</code>, <code>page</code>, <code>pageSize</code> with a stable sort; a recipient party id alone never reads another customer's recipient.</li>
+  <li><strong>Update</strong> edits display/relationship/notes and/or a named rail without duplicating the edge.</li>
+  <li><strong>Soft-remove</strong> deactivates the relationship edge and soft-deletes its rails; a seeded historical order referencing that recipient party is provably unchanged afterwards.</li>
+  <li><strong>Photo</strong> upload produces original + 3 thumbnails via <code>IProfilePhotoStore</code> onto the recipient's <code>PersonProfile</code>, returns the URLs, and rejects missing/empty/invalid images with 422.</li>
+  <li><strong>Sensitive data.</strong> No raw account number / MSISDN / wallet id is persisted or returned &mdash; only the masked identifier + the connector token (Spec 031).</li>
+  <li><strong>Tenant isolation.</strong> All recipient reads/writes filter by tenant; cross-tenant access is impossible through the surface.</li>
+  <li><strong>Agent safety.</strong> If exposed as an agent tool, create/update/remove are classified (Medium/Low) and routed through the Spec 032 gate; none is High &mdash; the recipient surface moves no money.</li>
+</ul>
+
+<h2 id="open">14. Open decisions</h2>
+
+<div class="callout ok">
+  <span class="callout-label">Resolved</span>
+  <strong>Shape.</strong> Recipient = party graph, not a new table &mdash; ratifying the code as
+  built. <strong>Storage.</strong> Rails stay in Finance (<code>ExternalPayoutAccount</code>),
+  identity + photo in Platform (<code>Party</code> / <code>PersonProfile</code>).
+  <strong>Photos.</strong> Reuse <code>IProfilePhotoStore</code>; a recipient photo is a party
+  photo. <strong>Deletion.</strong> Soft, edge-level, order-preserving.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Route convergence.</strong> Alias, redirect, or retain
+  <code>/payments/payout-beneficiaries</code> once <code>/recipients</code> lands? An alias is
+  least disruptive for current Admin UI / Payabo callers; a redirect is cleaner long-term but
+  needs a caller sweep.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Party-photo seam shape.</strong> Extend the read to a <code>PartyProfileResponse</code>
+  carrying photo URLs, or add explicit <code>Set/GetPartyPhotoAsync</code> to
+  <code>IPartyService</code>? The read-extension is lighter for the recipient projection; the
+  explicit methods are clearer for the write. Pick one before &sect;8 is built (&sect;11/Task&nbsp;2).
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Multiple rails per recipient in the product UI.</strong> The model already supports
+  N rails per recipient (one party, several <code>ExternalPayoutAccount</code> rows). Whether
+  the Payabo MVP exposes &ldquo;a recipient with several payout methods&rdquo; or collapses to
+  one-rail-per-recipient for launch is a product call that shapes <code>RecipientResponse.Rails</code>
+  cardinality in the UI (not the model).
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Business recipients &amp; photos.</strong> A <code>Business</code> recipient has a
+  <code>BusinessProfile</code>, which has no photo columns. Decide whether business recipients
+  show a logo (new field / different store) or fall back to an initial/monogram in the UI.
+</div>
+
+<h2 id="refs">15. References</h2>
+
+<ul>
+  <li><a href="../../src/Aonik.Finance/Services/Payments/PayoutBeneficiaryService.cs"><code>PayoutBeneficiaryService</code></a> / <a href="../../src/Aonik.Finance/Contracts/Services/Payments/IPayoutBeneficiaryService.cs"><code>IPayoutBeneficiaryService</code></a> &mdash; the shipped save/list core this spec wraps; the canonical &ldquo;recipient = party + edge + role + rail&rdquo; stitching.</li>
+  <li><a href="../../src/Aonik.Finance/Endpoints/Payments/SavePayoutBeneficiaryEndpoint.cs"><code>SavePayoutBeneficiaryEndpoint</code></a> / <a href="../../src/Aonik.Finance/Endpoints/Payments/ListPayoutBeneficiariesEndpoint.cs"><code>ListPayoutBeneficiariesEndpoint</code></a> &mdash; the two endpoints already live.</li>
+  <li><a href="../../src/Aonik.SharedKernel/Abstractions/IPartyService.cs"><code>IPartyService</code></a> + <a href="../../src/Aonik.SharedKernel/Abstractions/PartyClassificationCodes.cs"><code>PartyRoleCodes</code> / <code>PartyRelationshipTypeCodes</code></a> &mdash; the cross-module party seam and the <code>Beneficiary</code> / <code>Recipient</code> codes.</li>
+  <li><a href="../../src/Aonik.Platform/Entities/Party/Party.cs"><code>Party</code></a>, <a href="../../src/Aonik.Platform/Entities/Party/PersonProfile.cs"><code>PersonProfile</code></a>, <a href="../../src/Aonik.Platform/Entities/Party/PartyRelationship.cs"><code>PartyRelationship</code></a>, <a href="../../src/Aonik.Platform/Entities/Party/PartyRoleAssignment.cs"><code>PartyRoleAssignment</code></a>, <a href="../../src/Aonik.Platform/Entities/Party/PartyRelationshipTypes.cs"><code>PartyRelationshipTypes</code></a> &mdash; the recipient's identity + edge + role primitives.</li>
+  <li><a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount</code></a> + <a href="../../src/Aonik.Finance/Persistence/Configurations/Payments/ExternalPayoutAccountConfiguration.cs"><code>its configuration</code></a> &mdash; the saved rail (masked identifier + connector token).</li>
+  <li><a href="../../src/Aonik.Platform/Contracts/Services/Storage/IProfilePhotoStore.cs"><code>IProfilePhotoStore</code></a> / <a href="../../src/Aonik.Platform/Contracts/Services/Storage/IImageProcessingService.cs"><code>IImageProcessingService</code></a> / <a href="../../src/Aonik.Platform/Endpoints/Identity/UploadCustomerPhotoEndpoint.cs"><code>UploadCustomerPhotoEndpoint</code></a> &mdash; the photo machinery a recipient photo reuses.</li>
+  <li><a href="../../src/Aonik.Finance/Entities/Orders/Order.cs"><code>Order</code></a> / <a href="../../src/Aonik.Finance/Entities/Orders/OrderPartyRole.cs"><code>OrderPartyRole</code></a> &mdash; the soft party references that make order-preserving removal structural.</li>
+  <li><a href="../../tests/Aonik.Application.Tests/Payments/PayoutBeneficiaryServiceTests.cs"><code>PayoutBeneficiaryServiceTests</code></a> &mdash; the in-memory + fake-party test pattern the recipient tests mirror.</li>
+  <li><a href="005.orders-intent.md">Spec 005 &mdash; Orders</a>, <a href="006.payments-intents.md">Spec 006 &mdash; Payments</a> &mdash; where a recipient is actually paid; the money-movement boundary this spec stops at.</li>
+  <li><a href="031.partner-integration-abstraction.html">Spec 031 &mdash; Partner integration abstraction</a> &mdash; the connector + sensitive-data rules behind <code>ExternalPayoutAccount</code>.</li>
+  <li><a href="032.tiered-ai-mutation-approval.html">Spec 032 &mdash; Tiered AI mutation approval</a> &mdash; the gate an agent's recipient tool routes through.</li>
+  <li><a href="002.customer-profile.md">Spec 002 &mdash; Customer profile</a> &mdash; the <code>PersonProfile</code> + customer-photo precedent recipients build on.</li>
+  <li>CLAUDE.md &mdash; anemic entities, services-hold-logic, the single tool-generated migration stream, and the &ldquo;agents propose; systems execute&rdquo; rule this spec operates within.</li>
+</ul>
+
+<footer>
+  Spec 008 · Recipients · Draft
+</footer>
+
+</body>
+</html>

@@ -155,6 +155,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Tool approval requests (Agents module — Spec 032 §7.5 durable audit/correlation row)
     public virtual DbSet<ToolApprovalRequest> ToolApprovalRequests { get; set; } = null!;
 
+    // Tenant-managed agent extensibility (Agents module — Spec 033)
+    public virtual DbSet<TenantSkill> TenantSkills { get; set; } = null!;
+    public virtual DbSet<TenantMcpServer> TenantMcpServers { get; set; } = null!;
+    public virtual DbSet<TenantHttpTool> TenantHttpTools { get; set; } = null!;
+
     // Playground Scenarios (Agents module)
     public virtual DbSet<PlaygroundScenario> PlaygroundScenarios { get; set; } = null!;
     public virtual DbSet<PlaygroundScenarioTurn> PlaygroundScenarioTurns { get; set; } = null!;
@@ -444,6 +449,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
         MapAgentsTable<Proposal>(modelBuilder, "Proposals");
         MapAgentsTable<ToolApprovalRequest>(modelBuilder, "ToolApprovalRequests");
+        MapAgentsTable<TenantSkill>(modelBuilder, "TenantSkills");
+        MapAgentsTable<TenantMcpServer>(modelBuilder, "TenantMcpServers");
+        MapAgentsTable<TenantHttpTool>(modelBuilder, "TenantHttpTools");
         MapAgentsTable<ChatThread>(modelBuilder, "ChatThreads");
         MapAgentsTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
         MapAgentsTable<PlaygroundScenario>(modelBuilder, "PlaygroundScenarios");

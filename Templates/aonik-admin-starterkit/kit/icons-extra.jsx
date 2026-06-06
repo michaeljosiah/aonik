@@ -98,6 +98,14 @@ const EXTRA_ICONS = {
   userx:      '<circle cx="9" cy="8" r="4"/><path d="M3 21c0-4 3-7 6-7s6 3 6 7"/><path d="M15 8l6 6M21 8l-6 6"/>',
   tombstone:  '<path d="M6 21V11a6 6 0 0 1 12 0v10"/><path d="M3 21h18"/><path d="M10 15h4M12 15v3"/>',
   recycle:    '<path d="M7 19H4l3-5 3 5h-3v-4"/><path d="M14 5l-2 3 4 0M16 7l3 5"/><path d="M20 13l-3 5h-3"/>',
+  // Agent extensions
+  server:     '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+  plug:       '<path d="M9 2v6M15 2v6"/><path d="M7 8h10v3a5 5 0 0 1-10 0z"/><path d="M12 16v6"/>',
+  beaker:     '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 14h9"/>',
+  columns:    '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/>',
+  book:       '<path d="M4 4a2 2 0 0 1 2-2h13v18H6a2 2 0 0 0-2 2z"/><path d="M4 20a2 2 0 0 1 2-2h13"/>',
+  sidebar:    '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+  hourglass:  '<path d="M6 3h12M6 21h12"/><path d="M7 3c0 4 5 5 5 9s-5 5-5 9M17 3c0 4-5 5-5 9s5 5 5 9"/>',
 };
 
 // Merge into ICONS map at boot time

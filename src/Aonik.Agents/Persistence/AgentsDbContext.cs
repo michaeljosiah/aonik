@@ -20,6 +20,12 @@ internal class AgentsDbContext : AonikDbContextBase
     public DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; } = null!;
     public DbSet<Proposal> Proposals { get; set; } = null!;
     public DbSet<ToolApprovalRequest> ToolApprovalRequests { get; set; } = null!;
+
+    // Tenant-managed agent extensibility (Spec 033)
+    public DbSet<TenantSkill> TenantSkills { get; set; } = null!;
+    public DbSet<TenantMcpServer> TenantMcpServers { get; set; } = null!;
+    public DbSet<TenantHttpTool> TenantHttpTools { get; set; } = null!;
+
     public DbSet<ChatThread> ChatThreads { get; set; } = null!;
     public DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
     public DbSet<ConversationSummary> ConversationSummaries { get; set; } = null!;
@@ -72,6 +78,9 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
         MapTable<Proposal>(modelBuilder, "Proposals");
         MapTable<ToolApprovalRequest>(modelBuilder, "ToolApprovalRequests");
+        MapTable<TenantSkill>(modelBuilder, "TenantSkills");
+        MapTable<TenantMcpServer>(modelBuilder, "TenantMcpServers");
+        MapTable<TenantHttpTool>(modelBuilder, "TenantHttpTools");
         MapTable<ChatThread>(modelBuilder, "ChatThreads");
         MapTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
 

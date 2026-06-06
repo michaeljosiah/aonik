@@ -43,7 +43,7 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
         // disappear (Approvals / Run queue / Policies / Usage all live in
         // agent-command-center, for example).
         var response = new AdminManifestResponse(
-            EnabledModules: ["core", "platform", "finance", "agent-command-center"],
+            EnabledModules: ["core", "platform", "finance", "agent-command-center", "agent-extensions"],
             FeatureFlags: new Dictionary<string, bool>
             {
                 ["finance:billing"] = true,
