@@ -66,6 +66,13 @@
       "cwd": "Templates/aonik-admin-starterkit"
     },
     {
+      "name": "docs-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4180"],
+      "port": 4180,
+      "cwd": "docs"
+    },
+    {
       "name": "voxa-sample",
       "runtimeExecutable": "dotnet",
       "runtimeArgs": [
