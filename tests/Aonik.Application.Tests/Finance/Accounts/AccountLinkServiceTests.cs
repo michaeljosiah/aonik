@@ -132,6 +132,9 @@ public class AccountLinkServiceTests
                 contentType, fileName, fileStream.Length, "fakehash"));
         }
 
+        public Task<Stream?> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
+            => Task.FromResult<Stream?>(null);
+
         public Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 

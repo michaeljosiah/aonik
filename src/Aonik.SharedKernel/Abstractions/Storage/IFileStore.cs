@@ -32,6 +32,14 @@ public interface IFileStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Opens a read stream for a blob by its storage key. Returns <see langword="null"/> if no blob
+    /// exists at the key. The caller owns the returned stream and must dispose it.
+    /// </summary>
+    Task<Stream?> OpenReadAsync(
+        string storageKey,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Deletes a blob by its storage key.
     /// </summary>
     Task DeleteAsync(

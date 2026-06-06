@@ -5,6 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.Agents</RootNamespace>
+    <!--
+      Spec 033 builds on MAF's Agent Skills API (AgentSkillsProvider / AgentSkillsProviderBuilder /
+      AgentSkillFrontmatter), which ships in the pinned Microsoft.Agents.AI 1.5.0 marked
+      [Experimental("MAAI001")]. The spec mandates building on these framework-native primitives, so
+      we opt in to the evaluation diagnostic here.
+    -->
+    <NoWarn>$(NoWarn);MAAI001</NoWarn>
   </PropertyGroup>
 
   <!--
