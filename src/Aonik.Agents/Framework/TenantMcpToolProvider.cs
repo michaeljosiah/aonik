@@ -97,6 +97,14 @@ internal sealed class TenantMcpToolProvider : ITenantMcpToolProvider
                     continue;
                 }
 
+                // A remote server could advertise a tool whose name isn't a valid function name; skip it
+                // rather than let it break serialization of the whole agent tool list for the tenant.
+                if (!ToolNameRules.IsValid(tool.Name))
+                {
+                    _logger.LogWarning("Skipping MCP tool '{Tool}' from {Server}: not a valid tool name.", tool.Name, server.Name);
+                    continue;
+                }
+
                 store?.Register(tool.Name, TenantToolRiskMapping.ClassifyMcpTool(tool.Name, server));
                 tools.Add(tool);
             }

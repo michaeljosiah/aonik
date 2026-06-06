@@ -26,6 +26,7 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
     private readonly ITenantEgressAllowList _egress;
     private readonly IHttpClientFactory? _httpClientFactory;
     private readonly JsonElement _schema;
+    private readonly HashSet<string> _declaredParameters;
 
     public DeclarativeHttpAIFunction(
         TenantHttpTool tool,
@@ -38,6 +39,7 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
         _egress = egress;
         _httpClientFactory = httpClientFactory;
         _schema = ParseSchema(tool.ParameterSchemaJson);
+        _declaredParameters = ParseDeclaredParameters(tool.ParameterSchemaJson);
     }
 
     public override string Name => _tool.Name;
@@ -60,9 +62,12 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
         var method = new HttpMethod(string.IsNullOrWhiteSpace(_tool.Method) ? "GET" : _tool.Method.ToUpperInvariant());
         var hasBody = method == HttpMethod.Post || method == HttpMethod.Put || method == HttpMethod.Patch;
 
-        // Remaining (non-placeholder) args go to the query string for read methods, or the JSON body.
+        // Only forward args the tenant DECLARED in the parameter schema (and that aren't URL
+        // placeholders). A hallucinated or injected extra argument (e.g. includeSecrets=true, or an
+        // oversized limit) is dropped, so the parameter surface the model can actually reach is exactly
+        // the declared one — the model cannot smuggle fields into the outbound call (Spec 033 §8.4).
         var remaining = arguments
-            .Where(kvp => !consumed.Contains(kvp.Key))
+            .Where(kvp => !consumed.Contains(kvp.Key) && _declaredParameters.Contains(kvp.Key))
             .ToList();
 
         if (!hasBody && remaining.Count > 0)
@@ -131,6 +136,40 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
 
         using var fallback = JsonDocument.Parse("""{"type":"object","properties":{}}""");
         return fallback.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// The set of parameter names the tenant declared in the schema's <c>properties</c> — the fixed
+    /// surface the model may fill. Ordinal (JSON property names are case-sensitive). Empty when the
+    /// schema has no <c>properties</c>, in which case only URL-template placeholders are forwarded.
+    /// </summary>
+    internal static HashSet<string> ParseDeclaredParameters(string? schemaJson)
+    {
+        var declared = new HashSet<string>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(schemaJson))
+        {
+            return declared;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(schemaJson);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("properties", out var props)
+                && props.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in props.EnumerateObject())
+                {
+                    declared.Add(prop.Name);
+                }
+            }
+        }
+        catch
+        {
+            // Invalid schema → no declared parameters → nothing forwarded beyond URL placeholders.
+        }
+
+        return declared;
     }
 
     private static string StringifyArg(AIFunctionArguments arguments, string key) =>
