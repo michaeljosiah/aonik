@@ -82,6 +82,28 @@ public sealed class DocumentServiceScopingTests
         return id;
     }
 
+    private async Task SeedFileAsync(
+        DocumentsDbContext context, Guid documentId, string fileName = "statement.txt", int pageIndex = 0)
+    {
+        context.DocumentFiles.Add(new DocumentFile
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            DocumentId = documentId,
+            StorageProvider = "local",
+            StorageContainer = "documents",
+            StorageKey = $"tenants/{_tenantId:N}/{documentId:N}/{Guid.NewGuid():N}.txt",
+            ContentType = "text/plain",
+            FileName = fileName,
+            FileSizeBytes = 742,
+            Sha256 = "hash",
+            PageIndex = pageIndex,
+            MetadataJson = "{}",
+            ExtractedTextStatus = ExtractedTextStatus.Native,
+        });
+        await context.SaveChangesAsync();
+    }
+
     // ── Owner-party scoping: reads ──────────────────────────────────────
 
     [Fact]
@@ -140,6 +162,32 @@ public sealed class DocumentServiceScopingTests
         var service = CreateService(context, Customer, _userId, _customerParty);
 
         (await service.GetFilesAsync(otherDoc)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetFilesAsync_For_Staff_Returns_The_Documents_Files()
+    {
+        await using var context = CreateContext();
+        var doc = await SeedAsync(context, _customerParty);
+        await SeedFileAsync(context, doc, "statement.txt");
+        var service = CreateService(context, Staff);
+
+        var files = await service.GetFilesAsync(doc);
+
+        files.Should().ContainSingle();
+        files[0].FileName.Should().Be("statement.txt");
+        files[0].DocumentId.Should().Be(doc);
+    }
+
+    [Fact]
+    public async Task GetFilesAsync_For_Customer_Returns_Files_Of_Their_Own_Document()
+    {
+        await using var context = CreateContext();
+        var ownDoc = await SeedAsync(context, _customerParty);
+        await SeedFileAsync(context, ownDoc);
+        var service = CreateService(context, Customer, _userId, _customerParty);
+
+        (await service.GetFilesAsync(ownDoc)).Should().ContainSingle();
     }
 
     [Fact]

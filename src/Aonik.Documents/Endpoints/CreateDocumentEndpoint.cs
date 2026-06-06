@@ -14,7 +14,7 @@ public sealed class CreateDocumentEndpoint : Endpoint<CreateDocumentCommand, Doc
     public override void Configure()
     {
         Post("/documents");
-        Policies("UserPolicy");
+        Policies("AdminUserWritePolicy");
         Summary(s =>
         {
             s.Summary = "Create a document";

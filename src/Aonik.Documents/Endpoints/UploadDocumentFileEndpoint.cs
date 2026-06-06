@@ -14,7 +14,7 @@ public sealed class UploadDocumentFileEndpoint : EndpointWithoutRequest<Document
     public override void Configure()
     {
         Post("/documents/{id}/files");
-        Policies("UserPolicy");
+        Policies("AdminUserWritePolicy");
         AllowFileUploads();
         Summary(s =>
         {

@@ -51,13 +51,23 @@ export const documentService = {
     if (params.relatedEntityId) queryParams.append('relatedEntityId', params.relatedEntityId);
 
     const query = queryParams.toString();
-    return api.get<PagedResult<DocumentListItem>>(`/compliance/documents${query ? `?${query}` : ''}`);
+    // Spec 035 — generic document read/write re-homed from /compliance/documents to /documents.
+    return api.get<PagedResult<DocumentListItem>>(`/documents${query ? `?${query}` : ''}`);
   },
   get: async (documentId: string): Promise<DocumentDetailsResponse> => {
-    return api.get<DocumentDetailsResponse>(`/compliance/documents/${documentId}`);
+    // Spec 035 — the decoupled Documents module returns the flat document metadata
+    // (DocumentDto) from GET /documents/{id} and its attached files from a separate
+    // GET /documents/{id}/files; it has no compliance usages/versions. Compose them into
+    // the composite shape the detail page expects. Owner-scoping is enforced server-side,
+    // so a customer only sees their own document and its files.
+    const [document, files] = await Promise.all([
+      api.get<DocumentResponse>(`/documents/${documentId}`),
+      api.get<DocumentFileResponse[]>(`/documents/${documentId}/files`),
+    ]);
+    return { document, files, usages: [], versions: [] };
   },
   create: async (data: CreateDocumentRequest): Promise<DocumentResponse> => {
-    return api.post<DocumentResponse>('/compliance/documents', data);
+    return api.post<DocumentResponse>('/documents', data);
   },
   addFile: async (documentId: string, data: AddDocumentFileRequest): Promise<DocumentFileResponse> => {
     return api.post<DocumentFileResponse>(`/compliance/documents/${documentId}/files`, data);
@@ -82,7 +92,7 @@ export const documentService = {
     if (data.capturedBy) formData.append('capturedBy', data.capturedBy);
     if (data.metadataJson) formData.append('metadataJson', data.metadataJson);
 
-    return api.post<DocumentFileResponse>(`/compliance/documents/${documentId}/files/upload`, formData, {
+    return api.post<DocumentFileResponse>(`/documents/${documentId}/files`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

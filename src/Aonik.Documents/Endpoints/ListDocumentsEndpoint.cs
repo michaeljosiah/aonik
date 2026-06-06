@@ -15,7 +15,7 @@ public sealed class ListDocumentsEndpoint : Endpoint<ListDocumentsQuery, PagedRe
     public override void Configure()
     {
         Get("/documents");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "List documents";

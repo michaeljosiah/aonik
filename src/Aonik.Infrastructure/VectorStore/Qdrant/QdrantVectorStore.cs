@@ -154,6 +154,17 @@ internal class QdrantVectorStore : IVectorStore
 
             return results;
         }
+        catch (System.Net.Http.HttpRequestException ex)
+            when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // The collection does not exist yet (nothing has been indexed into it). A search over a
+            // not-yet-created collection has no matches — return empty rather than surfacing a 404 as
+            // an error to the agent's document-search tool.
+            _logger.LogDebug(
+                "Search on collection {Collection} returned 404 (collection not yet created); treating as no matches.",
+                collectionName);
+            return new List<VectorSearchResult>();
+        }
         catch (Exception ex)
         {
             AiTelemetry.MarkError(activity, ex);
@@ -253,6 +264,20 @@ internal class QdrantVectorStore : IVectorStore
             activity?.SetTag("aonik.vector.result_count", points.Count);
 
             return new VectorScrollPage(points, page.NextPageOffset);
+        }
+        catch (System.Net.Http.HttpRequestException ex)
+            when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // The collection does not exist yet. This is expected for the first-ever document
+            // indexed into a collection: the ingestion pipeline purges (scrolls + deletes) a
+            // document's existing chunks BEFORE upserting, and it is the first upsert that lazily
+            // creates the collection (see EnsureCollectionExistsAsync, called only on upsert). A
+            // scroll over a not-yet-created collection is logically empty, not an error — return an
+            // empty page so the caller proceeds to the upsert that creates the collection.
+            _logger.LogDebug(
+                "Scroll on collection {Collection} returned 404 (collection not yet created); treating as empty.",
+                collectionName);
+            return new VectorScrollPage(new List<VectorPointResult>(), null);
         }
         catch (Exception ex)
         {

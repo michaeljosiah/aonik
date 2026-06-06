@@ -36,7 +36,12 @@ public static class DatabaseStartupConfiguration
     public static void LogResolvedDatabaseConnection(this IServiceProvider services)
     {
         var logger = services.GetRequiredService<ILogger<AonikDbContext>>();
-        var dbContext = services.GetService<AonikDbContext>();
+
+        // AonikDbContext is scoped; resolving it from the root provider throws under Development
+        // scope-validation ("Cannot resolve scoped service ... from root provider"). Open a scope
+        // for this startup diagnostic so the API can boot in Development.
+        using var scope = services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetService<AonikDbContext>();
 
         if (dbContext is null)
         {
