@@ -7,28 +7,46 @@ using Microsoft.Agents.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Aonik.Agents.Framework;
 
 /// <summary>
 /// Builds the current tenant's <see cref="AgentSkillsProvider"/> from its active, approved skills
 /// (Spec 033 §8.1). Each skill's <c>SKILL.md</c> is materialised from <see cref="IFileStore"/> to a
-/// local directory and parsed by MAF's <c>AgentFileSkillsSource</c>; the builder filters to the
-/// enabled set and keeps <c>ScriptApproval</c> on. Returns <see langword="null"/> when there are no
-/// active skills, so the descriptor adds no context providers and the agent builds as before.
+/// local directory and parsed by MAF's file skill parser; the builder filters to the enabled set and
+/// keeps <c>ScriptApproval</c> on. Returns <see langword="null"/> when there are no active skills, so
+/// the descriptor adds no context providers and the agent builds as before.
+/// <para>
+/// Skill scripts are gated (Spec 033 §8.2): a script-bearing skill only has its scripts injected when
+/// a PlatformAdmin has enabled them (<see cref="TenantSkill.ScriptsEnabled"/>) AND the deployment
+/// allows skill scripts (<see cref="TenantExtensionOptions.AllowSkillScripts"/>). Otherwise the skill
+/// is materialised into a scripts-stripped source — its instructions and references still work, but
+/// <c>run_skill_script</c> is not exposed — so the "enable scripts" review control is meaningful.
+/// </para>
 /// </summary>
 internal sealed class TenantSkillsProviderFactory : ITenantSkillsProviderFactory
 {
     private readonly TenantSkillMaterializer _materializer;
+    private readonly IOptionsMonitor<TenantExtensionOptions> _options;
     private readonly ILogger<TenantSkillsProviderFactory> _logger;
 
     public TenantSkillsProviderFactory(
         TenantSkillMaterializer materializer,
+        IOptionsMonitor<TenantExtensionOptions> options,
         ILogger<TenantSkillsProviderFactory> logger)
     {
         _materializer = materializer;
+        _options = options;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Whether a skill's executable scripts may be injected as runnable: only when the skill declares
+    /// scripts, a PlatformAdmin has enabled them, AND the deployment allows skill scripts.
+    /// </summary>
+    internal static bool ScriptsInjectable(bool scriptsPresent, bool scriptsEnabled, bool allowSkillScripts)
+        => scriptsPresent && scriptsEnabled && allowSkillScripts;
 
     public AIContextProvider? Create(IServiceProvider serviceProvider)
     {
@@ -69,32 +87,60 @@ internal sealed class TenantSkillsProviderFactory : ITenantSkillsProviderFactory
             return null;
         }
 
-        var dirs = new List<string>(skills.Count);
+        var allowSkillScripts = _options.CurrentValue.AllowSkillScripts;
+
+        // Split by the script gate: scripts-enabled skills materialise normally (scripts runnable,
+        // under ScriptApproval); everything else materialises with scripts stripped so a not-yet-enabled
+        // script-bearing skill still contributes its instructions/references but no runnable script.
+        var plainDirs = new List<string>();
+        var scriptDirs = new List<string>();
         var enabledNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var skill in skills)
         {
             var dir = await _materializer.EnsureMaterializedAsync(tenantId, skill, fileStore).ConfigureAwait(false);
-            if (dir is not null)
+            if (dir is null)
             {
-                dirs.Add(dir);
-                enabledNames.Add(skill.Name);
+                continue;
+            }
+
+            enabledNames.Add(skill.Name);
+            if (ScriptsInjectable(skill.ScriptsPresent, skill.ScriptsEnabled, allowSkillScripts))
+            {
+                scriptDirs.Add(dir);
+            }
+            else
+            {
+                plainDirs.Add(dir);
             }
         }
 
-        if (dirs.Count == 0)
+        if (plainDirs.Count == 0 && scriptDirs.Count == 0)
         {
             return null;
         }
 
-        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-        var builder = new AgentSkillsProviderBuilder()
-            .UseFileSkills(dirs)
+        var builder = new AgentSkillsProviderBuilder();
+
+        if (plainDirs.Count > 0)
+        {
+            // AllowedScriptExtensions = [] → no file is treated as a runnable script, so run_skill_script
+            // is not exposed for these skills even if a future package ships a scripts/ directory.
+            var strippedOptions = new AgentFileSkillsSourceOptions { AllowedScriptExtensions = [] };
+            builder = builder.UseFileSkills(plainDirs, strippedOptions);
+        }
+
+        if (scriptDirs.Count > 0)
+        {
+            builder = builder.UseFileSkills(scriptDirs);
+        }
+
+        builder = builder
             // Enforce the per-tenant enabled set (Spec 033 §8.1).
             .UseFilter(skill => enabledNames.Contains(skill.Frontmatter.Name))
-            // Tenant skills always keep ScriptApproval on; a PlatformAdmin enabling scripts is a
-            // separate, audited per-skill flag handled before activation.
+            // Tenant skills always keep ScriptApproval on — even an enabled script is an approval event.
             .UseScriptApproval(true);
 
+        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
         if (loggerFactory is not null)
         {
             builder = builder.UseLoggerFactory(loggerFactory);

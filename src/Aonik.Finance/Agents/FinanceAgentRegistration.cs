@@ -108,18 +108,17 @@ public sealed class FinanceAgentDescriptor : IDomainAgentDescriptor
         var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
 
         var builtIns = GetBuiltInTools(serviceProvider);
-        if (allowedToolNames is not null)
-        {
-            builtIns = builtIns.Where(t => allowedToolNames.Contains(t.Name));
-        }
 
         // Tenant MCP + HTTP tools are raw here; their providers already registered each tool's
         // classification (Spec 033 §8.5), so the single GateAll pass below wraps them like built-ins.
-        // They are not subject to the built-in toolset allow-list (they have their own activation).
         var tenantTools = serviceProvider.GetService<ITenantAgentToolProvider>()?.GetTools(serviceProvider)
             ?? Enumerable.Empty<AITool>();
 
-        var tools = gate.GateAll(builtIns.Concat(tenantTools), serviceProvider).ToList();
+        // Honour the IDomainAgentDescriptor contract: a non-null allow-list includes ONLY those tool
+        // names — applied to tenant tools too (see ApplyToolAllowList).
+        var composed = ApplyToolAllowList(builtIns.Concat(tenantTools), allowedToolNames);
+
+        var tools = gate.GateAll(composed, serviceProvider).ToList();
 
         var skills = serviceProvider.GetService<ITenantSkillsProviderFactory>()?.Create(serviceProvider);
 
@@ -143,6 +142,15 @@ public sealed class FinanceAgentDescriptor : IDomainAgentDescriptor
         InvoiceTools.CreateAll(serviceProvider)
             .Concat(LedgerTools.CreateAll(serviceProvider))
             .Concat(PaymentTools.CreateAll(serviceProvider));
+
+    /// <summary>
+    /// Applies the descriptor's tool allow-list uniformly to ALL tools — built-in AND tenant-contributed
+    /// (Spec 033). A non-null <paramref name="allowedToolNames"/> means "only these names"; a restricted
+    /// build (voice read-only, playground with tools disabled, or a tenant toolset override) must never
+    /// surface an unlisted tenant tool. Null means no restriction (every active tool is included).
+    /// </summary>
+    internal static IEnumerable<AITool> ApplyToolAllowList(IEnumerable<AITool> tools, IReadOnlySet<string>? allowedToolNames)
+        => allowedToolNames is null ? tools : tools.Where(t => allowedToolNames.Contains(t.Name));
 }
 
 /// <summary>
