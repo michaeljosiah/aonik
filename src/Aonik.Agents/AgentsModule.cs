@@ -97,6 +97,49 @@ public sealed class AgentsModule : IModule
         services.TryAddSingleton<IToolApprovalAuditSink, LoggingToolApprovalAuditSink>();
         services.TryAddSingleton<IToolApprovalGate, ToolApprovalGate>();
 
+        // Spec 033 §8.5 — the single manifest that classifies tenant-contributed tools (remote MCP +
+        // declarative HTTP) so they ride the SAME fail-closed gate as built-ins. Singleton (the gate
+        // aggregates manifests once); it reads the request-scoped classification store the tenant tool
+        // providers populate at agent build, via IHttpContextAccessor. AddHttpContextAccessor is
+        // idempotent (TryAddSingleton internally) and already added by Infrastructure.
+        services.AddHttpContextAccessor();
+        services.AddScoped<ITenantToolClassificationStore, TenantToolClassificationStore>();
+        services.AddSingleton<IToolApprovalManifest, TenantToolApprovalManifest>();
+
+        // Spec 033 §8.3/§8.4 — tenant tool surfaces (remote MCP + declarative HTTP) that feed the
+        // gate above. The providers materialise the current tenant's active+approved tools as RAW
+        // AITools and register their classifications in the scoped store; the descriptor concatenates
+        // them into its single GateAll(...) call (§8.6). Egress is platform-curated; credentials are
+        // Data-Protection encrypted at rest and decrypted only at connect/call.
+        services.Configure<TenantExtensionOptions>(configuration.GetSection(TenantExtensionOptions.SectionName));
+        services.AddHttpClient(); // ensures IHttpClientFactory is available
+        // Spec 033 §8.4/§11 — the declarative HTTP tool client must NOT auto-follow redirects. The
+        // egress allow-list is checked once on the final URL, so following a 30x to another host would
+        // bypass it (SSRF) and could forward custom auth headers cross-host. Disable auto-redirect on
+        // this named client; a 3xx is surfaced to the model unfollowed (DeclarativeHttpAIFunction).
+        services.AddHttpClient("TenantHttpTool")
+            .ConfigurePrimaryHttpMessageHandler(() => new System.Net.Http.SocketsHttpHandler { AllowAutoRedirect = false });
+        services.TryAddSingleton<ITenantCredentialProtector, TenantCredentialProtector>();
+        services.TryAddSingleton<ITenantEgressAllowList, TenantEgressAllowList>();
+        services.AddSingleton<TenantMcpConnectionCache>();
+        services.AddSingleton<ITenantMcpToolProvider, TenantMcpToolProvider>();
+        services.AddSingleton<ITenantHttpToolFactory, TenantHttpToolFactory>();
+        services.AddSingleton<ITenantAgentToolProvider, TenantAgentToolProvider>();
+
+        // Spec 033 §8.1 — tenant Agent Skills. The validator reuses MAF's parser + frontmatter
+        // validators (also used by the upload endpoint and the validate harness); the materializer
+        // caches each SKILL.md on disk for MAF's file parser; the factory builds the per-tenant
+        // AgentSkillsProvider attached via ChatClientAgentOptions.AIContextProviders at agent build.
+        services.AddSingleton<TenantSkillMaterializer>();
+        services.TryAddSingleton<ITenantSkillValidator, TenantSkillValidator>();
+        services.AddSingleton<ITenantSkillsProviderFactory, TenantSkillsProviderFactory>();
+
+        // Spec 033 §D — management services behind the FastEndpoints (CRUD / validate / test / submit /
+        // activate / review). Scoped because they touch the scoped AgentsDbContext + tenant/user providers.
+        services.AddScoped<Services.Tenant.ITenantSkillService, Services.Tenant.TenantSkillService>();
+        services.AddScoped<Services.Tenant.ITenantMcpServerService, Services.Tenant.TenantMcpServerService>();
+        services.AddScoped<Services.Tenant.ITenantHttpToolService, Services.Tenant.TenantHttpToolService>();
+
         // Spec 032 §7.5 — durable audit/correlation row store for every gated mutating-tool call.
         // Module-internal (only ToolApprovalService uses it); backed by the scoped AgentsDbContext.
         services.AddScoped<Services.IToolApprovalRequestStore, Services.ToolApprovalRequestStore>();

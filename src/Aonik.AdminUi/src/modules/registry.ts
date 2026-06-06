@@ -8,6 +8,7 @@ import { coreModule } from './core';
 import { financeModule } from './finance';
 import { platformModule } from './platform';
 import { agentCommandCenterModule } from './agent-command-center';
+import { agentExtensionsModule } from './agent-extensions';
 
 // ---------------------------------------------------------------------------
 // Build-time module registry
@@ -17,6 +18,7 @@ import { agentCommandCenterModule } from './agent-command-center';
 const allModules: AdminModule[] = [
   coreModule,
   agentCommandCenterModule,
+  agentExtensionsModule,
   financeModule,
   platformModule,
 ];

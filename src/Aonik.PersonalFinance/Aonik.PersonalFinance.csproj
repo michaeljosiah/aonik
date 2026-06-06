@@ -48,7 +48,7 @@
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.5.1" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.6.0" />
     <!--
       CodeAct sandbox dependencies. Originate in Aonik.Finance.csproj and
       will be removed from there in Phase 5 of Spec 027 once the providers

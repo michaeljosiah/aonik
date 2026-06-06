@@ -86,6 +86,18 @@ public class FileStore : IFileStore
             sha256);
     }
 
+    public async Task<Stream?> OpenReadAsync(
+        string storageKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            return null;
+        }
+
+        return await _blobStorage.OpenReadAsync(storageKey, cancellationToken);
+    }
+
     public async Task DeleteAsync(
         string storageKey,
         CancellationToken cancellationToken = default)

@@ -73,52 +73,84 @@ public sealed class FinanceAgentDescriptor : IDomainAgentDescriptor
         """;
 
     public AIAgent Build(IChatClient chatClient, IServiceProvider serviceProvider)
-    {
-        var tools = GetTools(serviceProvider).ToList();
-
-        return new ChatClientAgent(
-            chatClient,
-            name: Name,
-            instructions: InstructionsText,
-            tools: tools);
-    }
+        => BuildAgent(chatClient, serviceProvider, InstructionsText, allowedToolNames: null);
 
     public AIAgent Build(
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         string? instructionsOverride,
         IReadOnlySet<string>? allowedToolNames)
-    {
-        var tools = GetTools(serviceProvider)
-            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
-            .ToList();
-
-        return new ChatClientAgent(
-            chatClient,
-            name: Name,
-            instructions: instructionsOverride ?? InstructionsText,
-            tools: tools);
-    }
+        => BuildAgent(chatClient, serviceProvider, instructionsOverride ?? InstructionsText, allowedToolNames);
 
     public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)
     {
-        return GetTools(serviceProvider).Select(t => t.Name).ToList();
+        // Built-in tools only — tenant-contributed tools (Spec 033) are managed separately and are
+        // not part of the agent's configurable toolset allow-list.
+        var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
+        return gate.GateAll(GetBuiltInTools(serviceProvider), serviceProvider)
+            .Select(t => t.Name)
+            .ToList();
     }
 
-    private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
+    // Spec 033 §8.6 — the one composition seam. Attaches the tenant's skills provider via
+    // ChatClientAgentOptions.AIContextProviders and concatenates the tenant's MCP/HTTP tools into the
+    // SAME gate.GateAll(...) pass as the built-ins, so tenant tools are gated exactly like built-ins
+    // and there is one place a reviewer confirms gating. Agents with no tenant extensions build
+    // exactly as before (empty provider list, unchanged gated tool sequence).
+    private AIAgent BuildAgent(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string instructions,
+        IReadOnlySet<string>? allowedToolNames)
     {
-        // Fail-closed approval seam (Spec 032 C3): every mutating finance tool is wrapped so
-        // it cannot run ungated, and an unclassified mutating-looking tool throws here at build.
+        // Fail-closed approval seam (Spec 032 C3): every mutating tool is wrapped so it cannot run
+        // ungated, and an unclassified mutating-looking tool throws here at build.
         var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
 
-        // Pass the request-scoped provider so the wrapper can resolve the scoped
-        // IToolApprovalService when a High-tier money tool is invoked (Spec 032 §7.5).
-        return gate.GateAll(
-            InvoiceTools.CreateAll(serviceProvider)
-                .Concat(LedgerTools.CreateAll(serviceProvider))
-                .Concat(PaymentTools.CreateAll(serviceProvider)),
-            serviceProvider);
+        var builtIns = GetBuiltInTools(serviceProvider);
+
+        // Tenant MCP + HTTP tools are raw here; their providers already registered each tool's
+        // classification (Spec 033 §8.5), so the single GateAll pass below wraps them like built-ins.
+        var tenantTools = serviceProvider.GetService<ITenantAgentToolProvider>()?.GetTools(serviceProvider)
+            ?? Enumerable.Empty<AITool>();
+
+        // Honour the IDomainAgentDescriptor contract: a non-null allow-list includes ONLY those tool
+        // names — applied to tenant tools too (see ApplyToolAllowList).
+        var composed = ApplyToolAllowList(builtIns.Concat(tenantTools), allowedToolNames);
+
+        var tools = gate.GateAll(composed, serviceProvider).ToList();
+
+        var skills = serviceProvider.GetService<ITenantSkillsProviderFactory>()?.Create(serviceProvider);
+
+        var options = new ChatClientAgentOptions
+        {
+            Name = Name,
+            ChatOptions = new ChatOptions
+            {
+                Instructions = instructions,
+                Tools = tools,
+            },
+            AIContextProviders = skills is null
+                ? new List<AIContextProvider>()
+                : new List<AIContextProvider> { skills },
+        };
+
+        return new ChatClientAgent(chatClient, options);
     }
+
+    private static IEnumerable<AITool> GetBuiltInTools(IServiceProvider serviceProvider) =>
+        InvoiceTools.CreateAll(serviceProvider)
+            .Concat(LedgerTools.CreateAll(serviceProvider))
+            .Concat(PaymentTools.CreateAll(serviceProvider));
+
+    /// <summary>
+    /// Applies the descriptor's tool allow-list uniformly to ALL tools — built-in AND tenant-contributed
+    /// (Spec 033). A non-null <paramref name="allowedToolNames"/> means "only these names"; a restricted
+    /// build (voice read-only, playground with tools disabled, or a tenant toolset override) must never
+    /// surface an unlisted tenant tool. Null means no restriction (every active tool is included).
+    /// </summary>
+    internal static IEnumerable<AITool> ApplyToolAllowList(IEnumerable<AITool> tools, IReadOnlySet<string>? allowedToolNames)
+        => allowedToolNames is null ? tools : tools.Where(t => allowedToolNames.Contains(t.Name));
 }
 
 /// <summary>

@@ -16,6 +16,7 @@
     --warn: #8a4b00;
     --danger: #8a1f1f;
     --success: #1f5f3a;
+    --info: #1f4d6b;
   }
   * { box-sizing: border-box; }
   html { -webkit-font-smoothing: antialiased; }
@@ -114,6 +115,7 @@
   .callout.warn { border-left-color: var(--warn); }
   .callout.danger { border-left-color: var(--danger); }
   .callout.ok { border-left-color: var(--success); }
+  .callout.update { border-left-color: var(--info); border-left-width: 4px; background: #f6f9fb; }
   .callout .label {
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -126,6 +128,20 @@
   .callout.warn .label { color: var(--warn); }
   .callout.danger .label { color: var(--danger); }
   .callout.ok .label { color: var(--success); }
+  .callout.update .label { color: var(--info); }
+  .upd {
+    display: inline-block;
+    font-family: -apple-system, "Inter", "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: var(--info);
+    background: #eef4f8;
+    border: 1px solid #d3e1ea;
+    border-radius: 3px;
+    padding: 1px 7px;
+    margin-left: 2px;
+  }
+  .upd strong { color: var(--info); }
+  .struck { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -152,6 +168,7 @@
   td.status-partial { color: var(--warn);    font-weight: 600; }
   td.status-stub    { color: var(--danger);  font-weight: 600; }
   td.status-cut     { color: var(--muted);   font-weight: 600; }
+  td.status-done    { color: var(--info);    font-weight: 600; }
   .sprint {
     border: 1px solid var(--rule);
     border-radius: 4px;
@@ -270,12 +287,13 @@
   <h1>Payabo — From Code to Cohort by August 2026</h1>
   <p class="lede">An honest, capacity-realistic three-month plan to put a working Payabo into the hands of fifty Nigerian-diaspora professionals in the UK, written from the code rather than from the slides.</p>
   <div class="meta">
-    Written 24 May 2026 · Target launch 31 August 2026 · 14 weeks · Author: planning collaborator for Michael Josiah, founder
+    Written 24 May 2026 (commit <code>e2d0bdca</code>) · <strong>Revised 6 June 2026</strong> (commit <code>d34c7ab9</code>) · Target launch 31 August 2026 · 14 weeks · Author: planning collaborator for Michael Josiah, founder
   </div>
 </header>
 
 <nav class="toc">
   <strong>Contents</strong>
+  <p style="margin:8px 0 4px;"><a href="#update" style="color:var(--info);border-bottom-color:var(--info);">▲ Progress Update — 6 June 2026</a> <span style="color:var(--muted);">(revision layer; original plan numbering unchanged below)</span></p>
   <ol>
     <li><a href="#exec">Executive Summary</a></li>
     <li><a href="#state">Current State Assessment</a></li>
@@ -312,14 +330,83 @@
 </section>
 
 <!-- ============================================================== -->
+<section id="update">
+<h2 style="border-bottom:2px solid var(--info);">Progress Update — 6 June 2026 <span style="font-size:14px;color:var(--muted);font-weight:400;">· revision layer over the 24 May plan</span></h2>
+
+<p>This layer was written two weeks into the plan, from the code at commit <code>d34c7ab9</code> (branch <code>feat/spec-033-tenant-agent-extensibility</code>). The 24 May assessment below it is left intact as the baseline; this section records what has actually changed since, re-verified file-by-file. Where an individual claim further down is now stale, it carries an inline <span class="upd">▲ 6 Jun</span> note rather than being silently rewritten — the point is to see the drift, not hide it.</p>
+
+<div class="callout update">
+  <div class="label">The one-sentence verdict</div>
+  Thirty-four commits landed in fourteen days and the engineering was genuinely good — but it flowed almost entirely into <strong>platform and agent depth, not the remittance wedge</strong>, and <strong>the mobile app, the entire intended launch surface, received zero commits.</strong> The plan's own Tier-3 risk — "sunk-cost gravity from AONIK platform breadth" — is precisely the thing that happened in Sprint 1.
+</div>
+
+<h3>2A.1 What genuinely moved toward the wedge</h3>
+<ul>
+  <li><strong>The test projects now exist, with the right first test.</strong> <code>tests/Aonik.Finance.Tests</code> and <code>tests/Aonik.PersonalFinance.Tests</code> were stood up (commit <code>8c423a51</code>), and the ledger double-entry invariant is locked down both in-memory (<code>LedgerInvariantTests</code>) and against real SQL Server via Testcontainers (<code>LedgerInvariantSqlServerTests</code>). A shared <code>Aonik.TestSupport</code> fixtures library and a transactional outbox also landed. This was Sprint 1's first backend task and it is <strong>done</strong>. Caveat: the PersonalFinance project is a single placeholder smoke test — the harness exists, real coverage does not yet.</li>
+  <li><strong><code>OrderType</code> gained a <code>Remittance</code> value.</strong> The enum is no longer the three values the plan grepped; it is now <code>BillPayment, BankTransfer, CashCollection, Payout, Collection, AirtimeTopup, Remittance</code> (<code>OrderType.cs</code>). It is explicitly "service-intent only" — the actual rail lives on execution entities — so this is a name, not a working flow, but the literal claim "no <code>CrossBorderRemittance</code> value" is now out of date.</li>
+  <li><strong>A partner-integration <em>abstraction</em> landed (Spec 031).</strong> The <code>IPartnerConnector</code> shape the plan asked Sprint 1 to "sketch" was fully built: <code>IPartnerPayoutConnector</code> / <code>IPartnerCollectionConnector</code> / <code>IPartnerBillPaymentConnector</code>, an <code>IPartnerConnectorResolver</code>, webhook translation, and a full schema (Connector, ConnectorCapability, ConnectorBillerMapping, PartnerWebhookEvent, PartnerBillPayment, Transmission tables). The payout port even includes <code>QuotePayoutAsync</code> and <code>ResolveAccountAsync</code> (name-enquiry). <strong>But the only concrete implementation is <code>SimulatedPartnerConnector</code></strong> — still zero real vendor adapters, and nothing actually invokes the resolve→initiate→record→settle path end-to-end. The seam is real; the money still cannot move.</li>
+  <li><strong>Payout-beneficiary storage exists (commit <code>8947bf66</code>).</strong> <code>ExternalPayoutAccount</code> + <code>PayoutBeneficiaryService</code> + save/list endpoints + a validator now persist a destination and stitch the customer→recipient party graph. This is <em>adjacent</em> to the Spec 008 recipient model but is not it: <strong>no NUBAN validation, no name-enquiry wired (<code>IsVerified</code> is hardcoded <code>false</code>), and Spec 008's <code>/recipients</code> CRUD remains unimplemented.</strong></li>
+  <li><strong>Financial-correctness and security hardening.</strong> A system-initiated idempotent <code>LedgerPostingService</code>, idempotency-key normalisation and race handling on order/payment creation, and — most importantly for a regulated product — a <strong>fail-closed tenant filter</strong> (commit <code>8559383c</code>): the platform previously returned <em>all tenants' rows</em> on any query that ran without a resolved tenant. That was a live cross-tenant data leak, and it is now closed. Two CVE-flagged packages (DataProtection, Cryptography.Xml) were also patched.</li>
+</ul>
+
+<h3>2A.2 The plan's central blocker was solved — under a different number</h3>
+<div class="callout ok">
+  <div class="label">Correction to §2.6 and to "Recommended Cuts"</div>
+  The plan's repeated claim — <em>"the server-side mutating-tool approval wrapper (spec 023's <code>ApprovalRequiredAIFunction</code>) does not exist in code"</em> — is <strong>no longer true.</strong> It was built under <strong>Spec 032</strong> (which supersedes the never-built Spec 023). <code>IToolApprovalGate</code> + <code>ApprovalGatedAIFunction</code> now wrap every classified mutating tool and <strong>fail closed</strong>: an unclassified mutating-looking tool throws <code>ToolNotClassifiedException</code> at agent-build time. Three tiers are enforced — <strong>low</strong> runs in-band with an audit record, <strong>medium</strong> persists a durable args-hash-bound <code>ToolApprovalRequest</code> and runs once only after a human approves via <code>POST /ai/tool-approvals/{id}/decide</code>, <strong>high</strong> (the four money tools) is never run in-band and is marshalled into a Spec 030 <code>Proposal</code>. It is wired for the Finance agent (<code>FinanceToolApprovalManifest</code>) and the approval cards now surface in the AG-UI chat stream (commit <code>6e59826f</code>). <strong>Still genuinely pending:</strong> voice parity — the voice agent stays safe the old way, by filtering mutating tools out entirely rather than gating them.
+</div>
+
+<h3>2A.3 Scope the plan said to freeze — built anyway</h3>
+<p>This is the part to sit with. The "do not do" lanes named Compass, voice, household-v2, the web app, and "any agent skill." Three of the four largest features merged since 24 May are platform/agent breadth, and were not in the plan at all:</p>
+<ul>
+  <li><strong>Spec 033 — tenant-managed agent extensibility</strong> (commit <code>faf7d1ca</code>, ~27,000 insertions across 56 files, plus an admin-UI hub and an Agent Detail redesign). Lets a tenant admin extend agents via uploaded MAF skills, remote MCP servers, and HTTP/OpenAPI tools. Sophisticated, correctly routed through the Spec 032 gate — and exactly the kind of B2B platform surface the plan argued has "zero commercial value in 2026" before Payabo has users. <em>This is the current branch.</em></li>
+  <li><strong>Spec 035 — Documents-module extraction + RAG</strong> (ADR-009). The document capability was lifted out of Platform into a new <code>Aonik.Documents</code> module with a Qdrant vector index, party-scoped retrieval isolation (which did close a real B2C cross-customer leak), and a right-to-erasure path. Genuinely good engineering; not on the critical path to moving a pound.</li>
+  <li><strong>Spec 034 — WorkItem scheduling</strong> (ADR-008). A general-purpose data-defined task/reminder primitive with a Quartz heartbeat dispatcher, preserving human-in-the-loop. Powers AI-chat reminders.</li>
+  <li><strong>Spec 024 Voice Phase C</strong> (the Active-Settings cutover the plan listed as "not done") shipped. <strong>MAF / MCP / Microsoft.Extensions.AI were upgraded to GA</strong>, and two standalone MCP servers (<code>Aonik.Finance.Mcp</code>, <code>Aonik.Platform.Mcp</code>) now exist.</li>
+</ul>
+<p>Defensible exception: <strong>Spec 032</strong> (the approval gate) and the <strong>fail-closed tenant filter</strong> are foundational security work for any money product — building them is not drift. The rest is.</p>
+
+<h3>2A.4 Sprint 1 scorecard</h3>
+<p>Against the plan's own Sprint 1 lanes (24 May – 7 Jun). Non-engineering items cannot be judged from the codebase — those are flagged for the founder to confirm, not graded.</p>
+<table>
+  <thead><tr><th>Sprint 1 commitment</th><th>Status</th><th>Evidence / note</th></tr></thead>
+  <tbody>
+    <tr><td><em>Backend:</em> stand up Finance + PF test projects; ledger-invariant test first</td><td class="status-done">Done</td><td>Commit <code>8c423a51</code> + integration suite. PF coverage still a stub.</td></tr>
+    <tr><td><em>Backend:</em> add remittance value to <code>OrderType</code> via EF migration</td><td class="status-done">Done</td><td><code>Remittance</code> added (Spec 031). Service-intent only.</td></tr>
+    <tr><td><em>Backend:</em> sketch the <code>IPartnerConnector</code> interface shape</td><td class="status-done">Done++</td><td>Full Spec 031 abstraction, well beyond a sketch — but only a simulated connector.</td></tr>
+    <tr><td><em>Backend:</em> draft <code>Recipient</code> entity + CRUD endpoints (Spec 008)</td><td class="status-partial">Partial</td><td>Payout-beneficiary built instead; not Spec 008, no NUBAN/name-enquiry.</td></tr>
+    <tr><td><em>Mobile:</em> feature-flag off Compass / voice / community / plan</td><td class="status-stub">Not started</td><td>Zero mobile commits since 20 May. Dead surfaces still visible.</td></tr>
+    <tr><td><em>Mobile:</em> reshape dashboard to "sent home / commitments / activity"</td><td class="status-stub">Not started</td><td>Still net-worth / safe-to-spend.</td></tr>
+    <tr><td><em>Mobile:</em> scaffold beneficiary list + add screens</td><td class="status-stub">Not started</td><td>"Support planning" surface is still mock-only.</td></tr>
+    <tr><td><em>Mobile:</em> failing happy-path integration test as CI scoreboard</td><td class="status-stub">Not started</td><td>No new mobile work at all.</td></tr>
+    <tr><td><em>Non-eng:</em> three partner calls; partner decision by end of S1</td><td class="status-cut">Founder to confirm</td><td>Not code-visible. No real connector exists, so likely not yet contracted.</td></tr>
+    <tr><td><em>Non-eng:</em> lawyer engaged · ICO registered · <code>payabo.com</code> landing live</td><td class="status-cut">Founder to confirm</td><td>Not code-visible.</td></tr>
+    <tr><td><em>Do-not-do:</em> resist Compass / voice / web / household-v2 / agent skills</td><td class="status-stub">Breached</td><td>Voice Phase C + Spec 033 agent-extensibility (~27k LOC) shipped.</td></tr>
+    <tr><td><em>Do-not-do:</em> no IDV build · no extra corridors</td><td class="status-done">Held</td><td>No IDV vendor, no GH/KE/ZA work. Good.</td></tr>
+  </tbody>
+</table>
+
+<h3>2A.5 What this means for the August date</h3>
+<p>The honest read is unchanged in shape but tighter in time. The remittance critical path — <strong>real partner connector, NUBAN name-enquiry, transmission processor that actually executes, live FX, four real billers, a send-money endpoint, and a mobile send-money flow</strong> — has barely moved; the abstraction layer is a head-start on the connector and nothing more. Meanwhile two of the seven sprints' worth of engineering capacity went to off-wedge platform work, and the launch surface (mobile) is untouched.</p>
+<p>August is still reachable, but only by treating the next sprint as a hard reset onto the wedge. If the partner contract is not signed and mobile send-money is not under construction by the end of Sprint 2 (21 Jun), the credible target moves to <strong>September</strong>. The compliance holes flagged in May — <code>ComplianceService.ScreenPartyAsync</code> still returns <code>"Passed"</code> for every party, and <code>IdvStatus</code> still has no verifier — remain exactly as open as they were, and still must close before live money moves.</p>
+
+<div class="callout danger">
+  <div class="label">The course-correction, in one move</div>
+  Stop adding platform breadth. The codebase does not need another module; it needs the mobile send-money flow and one real partner connector. For the next two sprints, the only new backend code should be the concrete partner connector behind the Spec 031 seam and the transmission processor that drives it — and the only new product code should be in <code>apps/payabo_mobile</code>. Treat Spec 033/034/035-style work as frozen, not paused.
+</div>
+
+</section>
+
+<!-- ============================================================== -->
 <section id="state">
 <h2><span class="num">2.</span>Current State Assessment</h2>
 
-<p>This section is written from the code, not the specs. Where the two disagree, the code wins.</p>
+<p><span class="upd">▲ <strong>6 Jun:</strong> section below is the 24 May baseline; inline notes mark what has since changed.</span> This section is written from the code, not the specs. Where the two disagree, the code wins.</p>
 
 <h3>2.1 Flutter mobile app (<code>apps/payabo_mobile/</code>)</h3>
 
-<p>The strongest piece of consumer-facing work in the repo. Thirteen feature modules, ~50 routed screens, real Auth0 wiring, real Plaid client, real Firebase push, real WebSocket voice client, and a thoughtful split between <code>LiveAuthRepository</code> and <code>MockAuthRepository</code> driven by an <code>APP_ENV</code>/<code>USE_MOCKS</code> environment switch. The dashboard, spending, account-linking, commitments, and beneficiary surfaces are wired to backend endpoints (<code>/personal-finance/account-links</code>, <code>/personal-finance/commitments</code>, etc.).</p>
+<div class="callout update"><div class="label">▲ 6 Jun — the load-bearing fact</div><code>apps/payabo_mobile</code> has had <strong>zero commits since 20 May</strong> (four days before this plan). Every claim in this subsection still describes today's code exactly. For a plan whose entire thesis is "mobile is the launch surface," the launch surface did not move in Sprint 1.</div>
+
+<p>The strongest piece of consumer-facing work in the repo. Thirteen feature modules, ~50 routed screens <span class="upd">▲ closer to 69 routed screens</span>, real Auth0 wiring <span class="upd">▲ backend-mediated token exchange, not a native Auth0 SDK</span>, real Plaid client, real Firebase push, real WebSocket voice client, and a thoughtful split between <code>LiveAuthRepository</code> and <code>MockAuthRepository</code> driven by an <code>APP_ENV</code>/<code>USE_MOCKS</code> environment switch. The dashboard, spending, account-linking, commitments, and beneficiary surfaces are wired to backend endpoints (<code>/personal-finance/account-links</code>, <code>/personal-finance/commitments</code>, etc.). <span class="upd">▲ <strong>6 Jun:</strong> the "beneficiary" (support-planning) surface is actually still mock-only — it has no live repository yet.</span></p>
 
 <p>What's <em>not</em> there, and matters:</p>
 <ul>
@@ -332,7 +419,7 @@
 
 <h3>2.2 Payabo web app (<code>apps/Payabo/</code>)</h3>
 
-<p>A React 18 + Vite + Bootstrap app, ~13.7k lines, ~57 routes, calling the AONIK API for real. Stateless local <code>useState</code> throughout, no test coverage, no state-management abstraction. It duplicates the mobile surface: the same bill-pay wizard, the same dashboard, with a marketing landing site on top. <strong>For an August mobile MVP it is not load-bearing.</strong> Park the dashboard/payment routes; keep only the marketing pages live, behind a clean <code>payabo.com</code> hero with a "Get the app" CTA.</p>
+<p><span class="upd">▲ <strong>6 Jun:</strong> also unchanged — no commits since 24 May (last touched 9 Mar); ~12.5k lines, TypeScript not plain JS.</span> A React 18 + Vite + Bootstrap app, ~13.7k lines, ~57 routes, calling the AONIK API for real. Stateless local <code>useState</code> throughout, no test coverage, no state-management abstraction. It duplicates the mobile surface: the same bill-pay wizard, the same dashboard, with a marketing landing site on top. <strong>For an August mobile MVP it is not load-bearing.</strong> Park the dashboard/payment routes; keep only the marketing pages live, behind a clean <code>payabo.com</code> hero with a "Get the app" CTA.</p>
 
 <h3>2.3 <code>Aonik.PersonalFinance</code> module</h3>
 
@@ -346,7 +433,7 @@
   <li><strong>CommitmentService unifies bills+subs+debt</strong> behind one <code>CommitmentItem</code> projection. Confirm/reject flow for auto-detected items works.</li>
 </ul>
 
-<p><strong>Real weaknesses:</strong> no test project (the <code>InternalsVisibleTo</code> attribute points at a project that doesn't exist), the 15 <code>CustomerInsight*Builder</code> classes are data-shape shells with no aggregation logic, Goals has an entity but no service, household isolation is endpoint-enforced rather than row-level. None of these block MVP; the absent tests are the most embarrassing.</p>
+<p><strong>Real weaknesses:</strong> no test project (the <code>InternalsVisibleTo</code> attribute points at a project that doesn't exist) <span class="upd">▲ <strong>6 Jun:</strong> the project now exists (<code>8c423a51</code>) but holds one placeholder smoke test — real coverage is still ~nil</span>, the 15 <code>CustomerInsight*Builder</code> classes are data-shape shells with no aggregation logic <span class="upd">▲ <strong>6 Jun:</strong> this was already wrong on 24 May — the builders compute real aggregations (share-of-spend, period deltas, ~12 signal detectors); the folder predates the plan by four days</span>, Goals has an entity but no service, household isolation is endpoint-enforced rather than row-level. None of these block MVP; the absent tests are the most embarrassing.</p>
 
 <h3>2.4 <code>Aonik.Finance</code> module</h3>
 
@@ -355,21 +442,21 @@
 <table>
   <thead><tr><th>Component</th><th>Status</th><th>What that means</th></tr></thead>
   <tbody>
-    <tr><td>Ledger (double-entry)</td><td class="status-real">Working</td><td>Balanced posting enforced at write; no tests proving the invariant.</td></tr>
-    <tr><td>Orders state machine</td><td class="status-real">Working</td><td>Draft → Pending → Approved → Transmitted → Complete is solid. <strong>But <code>OrderType</code> has no remittance value</strong> — only <code>BillPayment, BankTransfer, CashCollection</code>.</td></tr>
+    <tr><td>Ledger (double-entry)</td><td class="status-real">Working</td><td>Balanced posting enforced at write; no tests proving the invariant. <span class="upd">▲ <strong>6 Jun:</strong> invariant now locked by tests (in-memory + SQL-Server-via-Testcontainers) + an idempotent <code>LedgerPostingService</code>.</span></td></tr>
+    <tr><td>Orders state machine</td><td class="status-real">Working</td><td>Draft → Pending → Approved → Transmitted → Complete is solid. <strong>But <code>OrderType</code> has no remittance value</strong> — only <code>BillPayment, BankTransfer, CashCollection</code>. <span class="upd">▲ <strong>6 Jun:</strong> a <code>Remittance</code> value was added (Spec 031), but it is service-intent only — no remittance service or flow behind it.</span></td></tr>
     <tr><td>Pricing &amp; FX</td><td class="status-partial">Demo-only</td><td>Pricing engine math works; rates are hard-coded in <code>CrossBorderPricingSeedPhase.cs</code> ("DemoRate" provider). No live FX feed.</td></tr>
     <tr><td>Payment gateway</td><td class="status-stub">Stub</td><td>Single implementation is <code>StripeSimulatedPaymentProviderGateway</code> — returns <code>pi_…_secret_…</code> and hardcoded "Pending". No real Stripe SDK call, no webhook handler, no settlement.</td></tr>
-    <tr><td>Partner integrations</td><td class="status-stub">None real</td><td>Four fictional partners in seed (Naija Utility Switch, Gold Coast Bill Hub, EastPay Kenya, Mzansi Bill Connect). Grep for Wise, Lemfi, NALA, Sendwave, Flutterwave, ClearBank, currencycloud, EBANX, MFS Africa — <strong>zero hits</strong> in dedicated integration code.</td></tr>
-    <tr><td>Recipient model (NG bank account, NUBAN)</td><td class="status-stub">Missing</td><td><a href="specifications/008.recipients.md">Spec 008</a> is unimplemented.</td></tr>
+    <tr><td>Partner integrations</td><td class="status-stub">None real</td><td>Four fictional partners in seed (Naija Utility Switch, Gold Coast Bill Hub, EastPay Kenya, Mzansi Bill Connect). Grep for Wise, Lemfi, NALA, Sendwave, Flutterwave, ClearBank, currencycloud, EBANX, MFS Africa — <strong>zero hits</strong> in dedicated integration code. <span class="upd">▲ <strong>6 Jun:</strong> Spec 031 added a full connector <em>abstraction</em> (ports, resolver, webhook translation, schema) — but the sole implementation is <code>SimulatedPartnerConnector</code>; still no real vendor.</span></td></tr>
+    <tr><td>Recipient model (NG bank account, NUBAN)</td><td class="status-partial">Partial</td><td><a href="specifications/008.recipients.md">Spec 008</a> is unimplemented. <span class="upd">▲ <strong>6 Jun:</strong> a payout-beneficiary feature (<code>ExternalPayoutAccount</code> + service + endpoints, commit <code>8947bf66</code>) now stores destinations and the customer→recipient party graph — but no NUBAN validation, no name-enquiry wired (<code>IsVerified</code> hardcoded <code>false</code>), and not the Spec 008 model.</span></td></tr>
     <tr><td>Card vault</td><td class="status-stub">Missing</td><td><a href="specifications/007.cards-vault.md">Spec 007</a> is unimplemented.</td></tr>
     <tr><td>Biller catalog</td><td class="status-partial">Demo only</td><td>Schema exists. No DSTV, no PHCN/Eko/Ikeja, no MTN/Glo/Airtel airtime — just generic JSON categories. <code>finance-demo-catalog.json</code> lists Utilities/Telecom/Internet/Education with placeholder names.</td></tr>
-    <tr><td>Transmission processor</td><td class="status-stub">Data-only</td><td><code>Transmission</code> entity stores PayoutId/Status/RetryCount/LastError. No background job ever picks one up and tries to execute it.</td></tr>
+    <tr><td>Transmission processor</td><td class="status-stub">Data-only</td><td><code>Transmission</code> entity stores PayoutId/Status/RetryCount/LastError. No background job ever picks one up and tries to execute it. <span class="upd">▲ <strong>6 Jun:</strong> still true — the Spec 031 schema is now richer, but nothing creates or processes a <code>Transmission</code>/<code>Payout</code> row end-to-end.</span></td></tr>
   </tbody>
 </table>
 
 <div class="callout danger">
   <div class="label">Punchline</div>
-  Today the platform can <em>model</em> a UK→Nigeria remittance through bill-payment orders, but it cannot <em>move</em> a single pound. Until one real partner connector exists, the rest of the work is theatre.
+  Today the platform can <em>model</em> a UK→Nigeria remittance through bill-payment orders, but it cannot <em>move</em> a single pound. Until one real partner connector exists, the rest of the work is theatre. <span class="upd">▲ <strong>6 Jun:</strong> still the punchline — Spec 031 built the stage (the connector seam); no real performer walked on.</span>
 </div>
 
 <h3>2.5 <code>Aonik.Platform</code> module</h3>
@@ -379,7 +466,7 @@
 <ul>
   <li><strong>Identity:</strong> Auth0, Azure AD, and Keycloak all wired (<a href="specifications/029.keycloak-auth-provider.html">spec 029</a>). User lifecycle closed (<a href="specifications/026.user-lifecycle-closure.html">spec 026</a>): invite, signup, MFA, password reset, hard delete with session revocation. Solid.</li>
   <li><strong>Party model:</strong> Person/Organization, profiles, addresses, contacts, relationships (spouse/parent/child via <code>PartyRelationshipTypes</code>), consents, role assignments. Complete.</li>
-  <li><strong>Document model</strong> (<a href="specifications/010.documentation.md">spec 010</a>): real CRUD, multi-file, versioning, verification records, storage-provider-agnostic. Fine for capturing a passport scan; <em>no</em> automated verifier behind it.</li>
+  <li><strong>Document model</strong> (<a href="specifications/010.documentation.md">spec 010</a>): real CRUD, multi-file, versioning, verification records, storage-provider-agnostic. Fine for capturing a passport scan; <em>no</em> automated verifier behind it. <span class="upd">▲ <strong>6 Jun:</strong> since extracted into a new <code>Aonik.Documents</code> module (Spec 035 / ADR-009) with a Qdrant RAG index + party-scoped retrieval isolation; still no automated KYC verifier.</span></li>
   <li><strong>Notifications:</strong> Azure Communication Services live for email and SMS, MJML templates wired, channel-scoped provider config (<a href="specifications/recent-commits">recent commits</a> e2d0bdca, 87f48cd2).</li>
   <li><strong>Audit log:</strong> Comprehensive, PII-masked, retained. Real.</li>
   <li><strong>Background jobs:</strong> Quartz scheduling, admin pause/resume/trigger surface, persistent projection. Framework is real; the Payabo-specific jobs (transaction-sync, balance refresh, insight regeneration) are scattered across modules and largely already exist where they need to.</li>
@@ -389,6 +476,7 @@
 <div class="callout danger">
   <div class="label">Stubbed</div>
   <code>ComplianceService.ScreenPartyAsync</code> logs a warning and returns <code>ResultStatus = "Passed"</code> for every party. No PEP, no sanctions, no Refinitiv/ComplyAdvantage/Worldcheck/Dow Jones integration. And <code>PersonProfile.IdvStatus</code> is a string field with no verifier writing to it — no Onfido, no Veriff, no Persona, no Sumsub. <strong>For a regulated UK→NG remittance product this is non-negotiable to close before live money moves.</strong>
+  <p style="margin:10px 0 0;"><span class="upd">▲ <strong>6 Jun:</strong> unchanged after two weeks — <code>ScreenPartyAsync</code> still returns <code>"Passed"</code> for every party and <code>RequiresComplianceReviewAsync</code> still always returns <code>false</code>. The most important launch gap moved the least.</span></p>
 </div>
 
 <h3>2.6 <code>Aonik.Agents</code>, <code>Aonik.Ai</code>, <code>Aonik.Voice</code></h3>
@@ -397,10 +485,10 @@
 
 <ul>
   <li>Proposal-dispatch system (<a href="specifications/030.proposal-execution-dispatcher.html">spec 030</a>) is wired. Read-only agents are real. <code>AiRun</code> audit trail is real.</li>
-  <li><strong>Server-side mutating-tool approval wrapper</strong> (<a href="specifications/023.server-side-ai-tool-approval.md">spec 023</a>'s <code>ApprovalRequiredAIFunction</code>) <strong>does not exist in code.</strong> Without it, voice and AGUI cannot safely run any mutation. So either you build it (1–2 weeks of work) or your agents stay read-only.</li>
-  <li>Voice pipeline real-time transport works; the speech provider library (<a href="specifications/024.unified-speech-config-and-composer.md">spec 024</a>) is admin-configurable but the pipeline still reads legacy settings — Phase C (Active Settings cutover) is not done.</li>
-  <li><strong>Compass</strong> (<a href="specifications/021.aonik-compass-financial-guidance.md">spec 021</a>): zero code. No <code>CompassPlan</code> entity, no planner agent, no guidance service. It is a thought, not a feature.</li>
-  <li><strong>Customer insight pipeline</strong> (<a href="specifications/015.personal-finance-customer-insight-pipeline.md">spec 015</a>): the data loader and normalizer are real; the 15 insight builders are data-shape classes that don't compute anything. The AI summary endpoint exists.</li>
+  <li><strong>Server-side mutating-tool approval wrapper</strong> (<a href="specifications/023.server-side-ai-tool-approval.md">spec 023</a>'s <code>ApprovalRequiredAIFunction</code>) <strong>does not exist in code.</strong> Without it, voice and AGUI cannot safely run any mutation. So either you build it (1–2 weeks of work) or your agents stay read-only. <span class="upd">▲ <strong>6 Jun:</strong> built — under Spec 032 (<code>IToolApprovalGate</code> + <code>ApprovalGatedAIFunction</code>; fails closed; low/medium/high tiers; wired for Finance; AG-UI cards live). Voice parity is the only remaining gap. See §2A.2.</span></li>
+  <li>Voice pipeline real-time transport works; the speech provider library (<a href="specifications/024.unified-speech-config-and-composer.md">spec 024</a>) is admin-configurable but the pipeline still reads legacy settings — Phase C (Active Settings cutover) is not done. <span class="upd">▲ <strong>6 Jun:</strong> Phase C shipped — the pipeline now resolves recipes from the active speech settings, not the legacy path. (Off-wedge work, but done.)</span></li>
+  <li><strong>Compass</strong> (<a href="specifications/021.aonik-compass-financial-guidance.md">spec 021</a>): zero code. No <code>CompassPlan</code> entity, no planner agent, no guidance service. It is a thought, not a feature. <span class="upd">▲ <strong>6 Jun:</strong> still zero code — correctly left frozen.</span></li>
+  <li><strong>Customer insight pipeline</strong> (<a href="specifications/015.personal-finance-customer-insight-pipeline.md">spec 015</a>): the data loader and normalizer are real; the 15 insight builders are data-shape classes that don't compute anything <span class="upd">▲ <strong>6 Jun:</strong> incorrect — the builders do compute (see §2A.1 and the §2.3 note)</span>. The AI summary endpoint exists.</li>
 </ul>
 
 <p><strong>For MVP: keep AI completely backstaged.</strong> The "Simi" persona can be a chat surface answering balance and bill questions; it should not propose, transact, or speak.</p>
@@ -408,6 +496,8 @@
 <h3>2.7 Specs &amp; prior planning</h3>
 
 <p>The founder has done significant prior thinking. The drift is real and worth naming:</p>
+
+<p><span class="upd">▲ <strong>6 Jun:</strong> four new specs shipped or progressed since this table was drawn — added as the second block below. Three of them (033, 034, 035) are off-wedge platform breadth. Spec 023 is now historical: Spec 032 superseded and implemented it.</span></p>
 
 <table>
   <thead><tr><th>Spec</th><th>Wedge-aligned?</th><th>MVP verdict</th></tr></thead>
@@ -423,6 +513,13 @@
     <tr><td>021 — Compass</td><td>No</td><td>Park entirely.</td></tr>
     <tr><td>022 — Voice realtime</td><td>No</td><td>Park.</td></tr>
     <tr><td>025 — PF agent split + Codeact</td><td>No</td><td>Park.</td></tr>
+    <tr><td colspan="3" style="background:#f6f9fb;color:var(--info);font-weight:600;">▲ Specs that shipped / progressed since 24 May 2026</td></tr>
+    <tr><td>030 — Proposal-execution dispatcher</td><td>Partial</td><td>Built &amp; wired. The execution rail for high-risk (money) tool calls. Keep.</td></tr>
+    <tr><td>031 — Partner-integration abstraction</td><td>Yes</td><td>Load-bearing seam for the connector. Finish it with one <em>real</em> vendor; do not keep extending the abstraction.</td></tr>
+    <tr><td>032 — Tiered AI mutation approval</td><td>Partial</td><td>Built, fails closed, security-foundational. Supersedes the never-built spec 023. Keep; voice parity still pending.</td></tr>
+    <tr><td>033 — Tenant agent extensibility</td><td>No</td><td>~27k LOC of B2B platform surface. Freeze — exactly the breadth this plan argued against pre-users.</td></tr>
+    <tr><td>034 — Task / WorkItem scheduling</td><td>No</td><td>General platform primitive. Off critical path. Freeze.</td></tr>
+    <tr><td>035 — Documents module + RAG</td><td>No</td><td>Good engineering (closed a real isolation leak), but not on the path to moving a pound. Freeze further work.</td></tr>
   </tbody>
 </table>
 
@@ -492,6 +589,7 @@
 <h3>4.1 Engineering gaps</h3>
 
 <h4>Backend</h4>
+<p><span class="upd">▲ <strong>6 Jun:</strong> partially advanced — the <code>Remittance</code> enum value, the Spec 031 connector abstraction, payout-beneficiary storage, and the test projects all landed. Still entirely open: a <em>real</em> connector, NUBAN name-enquiry, the transmission processor, the live FX feed, the four real billers, and the send-money endpoint.</span></p>
 <ul>
   <li><strong>Remittance order type.</strong> Add <code>CrossBorderRemittance</code> to <code>OrderType</code> in <code>src/Aonik.Finance/Entities/Orders/OrderType.cs</code>. Build a <code>RemittanceOrderService</code> sibling to <code>OrderService</code>. Wire idempotency, party-role routing (payer/beneficiary), FX-quote attachment.</li>
   <li><strong>Recipient model.</strong> Implement <a href="specifications/008.recipients.md">spec 008</a>: <code>Recipient</code> entity (party + bank-account + relationship), validation, NUBAN account-resolution via the chosen partner's name-enquiry endpoint.</li>
@@ -505,6 +603,7 @@
 </ul>
 
 <h4>Mobile</h4>
+<p><span class="upd">▲ <strong>6 Jun:</strong> none of the following have been started — zero mobile commits since 20 May. This is now the single largest block of unstarted critical-path work.</span></p>
 <ul>
   <li><strong>Send-money flow.</strong> Replace the placeholder under <code>lib/features/payments/</code> with: beneficiary picker → amount → live quote → confirm → status screen + push.</li>
   <li><strong>Beneficiary capture &amp; list.</strong> New screens under <code>lib/features/beneficiaries/</code>. Re-use the existing <code>SupportBeneficiary</code> model where possible.</li>
@@ -561,6 +660,8 @@
 <div class="sprint">
   <h3>Sprint 1 <span class="dates">24 May – 7 Jun · "Pick the corridor partner"</span></h3>
   <p><em>Theme: nothing else matters until the regulated partner is named and a contract is in motion.</em></p>
+
+  <div class="callout update"><div class="label">Status · 6 Jun (mid-sprint)</div>Backend lane largely done or exceeded; <strong>mobile lane not started</strong>; the "do not do" lane was breached by off-plan platform work (voice Phase C, Spec 033). Partner/legal items are not code-visible. Full grade in <a href="#update">§2A.4 Sprint 1 scorecard</a>.</div>
 
   <div class="lane">
     <p class="lane-title">Backend</p>
@@ -1028,6 +1129,7 @@
     <h4>AI agent over-confident on engineering work</h4>
     <p>Agents will happily write a migration by hand even though CLAUDE.md forbids it. They will happily implement a "household v2 phase 2 — should be quick." Drift accumulates silently.</p>
     <p><strong>Mitigation:</strong> Founder code-reviews every PR. Treat the "do not do" list in each sprint as enforceable — if it shipped, push back hard. Use the existing review skills (<code>/review</code>, <code>/ultrareview</code>, <code>/security-review</code>) on every PR that touches money or auth.</p>
+    <p><span class="upd">▲ <strong>6 Jun — partly fired.</strong> Migrations stayed tool-generated (good), but ~27k LOC of off-plan agent breadth (Spec 033) merged. The discipline gap is not hand-written SQL — it is letting well-built, well-reviewed, off-wedge features in the door. The "do not do" lane needs to gate <em>scope</em>, not just <em>quality</em>.</span></p>
   </div>
 </div>
 
@@ -1046,6 +1148,7 @@
     <h4>Sunk-cost gravity from AONIK platform breadth</h4>
     <p>The platform has Compass-shaped, voice-shaped, household-shaped, web-shaped, agent-shaped, MCP-shaped things in it. The temptation to "just turn this one on" will be constant.</p>
     <p><strong>Mitigation:</strong> The "Recommended Cuts" section below is the answer. Re-read it weekly. The codebase that ships in August will be smaller than the codebase that exists today, on purpose.</p>
+    <p><span class="upd">▲ <strong>6 Jun — this fired.</strong> Sprint 1 added Specs 033/034/035 and an MAF upgrade rather than wedge code. On the evidence of the first two weeks this is no longer "survivable / Tier 3" — promote it to <strong>Tier 2</strong> and treat the cuts list as a hard freeze, not a re-read.</span></p>
   </div>
 </div>
 
@@ -1069,6 +1172,7 @@
     <h4>Voice mode / real-time voice</h4>
     <p class="why"><strong>What:</strong> Spec 022. WebSocket voice transport (partially built), composite voice providers, voice-native interface.</p>
     <p class="why"><strong>Why cut:</strong> The mutating-tool approval wrapper (spec 023) does not exist; voice cannot safely act. Speech-pipeline Phase C cutover is unbuilt. Without those, voice is read-only, which is not a feature users would notice. Hide the voice surface entirely in v1.</p>
+    <p class="why"><span class="upd">▲ <strong>6 Jun:</strong> the two blockers cited here both closed (Phase C shipped; the Spec 032 gate exists) — but voice still does not use the gate (it stays safe by filtering mutating tools out), so it remains read-only. The cut still stands for v1; the rationale is now "still read-only," not "can't be made safe."</span></p>
   </div>
 
   <div class="cut-card">
@@ -1081,6 +1185,7 @@
     <h4>Server-side AI tool approval wrapper</h4>
     <p class="why"><strong>What:</strong> Spec 023's <code>ApprovalRequiredAIFunction</code>. Unimplemented.</p>
     <p class="why"><strong>Why cut:</strong> Not needed if agents are read-only in v1. Build it pre-v1.1 when you want voice or AGUI to take actions.</p>
+    <p class="why"><span class="upd">▲ <strong>6 Jun:</strong> built anyway under Spec 032 — and this one is a <em>defensible</em> exception: a fail-closed approval boundary is foundational security for a money product, not scope drift. Keep it.</span></p>
   </div>
 
   <div class="cut-card">
@@ -1172,7 +1277,7 @@
 </section>
 
 <p class="footnote">
-  This document is written from the codebase as of commit <code>e2d0bdca</code> on branch <code>master</code>, 24 May 2026. Where it claims a feature is "real," "stubbed," or "missing," that claim is grounded in named files and line numbers. Where it claims a partner does or does not exist, it is grounded in a code-wide grep. Where it makes a judgement call about scope, it is the planner's call, and the founder is welcome to overrule.
+  This document was written from the codebase as of commit <code>e2d0bdca</code> on branch <code>master</code>, 24 May 2026, and <strong>revised 6 June 2026 against commit <code>d34c7ab9</code></strong> (branch <code>feat/spec-033-tenant-agent-extensibility</code>). The 24 May baseline is preserved; the 6 June revision adds the "Progress Update — 6 June 2026" section and inline <span class="upd">▲ 6 Jun</span> notes, each re-verified against current code (parallel file-level audit of the Finance, PersonalFinance, Platform/Compliance, Agents/AI/Voice, mobile, and web surfaces). Where it claims a feature is "real," "stubbed," or "missing," that claim is grounded in named files and line numbers. Where it claims a partner does or does not exist, it is grounded in a code-wide grep. Where it makes a judgement call about scope, it is the planner's call, and the founder is welcome to overrule.
 </p>
 
 </main>
