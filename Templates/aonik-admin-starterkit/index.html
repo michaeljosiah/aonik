@@ -94,6 +94,7 @@
 <script type="text/babel" src="screens/speech.jsx"></script>
 <script type="text/babel" src="screens/user-lifecycle.jsx"></script>
 <script type="text/babel" src="screens/partner-hub.jsx"></script>
+<script type="text/babel" src="screens/agent-extensions.jsx?v=2"></script>
 
 <!-- Background Workers (added) -->
 <script src="mock-data.js"></script>
@@ -533,6 +534,21 @@ function App() {
           </DCArtboard>
           <DCArtboard id="tenants" label="Tenants · host admin · provisioning" width={W} height={H}>
             {mkShell('tenants', ['Admin', 'Tenants'], ScreenTenants)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="agent-extensions" title="Agent Extensions · Spec 033" subtitle="Library + drawer hub for tenant-managed agent extensibility · uniform approval lifecycle across skills, MCP servers, and HTTP tools">
+          <DCArtboard id="ext-hub"       label="Agent Extensions · library + detail drawer · skill with allowed-tools, lifecycle, harness" width={W} height={H}>
+            {mkShell('agents', ['AI', 'Agents', 'Extensions'], ScreenExtHub)}
+          </DCArtboard>
+          <DCArtboard id="ext-add"       label="Agent Extensions · Add extension · surface chooser + declare form" width={W} height={H}>
+            {mkShell('agents', ['AI', 'Agents', 'Extensions', 'Add'], ScreenExtAdd)}
+          </DCArtboard>
+          <DCArtboard id="ext-harness"   label="Agent Extensions · Test harness · validate → dry-run → sandbox · gate verdict" width={W} height={H}>
+            {mkShell('agents', ['AI', 'Agents', 'Extensions', 'Test harness'], ScreenExtHarness)}
+          </DCArtboard>
+          <DCArtboard id="ext-approvals" label="Agent Extensions · Review queue · PlatformAdmin approve / reject" width={W} height={H}>
+            {mkShell('agents', ['AI', 'Agents', 'Extensions', 'Review queue'], ScreenExtApprovals)}
           </DCArtboard>
         </DCSection>
 
