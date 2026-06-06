@@ -274,6 +274,17 @@ internal sealed class ToolApprovalService : IToolApprovalService
 
         if (decision.Decision == ToolApprovalDecisionType.Reject)
         {
+            // High: dismiss the linked proposal too, so a money movement the user declined in-session
+            // does not linger as Proposed in the approvals queue (where an operator could later approve
+            // it). Keeping the request and the proposal in lock-step is the whole point of routing the
+            // decision through here rather than the bare proposal endpoint; DismissAsync's exceptions
+            // propagate to the endpoint exactly like the approve path's do, and the request is only
+            // marked Rejected once the proposal is dismissed.
+            if (request.ProposalId is { } rejectedProposalId)
+            {
+                await _proposalApprovalService.DismissAsync(rejectedProposalId, cancellationToken).ConfigureAwait(false);
+            }
+
             request.Status = ToolApprovalRequestStatus.Rejected;
             request.DecidedByUserId = decidingUserId;
             request.DecidedAt = now;

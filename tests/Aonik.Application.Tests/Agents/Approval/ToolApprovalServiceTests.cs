@@ -97,6 +97,8 @@ public class ToolApprovalServiceTests
 
         public List<Guid> ApprovedProposalIds { get; } = new();
 
+        public List<Guid> DismissedProposalIds { get; } = new();
+
         public Task<ProposalDetailResponse?> GetByIdAsync(Guid proposalId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Detail);
 
@@ -114,8 +116,11 @@ public class ToolApprovalServiceTests
             return Task.FromResult(Detail ?? throw new InvalidOperationException("No proposal detail configured."));
         }
 
-        public Task<ProposalDetailResponse> DismissAsync(Guid proposalId, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+        public Task<ProposalDetailResponse> DismissAsync(Guid proposalId, CancellationToken cancellationToken = default)
+        {
+            DismissedProposalIds.Add(proposalId);
+            return Task.FromResult(Detail ?? throw new InvalidOperationException("No proposal detail configured."));
+        }
     }
 
     private sealed class StubProposalApprovalPolicy : IProposalApprovalPolicy
@@ -498,6 +503,26 @@ public class ToolApprovalServiceTests
         request.Status.Should().Be(ToolApprovalRequestStatus.Rejected);
         request.DecidedByUserId.Should().Be(f.User.UserId);
         request.DecidedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DecideAsync_Should_DismissLinkedProposalAndReject_When_HighRejected()
+    {
+        var f = new Fixture();
+        var service = f.Build();
+        var queued = await service.GateAsync(High());
+        var proposalId = queued.ProposalId!.Value;
+        var requestId = queued.ApprovalRequestId!.Value;
+        f.ApprovalService.Detail = ProposalDetail(proposalId);
+
+        var result = await service.DecideAsync(requestId, new ToolApprovalDecisionInput(ToolApprovalDecisionType.Reject));
+
+        result.Outcome.Should().Be(ToolApprovalDecisionOutcome.Rejected);
+        // Rejecting a High request in-session must resolve BOTH sides: the linked proposal is dismissed
+        // (so it cannot be approved later from the queue) and the correlated request is marked Rejected.
+        // Deciding the bare proposal endpoint would leave the request Pending — that is the bug this guards.
+        f.ApprovalService.DismissedProposalIds.Should().ContainSingle().Which.Should().Be(proposalId);
+        f.RequestStore.Requests.Single().Status.Should().Be(ToolApprovalRequestStatus.Rejected);
     }
 
     [Fact]

@@ -1080,8 +1080,9 @@ internal sealed class PersonalFinanceTools
     /// CreateBill, UpdateBill, ArchiveBill, CreateBudget, UpdateBudgetAmount,
     /// DeleteBudget, CreateCommitmentFromTransaction, ConfirmCommitment,
     /// RejectCommitment, OverrideTransactionCategory, CreateCategorisationRule,
-    /// ApplyStatementImport, DeleteTransactionAttachment, CancelOrder) rely on
-    /// the <c>confirmAction</c> frontend tool for human-in-the-loop approval.
+    /// ApplyStatementImport, DeleteTransactionAttachment, CancelOrder) are gated
+    /// server-side by the <c>IToolApprovalGate</c> (Spec 032), classified by
+    /// PersonalFinanceToolApprovalManifest (all Medium/Low — PersonalFinance moves no money).
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -1143,7 +1144,7 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.ListOrders, name: "pf_list_orders");
         yield return AIFunctionFactory.Create(tools.GetOrder, name: "pf_get_order");
 
-        // Mutating — approval enforced via the confirmAction frontend tool
+        // Mutating — gated server-side by the IToolApprovalGate (PersonalFinanceToolApprovalManifest)
         yield return AIFunctionFactory.Create(tools.CreateAccount, name: "pf_create_account");
         yield return AIFunctionFactory.Create(tools.ArchiveAccount, name: "pf_archive_account");
         yield return AIFunctionFactory.Create(tools.CreateManualTransaction, name: "pf_create_transaction");
@@ -1168,9 +1169,9 @@ internal sealed class PersonalFinanceTools
     // These slices feed the three CodeAct-powered analytical sub-agents
     // introduced in `docs/specifications/025.personal-finance-agent-split-and-codeact.html`.
     // Each whitelist is pure read-only: mutations stay on Simi's direct
-    // surface so the existing per-call `confirmAction` flow continues to
-    // gate every change (CodeAct's whole-block approval semantics therefore
-    // never trigger inside a sub-agent sandbox).
+    // surface, where the server-side approval gate (Spec 032) gates every
+    // change (CodeAct's whole-block approval semantics therefore never
+    // trigger inside a sub-agent sandbox).
     //
     // Tool definitions and `[Description]` strings remain authored once in
     // this class — the slice methods just filter `CreateAll` by name so the

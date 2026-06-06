@@ -137,7 +137,11 @@ public sealed record ToolApprovalRequiredResult(
 /// Structured result returned to the model when a High-tier tool is marshalled into a durable
 /// <c>Proposal</c> (Spec 032 §7.4). The inner domain call was NOT invoked — the matching
 /// <c>IProposalHandler</c> will execute it only after the proposal is approved. Carries the
-/// durable <see cref="ProposalId"/> so the agent can reference the pending action.
+/// durable <see cref="ProposalId"/> so the agent can reference the pending action, and the
+/// <see cref="ApprovalRequestId"/> the user's in-session decision must route to
+/// (<c>POST /ai/tool-approvals/{id}/decide</c>) — that path resolves BOTH the request and the
+/// linked proposal, enforcing expiry / single-use / requesting-user checks. Deciding the bare
+/// proposal endpoint instead would leave the correlated <c>ToolApprovalRequest</c> stuck Pending.
 /// </summary>
 public sealed record ToolApprovalQueuedResult(
     string Tool,
@@ -146,16 +150,18 @@ public sealed record ToolApprovalQueuedResult(
     bool Executed,
     string Status,
     Guid ProposalId,
+    Guid ApprovalRequestId,
     string Message)
 {
     /// <summary>The <see cref="Status"/> value used for a queued-for-approval action.</summary>
     public const string QueuedStatus = "Queued";
 
-    /// <summary>Builds a queued result for the given tool, options, and created proposal.</summary>
+    /// <summary>Builds a queued result for the given tool, options, created proposal, and its correlated request.</summary>
     public static ToolApprovalQueuedResult For(
         string tool,
         ToolApprovalOptions options,
         Guid proposalId,
+        Guid approvalRequestId,
         string? summary = null)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -167,6 +173,7 @@ public sealed record ToolApprovalQueuedResult(
             Executed: false,
             Status: QueuedStatus,
             ProposalId: proposalId,
+            ApprovalRequestId: approvalRequestId,
             Message:
                 $"The '{action}' action is a {options.Tier}-risk money movement and was NOT executed. " +
                 $"It has been queued as proposal {proposalId} and will run only after a human approves it. " +
@@ -405,6 +412,9 @@ public static class MutatingToolNameHeuristic
         "_refund_", "_set_", "_override_", "_sync_",
         // Additional mutation verbs present in the current tool surface
         "_add_", "_remove_", "_post_",
+        // PersonalFinance mutation verbs (Spec 032 — keep the fail-closed default in step with the
+        // PersonalFinanceToolApprovalManifest so these mutations throw if ever left unclassified).
+        "_save_", "_confirm_", "_reject_", "_refresh_", "_disconnect_",
     };
 
     /// <summary>

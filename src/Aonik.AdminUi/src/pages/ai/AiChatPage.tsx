@@ -84,6 +84,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
     pendingApprovals,
     approveAction,
     rejectAction,
+    decideServerApproval,
     selectToolCallOptions,
     threadId,
     loadThread,
@@ -385,6 +386,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
                     pendingApprovals={pendingApprovals}
                     onApproveAction={approveAction}
                     onRejectAction={rejectAction}
+                    onDecideApproval={decideServerApproval}
                     onSelectToolCallOptions={selectToolCallOptions}
                   />
                 </div>

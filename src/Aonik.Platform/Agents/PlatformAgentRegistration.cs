@@ -2,13 +2,16 @@ using Aonik.Platform.Agents.Tools;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Platform.Agents;
 
 /// <summary>
 /// Platform domain agent descriptor. Builds the platform <see cref="ChatClientAgent"/>
-/// with tenant, user/role, and compliance tools. All tools are currently read-only
-/// and safe for autonomous use without approval.
+/// with tenant, user/role, and compliance tools. All tools are currently read-only, but they
+/// are routed through the server-side <see cref="IToolApprovalGate"/> (Spec 032) so a future
+/// mutating platform tool added without a classification fails closed at build rather than
+/// reaching the model ungated.
 /// </summary>
 public sealed class PlatformAgentDescriptor : IDomainAgentDescriptor
 {
@@ -96,8 +99,15 @@ public sealed class PlatformAgentDescriptor : IDomainAgentDescriptor
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
     {
-        return TenantTools.CreateAll(serviceProvider)
-            .Concat(UserTools.CreateAll(serviceProvider))
-            .Concat(ComplianceTools.CreateAll(serviceProvider));
+        // Spec 032 — route through the fail-closed approval gate. Every platform tool is read-only
+        // today, so they all pass through unchanged; routing them keeps the seam uniform and means a
+        // mutating platform tool added later without a classification throws at build rather than
+        // running ungated.
+        var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
+        return gate.GateAll(
+            TenantTools.CreateAll(serviceProvider)
+                .Concat(UserTools.CreateAll(serviceProvider))
+                .Concat(ComplianceTools.CreateAll(serviceProvider)),
+            serviceProvider);
     }
 }

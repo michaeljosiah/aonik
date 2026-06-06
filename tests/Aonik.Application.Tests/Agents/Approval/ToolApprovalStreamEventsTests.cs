@@ -67,6 +67,7 @@ public class ToolApprovalStreamEventsTests
     public void Inspect_Should_EmitApprovalQueuedEvent_When_HighResultIsQueued()
     {
         var proposalId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
         var result = ToolApprovalQueuedResult.For(
             "finance_capture_payment",
             new ToolApprovalOptions(
@@ -74,6 +75,7 @@ public class ToolApprovalStreamEventsTests
                 ActionKind: "Capture payment",
                 ProposalType: "Finance.CapturePayment"),
             proposalId,
+            requestId,
             summary: "Capture $500 for invoice INV-1");
 
         var signal = ToolApprovalStreamEvents.Inspect(result, toolCallId: "call_456");
@@ -88,6 +90,8 @@ public class ToolApprovalStreamEventsTests
 
         var value = root.GetProperty("value");
         value.GetProperty("proposalId").GetGuid().Should().Be(proposalId);
+        value.GetProperty("approvalRequestId").GetGuid().Should().Be(requestId,
+            "the High card decides the correlated request, so its id must be on the wire");
         value.GetProperty("toolCallId").GetString().Should().Be("call_456");
         value.GetProperty("tool").GetString().Should().Be("finance_capture_payment");
         value.GetProperty("tier").GetString().Should().Be("High");

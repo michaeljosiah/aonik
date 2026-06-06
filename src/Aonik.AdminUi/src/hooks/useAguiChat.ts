@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/auth';
+import { api } from '@/lib/api';
 import {
   type ActivityMessage,
   type ActivitySnapshotEvent,
@@ -77,13 +78,40 @@ export interface ChatStep {
   status: 'started' | 'finished';
 }
 
+/**
+ * A server-owned tool-approval card (Spec 032). Unlike the legacy `confirmAction`
+ * frontend-tool flow, this is driven by the backend approval gate: a gated Medium
+ * tool emits `tool.approval.required` (carrying an `approvalRequestId`) and a High
+ * money tool emits `tool.approval.queued` (carrying a `proposalId`). The user's
+ * decision is routed to the server — `POST /ai/tool-approvals/{id}/decide` for
+ * Medium, the same `/ai/proposals/{id}/approve|dismiss` path the queue uses for
+ * High — not resolved client-side.
+ */
+export interface ServerApprovalChatMessage {
+  type: 'approval';
+  id: string;
+  kind: 'medium' | 'high';
+  /** Set for Medium — the durable ToolApprovalRequest to decide. */
+  approvalRequestId?: string;
+  /** Set for High — the durable Proposal to approve/dismiss. */
+  proposalId?: string;
+  toolCallId?: string;
+  tool: string;
+  /** Risk tier label as emitted by the server ("Medium" / "High"). */
+  tier: string;
+  actionKind: string;
+  status: 'pending' | 'deciding' | 'approved' | 'rejected' | 'error';
+  message?: string;
+}
+
 export type ChatMessage =
   | { type: 'user'; id: string; content: string }
   | { type: 'assistant'; id: string; content: string; toolCalls?: ChatToolCall[] }
   | { type: 'tool-result'; id: string; toolCallId: string; toolCallName: string; content: string; error?: string }
   | { type: 'step'; id: string; stepName: string; status: 'started' | 'finished' }
   | { type: 'reasoning'; id: string; content: string }
-  | { type: 'activity'; id: string; activityType: string; content: Record<string, unknown> };
+  | { type: 'activity'; id: string; activityType: string; content: Record<string, unknown> }
+  | ServerApprovalChatMessage;
 
 export type ChatRunState = 'idle' | 'streaming' | 'awaiting-approval' | 'awaiting-selection';
 
@@ -141,6 +169,7 @@ export interface UseAguiChatReturn {
   pendingApprovals: PendingApproval[];
   approveAction: (toolCallId: string) => void;
   rejectAction: (toolCallId: string, reason?: string) => void;
+  decideServerApproval: (approval: ServerApprovalChatMessage, decision: 'Approve' | 'Reject') => Promise<void>;
   selectToolCallOptions: (toolCallId: string, selected: string[]) => void;
   threadId: string | null;
   loadThread: (thread: ThreadDetail) => void;
@@ -170,6 +199,13 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
   const threadIdRef = useRef<string | null>(null);
   const pendingApprovalResolversRef = useRef<Map<string, (result: string) => void>>(new Map());
   const pendingSelectionResolversRef = useRef<Map<string, (result: string) => void>>(new Map());
+  // Spec 032 — a Medium approval card can be approved while the original run is still streaming (the
+  // gate emits the card before RUN_FINISHED). sendInternal drops messages mid-run, so we stash the
+  // retry prompt here and flush it the moment streaming ends — otherwise the approval is recorded but
+  // the gated tool never reruns to consume it. isStreamingRef gives the flush the live stream state.
+  const pendingApprovalRetryRef = useRef<string | null>(null);
+  const isStreamingRef = useRef(isStreaming);
+  isStreamingRef.current = isStreaming;
   const { getAccessToken } = useAuth();
 
   const updateToolCall = useCallback((toolCallId: string, updater: (toolCall: ChatToolCall) => ChatToolCall) => {
@@ -254,6 +290,13 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     enabled: true,
     confirmAction,
     selectOptions,
+    // Spec 032: every mutating domain agent is now behind the server-side approval gate — Finance
+    // and PersonalFinance classify their mutating tools, and the read-only FLG / Platform / Pf*
+    // agents route through IToolApprovalGate too — and the gate surfaces its own ServerApprovalCard.
+    // The legacy confirmAction frontend tool is therefore redundant, so we do not declare it to the
+    // model (which otherwise emitted a duplicate confirmAction card alongside the server card). The
+    // confirmAction rendering path is kept in ChatMessageList only to display historical threads.
+    includeConfirmAction: false,
     includeDisplayTools: enablePersonalFinanceFeatures,
     includeOptionSelector: enablePersonalFinanceFeatures,
     includeNavigation: enablePersonalFinanceFeatures,
@@ -658,7 +701,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
           },
 
           onCustomEvent: (event: CustomEvent) => {
-            handleCustomEvent(event, setSpeechRender, setSpeechChunks);
+            handleCustomEvent(event, setSpeechRender, setSpeechChunks, setMessages);
           },
 
           onRunError: (event) => {
@@ -758,6 +801,90 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     [sendInternal],
   );
 
+  // Sends a queued Medium approval retry — but only when idle, since sendInternal drops messages
+  // while a run is in flight. Called both directly (on approve) and from the effect below when the
+  // active stream ends, so the retry fires regardless of whether the card was approved mid-stream.
+  const flushPendingApprovalRetry = useCallback(() => {
+    if (pendingApprovalRetryRef.current && !isStreamingRef.current) {
+      const text = pendingApprovalRetryRef.current;
+      pendingApprovalRetryRef.current = null;
+      void sendInternal(text);
+    }
+  }, [sendInternal]);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      flushPendingApprovalRetry();
+    }
+  }, [isStreaming, flushPendingApprovalRetry]);
+
+  // Spec 032 — record a decision for a server-owned approval card. Medium routes
+  // through the tool-approvals decide endpoint and, on approval, nudges the agent
+  // to re-invoke the gated tool (the gate consumes the approval, bound by
+  // args-hash, and runs it once). High routes through the same proposal path the
+  // approvals queue uses, so an in-session approval and a queue approval take the
+  // identical authorization + dispatch path. The server is the decision authority;
+  // this only presents and collects.
+  const decideServerApproval = useCallback(
+    async (approval: ServerApprovalChatMessage, decision: 'Approve' | 'Reject') => {
+      const setApprovalStatus = (
+        status: ServerApprovalChatMessage['status'],
+        statusMessage?: string,
+      ) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.type === 'approval' && m.id === approval.id
+              ? { ...m, status, message: statusMessage ?? m.message }
+              : m,
+          ),
+        );
+      };
+
+      // Both tiers decide through the same server authority — POST /ai/tool-approvals/{id}/decide —
+      // which validates identity / tenant / expiry / single-use and resolves the ToolApprovalRequest.
+      // For High it internally routes the linked proposal through the policy-checked approve/dismiss
+      // path (executing or cancelling the money) and flips the request Approved/Rejected in lock-step.
+      // Hitting the bare /ai/proposals endpoints instead would skip those checks and leave the
+      // correlated request stuck Pending — so we never do that from the card.
+      if (!approval.approvalRequestId) {
+        setApprovalStatus('error', 'This approval is missing its request reference.');
+        return;
+      }
+
+      setApprovalStatus('deciding');
+
+      try {
+        const result = await api.post<{ message?: string }>(
+          `/ai/tool-approvals/${encodeURIComponent(approval.approvalRequestId)}/decide`,
+          { decision },
+        );
+
+        if (decision === 'Approve') {
+          setApprovalStatus('approved', result?.message ?? `${approval.actionKind} was approved.`);
+          // Medium runs inline when the agent re-invokes the gated tool, so nudge it to proceed (the
+          // gate consumes the args-hash-bound approval and runs the tool once). High already executed
+          // synchronously inside the decide call — the money has moved — so no retry is needed.
+          if (approval.kind === 'medium') {
+            // Queue the retry and flush it now if idle, or as soon as the active stream ends — the
+            // card can be approved while the original run is still streaming, in which case a direct
+            // sendInternal would be dropped by its isStreaming guard, leaving the approval unconsumed.
+            pendingApprovalRetryRef.current =
+              `I approved "${approval.actionKind}". Please go ahead and complete that action now.`;
+            flushPendingApprovalRetry();
+          }
+        } else {
+          setApprovalStatus('rejected', result?.message ?? `${approval.actionKind} was rejected. Nothing was changed.`);
+        }
+      } catch (error) {
+        const message =
+          (error as { userMessage?: string })?.userMessage
+          ?? (error instanceof Error ? error.message : 'The decision could not be recorded.');
+        setApprovalStatus('error', message);
+      }
+    },
+    [flushPendingApprovalRetry],
+  );
+
   return {
     messages,
     draft,
@@ -774,6 +901,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
     pendingApprovals,
     approveAction,
     rejectAction,
+    decideServerApproval,
     selectToolCallOptions,
     threadId: threadIdRef.current,
     loadThread,
@@ -942,11 +1070,63 @@ function handleCustomEvent(
   event: CustomEvent,
   setSpeechRender: (value: StateUpdater<SpeechRenderPayload | null>) => void,
   setSpeechChunks: (value: StateUpdater<SpeechChunkPayload[]>) => void,
+  setMessages: (value: StateUpdater<ChatMessage[]>) => void,
 ) {
   const value = typeof event.value === 'object' && event.value !== null
     ? (event.value as Record<string, unknown>)
     : null;
   const messageId = typeof value?.messageId === 'string' ? value.messageId : '';
+
+  // Spec 032 — the backend approval gate surfaces a gated-but-not-executed mutation
+  // as a CUSTOM event carrying the durable id the user's decision routes to. Render
+  // it as an interactive approval card appended to the conversation.
+  if (event.name === 'tool.approval.required' || event.name === 'tool.approval.queued') {
+    if (!value) {
+      return;
+    }
+
+    const kind: ServerApprovalChatMessage['kind'] = event.name === 'tool.approval.queued' ? 'high' : 'medium';
+    const approvalRequestId = typeof value.approvalRequestId === 'string' ? value.approvalRequestId : undefined;
+    const proposalId = typeof value.proposalId === 'string' ? value.proposalId : undefined;
+
+    // Both tiers decide via the approvalRequestId (/ai/tool-approvals/{id}/decide). High also carries
+    // the proposalId for reference, but the request id is the actionable one — without it there is
+    // nothing the user could safely act on, so skip silently (the agent's prose already says it's pending).
+    if (!approvalRequestId) {
+      return;
+    }
+
+    const tool = typeof value.tool === 'string' ? value.tool : '';
+    const actionKind = typeof value.actionKind === 'string' && value.actionKind.trim().length > 0
+      ? value.actionKind
+      : tool || 'this action';
+    const tier = typeof value.tier === 'string' ? value.tier : kind === 'high' ? 'High' : 'Medium';
+    const toolCallId = typeof value.toolCallId === 'string' ? value.toolCallId : undefined;
+    const id = `approval-${approvalRequestId ?? proposalId}`;
+
+    setMessages((prev) => {
+      if (prev.some((message) => message.id === id)) {
+        return prev;
+      }
+
+      return [
+        ...prev,
+        {
+          type: 'approval',
+          id,
+          kind,
+          approvalRequestId,
+          proposalId,
+          toolCallId,
+          tool,
+          tier,
+          actionKind,
+          status: 'pending',
+        },
+      ];
+    });
+    return;
+  }
 
   if (event.name === 'speech.chunk') {
     const speechText = typeof value?.speechText === 'string' ? value.speechText : '';

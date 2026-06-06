@@ -58,7 +58,10 @@ internal static class ToolApprovalStreamEvents
                     }
                     : null;
 
-                return new ToolApprovalSignal(RequiresApproval: true, CustomEvent: requiredEvent);
+                return new ToolApprovalSignal(
+                    RequiresApproval: true,
+                    CustomEvent: requiredEvent,
+                    ApprovalKey: required.ApprovalRequestId?.ToString());
 
             case ToolApprovalQueuedResult queued:
                 return new ToolApprovalSignal(
@@ -70,13 +73,17 @@ internal static class ToolApprovalStreamEvents
                         value = new
                         {
                             proposalId = queued.ProposalId,
+                            // The decide target: the in-session card routes to /ai/tool-approvals/{id}/decide
+                            // (not the bare proposal endpoint), so the request is resolved with the proposal.
+                            approvalRequestId = queued.ApprovalRequestId,
                             toolCallId,
                             tool = queued.Tool,
                             tier = queued.Tier,
                             actionKind = queued.ActionKind,
                             status = queued.Status,
                         },
-                    });
+                    },
+                    ApprovalKey: queued.ProposalId.ToString());
 
             default:
                 return ToolApprovalSignal.None;
@@ -95,8 +102,13 @@ internal static class ToolApprovalStreamEvents
 /// The CUSTOM event payload to write to the wire, or null when there is nothing actionable to
 /// render (e.g. a fail-closed refusal that persisted no durable request).
 /// </param>
-internal readonly record struct ToolApprovalSignal(bool RequiresApproval, object? CustomEvent)
+/// <param name="ApprovalKey">
+/// Stable identity of the approval (the durable approvalRequestId or proposalId), used by the
+/// pipeline to de-duplicate a top-level call that is both inspected inline AND drained from the
+/// notifier. Null when the signal carries no actionable id.
+/// </param>
+internal readonly record struct ToolApprovalSignal(bool RequiresApproval, object? CustomEvent, string? ApprovalKey = null)
 {
     /// <summary>No approval signal — the result was an ordinary tool result.</summary>
-    public static ToolApprovalSignal None { get; } = new(false, null);
+    public static ToolApprovalSignal None { get; } = new(false, null, null);
 }
