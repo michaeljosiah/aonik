@@ -73,6 +73,9 @@ internal static class ToolApprovalStreamEvents
                         value = new
                         {
                             proposalId = queued.ProposalId,
+                            // The decide target: the in-session card routes to /ai/tool-approvals/{id}/decide
+                            // (not the bare proposal endpoint), so the request is resolved with the proposal.
+                            approvalRequestId = queued.ApprovalRequestId,
                             toolCallId,
                             tool = queued.Tool,
                             tier = queued.Tier,

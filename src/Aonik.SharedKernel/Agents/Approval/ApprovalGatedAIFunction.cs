@@ -136,12 +136,17 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                     .GateAsync(new ToolGateContext(Name, _options, arguments), cancellationToken)
                     .ConfigureAwait(false);
 
-                if (outcome.Decision == ToolGateDecision.Queued && outcome.ProposalId is { } proposalId)
+                if (outcome.Decision == ToolGateDecision.Queued
+                    && outcome.ProposalId is { } proposalId
+                    && outcome.ApprovalRequestId is { } approvalRequestId)
                 {
                     _auditSink.Record(new ToolApprovalAuditEntry(
                         Name, _options.Tier, Executed: false, Outcome: "queued-for-approval"));
 
-                    var queuedResult = ToolApprovalQueuedResult.For(Name, _options, proposalId, outcome.Summary);
+                    // Carry BOTH ids: the proposal (what executes) and the correlated request (what the
+                    // user's in-session decision must route to via /ai/tool-approvals/{id}/decide, so the
+                    // request is resolved in lock-step with the proposal — not left Pending).
+                    var queuedResult = ToolApprovalQueuedResult.For(Name, _options, proposalId, approvalRequestId, outcome.Summary);
                     // Record for the stream pipeline so the queued-money card is emitted even when this
                     // tool ran nested in a sub-agent and its result never reaches the top-level stream.
                     ResolveStreamNotifier()?.Record(queuedResult);

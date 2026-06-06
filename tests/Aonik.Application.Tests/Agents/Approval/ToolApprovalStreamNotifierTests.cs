@@ -24,6 +24,7 @@ public class ToolApprovalStreamNotifierTests
         var queued = ToolApprovalQueuedResult.For(
             "finance_capture_payment",
             new ToolApprovalOptions(ToolApprovalTier.High, "Capture a payment", "Finance.CapturePayment"),
+            Guid.NewGuid(),
             Guid.NewGuid());
 
         notifier.Record(pending);

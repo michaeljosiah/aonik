@@ -305,8 +305,9 @@ public class ToolApprovalGateTests
             out var sink);
 
         var proposalId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
         var approvals = new StubApprovalService(
-            new ToolGateOutcome(ToolGateDecision.Queued, ProposalId: proposalId, Summary: "Capture a payment"));
+            new ToolGateOutcome(ToolGateDecision.Queued, ApprovalRequestId: requestId, ProposalId: proposalId, Summary: "Capture a payment"));
         var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals));
 
         var paymentIntentId = Guid.NewGuid();
@@ -325,6 +326,7 @@ public class ToolApprovalGateTests
         var queued = (ToolApprovalQueuedResult)result!;
         queued.Status.Should().Be(ToolApprovalQueuedResult.QueuedStatus);
         queued.ProposalId.Should().Be(proposalId, "the agent must be able to reference the created proposal");
+        queued.ApprovalRequestId.Should().Be(requestId, "the card decides the correlated request via /ai/tool-approvals/{id}/decide, not the bare proposal");
         queued.Executed.Should().BeFalse();
         queued.Tier.Should().Be("High");
 
@@ -406,8 +408,9 @@ public class ToolApprovalGateTests
             out _);
 
         var proposalId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
         var approvals = new StubApprovalService(
-            new ToolGateOutcome(ToolGateDecision.Queued, ProposalId: proposalId, Summary: "Capture a payment"));
+            new ToolGateOutcome(ToolGateDecision.Queued, ApprovalRequestId: requestId, ProposalId: proposalId, Summary: "Capture a payment"));
         var notifier = new RecordingStreamNotifier();
         var gated = (AIFunction)gate.Gate(tool, new StubServiceProvider(approvals, notifier));
 

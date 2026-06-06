@@ -815,33 +815,20 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
         );
       };
 
+      // Both tiers decide through the same server authority — POST /ai/tool-approvals/{id}/decide —
+      // which validates identity / tenant / expiry / single-use and resolves the ToolApprovalRequest.
+      // For High it internally routes the linked proposal through the policy-checked approve/dismiss
+      // path (executing or cancelling the money) and flips the request Approved/Rejected in lock-step.
+      // Hitting the bare /ai/proposals endpoints instead would skip those checks and leave the
+      // correlated request stuck Pending — so we never do that from the card.
+      if (!approval.approvalRequestId) {
+        setApprovalStatus('error', 'This approval is missing its request reference.');
+        return;
+      }
+
       setApprovalStatus('deciding');
 
       try {
-        if (approval.kind === 'high') {
-          if (!approval.proposalId) {
-            setApprovalStatus('error', 'This approval is missing its proposal reference.');
-            return;
-          }
-
-          if (decision === 'Approve') {
-            const result = await api.post<{ appliedMessage?: string; status?: string }>(
-              `/ai/proposals/${encodeURIComponent(approval.proposalId)}/approve`,
-            );
-            setApprovalStatus('approved', result?.appliedMessage ?? `${approval.actionKind} was approved and executed.`);
-          } else {
-            await api.post(`/ai/proposals/${encodeURIComponent(approval.proposalId)}/dismiss`);
-            setApprovalStatus('rejected', `${approval.actionKind} was rejected. Nothing was changed.`);
-          }
-          return;
-        }
-
-        // Medium.
-        if (!approval.approvalRequestId) {
-          setApprovalStatus('error', 'This approval is missing its request reference.');
-          return;
-        }
-
         const result = await api.post<{ message?: string }>(
           `/ai/tool-approvals/${encodeURIComponent(approval.approvalRequestId)}/decide`,
           { decision },
@@ -849,11 +836,14 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
 
         if (decision === 'Approve') {
           setApprovalStatus('approved', result?.message ?? `${approval.actionKind} was approved.`);
-          // Nudge the agent to retry the gated tool; the gate consumes the now-approved
-          // request (args-hash bound) and runs the inner tool in-band exactly once.
-          void sendInternal(`I approved "${approval.actionKind}". Please go ahead and complete that action now.`);
+          // Medium runs inline when the agent re-invokes the gated tool, so nudge it to proceed (the
+          // gate consumes the args-hash-bound approval and runs the tool once). High already executed
+          // synchronously inside the decide call — the money has moved — so no retry is needed.
+          if (approval.kind === 'medium') {
+            void sendInternal(`I approved "${approval.actionKind}". Please go ahead and complete that action now.`);
+          }
         } else {
-          setApprovalStatus('rejected', `${approval.actionKind} was rejected. Nothing was changed.`);
+          setApprovalStatus('rejected', result?.message ?? `${approval.actionKind} was rejected. Nothing was changed.`);
         }
       } catch (error) {
         const message =
@@ -1069,12 +1059,10 @@ function handleCustomEvent(
     const approvalRequestId = typeof value.approvalRequestId === 'string' ? value.approvalRequestId : undefined;
     const proposalId = typeof value.proposalId === 'string' ? value.proposalId : undefined;
 
-    // Without the durable id there is nothing the user could act on — skip silently
-    // (the agent's prose already tells them the action is pending).
-    if (kind === 'medium' && !approvalRequestId) {
-      return;
-    }
-    if (kind === 'high' && !proposalId) {
+    // Both tiers decide via the approvalRequestId (/ai/tool-approvals/{id}/decide). High also carries
+    // the proposalId for reference, but the request id is the actionable one — without it there is
+    // nothing the user could safely act on, so skip silently (the agent's prose already says it's pending).
+    if (!approvalRequestId) {
       return;
     }
 
