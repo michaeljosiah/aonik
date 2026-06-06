@@ -163,6 +163,8 @@
   .tag.th.struct{color:var(--t-struct)} .tag.th.quality{color:var(--t-quality)}
   .tag.th.dry{color:var(--t-dry)} .tag.th.sec{color:var(--t-sec)} .tag.th.gov{color:var(--t-gov)}
   .tag.ok{background:var(--good-bg);color:var(--good);border:1px solid var(--good-line);text-transform:none}
+  .tag.fixed{background:var(--good-bg);color:var(--good);border:1px solid var(--good-line);text-transform:none}
+  .tag.partial{background:var(--high-bg);color:var(--high);border:1px solid var(--high-line);text-transform:none}
   .evidence{background:#fafafc;border:1px solid var(--line-soft);border-radius:10px;
     padding:12px 15px;margin:0 0 18px;font-family:var(--mono);font-size:12.7px;
     color:#50506a;line-height:1.85}
@@ -254,12 +256,13 @@
   <div class="wrap col">
     <div class="kicker">AONIK · Backend Code Review · Consolidated Edition</div>
     <h1>A disciplined codebase, with a short list of gaps that <span class="em">outrank the cleanup.</span></h1>
-    <p class="standfirst">The backend reads like the work of a careful team: a clean modular monolith, a single migration stream, an immutable double-entry ledger, and AI audit records designed in from the start. <strong>It is not broadly over-engineered</strong> — the speculative parts are localized and mostly deletable in an afternoon. But consolidating a second independent review against my own surfaced a cluster that matters more than any simplification: a few places where <strong>money can change state without touching the ledger</strong>, AI mutations that execute without the approval gate the docs promise, and access control looser than a financial platform should run. Fix those first. The over-engineering is real, but small, and it can wait its turn.</p>
+    <p class="standfirst">The backend reads like the work of a careful team: a clean modular monolith, a single migration stream, an immutable double-entry ledger, and AI audit records designed in from the start. <strong>It is not broadly over-engineered</strong> — the speculative parts are localized. A June re-check shows the most serious May findings have been acted on: ledger idempotency, payment/invoice ledger posting, server-side AI tool approval, tenant-filter fail-closed behavior, SQL aggregation, order mapping, order idempotency, outbox row-claiming, worker tenant scoping, and several authorization gaps are now fixed or partly fixed. The remaining work is narrower: scale-out session storage, pagination, webhook signatures, chat-thread auth, generic streaming audit coverage, and a handful of cleanup items.</p>
     <div class="meta-row">
       <span><b>Reviewed</b> 2026-05-31</span>
+      <span><b>Updated</b> 2026-06-06 against current source</span>
       <span><b>Scope</b> src/Aonik.* backend services</span>
       <span><b>Excludes</b> apps/*, Payabo, AdminUi/Desktop frontends</span>
-      <span><b>Method</b> two independent reviews, consolidated &amp; re-verified</span>
+      <span><b>Method</b> original review plus targeted current-state verification</span>
     </div>
   </div>
 </header>
@@ -268,15 +271,15 @@
   <div class="wrap">
     <div class="eyebrow"><span class="num">01</span><span class="ttl">The verdict, by dimension</span></div>
     <h2 class="lead">Where the codebase is strong, and where it needs attention.</h2>
-    <p class="sub">Eight lenses, each rated on what I read in source — not on metrics that look alarming from a distance. The architecture earns its top marks; the two red ratings are concrete, enumerable gaps in financial correctness and AI-governance enforcement, not systemic rot.</p>
+    <p class="sub">Eight lenses, now rated against the current source. The architecture still earns its top marks; the red May ratings have moved down because the ledger, tenant-filter, outbox, and approval-gate fixes are now present in code.</p>
     <div class="scorecard">
       <div class="score-row"><div class="score-dim">Architecture &amp; boundaries</div><span class="rating r-strong">Strong</span><div class="score-note">Module isolation via SharedKernel contracts is real and respected; the ADR-006 boundary holds.</div></div>
       <div class="score-row"><div class="score-dim">Simplicity / over-engineering</div><span class="rating r-good">Localized</span><div class="score-note">Speculative code is concentrated in a few deletable pockets, not spread through the system.</div></div>
-      <div class="score-row"><div class="score-dim">Performance defaults</div><span class="rating r-watch">Needs attention</span><div class="score-note">Track-by-default, no pooling, and in-memory aggregation are the highest-leverage fixes.</div></div>
-      <div class="score-row"><div class="score-dim">Scalability</div><span class="rating r-watch">Needs attention</span><div class="score-note">A process-local session store and Guid.Empty worker scoping block clean horizontal scale-out.</div></div>
-      <div class="score-row"><div class="score-dim">Financial correctness</div><span class="rating r-gap">Critical gaps</span><div class="score-note">Money can reach Captured / Paid without a ledger post, and nothing structurally blocks double-posting.</div></div>
-      <div class="score-row"><div class="score-dim">AI governance &amp; audit</div><span class="rating r-gap">Enforcement gaps</span><div class="score-note">Audit records are designed in, but the approval wrapper lives only in docs and streaming runs aren't recorded.</div></div>
-      <div class="score-row"><div class="score-dim">Security &amp; tenant isolation</div><span class="rating r-watch">Needs attention</span><div class="score-note">Anonymous webhooks/chat endpoints, read-only roles that can mutate, and a tenant filter that fails open.</div></div>
+      <div class="score-row"><div class="score-dim">Performance defaults</div><span class="rating r-watch">Needs attention</span><div class="score-note">SQL aggregation and the order N+1 were fixed; tracking defaults, pooling, and pagination remain.</div></div>
+      <div class="score-row"><div class="score-dim">Scalability</div><span class="rating r-watch">Needs attention</span><div class="score-note">Worker tenant scoping and outbox claiming are fixed; the process-local agent session store still blocks clean scale-out.</div></div>
+      <div class="score-row"><div class="score-dim">Financial correctness</div><span class="rating r-watch">Improved</span><div class="score-note">Ledger source idempotency, payment/invoice posting, per-currency validation, and order idempotency are now in code; payment create still tolerates placeholder payer data.</div></div>
+      <div class="score-row"><div class="score-dim">AI governance &amp; audit</div><span class="rating r-watch">Partially enforced</span><div class="score-note">A fail-closed approval gate now wraps mutating tools; generic middleware streaming audit and some route-policy controls still need work.</div></div>
+      <div class="score-row"><div class="score-dim">Security &amp; tenant isolation</div><span class="rating r-watch">Needs attention</span><div class="score-note">Tenant filters now fail closed and finance writes exclude ReadOnly; Plaid webhooks, chat-thread auth, and some broad admin policies remain.</div></div>
       <div class="score-row"><div class="score-dim">Code quality &amp; consistency</div><span class="rating r-strong">High</span><div class="score-note">Consistent patterns, banned-API analyzers, decimal money discipline. A couple of guardrails left loose.</div></div>
     </div>
   </div>
@@ -287,8 +290,8 @@
     <div class="eyebrow"><span class="num">02</span><span class="ttl">Reading the signal</span></div>
     <div class="reframe">
       <h3>The scary numbers are mostly noise. The real work is specific.</h3>
-      <p>A quick scan turns up things that <em>look</em> like over-engineering: 200-plus interfaces, files past 1,500 lines, five DbContexts over one database, reader/writer interface splits. Read the code and almost all of it is justified — the interfaces are the module-isolation seams the architecture requires, the long files are cohesive vertical slices, and the multi-context design is a deliberate, documented choice with a single migration stream behind it.</p>
-      <p>So this review separates <strong>signal from noise</strong>. The genuine over-engineering is small and nameable: a prompt subsystem with no consumers, a workflow engine that throws on half its node kinds, route-policy columns that enforce nothing, an event seam with no handlers. Each is a clean deletion. But consolidating a second review sharpened where the <em>real</em> risk sits — and it isn't the speculative code. It's a cluster of <strong>financial-correctness, audit, and access-control</strong> gaps that a simplification-only lens would walk straight past. This edition leads with those, then returns to the cleanup.</p>
+      <p>A quick scan turns up things that <em>look</em> like over-engineering: 200-plus interfaces, files past 1,500 lines, several module DbContexts over one database, reader/writer interface splits. Read the code and almost all of it is justified — the interfaces are the module-isolation seams the architecture requires, the long files are often cohesive vertical slices, and the multi-context design is a deliberate, documented choice with a single migration stream behind it.</p>
+      <p>The original review separated <strong>signal from noise</strong>. Since then, the highest-risk signal has been reduced: core money paths now post to the ledger, AI mutating tools are structurally gated, tenant filters fail closed, and multiple performance/correctness fixes are visible in source. The remaining signal is now more operational than existential: finish the open security/audit items, keep tightening performance defaults, and only then spend time deleting speculative prompt/workflow/policy surfaces that still do not pull their weight.</p>
     </div>
   </div>
 </section>
@@ -297,12 +300,12 @@
   <div class="wrap">
     <div class="eyebrow"><span class="num">03</span><span class="ttl">At a glance</span></div>
     <div class="tiles">
-      <div class="tile"><div class="v">~165<small>K</small></div><div class="k">lines across the backend</div></div>
-      <div class="tile"><div class="v">17</div><div class="k">backend projects reviewed</div></div>
-      <div class="tile sev-c"><div class="v">5</div><div class="k">Critical — correctness &amp; governance</div></div>
-      <div class="tile sev-h"><div class="v">17</div><div class="k">High — perf, scale &amp; access</div></div>
-      <div class="tile sev-m"><div class="v">15</div><div class="k">Medium — simplify &amp; tidy</div></div>
-      <div class="tile"><div class="v">37</div><div class="k">findings, each read &amp; verified</div></div>
+      <div class="tile"><div class="v">18</div><div class="k">backend projects in src</div></div>
+      <div class="tile sev-c"><div class="v">0</div><div class="k">open Critical findings after re-check</div></div>
+      <div class="tile"><div class="v" style="color:var(--good)">12</div><div class="k">original findings now fixed</div></div>
+      <div class="tile sev-h"><div class="v">7</div><div class="k">partially fixed / narrowed</div></div>
+      <div class="tile sev-m"><div class="v">18</div><div class="k">still open or mostly open</div></div>
+      <div class="tile"><div class="v">37</div><div class="k">original findings tracked</div></div>
     </div>
   </div>
 </section>
@@ -311,7 +314,7 @@
   <div class="wrap">
     <div class="eyebrow"><span class="num">04</span><span class="ttl">Where to spend effort</span></div>
     <h2 class="lead">Impact against effort.</h2>
-    <p class="sub">A representative slice of findings placed by how much each moves correctness/scalability versus how much work it is. The top-left quadrant is where to start: high payoff, low cost. Hover a dot for its title.</p>
+    <p class="sub">Original representative slice from the May review. Several top-left items are now fixed; the remaining high-payoff dots are H7, H10, H13, H14/H17, H15, and H16. Hover a dot for its original title.</p>
     <div class="matrix-shell">
       <div class="y-axis">Impact →</div>
       <div>
@@ -348,7 +351,7 @@
           <span><i style="background:var(--high)"></i>High</span>
           <span><i style="background:var(--med)"></i>Medium</span>
         </div>
-        <div class="mtx-note">Plots 20 representative findings; the full inventory of 37 is below.</div>
+        <div class="mtx-note">Plots 20 representative original findings; current status is recorded on each finding card below.</div>
       </div>
     </div>
   </div>
@@ -376,7 +379,7 @@
       <span class="chip" data-theme="quality">Code quality</span>
       <span class="chip" data-theme="dry">Duplication</span>
     </div>
-    <div class="fcount" id="fcount"><b>37</b> findings shown</div>
+    <div class="fcount" id="fcount"><b>37</b> original findings shown</div>
   </div>
 </nav>
 
