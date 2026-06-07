@@ -453,6 +453,61 @@ public class RemittanceOrderServiceTests
         (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(1);
     }
 
+    [Fact]
+    public async Task ConfirmAsync_Should_Reject_When_DestinationAccountUnverified()
+    {
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        account.IsVerified = false; // newly-saved beneficiary default — must not move money
+        SeedCaller(db, tenantId, customerPartyId);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var act = async () => await service.ConfirmAsync(request, "idem-unverified");
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*verif*");
+        (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
+        (await db.JournalEntries.CountAsync()).Should().Be(0); // no debit posted
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_NotReturnAnotherCustomersOrder_When_IdempotencyKeyReused()
+    {
+        // The unique idempotency index is tenant-wide, so two customers can collide on a key. Reusing
+        // another customer's key (while passing a party you own) must never hand you their remittance.
+        var tenantId = Guid.NewGuid();
+        var partyA = Guid.NewGuid();
+        var partyB = Guid.NewGuid();
+        var userA = Guid.NewGuid();
+        var userB = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quoteA = SeedQuote(db, tenantId, partyA, DateTime.UtcNow.AddMinutes(30));
+        var accountA = SeedAccount(db, tenantId, partyA);
+        var quoteB = SeedQuote(db, tenantId, partyB, DateTime.UtcNow.AddMinutes(30));
+        var accountB = SeedAccount(db, tenantId, partyB);
+        SeedCaller(db, tenantId, partyA, userA);
+        SeedCaller(db, tenantId, partyB, userB);
+        await db.SaveChangesAsync();
+
+        var a = await CreateService(db, tenantId, userId: userA).ConfirmAsync(
+            new ConfirmRemittanceRequest(quoteA.Id, partyA, accountA.Id, "FamilySupport", null, null, null), "shared-key");
+
+        // Customer B reuses the same key with their own (owned) party — must get their own order, not A's.
+        var b = await CreateService(db, tenantId, userId: userB).ConfirmAsync(
+            new ConfirmRemittanceRequest(quoteB.Id, partyB, accountB.Id, "FamilySupport", null, null, null), "shared-key");
+
+        b.OrderId.Should().NotBe(a.OrderId);
+        b.CustomerPartyId.Should().Be(partyB);
+        (await db.Orders.FirstAsync(o => o.Id == a.OrderId)).PayerPartyId.Should().Be(partyA);
+    }
+
     // ── Get ──────────────────────────────────────────────────────────────────
 
     [Fact]

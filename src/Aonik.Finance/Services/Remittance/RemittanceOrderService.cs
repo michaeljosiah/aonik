@@ -172,11 +172,16 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         // and a victim's party id can neither confirm nor read another customer's remittance.
         await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
 
-        // Idempotency: replaying the same key returns the existing order without re-executing.
+        // Idempotency: replaying the same key resumes the existing order. Scope by the caller's customer
+        // party (already verified above), NOT just the tenant-wide key — the unique idempotency index
+        // spans customers, so without this a user could reuse/guess another customer's key (while passing
+        // a party they own) and receive or drive that customer's remittance.
         var existing = await _db.Orders
             .Include(o => o.Items)
             .FirstOrDefaultAsync(
-                o => o.OrderType == RemittanceOrderType && o.IdempotencyKey == key,
+                o => o.OrderType == RemittanceOrderType
+                    && o.IdempotencyKey == key
+                    && o.PayerPartyId == request.CustomerPartyId,
                 cancellationToken);
 
         if (existing is not null)
@@ -236,6 +241,15 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         {
             throw new InvalidOperationException(
                 $"Unsupported payout destination type '{account.DestinationType}'.");
+        }
+
+        // Never move money to a rail that has not passed name-enquiry/account resolution. Newly saved
+        // beneficiaries default to unverified, so this is the gate that keeps remittance off unverified
+        // rails (verification flips IsVerified once the destination is confirmed with the partner).
+        if (!account.IsVerified)
+        {
+            throw new InvalidOperationException(
+                "Destination payout account is not verified; verify the beneficiary before sending.");
         }
 
         // Resolve the payout route now to fail fast if none exists; the actual connector is re-resolved
@@ -416,6 +430,13 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             if (winner is null)
             {
                 throw;
+            }
+
+            if (winner.PayerPartyId != request.CustomerPartyId)
+            {
+                // The tenant-wide idempotency key is already held by a different customer — never return
+                // or drive their order.
+                throw new InvalidOperationException("Idempotency key is already in use.");
             }
 
             activity?.SetTag(FinanceActivitySource.OrderIdTag, winner.Id);
