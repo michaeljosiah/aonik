@@ -25,16 +25,17 @@ internal sealed class PaymentTools
         return await _paymentService.GetPaymentIntentAsync(paymentIntentId, cancellationToken);
     }
 
-    [Description("Creates a new payment intent to fund an order. Returns the created payment intent with its status.")]
+    [Description("Creates a new payment intent to fund an order. The payer is resolved from the order. Returns the created payment intent with its status.")]
     public async Task<PaymentIntentResponse> CreatePaymentIntent(
         [Description("The payment amount")] decimal amount,
         [Description("ISO 4217 currency code (e.g. USD, NGN)")] string currency,
         [Description("Payment reference string")] string reference,
         [Description("The order ID this payment is funding")] Guid orderId,
         [Description("Optional invoice ID linked to this payment")] Guid? invoiceId,
+        [Description("Optional funding rail (e.g. Card, BankTransfer). Required before the intent can be authorized.")] string? paymentMethodType = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreatePaymentIntentRequest(amount, currency, reference, orderId, invoiceId);
+        var request = new CreatePaymentIntentRequest(amount, currency, reference, orderId, invoiceId, PaymentMethodType: paymentMethodType);
         return await _paymentService.CreatePaymentIntentAsync(request, cancellationToken);
     }
 

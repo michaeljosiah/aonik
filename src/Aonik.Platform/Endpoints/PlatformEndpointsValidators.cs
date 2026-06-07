@@ -82,6 +82,15 @@ internal sealed class GetObservabilityErrorDetailRequestValidator : Validator<Ge
     }
 }
 
+internal sealed class GetMoneyActionTraceRequestValidator : Validator<GetMoneyActionTraceRequest>
+{
+    public GetMoneyActionTraceRequestValidator()
+    {
+        RuleFor(x => x.OrderId).RequiredId();
+        RuleFor(x => x.TimeRange).RequiredText(32);
+    }
+}
+
 internal sealed class GenerateContentImageRequestValidator : Validator<GenerateContentImageRequest>
 {
     public GenerateContentImageRequestValidator()

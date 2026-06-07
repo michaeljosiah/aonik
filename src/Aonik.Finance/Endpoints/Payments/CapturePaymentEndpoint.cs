@@ -25,6 +25,7 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
             s.Response(200, "Payment captured successfully");
             s.Response(401, "Not authenticated");
             s.Response(404, "Payment intent not found");
+            s.Response(422, "Payment cannot be captured (wrong state, or no resolved payer / payment method)");
         });
         Options(x => x.WithTags("Payments"));
     }
@@ -49,9 +50,12 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
 
             await Send.OkAsync(response, ct);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
-            await Send.NotFoundAsync(ct);
+            // Not-found → 404; wrong-state or an unresolved payer/method (the money-movement
+            // guard) → 422, matching the Billing endpoints' convention.
+            AddError(ex.Message);
+            await Send.ErrorsAsync(ex.Message.Contains("not found") ? 404 : 422, ct);
         }
     }
 }

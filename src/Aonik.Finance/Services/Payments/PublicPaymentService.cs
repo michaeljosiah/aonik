@@ -73,7 +73,9 @@ internal class PublicPaymentService : IPublicPaymentService
             TenantId = tenantId,
             Amount = order.AmountIn,
             Currency = order.CurrencyIn,
-            PayerPartyId = order.PayerPartyId ?? Guid.Empty,
+            // Null when the guest has not yet been resolved to a party — never a Guid.Empty
+            // placeholder. The payer is enforced before the intent is authorized.
+            PayerPartyId = order.PayerPartyId,
             PayeePartyId = null,
             OrderId = order.Id,
             InvoiceId = null,

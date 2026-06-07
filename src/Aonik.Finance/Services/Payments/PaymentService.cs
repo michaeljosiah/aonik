@@ -43,8 +43,23 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         await EnsurePermissionAsync("Payment.Create", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        // An intent always funds an order, and the order is the canonical record of who
+        // is paying. Resolve the payer from the order (or an explicit override) instead
+        // of persisting a placeholder; loading the order also stops dangling intents that
+        // reference a non-existent order.
+        var order = await _dbContext.Orders
+            .FirstOrDefaultAsync(o => o.Id == request.OrderId, cancellationToken);
+
+        if (order == null)
+        {
+            throw new InvalidOperationException($"Order with ID {request.OrderId} not found");
+        }
+
+        // Null (never Guid.Empty / a fabricated "Card") models genuine absence on a draft;
+        // both payer and method are enforced at the authorize money-movement boundary.
+        var payerPartyId = request.PayerPartyId ?? order.PayerPartyId;
         var paymentMethodType = string.IsNullOrWhiteSpace(request.PaymentMethodType)
-            ? "Card"
+            ? null
             : request.PaymentMethodType.Trim();
 
         var paymentIntent = new PaymentIntent
@@ -55,7 +70,7 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             Status = PaymentStatus.Pending.ToString(),
             PurposeType = "Order",
             PurposeId = request.OrderId,
-            PayerPartyId = request.PayerPartyId ?? Guid.Empty,
+            PayerPartyId = payerPartyId,
             PayeePartyId = null,
             OrderId = request.OrderId,
             InvoiceId = request.InvoiceId,
@@ -107,6 +122,10 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         {
             throw new InvalidOperationException("Only pending payments can be authorized");
         }
+
+        // Externally material boundary (issue #104): money must not be authorized to move on
+        // behalf of an unknown payer or via an unspecified rail.
+        EnsurePayerAndMethodResolved(paymentIntent, "authorize");
 
         paymentIntent.Status = PaymentStatus.Authorized.ToString();
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -160,6 +179,12 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             {
                 throw new InvalidOperationException("Only authorized payments can be captured");
             }
+
+            // Re-enforce the externally material boundary here, not only at authorize: capture is
+            // the step that actually posts to the ledger, and an intent can be Authorized without
+            // ever passing through AuthorizePaymentAsync (legacy rows created before this invariant
+            // existed, with a Guid.Empty/blank payer or rail). Fail closed before any money moves.
+            EnsurePayerAndMethodResolved(paymentIntent, "capture");
 
             // Record the cash receipt in the ledger BEFORE flipping the status:
             // Dr Cash / Cr Payments Clearing. If the post fails the intent stays
@@ -224,6 +249,25 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
 
         return MapToResponse(paymentIntent);
+    }
+
+    // Externally material guard (issue #104): an intent must have a real payer and a concrete
+    // rail before money can move. Enforced at BOTH authorize and capture so a legacy intent that
+    // is already Authorized (Guid.Empty payer / blank method) cannot be captured and post to the
+    // ledger. The Guid.Empty check also rejects rows persisted before the column became nullable.
+    private static void EnsurePayerAndMethodResolved(PaymentIntent paymentIntent, string action)
+    {
+        if (paymentIntent.PayerPartyId is null || paymentIntent.PayerPartyId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                $"Cannot {action} payment: the intent has no resolved payer.");
+        }
+
+        if (string.IsNullOrWhiteSpace(paymentIntent.PaymentMethodType))
+        {
+            throw new InvalidOperationException(
+                $"Cannot {action} payment: the intent has no payment method.");
+        }
     }
 
     private static PaymentIntentResponse MapToResponse(PaymentIntent paymentIntent)

@@ -216,6 +216,9 @@ public sealed class CreatePaymentIntentRequestValidator : Validator<CreatePaymen
         RuleFor(x => x.Reference).RequiredText(128);
         RuleFor(x => x.OrderId).RequiredId();
         RuleFor(x => x.InvoiceId).ValidIdWhenSupplied();
+        RuleFor(x => x.PaymentMethodType)
+            .MaximumLength(50)
+            .When(x => x.PaymentMethodType != null);
     }
 }
 

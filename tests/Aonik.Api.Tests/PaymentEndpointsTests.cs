@@ -19,13 +19,13 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreatePaymentIntent_ReturnsCreated()
     {
         // Arrange
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create()
-                .WithPermissions("Payment.Create")
-                .WithRoles("Operations"));
+        var options = TestAuthOptions.Create()
+            .WithPermissions("Payment.Create")
+            .WithRoles("Operations");
+        var client = await _factory.CreateAuthenticatedClientAsync(options);
+        var orderId = await _factory.SeedOrderAsync(options.TenantId!.Value, payerPartyId: Guid.NewGuid());
 
-
-        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", Guid.NewGuid(), null);
+        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", orderId, null, PaymentMethodType: "Card");
 
         // Act
         var response = await client.PostAsJsonAsync("/payments/intents", request);
@@ -45,13 +45,13 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetPaymentIntent_ReturnsPayment_WhenExists()
     {
         // Arrange - Create payment first
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create()
-                .WithPermissions("Payment.Create", "Payment.Read")
-                .WithRoles("Operations"));
+        var options = TestAuthOptions.Create()
+            .WithPermissions("Payment.Create", "Payment.Read")
+            .WithRoles("Operations");
+        var client = await _factory.CreateAuthenticatedClientAsync(options);
+        var orderId = await _factory.SeedOrderAsync(options.TenantId!.Value, payerPartyId: Guid.NewGuid());
 
-
-        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", Guid.NewGuid(), null);
+        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", orderId, null, PaymentMethodType: "Card");
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
         var createdPayment = await createResponse.Content.ReadFromJsonAsync<PaymentIntentResponse>();
 
@@ -86,13 +86,13 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CapturePayment_ReturnsCaptured_WhenAuthorized()
     {
         // Arrange - Create and authorize payment
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create()
-                .WithPermissions("Payment.Create", "Payment.Capture")
-                .WithRoles("Operations"));
+        var options = TestAuthOptions.Create()
+            .WithPermissions("Payment.Create", "Payment.Capture")
+            .WithRoles("Operations");
+        var client = await _factory.CreateAuthenticatedClientAsync(options);
+        var orderId = await _factory.SeedOrderAsync(options.TenantId!.Value, payerPartyId: Guid.NewGuid());
 
-
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", Guid.NewGuid(), null);
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", orderId, null, PaymentMethodType: "Card");
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
         var payment = await createResponse.Content.ReadFromJsonAsync<PaymentIntentResponse>();
 
@@ -102,22 +102,22 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         // Act
         var captureResponse = await client.PostAsync($"/payments/intents/{payment!.Id}/capture", null);
 
-        // Assert - Should fail because payment is not authorized
-        // In a real implementation with proper state machine, this would need authorization first
-        captureResponse.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+        // Assert - capturing a non-authorized (Pending) intent is a wrong-state transition,
+        // now surfaced as 422 Unprocessable Entity.
+        captureResponse.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 
     [Fact]
     public async Task CancelPayment_ReturnsCancelled_WhenPending()
     {
         // Arrange - Create payment
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create()
-                .WithPermissions("Payment.Create", "Payment.Cancel")
-                .WithRoles("Operations"));
+        var options = TestAuthOptions.Create()
+            .WithPermissions("Payment.Create", "Payment.Cancel")
+            .WithRoles("Operations");
+        var client = await _factory.CreateAuthenticatedClientAsync(options);
+        var orderId = await _factory.SeedOrderAsync(options.TenantId!.Value, payerPartyId: Guid.NewGuid());
 
-
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", Guid.NewGuid(), null);
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", orderId, null, PaymentMethodType: "Card");
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
         var payment = await createResponse.Content.ReadFromJsonAsync<PaymentIntentResponse>();
 

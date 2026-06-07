@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
+using Aonik.Finance.Entities.Orders;
 using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Entities.Identity;
@@ -193,6 +194,40 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public TestPushNotificationSender GetPushNotificationSender()
     {
         return Services.GetRequiredService<TestPushNotificationSender>();
+    }
+
+    /// <summary>
+    /// Seeds a bill-payment Order so payment-intent flows have a real, tenant-scoped order
+    /// to resolve the payer from. Returns the new order id.
+    /// </summary>
+    public async Task<Guid> SeedOrderAsync(
+        Guid tenantId,
+        Guid? payerPartyId = null,
+        string status = "Draft",
+        decimal amountIn = 100m,
+        string currencyIn = "USD")
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.TenantId = tenantId;
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            OrderType = "BillPayment",
+            PayerPartyId = payerPartyId,
+            AmountIn = amountIn,
+            CurrencyIn = currencyIn,
+            Status = status,
+            FeesJson = "[]",
+            ProvenanceJson = "{}"
+        };
+
+        dbContext.Set<Order>().Add(order);
+        await dbContext.SaveChangesAsync();
+        return order.Id;
     }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync(TestAuthOptions options)
