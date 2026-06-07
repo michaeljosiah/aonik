@@ -59,6 +59,14 @@ internal sealed class SimulatedPartnerConnector
         => Task.FromResult(new AccountResolutionResult(
             true, "SIMULATED ACCOUNT HOLDER", Raw("00", "Resolved")));
 
+    public Task<RecipientRegistrationResult> RegisterRecipientAsync(
+        RecipientRegistrationRequest request, CancellationToken cancellationToken = default)
+    {
+        var beneficiaryId = $"rcp_{Guid.NewGuid().ToString("N")[..16]}";
+        return Task.FromResult(new RecipientRegistrationResult(
+            true, beneficiaryId, request.AccountName, Raw("00", "Recipient created")));
+    }
+
     // ── Collection ───────────────────────────────────────────────────────────
     public Task<CollectionInitiationResult> InitiateCollectionAsync(
         CollectionInstruction instruction, CancellationToken cancellationToken = default)
