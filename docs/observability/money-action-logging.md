@@ -48,6 +48,48 @@ within each stage:
 Don't reuse an EventId across stages. The runbook walks EventId ranges
 when grouping by stage; reuse breaks the grouping.
 
+## Tag-key naming convention — PascalCase, not dot.case
+
+> Both `MoneyActionLog` (ILogger structured props) AND
+> `FinanceActivitySource` (OpenTelemetry span tags) emit the **same
+> PascalCase keys**: `OrderId`, `Stage`, `Outcome`, `TenantId`,
+> `PaymentIntentId`, `InvoiceId`, `PricingQuoteId`, `JournalEntryId`.
+> Never use `order.id` / `money.stage` / `payment_intent.id`.
+
+These are **domain attributes**, not OpenTelemetry semantic conventions
+(like `http.method` or `db.statement`). OTel's snake/dotted convention
+applies to standard cross-vendor attributes; it doesn't prescribe naming
+for app-specific attributes, and aligning span tags with ILogger
+property names eliminates a class of "the saved query doesn't return my
+spans" bugs.
+
+Concretely:
+- Use the constants on `FinanceActivitySource` — `OrderIdTag`,
+  `StageTag`, `OutcomeTag`, `TenantIdTag`, `PaymentIntentIdTag`,
+  `InvoiceIdTag`, `PricingQuoteIdTag`, `JournalEntryIdTag`. Never hand-roll
+  a tag key string.
+- The constants are locked down by reflection-based tests in
+  `MoneyActionLogTests` — any drift to dot.case fails CI before the
+  saved KQL goes silent on dev.
+
+### How child dependencies join the trace
+
+A SQL dependency under a finance span doesn't inherit its parent's
+custom attributes — it shares only the W3C `operation_Id` (trace_id).
+The saved KQL handles this with a two-pass join:
+
+1. **Direct hits** — rows whose own `customDimensions` carry `OrderId`
+   or `PricingQuoteId`.
+2. **Inherited hits** — rows whose `operation_Id` matches any direct
+   hit's `operation_Id`. Catches the SQL `dependencies` rows + outbound
+   HTTP calls + any exception thrown deep in the stack under a finance
+   span.
+
+That's why the KQL is three steps (chain → direct → inherited → union →
+dedupe). When you add a new code path, you don't need to do anything
+special — opening a `FinanceActivitySource` span before you call EF is
+enough for every downstream SQL dependency to appear in the trace.
+
 ## The lifecycle, in code
 
 ### Quote — `PricingService.GetBillPaymentQuoteAsync`
@@ -63,7 +105,7 @@ activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
 
 try {
     // ... compute the quote ...
-    activity?.SetTag("pricing_quote.id", pricingQuoteId);
+    activity?.SetTag(FinanceActivitySource.PricingQuoteIdTag, pricingQuoteId);
     activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
     _logger.QuoteCreated(pricingQuoteId, tenantId, "BillPayment USD->KES", amount, currency);
     return response;

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Reflection;
 using Aonik.Finance.Services.Observability;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -218,6 +220,93 @@ public class MoneyActionLogTests
         entry.Scopes.Should().ContainKey("OrderId");
         entry.Scopes.Should().NotContainKey("PaymentIntentId");
         entry.Scopes.Should().NotContainKey("InvoiceId");
+    }
+
+    // ── FinanceActivitySource tag-key contract -------------------------
+    //
+    // Activity tags become customDimensions on the dependency / span row
+    // in App Insights. The saved KQL pivots on PascalCase keys (OrderId,
+    // Stage, Outcome, ...) — if a tag constant drifts to dot.case the
+    // span / dependency row goes silent in the query. These tests catch
+    // the drift at PR time.
+
+    [Theory]
+    [InlineData(nameof(FinanceActivitySource.OrderIdTag),         "OrderId")]
+    [InlineData(nameof(FinanceActivitySource.TenantIdTag),        "TenantId")]
+    [InlineData(nameof(FinanceActivitySource.StageTag),           "Stage")]
+    [InlineData(nameof(FinanceActivitySource.OutcomeTag),         "Outcome")]
+    [InlineData(nameof(FinanceActivitySource.PaymentIntentIdTag), "PaymentIntentId")]
+    [InlineData(nameof(FinanceActivitySource.InvoiceIdTag),       "InvoiceId")]
+    [InlineData(nameof(FinanceActivitySource.PricingQuoteIdTag),  "PricingQuoteId")]
+    [InlineData(nameof(FinanceActivitySource.JournalEntryIdTag),  "JournalEntryId")]
+    public void Tag_Constants_Are_PascalCase_Matching_ILogger_Property_Names(string constantName, string expected)
+    {
+        var field = typeof(FinanceActivitySource).GetField(constantName, BindingFlags.Public | BindingFlags.Static);
+        field.Should().NotBeNull($"{constantName} must exist on FinanceActivitySource");
+        field!.GetRawConstantValue().Should().Be(expected,
+            $"the saved KQL filters customDimensions[\"{expected}\"]; drifting to dot.case (e.g. \"{expected.ToLowerInvariant().Replace("id", ".id")}\") silently breaks the query");
+    }
+
+    [Fact]
+    public void All_Public_Tag_Constants_Use_PascalCase_With_No_Dots_Or_Underscores()
+    {
+        var tagConstants = typeof(FinanceActivitySource)
+            .GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral && !f.IsInitOnly && f.Name.EndsWith("Tag"))
+            .ToList();
+
+        tagConstants.Should().NotBeEmpty("FinanceActivitySource must expose tag constants");
+
+        foreach (var field in tagConstants)
+        {
+            var value = (string)field.GetRawConstantValue()!;
+            value.Should().NotContain(".",
+                $"{field.Name} = \"{value}\" must not contain '.': customDimensions keys are PascalCase to match ILogger");
+            value.Should().NotContain("_",
+                $"{field.Name} = \"{value}\" must not contain '_': customDimensions keys are PascalCase to match ILogger");
+            char.IsUpper(value[0]).Should().BeTrue(
+                $"{field.Name} = \"{value}\" must start with an uppercase letter (PascalCase)");
+        }
+    }
+
+    [Fact]
+    public void Activity_Tags_Emit_PascalCase_Keys_That_Match_ILogger_Properties()
+    {
+        // End-to-end proof: a span tagged with FinanceActivitySource.OrderIdTag
+        // surfaces "OrderId" as a tag — exactly the customDimensions key the
+        // saved KQL filters on. If the constant drifts the assertion fires
+        // before the change reaches dev.
+        var orderId = Guid.NewGuid();
+
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == FinanceActivitySource.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        Activity? captured = null;
+        listener.ActivityStopped = activity => captured = activity;
+
+        using (var activity = FinanceActivitySource.Source.StartActivity("test.span"))
+        {
+            activity?.SetTag(FinanceActivitySource.OrderIdTag, orderId);
+            activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Capture);
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
+        }
+
+        captured.Should().NotBeNull("ActivityListener must capture the stopped span");
+        var tagDict = captured!.TagObjects.ToDictionary(t => t.Key, t => t.Value);
+        tagDict.Should().ContainKey("OrderId").WhoseValue.Should().Be(orderId);
+        tagDict.Should().ContainKey("Stage").WhoseValue.Should().Be(MoneyActionStages.Capture);
+        tagDict.Should().ContainKey("Outcome").WhoseValue.Should().Be(MoneyActionOutcomes.Success);
+
+        // Reverse assertion — the OTel-style dot.case names MUST NOT appear,
+        // because they're what the bug looked like and the saved KQL would
+        // not match them.
+        tagDict.Should().NotContainKey("order.id");
+        tagDict.Should().NotContainKey("money.stage");
+        tagDict.Should().NotContainKey("money.outcome");
     }
 
     // ── Test plumbing --------------------------------------------------

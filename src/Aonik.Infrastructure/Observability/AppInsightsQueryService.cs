@@ -1081,6 +1081,15 @@ public class AppInsightsQueryService : IObservabilityService
         // orderId is a Guid (safe for literal injection); range.Ago is one
         // of a closed set of "ago(...)" expressions emitted by ParseTimeRange.
         // No untrusted strings reach the KQL.
+        //
+        // Three-step design (matches saved query):
+        //   1. Resolve PricingQuoteId from Confirm-stage log (EventId 1201)
+        //      so Quote-stage entries reachable.
+        //   2. Direct hits — rows carrying OrderId or PricingQuoteId in
+        //      customDimensions.
+        //   3. Inherited hits via operation_Id — children of finance spans
+        //      (SQL deps, outbound HTTP) that share the trace_id but don't
+        //      carry the OrderId tag themselves.
         var kql = $$"""
             let orderId = "{{orderId}}";
             let pricingQuoteId =
@@ -1092,27 +1101,29 @@ public class AppInsightsQueryService : IObservabilityService
                 | where isnotempty(pq) and pq != "00000000-0000-0000-0000-000000000000"
                 | project pq
                 | take 1;
-            union
-                (traces
-                    | where timestamp > {{range.Ago}}
-                    | where tostring(customDimensions["OrderId"]) == orderId
-                       or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-                    | extend itemType = "trace"),
-                (customEvents
-                    | where timestamp > {{range.Ago}}
-                    | where tostring(customDimensions["OrderId"]) == orderId
-                       or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-                    | extend itemType = "customEvent"),
-                (dependencies
-                    | where timestamp > {{range.Ago}}
-                    | where tostring(customDimensions["OrderId"]) == orderId
-                       or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-                    | extend itemType = "dependency"),
-                (exceptions
-                    | where timestamp > {{range.Ago}}
-                    | where tostring(customDimensions["OrderId"]) == orderId
-                       or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-                    | extend itemType = "exception")
+            let directHits =
+                union
+                    (traces       | extend itemType = "trace"),
+                    (customEvents | extend itemType = "customEvent"),
+                    (dependencies | extend itemType = "dependency"),
+                    (exceptions   | extend itemType = "exception")
+                | where timestamp > {{range.Ago}}
+                | where tostring(customDimensions["OrderId"]) == orderId
+                   or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId);
+            let traceIds =
+                directHits
+                | where isnotempty(operation_Id)
+                | distinct operation_Id;
+            let inheritedHits =
+                union
+                    (traces       | extend itemType = "trace"),
+                    (customEvents | extend itemType = "customEvent"),
+                    (dependencies | extend itemType = "dependency"),
+                    (exceptions   | extend itemType = "exception")
+                | where timestamp > {{range.Ago}}
+                | where operation_Id in (traceIds);
+            union directHits, inheritedHits
+            | summarize take_any(*) by itemId
             | project
                 timestamp,
                 itemType,

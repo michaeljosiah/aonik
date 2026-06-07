@@ -547,7 +547,7 @@ internal class OrderService : IOrderService
             activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
             if (firstQuoteId.HasValue)
             {
-                activity?.SetTag("pricing_quote.id", firstQuoteId.Value);
+                activity?.SetTag(FinanceActivitySource.PricingQuoteIdTag, firstQuoteId.Value);
             }
             _logger.OrderConfirmed(order.Id, order.TenantId, $"Status={order.Status}", firstQuoteId);
 

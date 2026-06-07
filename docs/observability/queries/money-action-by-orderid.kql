@@ -3,34 +3,45 @@
 // Saved Application Insights query for GitHub Issue #142.
 // Returns every log entry, dependency call, custom event, and exception
 // related to a given OrderId across the money-action lifecycle:
-//   Quote (PricingService)       — correlation key PricingQuoteId
-//   Confirm (OrderService)       — correlation key OrderId (carries PricingQuoteId)
-//   Capture (PaymentService)     — correlation key OrderId + PaymentIntentId
-//   Transmit (partner connector) — correlation key OrderId (when wired)
+//   Quote (PricingService)        — correlation key PricingQuoteId
+//   Confirm (OrderService)        — correlation key OrderId (carries PricingQuoteId)
+//   Capture (PaymentService)      — correlation key OrderId + PaymentIntentId
+//   Transmit (partner connector)  — correlation key OrderId (when wired)
 //   Settle (LedgerPostingService) — correlation key OrderId + JournalEntryId
-//   Webhook (processor endpoint) — correlation key OrderId (when wired)
+//   Webhook (processor endpoint)  — correlation key OrderId (when wired)
 //
 // Parameters (replace at run time):
 //   - orderId : the Order.Id (Guid as string, no braces)
 //   - window  : the lookback window (default 30d)
 //
-// The Quote-stage logs do NOT carry OrderId — at that point in the lifecycle
-// the order doesn't exist yet. This query first finds the PricingQuoteId
-// from the Confirm-stage log for the given OrderId, then unions all entries
-// matching either OrderId or PricingQuoteId so the timeline is contiguous.
+// Naming convention: ALL customDimensions keys are PascalCase. Both
+// `MoneyActionLog` (ILogger) and `FinanceActivitySource` (OpenTelemetry
+// span tags) emit the same key shape — "OrderId", not "order.id" — so
+// this query does NOT need to coalesce alternate naming styles. The
+// invariant is locked down by MoneyActionLogTests.
+//
+// The trace is built in three steps so SQL/HTTP dependencies that share
+// a parent span (but don't carry OrderId themselves) are still included:
+//
+//   1. Resolve the PricingQuoteId from the Confirm-stage log (EventId 1201)
+//      so Quote-stage entries are reachable.
+//   2. Find every row directly carrying OrderId OR PricingQuoteId in
+//      customDimensions.
+//   3. Pull in every row sharing operation_Id (W3C trace_id) with a
+//      direct hit. This catches SQL dependencies and outbound HTTP calls
+//      under a finance ActivitySource span that would otherwise be
+//      missed — they share the trace but don't carry the OrderId tag.
 //
 // Target SLA: end-to-end query wall-clock under 30s (Issue #142 acceptance).
-//
-// Save this query in App Insights as "Money action by OrderId" so operators
-// can re-run it from the saved-queries panel; the runtime equivalent is the
-// AppInsightsQueryService.GetMoneyActionTraceAsync method.
+// Save in App Insights as "Money action by OrderId".
 
 let orderId = "00000000-0000-0000-0000-000000000000"; // replace with target OrderId
 let window  = 30d;
 
-// Step 1: find the PricingQuoteId from the Confirm-stage log, if any.
-// EventId 1201 is OrderConfirmed; it carries the PricingQuoteId we need
-// to chain back to the Quote-stage entries.
+// Step 1 — Chain to the Quote stage. Confirm-stage log (EventId 1201)
+// carries both OrderId and PricingQuoteId; we project the latter so the
+// Quote-stage entries (which precede the order and lack OrderId) can be
+// reached.
 let pricingQuoteId =
     traces
     | where timestamp > ago(window)
@@ -41,45 +52,53 @@ let pricingQuoteId =
     | project pq
     | take 1;
 
-// Step 2: union every signal where OrderId or PricingQuoteId matches.
-// `customEvents` carries the EventName="MoneyAction" milestones; `traces`
-// carries the formatted log messages; `dependencies` covers the downstream
-// SQL / HTTP calls inside the scope; `exceptions` covers anything thrown.
-union
-    (traces
-        | where timestamp > ago(window)
-        | where tostring(customDimensions["OrderId"]) == orderId
-           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-        | extend itemType = "trace"),
-    (customEvents
-        | where timestamp > ago(window)
-        | where tostring(customDimensions["OrderId"]) == orderId
-           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-        | extend itemType = "customEvent"),
-    (dependencies
-        | where timestamp > ago(window)
-        | where tostring(customDimensions["OrderId"]) == orderId
-           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-        | extend itemType = "dependency"),
-    (exceptions
-        | where timestamp > ago(window)
-        | where tostring(customDimensions["OrderId"]) == orderId
-           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
-        | extend itemType = "exception")
+// Step 2 — Direct hits. Every row that carries OrderId or PricingQuoteId
+// in its own customDimensions. Sources: structured logs (traces /
+// customEvents), span attributes (dependencies / exceptions when a
+// finance span tagged them).
+let directHits =
+    union
+        (traces       | extend itemType = "trace"),
+        (customEvents | extend itemType = "customEvent"),
+        (dependencies | extend itemType = "dependency"),
+        (exceptions   | extend itemType = "exception")
+    | where timestamp > ago(window)
+    | where tostring(customDimensions["OrderId"]) == orderId
+       or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId);
+
+// Step 3 — Inherited hits via operation_Id. Children of a finance span
+// (SQL dependencies, outbound HTTP, exceptions thrown deep in the stack)
+// share the W3C trace_id but don't carry OrderId in their own attributes.
+// Joining on operation_Id pulls them into the timeline.
+let traceIds =
+    directHits
+    | where isnotempty(operation_Id)
+    | distinct operation_Id;
+let inheritedHits =
+    union
+        (traces       | extend itemType = "trace"),
+        (customEvents | extend itemType = "customEvent"),
+        (dependencies | extend itemType = "dependency"),
+        (exceptions   | extend itemType = "exception")
+    | where timestamp > ago(window)
+    | where operation_Id in (traceIds);
+
+union directHits, inheritedHits
+| summarize take_any(*) by itemId  // dedupe rows captured by both legs
 | project
     timestamp,
     itemType,
-    Stage          = tostring(customDimensions["Stage"]),
-    Outcome        = tostring(customDimensions["Outcome"]),
-    EventId        = tostring(customDimensions["EventId"]),
-    EventName      = tostring(customDimensions["EventName"]),
+    Stage           = tostring(customDimensions["Stage"]),
+    Outcome         = tostring(customDimensions["Outcome"]),
+    EventId         = tostring(customDimensions["EventId"]),
     name,
     message,
     severityLevel,
     operation_Id,
+    OrderId         = tostring(customDimensions["OrderId"]),
     PaymentIntentId = tostring(customDimensions["PaymentIntentId"]),
-    InvoiceId      = tostring(customDimensions["InvoiceId"]),
-    PricingQuoteId = tostring(customDimensions["PricingQuoteId"]),
-    TenantId       = tostring(customDimensions["TenantId"]),
-    rawDimensions  = customDimensions
+    InvoiceId       = tostring(customDimensions["InvoiceId"]),
+    PricingQuoteId  = tostring(customDimensions["PricingQuoteId"]),
+    TenantId        = tostring(customDimensions["TenantId"]),
+    rawDimensions   = customDimensions
 | order by timestamp asc

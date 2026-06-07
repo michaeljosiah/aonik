@@ -31,47 +31,66 @@ public static class FinanceActivitySource
 
     /// <summary>
     /// Standard tag key for the OrderId attached to every money-action span.
-    /// Matches the "OrderId" customDimensions key emitted by structured
-    /// logs so the saved KQL union query can correlate both signal types.
     /// </summary>
-    public const string OrderIdTag = "order.id";
+    /// <remarks>
+    /// PascalCase by design: these are domain attributes (not OTel semantic
+    /// conventions like <c>http.method</c> / <c>db.statement</c>), and they
+    /// MUST match the customDimensions key emitted by
+    /// <c>MoneyActionLog</c> / <c>BeginOrderScope</c> so the saved KQL
+    /// query can filter and project on one key per concept without
+    /// coalescing dot.case and PascalCase variants. The KQL-side
+    /// regression test in <c>MoneyActionLogTests</c> locks this in.
+    /// </remarks>
+    public const string OrderIdTag = "OrderId";
 
-    /// <summary>
-    /// Standard tag key for the TenantId; lets multi-tenant dashboards
-    /// break down money-action volume per tenant.
-    /// </summary>
-    public const string TenantIdTag = "tenant.id";
+    /// <summary>Standard tag key for the TenantId. PascalCase to match ILogger.</summary>
+    public const string TenantIdTag = "TenantId";
 
     /// <summary>
     /// Standard tag key for the money-action lifecycle stage. Values are
     /// drawn from <see cref="MoneyActionStages"/> (quote, confirm, capture,
-    /// transmit, settle, webhook) so dashboards can group spans by stage.
+    /// transmit, settle, webhook). PascalCase to match the
+    /// <c>Stage</c> structured-log scope key.
     /// </summary>
-    public const string StageTag = "money.stage";
+    public const string StageTag = "Stage";
 
     /// <summary>
     /// Standard tag key for the money-action outcome (success, failed,
-    /// skipped_idempotent, rejected, timeout). Mirrors the Outcome field
-    /// on <c>MoneyActionLog</c> entries.
+    /// skipped_idempotent, rejected, timeout). PascalCase to match the
+    /// <c>Outcome</c> structured-log scope key.
     /// </summary>
-    public const string OutcomeTag = "money.outcome";
+    public const string OutcomeTag = "Outcome";
 
     /// <summary>
     /// Standard tag key for the PaymentIntent identifier on capture /
-    /// transmit / settle spans. Null on quote and confirm spans.
+    /// transmit / settle spans. PascalCase to match ILogger.
     /// </summary>
-    public const string PaymentIntentIdTag = "payment_intent.id";
+    public const string PaymentIntentIdTag = "PaymentIntentId";
 
     /// <summary>
     /// Standard tag key for the Invoice identifier on settle spans where
-    /// the path is invoice-driven (Billing.MarkInvoiceAsPaid).
+    /// the path is invoice-driven. PascalCase to match ILogger.
     /// </summary>
-    public const string InvoiceIdTag = "invoice.id";
+    public const string InvoiceIdTag = "InvoiceId";
+
+    /// <summary>
+    /// Standard tag key for the PricingQuoteId attached to Quote-stage spans
+    /// and to the Confirm-stage span for chaining. PascalCase to match
+    /// the <c>PricingQuoteId</c> structured-log property.
+    /// </summary>
+    public const string PricingQuoteIdTag = "PricingQuoteId";
+
+    /// <summary>
+    /// Standard tag key for the JournalEntryId on settle spans. PascalCase
+    /// to match the <c>JournalEntryId</c> structured-log property emitted
+    /// by <c>MoneyActionLog.LedgerPosted</c>.
+    /// </summary>
+    public const string JournalEntryIdTag = "JournalEntryId";
 }
 
 /// <summary>
-/// Canonical lifecycle-stage values for the <c>money.stage</c> span tag and
-/// the <c>Stage</c> structured-log field. Treat as a closed set; do not add
+/// Canonical lifecycle-stage values for the <c>Stage</c> span tag and the
+/// <c>Stage</c> structured-log field. Treat as a closed set; do not add
 /// new values without updating the saved KQL query and the operator runbook.
 /// </summary>
 public static class MoneyActionStages
@@ -85,7 +104,7 @@ public static class MoneyActionStages
 }
 
 /// <summary>
-/// Canonical outcome values for the <c>money.outcome</c> span tag and the
+/// Canonical outcome values for the <c>Outcome</c> span tag and the
 /// <c>Outcome</c> structured-log field. Treat as a closed set.
 /// </summary>
 public static class MoneyActionOutcomes

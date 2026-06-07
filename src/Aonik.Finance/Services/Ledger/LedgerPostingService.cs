@@ -126,8 +126,11 @@ internal sealed class LedgerPostingService
         using var activity = FinanceActivitySource.Source.StartActivity("ledger.post");
         activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Settle);
         activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
-        activity?.SetTag("ledger.source_type", sourceType);
-        activity?.SetTag("ledger.source_id", sourceId);
+        // SourceType / SourceId are internal idempotency keys; not part of
+        // the OrderId-pivoted query surface but useful when correlating a
+        // duplicate-post complaint back to the underlying capture/invoice.
+        activity?.SetTag("LedgerSourceType", sourceType);
+        activity?.SetTag("LedgerSourceId", sourceId);
         if (orderId.HasValue && orderId.Value != Guid.Empty)
         {
             activity?.SetTag(FinanceActivitySource.OrderIdTag, orderId.Value);
@@ -209,7 +212,7 @@ internal sealed class LedgerPostingService
             await _db.SaveChangesAsync(cancellationToken);
 
             activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
-            activity?.SetTag("journal_entry.id", entryId);
+            activity?.SetTag(FinanceActivitySource.JournalEntryIdTag, entryId);
             _logger.LedgerPosted(orderId, tenantId, entryId, amount, currency);
         }
         catch (DbUpdateException ex)

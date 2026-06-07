@@ -114,7 +114,7 @@ internal class PricingService : IPricingService
             var totalAmount = RoundCurrency(originAmount + feesTotal, originPrecision, roundingMode);
             var pricingQuoteId = Guid.NewGuid();
             capturedQuoteId = pricingQuoteId;
-            activity?.SetTag("pricing_quote.id", pricingQuoteId);
+            activity?.SetTag(FinanceActivitySource.PricingQuoteIdTag, pricingQuoteId);
 
             await ValidateLimitsAsync(
                 normalizedRequest,
