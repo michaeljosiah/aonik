@@ -431,6 +431,22 @@ public class RemittanceOrderServiceTests
         (await service.GetAsync(Guid.NewGuid())).Should().BeNull();
     }
 
+    [Fact]
+    public async Task GetAsync_Should_ReturnNull_When_OrderOwnedByAnotherCustomer()
+    {
+        // A remittance exists in the tenant but belongs to another customer; the caller (linked to a
+        // different party) must not be able to read it by id — it reads as 404, not someone else's data.
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var (order, _) = SeedTransmittedRemittance(db, tenantId); // PayerPartyId is some other party
+        SeedCaller(db, tenantId, Guid.NewGuid()); // caller linked to a different party
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+
+        (await service.GetAsync(order.Id)).Should().BeNull();
+    }
+
     // ── Quote ──────────────────────────────────────────────────────────────────
 
     [Fact]

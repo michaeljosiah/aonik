@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Http;
 namespace Aonik.Finance.Endpoints.Remittance;
 
 /// <summary>
-/// <c>GET /payabo/remittance/{id}</c> — returns a remittance order scoped to the current tenant.
-/// Spec 036 §10.3.
+/// <c>GET /payabo/remittance/{id}</c> — returns a remittance order scoped to the current tenant and the
+/// caller's own customer party; an order the caller does not own reads as 404. Spec 036 §10.3.
 /// </summary>
 public class GetRemittanceOrderEndpoint : EndpointWithoutRequest<RemittanceOrderResponse>
 {

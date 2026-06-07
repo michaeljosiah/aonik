@@ -472,12 +472,33 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         Guid orderId,
         CancellationToken cancellationToken = default)
     {
-        // Tenant-scoped by the global query filter. Per-customer ownership scoping (Spec 036 §10.3) is
-        // a follow-up once the endpoint resolves the current user's customer party.
+        // Scoped to the caller's own customer parties (Spec 036 §10.3): an order the user does not own
+        // is indistinguishable from a missing one (the endpoint returns 404 either way), so remittance
+        // ids cannot be probed across customers within a tenant.
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (userId is null || userId.Value == Guid.Empty)
+        {
+            return null;
+        }
+
+        var partyIds = await _db.UserParties
+            .AsNoTracking()
+            .Where(up => up.UserId == userId.Value)
+            .Select(up => up.PartyId)
+            .ToListAsync(cancellationToken);
+
+        if (partyIds.Count == 0)
+        {
+            return null;
+        }
+
         var order = await _db.Orders
             .Include(o => o.Items)
             .FirstOrDefaultAsync(
-                o => o.Id == orderId && o.OrderType == RemittanceOrderType,
+                o => o.Id == orderId
+                    && o.OrderType == RemittanceOrderType
+                    && o.PayerPartyId != null
+                    && partyIds.Contains(o.PayerPartyId.Value),
                 cancellationToken);
 
         if (order is null)
