@@ -170,25 +170,30 @@ public class SimulatedPartnerConnectorTests
     }
 
     [Fact]
-    public void TryResolvePayoutConnector_Should_PreferRealConnector_Over_SimulatedFallback()
+    public void TryResolvePayoutConnector_Should_ReturnFallback_AndSelectRealByCode_When_BothRegistered()
     {
         var simulated = CreateConnector();
         var real = new FakeRealPayoutConnector();
 
-        // Simulated is registered FIRST (as it is in DI) — a plain FirstOrDefault would pick it.
+        // Simulated is registered FIRST (as it is in DI).
         var resolver = new PartnerConnectorResolver(
             new IPartnerPayoutConnector[] { simulated, real },
             new IPartnerCollectionConnector[] { simulated },
             new IPartnerBillPaymentConnector[] { simulated },
             new IPartnerWebhookTranslator[] { new SimulatedPartnerWebhookTranslator() });
 
+        // Capability routing returns the first registered match (the simulated fallback). It does NOT
+        // auto-prefer the real connector: an unregistered destination can't be paid by a real connector
+        // that needs a recipient id, so "prefer real" is a destination-aware decision the order service
+        // makes once destinations carry a registered provider (Spec 039) — not a generic-corridor one.
         var satisfiable = resolver.TryResolvePayoutConnector(
             new PartnerConnectorQuery(PartnerServiceCategory.Payout, "NG", "NGN", "Bank"), out var resolved);
 
         satisfiable.Should().BeTrue();
-        resolved.Should().BeSameAs(real); // the real connector wins the default (no-ProviderCode) route
+        resolved.Should().BeSameAs(simulated); // default fallback
 
-        // The simulated connector is still resolvable explicitly by ProviderCode.
+        // The real connector is selected explicitly by ProviderCode.
+        resolver.ResolvePayoutConnector("Flutterwave").Should().BeSameAs(real);
         resolver.ResolvePayoutConnector("Simulated").Should().BeSameAs(simulated);
     }
 }

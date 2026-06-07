@@ -536,16 +536,19 @@
   A code review of PR&nbsp;#147 surfaced five issues in the caller/endpoint that 037 must work around
   or get fixed upstream &mdash; listed so they aren't silently assumed away:
   <ol>
-    <li><strong>Default-route selection (routing &mdash; G18) &mdash; resolved.</strong> Confirm
-    calls <code>ResolvePayoutConnector(request.ProviderCode, …)</code>; with no <code>ProviderCode</code>
-    it falls to the capability query. A plain <code>FirstOrDefault</code> returned the first-registered
-    connector (Simulated, registered before Flutterwave), so a configured Flutterwave was never
-    auto-selected. <strong>Fixed:</strong> <code>PartnerConnectorResolver.TryResolve*</code> now
-    <strong>deprioritises the simulated fallback</strong> in capability routing, so a real connector
-    wins the default (no-<code>ProviderCode</code>) route deterministically &mdash; and a configured
-    provider is never silently bypassed in favour of the simulator. Simulated stays resolvable by
-    explicit code (the remittance fallback). An explicit <code>ProviderCode</code> / the future
-    <code>RoutingRule</code> engine still override per corridor (O11).</li>
+    <li><strong>Default-route selection (routing &mdash; G18) &mdash; deferred to Spec&nbsp;039.</strong>
+    Confirm calls <code>ResolvePayoutConnector(request.ProviderCode, …)</code>; with no
+    <code>ProviderCode</code> it falls to the capability query, whose <code>FirstOrDefault</code>
+    returns the first-registered connector (Simulated). A configured Flutterwave is therefore
+    <em>not</em> auto-selected by default &mdash; which is <strong>correct for now</strong>: until the
+    verify-and-register flow (Spec&nbsp;039) exists, saved beneficiaries have no Flutterwave recipient
+    id, so auto-routing them to Flutterwave would fail closed at dispatch
+    (<code>NO_RECIPIENT</code>). So Simulated stays the default fallback; Flutterwave is selected by an
+    explicit <code>ProviderCode</code> (with a manually-registered destination). <strong>"Prefer real"
+    is a destination-aware decision</strong> &mdash; route a destination to the provider its recipient
+    is registered with &mdash; which belongs in the order service once <code>ExternalPayoutAccount</code>
+    carries a provider (Spec&nbsp;039 §5.5, O11). An earlier generic resolver preference was reverted
+    because it broke confirm for unregistered beneficiaries.</li>
     <li><strong>The connector can't reach a raw account or <code>VaultRef</code> (dispatch data &mdash; G19).</strong>
     <code>BuildPayoutInstruction</code> puts <code>ProviderBeneficiaryId</code> (or, when absent, the
     <em>masked</em> identifier) into the destination account field and does <strong>not</strong> pass
@@ -1075,9 +1078,9 @@ Body:    { "type": "transfer.disburse", "id": "…", "timestamp": …,
       <td><strong>First, verify in sandbox whether v4 accepts the hyphen.</strong> If yes, pass <code>ClientReference</code> through unchanged (identity round-trip). If no, carry the original <code>ClientReference</code> in the transfer <code>meta</code> (e.g. <code>meta.aonik_client_reference</code>) and have <code>FlutterwaveWebhookTranslator.Translate</code> reconstruct it from the echoed meta (fallback to <code>data.reference</code>). Invariant: the inbound translated <code>ClientReference</code> MUST equal the stored <code>REM-{orderId:N}</code>. Long-term, Spec&nbsp;036 could mint hyphen-free refs (O8). (&sect;5.5, &sect;7.5)</td>
     </tr>
     <tr>
-      <td>G18 <span class="tag" style="background:#e0f3e6;color:#1c6b39;">resolved</span></td>
-      <td><strong>Configured Flutterwave was not auto-selected.</strong> Confirm uses <code>ResolvePayoutConnector(request.ProviderCode, …)</code>; with no code, the capability <code>FirstOrDefault</code> returned the first-registered connector (Simulated), and the result is persisted on the order — so setting credentials did not route to Flutterwave.</td>
-      <td><strong>Fixed in <code>PartnerConnectorResolver.TryResolve*</code>:</strong> capability routing now <strong>prefers a real vendor connector over the simulated fallback</strong> (Simulated is deprioritised), so a configured Flutterwave wins the default (no-<code>ProviderCode</code>) route deterministically, regardless of registration order — and a configured provider is never silently bypassed for the simulator. Simulated remains resolvable by explicit code. Per-corridor multi-vendor routing still defers to the <code>RoutingRule</code> engine (O11). (&sect;4 item&nbsp;1, &sect;7.6)</td>
+      <td>G18 <span class="tag" style="background:#eef2f6;color:#5a6a76;">deferred → 039</span></td>
+      <td><strong>Configured Flutterwave is not auto-selected by default.</strong> Confirm uses <code>ResolvePayoutConnector(request.ProviderCode, …)</code>; with no code, the capability <code>FirstOrDefault</code> returns the first-registered connector (Simulated).</td>
+      <td><strong>Correct until Spec&nbsp;039.</strong> Auto-routing an unregistered saved beneficiary to Flutterwave would fail closed at dispatch (no recipient id &rarr; <code>NO_RECIPIENT</code>), so Simulated must stay the default fallback for now; Flutterwave is selected by explicit <code>ProviderCode</code> with a registered destination. "Prefer the real connector" is <strong>destination-aware</strong> (route to the provider the destination's recipient is registered with) and belongs in <code>RemittanceOrderService</code> once <code>ExternalPayoutAccount</code> carries a provider code (Spec&nbsp;039 §5.5, O11). A premature generic-resolver preference was reverted. (&sect;4 item&nbsp;1, &sect;7.6)</td>
     </tr>
     <tr>
       <td>G19 <span class="tag gap">new</span></td>
@@ -1384,12 +1387,14 @@ if (fw?.IsConfigured() == true)
   <code>ProviderCode</code> match) and <strong>falls back to <code>ResolvePayoutConnector("Simulated")</code></strong>
   &mdash; so removing the simulated payout registration breaks the fallback. Register Flutterwave
   <em>in addition to</em> Simulated; distinct <code>ProviderCode</code>s make code-based resolution
-  order-independent. The no-code <code>TryResolve*</code> capability query used to be order-sensitive
-  (Simulated, registered first, would shadow a configured real connector), so
-  <code>PartnerConnectorResolver.TryResolve*</code> now <strong>deprioritises the simulated fallback</strong>:
-  a real connector wins capability routing deterministically, and Simulated is only selected when it
-  is the sole match (or by explicit code). True per-corridor multi-vendor routing remains the deferred
-  <code>RoutingRule</code> engine's job (O10).
+  order-independent. The no-code <code>TryResolve*</code> capability query returns the
+  <strong>first-registered match (Simulated)</strong> &mdash; it deliberately does <em>not</em> prefer
+  the real connector, because an unregistered destination can't be paid by a connector that needs a
+  recipient id (it would fail closed at dispatch). Selecting the real connector for a registered
+  destination is a <strong>destination-aware</strong> decision the order service makes once
+  <code>ExternalPayoutAccount</code> carries a provider code (Spec&nbsp;039 §5.5, G18/O11); until then
+  Simulated is the default capability fallback and Flutterwave is chosen by explicit code. True
+  per-corridor multi-vendor routing remains the deferred <code>RoutingRule</code> engine's job (O10).
 </div>
 <div class="callout">
   <span class="callout-label">Lifetime caution</span>
@@ -1529,14 +1534,15 @@ if (fw?.IsConfigured() == true)
   <code>QuotePayoutAsync</code>, <code>ResolveAccountAsync</code>, <code>RegisterRecipientAsync</code>
   (G20), <code>InitiatePayoutAsync</code>, and <code>GetPayoutStatusAsync</code> each succeed and map
   to the normalized result. <em>(Issue&nbsp;#129 #1)</em></li>
-  <li><strong>End-to-end settlement &mdash; gated on one upstream prerequisite.</strong> A
+  <li><strong>End-to-end settlement &mdash; gated on the Spec&nbsp;039 prerequisite.</strong> A
   <code>scenario:successful</code> transfer settles through the shipped <code>ProcessWebhookAsync</code>
-  once (a) Flutterwave is enabled/configured &mdash; the resolver now routes the default corridor to
-  it (G18/O11 resolved), no explicit <code>ProviderCode</code> required &mdash; <strong>and</strong>
-  (b) the destination is verified with a real <code>ProviderBeneficiaryId = rcb_…</code> (G19, G20).
-  Until the (b) beneficiary-registration flow lands, E2E
-  settlement is demonstrated with those two values supplied manually &mdash; the connector + translator
-  are not the blocker. <em>(Issue&nbsp;#129 #1, conditional)</em></li>
+  once (a) the remittance routes to Flutterwave &mdash; today via an explicit
+  <code>ProviderCode = "Flutterwave"</code>, and automatically once Spec&nbsp;039 makes routing
+  destination-driven (G18/O11) &mdash; <strong>and</strong> (b) the destination is verified with a real
+  <code>ProviderBeneficiaryId = rcb_…</code> (G19, G20). Both (a) and (b) are delivered by the
+  Spec&nbsp;039 verify-and-register flow; until it lands, E2E settlement is demonstrated with those
+  values supplied manually (the connector + translator are not the blocker, as the live sandbox run
+  confirmed). <em>(Issue&nbsp;#129 #1, conditional)</em></li>
   <li><strong>Webhook signature verification + idempotent processing</strong> &mdash; via the
   <code>"Flutterwave"</code> translator plugged into the shipped path. Unit tests:
   <code>VerifySignature</code> accepts a correct <code>flutterwave-signature</code> (case-insensitive,
@@ -1552,10 +1558,10 @@ if (fw?.IsConfigured() == true)
   <code>HttpMessageHandler</code>; <code>dotnet test Aonik.sln</code> green. <em>(#4)</em></li>
   <li><strong>Production-credential switch.</strong> <code>UseRealFlutterwaveApi=false</code> (or
   absent credentials) registers only the simulated connector; setting real credentials registers
-  Flutterwave <em>alongside</em> it, and the resolver then routes the default corridor to Flutterwave
-  automatically (it prefers a real connector over the simulated fallback &mdash; G18/O11 resolved). An
-  explicit <code>ProviderCode = "Simulated"</code> still forces the simulator. Secrets load from
-  environment, not source. <em>(#sprint-4)</em></li>
+  Flutterwave <em>alongside</em> it. The default capability route stays on Simulated until Spec&nbsp;039
+  makes routing destination-driven (G18/O11); a remittance reaches Flutterwave via an explicit
+  <code>ProviderCode = "Flutterwave"</code> on a registered destination. Secrets load from environment,
+  not source. <em>(#sprint-4)</em></li>
   <li><strong>Build &amp; isolation.</strong> <code>dotnet build Aonik.sln</code> compiles; no new
   migration; no cross-module reference added; the connector emits no money-action logs itself
   (caller-owned).</li>
@@ -1575,7 +1581,7 @@ if (fw?.IsConfigured() == true)
     <tr><td>O8</td><td><strong>Reference round-trip</strong> (G13, G17). The shipped <code>ClientReference = "REM-{orderId:N}"</code> has a hyphen and the webhook matches it verbatim. Does v4 accept the hyphen in the body <code>reference</code>? If not, how do we preserve the exact value through the round-trip?</td><td><strong>Sandbox-verify hyphen acceptance first.</strong> If accepted, pass it through (identity). If not, sanitize for the body <code>reference</code> <em>and</em> carry the original in transfer <code>meta</code>, reconstructing it in <code>Translate</code> (verify <code>meta</code> is echoed). Cleaner long-term: ask Spec&nbsp;036 to mint hyphen-free refs. Also add an explicit <code>ClientReference</code> to <code>CollectionRefundInstruction</code> if/when refunds ship (G12).</td></tr>
     <tr><td>O9 <span class="tag" style="background:#eee;color:#777;">withdrawn</span></td><td><strong>(Withdrawn.)</strong> Was: where to read the webhook dedupe id (<code>ProviderEventId</code>)?</td><td>Moot &mdash; PR&nbsp;#147 dedupes by <code>(ProviderCode, PayloadHash)</code> and never reads <code>ProviderEventId</code>. No DTO change (G14).</td></tr>
     <tr><td>O10</td><td><strong>Connector coexistence / multi-vendor routing</strong> (G16). With Flutterwave + Simulated both registered, when do we need capability-driven routing rather than explicit <code>ProviderCode</code> selection?</td><td>Code-based selection suffices now (remittance passes a code, else falls to Simulated). True per-corridor multi-vendor routing waits for the <code>RoutingRule</code> engine; until then keep Simulated off live production corridors so the no-code capability fallback stays unambiguous.</td></tr>
-    <tr><td>O11 <span class="tag" style="background:#e0f3e6;color:#1c6b39;">resolved</span></td><td><strong>How does Flutterwave win the route at launch?</strong> (G18). The capability fallback returned the first-registered (Simulated) connector, so a credential flip alone didn't route to Flutterwave.</td><td><strong>Resolved:</strong> the resolver now prefers a real connector over the simulated fallback, so a configured Flutterwave wins the default route deterministically (no DI-order dependence, no per-request <code>ProviderCode</code> needed). An explicit <code>ProviderCode</code> still forces a specific connector, and priority-ordered <code>RoutingRule</code> rows are the eventual multi-vendor mechanism.</td></tr>
+    <tr><td>O11 <span class="tag" style="background:#eef2f6;color:#5a6a76;">deferred → 039</span></td><td><strong>How does Flutterwave win the route at launch?</strong> (G18). The capability fallback returns the first-registered (Simulated) connector, so a credential flip alone doesn't route to Flutterwave.</td><td><strong>By being destination-driven (Spec&nbsp;039).</strong> A real connector can only pay a destination whose recipient is registered with it, so routing must be gated on the destination's registered provider — <code>RemittanceOrderService</code> routes to <code>ExternalPayoutAccount.ProviderCode</code> once Spec&nbsp;039 sets it; until then Simulated is the default and Flutterwave is selected by explicit <code>ProviderCode</code> on a registered destination. A generic resolver "prefer real" was tried and reverted (it broke confirm for unregistered beneficiaries). Priority-ordered <code>RoutingRule</code> rows are the eventual multi-vendor mechanism.</td></tr>
     <tr><td>O12</td><td><strong>Who owns the verify-and-register beneficiary flow?</strong> (G19, G20, &sect;7.4.1). It needs a transient raw-details input the persisted DTO deliberately excludes, and it flips the hardcoded <code>IsVerified = false</code>.</td><td>037 owns the connector method (<code>RegisterRecipientAsync</code>) + the DTOs. The service/endpoint wiring (<code>PayoutBeneficiaryService.VerifyAndRegisterBeneficiaryAsync</code> + <code>POST /payout-beneficiaries/verify</code> accepting transient raw details) is a prerequisite that fits Finance-payments/Platform; sequence it before real launch. For 037's own acceptance, seed a verified beneficiary manually.</td></tr>
   </tbody>
 </table>

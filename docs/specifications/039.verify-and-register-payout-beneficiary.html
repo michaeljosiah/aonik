@@ -347,10 +347,21 @@ public sealed record VerifyPayoutBeneficiaryRequest(
   <li>The verify flow stores the resolved <code>connector.ProviderCode</code>.</li>
   <li><span class="tag mutate">Edit (036 follow-up)</span> <code>RemittanceOrderService</code> resolves
   the dispatch connector from the destination's <code>ProviderCode</code> (so the recipient's provider
-  == the dispatch provider) instead of relying on the request/quote code alone. With one real provider
-  today the capability route already lands on Flutterwave, but recording the provider makes it correct
-  and multi-vendor-safe.</li>
+  == the dispatch provider) instead of relying on the request/quote code alone &mdash; falling back to
+  the simulator only for a destination with no registered provider.</li>
 </ul>
+<div class="callout ok">
+  <span class="callout-label">This is what re-enables auto-routing to the real connector (037 G18/O11)</span>
+  Spec&nbsp;037 deliberately does <strong>not</strong> auto-prefer the real connector in the generic
+  capability resolver &mdash; an earlier attempt to do so broke confirm for unregistered beneficiaries
+  (they have no recipient id, so dispatch fails closed with <code>NO_RECIPIENT</code>), so the simulator
+  stays the default fallback there. <strong>"Prefer the real connector" is inherently destination-aware</strong>:
+  it is correct only once a destination has been verified and carries a real
+  <code>ProviderBeneficiaryId</code> + <code>ProviderCode</code>. This flow is what creates such
+  destinations, and the <code>ProviderCode</code>-driven dispatch above is what then routes them to the
+  real connector automatically &mdash; closing Spec&nbsp;037 G18/O11 the safe way (no unregistered
+  destination is ever routed to a connector that can't pay it).
+</div>
 
 <h3 id="d-nameenquiry">5.6 Best-effort name enquiry</h3>
 <div class="callout">

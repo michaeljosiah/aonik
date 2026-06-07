@@ -52,46 +52,34 @@ internal sealed class PartnerConnectorResolver : IPartnerConnectorResolver
         return translator;
     }
 
+    // Capability routing returns the first registered connector that satisfies the query. It does NOT
+    // prefer a real connector over the simulated fallback: "use the real connector" is a
+    // destination-aware decision (does this destination have a recipient registered with that
+    // provider?), not a generic-corridor one — an unregistered destination cannot be paid by a real
+    // connector that needs a provider recipient id (it would be rejected at dispatch). That preference
+    // therefore lives in the order service, gated on the destination's registered provider (Spec 039).
+    // Here the simulated connector stays the default fallback; a real connector is selected explicitly
+    // by ProviderCode (or by the order service once destinations carry a registered provider).
     public bool TryResolvePayoutConnector(
         PartnerConnectorQuery query, out IPartnerPayoutConnector? connector)
     {
-        connector = SelectByCapability(_payoutConnectors, query);
+        connector = _payoutConnectors.FirstOrDefault(item => Satisfies(item, query));
         return connector is not null;
     }
 
     public bool TryResolveCollectionConnector(
         PartnerConnectorQuery query, out IPartnerCollectionConnector? connector)
     {
-        connector = SelectByCapability(_collectionConnectors, query);
+        connector = _collectionConnectors.FirstOrDefault(item => Satisfies(item, query));
         return connector is not null;
     }
 
     public bool TryResolveBillPaymentConnector(
         PartnerConnectorQuery query, out IPartnerBillPaymentConnector? connector)
     {
-        connector = SelectByCapability(_billPaymentConnectors, query);
+        connector = _billPaymentConnectors.FirstOrDefault(item => Satisfies(item, query));
         return connector is not null;
     }
-
-    /// <summary>ProviderCode of the simulated reference/fallback connector.</summary>
-    private const string FallbackProviderCode = "Simulated";
-
-    /// <summary>
-    /// Picks the connector whose capabilities satisfy the query, preferring a real vendor connector
-    /// over the simulated reference connector. The simulated connector advertises broad lanes (e.g.
-    /// NG/NGN bank + mobile money) and is registered first, so a plain FirstOrDefault would let it
-    /// shadow a configured real connector on the default (no-ProviderCode) capability route — meaning
-    /// an enabled real provider would never be selected. Deprioritising the fallback fixes that and is
-    /// safer (a configured provider is never silently bypassed in favour of the simulator). The
-    /// simulated connector is still resolvable explicitly by ProviderCode.
-    /// </summary>
-    private static TConnector? SelectByCapability<TConnector>(
-        IEnumerable<TConnector> connectors, PartnerConnectorQuery query)
-        where TConnector : class, IPartnerConnector
-        => connectors
-            .Where(item => Satisfies(item, query))
-            .OrderBy(item => string.Equals(item.ProviderCode, FallbackProviderCode, StringComparison.OrdinalIgnoreCase) ? 1 : 0)
-            .FirstOrDefault();
 
     private static TConnector ResolveByCode<TConnector>(
         IEnumerable<TConnector> connectors, string providerCode, string portName)
