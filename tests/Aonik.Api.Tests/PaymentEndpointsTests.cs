@@ -102,9 +102,9 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         // Act
         var captureResponse = await client.PostAsync($"/payments/intents/{payment!.Id}/capture", null);
 
-        // Assert - Should fail because payment is not authorized
-        // In a real implementation with proper state machine, this would need authorization first
-        captureResponse.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+        // Assert - capturing a non-authorized (Pending) intent is a wrong-state transition,
+        // now surfaced as 422 Unprocessable Entity.
+        captureResponse.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 
     [Fact]

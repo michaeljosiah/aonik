@@ -118,21 +118,9 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             throw new InvalidOperationException("Only pending payments can be authorized");
         }
 
-        // Externally material boundary (Spec / issue #104): money must not be authorized to
-        // move on behalf of an unknown payer or via an unspecified rail. Fail closed — these
-        // are unset only on drafts that never resolved a payer/method, and the Guid.Empty
-        // check also rejects any legacy rows persisted before the column became nullable.
-        if (paymentIntent.PayerPartyId is null || paymentIntent.PayerPartyId == Guid.Empty)
-        {
-            throw new InvalidOperationException(
-                "Cannot authorize payment: the intent has no resolved payer.");
-        }
-
-        if (string.IsNullOrWhiteSpace(paymentIntent.PaymentMethodType))
-        {
-            throw new InvalidOperationException(
-                "Cannot authorize payment: the intent has no payment method.");
-        }
+        // Externally material boundary (issue #104): money must not be authorized to move on
+        // behalf of an unknown payer or via an unspecified rail.
+        EnsurePayerAndMethodResolved(paymentIntent, "authorize");
 
         paymentIntent.Status = PaymentStatus.Authorized.ToString();
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -163,6 +151,12 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         {
             throw new InvalidOperationException("Only authorized payments can be captured");
         }
+
+        // Re-enforce the externally material boundary here, not only at authorize: capture is the
+        // step that actually posts to the ledger, and an intent can be Authorized without ever
+        // passing through AuthorizePaymentAsync (legacy rows created before this invariant existed,
+        // with a Guid.Empty/blank payer or rail). Fail closed before any money moves.
+        EnsurePayerAndMethodResolved(paymentIntent, "capture");
 
         // Record the cash receipt in the ledger BEFORE flipping the status:
         // Dr Cash / Cr Payments Clearing. If the post fails the intent stays
@@ -206,6 +200,25 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
 
         return MapToResponse(paymentIntent);
+    }
+
+    // Externally material guard (issue #104): an intent must have a real payer and a concrete
+    // rail before money can move. Enforced at BOTH authorize and capture so a legacy intent that
+    // is already Authorized (Guid.Empty payer / blank method) cannot be captured and post to the
+    // ledger. The Guid.Empty check also rejects rows persisted before the column became nullable.
+    private static void EnsurePayerAndMethodResolved(PaymentIntent paymentIntent, string action)
+    {
+        if (paymentIntent.PayerPartyId is null || paymentIntent.PayerPartyId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                $"Cannot {action} payment: the intent has no resolved payer.");
+        }
+
+        if (string.IsNullOrWhiteSpace(paymentIntent.PaymentMethodType))
+        {
+            throw new InvalidOperationException(
+                $"Cannot {action} payment: the intent has no payment method.");
+        }
     }
 
     private static PaymentIntentResponse MapToResponse(PaymentIntent paymentIntent)

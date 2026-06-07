@@ -203,7 +203,7 @@ public class PaymentServiceTests
             new FinanceMetrics(),
             new LedgerPostingService(context));
         var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", order.Id, null);
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", order.Id, null, PaymentMethodType: "Card");
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Authorize the payment first (set status directly since entities are anemic)
@@ -453,5 +453,57 @@ public class PaymentServiceTests
 
         // Assert
         result.Status.Should().Be(PaymentStatus.Authorized);
+    }
+
+    [Fact]
+    public async Task CapturePaymentAsync_Should_FailClosed_When_AuthorizedIntentHasEmptyPayer()
+    {
+        // Arrange — a legacy intent already in Authorized status (created before this invariant
+        // existed) with the Guid.Empty placeholder payer, reached without AuthorizePaymentAsync.
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var created = await service.CreatePaymentIntentAsync(
+            new CreatePaymentIntentRequest(100m, "USD", "ORDER-LEGACY-P", order.Id, null, PaymentMethodType: "Card"));
+
+        var intent = await context.PaymentIntents.FirstAsync(p => p.Id == created.Id);
+        intent.PayerPartyId = Guid.Empty;
+        intent.Status = "Authorized";
+        await context.SaveChangesAsync();
+
+        // Act
+        var act = async () => await service.CapturePaymentAsync(created.Id);
+
+        // Assert — capture is blocked at the ledger boundary; no money moved (status unchanged).
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no resolved payer*");
+        var after = await context.PaymentIntents.AsNoTracking().FirstAsync(p => p.Id == created.Id);
+        after.Status.Should().Be("Authorized");
+    }
+
+    [Fact]
+    public async Task CapturePaymentAsync_Should_FailClosed_When_AuthorizedIntentHasNoMethod()
+    {
+        // Arrange — a legacy intent authorized despite a blank rail.
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var created = await service.CreatePaymentIntentAsync(
+            new CreatePaymentIntentRequest(100m, "USD", "ORDER-LEGACY-M", order.Id, null)); // no method
+
+        var intent = await context.PaymentIntents.FirstAsync(p => p.Id == created.Id);
+        intent.Status = "Authorized";
+        await context.SaveChangesAsync();
+
+        // Act
+        var act = async () => await service.CapturePaymentAsync(created.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no payment method*");
+        var after = await context.PaymentIntents.AsNoTracking().FirstAsync(p => p.Id == created.Id);
+        after.Status.Should().Be("Authorized");
     }
 }
