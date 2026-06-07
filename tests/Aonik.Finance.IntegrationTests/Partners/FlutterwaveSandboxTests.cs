@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
@@ -50,7 +51,7 @@ public class FlutterwaveSandboxTests
     {
         Skip.IfNot(Configured, SkipReason);
 
-        var token = await CreateTokenProvider().GetAccessTokenAsync(CancellationToken.None);
+        var token = await TokenProvider.GetAccessTokenAsync(CancellationToken.None);
 
         token.Should().NotBeNullOrWhiteSpace();
     }
@@ -60,10 +61,25 @@ public class FlutterwaveSandboxTests
     {
         Skip.IfNot(Configured, SkipReason);
 
-        var result = await CreateConnector().ResolveAccountAsync(
-            new AccountResolutionRequest(TestBankCode, TestAccountNumber, "NGN"));
+        AccountResolutionResult? result = null;
+        FlutterwaveException? denied = null;
+        try
+        {
+            result = await CreateConnector().ResolveAccountAsync(
+                new AccountResolutionRequest(TestBankCode, TestAccountNumber, "NGN"));
+        }
+        catch (FlutterwaveException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            // Some sandbox clients are entitled to transfers but not to /banks/account-resolve.
+            denied = ex;
+        }
 
-        result.Resolved.Should().BeTrue();
+        Skip.If(denied is not null,
+            "This Flutterwave sandbox client is not entitled to /banks/account-resolve (403). "
+            + "Name enquiry is a helper, not on the critical payout path — enable account verification "
+            + "on the sandbox account to exercise it.");
+
+        result!.Resolved.Should().BeTrue();
         result.AccountName.Should().NotBeNullOrWhiteSpace();
     }
 
@@ -118,18 +134,23 @@ public class FlutterwaveSandboxTests
         EncryptionKey = Value("FLW_SANDBOX_ENCRYPTION_KEY", "EncryptionKey") ?? string.Empty,
     };
 
-    private static FlutterwaveTokenProvider CreateTokenProvider()
+    // Shared across the whole test class so only ONE token is fetched. The sandbox IdP rate-limits
+    // rapid client-credentials requests (returns 403), and one fetch mirrors production — where the
+    // 10-minute token is cached. Lazy so it is created after the static config fields are initialized.
+    private static readonly Lazy<FlutterwaveTokenProvider> LazyTokenProvider = new(() =>
     {
         var options = Options();
         return new FlutterwaveTokenProvider(
             new StubHttpClientFactory(new Uri(options.IdpTokenUrl)),
             Microsoft.Extensions.Options.Options.Create(options));
-    }
+    });
+
+    private static FlutterwaveTokenProvider TokenProvider => LazyTokenProvider.Value;
 
     private static FlutterwavePayoutConnector CreateConnector()
     {
         var options = Options();
-        var authHandler = new FlutterwaveAuthHandler(CreateTokenProvider())
+        var authHandler = new FlutterwaveAuthHandler(TokenProvider)
         {
             InnerHandler = new HttpClientHandler()
         };
