@@ -5,6 +5,7 @@ using Aonik.Finance.Contracts.Services.Billing;
 using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.Payments;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 
 namespace Aonik.Finance.Agents.Proposals;
@@ -212,7 +213,7 @@ internal sealed class CapturePaymentProposalHandler : IProposalHandler
                 AppliedResourceType: ResourceType,
                 AppliedResourceId: result.Id);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or NotFoundException or InvalidStateException)
         {
             return new ProposalHandlerResult(Applied: false, Message: ex.Message);
         }
@@ -295,7 +296,7 @@ internal sealed class CancelPaymentProposalHandler : IProposalHandler
                 AppliedResourceType: ResourceType,
                 AppliedResourceId: result.Id);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or NotFoundException or InvalidStateException)
         {
             return new ProposalHandlerResult(Applied: false, Message: ex.Message);
         }
@@ -365,7 +366,7 @@ internal sealed class CreatePaymentIntentProposalHandler : IProposalHandler
                 AppliedResourceType: ResourceType,
                 AppliedResourceId: result.Id);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or NotFoundException or InvalidStateException)
         {
             return new ProposalHandlerResult(Applied: false, Message: ex.Message);
         }
@@ -448,7 +449,7 @@ internal sealed class MarkInvoicePaidProposalHandler : IProposalHandler
                 AppliedResourceType: ResourceType,
                 AppliedResourceId: invoiceId);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or NotFoundException or InvalidStateException)
         {
             return new ProposalHandlerResult(Applied: false, Message: ex.Message);
         }
