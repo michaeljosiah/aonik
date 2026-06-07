@@ -418,13 +418,13 @@
 </article>
 
 <article class="finding lvl-c" data-sev="c" data-theme="sec gov" id="C4">
-  <div class="f-head"><span class="f-id c">C4</span><h3 class="f-title">Partially fixed: development-only guard now contains the permissive MCP hosts</h3></div>
-  <div class="f-tags"><span class="tag sev-c">Original Critical</span><span class="tag th sec">Security</span><span class="tag th gov">Governance</span><span class="tag partial">partially fixed ✓ 2026-06-06</span></div>
+  <div class="f-head"><span class="f-id c">C4</span><h3 class="f-title">Resolved (accepted): the permissive MCP hosts are intentionally development-only, with containment hardened</h3></div>
+  <div class="f-tags"><span class="tag sev-c">Original Critical</span><span class="tag th sec">Security</span><span class="tag th gov">Governance</span><span class="tag fixed">resolved ✓ 2026-06-07</span></div>
   <div class="evidence"><span class="lbl">Evidence</span>
-    The permissive stubs still exist in <span class="path">src/Aonik.Finance.Mcp/Hosting/McpHostingStubs.cs:64–75,139–152</span>, but <span class="path">src/Aonik.Finance.Mcp/Program.cs:15–23</span> now calls <code>DevelopmentOnlyHostGuard.EnsureDevelopmentOnly</code> before registering them. <span class="path">src/Aonik.Platform.Mcp/Program.cs:18–26</span> does the same for its fixed PlatformAdmin context. Guard behavior is pinned in <span class="path">tests/Aonik.SharedKernel.Tests/Security/DevelopmentOnlyHostGuardTests.cs</span>.
+    The blanket-trust stubs still exist by design in <span class="path">src/Aonik.Finance.Mcp/Hosting/McpHostingStubs.cs:64–75,139–152</span> (grant-all permissions, auto-clear compliance) and <span class="path">src/Aonik.Platform.Mcp/Hosting/McpHostingStubs.cs:73–89</span> (fixed PlatformAdmin identity), but both <span class="path">src/Aonik.Finance.Mcp/Program.cs:15–23</span> and <span class="path">src/Aonik.Platform.Mcp/Program.cs:18–26</span> call <code>DevelopmentOnlyHostGuard.EnsureDevelopmentOnly</code> before building. Guard behavior is pinned in <span class="path">tests/Aonik.SharedKernel.Tests/Security/DevelopmentOnlyHostGuardTests.cs</span> and the host wiring (each <code>Program.cs</code> invokes the guard before <code>.Build()</code>) in <span class="path">tests/Aonik.SharedKernel.Tests/Security/McpHostGuardWiringTests.cs</span>. Both host projects are marked <code>&lt;IsPublishable&gt;false&lt;/IsPublishable&gt;</code>, and <span class="path">src/Aonik.Agents/Framework/McpToolProvider.cs</span> drops a forged <code>DOTNET_ENVIRONMENT=Development</code> override when the parent host is not Development.
   </div>
-  <div class="f-block"><h4>Current status</h4><p>Narrowed. The original open-door risk is contained by a fail-closed environment guard, so these blanket-trust MCP hosts should not start outside <code>Development</code>. This is a valid containment fix for local hosts, not a production-grade permission/compliance implementation.</p></div>
-  <div class="f-block"><h4>Remaining work</h4><p>If a Finance or Platform MCP server is ever intended for shared/non-local use, replace the stubs with real identity, permission, approval, and compliance services. Do not relax the development-only guard as a shortcut.</p></div>
+  <div class="f-block"><h4>Current status</h4><p>Resolved as accepted. Development-only is the intended end state for these hosts — they are standalone, manually-launched dev tools, not wired into any deployment (no <code>Agents:McpServers</code> config, AppHost, Dockerfile, or CI references them). The fail-closed guard, the non-deployable markers, and the spawn-bypass guard together ensure the blanket-trust stubs can never run outside <code>Development</code>, and a regression test now pins that each host wires the guard.</p></div>
+  <div class="f-block"><h4>If ever productionized</h4><p>If a Finance or Platform MCP server is later intended for shared/non-local use, replace the stubs with real identity, permission, approval, and compliance services — and route mutating tools through the Spec 032 approval gate / Spec 030 dispatcher (the C3 link) — <em>before</em> lifting the guard. Do not relax the development-only guard as a shortcut.</p></div>
   <div class="f-foot"><span class="pill imp-high">Impact <b>High</b></span><span class="pill imp-med">Effort <b>Medium</b></span><span class="pill">Pairs with <b>C3</b></span></div>
 </article>
 
@@ -827,7 +827,7 @@
     <div class="recon">
       <p>The two reviews agreed on the architecture's strengths and on the over-engineering shortlist. The June re-check shows several high-priority remediations landed. Where the current source materially changes the conclusion:</p>
       <ul>
-        <li><b>The original Critical set is no longer open.</b> C1, C2, C3 and C5 are fixed in code; C4 is contained by development-only startup guards. The report now marks them as historical critical findings with current status.</li>
+        <li><b>The original Critical set is no longer open.</b> C1, C2, C3 and C5 are fixed in code; C4 is resolved as accepted — its MCP hosts are intentionally development-only, with the containment hardened and regression-pinned. The report now marks them as historical critical findings with current status.</li>
         <li><b>Several High findings are closed.</b> H1, H3, H4, H5, H8 and H9 are fixed; H6, H12 and H14 are partially fixed. H7, H10, H11, H13, H15, H16 and H17 remain the highest-value open work.</li>
         <li><b>The approval-gate story inverted.</b> The May report correctly said the gate did not exist. Current source has <code>ApprovalGatedAIFunction</code>, <code>ToolApprovalGate</code>, manifests, approval services, proposal handlers and tests.</li>
         <li><b>Some cleanup findings narrowed.</b> <code>IEventHandler</code> is now used by document events, document upload moved to <code>Aonik.Documents</code>, and route-policy/model pinning is partly routed through <code>IAiTaskProfileResolver</code>. The remaining cleanup should target what is still actually unused.</li>
@@ -850,6 +850,7 @@
           <ul>
             <li><span class="rid">C1</span>Keep ledger source uniqueness</li>
             <li><span class="rid">C2</span>Keep capture/settlement ledger posts</li>
+            <li><span class="rid">C4</span>Keep MCP hosts dev-only (guard + regression test)</li>
             <li><span class="rid">H3</span>Keep mixed-currency guard</li>
             <li><span class="rid">H5</span>Keep idempotency unique index</li>
             <li><span class="rid">H8</span>Keep outbox row-claim leases</li>
@@ -871,7 +872,6 @@
             <li><span class="rid">H17</span>Use structured AiRun metrics</li>
             <li><span class="rid">M7</span>Add explicit id-plus-tenant lookups</li>
             <li><span class="rid">M12</span>Tighten CORS &amp; forwarded headers</li>
-            <li><span class="rid">C4</span>Keep MCP hosts dev-only unless real auth lands</li>
           </ul>
         </div>
       </div>

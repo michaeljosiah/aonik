@@ -4,6 +4,9 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+- **MCP hosts (C4 — dev-only containment hardened)**: The Finance and Platform MCP servers register blanket-trust security stubs (grant-all `IPermissionService`, auto-clear `IComplianceService`, fixed PlatformAdmin identity) and are intentionally development-only. Hardened the existing fail-closed `DevelopmentOnlyHostGuard` containment rather than productionizing the servers: added a regression test pinning that each host's `Program.cs` invokes the guard before `.Build()` (`McpHostGuardWiringTests`), marked both host projects `<IsPublishable>false</IsPublishable>` so they cannot be published or containerized, and made `McpToolProvider` drop a forged `DOTNET_ENVIRONMENT=Development` override for spawned MCP children when the parent host is not Development. Resolves the C4 remaining-work item as accepted (dev-only).
+
 ## [0.1.1] - 2026-05-12
 
 ### Fixed

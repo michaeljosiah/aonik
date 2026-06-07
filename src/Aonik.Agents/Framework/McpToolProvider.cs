@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Aonik.Agents.Contracts.Services;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 
@@ -32,6 +33,8 @@ internal sealed class McpToolProvider : IMcpToolProvider
 {
     private readonly IReadOnlyList<McpServerConfig> _servers;
     private readonly ILogger<McpToolProvider> _logger;
+    private readonly string _parentEnvironmentName;
+    private readonly bool _parentIsDevelopment;
     private readonly ConcurrentDictionary<string, McpClient> _clients = new();
     private readonly ConcurrentDictionary<string, IReadOnlyList<AITool>> _toolCache = new();
     private readonly SemaphoreSlim _connectLock = new(1, 1);
@@ -39,9 +42,12 @@ internal sealed class McpToolProvider : IMcpToolProvider
 
     public McpToolProvider(
         IConfiguration configuration,
+        IHostEnvironment hostEnvironment,
         ILogger<McpToolProvider> logger)
     {
         _logger = logger;
+        _parentEnvironmentName = hostEnvironment.EnvironmentName;
+        _parentIsDevelopment = hostEnvironment.IsDevelopment();
 
         var servers = new List<McpServerConfig>();
         configuration.GetSection("Agents:McpServers").Bind(servers);
@@ -144,6 +150,23 @@ internal sealed class McpToolProvider : IMcpToolProvider
 
             foreach (var (key, value) in config.EnvironmentVariables)
             {
+                // Defense-in-depth (finding C4): the first-party Finance/Platform MCP hosts wire
+                // blanket-trust security stubs and refuse to start unless DOTNET_ENVIRONMENT=Development.
+                // Never let a non-Development parent hand a spawned child a forged "Development"
+                // environment, which would defeat that fail-closed guard from the outside.
+                if (!_parentIsDevelopment
+                    && (key.Equals("DOTNET_ENVIRONMENT", StringComparison.OrdinalIgnoreCase)
+                        || key.Equals("ASPNETCORE_ENVIRONMENT", StringComparison.OrdinalIgnoreCase))
+                    && string.Equals(value, "Development", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "Ignoring '{Key}=Development' override for MCP server '{ServerName}': the parent " +
+                        "host is running as '{ParentEnvironment}', and a spawned MCP child must not be " +
+                        "forced into Development (it would bypass development-only host guards).",
+                        key, config.Name, _parentEnvironmentName);
+                    continue;
+                }
+
                 transportOptions.EnvironmentVariables ??= new Dictionary<string, string?>();
                 transportOptions.EnvironmentVariables[key] = value;
             }
