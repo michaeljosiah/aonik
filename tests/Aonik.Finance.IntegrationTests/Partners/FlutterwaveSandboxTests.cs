@@ -92,10 +92,24 @@ public class FlutterwaveSandboxTests
 
         // 1) Register a recipient — must return a real Flutterwave recipient id (e.g. rcb_…).
         //    Regression guard for the recipient-id prefix bug.
-        var registration = await connector.RegisterRecipientAsync(new RecipientRegistrationRequest(
-            new BankAccountDestination(TestBankCode, TestAccountNumber, null, "Alex James"),
-            Currency: "NGN", AccountName: "Alex James", Country: "NG", Metadata: null));
+        RecipientRegistrationResult? registration = null;
+        FlutterwaveException? duplicateRecipient = null;
+        try
+        {
+            registration = await connector.RegisterRecipientAsync(new RecipientRegistrationRequest(
+                new BankAccountDestination(TestBankCode, TestAccountNumber, null, "Alex James"),
+                Currency: "NGN", AccountName: "Alex James", Country: "NG", Metadata: null));
+        }
+        catch (FlutterwaveException ex) when (ex.Message.Contains("Recipient already exists", StringComparison.OrdinalIgnoreCase))
+        {
+            duplicateRecipient = ex;
+        }
 
+        Skip.If(duplicateRecipient is not null,
+            "This Flutterwave sandbox already has the static test recipient registered. "
+            + "Use a fresh sandbox account to exercise the register->initiate round-trip.");
+
+        registration.Should().NotBeNull();
         registration.Registered.Should().BeTrue();
         registration.ProviderBeneficiaryId.Should().NotBeNullOrWhiteSpace();
 

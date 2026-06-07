@@ -9,6 +9,10 @@ public interface IPartnerConnectorResolver
 
     bool TryResolvePayoutConnector(
         PartnerConnectorQuery query, out IPartnerPayoutConnector? connector);
+
+    bool TryResolvePreferredPayoutConnector(
+        PartnerConnectorQuery query, out IPartnerPayoutConnector? connector);
+
     bool TryResolveCollectionConnector(
         PartnerConnectorQuery query, out IPartnerCollectionConnector? connector);
     bool TryResolveBillPaymentConnector(

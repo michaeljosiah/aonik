@@ -1,7 +1,11 @@
 using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Contracts.Services.Partners.Connectors;
+using Aonik.Finance.Entities;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Payments;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Primitives;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -19,6 +23,13 @@ namespace Aonik.Application.Tests.Payments;
 /// </summary>
 public class PayoutBeneficiaryServiceTests
 {
+    private static readonly Guid CallerUserId = Guid.NewGuid();
+
+    private sealed class TestClock : IClock
+    {
+        public DateTime UtcNow { get; init; } = new(2026, 6, 7, 12, 0, 0, DateTimeKind.Utc);
+    }
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
@@ -28,14 +39,31 @@ public class PayoutBeneficiaryServiceTests
         return new FinanceDbContext(
             options,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider());
+            new TestCurrentUserProvider(CallerUserId));
     }
 
     private static PayoutBeneficiaryService CreateService(
         FinanceDbContext context,
         Guid tenantId,
-        FakePartyService partyService)
-        => new(context, partyService, new TestTenantProvider(tenantId));
+        FakePartyService partyService,
+        IPartnerPayoutConnector? connector = null,
+        Guid? userId = null)
+        => new(
+            context,
+            partyService,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId ?? CallerUserId),
+            new SinglePayoutConnectorResolver(connector ?? new RecordingPayoutConnector()),
+            new TestClock());
+
+    private static void SeedCaller(FinanceDbContext context, Guid tenantId, Guid partyId, Guid? userId = null)
+        => context.UserParties.Add(new UserPartyReadModel
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            UserId = userId ?? CallerUserId,
+            PartyId = partyId
+        });
 
     [Fact]
     public async Task SaveBeneficiaryAsync_Should_CreateRecipientPartyEdgeRoleAndAccount_When_NewBeneficiary()
@@ -67,6 +95,7 @@ public class PayoutBeneficiaryServiceTests
         result.BankCode.Should().Be("044");
         result.RelationshipTypeCode.Should().Be(PartyRelationshipTypeCodes.Recipient);
         result.IsVerified.Should().BeFalse();
+        result.AccountName.Should().Be("Jane Doe");
 
         // Exactly one customer→recipient Recipient edge was created.
         party.Relationships.Should().ContainSingle()
@@ -82,6 +111,113 @@ public class PayoutBeneficiaryServiceTests
         account.BeneficiaryPartyId.Should().Be(result.BeneficiaryPartyId);
         account.MaskedAccountIdentifier.Should().Be("****1234");
         account.Currency.Should().Be("NGN");
+    }
+
+    [Fact]
+    public async Task VerifyAndRegisterBeneficiaryAsync_Should_RegisterAndPersistVerifiedMaskedDestination()
+    {
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var party = new FakePartyService();
+        var customerId = party.SeedParty("John Customer");
+        SeedCaller(context, tenantId, customerId);
+        await context.SaveChangesAsync();
+        var connector = new RecordingPayoutConnector
+        {
+            ResolvedName = "Alex James",
+            ProviderBeneficiaryId = "rcb_abc123"
+        };
+        var service = CreateService(context, tenantId, party, connector);
+
+        var request = new VerifyPayoutBeneficiaryRequest(
+            CustomerPartyId: customerId,
+            DestinationType: "Bank",
+            Currency: "ngn",
+            Country: "ng",
+            AccountName: "Customer Supplied",
+            AccountNumber: "0690000040",
+            BankCode: "044");
+
+        var result = await service.VerifyAndRegisterBeneficiaryAsync(request);
+
+        result.IsVerified.Should().BeTrue();
+        result.AccountName.Should().Be("Alex James");
+        result.ProviderCode.Should().Be("TestPay");
+        result.MaskedAccountIdentifier.Should().Be("****0040");
+        connector.ResolveCalls.Should().Be(1);
+        connector.RegisterCalls.Should().Be(1);
+
+        var account = await context.ExternalPayoutAccounts.SingleAsync();
+        account.IsVerified.Should().BeTrue();
+        account.VerifiedAt.Should().Be(new TestClock().UtcNow);
+        account.ProviderCode.Should().Be("TestPay");
+        account.ProviderBeneficiaryId.Should().Be("rcb_abc123");
+        account.RailFingerprint.Should().NotBeNullOrWhiteSpace();
+        account.MaskedAccountIdentifier.Should().Be("****0040");
+        account.MaskedAccountIdentifier.Should().NotContain("0690000040");
+    }
+
+    [Fact]
+    public async Task VerifyAndRegisterBeneficiaryAsync_Should_FallbackToSuppliedName_When_NameEnquiryFails()
+    {
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var party = new FakePartyService();
+        var customerId = party.SeedParty("John Customer");
+        SeedCaller(context, tenantId, customerId);
+        await context.SaveChangesAsync();
+        var connector = new RecordingPayoutConnector { ResolveThrows = true };
+        var service = CreateService(context, tenantId, party, connector);
+
+        var result = await service.VerifyAndRegisterBeneficiaryAsync(new VerifyPayoutBeneficiaryRequest(
+            customerId, "Bank", "NGN", "NG", "Fallback Name", AccountNumber: "0690000040", BankCode: "044"));
+
+        result.IsVerified.Should().BeTrue();
+        result.AccountName.Should().Be("Fallback Name");
+        connector.RegisteredAccountName.Should().Be("Fallback Name");
+    }
+
+    [Fact]
+    public async Task VerifyAndRegisterBeneficiaryAsync_Should_NotDuplicate_When_Reverified()
+    {
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var party = new FakePartyService();
+        var customerId = party.SeedParty("John Customer");
+        SeedCaller(context, tenantId, customerId);
+        await context.SaveChangesAsync();
+        var connector = new RecordingPayoutConnector { ProviderBeneficiaryId = "rcb_same" };
+        var service = CreateService(context, tenantId, party, connector);
+        var request = new VerifyPayoutBeneficiaryRequest(
+            customerId, "Bank", "NGN", "NG", "Jane Doe", AccountNumber: "0690000040", BankCode: "044");
+
+        var first = await service.VerifyAndRegisterBeneficiaryAsync(request);
+        var second = await service.VerifyAndRegisterBeneficiaryAsync(request with { AccountName = "Changed Name" });
+
+        second.ExternalPayoutAccountId.Should().Be(first.ExternalPayoutAccountId);
+        (await context.ExternalPayoutAccounts.CountAsync()).Should().Be(1);
+        connector.RegisterCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task VerifyAndRegisterBeneficiaryAsync_Should_RejectUnauthorizedCaller_BeforeConnectorCall()
+    {
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var party = new FakePartyService();
+        var customerId = party.SeedParty("John Customer");
+        SeedCaller(context, tenantId, Guid.NewGuid());
+        await context.SaveChangesAsync();
+        var connector = new RecordingPayoutConnector();
+        var service = CreateService(context, tenantId, party, connector);
+
+        var act = async () => await service.VerifyAndRegisterBeneficiaryAsync(new VerifyPayoutBeneficiaryRequest(
+            customerId, "Bank", "NGN", "NG", "Jane Doe", AccountNumber: "0690000040", BankCode: "044"));
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        connector.ResolveCalls.Should().Be(0);
+        connector.RegisterCalls.Should().Be(0);
+        (await context.ExternalPayoutAccounts.CountAsync()).Should().Be(0);
     }
 
     [Fact]
@@ -283,5 +419,88 @@ public class PayoutBeneficiaryServiceTests
                 typeCode,
                 typeCode,
                 true);
+    }
+
+    private sealed class RecordingPayoutConnector : IPartnerPayoutConnector
+    {
+        public string ProviderCode => "TestPay";
+        public string? ResolvedName { get; init; } = "TEST ACCOUNT HOLDER";
+        public string ProviderBeneficiaryId { get; init; } = "rcb_test";
+        public bool ResolveThrows { get; init; }
+        public int ResolveCalls { get; private set; }
+        public int RegisterCalls { get; private set; }
+        public string? RegisteredAccountName { get; private set; }
+
+        public IReadOnlyCollection<PartnerConnectorCapability> Capabilities { get; } = new[]
+        {
+            new PartnerConnectorCapability(
+                PartnerServiceCategory.Payout, new[] { "NG" }, new[] { "NGN" }, new[] { "Bank", "MobileMoney" })
+        };
+
+        public Task<PayoutInitiationResult> InitiatePayoutAsync(PayoutInstruction instruction, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<PayoutStatusResult> GetPayoutStatusAsync(PartnerReference reference, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<PayoutQuoteResult> QuotePayoutAsync(PayoutQuoteRequest request, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AccountResolutionResult> ResolveAccountAsync(AccountResolutionRequest request, CancellationToken cancellationToken = default)
+        {
+            ResolveCalls++;
+            if (ResolveThrows)
+            {
+                throw new InvalidOperationException("resolve unavailable");
+            }
+
+            return Task.FromResult(new AccountResolutionResult(
+                true, ResolvedName, new RawProviderResponse("00", "resolved", null)));
+        }
+
+        public Task<RecipientRegistrationResult> RegisterRecipientAsync(
+            RecipientRegistrationRequest request, CancellationToken cancellationToken = default)
+        {
+            RegisterCalls++;
+            RegisteredAccountName = request.AccountName;
+            return Task.FromResult(new RecipientRegistrationResult(
+                true, ProviderBeneficiaryId, request.AccountName, new RawProviderResponse("00", "registered", null)));
+        }
+    }
+
+    private sealed class SinglePayoutConnectorResolver(IPartnerPayoutConnector connector) : IPartnerConnectorResolver
+    {
+        public IPartnerPayoutConnector ResolvePayoutConnector(string providerCode)
+            => string.Equals(providerCode, connector.ProviderCode, StringComparison.OrdinalIgnoreCase)
+                ? connector
+                : throw new InvalidOperationException("Connector not configured.");
+
+        public IPartnerCollectionConnector ResolveCollectionConnector(string providerCode) => throw new NotSupportedException();
+        public IPartnerBillPaymentConnector ResolveBillPaymentConnector(string providerCode) => throw new NotSupportedException();
+        public IPartnerWebhookTranslator ResolveWebhookTranslator(string providerCode) => throw new NotSupportedException();
+
+        public bool TryResolvePayoutConnector(PartnerConnectorQuery query, out IPartnerPayoutConnector? resolved)
+        {
+            resolved = connector;
+            return true;
+        }
+
+        public bool TryResolvePreferredPayoutConnector(PartnerConnectorQuery query, out IPartnerPayoutConnector? resolved)
+        {
+            resolved = connector;
+            return true;
+        }
+
+        public bool TryResolveCollectionConnector(PartnerConnectorQuery query, out IPartnerCollectionConnector? resolved)
+        {
+            resolved = null;
+            return false;
+        }
+
+        public bool TryResolveBillPaymentConnector(PartnerConnectorQuery query, out IPartnerBillPaymentConnector? resolved)
+        {
+            resolved = null;
+            return false;
+        }
     }
 }

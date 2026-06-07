@@ -195,5 +195,10 @@ public class SimulatedPartnerConnectorTests
         // The real connector is selected explicitly by ProviderCode.
         resolver.ResolvePayoutConnector("Flutterwave").Should().BeSameAs(real);
         resolver.ResolvePayoutConnector("Simulated").Should().BeSameAs(simulated);
+
+        resolver.TryResolvePreferredPayoutConnector(
+            new PartnerConnectorQuery(PartnerServiceCategory.Payout, "NG", "NGN", "Bank"), out var preferred)
+            .Should().BeTrue();
+        preferred.Should().BeSameAs(real);
     }
 }

@@ -94,10 +94,10 @@ public class RemittanceOrderServiceTests
     }
 
     // Records the instruction handed to the connector so a test can assert the rail it was transmitted on.
-    private sealed class CapturingPayoutConnector : IPartnerPayoutConnector
+    private sealed class CapturingPayoutConnector(string providerCode = "Simulated") : IPartnerPayoutConnector
     {
         public PayoutInstruction? LastInstruction { get; private set; }
-        public string ProviderCode => "Simulated";
+        public string ProviderCode => providerCode;
         public IReadOnlyCollection<PartnerConnectorCapability> Capabilities { get; } = new[]
         {
             new PartnerConnectorCapability(
@@ -146,6 +146,35 @@ public class RemittanceOrderServiceTests
         var translator = new SimulatedPartnerWebhookTranslator();
         var resolver = new PartnerConnectorResolver(
             new[] { payoutConnector ?? simulated },
+            new IPartnerCollectionConnector[] { simulated },
+            new IPartnerBillPaymentConnector[] { simulated },
+            new IPartnerWebhookTranslator[] { translator });
+
+        var effectiveClock = clock ?? new TestClock();
+        return new RemittanceOrderService(
+            db,
+            new StubPricingService(db, tenantId, effectiveClock.UtcNow.AddMinutes(30)),
+            resolver,
+            new LedgerPostingService(db),
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId ?? CallerUserId),
+            configuration ?? new ConfigurationBuilder().Build(),
+            effectiveClock,
+            NullLogger<RemittanceOrderService>.Instance);
+    }
+
+    private static RemittanceOrderService CreateService(
+        FinanceDbContext db,
+        Guid tenantId,
+        IReadOnlyCollection<IPartnerPayoutConnector> payoutConnectors,
+        IClock? clock = null,
+        IConfiguration? configuration = null,
+        Guid? userId = null)
+    {
+        var simulated = new SimulatedPartnerConnector();
+        var translator = new SimulatedPartnerWebhookTranslator();
+        var resolver = new PartnerConnectorResolver(
+            payoutConnectors,
             new IPartnerCollectionConnector[] { simulated },
             new IPartnerBillPaymentConnector[] { simulated },
             new IPartnerWebhookTranslator[] { translator });
@@ -728,6 +757,56 @@ public class RemittanceOrderServiceTests
         await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*Unsupported*");
         (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
         (await db.JournalEntries.CountAsync()).Should().Be(0); // no debit posted
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_UseDestinationProviderCode_When_VerifiedDestinationHasProvider()
+    {
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        account.ProviderCode = "Flutterwave";
+        account.ProviderBeneficiaryId = "rcb_abc123";
+        SeedCaller(db, tenantId, customerPartyId);
+        await db.SaveChangesAsync();
+
+        var simulated = new CapturingPayoutConnector("Simulated");
+        var flutterwave = new CapturingPayoutConnector("Flutterwave");
+        var service = CreateService(db, tenantId, new IPartnerPayoutConnector[] { simulated, flutterwave });
+
+        await service.ConfirmAsync(
+            new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null),
+            "idem-provider-1");
+
+        simulated.LastInstruction.Should().BeNull();
+        flutterwave.LastInstruction.Should().NotBeNull();
+        var details = JsonSerializer.Deserialize<RemittanceOrderDetails>((await db.OrderItems.SingleAsync()).DetailsJson);
+        details!.ProviderCode.Should().Be("Flutterwave");
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_Reject_When_RequestedProviderDiffersFromDestinationProvider()
+    {
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        account.ProviderCode = "Flutterwave";
+        SeedCaller(db, tenantId, customerPartyId);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var act = async () => await service.ConfirmAsync(
+            new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, "Simulated", null),
+            "idem-provider-2");
+
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*provider*");
+        (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
     }
 
     private static (Order Order, Payout Payout) SeedTransmittedRemittance(

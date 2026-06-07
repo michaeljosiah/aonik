@@ -144,7 +144,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         };
 
         var idempotencyKey = FlutterwaveReferences.IdempotencyKeyFrom(
-            $"{request.Currency}:{request.AccountName}:{DescribeDestination(request.Destination)}");
+            $"{request.Currency}:{DescribeDestination(request.Destination)}");
 
         var data = await PostDataAsync<FwRecipientData>(
             "/transfers/recipients", body, idempotencyKey, cancellationToken);

@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
+
+using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Finance.Contracts.Services.Payments;
@@ -23,15 +27,24 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
     private readonly FinanceDbContext _dbContext;
     private readonly IPartyService _partyService;
     private readonly ITenantProvider _tenantProvider;
+    private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IPartnerConnectorResolver _connectorResolver;
+    private readonly IClock _clock;
 
     public PayoutBeneficiaryService(
         FinanceDbContext dbContext,
         IPartyService partyService,
-        ITenantProvider tenantProvider)
+        ITenantProvider tenantProvider,
+        ICurrentUserProvider currentUserProvider,
+        IPartnerConnectorResolver connectorResolver,
+        IClock clock)
     {
         _dbContext = dbContext;
         _partyService = partyService;
         _tenantProvider = tenantProvider;
+        _currentUserProvider = currentUserProvider;
+        _connectorResolver = connectorResolver;
+        _clock = clock;
     }
 
     public async Task<PayoutBeneficiaryResponse> SaveBeneficiaryAsync(
@@ -121,8 +134,100 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
             account.Currency,
             account.BankCode,
             account.MobileNetwork,
+            account.AccountName,
+            account.ProviderCode,
             relationshipTypeCode,
             account.IsVerified);
+    }
+
+    public async Task<PayoutBeneficiaryResponse> VerifyAndRegisterBeneficiaryAsync(
+        VerifyPayoutBeneficiaryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.CustomerPartyId == Guid.Empty)
+        {
+            throw new ArgumentException("Customer party id is required.", nameof(request.CustomerPartyId));
+        }
+
+        await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
+
+        var destinationType = NormalizeRail(request.DestinationType);
+        var currency = NormalizeRequired(request.Currency, nameof(request.Currency)).ToUpperInvariant();
+        var country = NormalizeRequired(request.Country, nameof(request.Country)).ToUpperInvariant();
+        var fallbackName = NormalizeRequired(request.AccountName, nameof(request.AccountName));
+        var rawDestination = BuildRawDestination(request, destinationType);
+        var mask = MaskDestination(rawDestination);
+
+        var connector = ResolveRegistrationConnector(request.ProviderCode, country, currency, destinationType);
+        var providerCode = connector.ProviderCode;
+        var fingerprint = BuildRailFingerprint(providerCode, country, currency, destinationType, rawDestination);
+
+        var existing = await _dbContext.ExternalPayoutAccounts
+            .FirstOrDefaultAsync(account => account.CustomerPartyId == request.CustomerPartyId
+                                           && account.ProviderCode == providerCode
+                                           && account.RailFingerprint == fingerprint,
+                cancellationToken);
+
+        if (existing is { IsVerified: true } && !string.IsNullOrWhiteSpace(existing.ProviderBeneficiaryId))
+        {
+            await EnsurePartyGraphAsync(request, existing.BeneficiaryPartyId, fallbackName, cancellationToken);
+            var displayName = await ResolveBeneficiaryNameAsync(existing.BeneficiaryPartyId, fallbackName, cancellationToken);
+            return ToResponse(existing, displayName, request.RelationshipTypeCode);
+        }
+
+        var resolvedName = await TryResolveAccountNameAsync(connector, request, destinationType, currency, cancellationToken);
+        var accountName = resolvedName ?? fallbackName;
+
+        var registration = await connector.RegisterRecipientAsync(
+            new RecipientRegistrationRequest(
+                rawDestination,
+                currency,
+                accountName,
+                country,
+                new Dictionary<string, string>
+                {
+                    ["customerPartyId"] = request.CustomerPartyId.ToString(),
+                    ["destinationType"] = destinationType
+                }),
+            cancellationToken);
+
+        if (!registration.Registered || string.IsNullOrWhiteSpace(registration.ProviderBeneficiaryId))
+        {
+            throw new InvalidStateException("Partner did not return a payout beneficiary id.");
+        }
+
+        var (beneficiaryPartyId, beneficiaryName) = await EnsurePartyGraphAsync(
+            request, existing?.BeneficiaryPartyId, accountName, cancellationToken);
+
+        var account = existing ?? new ExternalPayoutAccount
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantProvider.GetCurrentTenantId(),
+            CustomerPartyId = request.CustomerPartyId
+        };
+
+        account.BeneficiaryPartyId = beneficiaryPartyId;
+        account.DestinationType = destinationType;
+        account.BankCode = Normalize(request.BankCode);
+        account.BranchCode = Normalize(request.BranchCode);
+        account.MobileNetwork = Normalize(request.MobileNetwork);
+        account.MaskedAccountIdentifier = mask;
+        account.RailFingerprint = fingerprint;
+        account.AccountName = registration.AccountName ?? accountName;
+        account.Currency = currency;
+        account.ProviderCode = providerCode;
+        account.ProviderBeneficiaryId = registration.ProviderBeneficiaryId.Trim();
+        account.IsVerified = true;
+        account.VerifiedAt = _clock.UtcNow;
+
+        if (existing is null)
+        {
+            _dbContext.ExternalPayoutAccounts.Add(account);
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToResponse(account, beneficiaryName, request.RelationshipTypeCode);
     }
 
     public async Task<IReadOnlyList<PayoutBeneficiaryResponse>> ListBeneficiariesAsync(
@@ -174,11 +279,279 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
                     account.Currency,
                     account.BankCode,
                     account.MobileNetwork,
+                    account.AccountName,
+                    account.ProviderCode,
                     recipient.RelationshipTypeCode,
                     account.IsVerified);
             })
             .ToList();
     }
+
+    private async Task EnsureCallerOwnsPartyAsync(Guid customerPartyId, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (userId is null || userId.Value == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException("No authenticated user to authorize beneficiary verification.");
+        }
+
+        var owns = await _dbContext.UserParties
+            .AsNoTracking()
+            .AnyAsync(link => link.UserId == userId.Value && link.PartyId == customerPartyId, cancellationToken);
+
+        if (!owns)
+        {
+            throw new UnauthorizedAccessException(
+                "The requested customer party does not belong to the authenticated user.");
+        }
+    }
+
+    private IPartnerPayoutConnector ResolveRegistrationConnector(
+        string? providerCode,
+        string country,
+        string currency,
+        string destinationType)
+    {
+        var query = new PartnerConnectorQuery(PartnerServiceCategory.Payout, country, currency, destinationType);
+
+        IPartnerPayoutConnector connector;
+        if (!string.IsNullOrWhiteSpace(providerCode))
+        {
+            connector = _connectorResolver.ResolvePayoutConnector(providerCode.Trim());
+        }
+        else if (_connectorResolver.TryResolvePreferredPayoutConnector(query, out var preferred) && preferred is not null)
+        {
+            connector = preferred;
+        }
+        else if (_connectorResolver.TryResolvePayoutConnector(query, out var routed) && routed is not null)
+        {
+            connector = routed;
+        }
+        else
+        {
+            throw new InvalidStateException("No payout connector serves this corridor.");
+        }
+
+        if (!ConnectorSatisfies(connector, query))
+        {
+            throw new InvalidStateException(
+                $"Payout connector '{connector.ProviderCode}' does not serve this beneficiary corridor.");
+        }
+
+        return connector;
+    }
+
+    private static bool ConnectorSatisfies(IPartnerConnector connector, PartnerConnectorQuery query)
+        => connector.Capabilities.Any(capability =>
+            capability.Category == query.Category
+            && (query.Country is null
+                || capability.Countries.Contains(query.Country, StringComparer.OrdinalIgnoreCase))
+            && (query.Currency is null
+                || capability.Currencies.Contains(query.Currency, StringComparer.OrdinalIgnoreCase))
+            && (query.Method is null
+                || capability.Methods.Contains(query.Method, StringComparer.OrdinalIgnoreCase)));
+
+    private static async Task<string?> TryResolveAccountNameAsync(
+        IPartnerPayoutConnector connector,
+        VerifyPayoutBeneficiaryRequest request,
+        string destinationType,
+        string currency,
+        CancellationToken cancellationToken)
+    {
+        if (!destinationType.Equals("Bank", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            var result = await connector.ResolveAccountAsync(
+                new AccountResolutionRequest(
+                    NormalizeRequired(request.BankCode, nameof(request.BankCode)),
+                    NormalizeRequired(request.AccountNumber, nameof(request.AccountNumber)),
+                    currency),
+                cancellationToken);
+
+            return result.Resolved ? Normalize(result.AccountName) : null;
+        }
+        catch (Exception ex) when (IsNameEnquiryFallback(ex))
+        {
+            return null;
+        }
+    }
+
+    private static bool IsNameEnquiryFallback(Exception exception)
+        => exception is TimeoutException
+           || exception is InvalidOperationException
+           || exception.GetType().Name == "FlutterwaveException";
+
+    private async Task<(Guid BeneficiaryPartyId, string BeneficiaryName)> EnsurePartyGraphAsync(
+        VerifyPayoutBeneficiaryRequest request,
+        Guid? existingBeneficiaryPartyId,
+        string accountName,
+        CancellationToken cancellationToken)
+    {
+        Guid? beneficiaryPartyId = null;
+        if (existingBeneficiaryPartyId is { } existing && existing != Guid.Empty)
+        {
+            beneficiaryPartyId = existing;
+        }
+        else if (request.BeneficiaryPartyId is { } supplied && supplied != Guid.Empty)
+        {
+            beneficiaryPartyId = supplied;
+        }
+
+        var saveShape = new SavePayoutBeneficiaryRequest(
+            request.CustomerPartyId,
+            request.DestinationType,
+            accountName,
+            request.Currency,
+            "****0000",
+            request.BankCode,
+            request.BranchCode,
+            request.MobileNetwork,
+            BeneficiaryPartyId: beneficiaryPartyId,
+            BeneficiaryDisplayName: request.BeneficiaryDisplayName,
+            BeneficiaryPartyType: request.BeneficiaryPartyType,
+            RelationshipTypeCode: request.RelationshipTypeCode,
+            Notes: request.Notes);
+
+        var (resolvedPartyId, beneficiaryName) = await ResolveBeneficiaryPartyAsync(saveShape, cancellationToken);
+
+        await EnsureRelationshipAsync(
+            request.CustomerPartyId,
+            resolvedPartyId,
+            request.RelationshipTypeCode,
+            request.Notes,
+            cancellationToken);
+
+        await _partyService.AssignPartyRoleAsync(
+            resolvedPartyId,
+            PartyRoleCodes.Beneficiary,
+            CustomerContextType,
+            request.CustomerPartyId,
+            cancellationToken);
+
+        return (resolvedPartyId, beneficiaryName);
+    }
+
+    private async Task<string> ResolveBeneficiaryNameAsync(
+        Guid? beneficiaryPartyId,
+        string fallback,
+        CancellationToken cancellationToken)
+    {
+        if (beneficiaryPartyId is null || beneficiaryPartyId.Value == Guid.Empty)
+        {
+            return fallback;
+        }
+
+        var party = await _partyService.GetPartyAsync(beneficiaryPartyId.Value, cancellationToken);
+        return party?.DisplayName ?? fallback;
+    }
+
+    private static PayoutDestination BuildRawDestination(VerifyPayoutBeneficiaryRequest request, string destinationType)
+        => destinationType.Equals("Bank", StringComparison.OrdinalIgnoreCase)
+            ? new BankAccountDestination(
+                NormalizeRequired(request.BankCode, nameof(request.BankCode)),
+                NormalizeRequired(request.AccountNumber, nameof(request.AccountNumber)),
+                Normalize(request.BranchCode),
+                Normalize(request.AccountName))
+        : destinationType.Equals("MobileMoney", StringComparison.OrdinalIgnoreCase)
+            ? new MobileMoneyDestination(
+                NormalizeRequired(request.MobileNetwork, nameof(request.MobileNetwork)),
+                NormalizeRequired(request.Msisdn, nameof(request.Msisdn)),
+                Normalize(request.AccountName))
+        : destinationType.Equals("Wallet", StringComparison.OrdinalIgnoreCase)
+            ? new WalletDestination(
+                NormalizeRequired(request.WalletId, nameof(request.WalletId)),
+                Normalize(request.AccountName))
+        : throw new ArgumentException($"Unsupported payout destination type '{request.DestinationType}'.", nameof(request));
+
+    private static string MaskDestination(PayoutDestination destination)
+    {
+        var value = destination switch
+        {
+            BankAccountDestination bank => bank.AccountNumber,
+            MobileMoneyDestination mobile => mobile.PhoneNumber,
+            WalletDestination wallet => wallet.WalletId,
+            _ => string.Empty
+        };
+
+        var lastFour = value.Length <= 4 ? value : value[^4..];
+        return $"****{lastFour}";
+    }
+
+    private static string BuildRailFingerprint(
+        string providerCode,
+        string country,
+        string currency,
+        string destinationType,
+        PayoutDestination destination)
+    {
+        var normalized = destination switch
+        {
+            BankAccountDestination bank => string.Join('|',
+                providerCode.Trim().ToUpperInvariant(),
+                country.Trim().ToUpperInvariant(),
+                currency.Trim().ToUpperInvariant(),
+                destinationType.Trim().ToUpperInvariant(),
+                bank.BankCode.Trim().ToUpperInvariant(),
+                Normalize(bank.BranchCode)?.ToUpperInvariant() ?? string.Empty,
+                bank.AccountNumber.Trim()),
+            MobileMoneyDestination mobile => string.Join('|',
+                providerCode.Trim().ToUpperInvariant(),
+                country.Trim().ToUpperInvariant(),
+                currency.Trim().ToUpperInvariant(),
+                destinationType.Trim().ToUpperInvariant(),
+                mobile.Network.Trim().ToUpperInvariant(),
+                mobile.PhoneNumber.Trim()),
+            WalletDestination wallet => string.Join('|',
+                providerCode.Trim().ToUpperInvariant(),
+                country.Trim().ToUpperInvariant(),
+                currency.Trim().ToUpperInvariant(),
+                destinationType.Trim().ToUpperInvariant(),
+                wallet.WalletId.Trim()),
+            _ => throw new ArgumentOutOfRangeException(nameof(destination), destination, null)
+        };
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+    }
+
+    private static string NormalizeRail(string value)
+    {
+        var normalized = NormalizeRequired(value, nameof(value));
+        return normalized.Equals("Bank", StringComparison.OrdinalIgnoreCase)
+            ? "Bank"
+            : normalized.Equals("MobileMoney", StringComparison.OrdinalIgnoreCase)
+                ? "MobileMoney"
+                : normalized.Equals("Wallet", StringComparison.OrdinalIgnoreCase)
+                    ? "Wallet"
+                    : throw new ArgumentException($"Unsupported payout destination type '{value}'.", nameof(value));
+    }
+
+    private static string NormalizeRequired(string? value, string paramName)
+        => string.IsNullOrWhiteSpace(value)
+            ? throw new ArgumentException($"{paramName} is required.", paramName)
+            : value.Trim();
+
+    private static PayoutBeneficiaryResponse ToResponse(
+        ExternalPayoutAccount account,
+        string beneficiaryName,
+        string relationshipTypeCode)
+        => new(
+            account.Id,
+            account.CustomerPartyId,
+            account.BeneficiaryPartyId ?? Guid.Empty,
+            beneficiaryName,
+            account.DestinationType,
+            account.MaskedAccountIdentifier,
+            account.Currency,
+            account.BankCode,
+            account.MobileNetwork,
+            account.AccountName,
+            account.ProviderCode,
+            relationshipTypeCode,
+            account.IsVerified);
 
     private async Task<(Guid PartyId, string DisplayName)> ResolveBeneficiaryPartyAsync(
         SavePayoutBeneficiaryRequest request,

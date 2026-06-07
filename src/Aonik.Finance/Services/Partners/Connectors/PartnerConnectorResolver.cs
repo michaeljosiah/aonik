@@ -67,6 +67,15 @@ internal sealed class PartnerConnectorResolver : IPartnerConnectorResolver
         return connector is not null;
     }
 
+    public bool TryResolvePreferredPayoutConnector(
+        PartnerConnectorQuery query, out IPartnerPayoutConnector? connector)
+    {
+        connector = _payoutConnectors.FirstOrDefault(item =>
+            !string.Equals(item.ProviderCode, "Simulated", StringComparison.OrdinalIgnoreCase)
+            && Satisfies(item, query));
+        return connector is not null;
+    }
+
     public bool TryResolveCollectionConnector(
         PartnerConnectorQuery query, out IPartnerCollectionConnector? connector)
     {

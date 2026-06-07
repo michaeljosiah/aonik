@@ -34,6 +34,9 @@ public class ExternalPayoutAccount : AuditableEntity, ITenantScoped
     public Guid? PartnerId { get; set; }
     public Guid? ConnectorId { get; set; }
 
+    /// <summary>Provider that minted <see cref="ProviderBeneficiaryId" />; used to route dispatch.</summary>
+    public string? ProviderCode { get; set; }
+
     /// <summary>Bank | MobileMoney | Wallet.</summary>
     public string DestinationType { get; set; } = string.Empty;
 
@@ -43,6 +46,9 @@ public class ExternalPayoutAccount : AuditableEntity, ITenantScoped
 
     /// <summary>Masked display identifier (e.g. last-four) - never the raw account number / MSISDN / wallet id.</summary>
     public string MaskedAccountIdentifier { get; set; } = string.Empty;
+
+    /// <summary>One-way normalized rail fingerprint for idempotent re-verify; never the raw rail value.</summary>
+    public string? RailFingerprint { get; set; }
 
     public string AccountName { get; set; } = string.Empty;
     public string Currency { get; set; } = string.Empty;

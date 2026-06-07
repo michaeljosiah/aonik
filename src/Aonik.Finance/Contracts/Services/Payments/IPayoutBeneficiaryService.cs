@@ -25,6 +25,14 @@ public interface IPayoutBeneficiaryService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Verifies/registers a payout beneficiary from transient raw rail details, persists only a masked
+    /// identifier plus the provider recipient token, and returns the verified saved destination.
+    /// </summary>
+    Task<PayoutBeneficiaryResponse> VerifyAndRegisterBeneficiaryAsync(
+        VerifyPayoutBeneficiaryRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Lists every saved payout destination owned by the customer — the recipients the customer has
     /// a relationship edge to that also have a stored <c>ExternalPayoutAccount</c>.
     /// </summary>
@@ -58,6 +66,30 @@ public record SavePayoutBeneficiaryRequest(
     string? Notes = null);
 
 /// <summary>
+/// Request to verify and register a payout beneficiary. Carries raw rail details transiently for the
+/// connector calls; the service persists only a masked identifier, a one-way rail fingerprint, and the
+/// provider beneficiary token.
+/// </summary>
+public record VerifyPayoutBeneficiaryRequest(
+    Guid CustomerPartyId,
+    string DestinationType,
+    string Currency,
+    string Country,
+    string AccountName,
+    string? AccountNumber = null,
+    string? BankCode = null,
+    string? BranchCode = null,
+    string? MobileNetwork = null,
+    string? Msisdn = null,
+    string? WalletId = null,
+    string? ProviderCode = null,
+    Guid? BeneficiaryPartyId = null,
+    string? BeneficiaryDisplayName = null,
+    string BeneficiaryPartyType = "Person",
+    string RelationshipTypeCode = PartyRelationshipTypeCodes.Recipient,
+    string? Notes = null);
+
+/// <summary>
 /// A saved payout beneficiary: the recipient party, the rail, and the ownership edge type.
 /// </summary>
 public record PayoutBeneficiaryResponse(
@@ -70,6 +102,8 @@ public record PayoutBeneficiaryResponse(
     string Currency,
     string? BankCode,
     string? MobileNetwork,
+    string AccountName,
+    string? ProviderCode,
     string RelationshipTypeCode,
     bool IsVerified);
 

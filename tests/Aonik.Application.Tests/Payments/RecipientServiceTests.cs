@@ -1,6 +1,8 @@
 using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Partners.Connectors;
 using Aonik.Finance.Services.Payments;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
@@ -21,6 +23,11 @@ namespace Aonik.Application.Tests.Payments;
 /// </summary>
 public class RecipientServiceTests
 {
+    private sealed class TestClock : IClock
+    {
+        public DateTime UtcNow => DateTime.UtcNow;
+    }
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
@@ -35,7 +42,18 @@ public class RecipientServiceTests
     {
         var party = new FakePartyService();
         var tenant = new TestTenantProvider(tenantId);
-        var beneficiary = new PayoutBeneficiaryService(context, party, tenant);
+        var simulated = new SimulatedPartnerConnector();
+        var beneficiary = new PayoutBeneficiaryService(
+            context,
+            party,
+            tenant,
+            new TestCurrentUserProvider(),
+            new PartnerConnectorResolver(
+                new IPartnerPayoutConnector[] { simulated },
+                new IPartnerCollectionConnector[] { simulated },
+                new IPartnerBillPaymentConnector[] { simulated },
+                Array.Empty<IPartnerWebhookTranslator>()),
+            new TestClock());
         var recipients = new RecipientService(context, party, beneficiary, tenant);
         return (recipients, party, context);
     }

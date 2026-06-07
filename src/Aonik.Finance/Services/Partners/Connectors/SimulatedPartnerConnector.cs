@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.SharedKernel.Primitives;
 
@@ -62,7 +65,7 @@ internal sealed class SimulatedPartnerConnector
     public Task<RecipientRegistrationResult> RegisterRecipientAsync(
         RecipientRegistrationRequest request, CancellationToken cancellationToken = default)
     {
-        var beneficiaryId = $"rcp_{Guid.NewGuid().ToString("N")[..16]}";
+        var beneficiaryId = $"rcp_{StableSuffix(request)}";
         return Task.FromResult(new RecipientRegistrationResult(
             true, beneficiaryId, request.AccountName, Raw("00", "Recipient created")));
     }
@@ -186,4 +189,18 @@ internal sealed class SimulatedPartnerConnector
 
     private static RawProviderResponse Raw(string code, string message, string? payloadJson = null)
         => new(code, message, payloadJson);
+
+    private static string StableSuffix(RecipientRegistrationRequest request)
+    {
+        var raw = request.Destination switch
+        {
+            BankAccountDestination bank => $"bank:{bank.BankCode}:{bank.BranchCode}:{bank.AccountNumber}",
+            MobileMoneyDestination mobile => $"momo:{mobile.Network}:{mobile.PhoneNumber}",
+            WalletDestination wallet => $"wallet:{wallet.WalletId}",
+            _ => request.Destination.GetType().Name
+        };
+
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{request.Currency}:{raw}"));
+        return Convert.ToHexString(bytes)[..16].ToLowerInvariant();
+    }
 }

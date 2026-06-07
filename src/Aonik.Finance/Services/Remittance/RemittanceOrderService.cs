@@ -252,10 +252,11 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
                 "Destination payout account is not verified; verify the beneficiary before sending.");
         }
 
-        // Resolve the payout route now to fail fast if none exists; the actual connector is re-resolved
-        // from the stored ProviderCode at dispatch time (so a resumed confirm routes identically). Prefer
-        // an explicit provider, then capability routing, then the simulated fallback (Spec 036 §6.4 step 5).
-        var (_, providerCode) = ResolvePayoutConnector(request.ProviderCode, quote, account.DestinationType);
+        // Resolve the payout route now and lock the provider code into order details. A verified
+        // destination that carries a provider code must dispatch through that same provider; otherwise
+        // fall back to the request/provider routing rules from Spec 036.
+        var (_, providerCode) = ResolvePayoutConnector(
+            ResolveRequestedProviderCode(request.ProviderCode, account.ProviderCode), quote, account.DestinationType);
         // The simulated connector is keyed by ProviderCode and has no Connector row; a persistent
         // ProviderCode → Connector.Id mapping is a follow-up. Guid.Empty marks "unmapped" today.
         var connectorId = Guid.Empty;
@@ -842,6 +843,25 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
 
         var fallback = _connectorResolver.ResolvePayoutConnector(SimulatedProviderCode);
         return (fallback, fallback.ProviderCode);
+    }
+
+    private static string? ResolveRequestedProviderCode(string? requestProviderCode, string? destinationProviderCode)
+    {
+        var requested = string.IsNullOrWhiteSpace(requestProviderCode) ? null : requestProviderCode.Trim();
+        var destination = string.IsNullOrWhiteSpace(destinationProviderCode) ? null : destinationProviderCode.Trim();
+
+        if (destination is null)
+        {
+            return requested;
+        }
+
+        if (requested is not null && !string.Equals(requested, destination, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidStateException(
+                "Requested payout provider does not match the verified destination provider.");
+        }
+
+        return destination;
     }
 
     private static PayoutInstruction BuildPayoutInstruction(
