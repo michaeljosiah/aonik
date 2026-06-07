@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 040 · Partner biller catalogue import (Flutterwave v3 bills)</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    .meta-tag.priority-p2 { background: #e6eefc; color: #2b4d8a; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    .tag.ok { background: #e0f3e6; color: #1c6b39; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 040</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p2">Priority: P2</span>
+  <span class="meta-tag">Domain: Finance / Partners / Catalog</span>
+  <span class="meta-tag">Issue: TBD</span>
+  <h1>Partner biller catalogue import (Flutterwave v3 bills)</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Adds the missing <code>IPartnerBillPaymentConnector</code> implementation for Flutterwave and a
+    tenant-scoped <strong>biller import</strong> flow: an operator opens the Admin UI, <em>previews</em>
+    the live biller catalogue exposed by a configured partner connector, selects the billers/services
+    they want, and <em>imports</em> them into the AONIK
+    <a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBiller.cs"><code>CatalogBiller</code></a> /
+    <a href="../../src/Aonik.Finance/Entities/Catalog/CatalogBillerService.cs"><code>CatalogBillerService</code></a>
+    tables, wiring each to its provider codes through
+    <a href="../../src/Aonik.Finance/Entities/Partners/ConnectorBillerMapping.cs"><code>ConnectorBillerMapping</code></a>.
+    The import is <strong>idempotent and upsert-based</strong> &mdash; re-running it creates no
+    duplicates, refreshes mutable fields, and soft-deactivates billers the partner has dropped.
+    The spec is grounded twice, exactly like
+    <a href="037.flutterwave-partner-connector.html">Spec&nbsp;037</a>: against the <strong>in-repo
+    abstraction and entities</strong> (the catalogue, the connector ports, the mapping table, and one
+    working <code>SimulatedPartnerConnector</code> already exist) and against the
+    <strong>actual Flutterwave Bills API documentation</strong>
+    (<a href="https://developer.flutterwave.com/docs/bill-payment">developer.flutterwave.com/docs/bill-payment</a>).
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#headline">Headline finding &mdash; bills are v3, not v4</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#fw">Flutterwave v3 Bills API walkthrough</a></li>
+    <li><a href="#connector">FlutterwaveBillPaymentConnector design</a></li>
+    <li><a href="#model">Catalogue model &amp; field mapping</a></li>
+    <li><a href="#import">Import service &mdash; idempotent upsert</a></li>
+    <li><a href="#api">Endpoints</a></li>
+    <li><a href="#ui">Admin UI</a></li>
+    <li><a href="#di">DI, config &amp; secrets</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK already models a biller catalogue as a first-class domain &mdash;
+  <code>CatalogBillerCategory</code> &rarr; <code>CatalogBiller</code> &rarr; <code>CatalogBillerService</code>,
+  with admin CRUD pages and <code>/catalog/billers</code> endpoints. It also already defines the
+  partner abstraction that knows how to ask a partner <em>"what billers do you support?"</em>:
+  <a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerBillPaymentConnector.cs"><code>IPartnerBillPaymentConnector.GetBillerCatalogAsync</code></a>,
+  resolved by <code>ProviderCode</code> through
+  <a href="../../src/Aonik.Finance/Services/Partners/Connectors/PartnerConnectorResolver.cs"><code>PartnerConnectorResolver</code></a>,
+  with the provider-specific codes deliberately confined to
+  <code>ConnectorBillerMapping</code> (<code>ProviderBillerCode</code> / <code>ProviderItemCode</code>)
+  so a logical biller can route to many partners. Today the <strong>only</strong> implementation of
+  that port is
+  <a href="../../src/Aonik.Finance/Services/Partners/Connectors/SimulatedPartnerConnector.cs"><code>SimulatedPartnerConnector</code></a>,
+  which returns two fake billers (<code>SIM-ELEC</code>, <code>SIM-TELCO</code>).
+</p>
+
+<p>
+  This spec closes the loop. It adds (1) a real
+  <strong><code>FlutterwaveBillPaymentConnector</code></strong> whose
+  <code>GetBillerCatalogAsync</code> reads the live Flutterwave biller catalogue, and (2) a
+  <strong><code>BillerImportService</code></strong> + two endpoints + an Admin UI wizard that turn
+  that catalogue into persisted <code>CatalogBiller</code>/<code>CatalogBillerService</code> rows and
+  their <code>ConnectorBillerMapping</code> routing rows. The import is <strong>idempotent</strong>
+  (the mapping table is the identity key, so re-import never duplicates) and <strong>upsert</strong>
+  (it refreshes changed names/amounts and soft-deactivates dropped billers). No money moves; this is a
+  reference-data sync, permission-gated on <code>Catalog.Write</code>.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  An operator with <code>Catalog.Write</code> opens <em>Catalog &rarr; Billers</em>, clicks
+  <em>Import from partner</em>, picks a configured Flutterwave connector, and sees the live NG biller
+  catalogue (MTN, DSTV, IKEDC&hellip;) grouped by category, each row tagged
+  <span class="tag new">new</span> / <span class="tag existing">mapped</span> /
+  <span class="tag gap">changed</span> against what is already imported. They select a subset and
+  confirm; the catalogue list refreshes with the new billers, each carrying a
+  <code>ConnectorBillerMapping</code> to the Flutterwave connector. Running the same import again
+  reports <code>0 created, N updated, 0 duplicates</code>. A biller Flutterwave later drops is shown
+  <em>Inactive</em> on the next import, not deleted (its history and any orders survive).
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+
+<p>
+  Building a biller catalogue by hand does not scale &mdash; a partner like Flutterwave already
+  curates hundreds of NG billers and their packages, and that list drifts. We want to pull it in,
+  keep it current, and let an operator choose what to expose. Confirmed by reading the tree, every
+  piece <em>except the live partner read and the import routine</em> already exists:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Area</th><th>State today</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Catalogue entities</td>
+      <td><span class="tag ok">landed</span> <code>CatalogBillerCategory</code>, <code>CatalogBiller</code>, <code>CatalogBillerService</code> &mdash; all <code>AuditableEntity</code>, <code>ITenantScoped</code>, with DbSets on <code>AonikDbContext</code> + <code>FinanceDbContext</code> and EF configurations.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Catalog/"><code>Entities/Catalog/</code></a></td>
+    </tr>
+    <tr>
+      <td>Routing / mapping table</td>
+      <td><span class="tag ok">landed</span> <code>ConnectorBillerMapping</code> with a <strong>unique index</strong> on <code>(TenantId, ConnectorId, CatalogBillerId, CatalogBillerServiceId)</code> and FKs (Restrict) to <code>Connector</code>, <code>CatalogBiller</code>, <code>CatalogBillerService</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Persistence/Configurations/Partners/ConnectorBillerMappingConfiguration.cs"><code>ConnectorBillerMappingConfiguration.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Bill-payment port</td>
+      <td><span class="tag ok">landed</span> <code>IPartnerBillPaymentConnector</code> (<code>GetBillerCatalogAsync</code>, <code>ValidateCustomerAsync</code>, <code>PayBillAsync</code>, <code>GetBillPaymentStatusAsync</code>) + normalized DTOs (<code>BillerCatalogEntry</code>, <code>BillItem</code>, <code>BillCustomerField</code>, <code>BillerCatalogQuery</code>).</td>
+      <td><a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerBillPaymentConnector.cs"><code>IPartnerBillPaymentConnector.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Resolver</td>
+      <td><span class="tag ok">landed</span> <code>ResolveBillPaymentConnector(providerCode)</code> searches the DI-injected <code>IEnumerable&lt;IPartnerBillPaymentConnector&gt;</code> by <code>ProviderCode</code>. A new connector is added by registering one more implementation &mdash; no resolver change.</td>
+      <td><a href="../../src/Aonik.Finance/Services/Partners/Connectors/PartnerConnectorResolver.cs"><code>PartnerConnectorResolver.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Only bill implementation</td>
+      <td><span class="tag gap">gap</span> <code>SimulatedPartnerConnector</code> returns a fixed two-biller fake catalogue. <strong>No real partner bill connector exists.</strong></td>
+      <td><a href="../../src/Aonik.Finance/Services/Partners/Connectors/SimulatedPartnerConnector.cs"><code>SimulatedPartnerConnector.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Flutterwave connector</td>
+      <td><span class="tag existing">v4</span> Implements <strong>payout only</strong> (<code>FlutterwavePayoutConnector : IPartnerPayoutConnector</code>) against the v4 OAuth API. <strong>Does not implement <code>IPartnerBillPaymentConnector</code>.</strong></td>
+      <td><a href="../../src/Aonik.Finance/Services/Partners/Connectors/Flutterwave/"><code>Connectors/Flutterwave/</code></a></td>
+    </tr>
+    <tr>
+      <td>Import routine</td>
+      <td><span class="tag gap">gap</span> Nothing persists a previewed catalogue. <code>ConnectorBillerMapping</code> has an entity + config but <strong>no write path / service</strong>. <code>ICatalogService</code> mutations cover hand-authored billers, not partner import.</td>
+      <td><a href="../../src/Aonik.Finance/Contracts/Services/Catalog/ICatalogService.cs"><code>ICatalogService.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Admin UI</td>
+      <td><span class="tag existing">pattern</span> <code>CatalogBillersPage</code> (list + filter + Sheet form) and the multi-step <code>ImportDemoDataDialog</code> (preview &rarr; select &rarr; confirm) exist as the templates to compose. No import wizard yet.</td>
+      <td><a href="../../src/Aonik.AdminUi/src/pages/catalog/CatalogBillersPage.tsx"><code>CatalogBillersPage.tsx</code></a>, <a href="../../src/Aonik.AdminUi/src/components/dialogs/ImportDemoDataDialog.tsx"><code>ImportDemoDataDialog.tsx</code></a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="headline">3. Headline finding &mdash; Flutterwave bills are <em>v3</em>, not v4</h2>
+
+<div class="callout p0">
+  <span class="callout-label">The one fact that shapes this whole spec</span>
+  The existing <code>FlutterwavePayoutConnector</code> targets the <strong>Flutterwave v4 API</strong>:
+  OAuth&nbsp;2.0 client-credentials tokens, base URL <code>developersandbox-api.flutterwave.com</code>,
+  an <code>{ status, message, data }</code> envelope, and per-call <code>X-Idempotency-Key</code> /
+  <code>X-Trace-Id</code> headers (<a href="037.flutterwave-partner-connector.html">Spec&nbsp;037</a>).
+  But <strong>the v4 API exposes no bill-payment or airtime endpoints at all</strong> &mdash;
+  Spec&nbsp;037 &sect;5.11 and &sect;3.2 call this out explicitly, and our own research confirms it.
+  <strong>Bill payment lives only on the older Flutterwave v3 API</strong>, which uses a
+  <strong>static secret key</strong> (<code>Authorization: Bearer FLWSECK-&hellip;</code>), base URL
+  <code>https://api.flutterwave.com/v3</code>, and a <code>{ status, message, data }</code> envelope
+  with no idempotency-key requirement. <strong>Consequence:</strong> the
+  <code>FlutterwaveBillPaymentConnector</code> <em>cannot</em> reuse the v4
+  <code>FlutterwaveClient</code> / <code>FlutterwaveTokenProvider</code> / <code>FlutterwaveAuthHandler</code>.
+  It needs its <strong>own</strong> v3 typed client, secret-key auth handler, options, and config
+  provider. The two Flutterwave connectors share only a <code>ProviderCode</code> string
+  (<code>"Flutterwave"</code>) &mdash; which is fine, because the resolver searches each port's list
+  independently (&sect;6.4).
+</div>
+
+<p>
+  This is the kind of distance Spec&nbsp;037 had to close for v3&rarr;v4 on the payout side; here it
+  runs the other way (v4&rarr;v3) and on a different port. Treating the bill connector as "just add a
+  method to the existing Flutterwave connector" would be wrong &mdash; different API version,
+  different auth, different base URL, different lifecycle. &sect;5 walks the v3 Bills surface; &sect;6
+  maps it onto our port.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Geographic note (grounded)</span>
+  Flutterwave's Bills API currently supports <strong>Nigerian billers only</strong>
+  (<a href="https://developer.flutterwave.com/docs/bill-payment">developer.flutterwave.com/docs/bill-payment</a>).
+  That is exactly the Payabo UK&rarr;NG launch wedge corridor, so the constraint is a fit, not a
+  blocker &mdash; but the connector must hard-default <code>country=NG</code> and not pretend to
+  multi-country breadth it cannot serve.
+</div>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+
+<h3>4.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <strong><code>FlutterwaveBillPaymentConnector : IPartnerBillPaymentConnector</code></strong>
+  (<code>ProviderCode =&gt; "Flutterwave"</code>) &mdash; <code>GetBillerCatalogAsync</code> (the import
+  read; the priority of this spec), plus <code>ValidateCustomerAsync</code> / <code>PayBillAsync</code> /
+  <code>GetBillPaymentStatusAsync</code> mapped onto v3 validate / <code>POST /bills</code> /
+  <code>GET /bills/{reference}</code> so the port is fully implemented (the pay path is Phase&nbsp;2
+  within this spec &mdash; &sect;6.6).</li>
+  <li><span class="tag new">New</span> <strong>v3 transport</strong> &mdash; <code>FlutterwaveBillsClient</code>
+  (typed wrapper over <code>https://api.flutterwave.com/v3</code>, <code>{status,message,data}</code>
+  envelope, non-2xx &rarr; <code>FlutterwaveException</code>, timeout &rarr; <code>TimeoutException</code>),
+  <code>FlutterwaveBillsAuthHandler</code> (<code>DelegatingHandler</code> stamping the static secret
+  key), <code>FlutterwaveBillsOptions</code> + <code>FlutterwaveBillsConfigProvider</code> (settings
+  with appsettings fallback, mirroring the v4 <code>FlutterwaveConfigProvider</code>).</li>
+  <li><span class="tag new">New</span> <strong><code>IBillerImportService</code> / <code>BillerImportService</code></strong>
+  &mdash; <code>PreviewAsync</code> (resolve connector &rarr; <code>GetBillerCatalogAsync</code> &rarr;
+  annotate each entry against existing mappings; persists nothing) and <code>ImportAsync</code> (the
+  idempotent upsert of categories, billers, services, and mappings &mdash; &sect;8).</li>
+  <li><span class="tag new">New</span> <strong>Two endpoints</strong> &mdash;
+  <code>POST /catalog/billers/import/preview</code> and <code>POST /catalog/billers/import</code>,
+  both gated <code>Catalog.Write</code> (FastEndpoints, the <code>AdminUserWritePolicy</code> the
+  existing catalog writes use).</li>
+  <li><span class="tag new">New</span> <strong>Import DTOs</strong> &mdash; request/response records in
+  <code>Contracts/Models/Catalog/</code> for the preview list (with per-entry import status) and the
+  import summary (created/updated/deactivated counts).</li>
+  <li><span class="tag new">New</span> <strong>Admin UI import wizard</strong> &mdash; a dialog/flow
+  composed from <code>ImportDemoDataDialog</code> + <code>CatalogBillersPage</code> patterns, plus a
+  <code>billerImportService.ts</code> client.</li>
+  <li><span class="tag mutate">Edit</span> <strong><code>FinanceModule.ConfigureServices</code></strong>
+  &mdash; a "Flutterwave bills connector" DI block registering the v3 client + connector
+  <strong>alongside</strong> the simulated bill connector (do not remove Simulated &mdash; it stays the
+  fallback <code>ProviderCode</code>), and the import service.</li>
+  <li><span class="tag mutate">Edit</span> <strong><code>PartnerGatewaySettingNames</code></strong> +
+  <code>appsettings.json</code> &mdash; add <code>Finance.Partners.Flutterwave.Bills.{Enabled,BaseUrl,SecretKey}</code>
+  keys (secret supplied via environment / user-secrets, never committed).</li>
+  <li><span class="tag new">New</span> <strong>Tests</strong> mirroring
+  <code>FlutterwaveConnectorTests</code> (hand-rolled <code>HttpMessageHandler</code>): catalogue
+  mapping, happy-path import, <strong>idempotent re-import</strong>, upsert of a changed name/amount,
+  soft-deactivation of a dropped biller, partner <code>500</code>, timeout.</li>
+</ul>
+
+<h3>4.2 Out of scope</h3>
+<ul>
+  <li><strong>Scheduled / automatic sync.</strong> This spec delivers operator-triggered import only.
+  A Quartz job that re-runs <code>ImportAsync</code> nightly is a natural follow-up but is deferred
+  (the upsert is built to make it a trivial add later &mdash; &sect;8, O3).</li>
+  <li><strong>The bill-payment <em>order</em> flow.</strong> Creating a <code>BillPayment</code> order,
+  posting the ledger, and the <a href="../../src/Aonik.Finance/Entities/Payments/PartnerBillPayment.cs"><code>PartnerBillPayment</code></a>
+  execution record already exist / belong to the order pipeline. This spec wires the connector's
+  <em>pay</em> methods (so the port is whole) but does not touch order orchestration or money-action
+  logging &mdash; those stay at the caller per
+  <a href="../observability/money-action-logging.md">money-action-logging.md</a>.</li>
+  <li><strong>Non-Flutterwave bill partners</strong> (eTranzact / Interswitch). The import is
+  partner-agnostic by construction &mdash; it resolves any <code>IPartnerBillPaymentConnector</code> by
+  code &mdash; but only the Flutterwave connector is built here.</li>
+  <li><strong>Schema changes.</strong> Every table this import writes already exists. The import adds
+  <strong>no migration</strong>. The one candidate &mdash; a unique index on the mapping's provider
+  codes to make the idempotency lookup an index seek and a hard constraint &mdash; is raised as an
+  open decision (&sect;8.4, O1) and, if taken, MUST be tool-generated
+  (<code>dotnet ef migrations add</code>), never hand-written, per
+  <a href="../../CLAUDE.md">CLAUDE.md</a>.</li>
+</ul>
+
+<div class="callout open">
+  <span class="callout-label">Scope &amp; sequencing &mdash; honest priority</span>
+  Per the Payabo launch plan, the MVP wedge is the <strong>UK&rarr;NG remittance corridor</strong>
+  (~Aug&nbsp;2026), and platform breadth is explicitly flagged as drift to freeze
+  (<a href="../payabo-august-launch-plan.html">payabo-august-launch-plan.html</a>). Bill payment is a
+  natural Payabo B2C surface and NG-only bills fit the corridor, but it is <strong>not on the
+  remittance critical path</strong>. This spec is therefore marked <strong>P2</strong> and should be
+  sequenced <em>after</em> the remittance rail is GA (Specs&nbsp;036&nbsp;/&nbsp;037&nbsp;/&nbsp;039).
+  Whether biller import lands pre- or post-launch is a product call, not an engineering one &mdash;
+  flagged here rather than silently assumed (O5).
+</div>
+
+<h2 id="fw">5. Flutterwave v3 Bills API walkthrough</h2>
+
+<p>
+  Grounded against
+  <a href="https://developer.flutterwave.com/docs/bill-payment">developer.flutterwave.com/docs/bill-payment</a>
+  and the official v3 SDK docs. Auth is a <strong>static secret key</strong> passed as a bearer token;
+  base URL <code>https://api.flutterwave.com/v3</code>; envelope <code>{ status, message, data }</code>.
+  The catalogue read the import depends on is the three-step
+  <em>categories &rarr; billers &rarr; items</em> flow.
+</p>
+
+<div class="callout">
+  <span class="callout-label">Verify at integration time</span>
+  v3 REST paths and SDK helper names diverge in Flutterwave's own docs (e.g. <code>validate</code> is
+  documented as both a <code>GET</code> on <code>/bill-items/{item_code}/validate</code> and a
+  <code>POST</code> in the Node SDK). The <strong>field shapes below are taken verbatim from the
+  documented responses</strong>; confirm the exact verbs/paths against the live reference and the
+  sandbox when implementing. The connector isolates this: paths live in one client, so a doc
+  correction is a one-file change.
+</div>
+
+<h3 id="fw-cat">5.1 Bill categories &mdash; <code>GET /v3/top-bill-categories?country=NG</code></h3>
+<p>The densest single call: each row already carries a biller code, an item code, and the customer
+field label.</p>
+<pre><code>GET https://api.flutterwave.com/v3/top-bill-categories?country=NG
+Authorization: Bearer FLWSECK-...
+
+→ 200 { "status": "success", "data": [
+  {
+    "id": 1, "biller_code": "BIL099", "name": "MTN Nigeria", "item_code": "AT099",
+    "short_name": "MTN", "biller_name": "AIRTIME", "is_airtime": true,
+    "default_commission": 0.02, "fee": 0, "country": "NG", "label_name": "Mobile Number"
+  }, ...
+]}</code></pre>
+<p>(<code>GET /v3/bill-categories</code> returns the fuller, un-curated list with the same row shape.)</p>
+
+<h3 id="fw-billers">5.2 Billers under a category &mdash; <code>GET /v3/billers</code> / products</h3>
+<pre><code>// agencies (billers) for a category/country
+→ { "status": "success", "data": [ { "code": "BIL136", "name": "Genesis Group Payment" }, ... ] }
+
+// products (packages) under a biller — GET /v3/billers/{biller_code}/items (a.k.a. products)
+→ { "status": "success", "data": {
+     "biller_code": "BIL136",
+     "products": [ { "code": "OT150", "name": "GENESIS GROUP ACCOMODATION", "amount": "0.0", "fee": "0.0",
+                     "description": "..." }, ... ] } }</code></pre>
+<p>
+  A product with a non-zero <code>amount</code> is a <strong>fixed-price package</strong> (a data
+  bundle); <code>amount = "0.0"</code> means the customer chooses the amount (a
+  <strong>variable</strong> service such as airtime or a postpaid bill). The richer
+  <code>amt_to_be_paid</code> response also returns an <code>items[]</code> array of required input
+  fields (<code>name</code>, <code>type</code>, <code>required</code>, <code>length</code>) &mdash; the
+  raw material for <code>BillCustomerField</code> / <code>FieldsJson</code>.
+</p>
+
+<h3 id="fw-validate">5.3 Validate a customer &mdash; <code>POST /v3/bill-items/{item_code}/validate</code></h3>
+<pre><code>{ "item_code": "AT099", "code": "BIL099", "customer": "08038291822" }
+→ { "status": "success", "data": {
+     "response_code": "00", "response_message": "Successful", "name": "MTN",
+     "biller_code": "BIL099", "customer": "08038291822", "product_code": "AT099",
+     "fee": 0, "maximum": 0, "minimum": 0 } }</code></pre>
+<p>Maps onto <code>ValidateCustomerAsync</code> &rarr; <code>BillCustomerValidationResult</code>
+  (<code>CustomerName</code> from <code>name</code>; <code>maximum</code>/<code>minimum</code> bound a
+  variable amount). Used by the <em>pay</em> flow, not by import.</p>
+
+<h3 id="fw-pay">5.4 Create a bill payment &mdash; <code>POST /v3/bills</code></h3>
+<pre><code>{ "country": "NG", "customer": "+2348038291822", "amount": 500,
+  "recurrence": "ONCE", "type": "AIRTIME", "reference": "AONIK-BILL-..." }
+→ { "status": "success", "message": "Bill payment successful",
+    "data": { "phone_number": "...", "amount": 500, "network": "9MOBILE",
+              "flw_ref": "CF-FLYAPI-...", "tx_ref": "BPUSSD..." } }</code></pre>
+<p>Maps onto <code>PayBillAsync</code>: our <code>ClientReference</code> &rarr; <code>reference</code>;
+  <code>flw_ref</code> &rarr; <code>PartnerReference.ProviderReference</code>. Phase&nbsp;2.</p>
+
+<h3 id="fw-status">5.5 Status &mdash; <code>GET /v3/bills/{reference}</code></h3>
+<pre><code>→ { "status": "success", "data": { "currency": "NGN", "customer_id": "...", "amount": "500.0000",
+     "product": "AIRTIME", "product_name": "MTN", "commission": 0, "country": "NG",
+     "tx_ref": "CF-FLYAPI-..." } }</code></pre>
+<p>Maps onto <code>GetBillPaymentStatusAsync</code>. Phase&nbsp;2.</p>
+
+<h2 id="connector">6. <code>FlutterwaveBillPaymentConnector</code> design</h2>
+
+<h3 id="conn-shape">6.1 Shape &amp; placement</h3>
+<p>
+  New folder <code>src/Aonik.Finance/Services/Partners/Connectors/Flutterwave/Bills/</code> (kept apart
+  from the v4 payout files to make the version boundary obvious). The connector is
+  <code>internal sealed</code>, stateless, and throws typed failures &mdash; never swallows them
+  &mdash; exactly like the payout connector.
+</p>
+<pre><code>internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConnector
+{
+    public string ProviderCode =&gt; "Flutterwave";   // same code, different port list (§6.4)
+
+    // NG-only bills (grounded §3). Resolver matches BillPayment + AirtimeTopup lanes by code.
+    public IReadOnlyCollection&lt;PartnerConnectorCapability&gt; Capabilities { get; } = new[]
+    {
+        new PartnerConnectorCapability(PartnerServiceCategory.BillPayment,  new[]{"NG"}, new[]{"NGN"}, new[]{"Bill"}),
+        new PartnerConnectorCapability(PartnerServiceCategory.AirtimeTopup, new[]{"NG"}, new[]{"NGN"}, new[]{"Airtime","Data"}),
+    };
+
+    public FlutterwaveBillPaymentConnector(FlutterwaveBillsClient client, IFlutterwaveBillsConfigProvider config) { ... }
+    // GetBillerCatalogAsync / ValidateCustomerAsync / PayBillAsync / GetBillPaymentStatusAsync
+}</code></pre>
+
+<h3 id="conn-catalog">6.2 <code>GetBillerCatalogAsync</code> &mdash; the import read</h3>
+<p>
+  Fail closed if not configured (mirror <code>FlutterwavePayoutConnector.EnsureConfiguredAsync</code>).
+  Otherwise read categories (&sect;5.1), and for each biller optionally expand its products (&sect;5.2)
+  to capture multi-package billers; map to <code>BillerCatalogEntry</code> (&sect;7). The
+  <code>BillerCatalogQuery.CategoryCode</code> filter is applied client-side after the read (v3's
+  category param is coarse). Country is forced to <code>NG</code>; a non-NG query returns empty rather
+  than calling the API.
+</p>
+
+<h3 id="conn-classify">6.3 Classification rules (grounded)</h3>
+<table>
+  <thead><tr><th>Decision</th><th>Rule from v3 data</th></tr></thead>
+  <tbody>
+    <tr><td><code>ServiceCategory</code></td><td><code>is_airtime == true</code> (or category in {airtime, data}) &rarr; <code>AirtimeTopup</code>; else <code>BillPayment</code>.</td></tr>
+    <tr><td><code>BillItem.AmountType</code></td><td>product <code>amount &gt; 0</code> &rarr; <code>Fixed</code> (carry <code>FixedAmount</code>); <code>amount == 0</code> &rarr; <code>Variable</code> (min/max left null at import, resolved per-customer at validate).</td></tr>
+    <tr><td><code>CustomerFields</code></td><td>one <code>BillCustomerField</code> from <code>label_name</code> (e.g. "Meter Number"), plus any required <code>items[]</code> input fields.</td></tr>
+    <tr><td>Currency</td><td><code>NGN</code> (bills are NG-only).</td></tr>
+  </tbody>
+</table>
+
+<h3 id="conn-coexist">6.4 Coexistence with the v4 payout connector</h3>
+<p>
+  Both connectors return <code>ProviderCode =&gt; "Flutterwave"</code>. This is safe and intended: the
+  resolver keeps a <strong>separate list per port</strong> &mdash;
+  <code>ResolveBillPaymentConnector("Flutterwave")</code> searches only
+  <code>IEnumerable&lt;IPartnerBillPaymentConnector&gt;</code>, where the only "Flutterwave" entry is
+  this connector; the payout connector lives in a different list. One vendor, one code, two ports, two
+  transports (v3 secret key for bills, v4 OAuth for payout). The Admin UI and the operator see a single
+  "Flutterwave" partner.
+</p>
+
+<h3 id="conn-pay">6.5 Pay-path methods (Phase 2, within scope)</h3>
+<p>
+  <code>ValidateCustomerAsync</code> &rarr; &sect;5.3, <code>PayBillAsync</code> &rarr; &sect;5.4,
+  <code>GetBillPaymentStatusAsync</code> &rarr; &sect;5.5. Implemented so the port is complete and the
+  connector is usable by the order pipeline, but not exercised by the import. Status strings map through
+  the same normalized <code>PartnerTransactionStatus</code> ladder the payout connector uses
+  (<code>response_code "00"</code> &rarr; <code>Succeeded</code>).
+</p>
+
+<h2 id="model">7. Catalogue model &amp; field mapping</h2>
+
+<p>
+  The import writes four existing tables. The <strong>architectural invariant</strong> (from
+  <code>ConnectorBillerMapping</code>'s own docs and <a href="../../CLAUDE.md">CLAUDE.md</a>): provider
+  codes live <strong>only</strong> in the mapping; <code>CatalogBillerService.ServiceCode</code> stays
+  a logical, AONIK-owned code &mdash; <em>never</em> a vendor code.
+</p>
+
+<table>
+  <thead><tr><th>v3 field</th><th>&rarr; AONIK target</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>biller_code</code></td><td><code>ConnectorBillerMapping.ProviderBillerCode</code></td><td>The biller identity key for idempotency.</td></tr>
+    <tr><td>product <code>code</code> / <code>item_code</code></td><td><code>ConnectorBillerMapping.ProviderItemCode</code></td><td>The service identity key.</td></tr>
+    <tr><td><code>name</code> / <code>short_name</code></td><td><code>CatalogBiller.Name</code></td><td>Mutable &mdash; refreshed on re-import.</td></tr>
+    <tr><td><code>biller_name</code> / category</td><td><code>CatalogBillerCategory.Name</code></td><td>Category upserted by natural key <code>(TenantId, CountryCode, Name)</code>.</td></tr>
+    <tr><td><code>country</code></td><td><code>CatalogBiller.CountryCode</code></td><td><code>NG</code>.</td></tr>
+    <tr><td>product <code>name</code></td><td><code>CatalogBillerService.Name</code></td><td>Mutable.</td></tr>
+    <tr><td>product <code>amount</code></td><td><code>CatalogBillerService.FixedAmount</code> + <code>AmountType</code></td><td>&sect;6.3 rule.</td></tr>
+    <tr><td><code>label_name</code> / <code>items[]</code></td><td><code>CatalogBillerService.FieldsJson</code></td><td>Serialized <code>BillCustomerField[]</code>.</td></tr>
+    <tr><td><code>is_airtime</code></td><td><code>CatalogBillerService.Type</code> + <code>RequiresValidation</code></td><td>Airtime &rarr; no validation; bills &rarr; require validation.</td></tr>
+    <tr><td>&mdash;</td><td><code>CatalogBiller.CorrespondentPartnerId</code></td><td>Set to the <code>Connector.PartnerId</code> of the import connector (the field is non-nullable and soft-deprecated; populate it correctly rather than leave it empty).</td></tr>
+    <tr><td>&mdash;</td><td><code>CatalogBillerService.ServiceCode</code></td><td><strong>AONIK-generated</strong> stable logical slug (e.g. <code>slug(biller)-slug(item)</code>), never the vendor code. Identity on re-import comes from the mapping, not this field.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="import">8. Import service &mdash; idempotent upsert</h2>
+
+<p>
+  This is the heart of the spec and the explicit requirement: <strong>idempotent and upsert</strong>.
+  Two ideas make it robust:
+</p>
+<ol>
+  <li><strong>Identity is the mapping, not the name.</strong> "Have I imported this provider biller
+  before?" is answered by looking up <code>ConnectorBillerMapping</code> on
+  <code>(TenantId, ConnectorId, ProviderBillerCode)</code> &mdash; biller-level rows have
+  <code>CatalogBillerServiceId == null</code>; service-level rows carry both the service id and
+  <code>ProviderItemCode</code>. Names and amounts drift; provider codes are stable, so the mapping is
+  the correct idempotency anchor.</li>
+  <li><strong>Upsert, never duplicate, never hard-delete.</strong> Found &rarr; update mutable fields
+  and re-activate. Not found &rarr; insert biller/service + mapping. Present last time but absent now
+  &rarr; soft-deactivate (<code>IsActive = false</code>) &mdash; FKs are <code>Restrict</code> and any
+  orders/history must survive, so we never delete.</li>
+</ol>
+
+<h3 id="import-algo">8.1 Algorithm</h3>
+<pre><code>ImportAsync(connectorId, selectedEntries):
+  connector = load Connector(connectorId)        // → ConnectorType (ProviderCode) + PartnerId
+  tenantId  = ITenantContext.TenantId            // never from the request
+  selected  = dedupe(selectedEntries by BillerCode)   // run-level dedupe (provider may repeat)
+  summary   = { billersCreated, billersUpdated, servicesCreated, servicesUpdated, deactivated }
+
+  for entry in selected:
+     category = UpsertCategory(tenantId, entry.Country, entry.CategoryName)   // natural key (Tenant,Country,Name)
+
+     // ── biller identity = the biller-level mapping (ServiceId == null) ──
+     bMap = ConnectorBillerMappings.SingleOrDefault(
+                Tenant==tenantId, ConnectorId==connectorId,
+                ProviderBillerCode==entry.BillerCode, CatalogBillerServiceId==null)
+     if bMap == null:
+         biller = new CatalogBiller { Name=entry.BillerName, CountryCode=entry.Country,
+                      CategoryId=category.Id, CorrespondentPartnerId=connector.PartnerId, IsActive=true }
+         add biller; add ConnectorBillerMapping { CatalogBillerId=biller.Id, CatalogBillerServiceId=null,
+                      ConnectorId=connectorId, ProviderBillerCode=entry.BillerCode, IsActive=true }
+         summary.billersCreated++
+     else:
+         biller = load CatalogBiller(bMap.CatalogBillerId)
+         biller.Name=entry.BillerName; biller.CategoryId=category.Id; biller.IsActive=true   // upsert
+         bMap.IsActive=true; summary.billersUpdated++
+
+     seen = {}                                   // service-mapping ids touched this run for this biller
+     for item in entry.Items:
+         sMap = ConnectorBillerMappings.SingleOrDefault(
+                    Tenant==tenantId, ConnectorId==connectorId, CatalogBillerId==biller.Id,
+                    ProviderItemCode==item.ItemCode)        // i.e. service-level row
+         if sMap == null:
+             svc = new CatalogBillerService { BillerId=biller.Id,
+                      ServiceCode=GenerateLogicalCode(biller, item),   // AONIK-owned, NOT the vendor code
+                      Name=item.Name, Type=entry.ServiceCategory, Currency="NGN",
+                      AmountType=item.FixedAmount!=null?"Fixed":"Variable", FixedAmount=item.FixedAmount?.Amount,
+                      MinAmount=item.MinAmount?.Amount, MaxAmount=item.MaxAmount?.Amount,
+                      RequiresValidation=(entry.ServiceCategory==BillPayment),
+                      FieldsJson=serialize(entry.CustomerFields), IsActive=true }
+             add svc; add ConnectorBillerMapping { CatalogBillerId=biller.Id, CatalogBillerServiceId=svc.Id,
+                      ConnectorId=connectorId, ProviderBillerCode=entry.BillerCode,
+                      ProviderItemCode=item.ItemCode, IsActive=true }
+             summary.servicesCreated++; seen.add(new svc mapping)
+         else:
+             svc = load CatalogBillerService(sMap.CatalogBillerServiceId)
+             svc.Name=item.Name; svc.AmountType=...; svc.FixedAmount=...; svc.IsActive=true   // upsert
+             sMap.IsActive=true; summary.servicesUpdated++; seen.add(sMap)
+
+     // ── soft-deactivate services this connector no longer offers for this biller ──
+     for stale in ServiceMappings(connectorId, biller).Where(m =&gt; m not in seen &amp;&amp; m.IsActive):
+         stale.IsActive=false; load(stale.service).IsActive=false; summary.deactivated++
+
+  SaveChanges()      // single transaction; catch unique-violation → treat as concurrent re-run (8.3)
+  return summary</code></pre>
+
+<h3 id="import-preview">8.2 Preview (no persistence)</h3>
+<p>
+  <code>PreviewAsync(connectorId, query)</code> resolves the connector, calls
+  <code>GetBillerCatalogAsync</code>, then annotates each entry by the same mapping lookups <em>without
+  writing</em>: <span class="tag new">new</span> (no mapping), <span class="tag existing">mapped</span>
+  (mapping exists, fields match), <span class="tag gap">changed</span> (mapping exists, name/amount
+  differs). This is what powers the operator's "preview what's available, then select" experience and
+  lets them see a re-import would be a no-op before committing.
+</p>
+
+<h3 id="import-conc">8.3 Idempotency under concurrency</h3>
+<p>
+  The lookup-then-insert is correct for sequential re-runs (a clean no-op). Two <em>concurrent</em>
+  imports of the same connector could both miss the lookup and then collide on the mapping's unique
+  index <code>(TenantId, ConnectorId, CatalogBillerId, CatalogBillerServiceId)</code> &mdash; SQL Server
+  allows only one row with a <code>NULL</code> <code>CatalogBillerServiceId</code> per
+  <code>(Tenant, Connector, Biller)</code>, so the second insert throws <code>DbUpdateException</code>.
+  <strong>Mitigation:</strong> catch the unique-violation and re-resolve as an update (the same
+  lookup-then-insert race documented for the webhook inbox in
+  <a href="037.flutterwave-partner-connector.html">Spec&nbsp;037</a> §4). For an operator-triggered
+  admin action, a coarse per-(tenant, connector) import lock is also acceptable and simpler.
+</p>
+
+<h3 id="import-index">8.4 Recommended index (optional migration)</h3>
+<p>
+  The biller-level identity lookup is by <code>(TenantId, ConnectorId, ProviderBillerCode)</code>, which
+  the existing unique index does not cover (it keys on <code>CatalogBillerId</code>, not the provider
+  code). The import is <em>correct</em> without a new index (the query just scans the tenant's mappings
+  for that connector), but for performance and a hard uniqueness guarantee, a unique index on
+  <code>(TenantId, ConnectorId, ProviderBillerCode, ProviderItemCode)</code> is recommended. <strong>If
+  taken, it MUST be generated by <code>dotnet ef migrations add</code> against
+  <code>AonikDbContext</code></strong> and reviewed before commit &mdash; never hand-authored
+  (<a href="../../CLAUDE.md">CLAUDE.md</a>, "Migrations Must Be Tool-Generated Only"). Raised as O1.
+</p>
+
+<h2 id="api">9. Endpoints</h2>
+<p>FastEndpoints, gated with the <code>AdminUserWritePolicy</code> the existing catalog writes use
+  (<code>Catalog.Write</code>). Tag <code>Product Catalog</code>.</p>
+
+<table>
+  <thead><tr><th>Endpoint</th><th>Body</th><th>Returns</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>POST /catalog/billers/import/preview</code></td>
+      <td><code>{ connectorId, categoryCode?, country? }</code></td>
+      <td><code>BillerImportPreviewResponse</code> &mdash; entries with <code>importStatus</code> (New / Mapped / Changed), category, services, amounts.</td>
+    </tr>
+    <tr>
+      <td><code>POST /catalog/billers/import</code></td>
+      <td><code>{ connectorId, entries[] }</code> (the operator's selection)</td>
+      <td><code>BillerImportSummaryResponse</code> &mdash; <code>{ billersCreated, billersUpdated, servicesCreated, servicesUpdated, deactivated }</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Agent-tool note (Spec 032)</span>
+  If biller import is ever exposed as an agent tool, it is a <strong>medium</strong>-risk domain write
+  (reference data, no money movement) &mdash; it would route through the tool-approval gate's
+  in-session-confirmation tier, not the durable-proposal (high) tier reserved for money tools. As an
+  Admin UI action it is simply <code>Catalog.Write</code>-gated. Not built here; noted so the
+  classification is unambiguous later.
+</div>
+
+<h2 id="ui">10. Admin UI</h2>
+<p>
+  An <em>Import from partner</em> button on
+  <a href="../../src/Aonik.AdminUi/src/pages/catalog/CatalogBillersPage.tsx"><code>CatalogBillersPage</code></a>
+  opens a multi-step dialog modelled on
+  <a href="../../src/Aonik.AdminUi/src/components/dialogs/ImportDemoDataDialog.tsx"><code>ImportDemoDataDialog</code></a>:
+</p>
+<ol>
+  <li><strong>Source</strong> &mdash; pick a configured partner connector (a Flutterwave connector row).</li>
+  <li><strong>Preview</strong> &mdash; call <code>/import/preview</code>; render the catalogue grouped
+  by category with per-row status chips (New / Mapped / Changed) and checkboxes; "select all new" /
+  category filters.</li>
+  <li><strong>Confirm</strong> &mdash; show counts ("12 new, 3 updated"), call <code>/import</code>,
+  then refresh the billers list.</li>
+</ol>
+<p>
+  New client <code>src/Aonik.AdminUi/src/services/billerImportService.ts</code> with
+  <code>preview()</code> / <code>import()</code> over <code>lib/api.ts</code> (auth + tenant headers are
+  automatic). Detailed visual design is deferred to implementation; the patterns are established.
+</p>
+
+<h2 id="di">11. DI, config &amp; secrets</h2>
+<p>
+  Mirror the v4 Flutterwave block in
+  <a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a> (lines 157&ndash;176),
+  but for the v3 bills transport. Register the bill connector against
+  <code>IPartnerBillPaymentConnector</code> <strong>alongside</strong> the simulated one (distinct
+  <code>ProviderCode</code>s, so coexistence is safe); register the import service.
+</p>
+<pre><code>// ── Flutterwave bills connector (Spec 040) ──────────────────
+services.Configure&lt;FlutterwaveBillsOptions&gt;(configuration.GetSection("Finance:Partners:Flutterwave:Bills"));
+services.AddScoped&lt;IFlutterwaveBillsConfigProvider, FlutterwaveBillsConfigProvider&gt;();
+services.AddTransient&lt;FlutterwaveBillsAuthHandler&gt;();                       // stamps the static secret key
+services.AddHttpClient&lt;FlutterwaveBillsClient&gt;().AddHttpMessageHandler&lt;FlutterwaveBillsAuthHandler&gt;();
+services.AddTransient&lt;IPartnerBillPaymentConnector, FlutterwaveBillPaymentConnector&gt;();  // alongside Simulated
+
+// Import service
+services.AddScoped&lt;IBillerImportService, BillerImportService&gt;();</code></pre>
+<p>New keys in <code>PartnerGatewaySettingNames</code> (read at runtime via <code>ISettingProvider</code>,
+  appsettings fallback, secret via environment / user-secrets):</p>
+<pre><code>Finance.Partners.Flutterwave.Bills.Enabled
+Finance.Partners.Flutterwave.Bills.BaseUrl     // default https://api.flutterwave.com/v3
+Finance.Partners.Flutterwave.Bills.SecretKey   // FLWSECK-... — never committed</code></pre>
+<p>
+  The connector fails closed when not configured (<code>FlutterwaveBillsOptions.IsConfigured()</code>
+  false &rarr; <code>FlutterwaveException("CONFIGURATION")</code>), exactly as the payout connector does
+  &mdash; so registering it unconditionally is safe; it is simply unusable until an operator supplies
+  the secret key in <em>Settings &rarr; Payment Gateways</em>.
+</p>
+
+<h2 id="tasks">12. Tasks</h2>
+<ol>
+  <li><span class="tag new">New</span> <code>FlutterwaveBillsOptions</code> (+ <code>IsConfigured()</code>),
+  <code>IFlutterwaveBillsConfigProvider</code> / <code>FlutterwaveBillsConfigProvider</code>,
+  <code>FlutterwaveBillsAuthHandler</code>, <code>FlutterwaveBillsClient</code> (v3 envelope + error map).</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveBillPaymentConnector</code> &mdash;
+  <code>GetBillerCatalogAsync</code> first (the import read), then the pay-path methods.</li>
+  <li><span class="tag mutate">Edit</span> <code>PartnerGatewaySettingNames</code> + <code>appsettings.json</code>
+  (empty <code>Finance:Partners:Flutterwave:Bills</code> section).</li>
+  <li><span class="tag new">New</span> Import DTOs in <code>Contracts/Models/Catalog/</code>
+  (preview request/response + import request/summary).</li>
+  <li><span class="tag new">New</span> <code>IBillerImportService</code> / <code>BillerImportService</code>
+  (preview + idempotent upsert, &sect;8).</li>
+  <li><span class="tag new">New</span> <code>PreviewBillerImportEndpoint</code>,
+  <code>ImportBillersEndpoint</code> (Catalog.Write).</li>
+  <li><span class="tag mutate">Edit</span> <code>FinanceModule.ConfigureServices</code> (DI block + import service).</li>
+  <li><span class="tag new">New</span> Admin UI: <code>billerImportService.ts</code> + import dialog;
+  <em>Import from partner</em> button on <code>CatalogBillersPage</code>.</li>
+  <li><span class="tag new">New</span> Tests: catalogue mapping, happy-path import, idempotent re-import
+  (0 created / N updated), upsert of changed name/amount, soft-deactivation of dropped biller, partner
+  500, timeout.</li>
+  <li><span class="tag open">Decide</span> O1 &mdash; if adding the provider-code unique index, generate
+  the migration with <code>dotnet ef migrations add</code> against <code>AonikDbContext</code>, review,
+  then <code>database update</code>.</li>
+</ol>
+
+<h2 id="acceptance">13. Acceptance criteria</h2>
+<ul>
+  <li><strong>Connector.</strong> A configured <code>FlutterwaveBillPaymentConnector</code> resolves via
+  <code>ResolveBillPaymentConnector("Flutterwave")</code> while <code>"Simulated"</code> still resolves
+  the fake; <code>GetBillerCatalogAsync</code> calls v3
+  <code>top-bill-categories</code>/<code>billers</code> and returns normalized
+  <code>BillerCatalogEntry</code> items with correct <code>ServiceCategory</code> and
+  <code>AmountType</code>.</li>
+  <li><strong>Version isolation.</strong> The bill connector uses a v3 secret-key client distinct from
+  the v4 OAuth payout client; no shared transport. Not-configured &rarr; fails closed.</li>
+  <li><strong>Preview.</strong> <code>/import/preview</code> returns the live catalogue with each entry
+  tagged New / Mapped / Changed and persists nothing.</li>
+  <li><strong>Idempotent.</strong> Importing the same selection twice yields
+  <code>billersCreated == 0</code> and no duplicate <code>CatalogBiller</code> /
+  <code>CatalogBillerService</code> / <code>ConnectorBillerMapping</code> rows.</li>
+  <li><strong>Upsert.</strong> A changed provider name/amount updates the existing rows in place;
+  identity is preserved through the mapping.</li>
+  <li><strong>Soft-deactivate.</strong> A biller the partner drops becomes <code>IsActive = false</code>
+  on the next import; nothing is hard-deleted.</li>
+  <li><strong>Invariant held.</strong> <code>CatalogBillerService.ServiceCode</code> is an AONIK logical
+  code; provider codes appear only in <code>ConnectorBillerMapping</code>.</li>
+  <li><strong>No migration</strong> (unless O1 is taken, and then tool-generated).</li>
+  <li><strong>Tests</strong> cover happy path + idempotent re-run + upsert + deactivate + partner 500 +
+  timeout.</li>
+</ul>
+
+<h2 id="open">14. Open decisions</h2>
+<table>
+  <thead><tr><th>#</th><th>Decision</th><th>Recommendation</th></tr></thead>
+  <tbody>
+    <tr><td>O1</td><td>Add a unique index on <code>(TenantId, ConnectorId, ProviderBillerCode, ProviderItemCode)</code> for the idempotency lookup?</td><td>Yes &mdash; index seek + hard guarantee. Tool-generate the migration (&sect;8.4).</td></tr>
+    <tr><td>O2</td><td>Should import depth expand every biller's products (N+1 calls) or use only the dense <code>top-bill-categories</code> rows?</td><td>Expand lazily &mdash; one item per biller from categories at preview, full products only for selected billers at import, to bound API calls.</td></tr>
+    <tr><td>O3</td><td>Scheduled re-sync (Quartz) later?</td><td>Defer. The upsert is built to be re-run safely; wrapping it in a job is additive.</td></tr>
+    <tr><td>O4</td><td>Track import provenance (a <code>LastSyncedAt</code> / <code>Source</code> column)?</td><td>Not required for idempotency (the per-run "seen" set drives deactivation). Add only if operators need audit of last-sync time &mdash; would be a tool-generated migration.</td></tr>
+    <tr><td>O5</td><td>Pre- or post-launch given the remittance wedge freeze?</td><td>Product call. Default: post remittance GA (P2).</td></tr>
+    <tr><td>O6</td><td>Confirm exact v3 verbs/paths (validate GET vs POST; billers path) against the live reference.</td><td>Verify in sandbox at implementation; isolated in one client file.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="refs">15. References</h2>
+<ul>
+  <li><a href="031.partner-integration-abstraction.html">Spec 031 &mdash; Partner integration abstraction</a> (ports, resolver, capability model, <code>ConnectorBillerMapping</code>).</li>
+  <li><a href="037.flutterwave-partner-connector.html">Spec 037 &mdash; Flutterwave partner connector (v4)</a> (v3-vs-v4 split, the "no v4 bill endpoints" finding, transport/auth precedent).</li>
+  <li><a href="038.admin-partner-connector-configuration.html">Spec 038 &mdash; Admin partner connector configuration</a> (settings + secrets surface).</li>
+  <li><a href="032.tiered-ai-mutation-approval.html">Spec 032 &mdash; Tiered AI mutation approval</a> (medium-tier classification of catalogue writes).</li>
+  <li>Flutterwave Bills API &mdash; <a href="https://developer.flutterwave.com/docs/bill-payment">developer.flutterwave.com/docs/bill-payment</a>, <a href="https://developer.flutterwave.com/reference/biller-types-for-data-bundles">biller types</a>, and the v3 SDK Bills docs (field shapes in &sect;5).</li>
+  <li>In-repo: <a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerBillPaymentConnector.cs"><code>IPartnerBillPaymentConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/Connectors/SimulatedPartnerConnector.cs"><code>SimulatedPartnerConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/Connectors/Flutterwave/FlutterwavePayoutConnector.cs"><code>FlutterwavePayoutConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Partners/ConnectorBillerMapping.cs"><code>ConnectorBillerMapping.cs</code></a>, <a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a>.</li>
+</ul>
+
+<footer>
+  Spec 040 · Partner biller catalogue import (Flutterwave v3 bills) · Draft · 2026-06-07 ·
+  Domain: Finance / Partners / Catalog · Grounded against the in-repo abstraction and the live
+  Flutterwave Bills API documentation.
+</footer>
+
+</body>
+</html>
