@@ -3,6 +3,7 @@ using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Ledger;
+using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Ledger;
@@ -64,6 +65,40 @@ public class PaymentServiceTests
         return new FinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
+    private static PaymentService CreateService(FinanceDbContext context, Guid tenantId) =>
+        new(
+            context,
+            new TestTenantProvider(tenantId),
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()),
+            new FinanceMetrics(),
+            new LedgerPostingService(context));
+
+    // A payment intent always funds an order, and the service now resolves the payer from
+    // that order, so tests must seed a real order to create an intent against.
+    private static async Task<Order> SeedOrderAsync(
+        FinanceDbContext context,
+        Guid tenantId,
+        Guid? payerPartyId = null)
+    {
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            OrderType = "BillPayment",
+            PayerPartyId = payerPartyId,
+            AmountIn = 100m,
+            CurrencyIn = "USD",
+            Status = "Draft",
+            FeesJson = "[]",
+            ProvenanceJson = "{}"
+        };
+
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+        return order;
+    }
+
     [Fact]
     public async Task CreatePaymentIntentAsync_ShouldCreatePaymentIntent()
     {
@@ -78,8 +113,9 @@ public class PaymentServiceTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
             new LedgerPostingService(context));
-        var orderId = Guid.NewGuid();
-        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", orderId, null);
+        var payerPartyId = Guid.NewGuid();
+        var order = await SeedOrderAsync(context, tenantId, payerPartyId);
+        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", order.Id, null);
 
         // Act
         var result = await service.CreatePaymentIntentAsync(request);
@@ -87,7 +123,7 @@ public class PaymentServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().NotBeEmpty();
-        result.OrderId.Should().Be(orderId);
+        result.OrderId.Should().Be(order.Id);
         result.Amount.Should().Be(100.00m);
         result.Currency.Should().Be("USD");
         result.Reference.Should().Be("ORDER-001");
@@ -97,6 +133,8 @@ public class PaymentServiceTests
         var savedPayment = await context.PaymentIntents.FirstOrDefaultAsync(p => p.Id == result.Id);
         savedPayment.Should().NotBeNull();
         savedPayment!.Amount.Should().Be(100.00m);
+        savedPayment.PayerPartyId.Should().Be(payerPartyId); // resolved from the order, not Guid.Empty
+        savedPayment.PaymentMethodType.Should().BeNull();     // no silent "Card" default
     }
 
     [Fact]
@@ -113,8 +151,8 @@ public class PaymentServiceTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
             new LedgerPostingService(context));
-        var orderId = Guid.NewGuid();
-        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", orderId, null);
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", order.Id, null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Act
@@ -123,7 +161,7 @@ public class PaymentServiceTests
         // Assert
         result.Should().NotBeNull();
         result!.Id.Should().Be(created.Id);
-        result.OrderId.Should().Be(orderId);
+        result.OrderId.Should().Be(order.Id);
         result.Amount.Should().Be(250.00m);
         result.Currency.Should().Be("EUR");
     }
@@ -164,7 +202,8 @@ public class PaymentServiceTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
             new LedgerPostingService(context));
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", Guid.NewGuid(), null);
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", order.Id, null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Authorize the payment first (set status directly since entities are anemic)
@@ -241,7 +280,8 @@ public class PaymentServiceTests
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
             new LedgerPostingService(context));
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", Guid.NewGuid(), null);
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", order.Id, null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Act
@@ -273,5 +313,145 @@ public class PaymentServiceTests
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Payment intent with ID * not found");
+    }
+
+    [Fact]
+    public async Task CreatePaymentIntentAsync_Should_PreferExplicitPayerOverride_When_Supplied()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        var orderPayer = Guid.NewGuid();
+        var overridePayer = Guid.NewGuid();
+        var order = await SeedOrderAsync(context, tenantId, orderPayer);
+        var request = new CreatePaymentIntentRequest(
+            100m, "USD", "ORDER-OVR", order.Id, null, PayerPartyId: overridePayer);
+
+        // Act
+        var result = await service.CreatePaymentIntentAsync(request);
+
+        // Assert
+        var saved = await context.PaymentIntents.FirstAsync(p => p.Id == result.Id);
+        saved.PayerPartyId.Should().Be(overridePayer); // explicit override wins over the order's payer
+    }
+
+    [Fact]
+    public async Task CreatePaymentIntentAsync_Should_PersistNullPayer_When_OrderHasNoPayer()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        var order = await SeedOrderAsync(context, tenantId, payerPartyId: null);
+        var request = new CreatePaymentIntentRequest(100m, "USD", "ORDER-NP", order.Id, null);
+
+        // Act
+        var result = await service.CreatePaymentIntentAsync(request);
+
+        // Assert
+        var saved = await context.PaymentIntents.FirstAsync(p => p.Id == result.Id);
+        saved.PayerPartyId.Should().BeNull(); // genuine absence, never the Guid.Empty placeholder
+    }
+
+    [Fact]
+    public async Task CreatePaymentIntentAsync_Should_PersistMethod_When_Supplied()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var request = new CreatePaymentIntentRequest(
+            100m, "USD", "ORDER-PM", order.Id, null, PaymentMethodType: "BankTransfer");
+
+        // Act
+        var result = await service.CreatePaymentIntentAsync(request);
+
+        // Assert
+        var saved = await context.PaymentIntents.FirstAsync(p => p.Id == result.Id);
+        saved.PaymentMethodType.Should().Be("BankTransfer");
+    }
+
+    [Fact]
+    public async Task CreatePaymentIntentAsync_Should_Throw_When_OrderNotFound()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        var request = new CreatePaymentIntentRequest(100m, "USD", "ORDER-MISSING", Guid.NewGuid(), null);
+
+        // Act
+        var act = async () => await service.CreatePaymentIntentAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Order with ID * not found");
+    }
+
+    [Fact]
+    public async Task AuthorizePaymentAsync_Should_Throw_When_PayerUnresolved()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        // Order has no payer; a method is supplied so only the payer guard can trip.
+        var order = await SeedOrderAsync(context, tenantId, payerPartyId: null);
+        var created = await service.CreatePaymentIntentAsync(
+            new CreatePaymentIntentRequest(100m, "USD", "ORDER-NOPAYER", order.Id, null, PaymentMethodType: "Card"));
+
+        // Act
+        var act = async () => await service.AuthorizePaymentAsync(created.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*no resolved payer*");
+    }
+
+    [Fact]
+    public async Task AuthorizePaymentAsync_Should_Throw_When_MethodMissing()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        // Order has a payer, but no method was supplied at creation.
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var created = await service.CreatePaymentIntentAsync(
+            new CreatePaymentIntentRequest(100m, "USD", "ORDER-NOMETHOD", order.Id, null));
+
+        // Act
+        var act = async () => await service.AuthorizePaymentAsync(created.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*no payment method*");
+    }
+
+    [Fact]
+    public async Task AuthorizePaymentAsync_Should_Authorize_When_PayerAndMethodPresent()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId);
+
+        var order = await SeedOrderAsync(context, tenantId, Guid.NewGuid());
+        var created = await service.CreatePaymentIntentAsync(
+            new CreatePaymentIntentRequest(100m, "USD", "ORDER-OK", order.Id, null, PaymentMethodType: "Card"));
+
+        // Act
+        var result = await service.AuthorizePaymentAsync(created.Id);
+
+        // Assert
+        result.Status.Should().Be(PaymentStatus.Authorized);
     }
 }

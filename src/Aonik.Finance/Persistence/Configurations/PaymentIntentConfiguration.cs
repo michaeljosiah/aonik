@@ -32,8 +32,9 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
             .IsRequired()
             .HasMaxLength(50);
 
+        // Nullable: a draft intent may not yet have a resolved rail. A concrete
+        // method is enforced by PaymentService at the authorize (money-movement) step.
         builder.Property(x => x.PaymentMethodType)
-            .IsRequired()
             .HasMaxLength(50);
 
         // ── Partner-collection linkage (spec 031) ───────────────────────────

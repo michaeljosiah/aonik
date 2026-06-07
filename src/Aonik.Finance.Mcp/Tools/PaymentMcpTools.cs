@@ -21,7 +21,7 @@ public static class PaymentMcpTools
         return await paymentService.GetPaymentIntentAsync(paymentIntentId, cancellationToken);
     }
 
-    [McpServerTool(Name = "finance_create_payment_intent"), Description("Creates a new payment intent for an order. Links to an optional invoice.")]
+    [McpServerTool(Name = "finance_create_payment_intent"), Description("Creates a new payment intent for an order. The payer is resolved from the order. Links to an optional invoice.")]
     public static async Task<PaymentIntentResponse> CreatePaymentIntent(
         IPaymentService paymentService,
         [Description("Payment amount")] decimal amount,
@@ -29,9 +29,10 @@ public static class PaymentMcpTools
         [Description("Payment reference string")] string reference,
         [Description("The order ID this payment is for")] Guid orderId,
         [Description("Optional invoice ID to link to")] Guid? invoiceId = null,
+        [Description("Optional funding rail (e.g. Card, BankTransfer). Required before the intent can be authorized.")] string? paymentMethodType = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new CreatePaymentIntentRequest(amount, currency, reference, orderId, invoiceId);
+        var request = new CreatePaymentIntentRequest(amount, currency, reference, orderId, invoiceId, PaymentMethodType: paymentMethodType);
         return await paymentService.CreatePaymentIntentAsync(request, cancellationToken);
     }
 

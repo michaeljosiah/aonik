@@ -54,10 +54,11 @@ public class AuthorizationPolicyTests : IClassFixture<CustomWebApplicationFactor
     public async Task MutatingFinanceEndpoint_Should_Succeed_When_RoleIsOperations()
     {
         // Arrange — an Operations operator (in the write policy) with the write permission.
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithRoles("Operations").WithPermissions("Payment.Create"));
+        var options = TestAuthOptions.Create().WithRoles("Operations").WithPermissions("Payment.Create");
+        var client = await _factory.CreateAuthenticatedClientAsync(options);
+        var orderId = await _factory.SeedOrderAsync(options.TenantId!.Value, payerPartyId: Guid.NewGuid());
 
-        var request = new CreatePaymentIntentRequest(100.00m, "USD", "AUTHZ-OPS", Guid.NewGuid(), null);
+        var request = new CreatePaymentIntentRequest(100.00m, "USD", "AUTHZ-OPS", orderId, null, PaymentMethodType: "Card");
 
         // Act — identical call to the ReadOnly case above; only the role differs.
         var response = await client.PostAsJsonAsync("/payments/intents", request);
@@ -70,10 +71,11 @@ public class AuthorizationPolicyTests : IClassFixture<CustomWebApplicationFactor
     public async Task MutatingFinanceEndpoint_Should_NotReturnForbidden_When_RoleIsPersonalUser()
     {
         // Arrange — a Payabo (B2C) self-service principal (retained in the write policy).
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithRoles("PersonalUser").WithPermissions("Payment.Create"));
+        var options = TestAuthOptions.Create().WithRoles("PersonalUser").WithPermissions("Payment.Create");
+        var client = await _factory.CreateAuthenticatedClientAsync(options);
+        var orderId = await _factory.SeedOrderAsync(options.TenantId!.Value, payerPartyId: Guid.NewGuid());
 
-        var request = new CreatePaymentIntentRequest(100.00m, "USD", "AUTHZ-PU", Guid.NewGuid(), null);
+        var request = new CreatePaymentIntentRequest(100.00m, "USD", "AUTHZ-PU", orderId, null, PaymentMethodType: "Card");
 
         // Act
         var response = await client.PostAsJsonAsync("/payments/intents", request);

@@ -224,6 +224,31 @@ public class FinanceProposalHandlersTests
     }
 
     [Fact]
+    public async Task CreateIntent_Should_ForwardPaymentMethod_When_PayloadIncludesIt()
+    {
+        var orderId = Guid.NewGuid();
+        CreatePaymentIntentRequest? captured = null;
+        var payment = new Mock<IPaymentService>();
+        payment.Setup(p => p.CreatePaymentIntentAsync(It.IsAny<CreatePaymentIntentRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<CreatePaymentIntentRequest, CancellationToken>((r, _) => captured = r)
+            .ReturnsAsync(Intent(Guid.NewGuid(), PaymentStatus.Pending));
+
+        var handler = new CreatePaymentIntentProposalHandler(payment.Object);
+        var result = await handler.HandleAsync(
+            Proposal(CreatePaymentIntentProposalHandler.ProposalTypeKey, PayloadJson(
+                ("amount", 100.50m),
+                ("currency", "USD"),
+                ("reference", "ord-ref-1"),
+                ("orderId", orderId),
+                ("paymentMethodType", "BankTransfer"))),
+            CancellationToken.None);
+
+        result.Applied.Should().BeTrue();
+        captured.Should().NotBeNull();
+        captured!.PaymentMethodType.Should().Be("BankTransfer"); // the agent-supplied rail is not dropped
+    }
+
+    [Fact]
     public async Task CreateIntent_Should_FailClosedWithoutTouchingService_When_PayloadMissingFields()
     {
         var payment = new Mock<IPaymentService>(MockBehavior.Strict);

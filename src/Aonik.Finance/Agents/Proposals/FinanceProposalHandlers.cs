@@ -343,7 +343,13 @@ internal sealed class CreatePaymentIntentProposalHandler : IProposalHandler
                         Message: "Proposal payload is missing required fields (amount, currency, reference, orderId).");
                 }
 
-                request = new CreatePaymentIntentRequest(amount, currency, reference, orderId, invoiceId);
+                // Optional: an absent/blank method is a legitimate "no rail yet" (null) — it is
+                // enforced later at authorize, not dropped here. The payer resolves from the order.
+                FinanceProposalPayload.TryGetString(root, "paymentMethodType", out var paymentMethodType);
+
+                request = new CreatePaymentIntentRequest(
+                    amount, currency, reference, orderId, invoiceId,
+                    PaymentMethodType: string.IsNullOrWhiteSpace(paymentMethodType) ? null : paymentMethodType);
             }
         }
         catch (JsonException ex)

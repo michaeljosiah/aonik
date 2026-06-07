@@ -7,13 +7,26 @@ public class PaymentIntent : AuditableEntity, ITenantScoped
     public Guid TenantId { get; set; }
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
-    public Guid PayerPartyId { get; set; }
+
+    /// <summary>
+    /// Party funding the payment, resolved from the linked order (the canonical
+    /// holder of the payer) or an explicit override. Null models a genuine "no
+    /// payer yet" draft — it is never written as <c>Guid.Empty</c>. A real payer
+    /// is required before the intent can be authorized (the money-movement step).
+    /// </summary>
+    public Guid? PayerPartyId { get; set; }
     public Guid? PayeePartyId { get; set; }
     public Guid OrderId { get; set; }
     public Guid? InvoiceId { get; set; }
     public string PurposeType { get; set; } = string.Empty;
     public Guid PurposeId { get; set; }
-    public string PaymentMethodType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Rail used to fund the payment (e.g. "Card", "BankTransfer"). Null models an
+    /// unspecified method on a draft — it is never silently defaulted to "Card". A
+    /// concrete method is required before the intent can be authorized.
+    /// </summary>
+    public string? PaymentMethodType { get; set; }
     public string? PaymentMethodRef { get; set; }
 
     /// <summary>
