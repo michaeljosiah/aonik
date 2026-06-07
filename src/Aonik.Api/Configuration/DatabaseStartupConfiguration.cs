@@ -79,10 +79,11 @@ public static class DatabaseStartupConfiguration
     /// <c>Database:SeedData</c> configuration.
     /// </summary>
     /// <remarks>
-    /// Errors here log a warning and continue rather than crashing the
-    /// process — a transient SQL outage at startup shouldn't take the API
-    /// down for the lifetime of its container, and a re-run on the next
-    /// pod cycle will recover.
+    /// Migration or seed failures are fatal by default: the process exits
+    /// non-zero so orchestration can halt the rollout and prevent traffic
+    /// from hitting a half-migrated schema. Set <c>Database:AllowDegradedStart</c>
+    /// to <c>true</c> to opt in to the old swallow-and-continue behaviour
+    /// (e.g. a local dev box where the database is intentionally offline).
     /// </remarks>
     public static async Task InitializeAonikDatabaseAsync(this WebApplication app)
     {
@@ -95,6 +96,8 @@ public static class DatabaseStartupConfiguration
         {
             return;
         }
+
+        var allowDegradedStart = app.Configuration.GetValue<bool>("Database:AllowDegradedStart");
 
         using var scope = app.Services.CreateScope();
         var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<WebApplication>>();
@@ -112,9 +115,11 @@ public static class DatabaseStartupConfiguration
                 await RunSeedRoutinesAsync(scope.ServiceProvider, platformDbContext, startupLogger);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (allowDegradedStart)
         {
-            startupLogger.LogWarning(ex, "Skipping database initialization due to connectivity issues.");
+            startupLogger.LogWarning(ex,
+                "Database initialization failed; continuing because Database:AllowDegradedStart is set. " +
+                "The API may behave incorrectly against a partial schema.");
         }
     }
 
