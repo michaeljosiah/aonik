@@ -181,9 +181,14 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
 
         if (existing is not null)
         {
+            // Resume rather than blindly return: a prior attempt may have crashed/failed between any two
+            // commits (order saved but debit not posted, dispatched but not settled, …). Driving the order
+            // forward is idempotent, so a replay completes a stranded send instead of returning it half-done.
             activity?.SetTag(FinanceActivitySource.OrderIdTag, existing.Id);
-            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.SkippedIdempotent);
-            return await BuildResponseAsync(existing, cancellationToken);
+            var resumed = await DriveRemittanceAsync(existing, cancellationToken);
+            activity?.SetTag(FinanceActivitySource.OutcomeTag,
+                existing.Status == OrderStatuses.Failed ? MoneyActionOutcomes.Failed : MoneyActionOutcomes.Success);
+            return resumed;
         }
 
         // Load + validate the locked inputs.
@@ -233,9 +238,10 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
                 $"Unsupported payout destination type '{account.DestinationType}'.");
         }
 
-        // Resolve the payout connector route. Prefer an explicit provider, then capability routing,
-        // then the simulated fallback (Spec 036 §6.4 step 5).
-        var (connector, providerCode) = ResolvePayoutConnector(request.ProviderCode, quote, account.DestinationType);
+        // Resolve the payout route now to fail fast if none exists; the actual connector is re-resolved
+        // from the stored ProviderCode at dispatch time (so a resumed confirm routes identically). Prefer
+        // an explicit provider, then capability routing, then the simulated fallback (Spec 036 §6.4 step 5).
+        var (_, providerCode) = ResolvePayoutConnector(request.ProviderCode, quote, account.DestinationType);
         // The simulated connector is keyed by ProviderCode and has no Connector row; a persistent
         // ProviderCode → Connector.Id mapping is a follow-up. Guid.Empty marks "unmapped" today.
         var connectorId = Guid.Empty;
@@ -417,54 +423,15 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             return await BuildResponseAsync(winner, cancellationToken);
         }
 
-        // Ordering invariant: post the customer debit BEFORE the connector call. If it fails, mark the
-        // order failed and do NOT instruct the partner.
-        try
-        {
-            await _ledgerPostingService.PostRemittanceDebitAsync(
-                tenantId, orderId, quote.TotalAmount, quote.OriginCurrency, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            order.Status = OrderStatuses.Failed;
-            order.Items[0].Status = ItemFailed;
-            await _db.SaveChangesAsync(cancellationToken);
-            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Failed);
-            _logger.OrderRejected(orderId, tenantId, $"Remittance debit failed: {ex.Message}");
-            throw;
-        }
-
         _logger.OrderConfirmed(orderId, tenantId, RemittanceOrderType, quote.Id);
 
-        // The pre-dispatch state is committed; the connector call is made outside any DB transaction.
-        var instruction = BuildPayoutInstruction(clientReference, quote, account, request, tenantId, orderId, orderItemId, payoutId);
-
-        PartnerTransactionStatus resultStatus;
-        PartnerReference? reference = null;
-        RawProviderResponse? raw = null;
-        string? failure = null;
-
-        try
-        {
-            var result = await connector.InitiatePayoutAsync(instruction, cancellationToken);
-            resultStatus = result.Status;
-            reference = result.Reference;
-            raw = result.Raw;
-        }
-        catch (Exception ex)
-        {
-            resultStatus = PartnerTransactionStatus.Failed;
-            failure = ex.Message;
-            _logger.PaymentTransmitFailed(orderId, tenantId, providerCode, ex.Message, ex);
-        }
-
-        await ApplyConnectorResultAsync(
-            order, payout, connectorId, clientReference, resultStatus, reference, raw, failure, providerCode, now, cancellationToken);
-
+        // Drive the freshly-created order to completion (post debit → dispatch → settle). The same driver
+        // resumes a replayed order, so the first attempt and a retry share one idempotent path and the
+        // order/payout/debit pre-connector state is never left committed without the rest of the flow.
+        var response = await DriveRemittanceAsync(order, cancellationToken);
         activity?.SetTag(FinanceActivitySource.OutcomeTag,
             order.Status == OrderStatuses.Failed ? MoneyActionOutcomes.Failed : MoneyActionOutcomes.Success);
-
-        return await BuildResponseAsync(order, cancellationToken);
+        return response;
     }
 
     // ── Get ──────────────────────────────────────────────────────────────────
@@ -648,63 +615,143 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
 
     // ── Internals ──────────────────────────────────────────────────────────────
 
-    private async Task ApplyConnectorResultAsync(
-        Order order,
-        Payout payout,
-        Guid connectorId,
-        string clientReference,
-        PartnerTransactionStatus status,
-        PartnerReference? reference,
-        RawProviderResponse? raw,
-        string? failure,
-        string providerCode,
-        DateTime now,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Drives a remittance order to completion from whatever committed state it is in — used by both the
+    /// first confirm and an idempotent replay. Every step is idempotent (the debit, settlement and reversal
+    /// dedupe on their ledger source key; a recorded transmission means the connector was already called),
+    /// so a confirm that crashed between any two commits is completed by the next replay rather than left
+    /// stranded. Money invariants: the debit posts before any connector call, and the order is marked
+    /// terminal only after its settlement/reversal ledger entry is committed.
+    /// </summary>
+    private async Task<RemittanceOrderResponse> DriveRemittanceAsync(Order order, CancellationToken cancellationToken)
     {
-        var item = order.Items[0];
+        if (OrderStatuses.IsTerminal(order.Status))
+        {
+            return await BuildResponseAsync(order, cancellationToken);
+        }
+
+        var item = order.Items.OrderBy(i => i.ItemIndex).FirstOrDefault()
+            ?? throw new InvalidOperationException("Remittance order has no line item.");
+        var details = TryDeserializeDetails(item.DetailsJson)
+            ?? throw new InvalidOperationException("Remittance order is missing its locked details.");
+        var payout = await _db.Payouts.FirstOrDefaultAsync(p => p.OrderItemId == item.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Remittance order has no payout to fulfil it.");
+
+        using var orderScope = _logger.BeginOrderScope(order.Id);
+
+        // 1. Customer debit — before any connector call, idempotent on (tenant, RemittanceDebit, orderId).
+        await _ledgerPostingService.PostRemittanceDebitAsync(
+            order.TenantId, order.Id, details.TotalAmount, details.OriginCurrency, cancellationToken);
+
+        // 2. A recorded transmission is durable proof the connector was already called: reconcile the
+        //    ledger from its result instead of re-dispatching. Otherwise dispatch now.
+        var transmission = await _db.Transmissions
+            .Where(t => t.PayoutId == payout.Id)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (transmission is null)
+        {
+            await DispatchRemittanceAsync(order, item, payout, details, cancellationToken);
+        }
+        else
+        {
+            await ApplyTerminalResultAsync(order, item, payout, details, ParseStatus(transmission.Status), cancellationToken);
+        }
+
+        return await BuildResponseAsync(order, cancellationToken);
+    }
+
+    private async Task DispatchRemittanceAsync(
+        Order order, OrderItem item, Payout payout, RemittanceOrderDetails details, CancellationToken cancellationToken)
+    {
+        var account = await _db.ExternalPayoutAccounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == details.DestinationExternalAccountId, cancellationToken)
+            ?? throw new InvalidOperationException("Destination payout account no longer exists; cannot dispatch.");
+
+        var connector = _connectorResolver.ResolvePayoutConnector(details.ProviderCode);
+        var instruction = BuildPayoutInstruction(
+            payout.ClientReference, details, account, order.TenantId, order.Id, item.Id, payout.Id);
+
+        PartnerTransactionStatus status;
+        PartnerReference? reference = null;
+        RawProviderResponse? raw = null;
+        string? failure = null;
+
+        try
+        {
+            var result = await connector.InitiatePayoutAsync(instruction, cancellationToken);
+            status = result.Status;
+            reference = result.Reference;
+            raw = result.Raw;
+        }
+        catch (Exception ex)
+        {
+            status = PartnerTransactionStatus.Failed;
+            failure = ex.Message;
+            _logger.PaymentTransmitFailed(order.Id, order.TenantId, details.ProviderCode, ex.Message, ex);
+        }
+
+        // Record the transmission FIRST so a resumed confirm never re-dispatches; the connector is also
+        // idempotent on ClientReference (the key we send the partner) as the cross-process backstop.
         payout.Status = status.ToString();
         payout.ProviderReference = reference?.ProviderReference ?? string.Empty;
-
-        var transmission = new Transmission
+        _db.Transmissions.Add(new Transmission
         {
             Id = Guid.NewGuid(),
             TenantId = order.TenantId,
             PayoutId = payout.Id,
-            ConnectorId = connectorId,
-            IdempotencyKey = clientReference,
+            ConnectorId = details.ConnectorId,
+            IdempotencyKey = payout.ClientReference,
             ProviderReference = reference?.ProviderReference,
             Status = status.ToString(),
             RetryCount = 0,
             LastError = failure,
             RawResponseJson = raw is null ? null : Redact(raw)
-        };
-        _db.Transmissions.Add(transmission);
-
-        var (orderStatus, itemStatus, settle, reverse, _) = MapResult(status);
-        order.Status = orderStatus;
-        item.Status = itemStatus;
-
+        });
         await _db.SaveChangesAsync(cancellationToken);
+
+        await ApplyTerminalResultAsync(order, item, payout, details, status, cancellationToken);
+    }
+
+    /// <summary>
+    /// Reconciles order/item/payout status and the settlement/reversal ledger entry for a connector result.
+    /// The ledger entry is posted (idempotently) BEFORE the order is marked terminal, so an order is never
+    /// Complete/Failed without its corresponding ledger entry; a resumed confirm re-runs this safely.
+    /// </summary>
+    private async Task ApplyTerminalResultAsync(
+        Order order, OrderItem item, Payout payout, RemittanceOrderDetails details, PartnerTransactionStatus status,
+        CancellationToken cancellationToken)
+    {
+        var (orderStatus, itemStatus, settle, reverse, terminal) = MapResult(status);
+        payout.Status = status.ToString();
 
         if (settle)
         {
-            // Synchronous terminal success: settle inline (idempotent). A later webhook for the same
-            // payout is a no-op via ledger source-type idempotency.
             await _ledgerPostingService.PostRemittanceSettlementAsync(
-                order.TenantId, payout.Id, order.Id, order.AmountIn + payout.Fee.GetValueOrDefault(), order.CurrencyIn, cancellationToken);
-            _logger.PaymentTransmitted(order.Id, order.TenantId, providerCode, payout.ProviderReference);
+                order.TenantId, payout.Id, order.Id, details.TotalAmount, details.OriginCurrency, cancellationToken);
         }
         else if (reverse)
         {
             await _ledgerPostingService.PostRemittanceFailureReversalAsync(
-                order.TenantId, payout.Id, order.Id, order.AmountIn + payout.Fee.GetValueOrDefault(), order.CurrencyIn, cancellationToken);
+                order.TenantId, payout.Id, order.Id, details.TotalAmount, details.OriginCurrency, cancellationToken);
         }
-        else if (failure is null)
+
+        order.Status = orderStatus;
+        item.Status = itemStatus;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (settle || !terminal)
         {
-            // Non-terminal: instruction accepted, awaiting settlement webhook.
-            _logger.PaymentTransmitted(order.Id, order.TenantId, providerCode, payout.ProviderReference);
+            _logger.PaymentTransmitted(order.Id, order.TenantId, details.ProviderCode, payout.ProviderReference);
         }
     }
+
+    private static PartnerTransactionStatus ParseStatus(string? value)
+        => Enum.TryParse<PartnerTransactionStatus>(value, ignoreCase: true, out var status)
+            ? status
+            : PartnerTransactionStatus.Unknown;
 
     private async Task SettleFromStatusAsync(
         Order order,
@@ -778,9 +825,8 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
 
     private static PayoutInstruction BuildPayoutInstruction(
         string clientReference,
-        Entities.Pricing.PricingQuote quote,
+        RemittanceOrderDetails details,
         ExternalPayoutAccount account,
-        ConfirmRemittanceRequest request,
         Guid tenantId,
         Guid orderId,
         Guid orderItemId,
@@ -810,15 +856,15 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             ["orderId"] = orderId.ToString(),
             ["orderItemId"] = orderItemId.ToString(),
             ["payoutId"] = payoutId.ToString(),
-            ["quoteId"] = quote.Id.ToString()
+            ["quoteId"] = details.PricingQuoteId.ToString()
         };
 
         return new PayoutInstruction(
             clientReference,
-            new Money(quote.DestinationAmount, quote.DestinationCurrency),
-            quote.OriginCurrency,
+            new Money(details.DestinationAmount, details.DestinationCurrency),
+            details.OriginCurrency,
             destination,
-            request.Narration ?? DefaultNarration,
+            string.IsNullOrWhiteSpace(details.Narration) ? DefaultNarration : details.Narration!,
             CallbackUrl: null,
             metadata);
     }

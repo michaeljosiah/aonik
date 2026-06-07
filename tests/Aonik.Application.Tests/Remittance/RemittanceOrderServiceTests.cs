@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Aonik.Finance.Contracts.Models.Pricing;
 using Aonik.Finance.Contracts.Models.Remittance;
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
@@ -305,12 +307,13 @@ public class RemittanceOrderServiceTests
     }
 
     [Fact]
-    public async Task ConfirmAsync_Should_FailWithoutTransmission_When_DebitCannotPost()
+    public async Task ConfirmAsync_Should_NotDispatchOrFalselyFail_When_DebitCannotPost()
     {
         var tenantId = Guid.NewGuid();
         var customerPartyId = Guid.NewGuid();
         using var db = CreateDbContext(tenantId);
-        // No ledger seeded → the debit cannot post, so the connector must not be called.
+        // No ledger seeded → the debit cannot post, so the connector must not be called and the order is
+        // left resumable (Pending), not falsely Failed; a retry once the ledger exists completes it.
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
         SeedCaller(db, tenantId, customerPartyId);
@@ -324,7 +327,7 @@ public class RemittanceOrderServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>();
         (await db.Transmissions.CountAsync()).Should().Be(0);
         (await db.JournalEntries.CountAsync()).Should().Be(0);
-        (await db.Orders.SingleAsync(o => o.OrderType == "Remittance")).Status.Should().Be(OrderStatuses.Failed);
+        (await db.Orders.SingleAsync(o => o.OrderType == "Remittance")).Status.Should().Be(OrderStatuses.Pending);
         (await db.Payouts.SingleAsync()).Status.Should().Be("Pending");
     }
 
@@ -393,6 +396,61 @@ public class RemittanceOrderServiceTests
         await act.Should().ThrowAsync<UnauthorizedAccessException>();
         (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
         (await db.JournalEntries.CountAsync()).Should().Be(0); // no debit posted
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_ResumeDispatch_When_ExistingOrderNotYetDispatched()
+    {
+        // Simulates a confirm that committed the order/payout but crashed before posting the debit and
+        // dispatching. A replay with the same key must complete it (debit -> dispatch -> settle), not
+        // return it half-built.
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var (_, payout) = SeedConfirmableRemittance(
+            db, tenantId, customerPartyId, account, quote, "resume-key", OrderStatuses.Pending, transmissionStatus: null);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var result = await service.ConfirmAsync(request, "resume-key");
+
+        result.Status.Should().Be(OrderStatuses.Complete);
+        (await db.Transmissions.CountAsync(t => t.PayoutId == payout.Id)).Should().Be(1);
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceDebit")).Should().Be(1);
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_PostMissingSettlementWithoutRedispatch_When_AlreadyDispatched()
+    {
+        // Simulates a crash after the connector returned Succeeded (transmission recorded) but before the
+        // settlement / terminal-status commit — the order is non-terminal and the ledger is missing the
+        // settlement. A replay must post the settlement and complete WITHOUT calling the connector again.
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var (_, payout) = SeedConfirmableRemittance(
+            db, tenantId, customerPartyId, account, quote, "resume-key-2", OrderStatuses.Transmitted, transmissionStatus: "Succeeded");
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var result = await service.ConfirmAsync(request, "resume-key-2");
+
+        result.Status.Should().Be(OrderStatuses.Complete);
+        (await db.Transmissions.CountAsync(t => t.PayoutId == payout.Id)).Should().Be(1); // not re-dispatched
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(1);
     }
 
     // ── Get ──────────────────────────────────────────────────────────────────
@@ -676,6 +734,100 @@ public class RemittanceOrderServiceTests
         };
         db.Orders.Add(order);
         db.Payouts.Add(payout);
+        return (order, payout);
+    }
+
+    // Seeds an in-flight remittance (locked details + payout, optionally a recorded transmission) under a
+    // given idempotency key, so a ConfirmAsync replay with that key exercises the resume path.
+    private static (Order Order, Payout Payout) SeedConfirmableRemittance(
+        FinanceDbContext db, Guid tenantId, Guid customerPartyId, ExternalPayoutAccount account, PricingQuote quote,
+        string key, string orderStatus, string? transmissionStatus)
+    {
+        var orderId = Guid.NewGuid();
+        var orderItemId = Guid.NewGuid();
+        var payoutId = Guid.NewGuid();
+        var clientReference = $"REM-{orderId:N}";
+
+        var details = new RemittanceOrderDetails(
+            quote.Id, customerPartyId, account.BeneficiaryPartyId, account.Id, account.DestinationType,
+            account.MaskedAccountIdentifier, quote.OriginCountry, quote.DestinationCountry, quote.OriginCurrency,
+            quote.DestinationCurrency, quote.OriginAmount, quote.DestinationAmount, quote.FeesTotal, quote.TotalAmount,
+            quote.ExchangeRate, quote.RateMarkup, quote.PricingPolicyId, quote.PricingPolicyVersion, quote.ExpiresAt,
+            "FamilySupport", null, Guid.Empty, "Simulated");
+        var detailsJson = JsonSerializer.Serialize(details);
+
+        var order = new Order
+        {
+            Id = orderId,
+            TenantId = tenantId,
+            OrderType = "Remittance",
+            IdempotencyKey = key,
+            PayerPartyId = customerPartyId,
+            OriginCountry = "NG",
+            DestinationCountry = "NG",
+            AmountIn = quote.OriginAmount,
+            CurrencyIn = "NGN",
+            AmountOut = quote.DestinationAmount,
+            CurrencyOut = "NGN",
+            FeesJson = "[]",
+            ProvenanceJson = detailsJson,
+            Status = orderStatus,
+            Items =
+            {
+                new OrderItem
+                {
+                    Id = orderItemId,
+                    TenantId = tenantId,
+                    OrderId = orderId,
+                    ItemType = "RemittancePayout",
+                    ItemIndex = 0,
+                    Status = orderStatus == OrderStatuses.Pending ? "QuoteLocked" : "Transmitted",
+                    AmountIn = quote.OriginAmount,
+                    CurrencyIn = "NGN",
+                    AmountOut = quote.DestinationAmount,
+                    CurrencyOut = "NGN",
+                    FeesTotal = quote.FeesTotal,
+                    PricingQuoteId = quote.Id,
+                    DetailsJson = detailsJson
+                }
+            }
+        };
+
+        var payout = new Payout
+        {
+            Id = payoutId,
+            TenantId = tenantId,
+            Amount = quote.DestinationAmount,
+            Currency = "NGN",
+            DebitCurrency = "NGN",
+            Fee = quote.FeesTotal,
+            FeeCurrency = "NGN",
+            ClientReference = clientReference,
+            ProviderReference = transmissionStatus is null ? string.Empty : "pr_resume",
+            DestinationType = account.DestinationType,
+            DestinationExternalAccountId = account.Id,
+            OrderItemId = orderItemId,
+            Status = transmissionStatus ?? "Pending"
+        };
+
+        db.Orders.Add(order);
+        db.Payouts.Add(payout);
+
+        if (transmissionStatus is not null)
+        {
+            db.Transmissions.Add(new Aonik.Finance.Entities.Partners.Transmission
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                PayoutId = payoutId,
+                ConnectorId = Guid.Empty,
+                IdempotencyKey = clientReference,
+                ProviderReference = "pr_resume",
+                Status = transmissionStatus,
+                RetryCount = 0
+            });
+        }
+
         return (order, payout);
     }
 
