@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Payabo — Three-Month Plan to August 2026 Launch</title>
+<title>Payabo — Technical Launch (Aug) to Hard Launch (Oct) 2026</title>
 <style>
   :root {
     --ink: #1a1a1a;
@@ -284,22 +284,24 @@
 
 <header class="cover">
   <div class="eyebrow">Strategic Plan · Internal</div>
-  <h1>Payabo — From Code to Cohort by August 2026</h1>
-  <p class="lede">An honest, capacity-realistic three-month plan to put a working Payabo into the hands of fifty Nigerian-diaspora professionals in the UK, written from the code rather than from the slides.</p>
+  <h1>Payabo — A Technical Launch in August, a Hard Launch in October</h1>
+  <p class="lede">An honest, capacity-realistic plan split across two milestones: a code-complete, sandbox-validated technical launch by end-August 2026, and a real-money public launch to fifty Nigerian-diaspora professionals once the company, partner, and permissions are in place — targeted for end-October. Written from the code rather than from the slides.</p>
   <div class="meta">
-    Written 24 May 2026 (commit <code>e2d0bdca</code>) · <strong>Revised 6 June 2026</strong> (commit <code>d34c7ab9</code>) · Target launch 31 August 2026 · 14 weeks · Author: planning collaborator for Michael Josiah, founder
+    Written 24 May 2026 (commit <code>e2d0bdca</code>) · <strong>Revised 6 June 2026</strong> (commit <code>d34c7ab9</code>) · <strong>Revised again 7 June 2026</strong> (commit <code>3d058602</code>, branch <code>master</code>) · M1 Technical Launch ~31 Aug 2026 · M2 Hard Launch ~31 Oct 2026 · ~22 weeks · Author: planning collaborator for Michael Josiah, founder
   </div>
 </header>
 
 <nav class="toc">
   <strong>Contents</strong>
-  <p style="margin:8px 0 4px;"><a href="#update" style="color:var(--info);border-bottom-color:var(--info);">▲ Progress Update — 6 June 2026</a> <span style="color:var(--muted);">(revision layer; original plan numbering unchanged below)</span></p>
+  <p style="margin:8px 0 4px;"><a href="#reframe" style="color:var(--info);border-bottom-color:var(--info);font-weight:700;">◆ The Two-Milestone Plan — 7 June reframe</a> <span style="color:var(--muted);">(Aug technical launch · Oct hard launch — the current spine)</span></p>
+  <p style="margin:0 0 4px;"><a href="#update7" style="color:var(--info);border-bottom-color:var(--info);">▲ Progress Update — 7 June 2026</a> <span style="color:var(--muted);">(state audit; the wedge backend landed)</span></p>
+  <p style="margin:0 0 4px;"><a href="#update" style="color:var(--info);border-bottom-color:var(--info);">▲ Progress Update — 6 June 2026</a> <span style="color:var(--muted);">(revision layer; original plan numbering unchanged below)</span></p>
   <ol>
     <li><a href="#exec">Executive Summary</a></li>
     <li><a href="#state">Current State Assessment</a></li>
     <li><a href="#mvp">MVP Definition</a></li>
     <li><a href="#gaps">Gap Analysis</a></li>
-    <li><a href="#plan">Three-Month Plan</a></li>
+    <li><a href="#plan">The Plan — Two Tracks to Two Milestones</a></li>
     <li><a href="#nonEng">Non-Engineering Workstream</a></li>
     <li><a href="#risks">Risks and Mitigations</a></li>
     <li><a href="#cuts">Recommended Cuts</a></li>
@@ -324,8 +326,105 @@
   <li><strong>Single-founder bus factor</strong> on a regulated product. AI agents can hold open the typing speed of three engineers; they cannot sit on the legal contract with the FCA-authorised partner, cannot front a beta-user call, and cannot make the judgement call when a wire goes wrong. The work that <em>must</em> be done by you needs to be named explicitly and ring-fenced against the temptation to keep coding.</li>
 </ol>
 
-<h4>Honest verdict on August readiness</h4>
-<p>August 2026 is achievable <strong>only</strong> if the plan below is followed with discipline: one corridor, one partner, no platform work, manual compliance for the first fifty users, and a ruthless freeze on Compass / voice / household-v2 / customer-insight-AI. If any one of those four commitments slips — particularly the partner contract — September becomes the realistic ceiling, and that is still a win. Targeting July or earlier is not honest. Targeting August "fully self-licensed" is fantasy. Targeting <strong>"late-August soft launch via a regulated partner to fifty named users"</strong> is the credible answer.</p>
+<h4>Honest verdict — and the 7 June reframe</h4>
+<p>The single August date has since been split in two, because the engineering and the paperwork are on different clocks. <strong>The technology can be ready by August; the company, the partner contract, and the regulatory permission cannot.</strong> There is no registered company yet, and tier-1 partners (Flutterwave) signal they will not onboard a pre-revenue business. So the plan now runs to two milestones: a <strong>technical launch by ~31 August</strong> — code-complete, validated in the partner sandbox, exercised by a closed alpha with <em>no real money</em> — and a <strong>hard launch by ~31 October</strong>, the real-money public go-live this document originally described, moved to the date the commercial track can actually support. The discipline is unchanged (one corridor, manual compliance for the first fifty, a ruthless freeze on Compass / voice / platform breadth); what changed is the honest admission that the binding constraint is paperwork, not code. <strong>See <a href="#reframe">The Two-Milestone Plan</a> for the full structure.</strong></p>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="reframe">
+<h2 style="border-bottom:2px solid var(--info);">The Two-Milestone Plan <span style="font-size:14px;color:var(--muted);font-weight:400;">· 7 June reframe — replaces the single August date</span></h2>
+
+<p>The single "August launch" has been split into two milestones on different clocks, because the plan's own evidence points one way: the engineering is converging fast while the company, commercial, and regulatory work has barely begun — and that second body of work is gated by parties whose timelines the founder does not control. The launch date is therefore <code>max(tech&#8209;ready, legally&#8209;and&#8209;commercially&#8209;live)</code>, and the binding term is the second one. The §1–§8 material below is preserved; this section is the spine the rest now hangs from.</p>
+
+<div class="callout update">
+  <div class="label">The two milestones</div>
+  <strong>M1 — Technical Launch · ~31 Aug 2026.</strong> Code-complete, validated end-to-end in the partner <em>sandbox</em>, and exercised by a closed alpha of insiders with <strong>no external client money</strong> (sandbox / test rails only; at most the founder's own funds in a test capacity). M1 is a <em>capability</em> milestone — it proves the product works, not that it is open for business, and it deliberately stays clear of the line that would require the regulatory permission to exist first.<br/><br/>
+  <strong>M2 — Hard Launch · ~31 Oct 2026.</strong> Public go-live with real money to ~50 named users, once the registered company, a signed partner contract, and the regulatory permission are all in place. This is the launch the 24 May plan described — moved to the date the commercial track can actually support.
+</div>
+
+<h3>Two tracks, two different clocks</h3>
+<table>
+  <thead><tr><th>Track</th><th>What it covers</th><th>Who controls the clock</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td><strong>A — Technology</strong></td><td>Connector, remittance flow, fund-collection, FX, mobile send-money + KYC capture, compliance tooling, hardening</td><td>Founder + AI agents — fast, internal</td><td class="status-partial">Converging; trends to M1 (Aug)</td></tr>
+    <tr><td><strong>B — Company / commercial / regulatory</strong></td><td>Register Ltd → business bank → partner KYB → contract → FCA agent/distributor permission → ToS &amp; fees → ICO</td><td>Companies House, banks, partners, FCA, lawyer — external</td><td class="status-stub">Barely started; sets M2 (Oct)</td></tr>
+  </tbody>
+</table>
+<p>Track A can finish early and <strong>park</strong>. Track B is the spine of this plan now. The combined cadence is in <a href="#plan">§5</a>; the commercial gating sequence in <a href="#nonEng">§6.3</a>.</p>
+
+<h3>The company is step zero</h3>
+<p><strong>There is no registered company yet</strong> — and a UK Ltd (~£12, ~24h) gates the entire commercial track: you cannot open partner KYB, a business bank account, ICO registration, or a lawyer's engagement letter without it. Register it <em>this week</em>; it is the cheapest, highest-leverage unblock on the board, and everything in Track B sits behind it.</p>
+
+<h3>Partner strategy: tier by who will actually onboard you</h3>
+<p>Tier-1 partners signal they do not onboard pre-revenue companies — Flutterwave reportedly wants a business with <strong>&gt;£1M of transaction volume</strong>, which is a chicken-and-egg for a pre-launch product. The resolution is to <strong>widen the funnel to a startup / pre-revenue-friendly provider for cohort 1</strong> (a smaller aggregator, a BaaS / embedded-finance provider, or a remittance-as-a-service that onboards early-stage companies), and keep a tier-1 like Flutterwave as the <em>graduate-to</em> once real volume exists. Get each partner's exact requirement in writing (turnover vs processed vs <em>projected</em> volume vs capital — often a comfort ask, not a hard gate). The <a href="specifications/031">Spec 031</a> connector abstraction already built is the insurance here: keep it <strong>partner-agnostic</strong>, validate against whoever will actually sign, and do not marry the prettiest API.</p>
+
+<div class="callout warn">
+  <div class="label">The Aug→Oct discipline trap</div>
+  If Track A finishes in August and go-live is October, ~8 weeks of engineering capacity come free — and this plan's documented failure mode (drifting into platform breadth: Spec 033/034/035 redux) <strong>will</strong> reassert. Bank that slack as <strong>money-path hardening</strong>, not features: the background transmission processor (still missing), reconciliation, the real fund-collection leg, live FX, and the manual KYC / sanctions tooling for cohort 1. Idle agent capacity is the single biggest scope-drift risk of the back half — name it and ring-fence it.
+</div>
+
+</section>
+
+<!-- ============================================================== -->
+<section id="update7">
+<h2 style="border-bottom:2px solid var(--info);">Progress Update — 7 June 2026 <span style="font-size:14px;color:var(--muted);font-weight:400;">· newest revision layer; the wedge backend landed</span></h2>
+
+<p>Written one day after the 6 June layer below, from the working tree at commit <code>3d058602</code> (branch <code>master</code>). The 24 May baseline and the 6 June layer are both left intact beneath this one. The reason this layer exists is that the day after the 6 June audit was written, <strong>roughly a dozen commits landed the remittance payout backend the plan had been asking for since 24 May</strong> — so the single most load-bearing claim in this document (<em>"it cannot move a single pound"</em>) changed in a day. Where a §2.4 row is now stale it carries an inline <span class="upd">▲ 7 Jun</span> note; the drift is shown, not hidden.</p>
+
+<div class="callout update">
+  <div class="label">The one-sentence verdict</div>
+  The backend course-correction the 6 June danger-callout demanded <strong>actually happened</strong> — a real <strong>Flutterwave connector</strong>, a <strong><code>RemittanceOrderService</code></strong> (quote → confirm → settle), <strong>Spec 008 recipients</strong>, and <strong>beneficiary name-enquiry</strong> all landed and are wired end-to-end (sandbox by default, one config flag from live), with tests. But the binding constraint did not disappear — <strong>it flipped sides.</strong> The payout (OUT) leg is now largely real; the <strong>fund-collection (IN) leg, the live FX feed, the entire mobile surface, and compliance</strong> are the launch blockers now — and <strong>mobile still has not received a single commit.</strong>
+</div>
+
+<h3>What landed — the payout (OUT) leg is now largely real</h3>
+<p>Each verified in code, not from commit messages alone:</p>
+<ul>
+  <li><strong>A real Flutterwave connector.</strong> <code>FlutterwavePayoutConnector</code> makes live HTTP calls: <code>/transfers/rates</code> (quote), <code>/banks/account-resolve</code> (NUBAN name-enquiry), <code>/transfers/recipients</code> (register beneficiary), <code>/transfers</code> (initiate payout), and <code>GET /transfers/{id}</code> (status) — with OAuth2 against Flutterwave's IDP, per-call idempotency keys, and a webhook translator. It defaults to the sandbox (<code>developersandbox-api.flutterwave.com</code>); <code>UseRealFlutterwaveApi</code> + the base-URL setting flip it to production. The plan's repeated "only <code>SimulatedPartnerConnector</code>; zero real vendor" is no longer true — though the simulated connector still exists as the resolver's fallback.</li>
+  <li><strong><code>RemittanceOrderService</code> drives the full flow</strong> — quote → confirm (lock the quote, post a ledger debit, resolve the connector, dispatch the payout, write a <code>Transmission</code> row) → settle/reverse on webhook. Public endpoints exist: <code>POST /payabo/remittance/quote</code>, <code>POST /payabo/remittance/confirm</code> (idempotency-key required), <code>GET /payabo/remittance/{id}</code>. The "no <code>RemittanceOrderService</code>, no send-money endpoint" gap is closed.</li>
+  <li><strong>Spec 008 recipients are implemented</strong> — full <code>/recipients</code> CRUD projected over the customer→relationship→beneficiary party graph (commit <code>24938193</code>). The plan listed this as "must build for MVP / unimplemented."</li>
+  <li><strong>Beneficiary verification is live.</strong> <code>VerifyAndRegisterBeneficiaryAsync</code> calls the connector's <code>ResolveAccountAsync</code> (name-enquiry) and only then sets <code>IsVerified = true</code>; <code>RemittanceOrderService</code> <strong>blocks a payout to an unverified destination.</strong> The 6 June note's "<code>IsVerified</code> hardcoded <code>false</code>, no name-enquiry" is now stale.</li>
+  <li><strong>The connector seam became operable</strong> — DB-backed <code>Connector</code> rows with admin CRUD endpoints and a capability-based resolver (commits <code>8074350e</code>, <code>bd81f3de</code>), so a real vendor can be registered and scoped per tenant rather than hard-wired.</li>
+  <li><strong>The "absent tests" embarrassment is being paid down for the wedge.</strong> New suites landed alongside the code: <code>RemittanceOrderServiceTests</code>, <code>FlutterwaveConnectorTests</code>, <code>PayoutBeneficiaryServiceTests</code>, <code>RecipientServiceTests</code>, <code>PaymentGatewaySettingsServiceTests</code>, plus a sandbox integration test (<code>FlutterwaveSandboxTests</code>). The connector/remittance path is no longer untested.</li>
+</ul>
+
+<div class="callout ok">
+  <div class="label">Correction to the §2.4 punchline</div>
+  The 24 May / 6 June punchline — <em>"the platform can model a remittance but cannot move a single pound; until one real connector exists the rest is theatre"</em> — is <strong>no longer the punchline.</strong> A real performer walked on. In the sandbox the platform can verify a beneficiary, lock a quote, debit the ledger, call Flutterwave to pay out, and settle on the webhook. The theatre that remains is on the <em>other</em> side of the transaction.
+</div>
+
+<h3>Where the constraint moved to</h3>
+<p>These are the claims that are <em>still true</em> — and they are now the critical path, not the OUT-leg.</p>
+<ul>
+  <li><strong>Fund collection is still a simulation.</strong> <code>StripeSimulatedPaymentProviderGateway</code> is still the only <code>IPaymentProviderGateway</code>: it returns a fake <code>pi_…_secret_…</code> and a hardcoded <code>"Pending"</code>, with no real charge. The 7 June "configure payment gateways" work added an admin <em>settings</em> surface (and wired Flutterwave's own config) — not a real card or open-banking pay-in. <strong>You can pay a sandbox pound out; you cannot yet take a real pound from a user.</strong> The asymmetry the plan opened with has simply inverted.</li>
+  <li><strong>FX is still demo for the customer quote.</strong> The pricing path still seeds hardcoded <code>"DemoRate"</code> rows in <code>CrossBorderPricingSeedPhase.cs</code> (GBP→NGN 1985.25, etc.). A <em>live</em> rate is now reachable through the connector's <code>/transfers/rates</code>, but it is not yet the source of truth for the figure shown to the user.</li>
+  <li><strong>Compliance moved the least — again, and pointedly.</strong> The 7 June surge touched everything <em>around</em> compliance and nothing <em>in</em> it: <code>ComplianceService.ScreenPartyAsync</code> still returns <code>"Passed"</code> for every party, <code>RequiresComplianceReviewAsync</code> still returns <code>false</code>, and <code>PersonProfile.IdvStatus</code> still has no verifier writing to it (no Onfido/Veriff/Persona/Sumsub — only seeding sets the string). For a regulated money product this remains the most important pre-launch gap, and it is now the gap with the most real money plumbing built around it.</li>
+  <li><strong>Mobile still has not moved.</strong> Zero commits to <code>apps/payabo_mobile</code> since 20 May. The "Send money" card still routes to friend bill-co-pay, there is no remittance/FX/NUBAN journey, no KYC capture (auth is still name/email/phone only), and the dashboard still leads with net-worth / safe-to-spend rather than "sent home this month." A real send-money <em>backend</em> now exists with <strong>no screen in front of it.</strong> (One small correction to the 6 June note: the support-planning add-beneficiary screen now has a live controller, so it is no longer strictly mock-only — but it is not a remittance flow.)</li>
+  <li><strong>Voice approval parity is still pending</strong> — the voice agent stays safe by filtering mutating tools out, not by routing them through the Spec 032 gate.</li>
+</ul>
+
+<h3>New drift signals</h3>
+<ul>
+  <li><strong>Multi-corridor sprawl has crept into seed data.</strong> The new cross-border catalog seeds <strong>Kenyan (Kenya Power) and South African (City Power) billers</strong> alongside the Nigerian ones — the exact GH/KE/ZA expansion §8 says to cut. It is only seed data today, but it is the temptation the plan named, now in the tree.</li>
+  <li><strong>The seeded billers diverge from the MVP definition.</strong> §3.3 named four: PHCN (Eko/Ikeja), DSTV, GoTV, MTN airtime. What shipped is <strong>Ikeja Electric + Lagos Water</strong> (plus the KE/ZA billers) — no DSTV/GoTV, no airtime. The biller catalog is real now, but it is not yet the MVP's biller set.</li>
+</ul>
+
+<h3>Scorecard against the 6 June course-correction</h3>
+<p>The 6 June layer ended with one instruction: <em>"the only new backend code should be the concrete partner connector behind the Spec 031 seam and the transmission processor that drives it — and the only new product code should be in <code>apps/payabo_mobile</code>."</em></p>
+<table>
+  <thead><tr><th>6 Jun instruction</th><th>7 Jun outcome</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr><td>Concrete partner connector behind the Spec 031 seam</td><td>Flutterwave connector built, wired, tested (sandbox)</td><td class="status-done">Done</td></tr>
+    <tr><td>The transmission processor that drives it</td><td>Dispatch happens <em>inline</em> in <code>ConfirmAsync</code> and a <code>Transmission</code> row is written — but there is still <strong>no background job</strong> that retries or polls a pending transmission</td><td class="status-partial">Partial</td></tr>
+    <tr><td>The only new product code in <code>apps/payabo_mobile</code></td><td>Zero mobile commits. New product code went into the backend + AdminUi settings instead</td><td class="status-stub">Missed</td></tr>
+    <tr><td>Freeze Spec 033/034/035-style platform breadth</td><td>No new off-wedge module merged in this window</td><td class="status-done">Held</td></tr>
+  </tbody>
+</table>
+
+<div class="callout danger">
+  <div class="label">The read on the August date, one day on</div>
+  This is a genuinely good day for the plan: the hardest, most-deferred backend — moving money to a real partner — went from "theatre" to "sandbox-real" in a single push, with tests. But August is a <strong>mobile and compliance</strong> date now, not a connector date. The critical path is: (1) a real fund-collection leg so a user can actually be charged; (2) a live FX source feeding the customer quote; (3) the entire send-money / KYC mobile surface, which has not been started; and (4) the compliance + IDV gates that must close before any live pound moves. The course-correction worked — now point the <em>same</em> discipline at <code>apps/payabo_mobile</code> and the IN-leg, and treat the KE/ZA biller seed as the first sign that corridor-creep is back.
+</div>
 
 </section>
 
@@ -443,20 +542,20 @@
   <thead><tr><th>Component</th><th>Status</th><th>What that means</th></tr></thead>
   <tbody>
     <tr><td>Ledger (double-entry)</td><td class="status-real">Working</td><td>Balanced posting enforced at write; no tests proving the invariant. <span class="upd">▲ <strong>6 Jun:</strong> invariant now locked by tests (in-memory + SQL-Server-via-Testcontainers) + an idempotent <code>LedgerPostingService</code>.</span></td></tr>
-    <tr><td>Orders state machine</td><td class="status-real">Working</td><td>Draft → Pending → Approved → Transmitted → Complete is solid. <strong>But <code>OrderType</code> has no remittance value</strong> — only <code>BillPayment, BankTransfer, CashCollection</code>. <span class="upd">▲ <strong>6 Jun:</strong> a <code>Remittance</code> value was added (Spec 031), but it is service-intent only — no remittance service or flow behind it.</span></td></tr>
-    <tr><td>Pricing &amp; FX</td><td class="status-partial">Demo-only</td><td>Pricing engine math works; rates are hard-coded in <code>CrossBorderPricingSeedPhase.cs</code> ("DemoRate" provider). No live FX feed.</td></tr>
-    <tr><td>Payment gateway</td><td class="status-stub">Stub</td><td>Single implementation is <code>StripeSimulatedPaymentProviderGateway</code> — returns <code>pi_…_secret_…</code> and hardcoded "Pending". No real Stripe SDK call, no webhook handler, no settlement.</td></tr>
-    <tr><td>Partner integrations</td><td class="status-stub">None real</td><td>Four fictional partners in seed (Naija Utility Switch, Gold Coast Bill Hub, EastPay Kenya, Mzansi Bill Connect). Grep for Wise, Lemfi, NALA, Sendwave, Flutterwave, ClearBank, currencycloud, EBANX, MFS Africa — <strong>zero hits</strong> in dedicated integration code. <span class="upd">▲ <strong>6 Jun:</strong> Spec 031 added a full connector <em>abstraction</em> (ports, resolver, webhook translation, schema) — but the sole implementation is <code>SimulatedPartnerConnector</code>; still no real vendor.</span></td></tr>
-    <tr><td>Recipient model (NG bank account, NUBAN)</td><td class="status-partial">Partial</td><td><a href="specifications/008.recipients.md">Spec 008</a> is unimplemented. <span class="upd">▲ <strong>6 Jun:</strong> a payout-beneficiary feature (<code>ExternalPayoutAccount</code> + service + endpoints, commit <code>8947bf66</code>) now stores destinations and the customer→recipient party graph — but no NUBAN validation, no name-enquiry wired (<code>IsVerified</code> hardcoded <code>false</code>), and not the Spec 008 model.</span></td></tr>
+    <tr><td>Orders state machine</td><td class="status-real">Working</td><td>Draft → Pending → Approved → Transmitted → Complete is solid. <strong>But <code>OrderType</code> has no remittance value</strong> — only <code>BillPayment, BankTransfer, CashCollection</code>. <span class="upd">▲ <strong>6 Jun:</strong> a <code>Remittance</code> value was added (Spec 031), but it is service-intent only — no remittance service or flow behind it.</span> <span class="upd">▲ <strong>7 Jun:</strong> now real — <code>RemittanceOrderService</code> (quote→confirm→settle) and public <code>/payabo/remittance/*</code> endpoints sit behind the <code>Remittance</code> value.</span></td></tr>
+    <tr><td>Pricing &amp; FX</td><td class="status-partial">Demo-only</td><td>Pricing engine math works; rates are hard-coded in <code>CrossBorderPricingSeedPhase.cs</code> ("DemoRate" provider). No live FX feed. <span class="upd">▲ <strong>7 Jun:</strong> still demo for the customer quote; a live rate is now <em>reachable</em> via the Flutterwave connector's <code>/transfers/rates</code> but is not yet the quote's source of truth.</span></td></tr>
+    <tr><td>Payment gateway</td><td class="status-stub">Stub</td><td>Single implementation is <code>StripeSimulatedPaymentProviderGateway</code> — returns <code>pi_…_secret_…</code> and hardcoded "Pending". No real Stripe SDK call, no webhook handler, no settlement. <span class="upd">▲ <strong>7 Jun:</strong> still the only <code>IPaymentProviderGateway</code> and still simulated; "configure payment gateways" added an admin settings surface, not a real pay-in. The fund-collection (IN) leg is now the blocker.</span></td></tr>
+    <tr><td>Partner integrations</td><td class="status-stub">None real</td><td>Four fictional partners in seed (Naija Utility Switch, Gold Coast Bill Hub, EastPay Kenya, Mzansi Bill Connect). Grep for Wise, Lemfi, NALA, Sendwave, Flutterwave, ClearBank, currencycloud, EBANX, MFS Africa — <strong>zero hits</strong> in dedicated integration code. <span class="upd">▲ <strong>6 Jun:</strong> Spec 031 added a full connector <em>abstraction</em> (ports, resolver, webhook translation, schema) — but the sole implementation is <code>SimulatedPartnerConnector</code>; still no real vendor.</span> <span class="upd">▲ <strong>7 Jun:</strong> a real vendor landed — <code>FlutterwavePayoutConnector</code> makes live calls (rates, account-resolve, recipients, transfers, status) against Flutterwave; sandbox by default, one flag from live.</span></td></tr>
+    <tr><td>Recipient model (NG bank account, NUBAN)</td><td class="status-partial">Partial</td><td><a href="specifications/008.recipients.md">Spec 008</a> is unimplemented. <span class="upd">▲ <strong>6 Jun:</strong> a payout-beneficiary feature (<code>ExternalPayoutAccount</code> + service + endpoints, commit <code>8947bf66</code>) now stores destinations and the customer→recipient party graph — but no NUBAN validation, no name-enquiry wired (<code>IsVerified</code> hardcoded <code>false</code>), and not the Spec 008 model.</span> <span class="upd">▲ <strong>7 Jun:</strong> Spec 008 <code>/recipients</code> CRUD now implemented over the party graph, and beneficiary name-enquiry is wired — <code>IsVerified</code> flips on partner registration and an unverified destination blocks payout.</span></td></tr>
     <tr><td>Card vault</td><td class="status-stub">Missing</td><td><a href="specifications/007.cards-vault.md">Spec 007</a> is unimplemented.</td></tr>
-    <tr><td>Biller catalog</td><td class="status-partial">Demo only</td><td>Schema exists. No DSTV, no PHCN/Eko/Ikeja, no MTN/Glo/Airtel airtime — just generic JSON categories. <code>finance-demo-catalog.json</code> lists Utilities/Telecom/Internet/Education with placeholder names.</td></tr>
-    <tr><td>Transmission processor</td><td class="status-stub">Data-only</td><td><code>Transmission</code> entity stores PayoutId/Status/RetryCount/LastError. No background job ever picks one up and tries to execute it. <span class="upd">▲ <strong>6 Jun:</strong> still true — the Spec 031 schema is now richer, but nothing creates or processes a <code>Transmission</code>/<code>Payout</code> row end-to-end.</span></td></tr>
+    <tr><td>Biller catalog</td><td class="status-partial">Demo only</td><td>Schema exists. No DSTV, no PHCN/Eko/Ikeja, no MTN/Glo/Airtel airtime — just generic JSON categories. <code>finance-demo-catalog.json</code> lists Utilities/Telecom/Internet/Education with placeholder names. <span class="upd">▲ <strong>7 Jun:</strong> real billers now seeded (Ikeja Electric, Lagos Water) — but not the MVP set (no DSTV/GoTV, no MTN airtime), and KE/ZA billers crept in alongside.</span></td></tr>
+    <tr><td>Transmission processor</td><td class="status-stub">Data-only</td><td><code>Transmission</code> entity stores PayoutId/Status/RetryCount/LastError. No background job ever picks one up and tries to execute it. <span class="upd">▲ <strong>6 Jun:</strong> still true — the Spec 031 schema is now richer, but nothing creates or processes a <code>Transmission</code>/<code>Payout</code> row end-to-end.</span> <span class="upd">▲ <strong>7 Jun:</strong> partly closed — <code>ConfirmAsync</code> now creates a <code>Transmission</code> and dispatches the payout inline; still no <em>background</em> job to retry or poll a pending one.</span></td></tr>
   </tbody>
 </table>
 
 <div class="callout danger">
   <div class="label">Punchline</div>
-  Today the platform can <em>model</em> a UK→Nigeria remittance through bill-payment orders, but it cannot <em>move</em> a single pound. Until one real partner connector exists, the rest of the work is theatre. <span class="upd">▲ <strong>6 Jun:</strong> still the punchline — Spec 031 built the stage (the connector seam); no real performer walked on.</span>
+  Today the platform can <em>model</em> a UK→Nigeria remittance through bill-payment orders, but it cannot <em>move</em> a single pound. Until one real partner connector exists, the rest of the work is theatre. <span class="upd">▲ <strong>6 Jun:</strong> still the punchline — Spec 031 built the stage (the connector seam); no real performer walked on.</span> <span class="upd">▲ <strong>7 Jun:</strong> the performer walked on — Flutterwave + <code>RemittanceOrderService</code> move a sandbox pound out. The punchline inverts: the IN-leg (fund collection), live FX, mobile, and compliance are now the theatre.</span>
 </div>
 
 <h3>2.5 <code>Aonik.Platform</code> module</h3>
@@ -476,7 +575,7 @@
 <div class="callout danger">
   <div class="label">Stubbed</div>
   <code>ComplianceService.ScreenPartyAsync</code> logs a warning and returns <code>ResultStatus = "Passed"</code> for every party. No PEP, no sanctions, no Refinitiv/ComplyAdvantage/Worldcheck/Dow Jones integration. And <code>PersonProfile.IdvStatus</code> is a string field with no verifier writing to it — no Onfido, no Veriff, no Persona, no Sumsub. <strong>For a regulated UK→NG remittance product this is non-negotiable to close before live money moves.</strong>
-  <p style="margin:10px 0 0;"><span class="upd">▲ <strong>6 Jun:</strong> unchanged after two weeks — <code>ScreenPartyAsync</code> still returns <code>"Passed"</code> for every party and <code>RequiresComplianceReviewAsync</code> still always returns <code>false</code>. The most important launch gap moved the least.</span></p>
+  <p style="margin:10px 0 0;"><span class="upd">▲ <strong>6 Jun:</strong> unchanged after two weeks — <code>ScreenPartyAsync</code> still returns <code>"Passed"</code> for every party and <code>RequiresComplianceReviewAsync</code> still always returns <code>false</code>. The most important launch gap moved the least.</span> <span class="upd">▲ <strong>7 Jun:</strong> still unchanged the very day the payout backend landed — <code>ScreenPartyAsync</code> returns <code>"Passed"</code> for all and no verifier writes <code>IdvStatus</code>. The money plumbing grew around it; the gate did not.</span></p>
 </div>
 
 <h3>2.6 <code>Aonik.Agents</code>, <code>Aonik.Ai</code>, <code>Aonik.Voice</code></h3>
@@ -528,6 +627,11 @@
 <!-- ============================================================== -->
 <section id="mvp">
 <h2><span class="num">3.</span>MVP Definition</h2>
+
+<div class="callout update">
+  <div class="label">How this scope maps to the two milestones</div>
+  The feature set below is the <strong>M2 product</strong>. <strong>M1 (Aug)</strong> ships the same scope, but exercised in the partner sandbox by a closed alpha — no external client money, no public listing. The only things that change between M1 and M2 are the ones that cannot be switched on without the company and the permission: real fund-collection, live FX, real partner rails, and external users. Everything else is built once, for M1.
+</div>
 
 <h3>3.1 The user</h3>
 <p>Call her Adaeze. She is 34, lives in Stratford, works as a senior analyst in financial services or healthcare, sends £400–£900 home most months — split between her mother's housekeeping, her younger sister's tuition top-up, and the family's DSTV and electricity bill. She currently does this through some combination of Wise, Lemfi, WhatsApp, calling her brother to "go pay PHCN," and remembering. She is high-trust, busy, slightly embarrassed at the patchwork, and intensely loyal to whoever finally makes it feel calm.</p>
@@ -652,9 +756,26 @@
 
 <!-- ============================================================== -->
 <section id="plan">
-<h2><span class="num">5.</span>Three-Month Plan</h2>
+<h2><span class="num">5.</span>The Plan — Two Tracks to Two Milestones</h2>
 
-<p>Seven two-week sprints from 24 May to 30 August, with the last sprint reserved for stabilisation and soft-launch rather than new features. Each sprint has four lanes: <strong>backend</strong>, <strong>mobile</strong>, <strong>non-engineering</strong> (commercial / legal / user dev), and <strong>do-not-do</strong> (the temptations to actively resist).</p>
+<p>Originally seven two-week sprints to a single August launch; now restructured as <strong>two parallel tracks to two milestones</strong>. <strong>Track A (engineering)</strong> runs the sprint cadence below and completes at <strong>M1 — technical launch, ~31 Aug</strong>. <strong>Track B (company / commercial / regulatory)</strong> is the binding path and runs to <strong>M2 — hard launch, ~31 Oct</strong>. Each sprint keeps four lanes — <strong>backend</strong>, <strong>mobile</strong>, <strong>non-engineering</strong> (now the Track-B spine: company / commercial / legal), and <strong>do-not-do</strong> — but the non-engineering lane is no longer the side-show; it is the lane that sets the launch date.</p>
+
+<div class="callout warn">
+  <div class="label">Track B — the commercial spine that sets M2</div>
+  This is the critical path now, and almost none of it is code. Each row gates the next; the front two are the unlock for everything after.
+</div>
+<table>
+  <thead><tr><th>By</th><th>Track-B milestone (company / commercial / regulatory)</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Wk of 9 Jun</strong></td><td><strong>Register the UK Ltd.</strong> Open the business-bank application. Email a fintech lawyer (agent vs distributor structure). Register with the ICO. Get Flutterwave's volume requirement in writing and open 2–3 startup-friendly partner conversations.</td></tr>
+    <tr><td>End Jun</td><td>Company incorporated + business bank account open + KYB pack assembled. Partner shortlist with ≥1 that onboards pre-revenue. Legal structure decided (likely distributor/agent of a regulated principal).</td></tr>
+    <tr><td>End Jul</td><td>Lead partner in contracting / KYB. ToS + Privacy + Fee schedule drafted with the lawyer. Manual KYC + sanctions procedure written. Complaints policy templated.</td></tr>
+    <tr><td>~31 Aug · <strong>M1</strong></td><td>Track A code-complete &amp; sandbox-validated. Partner contract in late-stage; permission letter pending. <strong>No live money yet.</strong></td></tr>
+    <tr><td>Mid-Sep</td><td><strong>Partner contract signed; regulatory permission letter in hand.</strong> ToS / fees published. Founder sends first real money to own family on live rails.</td></tr>
+    <tr><td>End Sep</td><td>Private beta: first ~5–10 external users on real money, concierge onboarding, daily 24h KYC clearance.</td></tr>
+    <tr><td>~31 Oct · <strong>M2</strong></td><td>Public hard launch to ~50 users. App Store + Play Store listings live.</td></tr>
+  </tbody>
+</table>
 
 <!-- Sprint 1 -->
 <div class="sprint">
@@ -848,8 +969,8 @@
 
 <!-- Sprint 5 -->
 <div class="sprint">
-  <h3>Sprint 5 <span class="dates">20 Jul – 2 Aug · "First ten users"</span></h3>
-  <p><em>Theme: discover where the product breaks under real-world variance.</em></p>
+  <h3>Sprint 5 <span class="dates">20 Jul – 2 Aug · "Sandbox dry-run"</span></h3>
+  <p><em>Theme: shake the product out end-to-end in the partner sandbox — real users do not arrive until Track B clears (Sep).</em></p>
 
   <div class="lane">
     <p class="lane-title">Backend</p>
@@ -872,9 +993,9 @@
   <div class="lane">
     <p class="lane-title">Non-engineering</p>
     <ul>
-      <li>Onboard 10 more users (15 total). Personal WhatsApp onboarding still.</li>
-      <li>Daily KYC clearance — 24h SLA inviolable.</li>
-      <li><strong>User dev: 5 conversations</strong> — specifically with the lapsed: anyone who signed up but didn't transfer. Why?</li>
+      <li>Recruit, don't onboard: line up 15 named candidates for the September private beta. No real-money onboarding — the permission is not in place.</li>
+      <li>Dry-run the manual KYC procedure on founder + insider documents; time it, and write the "what counts as acceptable ID" matrix.</li>
+      <li><strong>User dev: 5 conversations</strong> — show the working sandbox build to candidates; watch where they pause in the send-money flow.</li>
       <li>First 30-minute "founder demo" call with a candidate institutional partner (community NGO, diaspora professional group, a Nigerian church or alumni network). Not a sales pitch — a "could I learn from your community" conversation.</li>
       <li>Begin transition planning: as you scale past the first 50, what is the second-tier support? (Likely a part-time VA who already speaks Yoruba/Igbo/Hausa.)</li>
     </ul>
@@ -916,10 +1037,10 @@
   <div class="lane">
     <p class="lane-title">Non-engineering</p>
     <ul>
-      <li>Onboard users 16–30. Same personal pattern.</li>
-      <li>Update the brand voice doc with one quote per real conversation. Use it to write the App Store "what's new" copy.</li>
-      <li><strong>User dev: 5 conversations</strong> — repeat customers now. "What would you regret losing if Payabo disappeared tomorrow?" The answer is your real differentiator.</li>
-      <li>Confirm App Store + Play Store approval. Plan the public listing live date for sprint 7.</li>
+      <li>Grow the wait-list toward 50 named M2 candidates. No real onboarding yet.</li>
+      <li>Update the brand voice doc with one quote per conversation. Draft (do not yet submit) the App Store listing copy.</li>
+      <li><strong>User dev: 5 conversations</strong> — candidates only. "Walk me through the last time you sent money home — what would you regret losing?" The answer is your real differentiator.</li>
+      <li>Submit App Store + Play Store listings for review now, so the M2 (Oct) go-live isn't blocked by a 2-week review queue. Do not publish.</li>
       <li>Compliance check: have the lawyer review your live ToS, fee disclosure, and complaints policy.</li>
     </ul>
   </div>
@@ -934,49 +1055,112 @@
   </div>
 </div>
 
-<!-- Sprint 7 -->
-<div class="sprint">
-  <h3>Sprint 7 <span class="dates">17 Aug – 30 Aug · "Quiet launch"</span></h3>
-  <p><em>Theme: open the door without throwing a party.</em></p>
+<!-- Sprint 7 — M1 milestone -->
+<div class="sprint" style="border-color:var(--info);border-width:2px;">
+  <h3>Sprint 7 <span class="dates">17 Aug – 31 Aug · "M1 — Technical Launch (sandbox alpha)"</span></h3>
+  <p><em>Theme: prove the product end-to-end in the sandbox. No real money, no public listing — a capability milestone, not a go-live.</em></p>
 
   <div class="lane">
     <p class="lane-title">Backend</p>
     <ul>
-      <li>No new features. Hotfix only.</li>
-      <li>Stand up the daily "morning brief" automated email: KYC backlog, transfers yesterday, failed payouts, reconciliation status, error budget burn. Founder reads it with morning coffee.</li>
+      <li>Freeze features. The full money path runs green in the partner <strong>sandbox</strong>: quote → confirm → payout → settle, with reconciliation and the background transmission processor in place.</li>
+      <li>Stand up the daily "morning brief" email (KYC backlog, sandbox transfers, failed payouts, reconciliation, error-budget burn) so the ops loop is exercised before real money exists.</li>
     </ul>
   </div>
 
   <div class="lane">
     <p class="lane-title">Mobile</p>
     <ul>
-      <li>App Store + Play Store listings go live.</li>
-      <li>Push the "we're live" message to the WhatsApp wait-list — not a public post.</li>
-      <li>Monitor crash-free rate. Hold &gt; 99.5% before opening sign-ups beyond the wait-list.</li>
+      <li>Production builds on TestFlight + Play internal track. The full send-money + KYC journey is walkable end-to-end against the sandbox.</li>
+      <li>Crash-free rate &gt; 99.5% across the alpha devices.</li>
     </ul>
   </div>
 
   <div class="lane">
-    <p class="lane-title">Non-engineering</p>
+    <p class="lane-title">Non-engineering (Track B)</p>
     <ul>
-      <li>Onboard users 31–50. Aim to hit 50 by 30 Aug.</li>
-      <li>Personal call (not WhatsApp) with each of the first 10 users to ask: "if I scaled this to 500, what would you want me to fix first?"</li>
-      <li>Write the post-launch retrospective in the same form as this document. Be as honest about the misses as you have been planning around them.</li>
+      <li>Closed alpha: 5–10 <em>insiders</em> walk the whole journey on sandbox rails. Capture every point of friction. <strong>No external client money.</strong></li>
+      <li>Partner contract in final redlines; chase the regulatory permission letter. Wait-list of named M2 candidates recruited (target 50).</li>
+      <li>Write the M1 sign-off note in this document's form — what's proven, what's still sandbox-only, what Track B still gates.</li>
     </ul>
   </div>
 
   <div class="lane donot">
     <p class="lane-title">Do not do</p>
     <ul>
-      <li>Do not announce on LinkedIn until you have 30 active monthly users. Announcement-driven sign-ups before product-market-fit kill cohort quality.</li>
-      <li>Do not start the "Payabo for Kenya" planning conversation in September. The first quarter post-launch is for depth in Nigeria.</li>
+      <li>Do not publish the App Store / Play Store listing. That is M2.</li>
+      <li>Do not move a single real external pound before the permission letter is in your inbox.</li>
+      <li>Do not let the freed engineering capacity start a new module. Harden the money path instead.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 8 — Track B close + private beta -->
+<div class="sprint">
+  <h3>Sprint 8 <span class="dates">1 Sep – 30 Sep · "Commercial close + first real money"</span></h3>
+  <p><em>Theme: Track B catches up. The technology waits; the paperwork crosses the line.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend / mobile</p>
+    <ul>
+      <li>Switch the connector to <strong>production</strong> credentials behind Key Vault. Flip fund-collection and FX to live. Hotfix only otherwise.</li>
+      <li>Replay every money-touching endpoint for idempotency against live rails before any external user touches it.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering (Track B — the gate)</p>
+    <ul>
+      <li><strong>Partner contract signed; regulatory permission letter in hand.</strong> Until this is true, nothing below happens.</li>
+      <li>ToS + Privacy + Fee schedule published. Manual sanctions + KYC procedure live.</li>
+      <li><strong>Founder sends £100 of real money to own family</strong> on live rails. Fix what's awkward before anyone else sees it.</li>
+      <li>Private beta: onboard the first 5–10 external users on real money, concierge onboarding, daily 24h KYC clearance.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not open beyond the named private-beta list. The public listing is M2.</li>
+      <li>Do not skip the founder's own live transfer as the first real-money test.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Sprint 9 — M2 hard launch -->
+<div class="sprint" style="border-color:var(--info);border-width:2px;">
+  <h3>Sprint 9 <span class="dates">1 Oct – 31 Oct · "M2 — Hard Launch"</span></h3>
+  <p><em>Theme: open the door — quietly. The launch the 24 May plan described, now legally able to happen.</em></p>
+
+  <div class="lane">
+    <p class="lane-title">Backend / mobile</p>
+    <ul>
+      <li>App Store + Play Store listings go live. Hotfix only.</li>
+      <li>Hold crash-free &gt; 99.5% and reconciliation clean before widening sign-ups.</li>
+    </ul>
+  </div>
+
+  <div class="lane">
+    <p class="lane-title">Non-engineering (Track B)</p>
+    <ul>
+      <li>Onboard users up to ~50 across the month. Push "we're live" to the WhatsApp wait-list — not a public post.</li>
+      <li>Personal call with the first 10 real-money users: "if I scaled this to 500, what would you fix first?"</li>
+      <li>Write the post-launch retrospective in this document's form. Be as honest about the misses as the planning was.</li>
+    </ul>
+  </div>
+
+  <div class="lane donot">
+    <p class="lane-title">Do not do</p>
+    <ul>
+      <li>Do not announce on LinkedIn until 30 active monthly users.</li>
+      <li>Do not start the "Payabo for Kenya" conversation. Q4 is for depth in Nigeria — and delete the KE/ZA billers that crept into seed.</li>
     </ul>
   </div>
 </div>
 
 <div class="callout">
   <div class="label">Capacity reality check</div>
-  This plan assumes the founder is working full-time on Payabo with AI agents for execution leverage. AI agents can carry the per-sprint engineering load if the architectural decisions and the partner conversations are made cleanly. They cannot carry the lawyer-facing, partner-facing, or user-facing work — those compound to roughly <strong>3 days a week of founder time on non-engineering activity</strong> across the plan. If you do not protect that time, the engineering goes faster than the regulation, and you arrive at August with a product you cannot legally turn on.
+  This plan assumes the founder is working full-time on Payabo with AI agents for execution leverage. AI agents can carry the per-sprint engineering load if the architectural decisions and the partner conversations are made cleanly. They cannot carry the lawyer-facing, partner-facing, company-formation, or user-facing work — the Track-B spine — which compounds to roughly <strong>3 days a week of founder time on non-engineering activity</strong> across the plan. The engineering already raced ahead of the regulation — that is precisely why August is now a technical milestone and the real launch is October. The whole point of the two-track split is to stop pretending those clocks are the same. Protect the Track-B days, or M2 slips too.
 </div>
 
 </section>
@@ -1005,15 +1189,15 @@
 
 <h3>6.3 Compliance &amp; legal — the gating sequence</h3>
 <table>
-  <thead><tr><th>By end of</th><th>Must be true</th></tr></thead>
+  <thead><tr><th>By</th><th>Must be true</th></tr></thead>
   <tbody>
-    <tr><td>Sprint 1</td><td>Partner shortlisted; lawyer engaged; ICO registered; payabo.com landing live.</td></tr>
-    <tr><td>Sprint 2</td><td>Partner contract signed (or fallback partner negotiations begun); ToS / Privacy / Fees first draft; complaints policy template.</td></tr>
-    <tr><td>Sprint 3</td><td>ToS / Privacy / Fees published; FCA Registered Agent application started (post-MVP track); manual sanctions screening procedure documented.</td></tr>
-    <tr><td>Sprint 4</td><td>First real money moves under partner permission. Founder personally tested.</td></tr>
-    <tr><td>Sprint 5</td><td>Daily KYC + transaction-monitoring routine running. Complaints log in use.</td></tr>
-    <tr><td>Sprint 6</td><td>Lawyer second-look on live ToS and fee disclosure. Consumer Duty fair-value note drafted.</td></tr>
-    <tr><td>Sprint 7</td><td>Launch with documented evidence of every compliance step. If a regulator asks tomorrow, you can produce the file.</td></tr>
+    <tr><td><strong>Wk of 9 Jun</strong></td><td><strong>UK Ltd registered.</strong> Business-bank application in. Lawyer engaged (agent vs distributor). ICO registered. payabo.com landing live.</td></tr>
+    <tr><td>End Jun</td><td>Company incorporated + bank account open + KYB pack ready. Partner shortlist incl. ≥1 pre-revenue-friendly. Legal structure decided.</td></tr>
+    <tr><td>End Jul</td><td>Lead partner in contracting. ToS / Privacy / Fees first draft. Manual sanctions + KYC procedure documented. Complaints policy template.</td></tr>
+    <tr><td>~31 Aug · <strong>M1</strong></td><td>Technical launch: every compliance step <em>built and dry-run in the sandbox</em>. No live money. Permission letter still pending.</td></tr>
+    <tr><td>Mid-Sep</td><td><strong>Partner contract signed; regulatory permission in writing.</strong> ToS / Privacy / Fees published. First real money moves (founder-tested).</td></tr>
+    <tr><td>End Sep</td><td>Daily KYC + transaction-monitoring routine running on the private beta. Complaints log in use. Consumer Duty fair-value note drafted.</td></tr>
+    <tr><td>~31 Oct · <strong>M2</strong></td><td>Hard launch with documented evidence of every compliance step. If a regulator asks tomorrow, you can produce the file.</td></tr>
   </tbody>
 </table>
 
@@ -1054,9 +1238,18 @@
 <div class="risk-row">
   <div class="sev r1">Tier 1<br/>Date-killer</div>
   <div>
-    <h4>Partner contract slips or falls through</h4>
-    <p>If no partner has signed by end of Sprint 2, August launch is at serious risk. Every dependent piece of work assumes a known counterparty.</p>
-    <p><strong>Mitigation:</strong> Have two partners in conversation from S1, not one. Be willing to take worse commercial terms for faster contract speed. Have the lawyer pre-drafted on a "standard distributor agreement" template so signing is a redline exercise, not a build-from-scratch.</p>
+    <h4>No registered company — formation is step zero</h4>
+    <p>There is no Ltd yet, and it gates everything in Track B: partner KYB, the business bank account, ICO registration, and the lawyer's engagement all require it. A week lost here is a week lost off the front of every downstream commercial milestone.</p>
+    <p><strong>Mitigation:</strong> Register the UK Ltd this week (~£12, ~24h) and open the business-bank application the same day. Treat it as the unlock for the whole commercial track, not an administrative afterthought.</p>
+  </div>
+</div>
+
+<div class="risk-row">
+  <div class="sev r1">Tier 1<br/>Date-killer</div>
+  <div>
+    <h4>No partner will onboard a pre-revenue company</h4>
+    <p>Tier-1 partners signal a transaction-volume minimum — Flutterwave reportedly wants &gt;£1M — and will not onboard a pre-launch business. That is a chicken-and-egg that can stall M2 indefinitely if you wait on a single name.</p>
+    <p><strong>Mitigation:</strong> Widen the funnel to a startup / pre-revenue-friendly provider for cohort 1; keep a tier-1 as the graduate-to once volume exists. Keep ≥2 partners in conversation from the start, and get each minimum in writing (it is often a comfort ask, not a hard gate). The Spec 031 connector abstraction keeps the swap cheap — validate against whoever will actually sign. Be willing to take worse commercial terms for faster contract speed.</p>
   </div>
 </div>
 
@@ -1277,7 +1470,7 @@
 </section>
 
 <p class="footnote">
-  This document was written from the codebase as of commit <code>e2d0bdca</code> on branch <code>master</code>, 24 May 2026, and <strong>revised 6 June 2026 against commit <code>d34c7ab9</code></strong> (branch <code>feat/spec-033-tenant-agent-extensibility</code>). The 24 May baseline is preserved; the 6 June revision adds the "Progress Update — 6 June 2026" section and inline <span class="upd">▲ 6 Jun</span> notes, each re-verified against current code (parallel file-level audit of the Finance, PersonalFinance, Platform/Compliance, Agents/AI/Voice, mobile, and web surfaces). Where it claims a feature is "real," "stubbed," or "missing," that claim is grounded in named files and line numbers. Where it claims a partner does or does not exist, it is grounded in a code-wide grep. Where it makes a judgement call about scope, it is the planner's call, and the founder is welcome to overrule.
+  This document was written from the codebase as of commit <code>e2d0bdca</code> on branch <code>master</code>, 24 May 2026, and <strong>revised 6 June 2026 against commit <code>d34c7ab9</code></strong> (branch <code>feat/spec-033-tenant-agent-extensibility</code>), and <strong>revised again 7 June 2026 against commit <code>3d058602</code></strong> (branch <code>master</code>). The 24 May baseline and the 6 June layer are both preserved; the 7 June revision adds the "Progress Update — 7 June 2026" state audit and inline <span class="upd">▲ 7 Jun</span> notes on the §2.4 rows the wedge backend made stale, and restructures the forward plan around two milestones — adding "The Two-Milestone Plan" section (M1 technical launch ~31 Aug / M2 hard launch ~31 Oct) and reworking §3, §5, §6.3 and §7 to match. The 6 June revision adds the "Progress Update — 6 June 2026" section and inline <span class="upd">▲ 6 Jun</span> notes, each re-verified against current code (parallel file-level audit of the Finance, PersonalFinance, Platform/Compliance, Agents/AI/Voice, mobile, and web surfaces). Where it claims a feature is "real," "stubbed," or "missing," that claim is grounded in named files and line numbers. Where it claims a partner does or does not exist, it is grounded in a code-wide grep. Where it makes a judgement call about scope, it is the planner's call, and the founder is welcome to overrule.
 </p>
 
 </main>
