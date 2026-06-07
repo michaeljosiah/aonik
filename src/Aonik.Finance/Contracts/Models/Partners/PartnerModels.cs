@@ -36,6 +36,7 @@ public record PartnerConnectorItem(
     string ConnectorType,
     string Status,
     string? CredentialsRef,
+    string? ConfigJson,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );
@@ -108,3 +109,15 @@ public record CreatePartnerResponse(
     string Status,
     DateTime CreatedAt
 );
+
+public record CreatePartnerConnectorRequest(
+    string ConnectorType,
+    string? Status,
+    string? CredentialsRef,
+    string? ConfigJson);
+
+public record UpdatePartnerConnectorRequest(
+    string? ConnectorType,
+    string? Status,
+    string? CredentialsRef,
+    string? ConfigJson);

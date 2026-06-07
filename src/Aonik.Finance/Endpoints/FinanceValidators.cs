@@ -496,3 +496,25 @@ public sealed class UpdatePartnerRequestValidator : Validator<UpdatePartnerReque
         RuleFor(x => x.OperatingHoursJson).MaximumLength(16_000);
     }
 }
+
+public sealed class CreatePartnerConnectorRequestValidator : Validator<CreatePartnerConnectorRequest>
+{
+    public CreatePartnerConnectorRequestValidator()
+    {
+        RuleFor(x => x.ConnectorType).RequiredText(128);
+        RuleFor(x => x.Status).MaximumLength(64);
+        RuleFor(x => x.CredentialsRef).MaximumLength(512);
+        RuleFor(x => x.ConfigJson).MaximumLength(16_000);
+    }
+}
+
+public sealed class UpdatePartnerConnectorRequestValidator : Validator<UpdatePartnerConnectorRequest>
+{
+    public UpdatePartnerConnectorRequestValidator()
+    {
+        RuleFor(x => x.ConnectorType).MaximumLength(128);
+        RuleFor(x => x.Status).MaximumLength(64);
+        RuleFor(x => x.CredentialsRef).MaximumLength(512);
+        RuleFor(x => x.ConfigJson).MaximumLength(16_000);
+    }
+}

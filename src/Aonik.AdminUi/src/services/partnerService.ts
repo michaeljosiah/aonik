@@ -3,8 +3,10 @@ import type { PagedResult } from '@/types';
 import type {
   CreatePartnerRequest,
   CreatePartnerResponse,
+  CreatePartnerConnectorRequest,
   PartnerDetail,
   PartnerListItem,
+  UpdatePartnerConnectorRequest,
   UpdatePartnerRequest,
 } from '@/types/partners';
 
@@ -43,5 +45,21 @@ export const partnerService = {
 
   delete: async (partnerId: string): Promise<void> => {
     await api.delete(`/admin/partners/${partnerId}`);
+  },
+
+  createConnector: async (partnerId: string, request: CreatePartnerConnectorRequest): Promise<PartnerDetail> => {
+    return api.post<PartnerDetail>(`/admin/partners/${partnerId}/connectors`, request);
+  },
+
+  updateConnector: async (
+    partnerId: string,
+    connectorId: string,
+    request: UpdatePartnerConnectorRequest,
+  ): Promise<PartnerDetail> => {
+    return api.patch<PartnerDetail>(`/admin/partners/${partnerId}/connectors/${connectorId}`, request);
+  },
+
+  deleteConnector: async (partnerId: string, connectorId: string): Promise<void> => {
+    await api.delete(`/admin/partners/${partnerId}/connectors/${connectorId}`);
   },
 };

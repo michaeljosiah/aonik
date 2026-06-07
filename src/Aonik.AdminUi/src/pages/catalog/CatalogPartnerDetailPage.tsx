@@ -148,11 +148,17 @@ export function CatalogPartnerDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [connectorSaving, setConnectorSaving] = useState(false);
+  const [editingConnectorId, setEditingConnectorId] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [status, setStatus] = useState('Active');
   const [capabilitiesText, setCapabilitiesText] = useState('');
   const [operatingHoursText, setOperatingHoursText] = useState('');
+  const [connectorType, setConnectorType] = useState('Flutterwave');
+  const [connectorStatus, setConnectorStatus] = useState('Active');
+  const [connectorCredentialsRef, setConnectorCredentialsRef] = useState('Finance.Partners.Flutterwave');
+  const [connectorConfigJson, setConnectorConfigJson] = useState('{"service":"Payout","country":"NG","currency":"NGN"}');
 
   const hydrateForm = useCallback((data: PartnerDetail) => {
     setName(data.name);
@@ -228,6 +234,71 @@ export function CatalogPartnerDetailPage() {
       toast.error(message || 'Failed to update partner.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const resetConnectorForm = () => {
+    setEditingConnectorId(null);
+    setConnectorType('Flutterwave');
+    setConnectorStatus('Active');
+    setConnectorCredentialsRef('Finance.Partners.Flutterwave');
+    setConnectorConfigJson('{"service":"Payout","country":"NG","currency":"NGN"}');
+  };
+
+  const handleEditConnector = (connector: NonNullable<PartnerDetail['connectors']>[number]) => {
+    setEditingConnectorId(connector.connectorId);
+    setConnectorType(connector.connectorType);
+    setConnectorStatus(connector.status);
+    setConnectorCredentialsRef(connector.credentialsRef ?? '');
+    setConnectorConfigJson(connector.configJson ?? '{}');
+  };
+
+  const handleSaveConnector = async () => {
+    if (!partnerId || connectorType.trim().length === 0) return;
+    setConnectorSaving(true);
+    setError(null);
+    try {
+      const request = {
+        connectorType: connectorType.trim(),
+        status: connectorStatus.trim() || 'Active',
+        credentialsRef: connectorCredentialsRef.trim() || null,
+        configJson: connectorConfigJson.trim() || '{}',
+      };
+      const updated = editingConnectorId
+        ? await partnerService.updateConnector(partnerId, editingConnectorId, request)
+        : await partnerService.createConnector(partnerId, request);
+      setPartner(updated);
+      resetConnectorForm();
+      toast.success(editingConnectorId ? 'Connector updated.' : 'Connector created.');
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to save connector.');
+      toast.error(message || 'Failed to save connector.');
+    } finally {
+      setConnectorSaving(false);
+    }
+  };
+
+  const handleDeleteConnector = async (connectorId: string) => {
+    if (!partnerId) return;
+    setConnectorSaving(true);
+    setError(null);
+    try {
+      await partnerService.deleteConnector(partnerId, connectorId);
+      const updated = await partnerService.get(partnerId);
+      setPartner(updated);
+      resetConnectorForm();
+      toast.success('Connector deleted.');
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to delete connector.');
+      toast.error(message || 'Failed to delete connector.');
+    } finally {
+      setConnectorSaving(false);
     }
   };
 
@@ -548,14 +619,73 @@ export function CatalogPartnerDetailPage() {
                                           Credentials {connector.credentialsRef}
                                         </div>
                                       )}
+                                      {connector.configJson && (
+                                        <div className="mt-1 max-w-[28rem] truncate font-mono text-[11px] text-[var(--color-text-tertiary)]">
+                                          {connector.configJson}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                  <Badge variant="outline" className="text-xs">
-                                    {connector.status}
-                                  </Badge>
+                                  <div className="flex flex-col items-end gap-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      {connector.status}
+                                    </Badge>
+                                    <div className="flex gap-1">
+                                      <Button variant="outline" size="sm" onClick={() => handleEditConnector(connector)}>
+                                        Edit
+                                      </Button>
+                                      <Button variant="outline" size="sm" onClick={() => void handleDeleteConnector(connector.connectorId)} disabled={connectorSaving}>
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </div>
                                 </div>
                               ))
                             )}
+                            <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                              <div className="mb-3 flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                                    {editingConnectorId ? 'Edit connector' : 'Add connector'}
+                                  </h3>
+                                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                                    CredentialsRef points to gateway settings; never paste secrets here.
+                                  </p>
+                                </div>
+                                {editingConnectorId ? (
+                                  <Button variant="ghost" size="sm" onClick={resetConnectorForm}>Cancel</Button>
+                                ) : null}
+                              </div>
+                              <div className="grid gap-3">
+                                <div>
+                                  <Label htmlFor="connector-type">Connector type</Label>
+                                  <Input id="connector-type" value={connectorType} onChange={(event) => setConnectorType(event.target.value)} />
+                                </div>
+                                <div>
+                                  <Label htmlFor="connector-status">Status</Label>
+                                  <Select value={connectorStatus} onValueChange={setConnectorStatus}>
+                                    <SelectTrigger id="connector-status"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Active">Active</SelectItem>
+                                      <SelectItem value="Disabled">Disabled</SelectItem>
+                                      <SelectItem value="Sandbox">Sandbox</SelectItem>
+                                      <SelectItem value="Pending">Pending</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="connector-credentials">Credentials ref</Label>
+                                  <Input id="connector-credentials" value={connectorCredentialsRef} onChange={(event) => setConnectorCredentialsRef(event.target.value)} />
+                                </div>
+                                <div>
+                                  <Label htmlFor="connector-config">Config JSON</Label>
+                                  <Textarea id="connector-config" value={connectorConfigJson} onChange={(event) => setConnectorConfigJson(event.target.value)} className="min-h-24 font-mono text-xs" />
+                                </div>
+                                <Button size="sm" onClick={() => void handleSaveConnector()} disabled={connectorSaving || connectorType.trim().length === 0}>
+                                  {connectorSaving ? 'Saving...' : editingConnectorId ? 'Update connector' : 'Create connector'}
+                                </Button>
+                              </div>
+                            </div>
                           </CardContent>
                         </Card>
 

@@ -25,4 +25,20 @@ public interface IPartnerAdminService
     Task DeletePartnerAsync(
         Guid partnerId,
         CancellationToken cancellationToken = default);
+
+    Task<PartnerDetail> CreateConnectorAsync(
+        Guid partnerId,
+        CreatePartnerConnectorRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<PartnerDetail> UpdateConnectorAsync(
+        Guid partnerId,
+        Guid connectorId,
+        UpdatePartnerConnectorRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteConnectorAsync(
+        Guid partnerId,
+        Guid connectorId,
+        CancellationToken cancellationToken = default);
 }

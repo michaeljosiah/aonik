@@ -253,6 +253,7 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
                 connector.ConnectorType,
                 connector.Status,
                 connector.CredentialsRef,
+                connector.ConfigJson,
                 connector.CreatedAt,
                 connector.UpdatedAt))
             .ToListAsync(cancellationToken);
@@ -590,6 +591,137 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
             }, JsonOptions),
             cancellationToken: cancellationToken);
     }
+
+    public async Task<PartnerDetail> CreateConnectorAsync(
+        Guid partnerId,
+        CreatePartnerConnectorRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Settings.Write", cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.ConnectorType))
+        {
+            throw new ArgumentException("Connector type is required.", nameof(request.ConnectorType));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var partnerExists = await _dbContext.Partners
+            .AnyAsync(partner => partner.TenantId == tenantId && partner.Id == partnerId, cancellationToken);
+        if (!partnerExists)
+        {
+            throw new InvalidOperationException($"Partner {partnerId} not found.");
+        }
+
+        var connector = new Connector
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartnerId = partnerId,
+            ConnectorType = request.ConnectorType.Trim(),
+            Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+            CredentialsRef = Normalize(request.CredentialsRef),
+            ConfigJson = string.IsNullOrWhiteSpace(request.ConfigJson) ? "{}" : request.ConfigJson.Trim(),
+            CreatedAt = _clock.UtcNow
+        };
+
+        _dbContext.Connectors.Add(connector);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.ConnectorCreated,
+            "Connector",
+            connector.Id,
+            tenantId,
+            actorId: null,
+            correlationId: null,
+            detailsJson: JsonSerializer.Serialize(new { connector.Id, connector.PartnerId, connector.ConnectorType }, JsonOptions),
+            cancellationToken: cancellationToken);
+
+        return await GetPartnerAsync(partnerId, cancellationToken)
+               ?? throw new InvalidOperationException($"Partner {partnerId} not found.");
+    }
+
+    public async Task<PartnerDetail> UpdateConnectorAsync(
+        Guid partnerId,
+        Guid connectorId,
+        UpdatePartnerConnectorRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Settings.Write", cancellationToken);
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var connector = await _dbContext.Connectors
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.PartnerId == partnerId && item.Id == connectorId, cancellationToken)
+            ?? throw new InvalidOperationException($"Connector {connectorId} not found.");
+
+        if (!string.IsNullOrWhiteSpace(request.ConnectorType))
+        {
+            connector.ConnectorType = request.ConnectorType.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            connector.Status = request.Status.Trim();
+        }
+
+        if (request.CredentialsRef is not null)
+        {
+            connector.CredentialsRef = Normalize(request.CredentialsRef);
+        }
+
+        if (request.ConfigJson is not null)
+        {
+            connector.ConfigJson = string.IsNullOrWhiteSpace(request.ConfigJson) ? "{}" : request.ConfigJson.Trim();
+        }
+
+        connector.UpdatedAt = _clock.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.ConnectorUpdated,
+            "Connector",
+            connector.Id,
+            tenantId,
+            actorId: null,
+            correlationId: null,
+            detailsJson: JsonSerializer.Serialize(new { connector.Id, connector.PartnerId, connector.ConnectorType }, JsonOptions),
+            cancellationToken: cancellationToken);
+
+        return await GetPartnerAsync(partnerId, cancellationToken)
+               ?? throw new InvalidOperationException($"Partner {partnerId} not found.");
+    }
+
+    public async Task DeleteConnectorAsync(
+        Guid partnerId,
+        Guid connectorId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Settings.Write", cancellationToken);
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var connector = await _dbContext.Connectors
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.PartnerId == partnerId && item.Id == connectorId, cancellationToken);
+        if (connector is null)
+        {
+            return;
+        }
+
+        _dbContext.Connectors.Remove(connector);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.ConnectorDeleted,
+            "Connector",
+            connectorId,
+            tenantId,
+            actorId: null,
+            correlationId: null,
+            detailsJson: JsonSerializer.Serialize(new { connectorId, partnerId }, JsonOptions),
+            cancellationToken: cancellationToken);
+    }
+
+    private static string? Normalize(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private async Task EnsurePartnerPrefundAccountsAsync(
         Guid tenantId,

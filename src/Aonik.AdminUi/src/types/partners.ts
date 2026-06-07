@@ -26,6 +26,7 @@ export interface PartnerConnectorItem {
   connectorType: string;
   status: string;
   credentialsRef?: string | null;
+  configJson?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -97,4 +98,18 @@ export interface CreatePartnerResponse {
   name: string;
   status: string;
   createdAt: string;
+}
+
+export interface CreatePartnerConnectorRequest {
+  connectorType: string;
+  status?: string | null;
+  credentialsRef?: string | null;
+  configJson?: string | null;
+}
+
+export interface UpdatePartnerConnectorRequest {
+  connectorType?: string | null;
+  status?: string | null;
+  credentialsRef?: string | null;
+  configJson?: string | null;
 }
