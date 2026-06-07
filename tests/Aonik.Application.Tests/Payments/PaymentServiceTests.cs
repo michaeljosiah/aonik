@@ -11,6 +11,7 @@ using Aonik.Finance.Services.Payments;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.Payments;
 
@@ -77,7 +78,8 @@ public class PaymentServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
-            new LedgerPostingService(context));
+            new LedgerPostingService(context),
+            NullLogger<PaymentService>.Instance);
         var orderId = Guid.NewGuid();
         var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", orderId, null);
 
@@ -112,7 +114,8 @@ public class PaymentServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
-            new LedgerPostingService(context));
+            new LedgerPostingService(context),
+            NullLogger<PaymentService>.Instance);
         var orderId = Guid.NewGuid();
         var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", orderId, null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
@@ -141,7 +144,8 @@ public class PaymentServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
-            new LedgerPostingService(context));
+            new LedgerPostingService(context),
+            NullLogger<PaymentService>.Instance);
 
         // Act
         var result = await service.GetPaymentIntentAsync(Guid.NewGuid());
@@ -163,7 +167,8 @@ public class PaymentServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
-            new LedgerPostingService(context));
+            new LedgerPostingService(context),
+            NullLogger<PaymentService>.Instance);
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
@@ -217,7 +222,8 @@ public class PaymentServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
-            new LedgerPostingService(context));
+            new LedgerPostingService(context),
+            NullLogger<PaymentService>.Instance);
 
         // Act
         var act = async () => await service.CapturePaymentAsync(Guid.NewGuid());
@@ -240,7 +246,8 @@ public class PaymentServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
-            new LedgerPostingService(context));
+            new LedgerPostingService(context),
+            NullLogger<PaymentService>.Instance);
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
@@ -265,7 +272,8 @@ public class PaymentServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
             new FinanceMetrics(),
-            new LedgerPostingService(context));
+            new LedgerPostingService(context),
+            NullLogger<PaymentService>.Instance);
 
         // Act
         var act = async () => await service.CancelPaymentAsync(Guid.NewGuid());

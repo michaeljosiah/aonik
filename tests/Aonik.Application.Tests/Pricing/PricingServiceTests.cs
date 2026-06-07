@@ -8,6 +8,7 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Pricing;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.Pricing;
 
@@ -112,7 +113,8 @@ public class PricingServiceTests
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
             context,
-            clock);
+            clock,
+            NullLogger<PricingService>.Instance);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -191,7 +193,8 @@ public class PricingServiceTests
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
             context,
-            clock);
+            clock,
+            NullLogger<PricingService>.Instance);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -276,7 +279,8 @@ public class PricingServiceTests
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
             context,
-            clock);
+            clock,
+            NullLogger<PricingService>.Instance);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -376,7 +380,8 @@ public class PricingServiceTests
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
             context,
-            clock);
+            clock,
+            NullLogger<PricingService>.Instance);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -453,7 +458,8 @@ public class PricingServiceTests
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
             context,
-            clock);
+            clock,
+            NullLogger<PricingService>.Instance);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -533,7 +539,8 @@ public class PricingServiceTests
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
             context,
-            clock);
+            clock,
+            NullLogger<PricingService>.Instance);
 
         var request = new PricingQuoteRequest(
             "USD",
