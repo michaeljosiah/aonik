@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 041 - Agent memory: decision-aware learning</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e4f1ee; color: #055a60; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tier {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .tier.low { background: #ecf6ee; color: #1f6b3a; }
+    .tier.high { background: #fbe2dd; color: #b3261e; }
+    .tier.ro { background: #eef0f2; color: #5a6a76; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 041</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P1</span>
+  <span class="meta-tag">Domain: Agents / PersonalFinance / Platform</span>
+  <h1>Agent memory: decision-aware learning</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Extend AONIK's built memory subsystem so agents can remember <strong>why</strong> a decision was made,
+    under which conditions that rationale applies, and what approach has worked across similar tenant cases.
+    This is not a new memory platform: it adds <code>Rationale</code> entries to <code>UserMemoryEntry</code>,
+    introduces tenant-scoped <code>DecisionPattern</code> records, and reuses the existing conversation-memory
+    extraction machinery from the Worker for outcome-triggered extraction.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#current">Current state</a></li>
+    <li><a href="#gap">Remaining gap</a></li>
+    <li><a href="#additions">Three additions</a></li>
+    <li><a href="#rationale">Rationale entries</a></li>
+    <li><a href="#patterns">Pattern memory</a></li>
+    <li><a href="#extraction">Outcome-triggered extraction</a></li>
+    <li><a href="#examples">Worked examples</a></li>
+    <li><a href="#scope">Scope</a></li>
+    <li><a href="#guardrails">Guardrails</a></li>
+    <li><a href="#placement">Placement &amp; persistence</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK already remembers user facts and preferences. The platform has <code>UserMemoryEntry</code>, typed
+  entries, confidence scores, supersede-not-delete history, SQL and Qdrant-backed <code>IUserMemoryService</code>
+  implementations, <code>user_memory_save</code> / <code>user_memory_recall</code> tools, a User Brief projection
+  path, and a Worker-side conversation summary and memory extraction job. This spec extends that system so
+  memory can become <strong>decision-aware</strong> without creating a parallel subsystem.
+</p>
+
+<p>
+  The new behaviour is deliberately narrow. Agents may recall a past rationale as an explicit, overridable
+  assumption only when the current decision's conditions are relevant. Agents may also consider a tenant- or
+  segment-scoped pattern showing what worked across comparable cases. Neither rationale nor pattern memory
+  can change a mutation's risk tier, bypass <a href="032.tiered-ai-mutation-approval.html">Spec 032</a>, or
+  pre-authorise money movement.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  After a remittance route, invoice dunning sequence, proposal, or work item resolves, a Worker extraction pass
+  writes a <code>Rationale</code> memory capturing why the choice was made and what conditions it depended on.
+  The next comparable decision surfaces that rationale as a caveated prior and withholds it when the conditions
+  no longer match. Separately, a tenant-scoped <code>DecisionPattern</code> lets the agent propose the cadence or
+  approach that has worked across similar cases, while every mutation remains gated exactly as before.
+</div>
+
+<h2 id="current">2. Current state</h2>
+
+<p>
+  The implementation baseline is real and should be reused. These files are the starting point for any delivery
+  work on this spec:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Capability</th><th>Built shape</th><th>Implication</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>UserMemoryEntry</code></td>
+      <td><code>src/Aonik.Ai/Entities/UserMemoryEntry.cs</code> stores <code>TenantId</code>, <code>UserId</code>, <code>EntryType</code>, dot-key <code>Key</code>, JSON <code>ValueJson</code>, <code>Confidence</code>, <code>Source</code>, <code>AiRunId</code>, <code>SupersededById</code>, <code>CreatedAt</code>, and <code>LastConfirmedAt</code>.</td>
+      <td>Do not introduce a competing profile-memory entity. Extend this entity for user-scoped rationales.</td>
+    </tr>
+    <tr>
+      <td>Entry typing</td>
+      <td><code>UserMemoryEntryType</code> currently has <code>Identity</code>, <code>Preference</code>, <code>Correction</code>, and <code>Fact</code>. <code>UserMemorySource</code> has <code>UserStated</code>, <code>AiInferred</code>, and <code>SystemDerived</code>.</td>
+      <td>Add <code>Rationale</code> without changing semantics for existing types.</td>
+    </tr>
+    <tr>
+      <td>Decay + supersession</td>
+      <td><code>UserMemoryService</code> and <code>QdrantUserMemoryService</code> apply the same effective-confidence behaviour: user-stated entries do not decay; inferred/system entries decay by age and are hidden below the confidence floor. New writes supersede old current entries by <code>SupersededById</code>.</td>
+      <td>Rationales inherit confidence, decay, and supersede-not-delete history. Condition matching is additional recall behaviour, not a replacement for decay.</td>
+    </tr>
+    <tr>
+      <td>Memory service</td>
+      <td><code>IUserMemoryService</code> exposes <code>SetEntryAsync</code>, <code>GetCurrentEntriesAsync</code>, <code>GetEntryHistoryAsync</code>, <code>ConfirmEntryAsync</code>, and <code>SemanticSearchAsync</code>. SQL is the default backend; Qdrant provides semantic recall.</td>
+      <td>All rationale writes go through the existing service/provider path.</td>
+    </tr>
+    <tr>
+      <td>Vector tenant isolation</td>
+      <td><code>QdrantVectorStore</code> stamps <code>tenant_id</code> on writes and injects a tenant filter into search/scroll. It throws if no tenant context is available. Embedding dimensions are validated against configuration.</td>
+      <td>Any new vector-backed pattern store must preserve fail-closed tenant isolation and dimension validation.</td>
+    </tr>
+    <tr>
+      <td>Agent tools</td>
+      <td><code>user_memory_save</code> and <code>user_memory_recall</code> live under <code>src/Aonik.SharedKernel/Agents/Tools/</code>. Save takes the user id from auth; recall is read-only and returns empty on a 2-second hot-path timeout.</td>
+      <td>No new memory tool is needed for v1. Pattern recall belongs in the Brief/projection path, not in a user-scoped tool.</td>
+    </tr>
+    <tr>
+      <td>User Brief</td>
+      <td><code>UserBriefProjector</code> in Agents loads memory through <code>UserBriefAiDataProvider</code> in AI, which applies its own 2-second fail-open timeout before streaming begins.</td>
+      <td>Rationales should be folded into this path. Pattern memory needs a sibling tenant-scoped data path because it is not per-user.</td>
+    </tr>
+    <tr>
+      <td>Background extraction</td>
+      <td><code>StaleSessionDetectorJob</code> calls <code>ConversationSummaryGenerator</code>. The generator uses prompt profiles <code>conversation-summary</code> and <code>conversation-memory-extraction</code>, caps attempts at 3, caps extracted memories at 20 per session, and writes via <code>IUserMemorySaveProvider</code>.</td>
+      <td>Outcome extraction should add a new trigger and use case to this machinery, not fork a new reflection loop.</td>
+    </tr>
+    <tr>
+      <td>Resolution signals</td>
+      <td><code>ProposalApprovalService</code> moves proposals to <code>Applied</code> or <code>Failed</code>. <code>WorkItemDispatcher</code> records <code>WorkItemRun.Outcome</code>, <code>AiRunId</code>, and <code>ProposalId</code>. <code>BillingService.MarkInvoiceAsPaidAsync</code> transitions invoices to <code>Paid</code> after ledger settlement.</td>
+      <td>The decision-outcome extraction trigger can be implemented as outbox events emitted at these resolution points.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Schema note</span>
+  Before changing <code>UserMemoryEntry</code>, reconcile the current model mapping. Runtime <code>AiDbContext</code>
+  maps it to <code>dbo.AnkUserMemoryEntries</code>, and there is a rename migration to that table, but the
+  canonical <code>AonikDbContext</code> snapshot currently shows <code>dbo.UserMemoryEntry</code> because
+  <code>AonikDbContext</code> does not explicitly map the entity with <code>MapAiTable&lt;UserMemoryEntry&gt;</code>
+  or expose a <code>DbSet</code>. This spec requires fixing that mapping in the model before generating the
+  migration, not hand-editing migration files.
+</div>
+
+<h2 id="gap">3. Remaining gap</h2>
+
+<p>
+  The built memory system can remember facts and preferences about a user. It does not yet model decisions as
+  first-class memory. Four gaps remain:
+</p>
+
+<ul>
+  <li><strong>Memory is about the user, not the choice.</strong> Entries can say <code>finance.preferred_currency</code>, but cannot say &ldquo;chose the cheaper corridor because speed was not important and the payee was verified.&rdquo;</li>
+  <li><strong>Staleness is time-based, not context-based.</strong> A decision rationale does not merely get older; it becomes inapplicable when the payee, corridor, amount band, invoice segment, or verified history changes.</li>
+  <li><strong>Learning is user-scoped only.</strong> There is no tenant-scoped aggregate of what worked across cases, such as the dunning cadence that cleared most invoices in a segment.</li>
+  <li><strong>Extraction is idle-conversation triggered.</strong> The existing Worker job learns when a chat thread goes stale, not when a proposal, invoice, work item, or order sequence reaches an outcome.</li>
+</ul>
+
+<h2 id="additions">4. Three additions</h2>
+
+<table>
+  <thead>
+    <tr><th>Addition</th><th>Docks onto</th><th>Net new behaviour</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="tag extend">extend</span> Rationale entries</td>
+      <td><code>UserMemoryEntry</code>, <code>IUserMemoryService</code>, User Brief</td>
+      <td>A user-scoped decision memory with <code>DecisionType</code>, <code>ConditionsJson</code>, and <code>StaleWhen</code>. Recall applies condition relevance before surfacing it as a prior.</td>
+    </tr>
+    <tr>
+      <td><span class="tag new">new</span> Pattern memory</td>
+      <td>AI/Platform persistence and User Brief projection</td>
+      <td>A tenant- and optional segment-scoped aggregate for &ldquo;what worked across cases&rdquo;, keyed by decision type and reinforced over time.</td>
+    </tr>
+    <tr>
+      <td><span class="tag extend">extend</span> Outcome-triggered extraction</td>
+      <td>Worker outbox, <code>ConversationSummaryGenerator</code>, <code>IUserMemorySaveProvider</code>, <code>AiRun</code> audit</td>
+      <td>A new <code>decision-outcome-extraction</code> use case that runs after a decision resolves and writes/reinforces rationale and pattern memory off the agent turn.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="rationale">5. Addition A: Rationale entries</h2>
+
+<p>
+  Extend <code>UserMemoryEntry</code> rather than creating a new user-memory table. Existing profile memory remains
+  <code>Identity</code> / <code>Preference</code> / <code>Correction</code> / <code>Fact</code>. A rationale is a
+  current or superseded entry about a past choice for a specific user.
+</p>
+
+<pre><code>// src/Aonik.Ai/Entities/UserMemoryEntryType.cs
+public enum UserMemoryEntryType
+{
+    Identity = 1,
+    Preference = 2,
+    Correction = 3,
+    Fact = 4,
+    Rationale = 5
+}
+
+// src/Aonik.Ai/Entities/UserMemoryEntry.cs
+public class UserMemoryEntry : Entity, ITenantScoped
+{
+    // Existing properties omitted for brevity.
+
+    public string? DecisionType { get; set; }    // e.g. "remittance-routing", "dunning", "budget"
+    public string? ConditionsJson { get; set; }  // salient features when the choice was made
+    public string? StaleWhen { get; set; }        // human-readable invalidation note
+}</code></pre>
+
+<h3>5.1 Storage rules</h3>
+<ul>
+  <li><code>DecisionType</code>, <code>ConditionsJson</code>, and <code>StaleWhen</code> are nullable for the existing entry types and required by validation for <code>Rationale</code> writes.</li>
+  <li><code>Key</code> remains the dot-key namespace. Rationale keys should include the decision type and stable subject grain, for example <code>decision.remittance-routing.payee.{payeeId}</code> or <code>decision.dunning.segment.{segment}</code>.</li>
+  <li><code>ValueJson</code> stores the distilled rationale, not a raw transcript. It should include the chosen option, rejected alternatives if useful, the human steer, and outcome signal, but no secrets, full account numbers, or unnecessary PII.</li>
+  <li><code>AiRunId</code> should point to the extraction run for inferred rationales. If the rationale is user-stated in a future UI, the value may be null or point to the user interaction run if one exists.</li>
+</ul>
+
+<h3>5.2 Recall behaviour</h3>
+<p>
+  The new behaviour is at recall, not at storage. When an active decision has a <code>DecisionType</code>, the
+  recall path should retrieve candidate current rationale entries for the same tenant/user/decision type and then
+  apply a condition-relevance check against the current decision's salient features.
+</p>
+
+<table>
+  <thead><tr><th>Condition result</th><th>Brief / recall behaviour</th></tr></thead>
+  <tbody>
+    <tr><td>Match</td><td>Surface as an explicit prior: &ldquo;Last time, you chose cost over speed for this verified payee and amount band.&rdquo;</td></tr>
+    <tr><td>Partial match</td><td>Surface with caveat: &ldquo;This held for EU to NG and a verified payee; the current corridor differs.&rdquo;</td></tr>
+    <tr><td>Mismatch</td><td>Withhold from the Brief and from tool recall unless the caller explicitly asks for historical rationale.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  V1 may implement condition relevance as a model-judged comparison using a prompt profile and the structured
+  <code>ConditionsJson</code>. A later version may replace that with deterministic feature matching for common
+  decision types. Either way, relevance only controls whether the rationale is presented to the agent; it never
+  changes tool permissions.
+</p>
+
+<h2 id="patterns">6. Addition B: Pattern memory</h2>
+
+<p>
+  Pattern memory has a different grain from <code>UserMemoryEntry</code>. It is tenant-scoped, optionally segment-scoped,
+  aggregate, and reinforced across many cases. It answers: &ldquo;for this kind of decision, what has worked for this
+  tenant or segment?&rdquo; It must not be filtered to a single user, and it must never leak across tenants.
+</p>
+
+<pre><code>// Proposed placement: src/Aonik.Ai/Entities/DecisionPattern.cs
+public class DecisionPattern : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public string DecisionType { get; set; } = string.Empty;
+    public string? Segment { get; set; }
+    public string Statement { get; set; } = string.Empty;
+    public string? PayloadJson { get; set; }
+    public int ObservationCount { get; set; }
+    public decimal Confidence { get; set; }
+    public DateTime? LastReinforcedAtUtc { get; set; }
+    public DateTime? SupersededAtUtc { get; set; }
+}</code></pre>
+
+<h3>6.1 SQL-first store</h3>
+<p>
+  V1 should store <code>DecisionPattern</code> in SQL and query by <code>TenantId</code>, <code>DecisionType</code>,
+  optional <code>Segment</code>, <code>SupersededAtUtc IS NULL</code>, and confidence. This is enough for
+  deterministic dunning and routing patterns without making semantic recall a dependency. A Qdrant-backed semantic
+  collection can be added later if similar-but-not-identical decision matching becomes valuable.
+</p>
+
+<h3>6.2 Retrieval path</h3>
+<p>
+  Pattern retrieval is a sibling path to memory recall. The User Brief projector should request top patterns for the
+  active <code>DecisionType</code> and tenant/segment, then inject them alongside per-user memory in a clearly labelled
+  section such as <code>Tenant patterns for this decision</code>. The pattern service must not accept a user id as a
+  filter except for audit/context metadata; it is not user memory.
+</p>
+
+<h3>6.3 Reinforcement and supersession</h3>
+<ul>
+  <li>When a resolved outcome confirms an existing pattern, increment <code>ObservationCount</code>, update confidence, and stamp <code>LastReinforcedAtUtc</code>.</li>
+  <li>When outcomes contradict a pattern strongly enough, supersede rather than delete. A reversal is itself useful signal.</li>
+  <li>Confidence should be bounded and monotonic only within the current pattern. Superseding starts a new current pattern rather than rewriting history.</li>
+</ul>
+
+<h2 id="extraction">7. Addition C: Outcome-triggered extraction</h2>
+
+<p>
+  Reuse Worker-side AI extraction. The current stale-session path reacts to idle conversations. This spec adds a
+  second trigger that reacts when a decision reaches an outcome. It should run out of band in the Worker through the
+  transactional outbox, restore the originating tenant before processing, produce an audited <code>AiRun</code>, and
+  write the resulting memory through the existing provider/service abstractions.
+</p>
+
+<div class="ascii-diagram">decision resolves
+  |  Proposal Applied/Failed - invoice Paid - WorkItemRun Succeeded/Failed/Proposed - order route completed
+  v
+enqueue integration event in same transaction
+  v
+DecisionOutcomeExtractionHandler  (Worker outbox handler, tenant restored per event)
+  +-- load context: AiRun, Proposal/WorkItemRun/invoice/order payload, outcome, available conversation summary
+  +-- run use_case = decision-outcome-extraction through IAiTaskProfileResolver
+  +-- write UserMemoryEntry { EntryType = Rationale, DecisionType, ConditionsJson, StaleWhen }
+  +-- upsert/reinforce DecisionPattern { TenantId, DecisionType, Segment, Statement, PayloadJson }
+      - same spend guards as conversation extraction: 3 attempts, 20 memories/pattern observations per resolution
+      - all LLM calls produce AiRun through AuditMiddleware / IAiRunWriter
+      - handler failure backs off through the existing outbox retry/dead-letter policy</div>
+
+<h3>7.1 Event surface</h3>
+<p>
+  Introduce small integration events, emitted only after the state change is durable:
+</p>
+
+<pre><code>public sealed record DecisionResolvedEvent(
+    Guid TenantId,
+    string DecisionType,
+    string SourceType,      // "Proposal", "WorkItemRun", "Invoice", "Order"
+    Guid SourceId,
+    Guid? UserId,
+    Guid? AiRunId,
+    string Outcome,
+    string? Segment,
+    string? ContextJson) : IIntegrationEvent;</code></pre>
+
+<p>
+  The event should be enqueued via <code>AonikDbContextBase.EnqueueIntegrationEvent</code> before the same
+  <code>SaveChangesAsync</code> that persists the terminal state where feasible. If a resolution path already uses
+  a module-scoped DbContext, use that context's inherited outbox support rather than publishing in-process after commit.
+</p>
+
+<h3>7.2 Initial trigger set</h3>
+<table>
+  <thead><tr><th>Trigger</th><th>Why included</th><th>Initial decision types</th></tr></thead>
+  <tbody>
+    <tr><td><code>ProposalStatus.Applied</code> / <code>Failed</code></td><td>Clear high-risk decision outcome; links to originating <code>AiRunId</code>.</td><td><code>remittance-routing</code>, <code>invoice-settlement</code>, future finance proposal types.</td></tr>
+    <tr><td><code>WorkItemRun.Outcome</code></td><td>Task scheduling already records <code>AiRunId</code>, <code>ProposalId</code>, and outcome for scheduled decisions.</td><td><code>dunning</code>, <code>scheduled-reminder</code>, <code>agent-assignment</code>.</td></tr>
+    <tr><td>Invoice marked <code>Paid</code></td><td>Settlement proves a dunning or collections approach worked.</td><td><code>dunning</code>, <code>collections</code>.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Start with a curated trigger set to control AI and embedding cost. Do not fire extraction on every state transition.
+</p>
+
+<h3>7.3 Extraction prompt profile</h3>
+<p>
+  Add a new AI task profile pair:
+</p>
+
+<ul>
+  <li><code>use_case = decision-outcome-extraction</code></li>
+  <li><code>prompt_name = decision_outcome_extraction</code></li>
+</ul>
+
+<p>
+  The prompt must return structured output for candidate rationales and patterns. It must prefer IDs and references
+  over raw PII. It must state when no memory should be written. It must not recommend a lower risk tier or any form of
+  pre-approval.
+</p>
+
+<h2 id="examples">8. Worked finance examples</h2>
+
+<h3>8.1 Remittance routing</h3>
+<p>
+  A customer chooses a cheaper but slower remittance corridor because the payee is verified and speed does not matter.
+  On proposal application or order completion, extraction writes a user-scoped rationale with
+  <code>DecisionType = "remittance-routing"</code>, conditions for corridor/payee/amount band, and
+  <code>StaleWhen = "payee, corridor, urgency, or amount band changes"</code>. The next remittance to the same
+  payee surfaces: &ldquo;Last time you chose cost over speed here; same again?&rdquo; A new payee or corridor fails relevance and
+  the agent re-reasons from scratch. The payment capture remains High tier and still flows through proposal approval.
+</p>
+
+<h3>8.2 Dunning cadence</h3>
+<p>
+  Across many invoices, outcome extraction reinforces a tenant-scoped <code>DecisionPattern</code> for
+  <code>DecisionType = "dunning"</code> and a segment such as <code>small-business/low-risk</code>: &ldquo;a soft
+  reminder at day 3 cleared most invoices before escalation.&rdquo; When planning the next sequence, the agent proposes that
+  cadence for the tenant/segment. Reminders schedule as <a href="034.task-work-item-scheduling.html">Spec 034</a>
+  <code>WorkItem</code>s, and any payment or ledger-affecting operation still becomes a proposal.
+</p>
+
+<h2 id="scope">9. Scope</h2>
+
+<table>
+  <thead><tr><th>In scope</th><th>Out of scope</th></tr></thead>
+  <tbody>
+    <tr><td>Add <code>UserMemoryEntryType.Rationale</code> and rationale-specific nullable columns to <code>UserMemoryEntry</code>.</td><td>A new user memory subsystem, tool, or service replacing <code>IUserMemoryService</code>.</td></tr>
+    <tr><td>Condition-relevance filtering for rationale entries in User Brief and recall paths.</td><td>A declarative stale-when predicate engine. V1 can be model-judged from <code>ConditionsJson</code>.</td></tr>
+    <tr><td>New <code>DecisionPattern</code> entity, SQL-first retrieval service, tenant-scoped Brief injection, and tests.</td><td>Cross-tenant or global learning.</td></tr>
+    <tr><td>Worker-side <code>decision-outcome-extraction</code> handler using outbox events, AI task profiles, <code>IUserMemorySaveProvider</code>, and pattern upsert.</td><td>Running extraction synchronously on the interactive agent turn.</td></tr>
+    <tr><td>Curated triggers for proposal resolution, work item outcomes, and invoice settlement.</td><td>Automatic extraction on every domain state change.</td></tr>
+    <tr><td>Tool-generated migration against <code>AonikDbContext</code> only.</td><td>Hand-authored EF migration files or raw SQL schema patches.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="guardrails">10. Guardrails</h2>
+
+<div class="callout p0">
+  <span class="callout-label">Hard boundary</span>
+  Memory informs reasoning only. It must never alter a tool's risk tier, satisfy an approval requirement, pre-authorise
+  a mutation, or bypass <a href="030.proposal-execution-dispatcher.html">Spec 030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec 032</a>.
+</div>
+
+<ul>
+  <li>Existing <code>UserMemoryEntry</code> semantics for current types must not change: current rows are superseded, not deleted; inferred/system entries decay; user-stated entries do not decay.</li>
+  <li><code>user_memory_save</code> remains Low tier and user-id-from-auth. <code>user_memory_recall</code> remains read-only and fail-open on hot-path degradation.</li>
+  <li>Rationale and Pattern writes happen in the Worker, off the agent turn, and inherit the existing extraction spend controls.</li>
+  <li>Pattern memory is tenant-scoped and optionally segment-scoped. It is never user-scoped, never global, and never visible across tenants.</li>
+  <li>Qdrant tenant isolation remains fail-closed for any vector-backed extension.</li>
+  <li>Stored content is minimised: distilled judgement, IDs/references, no secrets, no full account numbers, no unnecessary PII.</li>
+  <li>Every LLM extraction call produces an <code>AiRun</code> and uses <code>AiRoutePolicy</code> / task profiles; no hard-coded model usage.</li>
+  <li>Any schema change follows the single migration stream: modify entities/configurations first, then generate with <code>dotnet ef migrations add ... --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>.</li>
+</ul>
+
+<h2 id="placement">11. Placement &amp; persistence</h2>
+
+<pre><code>src/Aonik.Ai/
++-- Entities/{UserMemoryEntry.cs, UserMemoryEntryType.cs, DecisionPattern.cs}
++-- Contracts/Services/{IUserMemoryService.cs, IDecisionPatternService.cs}
++-- Services/{UserMemoryService.cs, UserBriefAiDataProvider.cs, DecisionPatternService.cs, DecisionOutcomeExtractionService.cs}
++-- Persistence/Configurations/{UserMemoryEntryConfiguration.cs, DecisionPatternConfiguration.cs}
+
+src/Aonik.SharedKernel/
++-- Abstractions/Ai/{IUserMemorySaveProvider.cs, IUserBriefAiDataProvider.cs, IAiTaskProfileResolver.cs}
++-- Events/DecisionResolvedEvent.cs
+
+src/Aonik.Agents/
++-- Services/{UserBriefProjector.cs, ConversationSummaryGenerator.cs}
++-- IntegrationEvents/DecisionOutcomeExtractionHandler.cs
+
+src/Aonik.Worker/
++-- Program.cs  (outbox processing already registered; no new Quartz job required for v1)</code></pre>
+
+<p>
+  Placement can be adjusted during implementation, but the module boundary should stay intact: SharedKernel owns the
+  event/contract shape, AI owns memory and pattern persistence, Agents owns Brief projection and existing conversation
+  extraction, and Worker executes the outbox handler.
+</p>
+
+<h3>11.1 EF mapping</h3>
+<ul>
+  <li>Add <code>DbSet&lt;UserMemoryEntry&gt;</code> and <code>DbSet&lt;DecisionPattern&gt;</code> to the canonical <code>AonikDbContext</code>.</li>
+  <li>Map <code>UserMemoryEntry</code> explicitly to <code>dbo.AnkUserMemoryEntries</code> in <code>AonikDbContext</code> before generating the migration.</li>
+  <li>Add <code>DbSet&lt;DecisionPattern&gt;</code> to <code>AiDbContext</code> if the runtime service lives in AI.</li>
+  <li>Map <code>DecisionPattern</code> to <code>dbo.AnkDecisionPatterns</code>.</li>
+  <li>Index <code>(TenantId, DecisionType, Segment, SupersededAtUtc)</code> and <code>(TenantId, DecisionType, Confidence)</code>.</li>
+  <li>Generate the migration only with EF tooling against <code>AonikDbContext</code>; do not hand-write migration operations.</li>
+</ul>
+
+<h2 id="requirements">12. Requirements</h2>
+
+<table>
+  <thead><tr><th>ID</th><th>Requirement</th><th>Verification</th></tr></thead>
+  <tbody>
+    <tr><td><code>RQ1</code></td><td><code>UserMemoryEntryType.Rationale</code> and the rationale fields are persisted without altering existing memory entry semantics.</td><td>EF model test + migration review + existing memory service tests pass.</td></tr>
+    <tr><td><code>RQ2</code></td><td>Rationale recall filters by tenant, user, decision type, current-entry status, effective confidence, and condition relevance.</td><td>Unit tests for match, partial match, mismatch, superseded entry, and below-floor confidence.</td></tr>
+    <tr><td><code>RQ3</code></td><td>User Brief includes applicable rationales as caveated assumptions and excludes inapplicable rationales.</td><td>User Brief projection tests with active decision context.</td></tr>
+    <tr><td><code>RQ4</code></td><td><code>DecisionPattern</code> is tenant-scoped, SQL-backed, reinforced/superseded without deletion, and retrieved by decision type and optional segment.</td><td>Service tests covering tenant isolation, reinforcement, supersession, and ranking.</td></tr>
+    <tr><td><code>RQ5</code></td><td>Outcome extraction runs through the Worker/outbox path and writes rationales/patterns only after curated resolution events.</td><td>Integration tests using outbox handler with proposal/work item/invoice fixtures.</td></tr>
+    <tr><td><code>RQ6</code></td><td>Every extraction LLM call records an <code>AiRun</code> with <code>use_case = decision-outcome-extraction</code>.</td><td>AI audit test or handler test with fake <code>IChatClient</code>/<code>IAiRunWriter</code>.</td></tr>
+    <tr><td><code>RQ7</code></td><td>Memory never changes risk-tier classification or approval behaviour for any tool or proposal.</td><td>Approval manifest tests and proposal approval tests unchanged; explicit regression test for High-tier proposal path.</td></tr>
+    <tr><td><code>RQ8</code></td><td>Extraction enforces attempt and output caps equivalent to conversation extraction.</td><td>Handler tests for retry/dead-letter behaviour and max emitted memories/pattern observations.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">13. Tasks</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Deliverable</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Validate current schema mapping for <code>UserMemoryEntry</code>; add canonical <code>AonikDbContext</code> mapping to <code>dbo.AnkUserMemoryEntries</code> before any migration.</td></tr>
+    <tr><td>2</td><td>Add rationale enum/fields, EF configuration, validation in save provider/service, and tool-generated migration.</td></tr>
+    <tr><td>3</td><td>Add active-decision context and condition-relevance filtering to User Brief / recall. Keep 2-second fail-open behaviour on hot paths.</td></tr>
+    <tr><td>4</td><td>Add <code>DecisionPattern</code>, configuration, SQL service, tenant/segment retrieval, reinforcement, supersession, and tests.</td></tr>
+    <tr><td>5</td><td>Add <code>DecisionResolvedEvent</code> and curated emitters for proposal resolution, work item outcomes, and invoice settlement.</td></tr>
+    <tr><td>6</td><td>Add <code>decision-outcome-extraction</code> task profile/prompt, handler/service, structured output parsing, rationale write, pattern upsert, and spend guards.</td></tr>
+    <tr><td>7</td><td>Add end-to-end tests and update agent docs for the decision-aware memory contract and guardrails.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="verification">14. Verification</h2>
+
+<ul>
+  <li>Build: <code>dotnet build Aonik.sln</code></li>
+  <li>Memory tests: <code>dotnet test tests/Aonik.Application.Tests --filter "UserMemory|UserBrief|DecisionPattern"</code></li>
+  <li>Worker/outbox tests: <code>dotnet test tests/Aonik.Application.Tests --filter "DecisionOutcomeExtraction|Outbox|WorkItemDispatcher|ProposalApproval"</code></li>
+  <li>Migration review: generated migration includes only expected <code>UserMemoryEntry</code> column additions, <code>DecisionPattern</code> table/indexes, and any required table mapping correction.</li>
+  <li>Manual scenario: resolve a remittance proposal, confirm a rationale is written and later surfaced only for matching conditions.</li>
+  <li>Manual scenario: settle several invoices in one segment, confirm a tenant pattern is reinforced and appears in the next dunning planning Brief.</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O1: Pattern sibling entity vs tenant-scoped namespace.</strong> A dedicated <code>DecisionPattern</code>
+  entity is recommended because the grain is tenant/segment aggregate, not per-user memory. Confirm before implementation.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O2: SQL only vs Qdrant-backed pattern recall.</strong> SQL keyed lookup is enough for v1 and avoids requiring semantic recall. Add Qdrant later if similar-decision matching needs it.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O3: Exact trigger set.</strong> Start curated: proposals, work item outcomes, and invoice settlement. Add order-specific events only when the remittance order implementation exposes a stable terminal signal.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O4: Condition relevance implementation.</strong> V1 can be descriptive/model-judged from <code>ConditionsJson</code>. Deterministic feature matching should be introduced per decision type once enough examples exist.
+</div>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>O5: Deliberation context.</strong> The design note references a companion conversational-deliberation note, but no <code>DeliberationProposal</code> code exists today. Outcome extraction should consume available <code>AiRun</code>, proposal, work item, invoice/order, and conversation-summary context until that companion design lands.
+</div>
+
+<h2 id="refs">16. References</h2>
+
+<ul>
+  <li><a href="../agents.html">Agent platform docs</a> - memory and background-worker sections describing <code>UserMemoryEntry</code>, tools, User Brief, Qdrant isolation, and stale-session extraction.</li>
+  <li><a href="014.background-jobs-quartz-persistence-admin.md">Spec 014</a> - background jobs / Worker host patterns.</li>
+  <li><a href="015.personal-finance-customer-insight-pipeline.md">Spec 015</a> - deterministic + LLM insight snapshot pattern.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec 030</a> - Proposal execution dispatcher and terminal proposal states.</li>
+  <li><a href="032.tiered-ai-mutation-approval.html">Spec 032</a> - risk tiers and mutation approval boundary.</li>
+  <li><a href="034.task-work-item-scheduling.html">Spec 034</a> - WorkItem scheduling and outcome records.</li>
+  <li><a href="035.extract-documents-module.html">Spec 035</a> - tenant-isolation discipline for vector-backed retrieval.</li>
+  <li><a href="036.remittance-order-service.html">Spec 036</a> - remittance order service and routing context.</li>
+  <li><code>src/Aonik.Ai/Entities/UserMemoryEntry.cs</code> - existing user memory entity.</li>
+  <li><code>src/Aonik.Agents/Services/ConversationSummaryGenerator.cs</code> - existing conversation-summary and memory-extraction machinery.</li>
+  <li><code>src/Aonik.Platform/Services/Tasks/WorkItemDispatcher.cs</code> - existing work item outcome path.</li>
+  <li><code>src/Aonik.Agents/Services/ProposalApprovalService.cs</code> - existing proposal Applied/Failed transitions.</li>
+</ul>
+
+<footer>
+  AONIK - Spec 041 - Agent memory: decision-aware learning - Draft rev. 2 conversion
+</footer>
+
+</body>
+</html>
