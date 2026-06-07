@@ -6,6 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.Finance.Mcp</RootNamespace>
+    <!-- Development-only host: registers blanket-trust security stubs (grant-all
+         IPermissionService, auto-clear IComplianceService) guarded at startup by
+         DevelopmentOnlyHostGuard. Never deploy / publish / containerize. See finding C4. -->
+    <IsPublishable>false</IsPublishable>
   </PropertyGroup>
 
   <ItemGroup>
