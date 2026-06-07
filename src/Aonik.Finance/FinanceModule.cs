@@ -151,7 +151,7 @@ public sealed class FinanceModule : IModule
             sp => sp.GetRequiredService<Services.Partners.Connectors.SimulatedPartnerConnector>());
         services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerWebhookTranslator,
             Services.Partners.Connectors.SimulatedPartnerWebhookTranslator>();
-        services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerConnectorResolver,
+        services.AddScoped<Contracts.Services.Partners.Connectors.IPartnerConnectorResolver,
             Services.Partners.Connectors.PartnerConnectorResolver>();
 
         // ── Flutterwave connector (Spec 037, Issue #129) ────────────
