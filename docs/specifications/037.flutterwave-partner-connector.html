@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 037 · Flutterwave partner connector (real v4 implementation)</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    .meta-tag.priority-p1 { background: #fce8e2; color: #9b3815; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    .tag.ok { background: #e0f3e6; color: #1c6b39; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 037</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Finance / Partners</span>
+  <span class="meta-tag">Issue #129</span>
+  <h1>Flutterwave partner connector (real v4 implementation)</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Replaces the simulated partner gateway with a real <code>FlutterwavePartnerConnector</code>
+    that executes money movement through the live <strong>Flutterwave v4</strong> API. Implements
+    the <a href="031.partner-integration-abstraction.html">Spec&nbsp;031</a> connector ports
+    &mdash; <strong>payout</strong> (the <a href="036.remittance-order-service.html">Spec&nbsp;036</a>
+    remittance rail, and Payabo's UK&rarr;NG launch wedge), <strong>collection</strong>, and the
+    <strong>webhook translator</strong> &mdash; against Flutterwave v4's
+    <em>Quote&nbsp;/ Initiate&nbsp;/ Status&nbsp;/ Webhook</em> surface (Issue&nbsp;#129). The spec
+    is grounded twice: against the <strong>in-repo abstraction and entities</strong> (most of
+    Spec&nbsp;031's proposed schema has since <em>landed</em>) and against the
+    <strong>actual Flutterwave v4 documentation</strong>
+    (<a href="https://developer.flutterwave.com/docs/authentication">developer.flutterwave.com</a>).
+    The headline finding: Spec&nbsp;031 mapped the ports against <strong>Flutterwave v3</strong>
+    (static <code>FLWSECK-</code> secret key, <code>/transfers</code>, <code>tx_ref</code>/<code>flw_ref</code>);
+    the <strong>current v4 API is materially different</strong> &mdash; OAuth&nbsp;2.0
+    client-credentials tokens, an entity-first resource model (customers, payment methods,
+    recipients), required idempotency keys, AES-GCM card encryption, HMAC-SHA256 webhook
+    signatures, and <strong>no bill-payment endpoints at all</strong>. &sect;5 walks the v4 API
+    end to end; &sect;6 verifies port-by-port fit and raises every gap.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#consumers">Who calls the connector</a></li>
+    <li><a href="#fw">Flutterwave v4 API walkthrough</a></li>
+    <li><a href="#fit">Abstraction fit &amp; gap analysis</a></li>
+    <li><a href="#design">Implementation design</a></li>
+    <li><a href="#mapping">Status &amp; error mapping</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  <a href="031.partner-integration-abstraction.html">Spec&nbsp;031</a> defined a partner-agnostic
+  abstraction (ports, normalized DTOs, a capability resolver, a webhook translator contract) and
+  proved it with one <code>SimulatedPartnerConnector</code>. That abstraction &mdash; and most of
+  the persistence it proposed &mdash; is now <strong>landed</strong> in the tree:
+  <a href="../../src/Aonik.Finance/Entities/Payments/Payout.cs"><code>Payout</code></a> carries the
+  full connector shape (<code>ConnectorId</code>, <code>ClientReference</code>,
+  <code>ProviderReference</code>, FX / fee fields, <code>RawResponseJson</code>,
+  <code>PartnerTransactionStatus</code> string status); the
+  <a href="../../src/Aonik.Finance/Entities/Partners/PartnerWebhookEvent.cs"><code>PartnerWebhookEvent</code></a>
+  idempotent inbox exists with both filtered-unique dedupe indexes; and
+  <a href="036.remittance-order-service.html">Spec&nbsp;036</a> defines the
+  <strong>caller</strong> &mdash; a remittance order service that resolves a route, creates a
+  <code>Payout</code>, posts the ledger debit, then calls
+  <code>IPartnerPayoutConnector.InitiatePayoutAsync</code> and records a <code>Transmission</code>.
+</p>
+
+<p>
+  <strong>What is still simulated is the connector itself.</strong> Issue&nbsp;#129 asks for the
+  first <em>real</em> <code>IPartnerConnector</code> &mdash; a <code>FlutterwavePartnerConnector</code>
+  supporting Quote, Initiate, Status, and Webhook ingestion against the Flutterwave sandbox, with
+  signature verification, idempotent processing, retryable/non-retryable failure mapping, and tests
+  covering happy path + partner 5xx + timeout. This spec is the implementation plan for that
+  connector, written so an engineer can build it without re-reading the Flutterwave portal.
+</p>
+
+<div class="callout p0">
+  <span class="callout-label">Headline gap &mdash; v3 vs v4</span>
+  Spec&nbsp;031's &sect;4 baseline table maps the ports against <strong>Flutterwave v3</strong>:
+  a static <code>Authorization: Bearer FLWSECK-...</code> secret key, <code>POST /transfers</code>
+  with inline <code>account_bank</code>/<code>account_number</code>, <code>POST /charges</code>,
+  a <code>/bills</code> family, and a <code>verif-hash</code> plaintext webhook header. The live
+  <strong>v4 API</strong> &mdash; the one behind the URL in the task &mdash; is a different product:
+  <strong>OAuth&nbsp;2.0 client-credentials</strong> tokens (10-minute lifetime), an
+  <strong>entity-first</strong> resource model (<code>customers</code> &rarr; <code>payment-methods</code>
+  &rarr; <code>charges</code>; <code>transfers/recipients</code> &rarr; <code>transfers</code>),
+  a <strong>required <code>X-Idempotency-Key</code></strong> header, <strong>AES-256-GCM</strong>
+  card encryption, <strong>HMAC-SHA256</strong> webhook signatures, and &mdash; critically &mdash;
+  <strong>no bill-payment / airtime endpoints</strong> in the v4 surface at all (&sect;5.11). Every
+  design decision below flows from closing that v3&rarr;v4 distance. The Spec&nbsp;031 ports still
+  fit &mdash; but several DTOs are missing fields v4 <em>requires</em> (&sect;6).
+</div>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  A <code>FlutterwavePayoutConnector</code> (<code>ProviderCode =&gt; "Flutterwave"</code>) is registered
+  alongside the simulated connector and resolves through
+  <code>ResolvePayoutConnector("Flutterwave")</code> while <code>"Simulated"</code> still resolves the
+  fallback; against the Flutterwave sandbox it
+  mints an OAuth token, calls <code>POST /direct-transfers</code> with a valid
+  <code>X-Idempotency-Key</code>, and returns a <code>PayoutInitiationResult</code> with a
+  <code>ProviderReference</code> (<code>trf_…</code>) and a normalized <code>PartnerTransactionStatus</code>;
+  <code>GetPayoutStatusAsync</code> round-trips through <code>GET /transfers/{id}</code>;
+  <code>ResolveAccountAsync</code> returns a name from <code>POST /banks/account-resolve</code>;
+  a <code>transfer.disburse</code> webhook verifies via <code>flutterwave-signature</code> and
+  translates to a normalized <code>PartnerWebhookEvent</code>. A simulated/real toggle keyed on
+  <code>FlutterwaveOptions.IsConfigured()</code> keeps the simulated connector as the default when
+  no credentials are present. Tests (hand-rolled <code>HttpMessageHandler</code>, the Plaid house
+  style) cover happy path, a partner <code>500</code>, and a timeout, asserting the
+  retryable/non-retryable classification.
+</div>
+
+<div class="callout p0">
+  <span class="callout-label">Rev 3 &mdash; rebased on #147 (RemittanceOrderService landed)</span>
+  Since rev 2, <a href="https://github.com/michaeljosiah/aonik/pull/147">PR&nbsp;#147</a>
+  (<code>feat(remittance): RemittanceOrderService quote&rarr;confirm&rarr;settle</code>) <strong>shipped
+  the Spec&nbsp;036 caller and the entire webhook ingestion path</strong>. This <em>narrows</em>
+  this spec and <strong>reverses three earlier amendments</strong>:
+  <ul>
+    <li><strong>Webhook endpoint is NOT ours.</strong> A generic
+    <code>POST /partners/webhooks/{providerCode}</code>
+    (<a href="../../src/Aonik.Finance/Endpoints/Partners/PartnerWebhookEndpoint.cs"><code>PartnerWebhookEndpoint</code></a>)
+    already receives the raw body + case-insensitive headers and hands an envelope to
+    <code>RemittanceOrderService.ProcessWebhookAsync</code>, which verifies the signature, dedupes,
+    persists the inbox row, and settles. 037 now delivers <strong>only the
+    <code>IPartnerWebhookTranslator</code></strong> that this path resolves by
+    <code>ProviderCode</code> (rev 2's "pull the endpoint into 037" is withdrawn).</li>
+    <li><strong>Dedupe is by <code>(ProviderCode, PayloadHash)</code>, not <code>ProviderEventId</code></strong>
+    (<code>ProcessWebhookAsync</code>, line&nbsp;529). The rev-2 push to add <code>ProviderEventId</code>
+    to the translator DTO is <strong>dropped</strong> &mdash; the shipped consumer never reads it.</li>
+    <li><strong>Register Flutterwave <em>alongside</em> Simulated, not XOR.</strong>
+    <code>RemittanceOrderService</code> falls back to <code>ResolvePayoutConnector("Simulated")</code>
+    (line&nbsp;843), so the simulated registration <strong>must stay</strong>; selection is by
+    <code>ProviderCode</code>. Rev 2's "delete <code>FinanceModule:140-141</code>" is withdrawn.</li>
+  </ul>
+  It also <strong>confirms</strong> two gaps and adds a new one: the caller passes metadata
+  <code>{tenantId, orderId, orderItemId, payoutId, quoteId}</code> with <strong>no
+  <code>transfer_purpose</code>/sender</strong> (G3), uses a <code>ProviderBeneficiaryId</code> token
+  as the destination (steering toward the recipient-id flow, O4), and stores
+  <code>ClientReference = "REM-{orderId:N}"</code> <strong>with a hyphen</strong> &mdash; which the
+  webhook matches verbatim, creating a new <strong>reference round-trip gap</strong> (G17).
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+
+<p>
+  The partner abstraction is wired and <strong>the remittance caller + webhook path now ship</strong>
+  (PR&nbsp;#147); what is still simulated is the <strong>connector itself</strong>. Confirmed by
+  reading the tree:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Area</th><th>State today</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Connector ports</td>
+      <td>Defined &amp; stable: <code>IPartnerPayoutConnector</code>, <code>IPartnerCollectionConnector</code>, <code>IPartnerBillPaymentConnector</code>, <code>IPartnerWebhookTranslator</code>, <code>IPartnerConnectorResolver</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/"><code>Contracts/Services/Partners/Connectors/</code></a></td>
+    </tr>
+    <tr>
+      <td>Only implementation</td>
+      <td><code>SimulatedPartnerConnector</code> (all three ports on one object), <code>SimulatedPartnerWebhookTranslator</code> (plaintext-compare signature), <code>PartnerConnectorResolver</code> over <code>IEnumerable&lt;IPort&gt;</code>.</td>
+      <td><a href="../../src/Aonik.Finance/Services/Partners/Connectors/"><code>Services/Partners/Connectors/</code></a></td>
+    </tr>
+    <tr>
+      <td>DI</td>
+      <td>"Partner Connectors (Spec 031)" block in <code>FinanceModule</code> registers the simulated connector as a singleton against each port. <strong>Keep it</strong> &mdash; the remittance fallback resolves <code>"Simulated"</code> by code (&sect;7.6).</td>
+      <td><a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Persistence</td>
+      <td><code>Payout</code>, <code>PartnerBillPayment</code>, <code>ExternalPayoutAccount</code>, <code>PartnerWebhookEvent</code> (with dedupe indexes), generalized <code>Transmission</code> &mdash; all landed from Spec&nbsp;031.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/"><code>Entities/Payments</code>, <code>Entities/Partners</code></a></td>
+    </tr>
+    <tr>
+      <td>Caller (orchestration)</td>
+      <td><strong>Landed (PR&nbsp;#147).</strong> <code>RemittanceOrderService</code> resolves a connector via <code>ResolvePayoutConnector(details.ProviderCode)</code> (else capability query, else <code>"Simulated"</code>), creates the <code>Payout</code>, posts the customer debit <em>before</em> the connector call, calls <code>InitiatePayoutAsync</code>, persists a <code>Transmission</code>, and emits the confirm/transmit/settle money-action logs. The connector is the last simulated piece.</td>
+      <td><a href="../../src/Aonik.Finance/Services/Remittance/RemittanceOrderService.cs"><code>RemittanceOrderService.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Webhook endpoint + inbox</td>
+      <td><strong>Landed (PR&nbsp;#147).</strong> Generic <code>POST /partners/webhooks/{providerCode}</code> (anonymous, raw body, <code>OrdinalIgnoreCase</code> headers) &rarr; <code>ProcessWebhookAsync</code>: resolves the translator by code, verifies the signature, dedupes by <code>(ProviderCode, PayloadHash)</code>, writes the <code>PartnerWebhookEvent</code> inbox row, and settles the payout. <strong>Missing only the Flutterwave translator</strong> (this spec).</td>
+      <td><a href="../../src/Aonik.Finance/Endpoints/Partners/PartnerWebhookEndpoint.cs"><code>PartnerWebhookEndpoint.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Remittance/RemittanceOrderService.cs"><code>RemittanceOrderService.cs</code></a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Issue&nbsp;#129's acceptance criteria: <em>(1)</em> Quote/initiate/status methods call the real
+  partner sandbox; <em>(2)</em> webhook signature verification + idempotent processing;
+  <em>(3)</em> failures mapped to retryable vs non-retryable; <em>(4)</em> tests cover happy path
+  + partner 5xx + timeout. Production-credential switch + secret config is folded in.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag mutate">Edit</span> <strong>Two Spec&nbsp;031 contract amendments.</strong>
+  <em>(1)</em> Widen <code>PayoutQuoteResult.Fee</code> from <code>Money</code> to <code>Money?</code>
+  (G8) &mdash; source-compatible for constructors, but a <strong>semantic change</strong>: every
+  consumer that reads <code>.Fee</code> must now handle <code>null</code> (add a task to grep callers,
+  &sect;9). <em>(2)</em> Add a <code>RegisterRecipientAsync</code> method to
+  <code>IPartnerPayoutConnector</code> returning a reusable <code>ProviderBeneficiaryId</code> (G20)
+  (+ <code>RecipientRegistrationRequest</code>/<code>Result</code>, &sect;7.4.1) &mdash; this is
+  <strong>not</strong> source-compatible, so <strong>every</strong> implementer must add it:
+  <code>SimulatedPartnerConnector</code> <strong>and the test stubs</strong> (e.g.
+  <code>CapturingPayoutConnector</code> in <code>RemittanceOrderServiceTests</code>) &mdash;
+  deterministic fake <code>rcp_…</code>). <em>(The rev-2 <code>ProviderEventId</code>
+  amendment is dropped &mdash; #147 dedupes by <code>PayloadHash</code>; G14.)</em></li>
+  <li><span class="tag new">New</span> <code>FlutterwavePayoutConnector : IPartnerPayoutConnector</code>
+  &mdash; <code>QuotePayoutAsync</code>, <code>ResolveAccountAsync</code>,
+  <code>RegisterRecipientAsync</code> (new, G20), <code>InitiatePayoutAsync</code> (via
+  <code>recipient_id</code>), <code>GetPayoutStatusAsync</code> against v4
+  <code>/transfers/rates</code>, <code>/banks/account-resolve</code>, <code>/transfers/recipients</code>,
+  <code>/transfers</code> (recipient_id) &middot; <code>/direct-transfers</code>,
+  <code>/transfers/{id}</code>. <strong>This is the priority path</strong> &mdash; the Spec&nbsp;036
+  remittance rail and the Payabo UK&rarr;NG wedge.</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveWebhookTranslator : IPartnerWebhookTranslator</code>
+  (<code>ProviderCode =&gt; "Flutterwave"</code>) &mdash; HMAC-SHA256 <code>flutterwave-signature</code>
+  verification (case-insensitive header, UTF-8 bytes of the body) + translation of <code>transfer.disburse</code>
+  into a normalized <code>PartnerWebhookEvent</code> whose <code>Reference.ClientReference</code> the
+  shipped <code>ProcessWebhookAsync</code> matches back to the payout. <strong>This is all 037 owes
+  the webhook path</strong> &mdash; the receiver endpoint, dedupe, inbox persistence, and settlement
+  already ship (PR&nbsp;#147); the translator is resolved by <code>ProviderCode</code> and passed the
+  signing secret. Issue&nbsp;#129's "webhook ingestion + idempotent processing" is satisfied by
+  registering this translator into the existing path (&sect;7.5).</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveCollectionConnector : IPartnerCollectionConnector</code>
+  &mdash; <code>InitiateCollectionAsync</code> / <code>GetCollectionStatusAsync</code> /
+  <code>RefundCollectionAsync</code> against <code>/orchestration/direct-charges</code>,
+  <code>/charges/{id}</code>, <code>/refunds</code>. <em>Phase 2 within this spec</em>;
+  non-card methods (bank transfer / mobile money) first to avoid PCI/encryption surface (&sect;6, G6).</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveTokenProvider</code> &mdash; OAuth&nbsp;2.0
+  client-credentials token acquisition + in-memory caching + pre-expiry refresh (&sect;7.2).</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveOptions</code> + a
+  <code>DelegatingHandler</code> that injects <code>Authorization</code> (the
+  <code>X-Idempotency-Key</code>/<code>X-Trace-Id</code> are computed <em>per call</em> in the
+  connector &mdash; &sect;7.3), registered via <code>AddHttpClient</code> (mirrors the Plaid
+  typed-client pattern; inherits the standard resilience handler).</li>
+  <li><span class="tag mutate">Edit</span> <code>FinanceModule.ConfigureServices</code> &mdash; a
+  "Flutterwave connector" DI block that, <strong>when <code>FlutterwaveOptions.IsConfigured()</code></strong>,
+  registers the real connector + translator <strong>alongside</strong> the existing simulated ones
+  (distinct <code>ProviderCode</code>s; do <em>not</em> remove the simulated registration &mdash; the
+  remittance fallback resolves <code>"Simulated"</code>). Selection is by code (&sect;7.6).</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveException</code> + a typed error mapper that
+  classifies an HTTP status / Flutterwave error code as retryable vs non-retryable and surfaces
+  <code>TimeoutException</code>.</li>
+  <li><span class="tag new">New</span> Tests mirroring
+  <code>PlaidAccountLinkProviderGatewayTests</code> (a hand-rolled
+  <code>RecordingHttpMessageHandler</code>) &mdash; happy path, partner <code>500</code>, timeout,
+  signature verify pass/fail, status mapping.</li>
+  <li><span class="tag mutate">Edit</span> <code>appsettings.json</code> &mdash; an empty
+  <code>Finance:Partners:Flutterwave</code> section; real secrets supplied via environment /
+  user-secrets (&sect;7.6).</li>
+</ul>
+
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Flutterwave bill-payment / airtime.</strong> The v4 API exposes <em>no</em> bill or
+  airtime endpoints (&sect;5.11). <code>IPartnerBillPaymentConnector</code> stays simulated for
+  Flutterwave; a real bill connector would target Flutterwave <strong>v3</strong> or a
+  bill-specialist vendor (eTranzact / Interswitch per Spec&nbsp;031) under a separate spec.</li>
+  <li><strong>The orchestration caller, the webhook <em>endpoint + inbox + settlement</em>, + ledger
+  wiring &mdash; all already shipped (PR&nbsp;#147).</strong> <code>RemittanceOrderService</code> +
+  <code>PartnerWebhookEndpoint</code> own quote/confirm/transmit, signature verification, dedupe,
+  inbox persistence, and payout settlement. 037 plugs the <strong>connector + translator</strong>
+  into those existing seams; it adds <em>no</em> endpoint and <em>no</em> inbox code (&sect;4,
+  &sect;7.5).</li>
+  <li><strong>Card-present / raw-PAN collection.</strong> Storing or handling raw card numbers
+  pulls us into PCI scope. First-cut collection uses bank-transfer / mobile-money / USSD; hosted
+  redirect handles cards. (&sect;6, G6.)</li>
+  <li><strong>Azure Key Vault.</strong> The repo has no Key Vault wiring; secrets load via
+  <code>IOptions</code> + environment, with <code>IDataProtection</code> for any token persisted at
+  rest (the Plaid convention). A Key-Vault move is a platform-wide change, not a connector concern.</li>
+  <li><strong>Schema changes.</strong> Spec&nbsp;031 already landed the entities this connector
+  feeds. This spec adds <strong>no migration</strong>. The one possible exception &mdash; a field
+  for <code>transfer_purpose</code> / sender KYC &mdash; is raised as an open decision (&sect;6 G3,
+  &sect;11) and, if taken, rides Spec&nbsp;036's order-side work, not here.</li>
+</ul>
+
+<h2 id="consumers">4. Who calls the connector</h2>
+
+<p>
+  The connector is a stateless port implementation. It is <em>called by</em> Spec&nbsp;036's
+  remittance order service; it does <strong>not</strong> own orders, ledger, or money-action
+  logging (those live at the caller, per
+  <a href="../observability/money-action-logging.md">money-action-logging.md</a> &mdash; "OrderId
+  lives at the caller; the connector stays vendor-agnostic"). The boundary:
+</p>
+
+<div class="ascii-diagram">Spec 036 RemittanceOrderService (caller)            Spec 037 FlutterwavePayoutConnector (this)
+─────────────────────────────────────              ──────────────────────────────────────────
+  load locked PricingQuote + ExternalPayoutAccount
+  resolver.ResolvePayoutConnector("Flutterwave") ──▶  (selected here)
+  create Payout(status=Pending, ClientReference)
+  post ledger debit (idempotent, BEFORE the call)
+  MoneyActionLog.PaymentTransmitted scope opens
+  connector.InitiatePayoutAsync(instruction) ──────▶  POST /direct-transfers  (+ X-Idempotency-Key)
+                                              ◀──────  PayoutInitiationResult(Reference, Status, Fee, Raw)
+  update Payout + Order, persist Transmission
+        ...later, async (settlement) — ALL shipped in #147...
+  [036] POST /partners/webhooks/flutterwave          translator.VerifySignature(env, secret)
+        ProcessWebhookAsync: resolve translator, ──▶  translator.Translate(env) ─▶ PartnerWebhookEvent
+        verify, dedupe (ProviderCode,PayloadHash), ◀─  (037 translator, resolved by ProviderCode)
+        persist inbox, settle Payout/Order/ledger</div>
+
+<p>
+  Two consequences for this spec: <em>(a)</em> the connector returns rich normalized results
+  (reference duality, fee, raw response) and <strong>never</strong> swallows a failure &mdash; it
+  throws a typed <code>FlutterwaveException</code> / <code>TimeoutException</code> so the caller can
+  log <code>PaymentTransmitFailed</code> / <code>PaymentTransmitTimeout</code>; <em>(b)</em> the
+  webhook <em>endpoint</em>, signature verification, dedupe, inbox persistence, and settlement
+  <strong>all ship in PR&nbsp;#147</strong> &mdash; 037 supplies only the
+  <code>IPartnerWebhookTranslator</code> that <code>ProcessWebhookAsync</code> resolves by
+  <code>ProviderCode</code> and calls. So the translator's contract must be exact: it operates on the
+  raw body + case-insensitive headers the endpoint hands it, and &mdash; critically &mdash; its
+  <code>Translate</code> must produce a <code>Reference.ClientReference</code> that
+  <strong>equals the payout's stored <code>ClientReference</code> (<code>REM-{orderId:N}</code>)</strong>,
+  or the shipped <code>LocateRemittancePayoutAsync</code> match fails and nothing settles (G17).
+</p>
+
+<div class="callout p0">
+  <span class="callout-label">Five gaps in the shipped #147 path this connector depends on</span>
+  A code review of PR&nbsp;#147 surfaced five issues in the caller/endpoint that 037 must work around
+  or get fixed upstream &mdash; listed so they aren't silently assumed away:
+  <ol>
+    <li><strong>Configured Flutterwave is NOT auto-selected (routing &mdash; G18).</strong> Confirm
+    calls <code>ResolvePayoutConnector(request.ProviderCode, …)</code>; if the request omits
+    <code>ProviderCode</code>, it falls to the capability query, whose <code>FirstOrDefault</code>
+    returns the <em>first-registered</em> connector &mdash; Simulated (registered at
+    <code>FinanceModule:140-141</code>, before Flutterwave). So merely setting credentials does
+    <strong>not</strong> route to Flutterwave, and the chosen code is then <em>persisted</em> on the
+    order. <strong>Fix (pick one):</strong> require explicit <code>ProviderCode = "Flutterwave"</code>
+    on the confirm request for launch; register Flutterwave <em>before</em> Simulated; or add route
+    priority. The earlier "flips automatically with credentials" claim is withdrawn.</li>
+    <li><strong>The connector can't reach a raw account or <code>VaultRef</code> (dispatch data &mdash; G19).</strong>
+    <code>BuildPayoutInstruction</code> puts <code>ProviderBeneficiaryId</code> (or, when absent, the
+    <em>masked</em> identifier) into the destination account field and does <strong>not</strong> pass
+    <code>VaultRef</code> or a raw number. So real dispatch is only possible when
+    <code>ProviderBeneficiaryId</code> is a usable Flutterwave recipient id &mdash; the
+    <code>recipient_id</code> flow is effectively <strong>required, not optional</strong>; a
+    name-enquiry-only destination (masked id, no token) cannot be paid. <strong>Fix:</strong> register
+    the beneficiary with Flutterwave first and store its <code>rcp_…</code> in
+    <code>ProviderBeneficiaryId</code>; or have 036 pass <code>VaultRef</code> + the resolvable raw
+    value. <strong>But that registration flow doesn't exist yet</strong> &mdash;
+    <code>SaveBeneficiaryAsync</code> hardcodes <code>IsVerified = false</code> and never calls a
+    connector, and the save DTO excludes raw rail details &mdash; so a verify-and-register path
+    (transient raw input &rarr; resolve &rarr; register &rarr; persist) is itself a prerequisite
+    (&sect;7.4.1, G20). <em>(This re-answers the task's beneficiary question &mdash; see &sect;5.4.)</em></li>
+    <li><strong>HMAC runs over a re-decoded string, not the wire bytes (fidelity &mdash; G7 caveat).</strong>
+    The endpoint reads the body with <code>StreamReader.ReadToEndAsync()</code> and
+    <code>PartnerWebhookEnvelope.Body</code> is a <code>string</code>, so the translator HMACs
+    <code>UTF8.GetBytes(Body)</code>. Fine for clean UTF-8 JSON (the normal case), but a BOM or
+    non-round-tripping byte sequence would break verification. <strong>Robust fix:</strong> carry
+    <code>byte[]</code> in the envelope (a contract change) or verify in the endpoint over the original
+    bytes. 037 documents the assumption and tests round-trip fidelity.</li>
+    <li><strong><code>Translate</code> runs before the signature branch (robustness).</strong>
+    <code>ProcessWebhookAsync</code> calls <code>translator.Translate</code> <em>before</em> it checks
+    <code>signatureValid</code>, so a malformed/adversarial unsigned body that throws in
+    <code>Translate</code> becomes a <code>500</code> instead of a stored "Failed" row.
+    <strong>037 mitigation (required):</strong> <code>FlutterwaveWebhookTranslator.Translate</code>
+    MUST be non-throwing on malformed JSON &mdash; return a <code>PartnerWebhookEvent</code> with
+    <code>Unknown</code> status / empty references. Upstream fix: move the invalid-signature branch
+    before <code>Translate</code>.</li>
+    <li><strong>Dedupe is lookup-then-insert, not race-safe (idempotency).</strong> Concurrent
+    redeliveries can both pass the <code>(ProviderCode, PayloadHash)</code> lookup and then collide on
+    the filtered unique index, throwing an uncaught <code>DbUpdateException</code>. Sequential
+    redelivery is a clean no-op; concurrent is not. <strong>Upstream fix:</strong> catch the
+    unique-violation in <code>ProcessWebhookAsync</code> if #129's idempotency bar must cover
+    concurrent delivery.</li>
+  </ol>
+  Items&nbsp;1&ndash;2 are <strong>launch blockers</strong>; 3&ndash;5 are correctness hardening. 037
+  owns the item-4 mitigation and the item-3 round-trip test; items&nbsp;1, 2, 5 are recommended
+  036/#147 fixes this spec depends on.
+</div>
+
+<h2 id="fw">5. Flutterwave v4 API walkthrough</h2>
+
+<p>
+  Everything below is from the live v4 docs
+  (<a href="https://developer.flutterwave.com/">developer.flutterwave.com</a>, AI index at
+  <a href="https://developer.flutterwave.com/llms.txt"><code>/llms.txt</code></a>). Read this once;
+  &sect;6 maps it onto our ports.
+</p>
+
+<h3 id="fw-auth">5.1 Authentication &mdash; OAuth 2.0 client credentials</h3>
+<p>
+  v4 does <strong>not</strong> use a static secret key. You exchange a client id + secret for a
+  short-lived bearer token at the Keycloak IdP:
+</p>
+<pre><code>POST https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&amp;client_id={CLIENT_ID}&amp;client_secret={CLIENT_SECRET}
+
+→ 200
+{ "access_token": "…", "expires_in": 600, "token_type": "Bearer", "scope": "…" }</code></pre>
+<p>
+  The token lives <strong>600&nbsp;seconds (10&nbsp;minutes)</strong>; the docs advise refreshing
+  "at least one minute before it expires." The IdP host is the <em>same</em> for sandbox and
+  production &mdash; only the API host differs (&sect;5.2). Implication: a connector-internal
+  <strong>token provider</strong> that caches and refreshes (&sect;7.2) &mdash; a concept the
+  current ports and the Plaid precedent do <em>not</em> have (Plaid sends <code>client_id</code> +
+  <code>secret</code> in every request body; there is no token to cache).
+</p>
+
+<h3 id="fw-env">5.2 Environments &amp; base URLs</h3>
+<table>
+  <thead><tr><th>Surface</th><th>Sandbox</th><th>Production</th></tr></thead>
+  <tbody>
+    <tr><td>API base</td><td><code>https://developersandbox-api.flutterwave.com</code></td><td><code>https://f4bexperience.flutterwave.com</code> <em>(confirm against the dashboard at integration time)</em></td></tr>
+    <tr><td>OAuth IdP</td><td colspan="2"><code>https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token</code> (both)</td></tr>
+  </tbody>
+</table>
+<p>
+  Switching environments = swap the API base + credentials. Both go in
+  <code>FlutterwaveOptions</code> (&sect;7.1); production base must be verified against the live
+  dashboard before go-live (marked as an open decision &mdash; &sect;11).
+</p>
+
+<h3 id="fw-headers">5.3 Request headers</h3>
+<table>
+  <thead><tr><th>Header</th><th>Req.</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Authorization</code></td><td>Yes</td><td><code>Bearer {access_token}</code>.</td></tr>
+    <tr><td><code>X-Idempotency-Key</code></td><td>Yes (POST)</td><td>Alphanumeric ASCII, <strong>12&ndash;255 chars</strong>. Replay returns the original response + <code>X-Idempotency-Cache-Hit: true</code>. "Safe to retry on network errors or 5xx with the same key."</td></tr>
+    <tr><td><code>X-Trace-Id</code></td><td>No (recommended)</td><td>Alphanumeric ASCII, 12&ndash;255. Correlation id for debugging. Good place to put our <code>ClientReference</code> / OrderId.</td></tr>
+    <tr><td><code>X-Scenario-Key</code></td><td>No</td><td>Sandbox-only outcome simulation (&sect;5.10).</td></tr>
+    <tr><td><code>Content-Type</code></td><td>No</td><td><code>application/json</code>.</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <span class="callout-label">Idempotency-key constraint to honor</span>
+  The docs say "use a UUID," but the header spec says <strong>alphanumeric ASCII only</strong> &mdash;
+  a canonical UUID's hyphens violate that. Generate the key as a <strong>hyphen-stripped UUID
+  (32 hex chars)</strong> or a 32-char base32. Note this is a <em>separate</em> value from the
+  request-body <code>reference</code> (6&ndash;42 alphanumeric, &sect;5.5): the connector should
+  derive the idempotency key deterministically from <code>ClientReference</code> so a caller retry
+  reuses the same key.
+</div>
+
+<h3 id="fw-entities">5.4 The entity-first resource model &mdash; "do we create a customer / beneficiary first?"</h3>
+<p>
+  This is the question the task raised, and the answer is nuanced. v4 is designed
+  <em>entity-first</em>: you create reusable <code>customers</code>, <code>payment-methods</code>,
+  and transfer <code>recipients</code>/<code>senders</code>, then reference them by id. But for both
+  collection and payout, v4 also offers a <strong>direct / orchestration</strong> path that accepts
+  the entity <em>inline</em> in one call &mdash; so pre-creation is <strong>optional, not
+  mandatory</strong>.
+</p>
+<table>
+  <thead><tr><th>Resource</th><th>Create endpoint</th><th>Id shape</th><th>Pre-create required?</th></tr></thead>
+  <tbody>
+    <tr><td>Customer</td><td><code>POST /customers</code> (email required; name/phone/address optional)</td><td><code>cus_…</code></td><td><strong>No for direct-charge</strong> &mdash; you may pass <code>customer: { email, name }</code> inline. Pre-creating enables reuse, saved payment methods, and search.</td></tr>
+    <tr><td>Payment method</td><td><code>POST /payment-methods</code></td><td><code>pmd_…</code></td><td>No for direct-charge &mdash; <code>payment_method</code> is embedded inline. Pre-creating enables tokenized reuse.</td></tr>
+    <tr><td>Transfer recipient (beneficiary)</td><td><code>POST /transfers/recipients</code></td><td><code>rcp_…</code> / <code>rcb_…</code></td><td><strong>No for <code>/direct-transfers</code></strong> &mdash; the recipient is inline. The two-step (create recipient &rarr; <code>/transfers</code> with <code>recipient_id</code>) is the "orchestrator/general" flow.</td></tr>
+    <tr><td>Transfer sender</td><td><code>POST /transfers/senders</code></td><td><code>snd_…</code></td><td>No &mdash; <code>sender</code> may be inline on <code>/direct-transfers</code> (name, email, phone, address, national_identification, date_of_birth). For remittance, sender KYC is typically required by compliance.</td></tr>
+  </tbody>
+</table>
+<div class="callout ok">
+  <span class="callout-label">Recommendation</span>
+  Use the <strong>direct / inline</strong> path (<code>POST /direct-transfers</code> for payout,
+  <code>POST /orchestration/direct-charges</code> for collection) for a <em>fresh</em> destination,
+  because it matches our stateless <code>PayoutInstruction</code> / <code>CollectionInstruction</code>
+  DTOs. <strong>But note what PR&nbsp;#147 actually passes:</strong>
+  <code>BuildPayoutInstruction</code> never sends a raw account number &mdash; it puts
+  <a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount.ProviderBeneficiaryId</code></a>
+  (the connector's reusable token; comment: "real rails resolve from <code>VaultRef</code> at
+  execution") into the destination's account field. So for a <strong>saved</strong> beneficiary the
+  connector should prefer the <strong>orchestrator <code>recipient_id</code> flow</strong>
+  (<code>POST /transfers</code> with <code>payment_instruction.recipient_id =
+  ProviderBeneficiaryId</code>), and only fall to <code>/direct-transfers</code> with a real account
+  resolved from <code>VaultRef</code> when there is no beneficiary token. <strong>But the
+  <code>/direct-transfers</code>-with-<code>VaultRef</code> fallback isn't actually reachable from the
+  shipped instructions</strong> &mdash; <code>BuildPayoutInstruction</code> never passes
+  <code>VaultRef</code> or a raw account; a token-less destination arrives only as a <em>masked</em>
+  identifier, which Flutterwave can't pay (G19, &sect;4). So, re-answering the task's question with the
+  shipped caller in hand: <strong>yes &mdash; for real Flutterwave remittance you must pre-register the
+  beneficiary as a Flutterwave recipient and store its <code>rcp_…</code> in
+  <code>ProviderBeneficiaryId</code></strong> (the destination is also gated on
+  <code>IsVerified</code>). The <code>recipient_id</code> flow is the <em>required</em> path for real
+  dispatch, not just an optimization. Decide in O4.
+</div>
+
+<h3 id="fw-payout">5.5 Payouts (transfers) &mdash; the priority path</h3>
+<p><strong>Direct transfer (recommended, inline recipient):</strong></p>
+<pre><code>POST {API}/direct-transfers
+Authorization: Bearer {token}
+X-Idempotency-Key: {32hex}
+X-Trace-Id: {clientRef}
+Content-Type: application/json
+{
+  "reference": "AONIKREM0001",                // 6–42 alphanumeric ONLY (no hyphens), unique
+  "action": "instant",                        // instant | deferred | scheduled | retry | duplicate
+  "narration": "Remittance to John Doe",
+  "transfer_purpose": "family_maintenance",   // REQUIRED enum (see below)
+  "amount": { "value": 50000, "applies_to": "destination_currency" },
+  "source_currency": "GBP",
+  "destination_currency": "NGN",
+  "recipient": {                              // discriminated by "type"
+    "type": "bank_ngn",
+    "bank": { "code": "044", "account_number": "0690000040" },
+    "name": { "first": "John", "last": "Doe" }
+  },
+  "sender": { "name": "…", "email": "…", "national_identification": "…", "date_of_birth": "…" }
+}
+→ 201
+{
+  "status": "success",
+  "data": {
+    "id": "trf_…", "reference": "AONIKREM0001",
+    "status": "NEW",                          // NEW | INITIATED | PENDING | SUCCESSFUL | FAILED | CANCELLED
+    "fee": { "currency": "GBP", "value": 12.00 },
+    "debit_information": { "currency": "GBP", "actual_debit_amount": 512.00, "rate_used": 2000.0, "vat": 0 },
+    "provider_response": { "type": "…", "code": "…", "message": "…" },
+    "created_datetime": "…"
+  }
+}</code></pre>
+<ul>
+  <li><strong><code>transfer_purpose</code> is a required enum</strong>:
+  <code>family_maintenance, personal, education, medical, donation, business, salary_payment,
+  investment, loan_repayment, bill_payment, travel, gift, other</code>. Our
+  <code>PayoutInstruction</code> has no field for it (&sect;6, G3).</li>
+  <li><code>amount.applies_to</code> chooses whether <code>value</code> is in source or destination
+  currency &mdash; this is the "you send" vs "they receive" toggle, central to remittance quoting.</li>
+  <li>The <code>recipient.type</code> discriminator is <strong>currency-specific</strong>
+  (<code>bank_ngn</code>, <code>bank_usd</code>, <code>bank_eur</code>, <code>mobile_money_ghs</code>,
+  <code>wallet</code>, <code>cash_pickup</code>, <code>crypto</code>) and some types require extra
+  fields (USD/EUR/GBP bank recipients require phone/email/address; EGP requires
+  <code>national_identification</code>). Our flat <code>BankAccountDestination</code> /
+  <code>MobileMoneyDestination</code> / <code>WalletDestination</code> don't carry those (&sect;6, G2).</li>
+  <li>Initiation returns <code>NEW</code>; <strong>settlement is asynchronous</strong> &mdash; the
+  real outcome arrives via the <code>transfer.disburse</code> webhook (&sect;5.9) or by polling
+  <code>GET /transfers/{id}</code>.</li>
+  <li><code>fee</code> and <code>debit_information.rate_used</code> come back <em>on the transfer
+  response</em> &mdash; the realized fee/FX, which maps onto
+  <code>PayoutInitiationResult.Fee</code> and <code>Payout.FxRate</code>/<code>Fee</code>.</li>
+</ul>
+<div class="callout p0">
+  <span class="callout-label">Reference round-trip &mdash; the load-bearing webhook detail (G13, G17)</span>
+  PR&nbsp;#147 stores <code>ClientReference = "REM-{orderId:N}"</code> (a hyphen + 32 hex) and the
+  shipped <code>LocateRemittancePayoutAsync</code> matches it <strong>verbatim</strong>
+  (<code>p.ClientReference == reference.ClientReference</code>) against the webhook's <em>translated</em>
+  <code>ClientReference</code>. v4's body <code>reference</code> is documented as 6&ndash;42
+  <em>alphanumeric</em>. So:
+  <ul>
+    <li><strong>If Flutterwave accepts the hyphen</strong> (verify first in sandbox), send
+    <code>ClientReference</code> as-is; it is echoed in the webhook; the translator maps it straight
+    back &rarr; exact match. No problem.</li>
+    <li><strong>If it rejects the hyphen</strong>, the connector must sanitize (<code>"REM-…"</code>
+    &rarr; <code>"REM…"</code>) for the outbound <code>reference</code> &mdash; but then the webhook
+    echoes the <em>sanitized</em> string, which &ne; the stored <code>"REM-…"</code>, so
+    <code>LocateRemittancePayoutAsync</code> finds nothing and the remittance <strong>silently never
+    settles</strong>. Fix: carry the original <code>ClientReference</code> in the transfer
+    <code>meta</code> (e.g. <code>meta.aonik_client_reference</code>) and have
+    <code>Translate</code> read it back from the echoed meta (fallback to <code>data.reference</code>)
+    so the inbound <code>ClientReference</code> is reconstructed exactly. Verify Flutterwave echoes
+    <code>meta</code> on <code>transfer.disburse</code>.</li>
+  </ul>
+  The cleaner long-term fix is Spec&nbsp;036 minting an already-alphanumeric reference (O8). Either
+  way the invariant is hard: <strong>the translator's inbound <code>ClientReference</code> MUST equal
+  the stored <code>REM-{orderId:N}</code></strong>, or settlement breaks with no error (G17).
+</div>
+<p>
+  <strong>Orchestrator (two-step) alternative:</strong>
+  <code>POST /transfers/recipients</code> &rarr; save <code>data.id</code> (<code>rcp_…</code>),
+  then <code>POST /transfers</code> with <code>payment_instruction.recipient_id</code>. Same status
+  vocabulary. Use only when reusing a saved beneficiary (&sect;5.4 recommendation).
+</p>
+<p><strong>Status poll:</strong> <code>GET /transfers/{id}</code> returns the same
+  <code>status</code> + <code>fee</code> + <code>debit_information</code> + <code>provider_response</code>.
+  <strong>Retry:</strong> a failed transfer can be re-driven with <code>action: "retry"</code>
+  (or <code>POST /transfers/{id}/retry</code>).</p>
+
+<h3 id="fw-resolve">5.6 Name enquiry &amp; banks</h3>
+<pre><code>POST {API}/banks/account-resolve
+{ "currency": "NGN", "account": { "code": "044", "number": "0690000040" } }
+→ { "status": "success", "data": { "bank_code": "044", "account_number": "0690000040", "account_name": "Alex James" } }
+
+GET {API}/banks?country=NG          // bank directory: code ↔ name</code></pre>
+<p>
+  Maps cleanly onto <code>ResolveAccountAsync</code> &mdash; with one wrinkle: the request is
+  <strong>discriminated by currency</strong>, so our <code>AccountResolutionRequest.Currency</code>
+  (nullable today) becomes <strong>required</strong> for Flutterwave (&sect;6, G1). The
+  <code>GET /banks</code> directory is what populates
+  <a href="../../src/Aonik.Finance/Entities/Partners/ConnectorInstitutionCode.cs"><code>ConnectorInstitutionCode</code></a>
+  (e.g. Flutterwave <code>044</code> &harr; an AONIK <code>FinancialInstitution</code>).
+</p>
+
+<h3 id="fw-rates">5.7 FX rate &amp; fees (Quote)</h3>
+<pre><code>POST {API}/transfers/rates
+{ "source": { "currency": "NGN" }, "destination": { "currency": "EUR", "amount": 1200.56 }, "precision": 6 }
+→ { "status": "success", "data": { "id": "rte_…", "rate": "…", "source": { "amount": "…", "currency": "NGN" },
+                                   "destination": { "amount": "…", "currency": "EUR" } } }</code></pre>
+<div class="callout">
+  <span class="callout-label">Quote is split &mdash; partial fit</span>
+  <code>/transfers/rates</code> returns the <strong>rate + converted amount</strong> but the
+  documented response <strong>does not include the transfer fee</strong>. The realized fee only
+  appears on the transfer <em>response</em> (&sect;5.5) or via a <code>/fees</code> lookup. Our
+  <code>QuotePayoutAsync</code> returns <code>PayoutQuoteResult(<strong>Money Fee</strong>, FxRate,
+  ConvertedAmount, Raw)</code> &mdash; and crucially <code>Fee</code> here is
+  <strong>non-nullable</strong> (unlike the <code>Money?</code> <code>Fee</code> on the
+  initiation/status results), so "return <code>Fee = null</code>" <em>does not compile</em>. Two
+  ways out (G8, O3): <strong>(a)</strong> widen the contract to <code>Money? Fee</code> &mdash; a
+  one-line, additive, source-compatible change that aligns the quote result with the already-nullable
+  initiation/status results; or <strong>(b)</strong> always return a concrete fee (a
+  <code>/fees</code> lookup, or a zero-fee sentinel the caller treats as "fee known at execution").
+  This spec recommends <strong>(a)</strong>; see &sect;3.1 and O3.
+</div>
+
+<h3 id="fw-collect">5.8 Collections (direct charge)</h3>
+<pre><code>POST {API}/orchestration/direct-charges
+{
+  "amount": 12.34, "currency": "NGN",
+  "reference": "AONIKCOL0001",
+  "customer": { "email": "payer@example.com", "name": { "first": "King", "last": "LeBron" } },
+  "payment_method": { "type": "card", "card": { "encrypted_card_number": "…", "encrypted_cvv": "…",
+                                                "encrypted_expiry_month": "…", "encrypted_expiry_year": "…",
+                                                "nonce": "…" } },
+  "redirect_url": "https://…"
+}
+→ 201
+{ "data": { "id": "chg_…", "status": "pending",          // succeeded | pending | failed | voided
+            "customer_id": "cus_…",
+            "payment_method_details": { "type": "card", "id": "pmd_…" },
+            "next_action": { "type": "redirect_url", "redirect_url": { "url": "…" } } } }</code></pre>
+<p>
+  <code>next_action.type</code> is one of <code>redirect_url, requires_additional_fields,
+  requires_pin, requires_otp, requires_requery, payment_instruction, requires_capture,
+  requires_bank_transfer</code> &mdash; these map onto our
+  <code>PartnerAuthorizationAction(Mode, RedirectUrl, UssdCode, Reference)</code>. Status poll:
+  <code>GET /charges/{id}</code>. Card data must be <strong>AES-256-GCM encrypted</strong>
+  (&sect;5.8.1); non-card methods (<code>bank_transfer</code>, <code>mobile_money</code>,
+  <code>ussd</code>) are not encrypted and are the recommended first cut.
+</p>
+<h4 id="fw-enc">5.8.1 Card encryption (only if we accept cards)</h4>
+<p>
+  Encrypt card number, CVV, expiry month, expiry year <em>individually</em> with
+  <strong>AES-256-GCM</strong> using the dashboard's base64 encryption key and a randomly generated
+  <strong>12-char nonce</strong> (the IV), base64 the ciphertext, and include the nonce.
+  Mis-encryption returns <code>422 CLIENT_ENCRYPTION_ERROR</code>. .NET's
+  <code>System.Security.Cryptography.AesGcm</code> covers this &mdash; but it is net-new crypto with
+  no in-repo precedent, and raw PAN handling is a PCI consideration (&sect;6, G6). Deferring cards
+  keeps collection out of PCI scope.
+</p>
+
+<h3 id="fw-webhooks">5.9 Webhooks</h3>
+<pre><code>Header:  flutterwave-signature: {base64 HMAC-SHA256(secretHash, rawRequestBody)}
+Body:    { "type": "transfer.disburse", "id": "…", "timestamp": …,
+           "data": { "id": "trf_…", "status": "SUCCESSFUL", "amount": …, "fee": …,
+                     "debit_information": { "actual_debit_amount": …, "rate_used": … },
+                     "payment_information": { "proof": "…" } } }</code></pre>
+<ul>
+  <li><strong>Signature:</strong> header <code>flutterwave-signature</code> = base64 of
+  <code>HMAC-SHA256(secretHash, rawBody)</code>, where <code>secretHash</code> is the secret you set
+  on the dashboard. Verify by recomputing over the <strong>raw request body</strong> and comparing
+  (constant-time). This is <strong>stronger than v3</strong>'s <code>verif-hash</code> plaintext
+  equality &mdash; and it means the endpoint must read the un-re-serialized raw body (&sect;6, G7).</li>
+  <li><strong>Event types</strong> include <code>charge.completed</code> and
+  <code>transfer.disburse</code> (+ refund/chargeback events). The payload carries
+  <code>data.id</code> (provider ref) and <code>data.status</code>.</li>
+  <li><strong>Idempotency (as shipped):</strong> PR&nbsp;#147's <code>ProcessWebhookAsync</code> dedupes
+  by an <em>explicit lookup</em> on <code>(ProviderCode, PayloadHash)</code> &mdash; a row already in
+  <code>ProcessingStatus = "Processed"</code> short-circuits. It does <strong>not</strong> use the
+  <code>ProviderEventId</code> filtered-unique index (that column is left unset). So the Flutterwave
+  translator does <strong>not</strong> need to emit a <code>ProviderEventId</code>; it only needs a
+  <em>deterministic</em> <code>Translate</code> (and the endpoint hashes the raw body, so identical
+  redeliveries collapse). This reverses the rev-2 "add <code>ProviderEventId</code>" amendment.</li>
+</ul>
+<div class="callout">
+  <span class="callout-label">The endpoint already exists (PR #147)</span>
+  The signature/idempotency machinery below is <em>not</em> ours to build:
+  <a href="../../src/Aonik.Finance/Endpoints/Partners/PartnerWebhookEndpoint.cs"><code>POST /partners/webhooks/{providerCode}</code></a>
+  reads the raw body + <code>OrdinalIgnoreCase</code> headers and calls
+  <code>RemittanceOrderService.ProcessWebhookAsync</code>, which resolves the translator by
+  <code>ProviderCode</code>, fetches the signing secret from
+  <code>Finance:Partners:Webhooks:{providerCode}:SigningSecret</code>, calls
+  <code>translator.VerifySignature(envelope, secret)</code> then <code>translator.Translate</code>,
+  dedupes, persists the inbox row, and settles. 037 supplies the <code>"Flutterwave"</code>
+  translator (&sect;7.5) and the <code>SigningSecret</code> config value.
+</div>
+
+<h3 id="fw-errors">5.10 Errors</h3>
+<pre><code>{ "status": "failed",
+  "error": { "type": "REQUEST_NOT_VALID", "code": "10400", "message": "Request is not valid",
+             "validation_errors": [ { "field_name": "payment_method_id", "message": "must not be null" } ] } }</code></pre>
+<table>
+  <thead><tr><th>Class</th><th>HTTP</th><th>Examples</th><th>Retryable?</th></tr></thead>
+  <tbody>
+    <tr><td>Validation / auth</td><td>400, 401, 403, 404, 422</td><td><code>10400 REQUEST_NOT_VALID</code>, <code>10401 UNAUTHORIZATION</code>, <code>422 CLIENT_ENCRYPTION_ERROR</code></td><td><strong>No</strong> (fix the request / re-auth)</td></tr>
+    <tr><td>Idempotency conflict</td><td>409</td><td><code>1100409 CHARGE_ALREADY_EXISTS</code></td><td>No &mdash; treat as "already submitted"; requery status</td></tr>
+    <tr><td>Rate limit</td><td>429</td><td>500 req/min cap</td><td><strong>Yes</strong>, with backoff</td></tr>
+    <tr><td>Server / network</td><td>500, 502, 503, timeout</td><td><code>10500 INTERNAL_SERVER_ERROR</code></td><td><strong>Yes</strong> &mdash; safe to retry with the same <code>X-Idempotency-Key</code></td></tr>
+    <tr><td>Processing-pending</td><td>201 + <code>next_action: requires_requery</code></td><td>charge still processing</td><td>Not a failure &mdash; wait ~20s, then <code>GET /charges/{id}</code></td></tr>
+  </tbody>
+</table>
+<p>
+  This table is the basis for the retryable/non-retryable classifier (Issue&nbsp;#129 acceptance
+  point&nbsp;3, &sect;7.5). A 401 is special: it usually means an expired token &mdash; the connector
+  should refresh once and retry before surfacing it.
+</p>
+<p><strong>Sandbox testing</strong> (&sect;5.10 cont.): the <code>X-Scenario-Key</code> header drives
+  deterministic outcomes &mdash; e.g. transfers accept <code>scenario:successful</code>,
+  <code>scenario:failed</code>, <code>scenario:insufficient_balance</code>,
+  <code>scenario:daily_transfer_limit_exceeded</code>; cards use
+  <code>scenario:auth_pin&amp;issuer:incorrect_pin</code> etc. <strong>Without the header a sandbox
+  transfer stays <code>pending</code> and no webhook fires</strong> &mdash; so integration tests
+  that assert settlement must set a scenario key.</p>
+
+<h3 id="fw-bills">5.11 Bills &amp; airtime &mdash; not in v4</h3>
+<div class="callout p0">
+  <span class="callout-label">Gap &mdash; no v4 bill endpoints</span>
+  The v4 API index (<code>llms.txt</code>) lists customers, payment methods, charges, orders,
+  transfers, recipients, senders, banks, mobile networks, wallets, refunds, chargebacks,
+  settlements, fees, virtual accounts, and rates &mdash; <strong>no bill-payment, biller-catalog,
+  or airtime/data endpoints</strong>. Flutterwave's bill payment documentation is v3-only
+  (<code>FLWSECK-</code> auth). Consequence: a real Flutterwave
+  <code>IPartnerBillPaymentConnector</code> cannot be built on v4. Options: (a) leave Flutterwave
+  bill-pay simulated; (b) build a <em>separate</em> Flutterwave-v3 bill connector; (c) route
+  bill-pay/airtime to a bill-specialist vendor (eTranzact / Interswitch) per Spec&nbsp;031. This
+  spec takes (a). <strong>Issue&nbsp;#129 names "start a transfer / bill-pay" &mdash; only the
+  transfer half is deliverable against v4.</strong> Flagged for product (&sect;11).
+</div>
+
+<h2 id="fit">6. Abstraction fit &amp; gap analysis</h2>
+<p>
+  The Spec&nbsp;031 ports were designed against v3 but are mostly the right shape for v4. The table
+  shows the per-method mapping; the gap list below it is what the task asked for explicitly &mdash;
+  where v4 needs something our DTOs don't carry.
+</p>
+<div class="callout open">
+  <span class="callout-label">Rev 2 &mdash; review amendments</span>
+  This revision incorporates a code-level review pass. Four contract-level issues were confirmed
+  against the landed ports and folded in: the non-nullable <code>PayoutQuoteResult.Fee</code> (G8),
+  idempotency on POSTs whose DTOs lack a <code>ClientReference</code> (G12), the unconstrained
+  <code>ClientReference</code> format vs v4's alphanumeric <code>reference</code> (G13), and the
+  webhook inbox fields the translator output doesn't carry (G14) &mdash; plus case-insensitive
+  header lookup (G15) and resolver registration-order (G16). Each resolution below is checked to
+  compile against the current contracts.
+  <br><br><strong>Rev 3 (rebased on PR&nbsp;#147):</strong> G14 is <em>withdrawn</em> (the shipped
+  inbox dedupes by <code>PayloadHash</code>, not <code>ProviderEventId</code>); G16 is <em>reversed</em>
+  (register alongside Simulated, select by <code>ProviderCode</code> &mdash; the remittance fallback
+  needs Simulated); G7/G15 are <em>downgraded</em> (the shipped endpoint already reads the raw body
+  with <code>OrdinalIgnoreCase</code> headers &mdash; only the translator's lookup is ours); and a new
+  <strong>G17</strong> (reference round-trip) is added.
+</div>
+<table>
+  <thead><tr><th>Port method</th><th>v4 endpoint</th><th>Fit</th></tr></thead>
+  <tbody>
+    <tr><td><code>InitiatePayoutAsync</code></td><td><code>POST /transfers</code> (recipient_id) &middot; <code>/direct-transfers</code></td><td><span class="tag ok">Good</span> &mdash; recipient_id required by shipped instr. (G19); missing <code>transfer_purpose</code>/sender (G3)</td></tr>
+    <tr><td><code>GetPayoutStatusAsync</code></td><td><code>GET /transfers/{id}</code></td><td><span class="tag ok">Clean</span></td></tr>
+    <tr><td><code>QuotePayoutAsync</code></td><td><code>POST /transfers/rates</code> (+ fee source)</td><td><span class="tag gap">Partial</span> &mdash; fee not in rates response (G8)</td></tr>
+    <tr><td><code>ResolveAccountAsync</code></td><td><code>POST /banks/account-resolve</code></td><td><span class="tag ok">Clean</span> &mdash; Currency becomes required (G1)</td></tr>
+    <tr><td><code>InitiateCollectionAsync</code></td><td><code>POST /orchestration/direct-charges</code></td><td><span class="tag ok">Good</span> &mdash; customer email required; card needs encryption (G5, G6)</td></tr>
+    <tr><td><code>GetCollectionStatusAsync</code></td><td><code>GET /charges/{id}</code></td><td><span class="tag ok">Clean</span></td></tr>
+    <tr><td><code>RefundCollectionAsync</code></td><td><code>POST /refunds</code></td><td><span class="tag ok">Clean</span></td></tr>
+    <tr><td><code>IPartnerWebhookTranslator</code></td><td><code>flutterwave-signature</code> + payload</td><td><span class="tag ok">Good</span> &mdash; needs raw body + HMAC (G7)</td></tr>
+    <tr><td><code>IPartnerBillPaymentConnector</code> (4 methods)</td><td><em>none in v4</em></td><td><span class="tag gap">No fit</span> &mdash; v4 has no bills (G9)</td></tr>
+  </tbody>
+</table>
+
+<h3>6.1 Gaps &amp; required decisions</h3>
+<table>
+  <thead><tr><th>#</th><th>Gap</th><th>Impact / proposed resolution</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>G1</td>
+      <td><strong>Currency-discriminated requests.</strong> <code>AccountResolutionRequest.Currency</code> is nullable, but v4 <code>/banks/account-resolve</code> (and recipient <code>type</code>) is keyed by currency.</td>
+      <td>Connector requires Currency; throw a clear <code>ArgumentException</code> if null. No contract change &mdash; validate at the boundary.</td>
+    </tr>
+    <tr>
+      <td>G2</td>
+      <td><strong>Recipient field richness.</strong> v4 recipient <code>type</code> is currency-specific and some corridors require <code>name.first</code>/<code>name.last</code>, phone/email/address, or <code>national_identification</code>. Our flat destinations carry only <code>AccountName</code> (a single string) + the rail fields.</td>
+      <td>Map <code>AccountName</code> by splitting on first space into <code>name.first</code>/<code>name.last</code>; pull extra fields from <code>PayoutInstruction.Metadata</code> when a corridor needs them. Document the per-corridor metadata keys. Consider enriching the destination DTOs later if metadata-stuffing proves brittle (open, &sect;11).</td>
+    </tr>
+    <tr>
+      <td>G3</td>
+      <td><strong><code>transfer_purpose</code> + sender KYC are missing.</strong> v4 makes <code>transfer_purpose</code> a <em>required</em> enum, and remittance corridors generally require a <code>sender</code> (name, ID, DOB). <code>PayoutInstruction</code> has neither.</td>
+      <td><strong>Confirmed by PR&nbsp;#147:</strong> <code>BuildPayoutInstruction</code> sets <code>Metadata = {tenantId, orderId, orderItemId, payoutId, quoteId}</code> &mdash; <em>no</em> <code>transfer_purpose</code>, <em>no</em> sender. So the connector must <strong>default <code>transfer_purpose</code> to <code>family_maintenance</code></strong> (the UK&rarr;NG wedge) and either omit <code>sender</code> or read it from metadata once Spec&nbsp;036 adds it. Sender KYC is genuinely absent today &mdash; if a corridor requires it, Spec&nbsp;036 must enrich <code>BuildPayoutInstruction</code>'s metadata (or gain a first-class <code>SenderDetails</code>/<code>TransferPurpose</code>; O2). Until then, sandbox transfers that don't require sender data still work.</td>
+    </tr>
+    <tr>
+      <td>G4</td>
+      <td><strong>OAuth token lifecycle has no port/precedent.</strong> Ports assume a stateless call; Plaid sends credentials per-request. v4 needs a cached, auto-refreshing bearer token.</td>
+      <td>New connector-internal <code>FlutterwaveTokenProvider</code> (singleton; <code>SemaphoreSlim</code>-guarded; refreshes ~60s before <code>expires_in</code>). Injected into the <code>DelegatingHandler</code> that stamps <code>Authorization</code>. No contract change. (&sect;7.2)</td>
+    </tr>
+    <tr>
+      <td>G5</td>
+      <td><strong>Three distinct reference values per call.</strong> v4 needs a body <code>reference</code> (6&ndash;42 alnum), an <code>X-Idempotency-Key</code> (12&ndash;255 alnum), <em>and</em> returns its own provider id. Our single <code>ClientReference</code> can't be all three verbatim.</td>
+      <td>Body <code>reference</code> &larr; <em>sanitized</em> <code>ClientReference</code> (G13). <code>X-Idempotency-Key</code> &larr; deterministic 32-hex of <code>SHA-256(ClientReference)</code> so a caller retry de-dupes (G12). <code>ProviderReference</code> &larr; <code>data.id</code> (<code>trf_</code>/<code>chg_</code>). Original <code>ClientReference</code> kept verbatim as <code>PartnerReference.ClientReference</code>. (&sect;7.3&ndash;7.4)</td>
+    </tr>
+    <tr>
+      <td>G6</td>
+      <td><strong>Card encryption / PCI.</strong> Card collection requires AES-256-GCM client-side encryption and brings raw PAN into our process.</td>
+      <td>Out of scope first cut. Collection ships with <code>bank_transfer</code> / <code>mobile_money</code> / <code>ussd</code> only; cards via hosted redirect later. If/when cards: <code>AesGcm</code> helper + never persist PAN (the Spec&nbsp;031 sensitive-data rule already mandates masking). (&sect;3.2, &sect;11)</td>
+    </tr>
+    <tr>
+      <td>G7</td>
+      <td><strong>Webhook needs the raw body.</strong> HMAC-SHA256 must run over the exact bytes Flutterwave signed; a FastEndpoints model-bound + re-serialized body breaks the hash. <code>VerifySignature</code> takes a <code>PartnerWebhookEnvelope(Headers, Body)</code> &mdash; the <code>Body</code> must be the raw string.</td>
+      <td><strong>Endpoint ships (PR&nbsp;#147)</strong> but decodes the body to a <code>string</code> via <code>StreamReader</code> (<code>PartnerWebhookEnvelope.Body</code> is a <code>string</code>), so the translator HMACs <code>UTF8.GetBytes(Body)</code> &mdash; the <em>re-encoded</em> bytes, not the wire bytes. Clean UTF-8 JSON round-trips identically (the normal case), but a BOM / non-round-tripping byte sequence would break verification. 037 owns the translator's HMAC-SHA256 base64 + constant-time compare + case-insensitive header lookup (G15), and a round-trip-fidelity test; the byte-exact fix (carry <code>byte[]</code> in the envelope) is an upstream option (&sect;4 item&nbsp;3). (&sect;7.5)</td>
+    </tr>
+    <tr>
+      <td>G8</td>
+      <td><strong>Quote fee gap.</strong> <code>/transfers/rates</code> gives rate + converted amount but not the fee.</td>
+      <td>Requires widening <code>PayoutQuoteResult.Fee</code> to <code>Money?</code> (&sect;3.1, O3) since it is non-nullable today. Then <code>QuotePayoutAsync</code> returns rate/converted from <code>/transfers/rates</code> with <code>Fee = null</code> when no pre-send fee is available (caller treats null as "fee known only at execution"); the realized fee is always captured from the transfer response onto <code>Payout.Fee</code>. Pick the fee source (a <code>/fees</code> lookup vs accept null) &mdash; open (O3).</td>
+    </tr>
+    <tr>
+      <td>G9</td>
+      <td><strong>No v4 bills.</strong> <code>IPartnerBillPaymentConnector</code> has no v4 home (&sect;5.11).</td>
+      <td>Flutterwave does not register against the bill-payment port. Bill-pay/airtime stays simulated or routes to another vendor. Product decision (&sect;11).</td>
+    </tr>
+    <tr>
+      <td>G10</td>
+      <td><strong>Per-call <code>callback_url</code> is gone.</strong> v3 accepted a transfer <code>callback_url</code>; v4 webhooks are dashboard-configured. <code>PayoutInstruction.CallbackUrl</code> has no v4 target.</td>
+      <td>Ignore <code>CallbackUrl</code> for payout (webhook URL is set once on the dashboard / via config). For collection, <code>redirect_url</code> <em>is</em> per-call and maps from the method's redirect. Document that <code>CallbackUrl</code> is a no-op for the Flutterwave payout path.</td>
+    </tr>
+    <tr>
+      <td>G11</td>
+      <td><strong>Resilience vs idempotency.</strong> The shared <code>AddStandardResilienceHandler()</code> auto-retries 5xx on every typed client &mdash; including money-moving POSTs.</td>
+      <td>Safe <em>because</em> every mutating POST carries a stable <code>X-Idempotency-Key</code> (G5/G12) &mdash; Flutterwave de-dupes the retry. Verify the standard handler's retry is idempotency-safe for our verbs; if not, scope a custom policy to GET + add explicit single-shot POST handling. (&sect;7.7)</td>
+    </tr>
+    <tr>
+      <td>G12</td>
+      <td><strong>Idempotency key can't always come from <code>ClientReference</code>.</strong> v4 wants <code>X-Idempotency-Key</code> on POSTs, but <code>PayoutQuoteRequest</code> and <code>AccountResolutionRequest</code> (both POSTs in v4) and <code>CollectionRefundInstruction</code> carry <strong>no <code>ClientReference</code></strong>. A blanket "derive key from <code>ClientReference</code>" handler throws / NREs on them.</td>
+      <td>Compute the key <strong>in the connector, per method</strong>, and pass it explicitly to the client's POST helper &mdash; not in a blanket handler. <strong>Mutating</strong> POSTs use a deterministic key: payout/collection &larr; <code>SHA-256(ClientReference)</code>; refund &larr; <code>SHA-256(OriginalReference.ClientReference + amount + reason)</code> (so a partial re-refund differs). <strong>Read-like</strong> POSTs (<code>/transfers/rates</code> quote, <code>/banks/account-resolve</code>) are non-mutating &mdash; the client mints a <em>fresh random</em> key (replay-harmless). Optionally add a dedicated <code>ClientReference</code> to <code>CollectionRefundInstruction</code> (O8). (&sect;7.3)</td>
+    </tr>
+    <tr>
+      <td>G13</td>
+      <td><strong><code>ClientReference</code> has no format guarantee.</strong> The contract imposes none; callers/tests use hyphens (<code>PAYOUT-1</code>), which violate v4's 6&ndash;42-alphanumeric body <code>reference</code>.</td>
+      <td>Connector <strong>sanitizes</strong> <code>ClientReference</code> into a v4-safe <code>reference</code> (strip non-alnum; hash-and-prefix if empty/over-length/collision-risk) and keeps the original verbatim for our correlation. Prefer Spec&nbsp;036 mint alphanumeric &le;42 refs for an identity mapping (O8). (&sect;5.5, &sect;7.4)</td>
+    </tr>
+    <tr>
+      <td>G14 <span class="tag" style="background:#eee;color:#777;">withdrawn</span></td>
+      <td><strong>(Withdrawn after PR&nbsp;#147.)</strong> Rev 2 proposed adding <code>ProviderEventId</code> to the translator DTO so the inbox could dedupe on it.</td>
+      <td>Not needed. The shipped <code>ProcessWebhookAsync</code> dedupes by an explicit lookup on <code>(ProviderCode, PayloadHash)</code> (the endpoint hashes the raw body) and leaves <code>ProviderEventId</code> unset. The translator just needs a <em>deterministic</em> <code>Translate</code>. <strong>No contract change for the webhook path.</strong> (&sect;5.9, &sect;7.5)</td>
+    </tr>
+    <tr>
+      <td>G15</td>
+      <td><strong>Header lookup is case-sensitive.</strong> <code>PartnerWebhookEnvelope.Headers</code> is a plain <code>IReadOnlyDictionary&lt;string,string&gt;</code> and the simulated translator does an exact-case lookup. HTTP header casing is not guaranteed after ASP.NET normalization, so an exact <code>"flutterwave-signature"</code> lookup can miss.</td>
+      <td><strong>Endpoint side already ships</strong> &mdash; <code>PartnerWebhookEndpoint</code> builds the header dictionary with <code>StringComparer.OrdinalIgnoreCase</code>. So 037 only needs the <strong>translator</strong> to look up <code>flutterwave-signature</code> case-insensitively (don't assume the dictionary's comparer; look up defensively). (&sect;7.5)</td>
+    </tr>
+    <tr>
+      <td>G16 <span class="tag" style="background:#eee;color:#777;">reversed</span></td>
+      <td><strong>(Reversed after PR&nbsp;#147.)</strong> Rev 2 said register real XOR simulated to avoid the <code>TryResolve* FirstOrDefault</code> order-dependence. But <code>RemittanceOrderService.ResolvePayoutConnector</code> <strong>requires the simulated connector to stay</strong> &mdash; it falls back to <code>ResolvePayoutConnector("Simulated")</code> (line&nbsp;843), and primary selection is <code>ResolvePayoutConnector(details.ProviderCode)</code>, an exact <code>ProviderCode</code> match.</td>
+      <td><strong>Register Flutterwave alongside Simulated</strong> (distinct <code>ProviderCode</code>s). Code-based resolution is deterministic regardless of order; the simulated registration must remain for the fallback. The residual <code>TryResolve*</code> capability-query order only bites the <em>no-provider-code</em> auto-route, which remittance avoids (it resolves a code at quote time, else explicitly falls to Simulated). Don't make Simulated advertise live production corridors. (&sect;7.6)</td>
+    </tr>
+    <tr>
+      <td>G17 <span class="tag gap">new</span></td>
+      <td><strong>Reference round-trip can silently break settlement.</strong> PR&nbsp;#147 stores <code>ClientReference = "REM-{orderId:N}"</code> (has a hyphen) and <code>LocateRemittancePayoutAsync</code> matches it <strong>verbatim</strong> against the webhook's translated <code>ClientReference</code>. If v4 rejects the hyphen in the body <code>reference</code>, the connector must sanitize it &mdash; but Flutterwave then echoes the sanitized value, which no longer equals the stored <code>REM-{orderId:N}</code>, so no payout is found and the remittance never settles, with no error.</td>
+      <td><strong>First, verify in sandbox whether v4 accepts the hyphen.</strong> If yes, pass <code>ClientReference</code> through unchanged (identity round-trip). If no, carry the original <code>ClientReference</code> in the transfer <code>meta</code> (e.g. <code>meta.aonik_client_reference</code>) and have <code>FlutterwaveWebhookTranslator.Translate</code> reconstruct it from the echoed meta (fallback to <code>data.reference</code>). Invariant: the inbound translated <code>ClientReference</code> MUST equal the stored <code>REM-{orderId:N}</code>. Long-term, Spec&nbsp;036 could mint hyphen-free refs (O8). (&sect;5.5, &sect;7.5)</td>
+    </tr>
+    <tr>
+      <td>G18 <span class="tag gap">new</span></td>
+      <td><strong>Configured Flutterwave is not auto-selected.</strong> Confirm uses <code>ResolvePayoutConnector(request.ProviderCode, …)</code>; with no code, the capability <code>FirstOrDefault</code> returns the first-registered connector (Simulated), and the result is persisted on the order. Setting credentials does not route to Flutterwave.</td>
+      <td>For launch, require an explicit <code>ProviderCode = "Flutterwave"</code> on the confirm request (or a per-corridor routing default); alternatively register Flutterwave before Simulated, or add route priority. The in-memory resolver has no priority today (O11). (&sect;4 item&nbsp;1, &sect;7.6)</td>
+    </tr>
+    <tr>
+      <td>G19 <span class="tag gap">new</span></td>
+      <td><strong>The connector can't reach a raw account or <code>VaultRef</code>.</strong> <code>BuildPayoutInstruction</code> passes <code>ProviderBeneficiaryId</code> or a <em>masked</em> identifier as the destination account value and never passes <code>VaultRef</code>. A token-less destination can't be paid; the documented <code>/direct-transfers</code>-with-<code>VaultRef</code> fallback is unreachable.</td>
+      <td>Real dispatch <strong>requires</strong> a Flutterwave recipient id in <code>ProviderBeneficiaryId</code> (the <code>recipient_id</code> flow) &mdash; so the beneficiary must be registered first. But <code>SaveBeneficiaryAsync</code> hardcodes <code>IsVerified = false</code> and the save DTO excludes raw details, so the <strong>verify-and-register flow is itself missing</strong> (G20, &sect;7.4.1). Until it lands, seed a verified beneficiary manually. Or extend the instruction with <code>VaultRef</code> + a resolvable raw value. (&sect;4 item&nbsp;2, &sect;5.4, O4, O12)</td>
+    </tr>
+    <tr>
+      <td>G20 <span class="tag gap">new</span></td>
+      <td><strong>No contract path to obtain/store a recipient id.</strong> G19 needs <code>ProviderBeneficiaryId = rcp_…</code>, but <code>ResolveAccountAsync</code> returns only <code>(Resolved, AccountName, Raw)</code> &mdash; a name enquiry, not a recipient creation. The port has no way to create a Flutterwave recipient and hand back its id for storage.</td>
+      <td><strong>Add a payout-port method</strong> &mdash; e.g. <code>RegisterRecipientAsync(RecipientRegistrationRequest) &rarr; RecipientRegistrationResult(string? ProviderBeneficiaryId, …)</code> mapping to <code>POST /transfers/recipients</code>. 037 implements it for Flutterwave; 036 calls it at verification (the <code>IsVerified</code> gate) and stores the returned id. <strong>This is a Spec&nbsp;031 contract addition that is NOT source-compatible</strong> &mdash; <code>SimulatedPartnerConnector</code> must also implement it (return a deterministic fake <code>rcp_…</code>). Alternative: extend <code>AccountResolutionResult</code> with <code>ProviderBeneficiaryId</code> (conflates two distinct Flutterwave calls; less clean). (O4, &sect;3.1)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="design">7. Implementation design</h2>
+
+<h3 id="d-layout">7.1 File layout &amp; options</h3>
+<div class="ascii-diagram">src/Aonik.Finance/Services/Partners/Connectors/Flutterwave/
+  FlutterwaveOptions.cs                 BaseUrl, IdpTokenUrl, ClientId, ClientSecret,
+                                        EncryptionKey, UseRealFlutterwaveApi; IsConfigured()
+                                        (webhook secret lives in config, NOT here — §7.1)
+  FlutterwaveTokenProvider.cs           OAuth client-credentials token cache + refresh   (G4)
+  FlutterwaveAuthHandler.cs             DelegatingHandler: Authorization + X-Idempotency-Key + X-Trace-Id
+  FlutterwaveClient.cs                  thin typed HttpClient wrapper: PostAsync/GetAsync<T>, error mapping
+  FlutterwavePayoutConnector.cs         IPartnerPayoutConnector                          (priority)
+  FlutterwaveCollectionConnector.cs     IPartnerCollectionConnector                      (phase 2)
+  FlutterwaveWebhookTranslator.cs       IPartnerWebhookTranslator (translator only — endpoint ships) (HMAC-SHA256)
+  FlutterwaveException.cs               typed error + retryable classification           (G-errors)
+  Dtos/                                 request/response records, [JsonPropertyName] snake_case</div>
+<pre><code>internal sealed class FlutterwaveOptions
+{
+    public bool UseRealFlutterwaveApi { get; set; }
+    public string BaseUrl { get; set; } = "https://developersandbox-api.flutterwave.com";
+    public string IdpTokenUrl { get; set; } =
+        "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token";
+    public string ClientId { get; set; } = string.Empty;
+    public string ClientSecret { get; set; } = string.Empty;
+    public string EncryptionKey { get; set; } = string.Empty;     // base64, only needed for card collection
+    // NOTE: the webhook signing secret does NOT live here — PR #147's ProcessWebhookAsync reads it
+    // from config "Finance:Partners:Webhooks:Flutterwave:SigningSecret" and passes it into
+    // translator.VerifySignature(envelope, secret). Keep the two secret stores aligned in deployment.
+
+    public bool IsConfigured() =&gt; UseRealFlutterwaveApi
+        &amp;&amp; !string.IsNullOrWhiteSpace(BaseUrl)
+        &amp;&amp; !string.IsNullOrWhiteSpace(ClientId)
+        &amp;&amp; !string.IsNullOrWhiteSpace(ClientSecret);
+}</code></pre>
+<p>Mirrors <code>PlaidAccountLinkOptions</code> &mdash; same <code>IsConfigured()</code> real/simulated
+gate. The webhook secret is intentionally <em>not</em> a <code>FlutterwaveOptions</code> field: the
+shipped settlement path owns it under <code>Finance:Partners:Webhooks:Flutterwave:SigningSecret</code>
+(with a global <code>Finance:Partners:Webhooks:SigningSecret</code> fallback), so add that key, not a
+<code>WebhookSecretHash</code> option.</p>
+
+<h3 id="d-token">7.2 Token provider (G4)</h3>
+<pre><code>internal sealed class FlutterwaveTokenProvider
+{
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private string? _token; private DateTimeOffset _expiresAt;
+    // POST {IdpTokenUrl} form-urlencoded grant_type=client_credentials&amp;client_id&amp;client_secret
+    // cache _token; set _expiresAt = now + expires_in - 60s safety margin
+    public async Task&lt;string&gt; GetAccessTokenAsync(CancellationToken ct) { /* double-checked under _gate */ }
+}</code></pre>
+<ul>
+  <li>Registered <strong>singleton</strong> (one token cache per process). It resolves a
+  <strong>named</strong> client via <code>IHttpClientFactory.CreateClient("flutterwave-idp")</code>
+  pointed at <code>IdpTokenUrl</code> &mdash; <strong>not</strong> the typed
+  <code>FlutterwaveClient</code> (that one is decorated with <code>FlutterwaveAuthHandler</code>,
+  which itself calls the token provider &rarr; a cycle). Going through the factory (rather than a
+  singleton holding an injected <code>HttpClient</code>) also avoids pinning a stale handler.</li>
+  <li>Refresh 60s before <code>expires_in</code>. On a <code>401</code> from the API, force one
+  refresh + single retry before surfacing.</li>
+</ul>
+
+<h3 id="d-handler">7.3 Auth header + per-call idempotency (G5, G12)</h3>
+<p>
+  Split the two concerns. The <code>DelegatingHandler</code> stamps only the request-agnostic
+  <code>Authorization: Bearer</code> (from the token provider). The
+  <strong><code>X-Idempotency-Key</code> is NOT derived in the handler</strong> &mdash; several
+  request DTOs (<code>PayoutQuoteRequest</code>, <code>AccountResolutionRequest</code>,
+  <code>CollectionRefundInstruction</code>) carry <em>no</em> <code>ClientReference</code>, so a
+  blanket handler would have nothing to hash and would NRE. Instead the <strong>connector</strong>
+  computes the key per-method (it alone knows the call's semantics) and passes it explicitly to the
+  client helper:
+</p>
+<pre><code>// FlutterwaveClient — idempotency key is an explicit per-call argument, not handler magic.
+Task&lt;T&gt; PostAsync&lt;T&gt;(string path, object body, string idempotencyKey, CancellationToken ct);
+Task&lt;T&gt; GetAsync&lt;T&gt;(string path, CancellationToken ct);
+// PostAsync stamps X-Idempotency-Key = idempotencyKey, AND X-Trace-Id = idempotencyKey
+//   (it is already 32-hex → satisfies X-Trace-Id's alphanumeric 12–255 rule, G12-adjacent).
+
+// The connector decides the key:
+//   InitiatePayoutAsync     → IdempotencyKey.FromReference(instruction.ClientReference)        // deterministic
+//   InitiateCollectionAsync → IdempotencyKey.FromReference(instruction.ClientReference)        // deterministic
+//   RefundCollectionAsync   → IdempotencyKey.From(original.ClientReference, amount, reason)    // deterministic
+//   QuotePayoutAsync        → IdempotencyKey.Fresh()   // read-like POST: random, replay-harmless
+//   ResolveAccountAsync     → IdempotencyKey.Fresh()   // read-like POST: random, replay-harmless
+// FromReference(s) = 32-hex of SHA-256(s) (alphanumeric, satisfies 12–255); Fresh() = hyphen-stripped GUID.</code></pre>
+<p>
+  Deterministic keys mean a caller retry of the <em>same</em> instruction re-sends the <em>same</em>
+  key, so Flutterwave de-dupes &mdash; which is exactly what makes the shared 5xx-retry resilience
+  handler safe on money-moving POSTs (G11). Read-like POSTs get a fresh random key because a replay
+  of a quote / name-enquiry is harmless. <strong><code>X-Trace-Id</code> has the same
+  alphanumeric-ASCII 12&ndash;255 constraint as the idempotency key</strong>, so it too must
+  <em>not</em> be the raw <code>ClientReference</code> (which may be short/hyphenated like
+  <code>PAYOUT-1</code>): the client stamps the 32-hex idempotency key as the trace id on POSTs, and
+  a sanitized/padded reference (or a fresh id) on GETs. The client is registered through
+  <code>AddHttpClient&lt;FlutterwaveClient&gt;(…).AddHttpMessageHandler&lt;FlutterwaveAuthHandler&gt;()</code>,
+  inheriting the resilience pipeline from <code>ServiceDefaults</code>.
+</p>
+
+<h3 id="d-payout">7.4 Payout connector &mdash; method by method</h3>
+<pre><code>internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
+{
+    public string ProviderCode =&gt; "Flutterwave";
+    public IReadOnlyCollection&lt;PartnerConnectorCapability&gt; Capabilities =&gt; _capabilities; // declared in code/config at construction
+
+    // InitiatePayoutAsync(PayoutInstruction i):  PRIMARY = recipient_id flow (G19/G20)
+    //   reference = Sanitize(i.ClientReference) (alnum ≤42, G13); meta.aonik_client_reference = i.ClientReference (G17)
+    //   if the destination carries a Flutterwave recipient id (ProviderBeneficiaryId):
+    //     POST /transfers { reference, action="instant", transfer_purpose = meta["transfer_purpose"] ?? "family_maintenance",
+    //       payment_instruction { recipient_id, amount{value=i.Amount.Amount, applies_to="destination_currency"},
+    //         source_currency=i.DebitCurrency, destination_currency=i.Amount.Currency }, sender = MapSender(i.Metadata), meta }
+    //   else (raw account via VaultRef — NOT reachable from shipped instr today, G19): /direct-transfers, recipient = Map(i.Destination)
+    //   → PayoutInitiationResult(
+    //     Reference: new(i.ClientReference, data.id),
+    //     Status:    MapTransferStatus(data.status),
+    //     Fee:       data.fee is null ? null : new Money(data.fee.value, data.fee.currency),
+    //     Raw:       new(data.status, data.provider_response?.message, redacted(payloadJson)))
+
+    // GetPayoutStatusAsync(PartnerReference r): GET /transfers/{r.ProviderReference} → PayoutStatusResult
+    // QuotePayoutAsync(PayoutQuoteRequest q):   POST /transfers/rates → PayoutQuoteResult (Fee maybe null, G8)
+    // ResolveAccountAsync(AccountResolutionRequest a): POST /banks/account-resolve → AccountResolutionResult
+    // RegisterRecipientAsync(RecipientRegistrationRequest r): POST /transfers/recipients → ProviderBeneficiaryId (rcp_…)  // NEW, G20
+}</code></pre>
+<ul>
+  <li><code>Map(PayoutDestination)</code> switches on the record type &rarr; the currency-specific
+  v4 recipient <code>type</code> (<code>BankAccountDestination</code> &rarr; <code>bank_{ccy}</code>
+  with <code>bank.code</code>/<code>bank.account_number</code>; <code>MobileMoneyDestination</code>
+  &rarr; <code>mobile_money_{ccy}</code>; <code>WalletDestination</code> &rarr; <code>wallet</code>).
+  <code>AccountName</code> splits into <code>name.first</code>/<code>name.last</code> (G2).</li>
+  <li><strong>Raw response is redacted</strong> before it goes into <code>RawProviderResponse.PayloadJson</code>
+  (Spec&nbsp;031 sensitive-data rule) &mdash; vendor codes + status only, no account numbers.</li>
+  <li>The connector <strong>throws</strong> <code>FlutterwaveException</code> (non-retryable) /
+  re-throws <code>TimeoutException</code> rather than returning a "failed" result for transport
+  errors, so the caller's money-action logging fires correctly. A <em>business</em> failure (v4
+  returns a <code>FAILED</code> status) <em>is</em> returned as a normalized result.</li>
+</ul>
+<div class="callout">
+  <span class="callout-label">Capabilities are in-memory, declared at construction</span>
+  The resolver matches solely on the connector's <code>IPartnerConnector.Capabilities</code> property
+  &mdash; it does <strong>not</strong> read the persisted <code>ConnectorCapability</code> rows. So
+  Flutterwave's lanes (e.g. <code>Payout / NG / NGN / Bank</code>, plus the live corridors) must be
+  <strong>declared in code or bound from <code>FlutterwaveOptions</code> at construction time</strong>,
+  not seeded into the DB and expected to drive selection. Wiring the resolver to persisted
+  <code>ConnectorCapability</code> is part of the deferred routing engine (Spec&nbsp;031 §3.2
+  out-of-scope), not this spec &mdash; so "from options/seed" means <em>options/code</em>, not the
+  capability table.
+</div>
+
+<h3 id="d-recipient">7.4.1 Beneficiary registration &mdash; the missing integration path (G19, G20)</h3>
+<p>
+  Adding <code>RegisterRecipientAsync</code> to the port is necessary but <strong>not sufficient</strong>:
+  nothing in the app calls it, and the shipped beneficiary path can't feed it. Concretely, today:
+</p>
+<ul>
+  <li><a href="../../src/Aonik.Finance/Services/Payments/PayoutBeneficiaryService.cs"><code>PayoutBeneficiaryService.SaveBeneficiaryAsync</code></a>
+  persists with <code>IsVerified = false</code> <strong>hardcoded</strong> and only copies a
+  <em>pre-supplied</em> <code>ProviderBeneficiaryId</code> from the request &mdash; it never resolves
+  an account or calls a connector. So no saved beneficiary passes the remittance
+  <code>IsVerified</code> gate (<code>RemittanceOrderService.cs:249</code>) on its own.</li>
+  <li><a href="../../src/Aonik.Finance/Contracts/Services/Payments/IPayoutBeneficiaryService.cs"><code>SavePayoutBeneficiaryRequest</code></a>
+  <strong>deliberately excludes raw rail details</strong> (only <code>MaskedAccountIdentifier</code> +
+  optional token) per the Spec&nbsp;031 sensitive-data rule &mdash; but Flutterwave
+  <code>/transfers/recipients</code> needs the <em>real</em> account number + bank code (or MSISDN +
+  network). So registration needs a <strong>transient</strong> raw-details input that is never
+  persisted.</li>
+</ul>
+<p>
+  So the prerequisite for G19/G20 is a <strong>verify-and-register flow</strong>: accept raw rail
+  details transiently &rarr; <code>ResolveAccountAsync</code> (name enquiry) &rarr;
+  <code>RegisterRecipientAsync</code> (create the Flutterwave recipient) &rarr; persist the
+  <em>masked</em> identifier + the returned <code>ProviderBeneficiaryId</code> and flip
+  <code>IsVerified = true</code>. The connector method + its DTOs are defined here; the service /
+  endpoint wiring is the prerequisite (see scope note below). DTOs (&sect;5.3 reuses
+  <code>PayoutDestination</code> as the transient raw carrier &mdash; it already holds full values):
+</p>
+<pre><code>// New on IPartnerPayoutConnector (G20). RecipientRegistrationRequest reuses PayoutDestination,
+// which carries the RAW account number / MSISDN / wallet id transiently (never persisted).
+Task&lt;RecipientRegistrationResult&gt; RegisterRecipientAsync(
+    RecipientRegistrationRequest request, CancellationToken cancellationToken = default);
+
+public sealed record RecipientRegistrationRequest(
+    PayoutDestination Destination,   // raw rail details (transient) OR a VaultRef-resolved value
+    string Currency,                 // currency-specific recipient type (bank_ngn, mobile_money_ghs, …)
+    string AccountName,              // from name enquiry; split into name.first/name.last
+    string? Country,
+    IReadOnlyDictionary&lt;string,string&gt;? Metadata);   // CustomerPartyId/BeneficiaryPartyId for audit
+
+public sealed record RecipientRegistrationResult(
+    bool Registered, string? ProviderBeneficiaryId, string? AccountName, RawProviderResponse Raw);</code></pre>
+<div class="callout open">
+  <span class="callout-label">Scope &amp; the manual-seeding fallback</span>
+  <strong>In 037:</strong> the <code>RegisterRecipientAsync</code> method (Flutterwave &rarr;
+  <code>POST /transfers/recipients</code>) + the two DTOs + the Simulated implementation.
+  <strong>Prerequisite (recommended placement, may be a 036/Platform follow-up):</strong> a
+  <code>VerifyAndRegisterBeneficiaryAsync</code> on <code>PayoutBeneficiaryService</code> + a
+  <code>POST /payout-beneficiaries/verify</code> endpoint that accepts the transient raw details,
+  runs the resolve&rarr;register&rarr;persist sequence, and sets <code>IsVerified = true</code> with the
+  real <code>rcp_…</code>. Until that lands, <strong>037's acceptance is met by manually seeding</strong>
+  a verified <code>ExternalPayoutAccount</code> (<code>IsVerified = true</code>,
+  <code>ProviderBeneficiaryId = rcp_…</code>) &mdash; the connector + translator are exercised
+  end-to-end; only the self-service beneficiary onboarding is stubbed (O4, O12).
+</div>
+
+<h3 id="d-webhook">7.5 Webhook translator &mdash; the only webhook code 037 owns</h3>
+<p>
+  PR&nbsp;#147 ships the endpoint, signature plumbing, dedupe, inbox persistence, and settlement
+  (&sect;5.9). 037 adds <strong>one class</strong>: the <code>"Flutterwave"</code>
+  <code>IPartnerWebhookTranslator</code> that <code>ProcessWebhookAsync</code> resolves by
+  <code>ProviderCode</code> and calls. No endpoint, no inbox code.
+</p>
+<pre><code>internal sealed class FlutterwaveWebhookTranslator : IPartnerWebhookTranslator
+{
+    public string ProviderCode =&gt; "Flutterwave";
+
+    public bool VerifySignature(PartnerWebhookEnvelope e, string signingSecret) {
+        var header = LookupIgnoreCase(e.Headers, "flutterwave-signature");   // case-insensitive, G15
+        if (string.IsNullOrEmpty(signingSecret) || header is null) return false;
+        var computed = Convert.ToBase64String(HMACSHA256.HashData(           // UTF-8 bytes of e.Body (string, §4 item 3)
+            Encoding.UTF8.GetBytes(signingSecret), Encoding.UTF8.GetBytes(e.Body)));
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(computed), Encoding.UTF8.GetBytes(header));
+    }
+
+    public PartnerWebhookEvent Translate(PartnerWebhookEnvelope e) {
+        // "transfer.disburse" → Category=Payout; map data.status → PartnerTransactionStatus.
+        // CRITICAL (G17): Reference.ClientReference MUST reconstruct the stored "REM-{orderId:N}" so
+        //   LocateRemittancePayoutAsync matches. Read data.meta.aonik_client_reference first, then
+        //   fall back to data.reference. Reference.ProviderReference ← data.id (trf_…).
+        // No ProviderEventId needed — the shipped inbox dedupes by PayloadHash (G14).
+    }
+}</code></pre>
+<div class="callout">
+  <span class="callout-label">Three hard invariants for the translator</span>
+  <strong>(1) Signature:</strong> HMAC-SHA256 base64 over <code>UTF8.GetBytes(envelope.Body)</code>
+  &mdash; <code>Body</code> is a <code>string</code> under the current endpoint, so this is the
+  decoded-then-re-encoded byte sequence, not the raw wire bytes (&sect;4 item&nbsp;3) &mdash;
+  case-insensitive <code>flutterwave-signature</code> lookup, constant-time compare. The shipped
+  <code>ProcessWebhookAsync</code> passes the secret from
+  <code>Finance:Partners:Webhooks:Flutterwave:SigningSecret</code> and stores the row as
+  <code>Failed</code> (no settlement) when this returns false &mdash; so a wrong/empty secret
+  silently blocks settlement; keep it deployed alongside the API client secret.
+  <strong>(2) Reference reconstruction (G17):</strong> the translated
+  <code>Reference.ClientReference</code> must equal the payout's stored <code>REM-{orderId:N}</code>
+  or <code>LocateRemittancePayoutAsync</code> finds nothing. Carry our reference in the transfer
+  <code>meta</code> on the way out and read it back here.
+  <strong>(3) <code>Translate</code> must never throw</strong> on a malformed/adversarial body &mdash;
+  the shipped <code>ProcessWebhookAsync</code> calls <code>Translate</code> <em>before</em> it branches
+  on signature validity (&sect;4, item 4), so a throw becomes a <code>500</code> instead of a stored
+  "Failed" row. Parse defensively; on bad JSON return <code>Category=Payout</code>,
+  <code>Status=Unknown</code>, empty references. <em>Test all three invariants directly</em> &mdash;
+  they are the whole webhook contract for 037.
+</div>
+<p>
+  The error classifier maps (HTTP status, Flutterwave <code>error.code</code>) &rarr;
+  <code>{ retryable, isTimeout }</code> per &sect;5.10. <code>FlutterwaveException</code> carries the
+  <code>type</code>/<code>code</code>/<code>message</code> + <code>Retryable</code> flag so a caller
+  (and the standard resilience handler) can act on it.
+</p>
+
+<h3 id="d-di">7.6 DI &amp; configuration</h3>
+<pre><code>// FinanceModule.ConfigureServices — "Flutterwave connector" block.
+services.Configure&lt;FlutterwaveOptions&gt;(configuration.GetSection("Finance:Partners:Flutterwave"));
+services.AddSingleton&lt;FlutterwaveTokenProvider&gt;();
+services.AddHttpClient("flutterwave-idp", (sp, c) =&gt; {            // OAuth token endpoint — UNDECORATED
+        var o = sp.GetRequiredService&lt;IOptions&lt;FlutterwaveOptions&gt;&gt;().Value;
+        if (Uri.TryCreate(o.IdpTokenUrl, UriKind.Absolute, out var b)) c.BaseAddress = b;
+    });   // token provider resolves THIS via IHttpClientFactory.CreateClient — no auth handler (would recurse)
+services.AddTransient&lt;FlutterwaveAuthHandler&gt;();
+services.AddHttpClient&lt;FlutterwaveClient&gt;((sp, c) =&gt; {
+        var o = sp.GetRequiredService&lt;IOptions&lt;FlutterwaveOptions&gt;&gt;().Value;
+        if (Uri.TryCreate(o.BaseUrl, UriKind.Absolute, out var b)) c.BaseAddress = b;
+    }).AddHttpMessageHandler&lt;FlutterwaveAuthHandler&gt;();   // inherits standard resilience handler
+
+// Keep the existing simulated registrations (FinanceModule.cs:139-149) UNCHANGED — the remittance
+// service falls back to ResolvePayoutConnector("Simulated"). Register Flutterwave ALONGSIDE, only
+// when configured; selection is by ProviderCode, so the two coexist cleanly.
+var fw = configuration.GetSection("Finance:Partners:Flutterwave").Get&lt;FlutterwaveOptions&gt;();
+if (fw?.IsConfigured() == true)
+{
+    services.AddTransient&lt;IPartnerPayoutConnector, FlutterwavePayoutConnector&gt;();         // alongside Simulated
+    services.AddSingleton&lt;IPartnerWebhookTranslator, FlutterwaveWebhookTranslator&gt;();     // alongside Simulated translator
+    // (collection connector registered the same way when phase 2 lands)
+}</code></pre>
+<div class="callout">
+  <span class="callout-label">Register alongside Simulated &mdash; select by ProviderCode (G16, corrected for #147)</span>
+  Rev&nbsp;2 said register real XOR simulated. <strong>PR&nbsp;#147 makes that wrong:</strong>
+  <code>RemittanceOrderService</code> resolves the connector with
+  <code>ResolvePayoutConnector(details.ProviderCode)</code> (an exact, deterministic
+  <code>ProviderCode</code> match) and <strong>falls back to <code>ResolvePayoutConnector("Simulated")</code></strong>
+  &mdash; so removing the simulated payout registration breaks the fallback. Register Flutterwave
+  <em>in addition to</em> Simulated; distinct <code>ProviderCode</code>s make code-based resolution
+  order-independent. The only order-sensitive path is the no-code <code>TryResolve*</code> capability
+  query, which remittance doesn't hit on the hot path (it resolves a code at quote time, else
+  explicitly falls to Simulated) &mdash; just don't let Simulated advertise live production corridors.
+  True per-corridor multi-vendor routing remains the deferred <code>RoutingRule</code> engine's job
+  (O10).
+</div>
+<div class="callout">
+  <span class="callout-label">Lifetime caution</span>
+  The existing partner connectors are registered as <strong>singletons</strong>; an HttpClient-backed
+  connector must be created through <code>AddHttpClient</code> (handler pooling) and resolved
+  <strong>transient/scoped</strong>, not as a plain singleton holding a captured <code>HttpClient</code>.
+  The <code>FlutterwaveTokenProvider</code> stays a singleton (it is the shared token cache); the
+  translator can be a singleton (stateless). Both Flutterwave and Simulated translators are
+  registered against <code>IPartnerWebhookTranslator</code> &mdash; the resolver picks by
+  <code>ProviderCode</code>.
+</div>
+<p><code>appsettings.json</code> gets an empty section; secrets come from environment / user-secrets:</p>
+<pre><code>"Finance": { "Partners": {
+  "Flutterwave": { "UseRealFlutterwaveApi": false, "BaseUrl": "https://developersandbox-api.flutterwave.com",
+                   "ClientId": "", "ClientSecret": "", "EncryptionKey": "" },
+  "Webhooks":    { "Flutterwave": { "SigningSecret": "" } }   // read by the shipped ProcessWebhookAsync (#147)
+} }
+// real secrets via env: Finance__Partners__Flutterwave__ClientSecret=…
+//                       Finance__Partners__Webhooks__Flutterwave__SigningSecret=…</code></pre>
+
+<h3 id="d-tests">7.7 Tests</h3>
+<p>
+  Mirror <code>PlaidAccountLinkProviderGatewayTests</code> &mdash; a nested
+  <code>RecordingHttpMessageHandler : HttpMessageHandler</code> with a queue of canned responses,
+  capturing <code>LastRequest</code>/<code>LastRequestBody</code>. xUnit + FluentAssertions, no DI,
+  no DbContext (the connector is pure I/O). Cases (Issue&nbsp;#129 acceptance point&nbsp;4):
+</p>
+<ul>
+  <li><strong>Happy path</strong> &mdash; <code>InitiatePayoutAsync</code> posts to
+  <code>/direct-transfers</code> with the expected body + an <code>X-Idempotency-Key</code> header
+  derived from <code>ClientReference</code>; maps <code>NEW</code> &rarr; <code>Pending</code>,
+  surfaces <code>trf_</code> as <code>ProviderReference</code> + the fee.</li>
+  <li><strong>Partner 5xx</strong> &mdash; a queued <code>500</code> &rarr;
+  <code>FlutterwaveException { Retryable = true }</code>.</li>
+  <li><strong>Timeout</strong> &mdash; a handler that throws
+  <code>TaskCanceledException</code>/<code>TimeoutException</code> &rarr; the connector surfaces a
+  timeout (so the caller logs <code>PaymentTransmitTimeout</code>).</li>
+  <li><strong>4xx non-retryable</strong> &mdash; a <code>422</code> &rarr;
+  <code>FlutterwaveException { Retryable = false }</code> with the parsed error code.</li>
+  <li><strong>Status mapping</strong> &mdash; <code>GetPayoutStatusAsync</code> maps each v4 status to
+  the normalized enum (table &sect;8).</li>
+  <li><strong>Webhook translator</strong> &mdash; <code>VerifySignature</code> passes for a
+  correctly-HMAC'd body and fails for a tampered one and for an empty secret; <code>Translate</code>
+  turns a <code>transfer.disburse</code> sample into <code>PartnerWebhookEvent(Payout, …, Succeeded)</code>
+  <strong>and reconstructs <code>Reference.ClientReference == "REM-{orderId:N}"</code> from the echoed
+  <code>meta.aonik_client_reference</code></strong> (G17) &mdash; the invariant the shipped
+  <code>LocateRemittancePayoutAsync</code> depends on.</li>
+  <li><strong>Resolver</strong> &mdash; with both registered, <code>ResolvePayoutConnector("Flutterwave")</code>
+  returns the real connector and <code>ResolvePayoutConnector("Simulated")</code> still returns the
+  simulated one (the fallback the remittance service needs); when not configured, only Simulated is
+  registered.</li>
+  <li><strong>Token provider</strong> &mdash; caches a token, refreshes after expiry, and forces one
+  refresh on a <code>401</code>.</li>
+  <li><strong>Translate is non-throwing</strong> &mdash; a malformed/garbage body returns
+  <code>Status=Unknown</code> (no exception), so the shipped pre-signature-branch call can't 500
+  (&sect;4 item&nbsp;4).</li>
+  <li><strong>HMAC round-trip fidelity</strong> &mdash; <code>VerifySignature</code> accepts a body
+  whose signed bytes equal <code>UTF8.GetBytes(Body)</code> (assert a representative
+  <code>transfer.disburse</code> JSON verifies through the string round-trip; &sect;4 item&nbsp;3).</li>
+</ul>
+
+<h2 id="mapping">8. Status &amp; error mapping (normative)</h2>
+<table>
+  <thead><tr><th>v4 value</th><th>Surface</th><th><code>PartnerTransactionStatus</code></th></tr></thead>
+  <tbody>
+    <tr><td><code>NEW</code>, <code>INITIATED</code></td><td>transfer</td><td><code>Pending</code></td></tr>
+    <tr><td><code>PENDING</code></td><td>transfer</td><td><code>Processing</code></td></tr>
+    <tr><td><code>SUCCESSFUL</code></td><td>transfer</td><td><code>Succeeded</code></td></tr>
+    <tr><td><code>FAILED</code></td><td>transfer</td><td><code>Failed</code></td></tr>
+    <tr><td><code>CANCELLED</code></td><td>transfer</td><td><code>Failed</code> (or <code>Reversed</code> if funds returned)</td></tr>
+    <tr><td><code>pending</code></td><td>charge</td><td><code>Pending</code></td></tr>
+    <tr><td><code>succeeded</code></td><td>charge</td><td><code>Succeeded</code></td></tr>
+    <tr><td><code>failed</code></td><td>charge</td><td><code>Failed</code></td></tr>
+    <tr><td><code>voided</code></td><td>charge</td><td><code>Reversed</code></td></tr>
+    <tr><td><code>next_action: requires_*</code></td><td>charge</td><td><code>RequiresAction</code> (+ <code>PartnerAuthorizationAction</code>)</td></tr>
+    <tr><td>unknown / unmapped</td><td>any</td><td><code>Unknown</code> (preserve raw; never guess)</td></tr>
+  </tbody>
+</table>
+<p>Retryable classification per &sect;5.10: <code>5xx</code>/timeout/<code>429</code> &rarr; retryable; <code>4xx</code>/<code>409</code> &rarr; non-retryable; <code>401</code> &rarr; refresh-once-then-non-retryable.</p>
+
+<h2 id="tasks">9. Tasks</h2>
+<ol>
+  <li><span class="tag mutate">Edit</span> Two contract amendments (&sect;3.1): <em>(a)</em> widen
+  <code>PayoutQuoteResult.Fee</code> to <code>Money?</code> <strong>and grep every <code>.Fee</code>
+  consumer to handle <code>null</code></strong> (semantic change, not just source-compatible);
+  <em>(b)</em> add <code>RegisterRecipientAsync</code> to <code>IPartnerPayoutConnector</code> (G20)
+  and implement it on <code>SimulatedPartnerConnector</code> (deterministic fake <code>rcp_…</code>) +
+  update its tests so the solution still builds. <em>(No <code>ProviderEventId</code> change &mdash;
+  withdrawn, G14.)</em></li>
+  <li><span class="tag new">New</span> <code>FlutterwaveOptions</code> + empty
+  <code>appsettings</code> section + <code>FinanceModule</code> options binding.</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveTokenProvider</code> (OAuth cache/refresh)
+  + unit test.</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveAuthHandler</code> +
+  <code>FlutterwaveClient</code> typed client + <code>AddHttpClient</code> wiring.</li>
+  <li><span class="tag new">New</span> Request/response DTOs (<code>Dtos/</code>,
+  <code>[JsonPropertyName]</code> snake_case) for transfers, rates, account-resolve, charges,
+  refunds, webhook payloads.</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveException</code> + retryable classifier.</li>
+  <li><span class="tag new">New</span> <code>FlutterwavePayoutConnector</code> (5 methods incl.
+  <code>RegisterRecipientAsync</code>) + tests (happy / 5xx / timeout / 422 / status-mapping /
+  recipient-create).</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveWebhookTranslator</code> (case-insensitive
+  HMAC verify + translate <code>transfer.disburse</code>) + tests (verify pass/fail/empty-secret;
+  translate maps status <strong>and reconstructs <code>ClientReference == "REM-{orderId:N}"</code> from
+  echoed <code>meta</code></strong> &mdash; G17). <em>No endpoint, no <code>ProviderEventId</code>.</em></li>
+  <li><span class="tag mutate">Edit</span> <strong>Carry our reference in the outbound transfer
+  <code>meta</code></strong> (e.g. <code>aonik_client_reference</code>) so the translator can rebuild
+  it (G17), and sandbox-verify Flutterwave echoes <code>meta</code> + whether it accepts the hyphen.</li>
+  <li><span class="tag mutate">Edit</span> Config &mdash; add
+  <code>Finance:Partners:Webhooks:Flutterwave:SigningSecret</code> (the key the shipped
+  <code>ProcessWebhookAsync</code> reads) so the registered translator actually verifies.
+  <em>(The webhook endpoint + inbox already ship in PR&nbsp;#147 &mdash; nothing to build there.)</em></li>
+  <li><span class="tag mutate">Edit</span> <code>FinanceModule</code> "Flutterwave connector" DI
+  block &mdash; register the connector + translator <strong>alongside</strong> Simulated when
+  <code>IsConfigured()</code> (do not remove the simulated registration); resolver test asserts
+  code-based selection of both.</li>
+  <li><span class="tag new">New</span> <code>FlutterwaveCollectionConnector</code> (non-card first)
+  + tests &mdash; <em>phase 2</em>.</li>
+  <li><span class="tag existing">Verify</span> Standard resilience retry is idempotency-safe for our
+  POSTs (G11); document the sandbox <code>X-Scenario-Key</code> matrix for integration tests.</li>
+  <li><span class="tag new">New</span> <strong>Prerequisite (may be a 036/Platform follow-up):</strong>
+  a verify-and-register beneficiary flow &mdash; a transient raw-details DTO + a
+  <code>POST /payout-beneficiaries/verify</code> endpoint + <code>PayoutBeneficiaryService.VerifyAndRegisterBeneficiaryAsync</code>
+  that runs <code>ResolveAccountAsync</code> &rarr; <code>RegisterRecipientAsync</code> &rarr; persist
+  masked id + <code>ProviderBeneficiaryId</code> + <code>IsVerified = true</code> (today
+  <code>SaveBeneficiaryAsync</code> hardcodes <code>IsVerified = false</code>). Until it lands, 037
+  acceptance seeds a verified beneficiary manually (&sect;7.4.1, O12).</li>
+  <li><span class="tag existing">Doc</span> Update Spec&nbsp;031 &sect;4 with a note that the v4
+  mapping supersedes the v3 baseline for Flutterwave; cross-link this spec.</li>
+</ol>
+
+<h2 id="acceptance">10. Acceptance criteria</h2>
+<ul>
+  <li><strong>Connector methods hit the real sandbox &mdash; 037's bar.</strong> Against
+  <code>developersandbox-api.flutterwave.com</code> with sandbox credentials,
+  <code>QuotePayoutAsync</code>, <code>ResolveAccountAsync</code>, <code>RegisterRecipientAsync</code>
+  (G20), <code>InitiatePayoutAsync</code>, and <code>GetPayoutStatusAsync</code> each succeed and map
+  to the normalized result. <em>(Issue&nbsp;#129 #1)</em></li>
+  <li><strong>End-to-end settlement &mdash; gated on two upstream prerequisites.</strong> A
+  <code>scenario:successful</code> transfer settles through the shipped <code>ProcessWebhookAsync</code>
+  <em>only</em> when (a) the confirm request carries <code>ProviderCode = "Flutterwave"</code> (G18,
+  O11) <strong>and</strong> (b) the destination is verified with a real
+  <code>ProviderBeneficiaryId = rcp_…</code> (G19, G20). Until those 036/#147 fixes land, E2E
+  settlement is demonstrated with those two values supplied manually &mdash; the connector + translator
+  are not the blocker. <em>(Issue&nbsp;#129 #1, conditional)</em></li>
+  <li><strong>Webhook signature verification + idempotent processing</strong> &mdash; via the
+  <code>"Flutterwave"</code> translator plugged into the shipped path. Unit tests:
+  <code>VerifySignature</code> accepts a correct <code>flutterwave-signature</code> (case-insensitive,
+  UTF-8 bytes of the body) and rejects a tampered one / empty secret; <code>Translate</code> reconstructs
+  <code>ClientReference == "REM-{orderId:N}"</code> (G17). End-to-end (with the translator +
+  <code>SigningSecret</code> configured): a sandbox <code>transfer.disburse</code> drives
+  <code>ProcessWebhookAsync</code> to settle once, and a redelivery is a <code>PayloadHash</code> no-op.
+  The endpoint, dedupe, and settlement themselves ship in PR&nbsp;#147. <em>(#2)</em></li>
+  <li><strong>Retryable vs non-retryable mapping.</strong> <code>500</code>/timeout/<code>429</code>
+  classify retryable; <code>400</code>/<code>401</code>/<code>403</code>/<code>422</code>/<code>409</code>
+  non-retryable; asserted by unit tests. <em>(#3)</em></li>
+  <li><strong>Tests cover happy path + partner 5xx + timeout</strong> via the hand-rolled
+  <code>HttpMessageHandler</code>; <code>dotnet test Aonik.sln</code> green. <em>(#4)</em></li>
+  <li><strong>Production-credential switch.</strong> <code>UseRealFlutterwaveApi=false</code> (or
+  absent credentials) registers only the simulated connector; setting real credentials registers
+  Flutterwave <em>alongside</em> it. Routing to Flutterwave then requires an explicit
+  <code>ProviderCode = "Flutterwave"</code> (or a routing default) &mdash; it is <strong>not</strong>
+  automatic, because the capability fallback returns the first-registered (Simulated) connector
+  (G18). Secrets load from environment, not source. <em>(#sprint-4)</em></li>
+  <li><strong>Build &amp; isolation.</strong> <code>dotnet build Aonik.sln</code> compiles; no new
+  migration; no cross-module reference added; the connector emits no money-action logs itself
+  (caller-owned).</li>
+</ul>
+
+<h2 id="open">11. Open decisions</h2>
+<table>
+  <thead><tr><th>#</th><th>Decision</th><th>Recommendation</th></tr></thead>
+  <tbody>
+    <tr><td>O1</td><td><strong>Bill-pay / airtime with no v4 endpoint</strong> (G9). Leave simulated, build a v3 connector, or route to eTranzact/Interswitch?</td><td>Leave Flutterwave bill-pay simulated this phase; revisit airtime via Interswitch when the wedge needs it. Needs product sign-off because Issue&nbsp;#129 names "bill-pay."</td></tr>
+    <tr><td>O2</td><td><strong><code>transfer_purpose</code> + sender KYC home</strong> (G3). Metadata now, or first-class DTO/order fields?</td><td>Metadata for the connector now (default <code>family_maintenance</code>); promote to a first-class <code>SenderDetails</code> + <code>TransferPurpose</code> on the order in Spec&nbsp;036, since the data originates order-side.</td></tr>
+    <tr><td>O3</td><td><strong>Quote fee &mdash; nullable contract vs concrete fee</strong> (G8). <code>PayoutQuoteResult.Fee</code> is non-nullable today, so a pre-send "fee unknown" can't be expressed.</td><td>Widen the contract to <code>Money? Fee</code> (additive, source-compatible; aligns with the nullable <code>Fee</code> on initiation/status results), ship rate + converted from <code>/transfers/rates</code> with <code>Fee = null</code>, and capture the realized fee at execution. Add a <code>/fees</code> lookup only if product needs an exact pre-send fee. If zero contract churn is mandated, return a zero-fee sentinel instead &mdash; less honest, but no contract edit.</td></tr>
+    <tr><td>O4</td><td><strong>Recipient-id flow is required, not optional</strong> (G19, 5.4). The shipped <code>BuildPayoutInstruction</code> never sends a raw account or <code>VaultRef</code> &mdash; only <code>ProviderBeneficiaryId</code> or a masked id. So how does a destination get a Flutterwave <code>rcp_…</code>?</td><td>Pre-register the beneficiary: at verification time (the <code>IsVerified</code> gate), the connector's <code>ResolveAccountAsync</code> confirms the name and a recipient is created via <code>POST /transfers/recipients</code>, storing <code>rcp_…</code> in <code>ProviderBeneficiaryId</code>. Dispatch then uses <code>POST /transfers</code> with <code>recipient_id</code>. (Adding <code>VaultRef</code> + raw value to the instruction is the alternative, but it widens PCI surface.)</td></tr>
+    <tr><td>O5</td><td><strong>Card collection / PCI</strong> (G6). Build AES-GCM card support or stay non-card?</td><td>Non-card (bank transfer / mobile money / USSD) first; cards via hosted redirect to avoid PCI scope.</td></tr>
+    <tr><td>O6</td><td><strong>Production base URL</strong> (5.2). Confirm <code>f4bexperience.flutterwave.com</code> vs another host.</td><td>Verify against the live dashboard before go-live; keep it in config so it's a setting, not a code change.</td></tr>
+    <tr><td>O7</td><td><strong>Secret storage</strong>. <code>IOptions</code>+env vs DB-backed <code>Connector.CredentialsRef</code> vs (future) Key Vault?</td><td><code>IOptions</code> + env now (Plaid precedent), with <code>IDataProtection</code> for any token at rest; align with a platform Key-Vault move when one lands.</td></tr>
+    <tr><td>O8</td><td><strong>Reference round-trip</strong> (G13, G17). The shipped <code>ClientReference = "REM-{orderId:N}"</code> has a hyphen and the webhook matches it verbatim. Does v4 accept the hyphen in the body <code>reference</code>? If not, how do we preserve the exact value through the round-trip?</td><td><strong>Sandbox-verify hyphen acceptance first.</strong> If accepted, pass it through (identity). If not, sanitize for the body <code>reference</code> <em>and</em> carry the original in transfer <code>meta</code>, reconstructing it in <code>Translate</code> (verify <code>meta</code> is echoed). Cleaner long-term: ask Spec&nbsp;036 to mint hyphen-free refs. Also add an explicit <code>ClientReference</code> to <code>CollectionRefundInstruction</code> if/when refunds ship (G12).</td></tr>
+    <tr><td>O9 <span class="tag" style="background:#eee;color:#777;">withdrawn</span></td><td><strong>(Withdrawn.)</strong> Was: where to read the webhook dedupe id (<code>ProviderEventId</code>)?</td><td>Moot &mdash; PR&nbsp;#147 dedupes by <code>(ProviderCode, PayloadHash)</code> and never reads <code>ProviderEventId</code>. No DTO change (G14).</td></tr>
+    <tr><td>O10</td><td><strong>Connector coexistence / multi-vendor routing</strong> (G16). With Flutterwave + Simulated both registered, when do we need capability-driven routing rather than explicit <code>ProviderCode</code> selection?</td><td>Code-based selection suffices now (remittance passes a code, else falls to Simulated). True per-corridor multi-vendor routing waits for the <code>RoutingRule</code> engine; until then keep Simulated off live production corridors so the no-code capability fallback stays unambiguous.</td></tr>
+    <tr><td>O11</td><td><strong>How does Flutterwave win the route at launch?</strong> (G18). The capability fallback returns the first-registered (Simulated) connector, so a credential flip alone doesn't route to Flutterwave.</td><td>Simplest for launch: make the remittance confirm/quote request carry <code>ProviderCode = "Flutterwave"</code> for the live corridor (a config-driven default in 036). Cleaner once the routing engine lands: priority-ordered <code>RoutingRule</code> rows. Registering Flutterwave before Simulated is a fragile stopgap (depends on DI order).</td></tr>
+    <tr><td>O12</td><td><strong>Who owns the verify-and-register beneficiary flow?</strong> (G19, G20, &sect;7.4.1). It needs a transient raw-details input the persisted DTO deliberately excludes, and it flips the hardcoded <code>IsVerified = false</code>.</td><td>037 owns the connector method (<code>RegisterRecipientAsync</code>) + the DTOs. The service/endpoint wiring (<code>PayoutBeneficiaryService.VerifyAndRegisterBeneficiaryAsync</code> + <code>POST /payout-beneficiaries/verify</code> accepting transient raw details) is a prerequisite that fits Finance-payments/Platform; sequence it before real launch. For 037's own acceptance, seed a verified beneficiary manually.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="refs">12. References</h2>
+<h4>In-repo</h4>
+<ul>
+  <li><a href="031.partner-integration-abstraction.html">Spec&nbsp;031 &mdash; Partner integration abstraction</a> (ports, DTOs, entities; note its v3 baseline)</li>
+  <li><a href="036.remittance-order-service.html">Spec&nbsp;036 &mdash; Remittance order service</a> (the caller spec)</li>
+  <li><a href="../../src/Aonik.Finance/Services/Remittance/RemittanceOrderService.cs"><code>RemittanceOrderService.cs</code></a> (PR&nbsp;#147 &mdash; the shipped caller: <code>ResolvePayoutConnector</code>, <code>BuildPayoutInstruction</code>, <code>ProcessWebhookAsync</code>, <code>LocateRemittancePayoutAsync</code>, <code>ResolveWebhookSigningSecret</code>) + <a href="../../src/Aonik.Finance/Endpoints/Partners/PartnerWebhookEndpoint.cs"><code>PartnerWebhookEndpoint.cs</code></a> (the shipped generic webhook sink)</li>
+  <li><a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/"><code>Contracts/Services/Partners/Connectors/</code></a> &mdash; the ports</li>
+  <li><a href="../../src/Aonik.Finance/Services/Partners/Connectors/SimulatedPartnerConnector.cs"><code>SimulatedPartnerConnector.cs</code></a> &mdash; the implementation to parallel</li>
+  <li><a href="../../src/Aonik.PersonalFinance/Services/PersonalFinance/PlaidAccountLinkProviderGateway.cs"><code>PlaidAccountLinkProviderGateway.cs</code></a> + <code>PlaidAccountLinkOptions</code> + <code>PlaidAccountLinkProviderGatewayTests</code> &mdash; the HTTP-integration precedent (HttpClient + IOptions + IDataProtection + <code>IsConfigured()</code> toggle + <code>RecordingHttpMessageHandler</code> tests)</li>
+  <li><a href="../../src/Aonik.Finance/Entities/Payments/Payout.cs"><code>Payout.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Partners/PartnerWebhookEvent.cs"><code>PartnerWebhookEvent.cs</code></a> &mdash; the landed persistence</li>
+  <li><a href="../observability/money-action-logging.md">money-action-logging.md</a> &mdash; Transmit/Webhook instrumentation the caller wraps around this connector</li>
+  <li><a href="../../src/Aonik.ServiceDefaults/Extensions.cs"><code>ServiceDefaults/Extensions.cs</code></a> &mdash; <code>AddStandardResilienceHandler()</code> applied to every typed client</li>
+</ul>
+<h4>Flutterwave v4 docs</h4>
+<ul>
+  <li><a href="https://developer.flutterwave.com/docs/authentication">Authentication (OAuth 2.0)</a> &middot; <a href="https://developer.flutterwave.com/docs/api-headers">Request headers</a> &middot; <a href="https://developer.flutterwave.com/docs/idempotency">Idempotency</a> &middot; <a href="https://developer.flutterwave.com/docs/encryption">Encryption</a></li>
+  <li><a href="https://developer.flutterwave.com/docs/environments">Environments</a> &middot; <a href="https://developer.flutterwave.com/docs/testing">Testing / scenario keys</a> &middot; <a href="https://developer.flutterwave.com/docs/common-errors">Common errors</a> &middot; <a href="https://developer.flutterwave.com/docs/webhooks">Webhooks</a></li>
+  <li><a href="https://developer.flutterwave.com/docs/making-a-transfer">Making a transfer</a> &middot; <a href="https://developer.flutterwave.com/reference/direct_transfers_post">Direct transfer</a> &middot; <a href="https://developer.flutterwave.com/reference/transfers_recipients_create">Create recipient</a> &middot; <a href="https://developer.flutterwave.com/reference/transfer_rates_post">Transfer rates</a></li>
+  <li><a href="https://developer.flutterwave.com/reference/bank_account_resolve_post">Account resolve</a> &middot; <a href="https://developer.flutterwave.com/reference/customers_create">Create customer</a> &middot; <a href="https://developer.flutterwave.com/reference/orchestration_direct_charge_post">Direct charge</a> &middot; <a href="https://developer.flutterwave.com/llms.txt">AI index (llms.txt)</a></li>
+  <li>GitHub <a href="https://github.com/michaeljosiah/aonik/issues/129">Issue&nbsp;#129</a> &mdash; Real partner connector (FlutterwavePartnerConnector)</li>
+</ul>
+
+<footer>
+  Spec 037 &middot; Flutterwave partner connector (real v4 implementation) &middot; Draft &middot;
+  Grounded against the in-repo Spec&nbsp;031/036 abstraction and the live Flutterwave v4 API.
+</footer>
+
+</body>
+</html>
