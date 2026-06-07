@@ -46,12 +46,18 @@ internal sealed class FlutterwaveClient
             request.Content = JsonContent.Create(body, options: FlutterwaveJson.Options);
         }
 
+        // X-Idempotency-Key only on mutating calls (the connector supplies a key for POSTs).
         if (idempotencyKey is not null)
         {
-            // X-Trace-Id reuses the (alphanumeric, 12–255) idempotency key for correlation (§7.3).
             request.Headers.TryAddWithoutValidation("X-Idempotency-Key", idempotencyKey);
-            request.Headers.TryAddWithoutValidation("X-Trace-Id", idempotencyKey);
         }
+
+        // X-Trace-Id on EVERY request — Flutterwave v4 expects it on reads too (e.g. the
+        // GET /transfers/{id} status poll), so it must not be gated on the idempotency key.
+        // Reuse the idempotency key when present (deterministic, alphanumeric 12–255); otherwise a
+        // fresh value for GETs (§7.3).
+        request.Headers.TryAddWithoutValidation(
+            "X-Trace-Id", idempotencyKey ?? FlutterwaveReferences.FreshIdempotencyKey());
 
         HttpResponseMessage response;
         try

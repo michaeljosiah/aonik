@@ -200,6 +200,8 @@ public class FlutterwaveConnectorTests
         result.Status.Should().Be(expected);
         handler.LastRequest!.Method.Should().Be(HttpMethod.Get);
         handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/transfers/trf_1");
+        // Flutterwave v4 expects X-Trace-Id on the status-poll GET too (not gated on idempotency).
+        handler.LastRequest.Headers.GetValues("X-Trace-Id").Single().Should().NotBeNullOrWhiteSpace();
     }
 
     // ── Quote ─────────────────────────────────────────────────────────────────
