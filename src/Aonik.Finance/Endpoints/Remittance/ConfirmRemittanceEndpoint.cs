@@ -30,8 +30,9 @@ public class ConfirmRemittanceEndpoint : Endpoint<ConfirmRemittanceRequest, Remi
             s.Response(201, "Remittance confirmed");
             s.Response(400, "Invalid request data or missing Idempotency-Key");
             s.Response(401, "Not authenticated");
+            s.Response(403, "Caller does not own the requested customer party");
             s.Response(404, "Quote or destination account not found");
-            s.Response(422, "Quote expired, ownership mismatch, or no route");
+            s.Response(422, "Quote expired, account/quote mismatch, or no route");
         });
         Options(x => x.WithTags("Remittance"));
     }
@@ -57,6 +58,11 @@ public class ConfirmRemittanceEndpoint : Endpoint<ConfirmRemittanceRequest, Remi
                 routeValues: new { id = result.OrderId },
                 responseBody: RemittanceMapping.ToApi(result),
                 cancellation: ct);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            AddError(ex.Message);
+            await Send.ErrorsAsync(403, ct);
         }
         catch (ArgumentException ex)
         {

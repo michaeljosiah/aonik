@@ -29,6 +29,7 @@ public class RemittanceQuoteEndpoint : Endpoint<RemittanceQuoteRequest, Remittan
             s.Response(200, "Quote generated successfully");
             s.Response(400, "Invalid request data");
             s.Response(401, "Not authenticated");
+            s.Response(403, "Caller does not own the requested customer party");
         });
         Options(x => x.WithTags("Remittance"));
     }
@@ -39,6 +40,11 @@ public class RemittanceQuoteEndpoint : Endpoint<RemittanceQuoteRequest, Remittan
         {
             var result = await _remittanceService.QuoteAsync(RemittanceMapping.ToModel(req), ct);
             await Send.OkAsync(RemittanceMapping.ToApi(result), ct);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            AddError(ex.Message);
+            await Send.ErrorsAsync(403, ct);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {

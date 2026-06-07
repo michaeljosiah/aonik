@@ -25,6 +25,10 @@ public class RemittanceOrderServiceTests
 {
     private const string Signature = "test-secret";
 
+    // The authenticated caller. Confirm/Quote require this user to be linked to the requested party via
+    // a seeded UserParty row (see SeedCaller).
+    private static readonly Guid CallerUserId = Guid.NewGuid();
+
     private sealed class TestTenantProvider(Guid tenantId) : ITenantProvider
     {
         public Guid GetCurrentTenantId() => tenantId;
@@ -132,7 +136,7 @@ public class RemittanceOrderServiceTests
 
     private static RemittanceOrderService CreateService(
         FinanceDbContext db, Guid tenantId, IClock? clock = null, IConfiguration? configuration = null,
-        IPartnerPayoutConnector? payoutConnector = null)
+        IPartnerPayoutConnector? payoutConnector = null, Guid? userId = null)
     {
         var simulated = new SimulatedPartnerConnector();
         var translator = new SimulatedPartnerWebhookTranslator();
@@ -149,11 +153,22 @@ public class RemittanceOrderServiceTests
             resolver,
             new LedgerPostingService(db),
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(Guid.NewGuid()),
+            new TestCurrentUserProvider(userId ?? CallerUserId),
             configuration ?? new ConfigurationBuilder().Build(),
             effectiveClock,
             NullLogger<RemittanceOrderService>.Instance);
     }
+
+    // Links the authenticated caller to a customer party (the UserParty bridge), so confirm/quote
+    // authorization passes. Without it, the service correctly rejects the request.
+    private static void SeedCaller(FinanceDbContext db, Guid tenantId, Guid partyId, Guid? userId = null)
+        => db.UserParties.Add(new Aonik.Finance.Entities.UserPartyReadModel
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            UserId = userId ?? CallerUserId,
+            PartyId = partyId
+        });
 
     private static void SeedLedger(FinanceDbContext db, Guid tenantId)
         => db.Ledgers.Add(new LedgerEntity { Id = Guid.NewGuid(), TenantId = tenantId, BaseCurrency = "NGN" });
@@ -219,6 +234,7 @@ public class RemittanceOrderServiceTests
         SeedLedger(db, tenantId);
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -246,6 +262,7 @@ public class RemittanceOrderServiceTests
         SeedLedger(db, tenantId);
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -270,6 +287,7 @@ public class RemittanceOrderServiceTests
         SeedLedger(db, tenantId);
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -295,6 +313,7 @@ public class RemittanceOrderServiceTests
         // No ledger seeded → the debit cannot post, so the connector must not be called.
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -318,6 +337,7 @@ public class RemittanceOrderServiceTests
         SeedLedger(db, tenantId);
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(-5)); // expired
         var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -339,6 +359,7 @@ public class RemittanceOrderServiceTests
         SeedLedger(db, tenantId);
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, otherCustomer); // owned by someone else
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -347,6 +368,31 @@ public class RemittanceOrderServiceTests
         var act = async () => await service.ConfirmAsync(request, "idem-key-6");
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*not owned*");
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_Reject_When_CallerDoesNotOwnCustomerParty()
+    {
+        // The destination account legitimately belongs to the victim party (so the account-ownership
+        // check passes), but the authenticated caller is linked to a DIFFERENT party — confirming on
+        // another customer's behalf must be refused before any debit/dispatch.
+        var tenantId = Guid.NewGuid();
+        var victimPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, victimPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, victimPartyId);
+        SeedCaller(db, tenantId, Guid.NewGuid()); // caller is linked to some other party, not the victim
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, victimPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var act = async () => await service.ConfirmAsync(request, "idem-authz-1");
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
+        (await db.JournalEntries.CountAsync()).Should().Be(0); // no debit posted
     }
 
     // ── Get ──────────────────────────────────────────────────────────────────
@@ -360,6 +406,7 @@ public class RemittanceOrderServiceTests
         SeedLedger(db, tenantId);
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -392,7 +439,7 @@ public class RemittanceOrderServiceTests
         var tenantId = Guid.NewGuid();
         var customerPartyId = Guid.NewGuid();
         using var db = CreateDbContext(tenantId);
-        db.Parties.Add(new Aonik.Finance.Entities.PartyReadModel { Id = customerPartyId, TenantId = tenantId });
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);
@@ -516,6 +563,7 @@ public class RemittanceOrderServiceTests
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
         account.DestinationType = "bank"; // free-form lowercase, routes as Bank case-insensitively
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var capturing = new CapturingPayoutConnector();
@@ -538,6 +586,7 @@ public class RemittanceOrderServiceTests
         var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
         var account = SeedAccount(db, tenantId, customerPartyId);
         account.DestinationType = "Crypto"; // unsupported rail -> reject, never default to Wallet
+        SeedCaller(db, tenantId, customerPartyId);
         await db.SaveChangesAsync();
 
         var service = CreateService(db, tenantId);

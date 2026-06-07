@@ -94,7 +94,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         ValidateQuoteRequest(request);
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        await EnsurePartyInTenantAsync(request.CustomerPartyId, cancellationToken);
+        await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
 
         var originCountry = Normalize(request.OriginCountry);
         var destinationCountry = Normalize(request.DestinationCountry);
@@ -167,6 +167,10 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         using var activity = FinanceActivitySource.Source.StartActivity("remittance.confirm");
         activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Confirm);
         activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
+
+        // Authorization first — before any idempotency replay — so a different user who guesses the key
+        // and a victim's party id can neither confirm nor read another customer's remittance.
+        await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
 
         // Idempotency: replaying the same key returns the existing order without re-executing.
         var existing = await _db.Orders
@@ -385,7 +389,33 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         _db.Orders.Add(order);
         _db.Payouts.Add(payout);
         _db.OrderFulfilmentRefs.Add(fulfilmentRef);
-        await _db.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Lost the idempotency race: a concurrent confirm with the same key passed the initial lookup
+            // too, then committed first and tripped the unique (TenantId, OrderType, IdempotencyKey)
+            // index here. Detach our rejected graph and return the winner — the debit and connector call
+            // are never run for this request, honouring the idempotent-replay contract instead of 500ing.
+            DetachConfirmGraph(order, payout, fulfilmentRef);
+
+            var winner = await _db.Orders
+                .Include(o => o.Items)
+                .FirstOrDefaultAsync(
+                    o => o.OrderType == RemittanceOrderType && o.IdempotencyKey == key, cancellationToken);
+
+            if (winner is null)
+            {
+                throw;
+            }
+
+            activity?.SetTag(FinanceActivitySource.OrderIdTag, winner.Id);
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.SkippedIdempotent);
+            return await BuildResponseAsync(winner, cancellationToken);
+        }
 
         // Ordering invariant: post the customer debit BEFORE the connector call. If it fails, mark the
         // order failed and do NOT instruct the partner.
@@ -955,18 +985,56 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         => _configuration[$"Finance:Partners:Webhooks:{providerCode}:SigningSecret"]
             ?? _configuration["Finance:Partners:Webhooks:SigningSecret"];
 
-    private async Task EnsurePartyInTenantAsync(Guid partyId, CancellationToken cancellationToken)
+    private async Task EnsureCallerOwnsPartyAsync(Guid partyId, CancellationToken cancellationToken)
     {
         if (partyId == Guid.Empty)
         {
             throw new ArgumentException("A customer party id is required.", nameof(partyId));
         }
 
-        var exists = await _db.Parties.AsNoTracking().AnyAsync(p => p.Id == partyId, cancellationToken);
-        if (!exists)
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (userId is null || userId.Value == Guid.Empty)
         {
-            throw new InvalidOperationException("Customer party not found in the current tenant.");
+            throw new UnauthorizedAccessException("No authenticated user to authorize this remittance.");
         }
+
+        // The requested customer party MUST be one the authenticated user is linked to via the UserParty
+        // bridge — never trust an arbitrary party id from the request body (Spec 036 §11). Proving the
+        // destination account belongs to the supplied party is not enough; the supplied party must be the
+        // caller's. Fails closed (tenant-scoped by the UserParty query filter).
+        var owns = await _db.UserParties
+            .AsNoTracking()
+            .AnyAsync(up => up.UserId == userId.Value && up.PartyId == partyId, cancellationToken);
+
+        if (!owns)
+        {
+            throw new UnauthorizedAccessException(
+                "The requested customer party does not belong to the authenticated user.");
+        }
+    }
+
+    private void DetachConfirmGraph(Order order, Payout payout, OrderFulfilmentRef fulfilmentRef)
+    {
+        // The order graph was cascade-tracked as Added by _db.Orders.Add; detach every node plus the
+        // payout and fulfilment ref so the rejected confirm can't be replayed by a later SaveChanges.
+        foreach (var historyEvent in order.HistoryEvents)
+        {
+            _db.Entry(historyEvent).State = EntityState.Detached;
+        }
+
+        foreach (var partyRole in order.PartyRoles)
+        {
+            _db.Entry(partyRole).State = EntityState.Detached;
+        }
+
+        foreach (var item in order.Items)
+        {
+            _db.Entry(item).State = EntityState.Detached;
+        }
+
+        _db.Entry(order).State = EntityState.Detached;
+        _db.Entry(payout).State = EntityState.Detached;
+        _db.Entry(fulfilmentRef).State = EntityState.Detached;
     }
 
     private static void ValidateQuoteRequest(RemittanceQuoteRequest request)
