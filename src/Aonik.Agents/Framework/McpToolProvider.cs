@@ -148,28 +148,14 @@ internal sealed class McpToolProvider : IMcpToolProvider
                 transportOptions.WorkingDirectory = config.WorkingDirectory;
             }
 
-            foreach (var (key, value) in config.EnvironmentVariables)
-            {
-                // Defense-in-depth (finding C4): the first-party Finance/Platform MCP hosts wire
-                // blanket-trust security stubs and refuse to start unless DOTNET_ENVIRONMENT=Development.
-                // Never let a non-Development parent hand a spawned child a forged "Development"
-                // environment, which would defeat that fail-closed guard from the outside.
-                if (!_parentIsDevelopment
-                    && (key.Equals("DOTNET_ENVIRONMENT", StringComparison.OrdinalIgnoreCase)
-                        || key.Equals("ASPNETCORE_ENVIRONMENT", StringComparison.OrdinalIgnoreCase))
-                    && string.Equals(value, "Development", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogWarning(
-                        "Ignoring '{Key}=Development' override for MCP server '{ServerName}': the parent " +
-                        "host is running as '{ParentEnvironment}', and a spawned MCP child must not be " +
-                        "forced into Development (it would bypass development-only host guards).",
-                        key, config.Name, _parentEnvironmentName);
-                    continue;
-                }
-
-                transportOptions.EnvironmentVariables ??= new Dictionary<string, string?>();
-                transportOptions.EnvironmentVariables[key] = value;
-            }
+            transportOptions.EnvironmentVariables = BuildChildEnvironmentVariables(
+                config,
+                _parentIsDevelopment,
+                ignoredKey => _logger.LogWarning(
+                    "Ignoring '{Key}=Development' override for MCP server '{ServerName}': the parent host " +
+                    "is running as '{ParentEnvironment}', and a spawned MCP child must not be forced into " +
+                    "Development (it would bypass development-only host guards).",
+                    ignoredKey, config.Name, _parentEnvironmentName));
 
             var clientTransport = new StdioClientTransport(transportOptions);
 
@@ -207,5 +193,67 @@ internal sealed class McpToolProvider : IMcpToolProvider
         {
             _connectLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Builds the spawned MCP child process's environment-variable overrides, enforcing the
+    /// finding-C4 invariant: when the parent host is not Development, a child must never resolve its
+    /// environment to Development — that would let a first-party Finance/Platform MCP host pass
+    /// <c>DevelopmentOnlyHostGuard</c> and run its blanket-trust security stubs with real authority.
+    ///
+    /// The stdio transport merges these overrides on top of the parent process environment and treats
+    /// a <c>null</c> value as "remove the inherited variable". It is therefore not enough to refrain
+    /// from copying a configured override: the parent process may itself carry
+    /// <c>DOTNET_ENVIRONMENT=Development</c> (e.g. its host environment was forced non-Development via
+    /// CLI/host settings while the process variable remained), which the child would otherwise inherit.
+    /// For non-Development parents we explicitly null out both environment selectors up front so the
+    /// child cannot inherit Development; a configured <em>non</em>-Development value may still replace
+    /// them, but a Development override (or none) leaves the child defaulting to Production so the
+    /// guard fails closed.
+    /// </summary>
+    /// <param name="config">The server configuration carrying any operator-supplied env overrides.</param>
+    /// <param name="parentIsDevelopment">Whether the parent host is running as Development.</param>
+    /// <param name="onDevelopmentOverrideIgnored">
+    /// Invoked with the key of any configured <c>*_ENVIRONMENT=Development</c> override that is dropped
+    /// because the parent is not Development.
+    /// </param>
+    /// <returns>
+    /// The override dictionary to assign to the transport, or <c>null</c> when there is nothing to
+    /// override (a Development parent with no configured variables) so the child simply inherits.
+    /// </returns>
+    internal static Dictionary<string, string?>? BuildChildEnvironmentVariables(
+        McpServerConfig config,
+        bool parentIsDevelopment,
+        Action<string>? onDevelopmentOverrideIgnored = null)
+    {
+        Dictionary<string, string?>? environment = null;
+
+        if (!parentIsDevelopment)
+        {
+            // Null tells the stdio transport to UNSET an inherited variable, so this strips any
+            // DOTNET_ENVIRONMENT=Development the child would otherwise inherit from the parent process.
+            environment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DOTNET_ENVIRONMENT"] = null,
+                ["ASPNETCORE_ENVIRONMENT"] = null,
+            };
+        }
+
+        foreach (var (key, value) in config.EnvironmentVariables)
+        {
+            if (!parentIsDevelopment
+                && (key.Equals("DOTNET_ENVIRONMENT", StringComparison.OrdinalIgnoreCase)
+                    || key.Equals("ASPNETCORE_ENVIRONMENT", StringComparison.OrdinalIgnoreCase))
+                && string.Equals(value, "Development", StringComparison.OrdinalIgnoreCase))
+            {
+                onDevelopmentOverrideIgnored?.Invoke(key);
+                continue;
+            }
+
+            environment ??= new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            environment[key] = value;
+        }
+
+        return environment;
     }
 }
