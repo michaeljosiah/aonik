@@ -107,7 +107,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
             .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
-            throw new InvalidOperationException($"Invoice {invoiceId} not found");
+            throw new NotFoundException($"Invoice {invoiceId} not found");
 
         var lineTotal = lineRequest.Quantity * lineRequest.UnitPrice;
 
@@ -139,7 +139,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
             .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
-            throw new InvalidOperationException($"Invoice {invoiceId} not found");
+            throw new NotFoundException($"Invoice {invoiceId} not found");
 
         invoice.DiscountTotal = discountTotal;
         RecalculateInvoiceTotals(invoice);
@@ -154,10 +154,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
         var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
-            throw new InvalidOperationException($"Invoice {invoiceId} not found");
+            throw new NotFoundException($"Invoice {invoiceId} not found");
 
         if (invoice.Status != "Draft")
-            throw new InvalidOperationException("Only draft invoices can be issued");
+            throw new InvalidStateException("Only draft invoices can be issued");
 
         invoice.Status = "Issued";
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -170,10 +170,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
         var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
-            throw new InvalidOperationException($"Invoice {invoiceId} not found");
+            throw new NotFoundException($"Invoice {invoiceId} not found");
 
         if (invoice.Status != "Issued")
-            throw new InvalidOperationException("Only issued invoices can be marked as paid");
+            throw new InvalidStateException("Only issued invoices can be marked as paid");
 
         // Recognise revenue in the ledger BEFORE flipping the status:
         // Dr Payments Clearing / Cr Operating Revenue for the invoice total. If
@@ -192,10 +192,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
         var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
-            throw new InvalidOperationException($"Invoice {invoiceId} not found");
+            throw new NotFoundException($"Invoice {invoiceId} not found");
 
         if (invoice.Status == "Paid")
-            throw new InvalidOperationException("Paid invoices cannot be cancelled");
+            throw new InvalidStateException("Paid invoices cannot be cancelled");
 
         invoice.Status = "Cancelled";
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -209,7 +209,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
             .FirstOrDefaultAsync(l => l.Id == invoiceLineId && l.TenantId == tenantId, cancellationToken);
 
         if (line == null)
-            throw new InvalidOperationException($"Invoice line {invoiceLineId} not found");
+            throw new NotFoundException($"Invoice line {invoiceLineId} not found");
 
         line.Quantity = quantity;
         line.LineTotal = quantity * line.UnitPrice;
@@ -234,7 +234,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
             .FirstOrDefaultAsync(l => l.Id == invoiceLineId && l.TenantId == tenantId, cancellationToken);
 
         if (line == null)
-            throw new InvalidOperationException($"Invoice line {invoiceLineId} not found");
+            throw new NotFoundException($"Invoice line {invoiceLineId} not found");
 
         line.UnitPrice = unitPrice;
         line.LineTotal = line.Quantity * unitPrice;

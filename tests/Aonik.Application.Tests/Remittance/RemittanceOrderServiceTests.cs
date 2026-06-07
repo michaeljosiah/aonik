@@ -348,7 +348,7 @@ public class RemittanceOrderServiceTests
 
         var act = async () => await service.ConfirmAsync(request, "idem-key-5");
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*expired*");
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*expired*");
         (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
     }
 
@@ -370,7 +370,7 @@ public class RemittanceOrderServiceTests
 
         var act = async () => await service.ConfirmAsync(request, "idem-key-6");
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*not owned*");
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*not owned*");
     }
 
     [Fact]
@@ -471,7 +471,7 @@ public class RemittanceOrderServiceTests
 
         var act = async () => await service.ConfirmAsync(request, "idem-unverified");
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*verif*");
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*verif*");
         (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
         (await db.JournalEntries.CountAsync()).Should().Be(0); // no debit posted
     }
@@ -723,7 +723,7 @@ public class RemittanceOrderServiceTests
 
         var act = async () => await service.ConfirmAsync(request, "idem-rail-2");
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Unsupported*");
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*Unsupported*");
         (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
         (await db.JournalEntries.CountAsync()).Should().Be(0); // no debit posted
     }

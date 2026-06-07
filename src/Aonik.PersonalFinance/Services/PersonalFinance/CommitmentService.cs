@@ -143,7 +143,7 @@ internal sealed class CommitmentService : ICommitmentService
                 t.UserId == userId, cancellationToken);
 
         if (!txExists)
-            throw new InvalidOperationException($"Transaction {request.TransactionId} not found.");
+            throw new NotFoundException($"Transaction {request.TransactionId} not found.");
 
         return request.CommitmentType switch
         {
@@ -200,7 +200,7 @@ internal sealed class CommitmentService : ICommitmentService
             return MapDebtToDetail(debt);
         }
 
-        throw new InvalidOperationException($"Commitment {commitmentId} not found.");
+        throw new NotFoundException($"Commitment {commitmentId} not found.");
     }
 
     public async Task RejectDetectedAsync(
@@ -249,7 +249,7 @@ internal sealed class CommitmentService : ICommitmentService
             return;
         }
 
-        throw new InvalidOperationException($"Commitment {commitmentId} not found.");
+        throw new NotFoundException($"Commitment {commitmentId} not found.");
     }
 
     public async Task<IReadOnlyList<CommitmentItem>> ListDetectedAsync(
@@ -624,7 +624,7 @@ internal sealed class CommitmentService : ICommitmentService
     private static void EnsureDetected(string verificationStatus, Guid id)
     {
         if (verificationStatus is not "Detected")
-            throw new InvalidOperationException(
+            throw new InvalidStateException(
                 $"Commitment {id} has VerificationStatus '{verificationStatus}'; expected 'Detected'.");
     }
 

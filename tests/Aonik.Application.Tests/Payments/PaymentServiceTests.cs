@@ -269,7 +269,7 @@ public class PaymentServiceTests
         var act = async () => await service.CapturePaymentAsync(Guid.NewGuid());
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<NotFoundException>()
             .WithMessage("Payment intent with ID * not found");
     }
 
@@ -320,7 +320,7 @@ public class PaymentServiceTests
         var act = async () => await service.CancelPaymentAsync(Guid.NewGuid());
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<NotFoundException>()
             .WithMessage("Payment intent with ID * not found");
     }
 
@@ -399,7 +399,7 @@ public class PaymentServiceTests
         var act = async () => await service.CreatePaymentIntentAsync(request);
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<NotFoundException>()
             .WithMessage("Order with ID * not found");
     }
 
@@ -420,7 +420,7 @@ public class PaymentServiceTests
         var act = async () => await service.AuthorizePaymentAsync(created.Id);
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<InvalidStateException>()
             .WithMessage("*no resolved payer*");
     }
 
@@ -441,7 +441,7 @@ public class PaymentServiceTests
         var act = async () => await service.AuthorizePaymentAsync(created.Id);
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>()
+        await act.Should().ThrowAsync<InvalidStateException>()
             .WithMessage("*no payment method*");
     }
 
@@ -486,7 +486,7 @@ public class PaymentServiceTests
         var act = async () => await service.CapturePaymentAsync(created.Id);
 
         // Assert — capture is blocked at the ledger boundary; no money moved (status unchanged).
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no resolved payer*");
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*no resolved payer*");
         var after = await context.PaymentIntents.AsNoTracking().FirstAsync(p => p.Id == created.Id);
         after.Status.Should().Be("Authorized");
     }
@@ -511,7 +511,7 @@ public class PaymentServiceTests
         var act = async () => await service.CapturePaymentAsync(created.Id);
 
         // Assert
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no payment method*");
+        await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*no payment method*");
         var after = await context.PaymentIntents.AsNoTracking().FirstAsync(p => p.Id == created.Id);
         after.Status.Should().Be("Authorized");
     }

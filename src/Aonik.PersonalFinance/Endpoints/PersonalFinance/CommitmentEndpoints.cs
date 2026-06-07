@@ -1,5 +1,6 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
@@ -174,11 +175,11 @@ internal sealed class ConfirmCommitmentEndpoint
             var response = await _service.ConfirmDetectedAsync(id, ct);
             await Send.OkAsync(response, ct);
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        catch (NotFoundException)
         {
             await Send.NotFoundAsync(ct);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidStateException ex)
         {
             ThrowError(ex.Message, 422);
         }
@@ -224,11 +225,11 @@ internal sealed class RejectCommitmentEndpoint
             await _service.RejectDetectedAsync(id, req.Reason, ct);
             await Send.OkAsync(ct);
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        catch (NotFoundException)
         {
             await Send.NotFoundAsync(ct);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidStateException ex)
         {
             ThrowError(ex.Message, 422);
         }

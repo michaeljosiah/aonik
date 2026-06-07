@@ -33,30 +33,18 @@ public class AuthorizePaymentEndpoint : EndpointWithoutRequest<PaymentIntentResp
     public override async Task HandleAsync(CancellationToken ct)
     {
         var id = Route<Guid>("id");
+        var result = await _paymentService.AuthorizePaymentAsync(id, ct);
 
-        try
-        {
-            var result = await _paymentService.AuthorizePaymentAsync(id, ct);
+        var response = new PaymentIntentResponse(
+            result.Id,
+            result.OrderId,
+            result.InvoiceId,
+            result.Amount,
+            result.Currency,
+            result.Status.ToString(),
+            result.Reference,
+            result.CreatedUtc);
 
-            var response = new PaymentIntentResponse(
-                result.Id,
-                result.OrderId,
-                result.InvoiceId,
-                result.Amount,
-                result.Currency,
-                result.Status.ToString(),
-                result.Reference,
-                result.CreatedUtc);
-
-            await Send.OkAsync(response, ct);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // A missing intent is a 404; a wrong-state transition or an unresolved
-            // payer/method (the externally-material guard) is a 422 — matching the
-            // Billing endpoints' convention.
-            AddError(ex.Message);
-            await Send.ErrorsAsync(ex.Message.Contains("not found") ? 404 : 422, ct);
-        }
+        await Send.OkAsync(response, ct);
     }
 }

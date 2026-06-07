@@ -52,7 +52,7 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 
         if (order == null)
         {
-            throw new InvalidOperationException($"Order with ID {request.OrderId} not found");
+            throw new NotFoundException($"Order with ID {request.OrderId} not found");
         }
 
         // Null (never Guid.Empty / a fabricated "Card") models genuine absence on a draft;
@@ -109,18 +109,18 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 
         if (paymentIntent == null)
         {
-            throw new InvalidOperationException($"Payment intent with ID {paymentIntentId} not found");
+            throw new NotFoundException($"Payment intent with ID {paymentIntentId} not found");
         }
 
         // Business logic: only a pending intent can be authorized.
         if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
         {
-            throw new InvalidOperationException($"Invalid payment status: {paymentIntent.Status}");
+            throw new InvalidStateException($"Invalid payment status: {paymentIntent.Status}");
         }
 
         if (currentStatus != PaymentStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending payments can be authorized");
+            throw new InvalidStateException("Only pending payments can be authorized");
         }
 
         // Externally material boundary (issue #104): money must not be authorized to move on
@@ -156,7 +156,7 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 
             if (paymentIntent == null)
             {
-                throw new InvalidOperationException($"Payment intent with ID {paymentIntentId} not found");
+                throw new NotFoundException($"Payment intent with ID {paymentIntentId} not found");
             }
 
             resolvedOrderId = paymentIntent.OrderId;
@@ -172,12 +172,12 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             // Business logic: Validate current status before capturing
             if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
             {
-                throw new InvalidOperationException($"Invalid payment status: {paymentIntent.Status}");
+                throw new InvalidStateException($"Invalid payment status: {paymentIntent.Status}");
             }
 
             if (currentStatus != PaymentStatus.Authorized)
             {
-                throw new InvalidOperationException("Only authorized payments can be captured");
+                throw new InvalidStateException("Only authorized payments can be captured");
             }
 
             // Re-enforce the externally material boundary here, not only at authorize: capture is
@@ -229,18 +229,18 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 
         if (paymentIntent == null)
         {
-            throw new InvalidOperationException($"Payment intent with ID {paymentIntentId} not found");
+            throw new NotFoundException($"Payment intent with ID {paymentIntentId} not found");
         }
 
         // Business logic: Validate current status before cancelling
         if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
         {
-            throw new InvalidOperationException($"Invalid payment status: {paymentIntent.Status}");
+            throw new InvalidStateException($"Invalid payment status: {paymentIntent.Status}");
         }
 
         if (currentStatus == PaymentStatus.Captured)
         {
-            throw new InvalidOperationException("Captured payments cannot be cancelled");
+            throw new InvalidStateException("Captured payments cannot be cancelled");
         }
 
         paymentIntent.Status = PaymentStatus.Cancelled.ToString();
@@ -259,13 +259,13 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
     {
         if (paymentIntent.PayerPartyId is null || paymentIntent.PayerPartyId == Guid.Empty)
         {
-            throw new InvalidOperationException(
+            throw new InvalidStateException(
                 $"Cannot {action} payment: the intent has no resolved payer.");
         }
 
         if (string.IsNullOrWhiteSpace(paymentIntent.PaymentMethodType))
         {
-            throw new InvalidOperationException(
+            throw new InvalidStateException(
                 $"Cannot {action} payment: the intent has no payment method.");
         }
     }
