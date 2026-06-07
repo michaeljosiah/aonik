@@ -118,6 +118,8 @@ public class RemittanceOrderServiceTests
             => throw new NotSupportedException();
         public Task<AccountResolutionResult> ResolveAccountAsync(AccountResolutionRequest r, CancellationToken ct = default)
             => throw new NotSupportedException();
+        public Task<RecipientRegistrationResult> RegisterRecipientAsync(RecipientRegistrationRequest r, CancellationToken ct = default)
+            => throw new NotSupportedException();
     }
 
     private static IConfiguration WebhookConfig()

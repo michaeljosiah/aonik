@@ -52,6 +52,14 @@ internal sealed class PartnerConnectorResolver : IPartnerConnectorResolver
         return translator;
     }
 
+    // Capability routing returns the first registered connector that satisfies the query. It does NOT
+    // prefer a real connector over the simulated fallback: "use the real connector" is a
+    // destination-aware decision (does this destination have a recipient registered with that
+    // provider?), not a generic-corridor one — an unregistered destination cannot be paid by a real
+    // connector that needs a provider recipient id (it would be rejected at dispatch). That preference
+    // therefore lives in the order service, gated on the destination's registered provider (Spec 039).
+    // Here the simulated connector stays the default fallback; a real connector is selected explicitly
+    // by ProviderCode (or by the order service once destinations carry a registered provider).
     public bool TryResolvePayoutConnector(
         PartnerConnectorQuery query, out IPartnerPayoutConnector? connector)
     {

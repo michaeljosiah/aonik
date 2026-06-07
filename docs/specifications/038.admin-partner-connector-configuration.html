@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 038 · Admin UI partner connector configuration</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2;
+      --accent: #055a60; --accent-mark: #e8a838; --code-bg: #f7f9fb;
+      --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa; --open-border: #88b8d4;
+      --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0; padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg); max-width: 880px; margin-left: auto; margin-right: auto;
+    }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag {
+      display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft);
+      color: var(--muted); margin-right: 6px; text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    .meta-tag.priority-p1 { background: #fce8e2; color: #9b3815; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #e0f3e6; color: #1c6b39; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 038</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Platform / Finance / AdminUi</span>
+  <h1>Admin UI partner connector configuration</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Make the Admin UI <strong>fully configure partner connectors</strong> &mdash; provider
+    credentials (client id, client secret, encryption key, webhook signing secret), mode
+    (sandbox/live), enable/disable, and routing &mdash; persisted securely and picked up by the
+    connector <strong>at runtime, with no redeploy</strong>. Today the
+    <a href="../../src/Aonik.AdminUi/src/pages/settings/SettingsPaymentGatewaysPage.tsx">"Payment
+    gateways" page</a> is a static mockup and the <a href="037.flutterwave-partner-connector.html">Spec&nbsp;037</a>
+    Flutterwave connector reads its config only from <code>appsettings</code>/environment at startup.
+    This spec closes that gap by <strong>composing patterns that already exist in the codebase</strong>
+    &mdash; the DB-backed settings store (<code>ISettingProvider</code> / <code>ISettingManager</code>,
+    encryption-at-rest, audit), the auth-provider settings page (write-only secrets +
+    <code>hasXxx</code> booleans), the <code>GlobalSettingsPage</code> form mechanics, the
+    <code>AdminPolicy</code> FastEndpoints convention, and the <code>Auth0ManagementClient</code>
+    runtime-resolve pattern. No new persistence primitive is invented.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#patterns">Established patterns reused</a></li>
+    <li><a href="#design">Design</a></li>
+    <li><a href="#secrets">Secret-handling rules</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  <a href="037.flutterwave-partner-connector.html">Spec&nbsp;037</a> built a real Flutterwave
+  connector, but its credentials (<code>ClientId</code>, <code>ClientSecret</code>,
+  <code>EncryptionKey</code>) and the webhook <code>SigningSecret</code> can only be set through
+  <code>appsettings</code> / environment variables, evaluated <strong>once at startup</strong>
+  (<code>services.Configure&lt;FlutterwaveOptions&gt;(...)</code> +
+  an <code>if (options.IsConfigured())</code> DI gate). An operator cannot configure or rotate a
+  partner from the Admin UI; the "Payment gateways" page that looks like it would is a non-functional
+  mockup.
+</p>
+<p>
+  The codebase already has every primitive needed to do this <em>properly</em>, used elsewhere for
+  exactly this shape of problem (auth provider secrets, AI keys, comms connection strings):
+</p>
+<ul>
+  <li>A DB-backed settings store with a <strong>write path</strong>
+  (<code>ISettingManager.SetAsync</code>), <strong>encryption at rest</strong> for secret keys
+  (<code>ISettingValueProtector</code> over <code>IDataProtection</code>), caching, and audit
+  (<code>Setting : AuditableEntity</code>).</li>
+  <li>A proven <strong>write-only-secret settings page</strong> &mdash; the
+  <a href="../../src/Aonik.AdminUi/src/pages/settings/SettingsAuthenticationPage.tsx">Authentication
+  settings page</a> + <code>AuthProviderSettingsService</code> (never returns a secret; exposes
+  <code>hasXxx</code> booleans; secret fields are write-only "leave blank to keep").</li>
+  <li>A <strong>runtime-resolve</strong> precedent &mdash;
+  <code>Auth0ManagementClient</code> reads its secret from <code>ISettingProvider</code> at call
+  time, so a stored change takes effect without a restart.</li>
+</ul>
+<p>
+  This spec wires those together: define partner-gateway setting keys, expose a secure
+  <code>GET/PUT /admin/settings/payment-gateways</code> snapshot endpoint, make the connector resolve
+  its config from the store at call time (layered over <code>appsettings</code> as a bootstrap
+  fallback), and replace the mockup page with a real form built on the established settings-page
+  mechanics. A structured <strong>connector-row management</strong> tier (per-partner
+  enable/route/credentials-pointer) is included as a second scope band (&sect;5.5).
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  In a clean deployment with empty <code>appsettings</code>, an operator opens
+  <strong>Settings &rarr; Payment gateways &rarr; Flutterwave</strong>, enters the sandbox client id /
+  secret / encryption key / webhook signing secret, toggles <em>Enabled</em>, and saves. The secrets
+  are written encrypted to the <code>AnkSettings</code> table (never echoed back to the browser);
+  the badges read <em>Configured</em>. A subsequent remittance routed to <code>"Flutterwave"</code>
+  authenticates and transfers against the sandbox <strong>with no redeploy or restart</strong>, and a
+  webhook verifies against the stored signing secret. Rotating the secret in the UI is picked up on
+  the next call. The change is audited.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<table>
+  <thead><tr><th>Area</th><th>State today</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>"Payment gateways" page</td>
+      <td><strong>Static mockup.</strong> Hardcoded <code>providers</code> array (incl. Flutterwave), <code>readOnly</code> masked placeholders, Save/Test/Add buttons with no handlers, zero API calls.</td>
+      <td><a href="../../src/Aonik.AdminUi/src/pages/settings/SettingsPaymentGatewaysPage.tsx"><code>SettingsPaymentGatewaysPage.tsx</code></a> (routed at <code>/settings/payment-gateways</code>)</td>
+    </tr>
+    <tr>
+      <td>Connector config source</td>
+      <td><code>FlutterwaveOptions</code> bound from <code>Finance:Partners:Flutterwave</code> via <code>IOptions</code> at startup; the DI block registers the connector only <code>if (IsConfigured())</code> at boot. Not runtime-editable.</td>
+      <td><a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/Connectors/Flutterwave/FlutterwaveOptions.cs"><code>FlutterwaveOptions.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Webhook signing secret</td>
+      <td>Read at webhook time from <code>IConfiguration["Finance:Partners:Webhooks:{providerCode}:SigningSecret"]</code> &mdash; runtime-resolved, but from appsettings, not a UI-editable store.</td>
+      <td><code>RemittanceOrderService.ResolveWebhookSigningSecret</code></td>
+    </tr>
+    <tr>
+      <td>Connector rows</td>
+      <td><code>Connector</code> entity has <code>CredentialsRef</code>, <code>ConfigJson</code>, <code>Status</code> &mdash; but <strong>no create/update path</strong>. <code>PartnerAdminService</code> only reads connectors; <code>PartnerConnectorItem</code> is read-only and omits <code>ConfigJson</code>. The partner-network UI tabs are display-only ("awaiting backend").</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Partners/Connector.cs"><code>Connector.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/PartnerAdminService.cs"><code>PartnerAdminService.cs</code></a></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="callout-label">Two secret philosophies already in the tree &mdash; pick the secure one</span>
+  The generic global-settings path (<a href="../../src/Aonik.AdminUi/src/pages/settings/GlobalSettingsPage.tsx"><code>GlobalSettingsPage</code></a>
+  + <code>POST /admin/settings/values/batch</code>) <strong>returns decrypted secret values to admin
+  clients</strong> &mdash; its "Configured" badge reads the real value
+  (<code>BatchGetGlobalSettingValuesEndpoint</code> returns <code>GetForScopeAsync</code>, which
+  decrypts). The auth-provider path (<code>AuthProviderSettingsService</code> +
+  <code>SettingsAuthenticationPage</code>) <strong>never returns a secret</strong> &mdash; it projects
+  <code>hasXxx</code> booleans and uses write-only fields. For <em>payment</em> credentials this spec
+  follows the <strong>auth-provider pattern</strong> (secrets never leave the server), while reusing
+  the same settings <em>store</em> underneath.
+</div>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <strong>Tier 1 &mdash; provider gateway settings</strong>
+  (the load-bearing path that makes Flutterwave configurable): setting keys +
+  <code>SettingDefinitions</code> entries; a secure <code>GET/PUT /admin/settings/payment-gateways</code>
+  snapshot endpoint + service (write-only secrets, <code>hasXxx</code> booleans); runtime resolution
+  of those keys in the connector; and a real
+  <code>SettingsPaymentGatewaysPage</code> built on the established settings-page mechanics.</li>
+  <li><span class="tag mutate">Edit</span> The Spec&nbsp;037 connector to resolve its config from the
+  settings store at call time (layered over <code>appsettings</code>), and drop the startup-only
+  <code>IsConfigured()</code> DI gate in favour of always-register + gate-at-use (&sect;5.3).</li>
+  <li><span class="tag mutate">Edit</span> The webhook signing-secret read to resolve from the
+  settings store (so the UI-set value is honored), keeping the appsettings key as a fallback.</li>
+  <li><span class="tag new">New</span> <strong>Tier 2 &mdash; connector rows &amp; routing</strong>
+  (makes the partner-network UI functional): <code>Create/UpdateConnectorAsync</code> on
+  <code>IPartnerAdminService</code>, connector endpoints, request DTOs exposing
+  <code>Status</code>/<code>ConfigJson</code>/<code>CredentialsRef</code>, audit names, and the
+  partner-network connector UI (&sect;5.5).</li>
+  <li><span class="tag reuse">Reuse</span> Encryption at rest, caching, audit, <code>AdminPolicy</code>,
+  FluentValidation, the API client, and the form/secret UX &mdash; all unchanged.</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Per-tenant provider credentials.</strong> Provider credentials are
+  <strong>global</strong> (one Flutterwave account per deployment), stored at
+  <code>SettingScope.Global</code> &mdash; mirroring auth/AI/comms. Per-tenant overrides are a later
+  extension (the store already supports <code>SettingScope</code> + <code>TenantId</code>).</li>
+  <li><strong>A second real connector.</strong> The settings model is provider-generic, but only the
+  Flutterwave keys + field model are delivered; eTranzact/Interswitch follow the same template.</li>
+  <li><strong>Azure Key Vault.</strong> The settings store's <code>IDataProtection</code> encryption
+  is the established at-rest mechanism; a Key-Vault move is platform-wide, not a connector concern.</li>
+  <li><strong>Card-collection encryption-key <em>usage</em>.</strong> The
+  <code>EncryptionKey</code> field is captured/stored here; AES-GCM card flows are Spec&nbsp;037 phase 2.</li>
+</ul>
+
+<h2 id="patterns">4. Established patterns reused</h2>
+<p>The whole point is composition, not invention. Every row below already ships and is used for an analogous problem.</p>
+<table>
+  <thead><tr><th>Need</th><th>Established pattern (file)</th><th>How 038 uses it</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Persist config + secrets (encrypted, audited, cached)</td>
+      <td><code>ISettingProvider</code>/<code>ISettingManager</code> &rarr; <code>SettingService</code>; <code>Setting : AuditableEntity</code>; <code>ISettingValueProtector</code> (<a href="../../src/Aonik.Infrastructure/Settings/SettingService.cs"><code>SettingService.cs</code></a>)</td>
+      <td>Store gateway config under <code>Finance.Partners.*</code> keys; secrets flagged <code>IsEncrypted</code>. No new table.</td>
+    </tr>
+    <tr>
+      <td>Key registry / allow-list</td>
+      <td><code>SettingDefinitions</code> (<a href="../../src/Aonik.Platform/Settings/SettingDefinitions.cs"><code>SettingDefinitions.cs</code></a>) — endpoints 404 unknown keys</td>
+      <td>Add <code>PartnerGatewaySettingNames</code> entries; secret keys <code>IsEncrypted: true</code>, non-secret display keys <code>IsVisibleToClients</code> as appropriate.</td>
+    </tr>
+    <tr>
+      <td>Secure settings <em>page</em> with write-only secrets</td>
+      <td><code>AuthProviderSettingsService</code> + <a href="../../src/Aonik.AdminUi/src/pages/settings/SettingsAuthenticationPage.tsx"><code>SettingsAuthenticationPage.tsx</code></a> (<code>hasXxx</code> booleans; "leave blank to keep")</td>
+      <td>Mirror the snapshot DTO + write-only-secret form for the gateway page.</td>
+    </tr>
+    <tr>
+      <td>Settings form mechanics (load/dirty/save/badges/toast)</td>
+      <td><a href="../../src/Aonik.AdminUi/src/pages/settings/GlobalSettingsPage.tsx"><code>GlobalSettingsPage.tsx</code></a> — declarative <code>FieldDef</code>, sections/tabs, <code>Configured/Not set/Pending</code> badges, <code>sonner</code> toast (no React Query)</td>
+      <td>Rebuild <code>SettingsPaymentGatewaysPage</code> on these mechanics with a provider field model.</td>
+    </tr>
+    <tr>
+      <td>Admin endpoint + authz</td>
+      <td><code>Endpoint&lt;TReq,TResp&gt;</code> + <code>Policies("AdminPolicy")</code> (<a href="../../src/Aonik.Platform/Endpoints/Admin/Settings/UpdateGlobalSettingValueEndpoint.cs"><code>UpdateGlobalSettingValueEndpoint.cs</code></a>); <code>AdminPolicy</code> = roles <code>PlatformAdmin</code>/<code>TenantAdmin</code></td>
+      <td>The gateway endpoints copy this shape exactly.</td>
+    </tr>
+    <tr>
+      <td>Audit</td>
+      <td><code>IAuditLogWriter.LogAsync</code> + <code>AuditEventNames</code> (<code>PartnerCreated/Updated/Deleted</code> exist)</td>
+      <td>Add <code>GatewaySettingsUpdated</code> + <code>ConnectorCreated/Updated</code> event names; log on every write.</td>
+    </tr>
+    <tr>
+      <td>Runtime resolve (no restart)</td>
+      <td><code>Auth0ManagementClient</code> reads <code>ISettingProvider.GetRequiredAsync(...)</code> at call time (<a href="../../src/Aonik.Infrastructure/Authentication/Provisioning/Auth0ManagementClient.cs"><code>Auth0ManagementClient.cs</code></a>)</td>
+      <td>The connector resolves credentials/mode/enabled per call from the store, layered over appsettings.</td>
+    </tr>
+    <tr>
+      <td>Validation</td>
+      <td><code>Validator&lt;T&gt;</code> in <a href="../../src/Aonik.Platform/Endpoints/PlatformValidators.cs"><code>PlatformValidators.cs</code></a> (<code>AuthProviderSettingsUpdateRequestValidator</code>, allow-listed providers)</td>
+      <td>Validate the gateway update request the same way (mode allow-list, URL format).</td>
+    </tr>
+    <tr>
+      <td>API client + service module</td>
+      <td><a href="../../src/Aonik.AdminUi/src/lib/api.ts"><code>api.ts</code></a> + <code>services/*.ts</code> (<code>authProviderSettingsService.ts</code>)</td>
+      <td>Add <code>paymentGatewaysService.ts</code> (<code>get</code>/<code>update</code>/<code>test</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="design">5. Design</h2>
+
+<h3 id="d-keys">5.1 Setting keys (Tier 1)</h3>
+<p>
+  New constants in <code>Aonik.SharedKernel.Abstractions.Settings</code> (neutral home so both
+  Platform's <code>SettingDefinitions</code> and Finance's resolver reference the same strings without
+  a cross-module dependency). Prefix <code>Finance.Partners.*</code> &mdash; deliberately <em>not</em>
+  <code>Auth.*</code>, which <code>SettingService</code> treats as configuration-managed and
+  write-locks (<code>IsConfigurationManagedKey</code>). Scope = <code>Global</code>.
+</p>
+<table>
+  <thead><tr><th>Key</th><th>SettingDefinition flags</th><th>Maps to</th></tr></thead>
+  <tbody>
+    <tr><td><code>Finance.Partners.Flutterwave.Enabled</code></td><td>default <code>"false"</code>, visible</td><td><code>UseRealFlutterwaveApi</code> + the runtime active gate</td></tr>
+    <tr><td><code>Finance.Partners.Flutterwave.BaseUrl</code></td><td>default sandbox URL, visible</td><td><code>BaseUrl</code></td></tr>
+    <tr><td><code>Finance.Partners.Flutterwave.IdpTokenUrl</code></td><td>default IdP URL, visible</td><td><code>IdpTokenUrl</code></td></tr>
+    <tr><td><code>Finance.Partners.Flutterwave.ClientId</code></td><td>visible</td><td><code>ClientId</code></td></tr>
+    <tr><td><code>Finance.Partners.Flutterwave.ClientSecret</code></td><td><strong><code>IsEncrypted: true</code></strong>, not visible</td><td><code>ClientSecret</code></td></tr>
+    <tr><td><code>Finance.Partners.Flutterwave.EncryptionKey</code></td><td><strong><code>IsEncrypted: true</code></strong>, not visible</td><td><code>EncryptionKey</code></td></tr>
+    <tr><td><code>Finance.Partners.Flutterwave.DefaultTransferPurpose</code></td><td>default <code>"family_maintenance"</code>, visible</td><td><code>DefaultTransferPurpose</code></td></tr>
+    <tr><td><code>Finance.Partners.Webhooks.Flutterwave.SigningSecret</code></td><td><strong><code>IsEncrypted: true</code></strong>, not visible</td><td>webhook HMAC secret</td></tr>
+  </tbody>
+</table>
+<p>
+  These map 1:1 to the Spec&nbsp;037 <code>FlutterwaveOptions</code> shape, so the appsettings binding
+  stays valid as the <strong>bootstrap fallback</strong>. The secret keys fit comfortably under the
+  <code>Setting.Value</code> 4000-char cap.
+</p>
+
+<h3 id="d-endpoint">5.2 Backend — gateway settings snapshot endpoint (Tier 1)</h3>
+<p>
+  A dedicated service + two endpoints, mirroring <code>AuthProviderSettingsService</code> /
+  <code>Get|UpdateAuthProviderSettingsEndpoint</code> &mdash; but with a <strong>real working write</strong>
+  (the keys are not <code>Auth.*</code>, so <code>ISettingManager.SetAsync</code> persists them).
+</p>
+<pre><code>// GET /admin/settings/payment-gateways  → snapshot (NEVER returns a secret value)
+public sealed record GatewaySettingsResponse(IReadOnlyList&lt;GatewayProviderSnapshot&gt; Providers);
+public sealed record GatewayProviderSnapshot(
+    string ProviderCode,            // "Flutterwave"
+    bool   Enabled,
+    string BaseUrl, string IdpTokenUrl, string ClientId, string DefaultTransferPurpose,
+    bool   HasClientSecret,         // projected: !string.IsNullOrWhiteSpace(stored secret)
+    bool   HasEncryptionKey,
+    bool   HasSigningSecret,
+    string SecretSource);           // "Database" | "Configuration" | "None" (provenance, not the value)
+
+// PUT /admin/settings/payment-gateways  → write (secret fields are write-only: null = keep existing)
+public sealed record GatewaySettingsUpdateRequest(IReadOnlyList&lt;GatewayProviderUpdate&gt; Providers);
+public sealed record GatewayProviderUpdate(
+    string ProviderCode, bool Enabled,
+    string BaseUrl, string IdpTokenUrl, string ClientId, string DefaultTransferPurpose,
+    string? ClientSecret, string? EncryptionKey, string? SigningSecret);  // null ⇒ unchanged</code></pre>
+<ul>
+  <li><strong>Endpoints</strong> (Platform, <code>Endpoints/Admin/Settings/</code>):
+  <code>Get|UpdatePaymentGatewaySettingsEndpoint : Endpoint&lt;…&gt;</code>, <code>Get/Put
+  "/admin/settings/payment-gateways"</code>, <code>Policies("AdminPolicy")</code>,
+  <code>Options(x =&gt; x.WithTags("Settings"))</code>.</li>
+  <li><strong>Service</strong> <code>IGatewaySettingsService</code> / <code>GatewaySettingsService</code>:
+  <code>GetAsync</code> projects each provider from <code>ISettingProvider.GetForScopeAsync(key, Global)</code>
+  into the snapshot, computing <code>HasXxx = !IsNullOrWhiteSpace(secret)</code> and never copying the
+  secret into the DTO. <code>UpdateAsync</code> writes each non-secret via
+  <code>ISettingManager.SetAsync(key, value, Global)</code>, and each secret <strong>only when the
+  request value is non-null/non-empty</strong> (write-only) — exactly the
+  <code>secret.length &gt; 0 ? secret : null</code> rule the auth page already uses.</li>
+  <li><strong>Where it lives:</strong> Platform (alongside <code>AuthProviderSettingsService</code>),
+  because the settings store + <code>ISettingManager</code> are Platform/Infrastructure and the keys
+  are plain strings. Finance only needs the key constants (in SharedKernel) to <em>read</em> them.</li>
+  <li><strong>Validation</strong> (<code>PlatformValidators.cs</code>): <code>ProviderCode</code> in an
+  allow-list; <code>BaseUrl</code>/<code>IdpTokenUrl</code> absolute URLs; secret lengths bounded.</li>
+  <li><strong>Audit</strong>: one <code>GatewaySettingsUpdated</code> event per save with a redacted
+  <code>detailsJson</code> (which keys changed, <em>never</em> secret values).</li>
+  <li><strong>Key gate:</strong> like the generic settings endpoints, reject any key whose
+  <code>SettingDefinitions.Get(key) == null</code> &mdash; so the snapshot only ever touches the
+  registered <code>Finance.Partners.*</code> keys.</li>
+</ul>
+
+<h3 id="d-runtime">5.3 Runtime resolution — the connector reads the store at call time</h3>
+<p>
+  This is the one structural change to Spec&nbsp;037. Today the connector takes
+  <code>IOptions&lt;FlutterwaveOptions&gt;</code> (a startup snapshot) and is registered only
+  <code>if (IsConfigured())</code> at boot. To honor a UI change without a restart, the config must be
+  resolved <strong>per call</strong> — the <code>Auth0ManagementClient</code> pattern.
+</p>
+<pre><code>// New: resolves the effective options from the settings store, layered over appsettings.
+internal interface IFlutterwaveConfigProvider { Task&lt;FlutterwaveOptions&gt; GetAsync(CancellationToken ct); }
+
+internal sealed class FlutterwaveConfigProvider(ISettingProvider settings, IOptions&lt;FlutterwaveOptions&gt; fallback)
+    : IFlutterwaveConfigProvider
+{
+    public async Task&lt;FlutterwaveOptions&gt; GetAsync(CancellationToken ct) => new()
+    {
+        UseRealFlutterwaveApi = await Bool(PartnerGatewaySettingNames.FlutterwaveEnabled, _fallback.UseRealFlutterwaveApi, ct),
+        BaseUrl       = await Str(PartnerGatewaySettingNames.FlutterwaveBaseUrl, _fallback.BaseUrl, ct),
+        ClientId      = await Str(PartnerGatewaySettingNames.FlutterwaveClientId, _fallback.ClientId, ct),
+        ClientSecret  = await Str(PartnerGatewaySettingNames.FlutterwaveClientSecret, _fallback.ClientSecret, ct),
+        EncryptionKey = await Str(PartnerGatewaySettingNames.FlutterwaveEncryptionKey, _fallback.EncryptionKey, ct),
+        // … each value: settings-store value ?? appsettings fallback ?? default …
+    };
+}</code></pre>
+<ul>
+  <li><strong>Layering:</strong> stored value wins; appsettings/env remains a valid bootstrap and CI
+  default; built-in defaults last. So Spec&nbsp;037's existing config path keeps working unchanged when
+  the store is empty.</li>
+  <li><strong>Connector / token provider</strong> take <code>IFlutterwaveConfigProvider</code> instead
+  of <code>IOptions&lt;FlutterwaveOptions&gt;</code> and call <code>GetAsync</code> at the top of each
+  operation. (The token provider's cache already shields the IdP from per-call overhead; settings
+  reads are cached by <code>SettingService</code> with <code>CachePolicy.Short</code>.)</li>
+  <li><strong>DI change:</strong> drop the startup <code>if (flutterwaveOptions?.IsConfigured())</code>
+  gate; <strong>always register</strong> the Flutterwave connector + translator alongside Simulated
+  (Spec&nbsp;037 §7.6 already argued for alongside-registration). "Is it usable?" becomes a
+  <em>runtime</em> check: if a caller routes to <code>"Flutterwave"</code> while
+  <code>Enabled=false</code> or credentials are missing, the connector throws the clear
+  not-configured <code>FlutterwaveException</code> it already has. The capability the connector
+  advertises can also be gated on the resolved <code>Enabled</code> so the no-code capability route
+  skips a disabled provider.</li>
+  <li><strong>Webhook secret:</strong> change <code>RemittanceOrderService.ResolveWebhookSigningSecret</code>
+  to read <code>ISettingProvider.GetAsync(PartnerGatewaySettingNames.FlutterwaveSigningSecret)</code>
+  first, falling back to the existing <code>IConfiguration</code> key — so a UI-set signing secret is
+  honored at webhook time.</li>
+</ul>
+<div class="ascii-diagram">Admin UI (Settings → Payment gateways)        Backend                                 Connector (runtime)
+──────────────────────────────────────        ───────────────────────────             ─────────────────────────────
+  load snapshot  ───────────────────▶  GET /admin/settings/payment-gateways
+                                       GatewaySettingsService.GetAsync ─▶ ISettingProvider (decrypt) → hasXxx booleans
+  ◀───────── snapshot (no secrets)
+  edit + Save  ─────────────────────▶  PUT /admin/settings/payment-gateways
+                                       SetAsync per key (secrets write-only, encrypted), audit
+        ...later, a remittance to "Flutterwave"...
+                                                                       FlutterwaveConfigProvider.GetAsync
+                                                                         settings store ?? appsettings ?? default
+                                                                       → token + transfer, no restart</div>
+
+<h3 id="d-frontend">5.4 Frontend — make the page real (Tier 1)</h3>
+<p>
+  Replace the mockup body of <code>SettingsPaymentGatewaysPage.tsx</code> with the established
+  settings-page mechanics — the load/save/badge logic from <code>GlobalSettingsPage</code> and the
+  write-only-secret handling from <code>SettingsAuthenticationPage</code>. <strong>No React Query</strong>
+  (the codebase uses <code>useState</code>/<code>useEffect</code> + a <code>services/*.ts</code> module
+  + <code>sonner</code> toast).
+</p>
+<ul>
+  <li><span class="tag new">New</span> <code>services/paymentGatewaysService.ts</code>:
+  <code>get(): Promise&lt;GatewaySettingsResponse&gt;</code> (<code>GET /admin/settings/payment-gateways</code>),
+  <code>update(req): Promise&lt;GatewaySettingsResponse&gt;</code> (<code>PUT …</code>),
+  <code>test(providerCode)</code> (&sect;5.4 below) — all via <code>api</code> from <code>lib/api.ts</code>.</li>
+  <li><span class="tag mutate">Edit</span> <code>SettingsPaymentGatewaysPage.tsx</code>: keep the
+  provider rail + KPI shell, but drive the <strong>Credentials</strong> section from server state.
+  Secret inputs are <code>type="password"</code>, empty by default, placeholder
+  <em>"Leave blank to keep existing secret"</em>; render <code>Configured / Not set / Pending save</code>
+  badges from the <code>hasXxx</code> booleans (the <code>renderPasswordStatus</code> idiom). On save,
+  send a secret only when non-empty; reset secret fields to empty + re-fetch the snapshot afterwards.
+  Non-secret fields (Enabled toggle, BaseUrl, ClientId, mode) round-trip normally.</li>
+  <li><span class="tag new">New</span> <strong>Test connection</strong>: wire the existing button to
+  <code>POST /admin/settings/payment-gateways/{providerCode}/test</code>, which acquires an OAuth
+  token against the stored credentials (no money movement) and returns ok / error; surface via toast.</li>
+  <li><span class="tag existing">Reuse</span> Types in <code>src/types</code>; route/nav already exist
+  (<code>/settings/payment-gateways</code> in <code>modules/platform/index.ts</code>). Server-side
+  <code>AdminPolicy</code> is the real gate; the page sits under the existing admin nav.</li>
+</ul>
+
+<h3 id="d-connectors">5.5 Tier 2 — connector rows &amp; routing (makes partner-network functional)</h3>
+<p>
+  Tier 1 configures the <em>provider</em> (global credentials). Tier 2 makes the per-partner
+  <code>Connector</code> rows manageable so an operator can say "this partner uses Flutterwave for NGN
+  payouts," enable/disable it, and point its <code>CredentialsRef</code> at the gateway settings.
+  This fills the "awaiting backend" gap in the partner-network UI.
+</p>
+<ul>
+  <li><span class="tag new">New</span> <code>IPartnerAdminService.CreateConnectorAsync /
+  UpdateConnectorAsync / DeleteConnectorAsync</code> (gated on <code>"Settings.Write"</code>, audited
+  with new <code>ConnectorCreated/Updated/Deleted</code> event names) — mirroring the existing
+  partner CRUD methods in the same service.</li>
+  <li><span class="tag new">New</span> Endpoints under <code>Endpoints/Partners/</code>
+  (<code>Post/Patch/Delete "/admin/partners/{partnerId}/connectors[/{connectorId}]"</code>,
+  <code>Policies("AdminPolicy")</code>) + <code>Create/UpdateConnectorRequest</code> DTOs exposing
+  <code>ConnectorType</code>, <code>Status</code> (enable/disable), <code>ConfigJson</code>, and
+  <code>CredentialsRef</code> (a pointer to the gateway settings, <em>not</em> the secret).</li>
+  <li><span class="tag mutate">Edit</span> <code>PartnerConnectorItem</code> to surface
+  <code>ConfigJson</code>; extend <code>partnerService.ts</code> + <code>types/partners.ts</code> with
+  connector mutations; make the partner-network connector tab a real create/edit form (same
+  <code>useState</code>+service pattern).</li>
+  <li><span class="tag existing">Note</span> <code>Connector</code> has no
+  <code>IEntityTypeConfiguration</code> today (convention-mapped). If column constraints are wanted, add
+  a <code>ConnectorConfiguration</code> and a <strong>tool-generated</strong> migration against
+  <code>AonikDbContext</code> (per CLAUDE.md) — otherwise no schema change is required.</li>
+  <li><strong>Capability/routing</strong> selection (which connector serves a corridor) still rides the
+  in-memory capability model + the deferred <code>RoutingRule</code> engine (Spec&nbsp;037 G16/O10);
+  Tier 2 makes the rows editable, not the routing engine. Editing a connector's advertised
+  capabilities persists to <code>ConnectorCapability</code> rows (already present from Spec&nbsp;031).</li>
+</ul>
+<div class="callout">
+  <span class="callout-label">Tier boundary</span>
+  <strong>Tier 1 alone</strong> fully answers the original question — it lets an operator configure
+  Flutterwave's client id / secret / encryption key / webhook secret from the Admin UI and have the
+  connector use them at runtime. <strong>Tier 2</strong> is what makes "fully configure
+  <em>partners</em>" true end-to-end (connector rows + routing surfaces). Tier 1 is the priority; Tier
+  2 can land in a follow-up PR without blocking Flutterwave go-live.
+</div>
+
+<h2 id="secrets">6. Secret-handling rules (normative)</h2>
+<ul>
+  <li><strong>Never return a secret to the browser.</strong> The snapshot endpoint exposes only
+  <code>hasXxx</code> booleans + provenance, mirroring <code>AuthProviderSettingsService</code> (and
+  deliberately <em>not</em> the generic batch endpoint, which decrypts).</li>
+  <li><strong>Write-only secret fields.</strong> A null/empty secret in the update request means
+  "keep existing" — the server skips the <code>SetAsync</code> for that key. Rotation = type a new
+  value; clearing requires an explicit "clear" affordance (out of scope v1).</li>
+  <li><strong>Encrypted at rest.</strong> Secret keys are <code>IsEncrypted: true</code> in
+  <code>SettingDefinitions</code>; <code>SettingService</code> encrypts via
+  <code>ISettingValueProtector</code> (<code>IDataProtection</code>, <code>"Aonik.Settings"</code>
+  purpose). No plaintext secret column.</li>
+  <li><strong>Audit without leakage.</strong> The audit <code>detailsJson</code> records which keys
+  changed and by whom — never the values. (<code>Setting</code> is already an
+  <code>AuditableEntity</code>.)</li>
+  <li><strong>Authz.</strong> All gateway endpoints are <code>Policies("AdminPolicy")</code>
+  (<code>PlatformAdmin</code>/<code>TenantAdmin</code>); the connector-row writes additionally gate on
+  <code>"Settings.Write"</code> at the service layer, like the existing partner CRUD.</li>
+  <li><strong>Redacted logs.</strong> Connector/raw-response redaction from Spec&nbsp;037 (§7.4)
+  already prevents secrets/PANs reaching logs; nothing here changes that.</li>
+</ul>
+
+<h2 id="tasks">7. Tasks</h2>
+<ol>
+  <li><span class="tag new">New</span> <code>PartnerGatewaySettingNames</code> constants
+  (SharedKernel) + <code>SettingDefinitions</code> entries (secrets <code>IsEncrypted: true</code>).</li>
+  <li><span class="tag new">New</span> <code>IGatewaySettingsService</code>/<code>GatewaySettingsService</code>
+  (snapshot projection + write-only-secret writes + audit) + DI registration.</li>
+  <li><span class="tag new">New</span> <code>Get|UpdatePaymentGatewaySettingsEndpoint</code> +
+  <code>TestPaymentGatewayEndpoint</code> (<code>AdminPolicy</code>) + the DTOs + FluentValidation.</li>
+  <li><span class="tag mutate">Edit</span> <code>FlutterwaveConfigProvider</code> (store-over-appsettings)
+  + switch the connector/token provider off <code>IOptions</code> onto it; drop the startup
+  <code>IsConfigured()</code> DI gate (always register); gate advertised capability on
+  <code>Enabled</code>.</li>
+  <li><span class="tag mutate">Edit</span> <code>RemittanceOrderService.ResolveWebhookSigningSecret</code>
+  to read the store first, appsettings fallback.</li>
+  <li><span class="tag new">New</span> <code>paymentGatewaysService.ts</code> + rebuild
+  <code>SettingsPaymentGatewaysPage.tsx</code> on the real load/save/secret-badge mechanics + Test
+  connection; types.</li>
+  <li><span class="tag new">New</span> Tier 2: connector CRUD service methods + endpoints + DTOs +
+  audit names + partner-network connector UI (+ optional <code>ConnectorConfiguration</code> &amp;
+  tool-generated migration).</li>
+  <li><span class="tag new">New</span> Tests: <code>GatewaySettingsService</code> (write-only secret;
+  has-boolean projection; never returns secret), endpoint authz (401/403 without AdminPolicy),
+  <code>FlutterwaveConfigProvider</code> layering (store overrides appsettings), webhook-secret store
+  read, and a frontend smoke test of the page's save flow.</li>
+  <li><span class="tag existing">Doc</span> Cross-link Spec&nbsp;037 (note the startup gate is
+  superseded by runtime resolution) and add the page to the settings nav docs.</li>
+</ol>
+
+<h2 id="acceptance">8. Acceptance criteria</h2>
+<ul>
+  <li><strong>Configure from the UI.</strong> With empty appsettings, an admin sets Flutterwave client
+  id / secret / encryption key / webhook signing secret + Enabled in
+  <strong>Settings → Payment gateways</strong> and saves; the secrets persist <em>encrypted</em> to
+  <code>AnkSettings</code> and the badges read <em>Configured</em>.</li>
+  <li><strong>Secrets never leave the server.</strong> The <code>GET</code> snapshot response contains
+  no secret values (only <code>hasXxx</code>); asserted by a service + endpoint test.</li>
+  <li><strong>Runtime pickup, no restart.</strong> After saving, a remittance routed to
+  <code>"Flutterwave"</code> authenticates + transfers against the sandbox without a redeploy; rotating
+  the secret is honored on the next call. The webhook verifies against the stored signing secret.</li>
+  <li><strong>Bootstrap fallback intact.</strong> With the store empty and appsettings/env populated,
+  behavior is identical to Spec&nbsp;037 (no regression).</li>
+  <li><strong>Authz + audit.</strong> Non-admins get <code>401/403</code>; every save emits an audit
+  event recording changed keys but no secret values.</li>
+  <li><strong>Tier 2 (if included).</strong> An admin can create/enable/disable a partner connector and
+  set its <code>CredentialsRef</code>/<code>ConfigJson</code> from the partner-network UI; changes are
+  audited.</li>
+  <li><strong>Build &amp; reuse.</strong> <code>dotnet build Aonik.sln</code> + <code>npm run build</code>
+  green; no new persistence table for Tier 1; no React Query introduced.</li>
+</ul>
+
+<h2 id="open">9. Open decisions</h2>
+<table>
+  <thead><tr><th>#</th><th>Decision</th><th>Recommendation</th></tr></thead>
+  <tbody>
+    <tr><td>O1</td><td><strong>Snapshot endpoint vs reuse generic settings endpoints.</strong> The generic <code>/admin/settings/values/*</code> already exists but returns decrypted secrets to admins.</td><td>Dedicated <code>payment-gateways</code> snapshot endpoint (never returns secrets) for payment credentials — the auth-provider pattern. Reuse the store underneath.</td></tr>
+    <tr><td>O2</td><td><strong>Global vs per-tenant credentials.</strong></td><td>Global now (one Flutterwave account/deployment), matching auth/AI/comms. The store already supports per-tenant scope if needed later.</td></tr>
+    <tr><td>O3</td><td><strong>Where <code>GatewaySettingsService</code> lives</strong> — Platform vs Finance.</td><td>Platform (with <code>AuthProviderSettingsService</code>): it owns the settings admin surface and <code>ISettingManager</code>; Finance only reads keys via <code>ISettingProvider</code> (SharedKernel).</td></tr>
+    <tr><td>O4</td><td><strong>Runtime resolve vs <code>IOptionsMonitor</code>.</strong> No <code>IOptionsMonitor</code>/<code>IConfigurationSource</code> exists in the repo today.</td><td>Call-time <code>ISettingProvider</code> reads (the <code>Auth0ManagementClient</code> precedent) — simplest, cache-backed, no new infra. A DB-backed <code>IConfigurationSource</code> is a larger, optional refactor.</td></tr>
+    <tr><td>O5</td><td><strong>Tier 2 in this PR or a follow-up?</strong></td><td>Ship Tier 1 first (unblocks Flutterwave go-live); Tier 2 (connector rows + routing UI) as a fast follow.</td></tr>
+    <tr><td>O6</td><td><strong>"Clear secret" affordance.</strong></td><td>v1 is write-only (blank = keep). Add an explicit "clear" later if rotation-to-empty is needed.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="refs">10. References</h2>
+<h4>In-repo (reused patterns)</h4>
+<ul>
+  <li><a href="../../src/Aonik.Infrastructure/Settings/SettingService.cs"><code>SettingService.cs</code></a> (read+write+encrypt), <a href="../../src/Aonik.Platform/Settings/SettingDefinitions.cs"><code>SettingDefinitions.cs</code></a>, <code>ISettingProvider</code>/<code>ISettingManager</code>, <code>ISettingValueProtector</code></li>
+  <li><a href="../../src/Aonik.AdminUi/src/pages/settings/SettingsAuthenticationPage.tsx"><code>SettingsAuthenticationPage.tsx</code></a> + <code>AuthProviderSettingsService</code> + <code>Get|UpdateAuthProviderSettingsEndpoint</code> (write-only-secret precedent)</li>
+  <li><a href="../../src/Aonik.AdminUi/src/pages/settings/GlobalSettingsPage.tsx"><code>GlobalSettingsPage.tsx</code></a> + <a href="../../src/Aonik.AdminUi/src/services/globalSettingsService.ts"><code>globalSettingsService.ts</code></a> (form mechanics, secret badges)</li>
+  <li><a href="../../src/Aonik.Infrastructure/Authentication/Provisioning/Auth0ManagementClient.cs"><code>Auth0ManagementClient.cs</code></a> (runtime-resolve precedent)</li>
+  <li><a href="../../src/Aonik.Platform/Endpoints/Admin/Settings/UpdateGlobalSettingValueEndpoint.cs"><code>UpdateGlobalSettingValueEndpoint.cs</code></a>, <a href="../../src/Aonik.Platform/Endpoints/Admin/Settings/BatchGetGlobalSettingValuesEndpoint.cs"><code>BatchGetGlobalSettingValuesEndpoint.cs</code></a> (endpoint shape)</li>
+  <li><a href="../../src/Aonik.Finance/Services/Partners/PartnerAdminService.cs"><code>PartnerAdminService.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Partners/Connector.cs"><code>Connector.cs</code></a> (Tier 2 base)</li>
+  <li><a href="../../src/Aonik.AdminUi/src/pages/settings/SettingsPaymentGatewaysPage.tsx"><code>SettingsPaymentGatewaysPage.tsx</code></a> (the mockup to make real), <a href="../../src/Aonik.AdminUi/src/lib/api.ts"><code>api.ts</code></a></li>
+</ul>
+<h4>Related specs</h4>
+<ul>
+  <li><a href="037.flutterwave-partner-connector.html">Spec&nbsp;037 — Flutterwave partner connector</a> (the connector being configured; this spec supersedes its startup config gate)</li>
+  <li><a href="031.partner-integration-abstraction.html">Spec&nbsp;031 — Partner integration abstraction</a> (Connector / ConnectorCapability entities)</li>
+  <li><a href="029.keycloak-auth-provider.html">Spec&nbsp;029 — Keycloak auth provider</a> (the auth settings page this mirrors)</li>
+</ul>
+
+<footer>
+  Spec 038 · Admin UI partner connector configuration · Draft · Composes the existing settings-store,
+  write-only-secret settings page, and runtime-resolve patterns — no new persistence primitive.
+</footer>
+
+</body>
+</html>

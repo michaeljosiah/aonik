@@ -39,4 +39,15 @@
     <ProjectReference Include="..\Aonik.IntegrationTests.Support\Aonik.IntegrationTests.Support.csproj" />
   </ItemGroup>
 
+  <!--
+    Local, git-ignored Flutterwave sandbox credentials (see appsettings.Development.json.example for
+    the shape). Copied to the test output dir so FlutterwaveSandboxTests can read it; the file is in
+    .gitignore so real secrets are never committed. Absent by default → those tests skip.
+  -->
+  <ItemGroup>
+    <None Include="appsettings.Development.json"
+          Condition="Exists('appsettings.Development.json')"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

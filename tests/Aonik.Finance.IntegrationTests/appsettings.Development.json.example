@@ -1,0 +1,15 @@
+{
+  "//": "Copy this file to appsettings.Development.json (same folder) and fill in your Flutterwave",
+  "//1": "SANDBOX credentials. That file is git-ignored and is read by FlutterwaveSandboxTests.",
+  "//2": "Environment variables (FLW_SANDBOX_CLIENT_ID / FLW_SANDBOX_CLIENT_SECRET / ...) override these.",
+  "//3": "Never put production credentials here. Only ClientId + ClientSecret are required.",
+  "Flutterwave": {
+    "Sandbox": {
+      "ClientId": "",
+      "ClientSecret": "",
+      "EncryptionKey": "",
+      "BaseUrl": "https://developersandbox-api.flutterwave.com",
+      "IdpTokenUrl": "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token"
+    }
+  }
+}

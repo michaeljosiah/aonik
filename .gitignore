@@ -451,6 +451,10 @@ nul
 # Tokens / secrets
 token.txt
 
+# Local integration-test credentials — never commit real sandbox secrets.
+# (.example templates ARE committed.)
+/tests/Aonik.Finance.IntegrationTests/appsettings.Development.json
+
 # Root-level agent/browser debug artifacts
 /agui-network.txt
 /ai-policies-*.txt

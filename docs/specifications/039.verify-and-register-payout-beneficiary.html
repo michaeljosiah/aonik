@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 039 · Verify-and-register payout beneficiary flow</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2;
+      --accent: #055a60; --accent-mark: #e8a838; --code-bg: #f7f9fb;
+      --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa; --open-border: #88b8d4;
+      --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 880px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e6f1ef; color: #166053; }
+    .meta-tag.priority-p0 { background: #fbe3d6; color: #8a3a12; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.reuse { background: #e0f3e6; color: #1c6b39; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 039</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p0">Priority: P0 (launch blocker)</span>
+  <span class="meta-tag">Domain: Finance / Payments</span>
+  <h1>Verify-and-register payout beneficiary flow</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    The missing last mile for real remittance. Today a customer can <em>save</em> a payout
+    beneficiary, but the saved row is always <code>IsVerified = false</code> with no provider recipient
+    id &mdash; so it can never pass the remittance gate, and the real
+    <a href="037.flutterwave-partner-connector.html">Flutterwave connector</a> has no payable
+    destination. This spec adds the flow that takes the customer's <strong>raw</strong> rail details
+    (transiently), resolves the account with the partner (best-effort name enquiry), <strong>registers
+    a reusable recipient</strong> (e.g. Flutterwave <code>POST /transfers/recipients</code> &rarr;
+    <code>rcb_…</code>), and persists a <strong>verified</strong> <code>ExternalPayoutAccount</code>
+    (<code>IsVerified = true</code>, <code>ProviderBeneficiaryId = rcb_…</code>) &mdash; never storing the
+    raw account number. It is the named prerequisite from Spec&nbsp;037 (§7.4.1, gaps G19/G20, open
+    decision O12), composing the connector ports already built (<code>ResolveAccountAsync</code>,
+    <code>RegisterRecipientAsync</code>) with the existing beneficiary + party-graph plumbing.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#patterns">Established patterns reused</a></li>
+    <li><a href="#design">Design</a></li>
+    <li><a href="#secrets">Sensitive-data rules</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  <a href="037.flutterwave-partner-connector.html">Spec&nbsp;037</a> delivered the Flutterwave
+  connector, including <code>RegisterRecipientAsync</code> (mint a provider recipient id) and
+  <code>ResolveAccountAsync</code> (name enquiry). But it flagged &mdash; in §7.4.1, gaps G19/G20, and
+  open decision O12 &mdash; that the connector method is <strong>necessary but not sufficient</strong>:
+  nothing in the app calls it, and the shipped beneficiary path can't feed it. Concretely:
+</p>
+<ul>
+  <li><a href="../../src/Aonik.Finance/Services/Payments/PayoutBeneficiaryService.cs"><code>PayoutBeneficiaryService.SaveBeneficiaryAsync</code></a>
+  persists <code>IsVerified = false</code> <strong>hardcoded</strong> and only copies a
+  <em>pre-supplied</em> <code>ProviderBeneficiaryId</code> &mdash; it never resolves an account or calls
+  a connector.</li>
+  <li><a href="../../src/Aonik.Finance/Contracts/Services/Payments/IPayoutBeneficiaryService.cs"><code>SavePayoutBeneficiaryRequest</code></a>
+  carries only a <code>MaskedAccountIdentifier</code> + optional token &mdash; never the raw account
+  number, which the partner needs to create a recipient.</li>
+  <li><a href="../../src/Aonik.Finance/Services/Remittance/RemittanceOrderService.cs"><code>RemittanceOrderService</code></a>
+  rejects an unverified destination (<code>if (!account.IsVerified) throw</code>), so no saved
+  beneficiary is payable.</li>
+</ul>
+<p>
+  The result: the connector works (proven against the live sandbox via a manually-seeded recipient),
+  but <strong>real Payabo UK&rarr;NG remittance cannot launch</strong> &mdash; no self-service customer
+  can produce a payable Flutterwave beneficiary. This spec closes that gap with one new flow.
+</p>
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  A Payabo customer enters a Nigerian bank account (bank + account number) for a new recipient and
+  taps <em>Add</em>. The server resolves the payout connector for the corridor (the real Flutterwave
+  connector now wins capability routing), attempts a name enquiry, registers a recipient
+  (<code>rcb_…</code>), and saves a <strong>verified</strong> <code>ExternalPayoutAccount</code> with
+  the recipient id &mdash; <strong>no raw account number persisted anywhere</strong>. A subsequent
+  remittance to that beneficiary passes the <code>IsVerified</code> gate, dispatches via
+  <code>recipient_id</code>, and settles. If the partner's name-enquiry endpoint is not entitled
+  (the sandbox returns <code>403</code>), the flow still succeeds using the customer-supplied name.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<table>
+  <thead><tr><th>Area</th><th>State today</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Save beneficiary</td>
+      <td><code>POST /payments/payout-beneficiaries</code> (<code>AdminUserWritePolicy</code>) writes the party graph + an <code>ExternalPayoutAccount</code> with <code>IsVerified = false</code> and a pre-supplied (usually empty) <code>ProviderBeneficiaryId</code>. No connector call.</td>
+      <td><a href="../../src/Aonik.Finance/Endpoints/Payments/SavePayoutBeneficiaryEndpoint.cs"><code>SavePayoutBeneficiaryEndpoint.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Payments/PayoutBeneficiaryService.cs"><code>PayoutBeneficiaryService.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Connector capability</td>
+      <td><strong>Built (Spec 037):</strong> <code>ResolveAccountAsync</code> (<code>/banks/account-resolve</code>) and <code>RegisterRecipientAsync</code> (<code>/transfers/recipients</code> &rarr; <code>rcb_…</code>) on <code>IPartnerPayoutConnector</code>, resolvable via <code>IPartnerConnectorResolver</code> (real connector wins capability routing).</td>
+      <td><a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerPayoutConnector.cs"><code>IPartnerPayoutConnector.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Destination entity</td>
+      <td><code>ExternalPayoutAccount</code> has <code>IsVerified</code>, <code>VerifiedAt</code>, <code>ProviderBeneficiaryId</code>, <code>ConnectorId</code>, masked id &mdash; but <strong>no provider code</strong>, so a stored <code>rcb_…</code> isn't self-describing about which provider minted it.</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Remittance gate</td>
+      <td>Confirm loads the saved destination, checks caller-owns-party + currency + supported rail, and <strong>requires <code>IsVerified = true</code></strong>; dispatch uses the recipient id (Spec 037 G19).</td>
+      <td><a href="../../src/Aonik.Finance/Services/Remittance/RemittanceOrderService.cs"><code>RemittanceOrderService.cs</code></a></td>
+    </tr>
+    <tr>
+      <td>Verify-and-register flow</td>
+      <td><strong>Missing.</strong> Nothing accepts raw rail details, calls the connector to register a recipient, or flips <code>IsVerified</code>. This spec.</td>
+      <td>&mdash;</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <code>IPayoutBeneficiaryService.VerifyAndRegisterBeneficiaryAsync</code>
+  + implementation: transient raw input &rarr; resolve connector &rarr; (best-effort) name enquiry
+  &rarr; register recipient &rarr; persist a <strong>verified</strong> destination.</li>
+  <li><span class="tag new">New</span> <code>POST /payments/payout-beneficiaries/verify</code>
+  FastEndpoint (<code>AdminUserWritePolicy</code>) + <code>VerifyPayoutBeneficiaryRequest</code> DTO
+  (carries raw rail details, never persisted) + FluentValidation.</li>
+  <li><span class="tag mutate">Edit</span> Add a <code>ProviderCode</code> column to
+  <code>ExternalPayoutAccount</code> (+ <code>VerifiedAt</code> set on verify) so a stored recipient is
+  self-describing about its provider &mdash; with a <strong>tool-generated migration</strong> against
+  <code>AonikDbContext</code> (per CLAUDE.md). Remittance dispatch routes to the destination's
+  <code>ProviderCode</code> (small Spec&nbsp;036 follow-up, §5.5).</li>
+  <li><span class="tag new">New</span> <strong>Caller-owns-party authorization</strong> (resolve the
+  authenticated user's party and require it to match <code>CustomerPartyId</code>) &mdash; the same
+  check <code>RemittanceOrderService</code> applies; closes an IDOR the save path lacks (§5.4).</li>
+  <li><span class="tag new">New</span> <strong>Best-effort name enquiry</strong>: when the partner's
+  account-resolve endpoint is unavailable/unentitled (the sandbox returns <code>403</code>), proceed
+  with the customer-supplied name rather than failing (§5.6).</li>
+  <li><span class="tag mutate">Edit</span> Frontend (Payabo / Admin UI) add-beneficiary form posts raw
+  details to the verify endpoint and shows the verified result; raw details never persisted client-side
+  beyond the request (§5.7).</li>
+  <li><span class="tag new">New</span> Tests &mdash; service (register&rarr;persist verified;
+  name-enquiry fallback on 403; idempotent re-verify; auth rejection), endpoint (authz/validation), and
+  the migration applies cleanly.</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Card collection / inbound.</strong> This is payout beneficiaries only.</li>
+  <li><strong>The routing engine.</strong> Connector selection still rides the in-memory capability
+  resolver (Spec&nbsp;031 §3.2); this spec just consumes it.</li>
+  <li><strong>Vaulting the raw value.</strong> The recipient-id flow means the raw account number is
+  never needed again, so <code>VaultRef</code> stays null (no raw storage). A vault path is only needed
+  if a connector ever requires the raw value at execution &mdash; not Flutterwave.</li>
+  <li><strong>Replacing <code>SaveBeneficiaryAsync</code>.</strong> The masked/pre-tokenised save path
+  stays for back-office / already-registered tokens; the verify endpoint is the new self-service path.</li>
+</ul>
+
+<h2 id="patterns">4. Established patterns reused</h2>
+<table>
+  <thead><tr><th>Need</th><th>Established pattern</th><th>How 039 uses it</th></tr></thead>
+  <tbody>
+    <tr><td>Resolve + register recipient</td><td><code>IPartnerPayoutConnector.ResolveAccountAsync</code> / <code>RegisterRecipientAsync</code> (Spec 037)</td><td>The two connector calls the flow orchestrates.</td></tr>
+    <tr><td>Pick the connector for a corridor</td><td><code>IPartnerConnectorResolver.TryResolvePayoutConnector(query)</code> — real connector preferred</td><td>Resolve by <code>(Payout, country, currency, rail)</code>; record the chosen <code>ProviderCode</code>.</td></tr>
+    <tr><td>Party graph (recipient + ownership edge + role)</td><td><code>IPartyService</code> via <code>PayoutBeneficiaryService</code>'s existing <code>ResolveBeneficiaryParty</code>/<code>EnsureRelationship</code>/<code>AssignPartyRole</code></td><td>Reuse verbatim — the verify path differs only in <em>how the destination is produced</em>.</td></tr>
+    <tr><td>Destination persistence</td><td><code>ExternalPayoutAccount</code> + <code>FinanceDbContext</code></td><td>Same write, but with the recipient id, provider, and <code>IsVerified = true</code>.</td></tr>
+    <tr><td>Masked-only at rest</td><td>Spec 031 sensitive-data rule (<code>MaskedAccountIdentifier</code>; raw never persisted)</td><td>Derive the mask from the raw input; discard the raw after the connector calls.</td></tr>
+    <tr><td>Endpoint + authz</td><td>FastEndpoints + <code>Policies("AdminUserWritePolicy")</code> (the save endpoint) + caller-owns-party (RemittanceOrderService)</td><td>Same endpoint shape; add the ownership check.</td></tr>
+    <tr><td>Verified gate</td><td><code>RemittanceOrderService</code> <code>IsVerified</code> check</td><td>The flow makes a destination satisfy it.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="design">5. Design</h2>
+
+<h3 id="d-flow">5.1 The flow</h3>
+<div class="ascii-diagram">Payabo add-beneficiary form                    VerifyAndRegisterBeneficiaryAsync (new)
+───────────────────────────                    ───────────────────────────────────────────
+  raw: bank+account / MSISDN+network  ──POST──▶  1. authz: caller owns CustomerPartyId
+       + customer + currency + country           2. resolve connector by capability (real wins)
+                                                  3. ResolveAccountAsync (name enquiry) — best-effort
+                                                       403/unentitled → keep supplied name
+                                                  4. RegisterRecipientAsync → ProviderBeneficiaryId (rcb_…)
+                                                  5. party graph (reuse): party + edge + Beneficiary role
+                                                  6. persist ExternalPayoutAccount:
+                                                       MaskedAccountIdentifier = mask(raw)  ← raw discarded
+                                                       AccountName = enquiry name ?? supplied
+                                                       ProviderBeneficiaryId = rcb_…, ProviderCode,
+                                                       ConnectorId?, IsVerified = true, VerifiedAt = now
+  ◀──────────── verified beneficiary ───────────  (the raw account number is NEVER persisted or logged)</div>
+
+<h3 id="d-dto">5.2 Request / response DTOs</h3>
+<pre><code>// Carries RAW rail details — transient, validated, used for the connector calls, then discarded.
+public sealed record VerifyPayoutBeneficiaryRequest(
+    Guid   CustomerPartyId,
+    string DestinationType,        // "Bank" | "MobileMoney" | "Wallet"
+    string Currency,               // required (account-resolve + recipient type are currency-keyed)
+    string Country,                // destination country (capability routing + recipient registration)
+    string AccountName,            // fallback when name enquiry is unavailable
+    string? AccountNumber,         // bank rail (raw) — never persisted
+    string? BankCode,
+    string? MobileNetwork,         // mobile-money rail
+    string? Msisdn,                // mobile-money rail (raw) — never persisted
+    string? WalletId,              // wallet rail (raw) — never persisted
+    string? ProviderCode,          // optional; default = capability-routed connector
+    Guid?   BeneficiaryPartyId, string? BeneficiaryDisplayName, string? Notes);
+
+// Reuses the existing PayoutBeneficiaryResponse — now returned with IsVerified = true.</code></pre>
+<p>
+  The raw fields map to a <code>PayoutDestination</code> (the §5.3 connector input record, which holds
+  full values in memory) and to the <code>MaskedAccountIdentifier</code> on persist. The API response
+  is the existing <code>PayoutBeneficiaryResponse</code> (no new response shape).
+</p>
+
+<h3 id="d-service">5.3 Service &mdash; <code>VerifyAndRegisterBeneficiaryAsync</code></h3>
+<p>
+  On <code>IPayoutBeneficiaryService</code> / <code>PayoutBeneficiaryService</code>. New dependencies
+  injected alongside the existing ones (<code>FinanceDbContext</code>, <code>IPartyService</code>,
+  <code>ITenantProvider</code>): <code>IPartnerConnectorResolver</code>, <code>IClock</code>, and the
+  current-user/party seam used by <code>RemittanceOrderService</code> for ownership.
+</p>
+<pre><code>public async Task&lt;PayoutBeneficiaryResponse&gt; VerifyAndRegisterBeneficiaryAsync(
+    VerifyPayoutBeneficiaryRequest request, CancellationToken ct = default)
+{
+    // 1. Authorization: the authenticated user's party MUST equal request.CustomerPartyId (§5.4).
+    await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, ct);
+
+    var rail = request.DestinationType.Trim();
+    PayoutDestination destination = BuildRawDestination(request);   // holds raw values in memory only
+
+    // 2. Resolve the connector for the corridor (real connector preferred — PartnerConnectorResolver).
+    var query = new PartnerConnectorQuery(PartnerServiceCategory.Payout, request.Country, request.Currency, rail);
+    var connector = string.IsNullOrWhiteSpace(request.ProviderCode)
+        ? (_resolver.TryResolvePayoutConnector(query, out var c) && c is not null ? c : null)
+        : _resolver.ResolvePayoutConnector(request.ProviderCode);
+    if (connector is null) throw new InvalidStateException("No payout connector serves this corridor.");
+
+    // 3. Name enquiry — best-effort for bank rails; tolerate "not entitled" (§5.6).
+    var resolvedName = await TryResolveAccountNameAsync(connector, request, ct);   // null when unavailable
+
+    // 4. Register the recipient with the provider → reusable rcb_… token.
+    var registration = await connector.RegisterRecipientAsync(new RecipientRegistrationRequest(
+        destination, request.Currency, resolvedName ?? request.AccountName, request.Country, Metadata: null), ct);
+    if (!registration.Registered || string.IsNullOrWhiteSpace(registration.ProviderBeneficiaryId))
+        throw new InvalidStateException("Partner did not return a recipient id.");
+
+    // 5. Party graph (reuse existing helpers) — recipient party, customer→recipient edge, Beneficiary role.
+    var (beneficiaryPartyId, beneficiaryName) = await ResolveBeneficiaryPartyAsync(request, ct);
+    await EnsureRelationshipAsync(request.CustomerPartyId, beneficiaryPartyId, Recipient, request.Notes, ct);
+    await _partyService.AssignPartyRoleAsync(beneficiaryPartyId, Beneficiary, "Customer", request.CustomerPartyId, ct);
+
+    // 6. Persist VERIFIED — masked identifier only; raw destination goes out of scope here.
+    var account = UpsertVerifiedAccount(request, beneficiaryPartyId, connector.ProviderCode, registration, resolvedName);
+    await _dbContext.SaveChangesAsync(ct);
+    return ToResponse(account, beneficiaryName, Recipient);
+}</code></pre>
+<ul>
+  <li><strong>Masking:</strong> <code>MaskedAccountIdentifier</code> = a last-four mask of the raw
+  account number / MSISDN / wallet id (e.g. <code>"••••0040"</code>). The raw value lives only on the
+  in-memory <code>PayoutDestination</code> + request, both out of scope after the call.</li>
+  <li><strong>Idempotent re-verify:</strong> <code>RegisterRecipientAsync</code> is already idempotent
+  at the provider (deterministic <code>X-Idempotency-Key</code> from currency+name+destination), so a
+  repeat returns the same <code>rcb_…</code>. The persist <strong>upserts</strong> the customer's
+  matching destination (same customer + rail + masked id + currency + provider) rather than inserting a
+  duplicate.</li>
+  <li><strong>Not money movement:</strong> registering a recipient moves no funds, so no
+  <code>MoneyActionLog</code> entry is required (the money-action convention is for fund-moving paths);
+  standard structured logging applies, redacting the raw value.</li>
+</ul>
+
+<h3 id="d-endpoint">5.4 Endpoint &amp; authorization</h3>
+<ul>
+  <li><span class="tag new">New</span> <code>VerifyPayoutBeneficiaryEndpoint :
+  Endpoint&lt;VerifyPayoutBeneficiaryRequest, PayoutBeneficiaryResponse&gt;</code>,
+  <code>Post("/payments/payout-beneficiaries/verify")</code>, <code>Policies("AdminUserWritePolicy")</code>
+  &mdash; mirroring <a href="../../src/Aonik.Finance/Endpoints/Payments/SavePayoutBeneficiaryEndpoint.cs"><code>SavePayoutBeneficiaryEndpoint</code></a>.</li>
+  <li><strong>Caller-owns-party (closes an IDOR):</strong> the policy authenticates but does not bind
+  the request to the caller's party. The save path trusts <code>CustomerPartyId</code> as-is; the
+  verify path (which submits raw account details and creates a real provider recipient) <strong>must</strong>
+  resolve the authenticated user's party (the UserParty bridge <code>RemittanceOrderService</code> uses)
+  and require it to equal <code>CustomerPartyId</code>, throwing before any connector call otherwise.
+  <em>(Worth applying the same check to the save path as a follow-up.)</em></li>
+  <li><strong>Validation</strong> (<code>PayoutBeneficiaryValidators.cs</code>): required
+  <code>CustomerPartyId</code>, <code>DestinationType</code> in the allow-list, <code>Currency</code>/
+  <code>Country</code> present; rail-specific required fields (bank &rarr; <code>AccountNumber</code> +
+  <code>BankCode</code>; mobile money &rarr; <code>Msisdn</code> + <code>MobileNetwork</code>; wallet
+  &rarr; <code>WalletId</code>).</li>
+</ul>
+
+<h3 id="d-provider">5.5 Provider correlation &mdash; a self-describing destination</h3>
+<p>
+  A <code>rcb_…</code> recipient id is meaningless without knowing <em>which</em> provider minted it, and
+  dispatch must route to that same provider. <code>ExternalPayoutAccount</code> has <code>ConnectorId</code>
+  (a <code>Guid?</code> FK to a <code>Connector</code> row), but the connectors are <code>ProviderCode</code>-keyed
+  with no <code>Connector</code> rows today (<code>Guid.Empty</code> = unmapped). So:
+</p>
+<ul>
+  <li><span class="tag mutate">Edit</span> Add <code>string? ProviderCode</code> to
+  <code>ExternalPayoutAccount</code> (+ set <code>VerifiedAt</code> on verify). One
+  <strong>tool-generated</strong> migration against <code>AonikDbContext</code> (single stream, per
+  CLAUDE.md), reviewed to contain only the added columns.</li>
+  <li>The verify flow stores the resolved <code>connector.ProviderCode</code>.</li>
+  <li><span class="tag mutate">Edit (036 follow-up)</span> <code>RemittanceOrderService</code> resolves
+  the dispatch connector from the destination's <code>ProviderCode</code> (so the recipient's provider
+  == the dispatch provider) instead of relying on the request/quote code alone &mdash; falling back to
+  the simulator only for a destination with no registered provider.</li>
+</ul>
+<div class="callout ok">
+  <span class="callout-label">This is what re-enables auto-routing to the real connector (037 G18/O11)</span>
+  Spec&nbsp;037 deliberately does <strong>not</strong> auto-prefer the real connector in the generic
+  capability resolver &mdash; an earlier attempt to do so broke confirm for unregistered beneficiaries
+  (they have no recipient id, so dispatch fails closed with <code>NO_RECIPIENT</code>), so the simulator
+  stays the default fallback there. <strong>"Prefer the real connector" is inherently destination-aware</strong>:
+  it is correct only once a destination has been verified and carries a real
+  <code>ProviderBeneficiaryId</code> + <code>ProviderCode</code>. This flow is what creates such
+  destinations, and the <code>ProviderCode</code>-driven dispatch above is what then routes them to the
+  real connector automatically &mdash; closing Spec&nbsp;037 G18/O11 the safe way (no unregistered
+  destination is ever routed to a connector that can't pay it).
+</div>
+
+<h3 id="d-nameenquiry">5.6 Best-effort name enquiry</h3>
+<div class="callout">
+  <span class="callout-label">Grounded in a live finding</span>
+  Against the live sandbox, <code>POST /banks/account-resolve</code> returned <strong>403</strong> for
+  a client entitled to transfers but not to bank-account verification. So name enquiry must be
+  <strong>best-effort</strong>: the load-bearing step is <code>RegisterRecipientAsync</code> (mint the
+  recipient + make the destination payable). <code>TryResolveAccountNameAsync</code> calls
+  <code>ResolveAccountAsync</code> only for bank rails and <strong>swallows a
+  <code>FlutterwaveException</code> with <code>403</code></strong> (or any resolve failure), returning
+  null so the flow proceeds with the customer-supplied name. When enquiry <em>is</em> available, its
+  returned name is preferred (authoritative account-holder name) and surfaced to the customer for
+  confirmation. Mobile-money / wallet rails skip enquiry entirely.
+</div>
+
+<h3 id="d-frontend">5.7 Frontend</h3>
+<ul>
+  <li><span class="tag mutate">Edit</span> The Payabo (and Admin UI) <strong>add-beneficiary</strong>
+  surface posts the raw rail details to <code>POST /payments/payout-beneficiaries/verify</code> (via the
+  existing API client), replacing any client-side masking + the unverified save for the self-service
+  path. On success it shows the <strong>verified</strong> beneficiary (and, when name enquiry resolved a
+  name, a "confirm this is &lt;name&gt;" step).</li>
+  <li>The raw account number lives only in the form state for the request; it is never persisted in the
+  client and never returned by the API (the response carries only the masked identifier).</li>
+  <li>Reuses the established service-module + form patterns (no new data-layer); the recipients/
+  beneficiary list (<a href="../../src/Aonik.Finance/Endpoints/Recipients/RecipientEndpoints.cs">recipients surface</a>,
+  Spec&nbsp;008) shows the <code>IsVerified</code> badge.</li>
+</ul>
+
+<h2 id="secrets">6. Sensitive-data rules (normative)</h2>
+<ul>
+  <li><strong>Raw rail details are never persisted.</strong> The account number / MSISDN / wallet id
+  exist only on the transient request + the in-memory <code>PayoutDestination</code> passed to the
+  connector. The row stores the <code>MaskedAccountIdentifier</code> + the provider's
+  <code>ProviderBeneficiaryId</code> token only &mdash; the Spec&nbsp;031 convention.</li>
+  <li><strong>Raw values are never logged.</strong> Structured logs and any
+  <code>RawProviderResponse</code> are redacted of account numbers (Spec&nbsp;037 §7.4).</li>
+  <li><strong>Secrets unaffected.</strong> The provider credentials remain in the settings store /
+  config (Spec&nbsp;038); this flow uses the configured connector, it does not handle credentials.</li>
+  <li><strong>Authz before any partner call.</strong> Ownership is checked first, so an attacker can't
+  use the endpoint to probe arbitrary accounts via name enquiry under another customer's id.</li>
+</ul>
+
+<h2 id="tasks">7. Tasks</h2>
+<ol>
+  <li><span class="tag mutate">Edit</span> Add <code>ProviderCode</code> (+ ensure <code>VerifiedAt</code>)
+  to <code>ExternalPayoutAccount</code> + its <code>IEntityTypeConfiguration</code>; one tool-generated
+  migration against <code>AonikDbContext</code>; verify it applies.</li>
+  <li><span class="tag new">New</span> <code>VerifyPayoutBeneficiaryRequest</code> DTO +
+  <code>VerifyAndRegisterBeneficiaryAsync</code> on the interface + implementation (connector resolve,
+  best-effort enquiry, register, masking, party-graph reuse, upsert-verified).</li>
+  <li><span class="tag new">New</span> <code>VerifyPayoutBeneficiaryEndpoint</code>
+  (<code>AdminUserWritePolicy</code>) + caller-owns-party check + FluentValidation.</li>
+  <li><span class="tag mutate">Edit</span> DI: inject <code>IPartnerConnectorResolver</code> /
+  <code>IClock</code> / current-user seam into <code>PayoutBeneficiaryService</code>.</li>
+  <li><span class="tag mutate">Edit (036)</span> <code>RemittanceOrderService</code> dispatch resolves
+  the connector from the destination's <code>ProviderCode</code>.</li>
+  <li><span class="tag mutate">Edit</span> Payabo / Admin UI add-beneficiary form &rarr; verify endpoint;
+  show verified state + optional name confirmation.</li>
+  <li><span class="tag new">New</span> Tests: register&rarr;persist-verified; name-enquiry
+  <code>403</code> fallback; idempotent re-verify (no duplicate row, same <code>rcb_…</code>);
+  unauthorized caller rejected before any connector call; validation; migration applies.</li>
+</ol>
+
+<h2 id="acceptance">8. Acceptance criteria</h2>
+<ul>
+  <li><strong>End-to-end payable beneficiary.</strong> A verify call for a bank rail registers a
+  recipient and persists an <code>ExternalPayoutAccount</code> with <code>IsVerified = true</code>,
+  <code>ProviderBeneficiaryId = rcb_…</code>, and <code>ProviderCode</code> set &mdash; and a subsequent
+  remittance to it passes the gate and dispatches via <code>recipient_id</code> (closing Spec&nbsp;037
+  G19/G20/O12).</li>
+  <li><strong>No raw at rest.</strong> The persisted row + API response contain only the masked
+  identifier; no column or log holds the raw account number (asserted by a test).</li>
+  <li><strong>Name-enquiry tolerance.</strong> When account-resolve returns <code>403</code> (not
+  entitled), the flow still succeeds with the supplied name.</li>
+  <li><strong>Authorization.</strong> A caller whose party ≠ <code>CustomerPartyId</code> is rejected
+  <strong>before</strong> any connector call (no account probing).</li>
+  <li><strong>Idempotent.</strong> Re-verifying the same destination does not duplicate the row and
+  returns the same recipient id.</li>
+  <li><strong>Build &amp; migration.</strong> <code>dotnet build Aonik.sln</code> + suite green; the
+  single tool-generated migration applies cleanly and contains only the new columns.</li>
+</ul>
+
+<h2 id="open">9. Open decisions</h2>
+<table>
+  <thead><tr><th>#</th><th>Decision</th><th>Recommendation</th></tr></thead>
+  <tbody>
+    <tr><td>O1</td><td><strong>New endpoint vs extend save.</strong> Add <code>/verify</code> or fold verification into <code>POST /payments/payout-beneficiaries</code>?</td><td>New <code>/verify</code> endpoint &mdash; the request shape (raw details) and semantics (verified) differ; keep the masked/pre-token save for back-office.</td></tr>
+    <tr><td>O2</td><td><strong>Name-enquiry as a separate step.</strong> Should the UI call a resolve-only endpoint first (show the name, then register on confirm)?</td><td>Optional UX nicety. v1 does it server-side in one call (best-effort) and surfaces the resolved name in the response; a two-step "confirm name" can follow.</td></tr>
+    <tr><td>O3</td><td><strong>Re-verify / rotation.</strong> What happens when a beneficiary is edited or the provider invalidates the recipient?</td><td>Upsert on verify (re-register, refresh <code>rcb_…</code> + <code>VerifiedAt</code>). Provider-initiated invalidation handling is a later concern.</td></tr>
+    <tr><td>O4</td><td><strong><code>ProviderCode</code> on the row vs a <code>Connector</code> mapping.</strong></td><td>Store <code>ProviderCode</code> now (zero new tables beyond a column); migrate to a real <code>Connector</code> FK if/when persistent connector rows land (Spec&nbsp;038 Tier 2).</td></tr>
+    <tr><td>O5</td><td><strong>Apply caller-owns-party to the existing save path too?</strong></td><td>Yes, recommended as a small hardening follow-up &mdash; the save endpoint currently trusts <code>CustomerPartyId</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="refs">10. References</h2>
+<ul>
+  <li><a href="037.flutterwave-partner-connector.html">Spec&nbsp;037 §7.4.1 / G19 / G20 / O12</a> &mdash; the prerequisite this spec delivers; <code>RegisterRecipientAsync</code> + <code>ResolveAccountAsync</code></li>
+  <li><a href="../../src/Aonik.Finance/Services/Payments/PayoutBeneficiaryService.cs"><code>PayoutBeneficiaryService.cs</code></a> + <a href="../../src/Aonik.Finance/Contracts/Services/Payments/IPayoutBeneficiaryService.cs"><code>IPayoutBeneficiaryService.cs</code></a> (the save path + party-graph helpers to reuse)</li>
+  <li><a href="../../src/Aonik.Finance/Endpoints/Payments/SavePayoutBeneficiaryEndpoint.cs"><code>SavePayoutBeneficiaryEndpoint.cs</code></a> (endpoint shape + <code>AdminUserWritePolicy</code>)</li>
+  <li><a href="../../src/Aonik.Finance/Entities/Payments/ExternalPayoutAccount.cs"><code>ExternalPayoutAccount.cs</code></a> (the destination entity gaining <code>ProviderCode</code>)</li>
+  <li><a href="../../src/Aonik.Finance/Services/Remittance/RemittanceOrderService.cs"><code>RemittanceOrderService.cs</code></a> (the <code>IsVerified</code> gate + caller-owns-party precedent + dispatch)</li>
+  <li><a href="../../src/Aonik.Finance/Services/Partners/Connectors/PartnerConnectorResolver.cs"><code>PartnerConnectorResolver.cs</code></a> (capability routing, real connector preferred)</li>
+  <li><a href="031.partner-integration-abstraction.html">Spec&nbsp;031</a> (sensitive-data rule) &middot; <a href="036.remittance-order-service.html">Spec&nbsp;036</a> (the consumer) &middot; <a href="008.recipients.html">Spec&nbsp;008</a> (recipients surface)</li>
+</ul>
+
+<footer>
+  Spec 039 · Verify-and-register payout beneficiary flow · Draft · Delivers the Spec&nbsp;037
+  G19/G20/O12 prerequisite — the last mile that makes a saved beneficiary payable through the real
+  Flutterwave connector.
+</footer>
+
+</body>
+</html>

@@ -150,4 +150,50 @@ public class SimulatedPartnerConnectorTests
         resolved.Should().BeTrue();
         airtime.Should().BeSameAs(connector);
     }
+
+    // A stand-in for a real vendor connector (e.g. Flutterwave) with capabilities that overlap the
+    // simulated connector's NG/NGN bank lane.
+    private sealed class FakeRealPayoutConnector : IPartnerPayoutConnector
+    {
+        public string ProviderCode => "Flutterwave";
+        public IReadOnlyCollection<PartnerConnectorCapability> Capabilities { get; } = new[]
+        {
+            new PartnerConnectorCapability(
+                PartnerServiceCategory.Payout, new[] { "NG" }, new[] { "NGN" }, new[] { "Bank", "MobileMoney" }),
+        };
+
+        public Task<PayoutInitiationResult> InitiatePayoutAsync(PayoutInstruction i, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<PayoutStatusResult> GetPayoutStatusAsync(PartnerReference r, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<PayoutQuoteResult> QuotePayoutAsync(PayoutQuoteRequest r, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AccountResolutionResult> ResolveAccountAsync(AccountResolutionRequest r, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<RecipientRegistrationResult> RegisterRecipientAsync(RecipientRegistrationRequest r, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public void TryResolvePayoutConnector_Should_ReturnFallback_AndSelectRealByCode_When_BothRegistered()
+    {
+        var simulated = CreateConnector();
+        var real = new FakeRealPayoutConnector();
+
+        // Simulated is registered FIRST (as it is in DI).
+        var resolver = new PartnerConnectorResolver(
+            new IPartnerPayoutConnector[] { simulated, real },
+            new IPartnerCollectionConnector[] { simulated },
+            new IPartnerBillPaymentConnector[] { simulated },
+            new IPartnerWebhookTranslator[] { new SimulatedPartnerWebhookTranslator() });
+
+        // Capability routing returns the first registered match (the simulated fallback). It does NOT
+        // auto-prefer the real connector: an unregistered destination can't be paid by a real connector
+        // that needs a recipient id, so "prefer real" is a destination-aware decision the order service
+        // makes once destinations carry a registered provider (Spec 039) — not a generic-corridor one.
+        var satisfiable = resolver.TryResolvePayoutConnector(
+            new PartnerConnectorQuery(PartnerServiceCategory.Payout, "NG", "NGN", "Bank"), out var resolved);
+
+        satisfiable.Should().BeTrue();
+        resolved.Should().BeSameAs(simulated); // default fallback
+
+        // The real connector is selected explicitly by ProviderCode.
+        resolver.ResolvePayoutConnector("Flutterwave").Should().BeSameAs(real);
+        resolver.ResolvePayoutConnector("Simulated").Should().BeSameAs(simulated);
+    }
 }
