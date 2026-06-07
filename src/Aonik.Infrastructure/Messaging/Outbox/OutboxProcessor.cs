@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Text.Json;
 using Aonik.Infrastructure.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -217,6 +218,18 @@ OUTPUT inserted.[Id];";
         // tenant-scoped queries/writes run in the correct context.
         SetTenant(scope.ServiceProvider, message.TenantId);
 
+        // Probe the payload for an OrderId so finance events (OrderCreatedEvent,
+        // OrderStatusChangedEvent, PaymentCompletedEvent, etc.) put OrderId in
+        // log scope before dispatch. Issue #142: every dispatch line — success,
+        // retry, dead-letter — needs to carry OrderId for the saved KQL query.
+        // Probing the JSON beats hardcoding the event-type list because new
+        // OrderId-bearing events get picked up automatically.
+        var orderId = TryExtractOrderId(message.Payload);
+
+        using var orderScope = orderId.HasValue
+            ? _logger.BeginScope(new Dictionary<string, object> { ["OrderId"] = orderId.Value })
+            : null;
+
         var dispatcher = scope.ServiceProvider.GetRequiredService<IIntegrationEventDispatcher>();
 
         try
@@ -240,6 +253,38 @@ OUTPUT inserted.[Id];";
             await RecordFailureAsync(dbContext, message, ex, cancellationToken);
         }
     }
+
+    /// <summary>
+    /// Deserialise a minimal envelope from the message payload to surface an
+    /// <c>OrderId</c> property if present. The probe is intentionally
+    /// non-type-specific so any new OrderId-bearing event picks up scope
+    /// enrichment without needing to list it here. Malformed payloads return
+    /// <c>null</c> rather than crashing the processor.
+    /// </summary>
+    private static Guid? TryExtractOrderId(string? payload)
+    {
+        if (string.IsNullOrEmpty(payload))
+        {
+            return null;
+        }
+
+        try
+        {
+            var envelope = JsonSerializer.Deserialize<OrderIdProbeEnvelope>(payload, ProbeJsonOptions);
+            return envelope?.OrderId is Guid id && id != Guid.Empty ? id : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static readonly JsonSerializerOptions ProbeJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
+    private sealed record OrderIdProbeEnvelope(Guid? OrderId);
 
     private async Task RecordFailureAsync(
         AonikDbContext dbContext,

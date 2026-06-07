@@ -390,3 +390,50 @@ public record ExplainTraceRequest(
 
 public record ExplainTraceResponse(
     string Analysis);
+
+// ── Money-action trace (Issue #142) ───────────────────────────────────
+// Returns every observable signal tied to a given OrderId across the
+// money-action lifecycle (Quote / Confirm / Capture / Transmit / Settle /
+// Webhook). Backed by the saved KQL query
+// docs/observability/queries/money-action-by-orderid.kql.
+
+/// <summary>
+/// One row of the OrderId-pivoted money-action trace. ItemType is one of
+/// "trace", "customEvent", "dependency", or "exception" depending on which
+/// App Insights table the row came from. <see cref="Stage"/> and
+/// <see cref="Outcome"/> are the closed-set lifecycle values (quote /
+/// confirm / capture / transmit / settle / webhook and success / failed /
+/// rejected / skipped_idempotent / timeout respectively) read from the
+/// log scope; either may be null when the row is a generic trace not
+/// emitted via <c>MoneyActionLog</c>.
+/// </summary>
+public record MoneyActionTraceEntry(
+    DateTime Timestamp,
+    string ItemType,
+    string? Stage,
+    string? Outcome,
+    int? EventId,
+    string? Name,
+    string? Message,
+    int? SeverityLevel,
+    string? OperationId,
+    Guid? PaymentIntentId,
+    Guid? InvoiceId,
+    Guid? PricingQuoteId,
+    Guid? TenantId);
+
+/// <summary>
+/// Result envelope for the OrderId pivot. <see cref="QueryDurationMs"/>
+/// is the wall-clock the underlying KQL took to return (Issue #142
+/// acceptance: under 30 000 ms). <see cref="PricingQuoteId"/> is the
+/// quote that fed the order, resolved from the Confirm-stage log if any,
+/// so callers can chain back to the Quote stage where rows do not carry
+/// OrderId.
+/// </summary>
+public record MoneyActionTraceResponse(
+    bool Configured,
+    Guid OrderId,
+    Guid? PricingQuoteId,
+    string TimeRange,
+    long QueryDurationMs,
+    IReadOnlyList<MoneyActionTraceEntry> Entries);

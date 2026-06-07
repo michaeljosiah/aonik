@@ -1,0 +1,85 @@
+// money-action-by-orderid.kql
+//
+// Saved Application Insights query for GitHub Issue #142.
+// Returns every log entry, dependency call, custom event, and exception
+// related to a given OrderId across the money-action lifecycle:
+//   Quote (PricingService)       — correlation key PricingQuoteId
+//   Confirm (OrderService)       — correlation key OrderId (carries PricingQuoteId)
+//   Capture (PaymentService)     — correlation key OrderId + PaymentIntentId
+//   Transmit (partner connector) — correlation key OrderId (when wired)
+//   Settle (LedgerPostingService) — correlation key OrderId + JournalEntryId
+//   Webhook (processor endpoint) — correlation key OrderId (when wired)
+//
+// Parameters (replace at run time):
+//   - orderId : the Order.Id (Guid as string, no braces)
+//   - window  : the lookback window (default 30d)
+//
+// The Quote-stage logs do NOT carry OrderId — at that point in the lifecycle
+// the order doesn't exist yet. This query first finds the PricingQuoteId
+// from the Confirm-stage log for the given OrderId, then unions all entries
+// matching either OrderId or PricingQuoteId so the timeline is contiguous.
+//
+// Target SLA: end-to-end query wall-clock under 30s (Issue #142 acceptance).
+//
+// Save this query in App Insights as "Money action by OrderId" so operators
+// can re-run it from the saved-queries panel; the runtime equivalent is the
+// AppInsightsQueryService.GetMoneyActionTraceAsync method.
+
+let orderId = "00000000-0000-0000-0000-000000000000"; // replace with target OrderId
+let window  = 30d;
+
+// Step 1: find the PricingQuoteId from the Confirm-stage log, if any.
+// EventId 1201 is OrderConfirmed; it carries the PricingQuoteId we need
+// to chain back to the Quote-stage entries.
+let pricingQuoteId =
+    traces
+    | where timestamp > ago(window)
+    | where tostring(customDimensions["OrderId"]) == orderId
+    | where toint(customDimensions["EventId"]) == 1201
+    | extend pq = tostring(customDimensions["PricingQuoteId"])
+    | where isnotempty(pq) and pq != "00000000-0000-0000-0000-000000000000"
+    | project pq
+    | take 1;
+
+// Step 2: union every signal where OrderId or PricingQuoteId matches.
+// `customEvents` carries the EventName="MoneyAction" milestones; `traces`
+// carries the formatted log messages; `dependencies` covers the downstream
+// SQL / HTTP calls inside the scope; `exceptions` covers anything thrown.
+union
+    (traces
+        | where timestamp > ago(window)
+        | where tostring(customDimensions["OrderId"]) == orderId
+           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
+        | extend itemType = "trace"),
+    (customEvents
+        | where timestamp > ago(window)
+        | where tostring(customDimensions["OrderId"]) == orderId
+           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
+        | extend itemType = "customEvent"),
+    (dependencies
+        | where timestamp > ago(window)
+        | where tostring(customDimensions["OrderId"]) == orderId
+           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
+        | extend itemType = "dependency"),
+    (exceptions
+        | where timestamp > ago(window)
+        | where tostring(customDimensions["OrderId"]) == orderId
+           or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId)
+        | extend itemType = "exception")
+| project
+    timestamp,
+    itemType,
+    Stage          = tostring(customDimensions["Stage"]),
+    Outcome        = tostring(customDimensions["Outcome"]),
+    EventId        = tostring(customDimensions["EventId"]),
+    EventName      = tostring(customDimensions["EventName"]),
+    name,
+    message,
+    severityLevel,
+    operation_Id,
+    PaymentIntentId = tostring(customDimensions["PaymentIntentId"]),
+    InvoiceId      = tostring(customDimensions["InvoiceId"]),
+    PricingQuoteId = tostring(customDimensions["PricingQuoteId"]),
+    TenantId       = tostring(customDimensions["TenantId"]),
+    rawDimensions  = customDimensions
+| order by timestamp asc
