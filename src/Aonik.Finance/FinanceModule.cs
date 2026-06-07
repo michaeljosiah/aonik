@@ -161,45 +161,19 @@ public sealed class FinanceModule : IModule
         services.Configure<Services.Partners.Connectors.Flutterwave.FlutterwaveOptions>(
             configuration.GetSection("Finance:Partners:Flutterwave"));
 
-        var flutterwaveOptions = configuration
-            .GetSection("Finance:Partners:Flutterwave")
-            .Get<Services.Partners.Connectors.Flutterwave.FlutterwaveOptions>();
+        services.AddScoped<Services.Partners.Connectors.Flutterwave.IFlutterwaveConfigProvider,
+            Services.Partners.Connectors.Flutterwave.FlutterwaveConfigProvider>();
+        services.AddScoped<Services.Partners.Connectors.Flutterwave.FlutterwaveTokenProvider>();
+        services.AddHttpClient(Services.Partners.Connectors.Flutterwave.FlutterwaveTokenProvider.IdpClientName);
 
-        if (flutterwaveOptions?.IsConfigured() == true)
-        {
-            services.AddSingleton<Services.Partners.Connectors.Flutterwave.FlutterwaveTokenProvider>();
+        services.AddTransient<Services.Partners.Connectors.Flutterwave.FlutterwaveAuthHandler>();
+        services.AddHttpClient<Services.Partners.Connectors.Flutterwave.FlutterwaveClient>()
+            .AddHttpMessageHandler<Services.Partners.Connectors.Flutterwave.FlutterwaveAuthHandler>();
 
-            // Undecorated client for the OAuth IdP — the auth handler calls the token provider, so it
-            // must NOT be attached here (would recurse). Resolved via IHttpClientFactory by name.
-            services.AddHttpClient(
-                Services.Partners.Connectors.Flutterwave.FlutterwaveTokenProvider.IdpClientName,
-                (sp, client) =>
-                {
-                    var options = sp.GetRequiredService<
-                        IOptions<Services.Partners.Connectors.Flutterwave.FlutterwaveOptions>>().Value;
-                    if (Uri.TryCreate(options.IdpTokenUrl, UriKind.Absolute, out var idpUri))
-                    {
-                        client.BaseAddress = idpUri;
-                    }
-                });
-
-            services.AddTransient<Services.Partners.Connectors.Flutterwave.FlutterwaveAuthHandler>();
-            services.AddHttpClient<Services.Partners.Connectors.Flutterwave.FlutterwaveClient>((sp, client) =>
-                {
-                    var options = sp.GetRequiredService<
-                        IOptions<Services.Partners.Connectors.Flutterwave.FlutterwaveOptions>>().Value;
-                    if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
-                    {
-                        client.BaseAddress = baseUri;
-                    }
-                })
-                .AddHttpMessageHandler<Services.Partners.Connectors.Flutterwave.FlutterwaveAuthHandler>();
-
-            services.AddTransient<Contracts.Services.Partners.Connectors.IPartnerPayoutConnector,
-                Services.Partners.Connectors.Flutterwave.FlutterwavePayoutConnector>();
-            services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerWebhookTranslator,
-                Services.Partners.Connectors.Flutterwave.FlutterwaveWebhookTranslator>();
-        }
+        services.AddTransient<Contracts.Services.Partners.Connectors.IPartnerPayoutConnector,
+            Services.Partners.Connectors.Flutterwave.FlutterwavePayoutConnector>();
+        services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerWebhookTranslator,
+            Services.Partners.Connectors.Flutterwave.FlutterwaveWebhookTranslator>();
 
         // Catalog
         services.AddScoped<Contracts.Services.Catalog.ICatalogService, Services.Catalog.CatalogService>();

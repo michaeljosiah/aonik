@@ -43,6 +43,8 @@ using UpdateNotificationPreferencesRequest = Aonik.Platform.Contracts.Api.Identi
 using CreateRoleRequest = Aonik.Platform.Contracts.Models.Identity.CreateRoleRequest;
 using CreateTenantRequest = Aonik.Platform.Contracts.Models.Identity.CreateTenantRequest;
 using CommunicationProviderSettingsUpdateRequest = Aonik.Platform.Contracts.Api.Settings.CommunicationProviderSettingsUpdateRequest;
+using PaymentGatewaySettingsUpdateRequest = Aonik.Platform.Contracts.Api.Settings.PaymentGatewaySettingsUpdateRequest;
+using TestPaymentGatewayRequest = Aonik.Platform.Contracts.Api.Settings.TestPaymentGatewayRequest;
 using SendCommunicationTestRequest = Aonik.Platform.Contracts.Api.Settings.SendCommunicationTestRequest;
 using InviteUserRequest = Aonik.Platform.Contracts.Models.Identity.InviteUserRequest;
 using ListRolesRequest = Aonik.Platform.Contracts.Models.Identity.ListRolesRequest;
@@ -751,6 +753,52 @@ public sealed class SendCommunicationTestRequestValidator
         RuleFor(x => x.Recipient).RequiredText(254);
         RuleFor(x => x.Subject).MaximumLength(998);  // RFC 5322 hard limit
         RuleFor(x => x.Body).MaximumLength(64_000);
+    }
+}
+
+public sealed class PaymentGatewaySettingsUpdateRequestValidator
+    : Validator<PaymentGatewaySettingsUpdateRequest>
+{
+    private static readonly string[] Providers = ["Flutterwave"];
+
+    public PaymentGatewaySettingsUpdateRequestValidator()
+    {
+        RuleFor(x => x.Providers)
+            .NotNull().WithMessage("Providers is required.")
+            .Must(p => p != null && p.Count == 1).WithMessage("Exactly one payment gateway provider is supported.");
+
+        RuleForEach(x => x.Providers).ChildRules(provider =>
+        {
+            provider.RuleFor(x => x.ProviderCode)
+                .NotEmpty()
+                .Must(p => Providers.Contains(p, StringComparer.OrdinalIgnoreCase))
+                .WithMessage($"ProviderCode must be one of: {string.Join(", ", Providers)}.");
+            provider.RuleFor(x => x.BaseUrl).Must(BeAbsoluteUrl).WithMessage("BaseUrl must be an absolute URL.");
+            provider.RuleFor(x => x.IdpTokenUrl).Must(BeAbsoluteUrl).WithMessage("IdpTokenUrl must be an absolute URL.");
+            provider.RuleFor(x => x.ClientId).MaximumLength(512);
+            provider.RuleFor(x => x.DefaultTransferPurpose).RequiredText(128);
+            provider.RuleFor(x => x.ClientSecret).MaximumLength(2048);
+            provider.RuleFor(x => x.EncryptionKey).MaximumLength(2048);
+            provider.RuleFor(x => x.SigningSecret).MaximumLength(2048);
+        });
+    }
+
+    private static bool BeAbsoluteUrl(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)
+           && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+}
+
+public sealed class TestPaymentGatewayRequestValidator : Validator<TestPaymentGatewayRequest>
+{
+    private static readonly string[] Providers = ["Flutterwave"];
+
+    public TestPaymentGatewayRequestValidator()
+    {
+        RuleFor(x => x.ProviderCode)
+            .NotEmpty()
+            .Must(p => Providers.Contains(p, StringComparer.OrdinalIgnoreCase))
+            .WithMessage($"ProviderCode must be one of: {string.Join(", ", Providers)}.");
     }
 }
 

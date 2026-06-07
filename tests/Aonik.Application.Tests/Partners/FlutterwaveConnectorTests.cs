@@ -61,11 +61,30 @@ public class FlutterwaveConnectorTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
+    private sealed class StaticFlutterwaveConfigProvider(FlutterwaveOptions options) : IFlutterwaveConfigProvider
+    {
+        public Task<FlutterwaveOptions> GetAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(options);
+    }
+
     private static FlutterwavePayoutConnector CreateConnector(RecordingHandler handler, FlutterwaveOptions? options = null)
     {
-        var client = new FlutterwaveClient(new HttpClient(handler) { BaseAddress = new Uri("https://sandbox.flutterwave.test/") });
-        return new FlutterwavePayoutConnector(client, Microsoft.Extensions.Options.Options.Create(options ?? new FlutterwaveOptions()));
+        var effectiveOptions = options ?? ConfiguredOptions();
+        var configProvider = new StaticFlutterwaveConfigProvider(effectiveOptions);
+        var client = new FlutterwaveClient(
+            new HttpClient(handler) { BaseAddress = new Uri("https://sandbox.flutterwave.test/") },
+            configProvider);
+        return new FlutterwavePayoutConnector(client, configProvider);
     }
+
+    private static FlutterwaveOptions ConfiguredOptions() => new()
+    {
+        UseRealFlutterwaveApi = true,
+        BaseUrl = "https://sandbox.flutterwave.test/",
+        IdpTokenUrl = "https://idp.flutterwave.test/token",
+        ClientId = "client-id",
+        ClientSecret = "client-secret"
+    };
 
     private static string Envelope(string dataJson) => $"{{\"status\":\"success\",\"data\":{dataJson}}}";
 
@@ -76,7 +95,9 @@ public class FlutterwaveConnectorTests
         var handler = new RecordingHandler();
         handler.Enqueue(HttpStatusCode.Created, Envelope(
             "{\"id\":\"trf_999\",\"reference\":\"AONIKREM0001\",\"status\":\"NEW\",\"fee\":{\"currency\":\"GBP\",\"value\":12.50}}"));
-        var connector = CreateConnector(handler, new FlutterwaveOptions { DefaultTransferPurpose = "family_maintenance" });
+        var options = ConfiguredOptions();
+        options.DefaultTransferPurpose = "family_maintenance";
+        var connector = CreateConnector(handler, options);
 
         var instruction = new PayoutInstruction(
             ClientReference: "REM-0a1b2c3d",
@@ -350,7 +371,14 @@ public class FlutterwaveConnectorTests
         var clock = new TestTimeProvider();
         var factory = new StubHttpClientFactory(handler, new Uri("https://idp.flutterwave.test/token"));
         var provider = new FlutterwaveTokenProvider(
-            factory, Microsoft.Extensions.Options.Options.Create(new FlutterwaveOptions { ClientId = "id", ClientSecret = "secret" }))
+            factory,
+            new StaticFlutterwaveConfigProvider(new FlutterwaveOptions
+            {
+                UseRealFlutterwaveApi = true,
+                IdpTokenUrl = "https://idp.flutterwave.test/token",
+                ClientId = "id",
+                ClientSecret = "secret"
+            }))
         {
             Clock = clock
         };

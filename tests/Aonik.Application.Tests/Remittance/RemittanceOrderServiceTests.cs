@@ -13,6 +13,7 @@ using Aonik.Finance.Services.Partners.Connectors;
 using Aonik.Finance.Services.Remittance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,35 @@ public class RemittanceOrderServiceTests
     private sealed class TestClock : IClock
     {
         public DateTime UtcNow { get; init; } = DateTime.UtcNow;
+    }
+
+    private sealed class TestSettingProvider(IReadOnlyDictionary<string, string?>? values = null) : ISettingProvider
+    {
+        private readonly IReadOnlyDictionary<string, string?> _values = values ?? new Dictionary<string, string?>();
+
+        public Task<string?> GetAsync(string key, CancellationToken cancellationToken = default)
+            => Task.FromResult(_values.TryGetValue(key, out var value) ? value : null);
+
+        public async Task<string> GetRequiredAsync(string key, CancellationToken cancellationToken = default)
+            => await GetAsync(key, cancellationToken) ?? throw new InvalidOperationException($"Setting '{key}' is required.");
+
+        public Task<string?> GetForScopeAsync(
+            string key,
+            SettingScope scope,
+            Guid? tenantId = null,
+            Guid? userId = null,
+            CancellationToken cancellationToken = default)
+            => GetAsync(key, cancellationToken);
+
+        public Task<SettingResolution> GetResolvedAsync(
+            string key,
+            Guid? tenantId = null,
+            Guid? userId = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new SettingResolution(
+                key,
+                _values.TryGetValue(key, out var value) ? value : null,
+                _values.ContainsKey(key) ? "Global" : "None"));
     }
 
     // Stub: confirm/get/webhook tests never call it; the quote test exercises GetRemittanceQuoteAsync,
@@ -159,6 +189,7 @@ public class RemittanceOrderServiceTests
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId ?? CallerUserId),
             configuration ?? new ConfigurationBuilder().Build(),
+            new TestSettingProvider(),
             effectiveClock,
             NullLogger<RemittanceOrderService>.Instance);
     }
@@ -188,6 +219,7 @@ public class RemittanceOrderServiceTests
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId ?? CallerUserId),
             configuration ?? new ConfigurationBuilder().Build(),
+            new TestSettingProvider(),
             effectiveClock,
             NullLogger<RemittanceOrderService>.Instance);
     }

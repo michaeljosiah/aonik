@@ -19,6 +19,7 @@ using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Primitives;
 
 using PricingModels = Aonik.Finance.Contracts.Models.Pricing;
@@ -61,6 +62,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IConfiguration _configuration;
+    private readonly ISettingProvider _settingProvider;
     private readonly IClock _clock;
     private readonly ILogger<RemittanceOrderService> _logger;
 
@@ -72,6 +74,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IConfiguration configuration,
+        ISettingProvider settingProvider,
         IClock clock,
         ILogger<RemittanceOrderService> logger)
     {
@@ -82,6 +85,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _configuration = configuration;
+        _settingProvider = settingProvider;
         _clock = clock;
         _logger = logger;
     }
@@ -520,7 +524,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             return;
         }
 
-        var signingSecret = ResolveWebhookSigningSecret(providerCode);
+        var signingSecret = await ResolveWebhookSigningSecretAsync(providerCode, cancellationToken);
         var signatureValid = !string.IsNullOrEmpty(signingSecret)
             && translator.VerifySignature(envelope, signingSecret);
 
@@ -1089,9 +1093,24 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private string? ResolveWebhookSigningSecret(string providerCode)
-        => _configuration[$"Finance:Partners:Webhooks:{providerCode}:SigningSecret"]
-            ?? _configuration["Finance:Partners:Webhooks:SigningSecret"];
+    private async Task<string?> ResolveWebhookSigningSecretAsync(
+        string providerCode,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(providerCode, "Flutterwave", StringComparison.OrdinalIgnoreCase))
+        {
+            var stored = await _settingProvider.GetAsync(
+                PartnerGatewaySettingNames.FlutterwaveSigningSecret,
+                cancellationToken);
+            if (!string.IsNullOrWhiteSpace(stored))
+            {
+                return stored;
+            }
+        }
+
+        return _configuration[$"Finance:Partners:Webhooks:{providerCode}:SigningSecret"]
+               ?? _configuration["Finance:Partners:Webhooks:SigningSecret"];
+    }
 
     private async Task EnsureCallerOwnsPartyAsync(Guid partyId, CancellationToken cancellationToken)
     {

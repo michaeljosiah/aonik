@@ -1564,6 +1564,49 @@ export interface AuthProviderSettingsUpdateRequest {
   keycloak?: KeycloakSettingsUpdateRequest | null;
 }
 
+export interface PaymentGatewayProviderResponse {
+  providerCode: string;
+  enabled: boolean;
+  baseUrl: string;
+  idpTokenUrl: string;
+  clientId: string;
+  defaultTransferPurpose: string;
+  hasClientSecret: boolean;
+  hasEncryptionKey: boolean;
+  hasSigningSecret: boolean;
+  secretSource: 'Database' | 'Configuration' | 'None' | string;
+}
+
+export interface PaymentGatewaySettingsResponse {
+  providers: PaymentGatewayProviderResponse[];
+}
+
+export interface PaymentGatewayProviderUpdateRequest {
+  providerCode: string;
+  enabled: boolean;
+  baseUrl: string;
+  idpTokenUrl: string;
+  clientId: string;
+  defaultTransferPurpose: string;
+  clientSecret?: string | null;
+  encryptionKey?: string | null;
+  signingSecret?: string | null;
+}
+
+export interface PaymentGatewaySettingsUpdateRequest {
+  providers: PaymentGatewayProviderUpdateRequest[];
+}
+
+export interface TestPaymentGatewayRequest {
+  providerCode: string;
+}
+
+export interface TestPaymentGatewayResponse {
+  succeeded: boolean;
+  providerCode: string;
+  errorMessage?: string | null;
+}
+
 export interface TextToSpeechCredentialResponse {
   provider: string;
   hasHostCredential: boolean;

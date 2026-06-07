@@ -16,10 +16,12 @@ namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 internal sealed class FlutterwaveClient
 {
     private readonly HttpClient _httpClient;
+    private readonly IFlutterwaveConfigProvider _configProvider;
 
-    public FlutterwaveClient(HttpClient httpClient)
+    public FlutterwaveClient(HttpClient httpClient, IFlutterwaveConfigProvider configProvider)
     {
         _httpClient = httpClient;
+        _configProvider = configProvider;
     }
 
     public Task<TResponse> PostAsync<TResponse>(
@@ -40,6 +42,8 @@ internal sealed class FlutterwaveClient
         where TResponse : class
     {
         using var request = new HttpRequestMessage(method, path);
+        var options = await _configProvider.GetAsync(cancellationToken);
+        _httpClient.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
 
         if (body is not null)
         {

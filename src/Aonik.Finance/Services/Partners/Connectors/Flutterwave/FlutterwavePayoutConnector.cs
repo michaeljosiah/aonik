@@ -3,7 +3,6 @@ using System.Globalization;
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Services.Partners.Connectors.Flutterwave.Dtos;
 using Aonik.SharedKernel.Primitives;
-using Microsoft.Extensions.Options;
 
 namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 
@@ -18,12 +17,12 @@ namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
 {
     private readonly FlutterwaveClient _client;
-    private readonly FlutterwaveOptions _options;
+    private readonly IFlutterwaveConfigProvider _configProvider;
 
-    public FlutterwavePayoutConnector(FlutterwaveClient client, IOptions<FlutterwaveOptions> options)
+    public FlutterwavePayoutConnector(FlutterwaveClient client, IFlutterwaveConfigProvider configProvider)
     {
         _client = client;
-        _options = options.Value;
+        _configProvider = configProvider;
     }
 
     public string ProviderCode => "Flutterwave";
@@ -42,6 +41,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<PayoutQuoteResult> QuotePayoutAsync(
         PayoutQuoteRequest request, CancellationToken cancellationToken = default)
     {
+        await EnsureConfiguredAsync(cancellationToken);
         var sourceCurrency = request.Amount.Currency;          // the quoted amount is the SOURCE (debit) amount
         var destinationCurrency = request.DestinationCurrency; // the recipient receives this currency
 
@@ -87,6 +87,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<AccountResolutionResult> ResolveAccountAsync(
         AccountResolutionRequest request, CancellationToken cancellationToken = default)
     {
+        await EnsureConfiguredAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(request.Currency))
         {
             throw new ArgumentException(
@@ -110,6 +111,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<RecipientRegistrationResult> RegisterRecipientAsync(
         RecipientRegistrationRequest request, CancellationToken cancellationToken = default)
     {
+        await EnsureConfiguredAsync(cancellationToken);
         var currency = request.Currency.Trim().ToUpperInvariant();
         var (first, last) = SplitName(request.AccountName);
         var name = new FwName { First = first, Last = last };
@@ -157,13 +159,14 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<PayoutInitiationResult> InitiatePayoutAsync(
         PayoutInstruction instruction, CancellationToken cancellationToken = default)
     {
+        var options = await GetConfiguredOptionsAsync(cancellationToken);
         var recipientId = GetRecipientId(instruction.Destination);
 
         var transferPurpose = instruction.Metadata is not null
             && instruction.Metadata.TryGetValue("transfer_purpose", out var purpose)
             && !string.IsNullOrWhiteSpace(purpose)
                 ? purpose
-                : _options.DefaultTransferPurpose;
+                : options.DefaultTransferPurpose;
 
         var body = new FwTransferRequest
         {
@@ -195,6 +198,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<PayoutStatusResult> GetPayoutStatusAsync(
         PartnerReference reference, CancellationToken cancellationToken = default)
     {
+        await EnsureConfiguredAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(reference.ProviderReference))
         {
             throw new ArgumentException(
@@ -222,6 +226,25 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         return envelope.Data
             ?? throw new FlutterwaveException(
                 $"Flutterwave response for '{path}' had no data.", "EMPTY", null, null, retryable: false);
+    }
+
+    private async Task EnsureConfiguredAsync(CancellationToken cancellationToken)
+        => _ = await GetConfiguredOptionsAsync(cancellationToken);
+
+    private async Task<FlutterwaveOptions> GetConfiguredOptionsAsync(CancellationToken cancellationToken)
+    {
+        var options = await _configProvider.GetAsync(cancellationToken);
+        if (!options.IsConfigured())
+        {
+            throw new FlutterwaveException(
+                "Flutterwave is not configured or disabled.",
+                errorType: "CONFIGURATION",
+                errorCode: null,
+                statusCode: null,
+                retryable: false);
+        }
+
+        return options;
     }
 
     private static string GetRecipientId(PayoutDestination destination)

@@ -2,7 +2,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 
 using Aonik.Finance.Services.Partners.Connectors.Flutterwave.Dtos;
-using Microsoft.Extensions.Options;
 
 namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 
@@ -18,18 +17,19 @@ internal sealed class FlutterwaveTokenProvider
     internal const string IdpClientName = "flutterwave-idp";
 
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly FlutterwaveOptions _options;
+    private readonly IFlutterwaveConfigProvider _configProvider;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private string? _token;
     private DateTimeOffset _expiresAt = DateTimeOffset.MinValue;
+    private string? _cacheKey;
 
     public FlutterwaveTokenProvider(
         IHttpClientFactory httpClientFactory,
-        IOptions<FlutterwaveOptions> options)
+        IFlutterwaveConfigProvider configProvider)
     {
         _httpClientFactory = httpClientFactory;
-        _options = options.Value;
+        _configProvider = configProvider;
     }
 
     /// <summary>Clock seam — defaults to the system clock; tests override via object initializer.</summary>
@@ -37,7 +37,11 @@ internal sealed class FlutterwaveTokenProvider
 
     public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken, bool forceRefresh = false)
     {
-        if (!forceRefresh && TryGetCached(out var cached))
+        var options = await _configProvider.GetAsync(cancellationToken);
+        EnsureConfigured(options);
+        var cacheKey = $"{options.IdpTokenUrl}|{options.ClientId}|{options.ClientSecret}";
+
+        if (!forceRefresh && TryGetCached(cacheKey, out var cached))
         {
             return cached;
         }
@@ -45,12 +49,12 @@ internal sealed class FlutterwaveTokenProvider
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (!forceRefresh && TryGetCached(out var cachedAfterWait))
+            if (!forceRefresh && TryGetCached(cacheKey, out var cachedAfterWait))
             {
                 return cachedAfterWait;
             }
 
-            return await FetchTokenAsync(cancellationToken);
+            return await FetchTokenAsync(options, cacheKey, cancellationToken);
         }
         finally
         {
@@ -58,9 +62,9 @@ internal sealed class FlutterwaveTokenProvider
         }
     }
 
-    private bool TryGetCached(out string token)
+    private bool TryGetCached(string cacheKey, out string token)
     {
-        if (_token is not null && Clock.GetUtcNow() < _expiresAt)
+        if (_token is not null && _cacheKey == cacheKey && Clock.GetUtcNow() < _expiresAt)
         {
             token = _token;
             return true;
@@ -70,15 +74,19 @@ internal sealed class FlutterwaveTokenProvider
         return false;
     }
 
-    private async Task<string> FetchTokenAsync(CancellationToken cancellationToken)
+    private async Task<string> FetchTokenAsync(
+        FlutterwaveOptions options,
+        string cacheKey,
+        CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient(IdpClientName);
+        client.BaseAddress = new Uri(options.IdpTokenUrl, UriKind.Absolute);
 
         var form = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("grant_type", "client_credentials"),
-            new KeyValuePair<string, string>("client_id", _options.ClientId.Trim()),
-            new KeyValuePair<string, string>("client_secret", _options.ClientSecret.Trim()),
+            new KeyValuePair<string, string>("client_id", options.ClientId.Trim()),
+            new KeyValuePair<string, string>("client_secret", options.ClientSecret.Trim()),
         });
 
         using var response = await client.PostAsync(string.Empty, form, cancellationToken);
@@ -117,6 +125,20 @@ internal sealed class FlutterwaveTokenProvider
         var lifetime = Math.Max(token.ExpiresIn, 60);
         _expiresAt = Clock.GetUtcNow().AddSeconds(lifetime - 60);
         _token = token.AccessToken;
+        _cacheKey = cacheKey;
         return _token;
+    }
+
+    private static void EnsureConfigured(FlutterwaveOptions options)
+    {
+        if (!options.IsConfigured())
+        {
+            throw new FlutterwaveException(
+                "Flutterwave is not configured or disabled.",
+                errorType: "CONFIGURATION",
+                errorCode: null,
+                statusCode: null,
+                retryable: false);
+        }
     }
 }

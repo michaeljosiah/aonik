@@ -156,7 +156,7 @@ public class FlutterwaveSandboxTests
         var options = Options();
         return new FlutterwaveTokenProvider(
             new StubHttpClientFactory(new Uri(options.IdpTokenUrl)),
-            Microsoft.Extensions.Options.Options.Create(options));
+            new StaticFlutterwaveConfigProvider(options));
     });
 
     private static FlutterwaveTokenProvider TokenProvider => LazyTokenProvider.Value;
@@ -169,8 +169,15 @@ public class FlutterwaveSandboxTests
             InnerHandler = new HttpClientHandler()
         };
         var httpClient = new HttpClient(authHandler) { BaseAddress = new Uri(options.BaseUrl) };
+        var configProvider = new StaticFlutterwaveConfigProvider(options);
         return new FlutterwavePayoutConnector(
-            new FlutterwaveClient(httpClient), Microsoft.Extensions.Options.Options.Create(options));
+            new FlutterwaveClient(httpClient, configProvider), configProvider);
+    }
+
+    private sealed class StaticFlutterwaveConfigProvider(FlutterwaveOptions options) : IFlutterwaveConfigProvider
+    {
+        public Task<FlutterwaveOptions> GetAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(options);
     }
 
     // The token provider resolves its IdP client through IHttpClientFactory; the real DI uses a named

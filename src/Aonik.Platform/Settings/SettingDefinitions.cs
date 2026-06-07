@@ -53,6 +53,16 @@ public static class SettingDefinitions
             [CommunicationSettingNames.AzureEmailFromAddress] = new SettingDefinition(CommunicationSettingNames.AzureEmailFromAddress),
             [CommunicationSettingNames.AzureSmsFromPhoneNumber] = new SettingDefinition(CommunicationSettingNames.AzureSmsFromPhoneNumber),
 
+            // ── Partner Gateways ───────────────────────────────────────
+            [PartnerGatewaySettingNames.FlutterwaveEnabled] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveEnabled, "false", IsVisibleToClients: true),
+            [PartnerGatewaySettingNames.FlutterwaveBaseUrl] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveBaseUrl, "https://developersandbox-api.flutterwave.com", IsVisibleToClients: true),
+            [PartnerGatewaySettingNames.FlutterwaveIdpTokenUrl] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveIdpTokenUrl, "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token", IsVisibleToClients: true),
+            [PartnerGatewaySettingNames.FlutterwaveClientId] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveClientId, IsVisibleToClients: true),
+            [PartnerGatewaySettingNames.FlutterwaveClientSecret] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveClientSecret, IsEncrypted: true),
+            [PartnerGatewaySettingNames.FlutterwaveEncryptionKey] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveEncryptionKey, IsEncrypted: true),
+            [PartnerGatewaySettingNames.FlutterwaveDefaultTransferPurpose] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveDefaultTransferPurpose, "family_maintenance", IsVisibleToClients: true),
+            [PartnerGatewaySettingNames.FlutterwaveSigningSecret] = new SettingDefinition(PartnerGatewaySettingNames.FlutterwaveSigningSecret, IsEncrypted: true),
+
             // ── Blob Storage ──────────────────────────────────────────────
             [BlobStorageSettingNames.Provider] = new SettingDefinition(BlobStorageSettingNames.Provider, "Local"),
             [BlobStorageSettingNames.AzureAccountName] = new SettingDefinition(BlobStorageSettingNames.AzureAccountName),
