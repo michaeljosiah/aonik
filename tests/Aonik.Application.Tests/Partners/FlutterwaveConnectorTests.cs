@@ -206,20 +206,27 @@ public class FlutterwaveConnectorTests
 
     // ── Quote ─────────────────────────────────────────────────────────────────
     [Fact]
-    public async Task QuotePayoutAsync_Should_ReturnRateAndConverted_WithNullFee()
+    public async Task QuotePayoutAsync_Should_ConvertSourceAmount_ToDestinationCurrency_WithNullFee()
     {
         var handler = new RecordingHandler();
+        // Flutterwave's rate is SOURCE per DESTINATION: 0.0005 GBP per 1 NGN (i.e. 2000 NGN per GBP).
         handler.Enqueue(HttpStatusCode.OK, Envelope(
-            "{\"id\":\"rte_1\",\"rate\":\"2000.5\",\"source\":{\"amount\":\"25.00\",\"currency\":\"GBP\"},\"destination\":{\"amount\":\"50000\",\"currency\":\"NGN\"}}"));
+            "{\"id\":\"rte_1\",\"rate\":\"0.0005\",\"source\":{\"amount\":\"0.05\",\"currency\":\"GBP\"},\"destination\":{\"amount\":\"100\",\"currency\":\"NGN\"}}"));
         var connector = CreateConnector(handler);
 
+        // Quote: "I send 100 GBP — what does the recipient receive in NGN?"
         var result = await connector.QuotePayoutAsync(
-            new PayoutQuoteRequest(new SharedKernel.Primitives.Money(50000m, "GBP"), "NGN", null));
+            new PayoutQuoteRequest(new SharedKernel.Primitives.Money(100m, "GBP"), "NGN", null));
 
         result.Fee.Should().BeNull(); // G8 — fee not quotable pre-send
-        result.FxRate.Should().Be(2000.5m);
-        result.ConvertedAmount!.Amount.Should().Be(25.00m);
-        result.ConvertedAmount.Currency.Should().Be("GBP");
+        // The recipient amount, in the DESTINATION currency — NOT the source.amount echo (the prior bug).
+        result.ConvertedAmount!.Currency.Should().Be("NGN");
+        result.ConvertedAmount.Amount.Should().Be(200000m);  // 100 GBP / 0.0005 = 200,000 NGN
+        result.FxRate.Should().Be(2000m);                    // destination per source (NGN per GBP)
+
+        using var body = JsonDocument.Parse(handler.LastBody!);
+        body.RootElement.GetProperty("source").GetProperty("currency").GetString().Should().Be("GBP");
+        body.RootElement.GetProperty("destination").GetProperty("currency").GetString().Should().Be("NGN");
     }
 
     [Fact]

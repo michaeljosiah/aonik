@@ -805,6 +805,19 @@ GET {API}/banks?country=NG          // bank directory: code ↔ name</code></pre
 { "source": { "currency": "NGN" }, "destination": { "currency": "EUR", "amount": 1200.56 }, "precision": 6 }
 → { "status": "success", "data": { "id": "rte_…", "rate": "…", "source": { "amount": "…", "currency": "NGN" },
                                    "destination": { "amount": "…", "currency": "EUR" } } }</code></pre>
+<div class="callout p0">
+  <span class="callout-label">Direction matters &mdash; the endpoint is destination-driven</span>
+  <code>/transfers/rates</code> is <strong>destination-anchored</strong>: <code>destination.amount</code>
+  is the amount the recipient <em>receives</em> (the required input), and the response returns
+  <code>source.amount</code> (the debit) and <code>rate</code> = <strong>source units per 1 destination
+  unit</strong>. Our <code>PayoutQuoteRequest.Amount</code> is a <strong>source</strong> amount (e.g.
+  "send 100&nbsp;GBP"), so it must <em>not</em> be sent as <code>destination.amount</code> &mdash; that
+  asks the inverse question ("what debit delivers 100&nbsp;NGN?") and is wrong by orders of magnitude.
+  The connector instead reads the rate and converts itself: <strong>recipient amount = source &divide;
+  rate</strong>, reporting <code>FxRate</code> as destination-per-source (<code>1 &divide; rate</code>)
+  and <code>ConvertedAmount</code> in the destination currency. The rate is amount-independent for a
+  pair, so the nominal <code>destination.amount</code> sent only serves to retrieve the rate.
+</div>
 <div class="callout">
   <span class="callout-label">Quote is split &mdash; partial fit</span>
   <code>/transfers/rates</code> returns the <strong>rate + converted amount</strong> but the
@@ -1197,7 +1210,9 @@ Task&lt;T&gt; GetAsync&lt;T&gt;(string path, CancellationToken ct);
     //     Raw:       new(data.status, data.provider_response?.message, redacted(payloadJson)))
 
     // GetPayoutStatusAsync(PartnerReference r): GET /transfers/{r.ProviderReference} → PayoutStatusResult
-    // QuotePayoutAsync(PayoutQuoteRequest q):   POST /transfers/rates → PayoutQuoteResult (Fee maybe null, G8)
+    // QuotePayoutAsync(PayoutQuoteRequest q):   POST /transfers/rates (destination-driven endpoint, §5.7).
+    //   read rate (source per destination); recipient amount = q.Amount.Amount / rate (NOT q.Amount as
+    //   destination.amount); ConvertedAmount in DestinationCurrency, FxRate = 1/rate; Fee null (G8).
     // ResolveAccountAsync(AccountResolutionRequest a): POST /banks/account-resolve → AccountResolutionResult
     // RegisterRecipientAsync(RecipientRegistrationRequest r): POST /transfers/recipients → ProviderBeneficiaryId (rcb_…)  // NEW, G20
 }</code></pre>

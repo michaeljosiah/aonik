@@ -42,8 +42,8 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<PayoutQuoteResult> QuotePayoutAsync(
         PayoutQuoteRequest request, CancellationToken cancellationToken = default)
     {
-        var sourceCurrency = request.Amount.Currency;
-        var destinationCurrency = request.DestinationCurrency;
+        var sourceCurrency = request.Amount.Currency;          // the quoted amount is the SOURCE (debit) amount
+        var destinationCurrency = request.DestinationCurrency; // the recipient receives this currency
 
         // Same-currency payout has no FX leg; Flutterwave cannot quote a transfer fee pre-send (G8).
         if (string.Equals(sourceCurrency, destinationCurrency, StringComparison.OrdinalIgnoreCase))
@@ -51,6 +51,13 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
             return new PayoutQuoteResult(null, null, null, new RawProviderResponse(null, "same-currency", null));
         }
 
+        // Flutterwave's /transfers/rates is DESTINATION-driven: you give the amount the recipient
+        // receives (destination.amount) and it returns the debit (source.amount) + rate, where rate is
+        // SOURCE units per 1 DESTINATION unit. Our request carries a SOURCE amount, so we must NOT send
+        // it as destination.amount (that asks the inverse question — the debit to deliver that many
+        // destination units, off by orders of magnitude). Instead we read the rate and convert:
+        // recipient amount = source / rate. The rate is amount-independent for a pair, so the nominal
+        // destination.amount we send only serves to retrieve the rate.
         var body = new FwRateRequest
         {
             Source = new FwRateCurrency { Currency = sourceCurrency },
@@ -61,10 +68,17 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         var data = await PostDataAsync<FwRateData>(
             "/transfers/rates", body, FlutterwaveReferences.FreshIdempotencyKey(), cancellationToken);
 
-        decimal? fxRate = TryParseDecimal(data.Rate);
-        Money? converted = data.Source?.Amount is { } srcAmount && data.Source.Currency is { } srcCcy
-            ? new Money(ParseDecimal(srcAmount), srcCcy)
-            : null;
+        var sourcePerDestination = TryParseDecimal(data.Rate);
+        Money? converted = null;
+        decimal? fxRate = null;
+        if (sourcePerDestination is > 0m)
+        {
+            // Recipient (destination) amount our source buys, and the intuitive destination-per-source rate.
+            var recipientAmount = Math.Round(
+                request.Amount.Amount / sourcePerDestination.Value, 2, MidpointRounding.AwayFromZero);
+            converted = new Money(recipientAmount, destinationCurrency);
+            fxRate = Math.Round(1m / sourcePerDestination.Value, 8, MidpointRounding.AwayFromZero);
+        }
 
         // Fee is unavailable from /transfers/rates — null means "fee known only at execution" (§5.7).
         return new PayoutQuoteResult(null, fxRate, converted, new RawProviderResponse(data.Id, null, null));
@@ -302,7 +316,4 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         => decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result)
             ? result
             : null;
-
-    private static decimal ParseDecimal(string value)
-        => decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : 0m;
 }
