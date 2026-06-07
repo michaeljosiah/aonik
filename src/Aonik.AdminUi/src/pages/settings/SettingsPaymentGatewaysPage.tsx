@@ -64,11 +64,11 @@ function SettingsSection({ title, description, children, action }: { title: stri
   return (
     <section className="mb-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]">
       <div className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] px-5 py-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          {description ? <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-text-secondary)]">{description}</p> : null}
+          {description ? <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-text-secondary)]">{description}</p> : null}
         </div>
-        {action}
+        {action ? <div className="flex-none">{action}</div> : null}
       </div>
       <div className="space-y-4 p-5">{children}</div>
     </section>
