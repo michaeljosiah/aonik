@@ -5,6 +5,7 @@ using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Persistence;
 using Aonik.Platform;
 using Aonik.Finance;
+using Aonik.Finance.Services.Seeding;
 using Aonik.Ai;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
@@ -130,6 +131,13 @@ try
         var promptSeedLogger = loggerFactory.CreateLogger<PromptSpecSeedService>();
         var promptSeedService = new PromptSpecSeedService(aiDbContext, fileBasedPromptStore, promptSeedLogger);
         await promptSeedService.SeedAsync();
+
+        var financePricingSeed = scope.ServiceProvider.GetRequiredService<FinancePricingSeedContributor>();
+        var operations = await financePricingSeed.SeedAsync();
+        logger.LogInformation(
+            "Global seed {SeedKey} completed with {OperationCount} operation(s).",
+            financePricingSeed.Key,
+            operations.Count);
     }
 
     logger.LogInformation("Migrator completed successfully.");

@@ -280,6 +280,9 @@ public sealed class FinanceModule : IModule
         // (Spec 027 Phase 5) along with the CodeAct/* file tree.
 
         // ── Global Seed Contributors ────────────────────────────────────
+        services.AddScoped<Services.Seeding.FinancePricingSeedContributor>();
+        services.AddScoped<IGlobalSeedContributor>(sp =>
+            sp.GetRequiredService<Services.Seeding.FinancePricingSeedContributor>());
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.PersonalFinanceSeedContributor>();
 
         return services;

@@ -2,6 +2,7 @@ using System.Data.Common;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Services;
 using Aonik.Ai.Services.Seeding;
+using Aonik.Finance.Services.Seeding;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Persistence;
@@ -203,6 +204,13 @@ public static class DatabaseStartupConfiguration
                 aiDbContext,
                 services.GetRequiredService<ILogger<AiTaskSeedService>>())
             .SeedAsync();
+
+        var financePricingSeed = services.GetRequiredService<FinancePricingSeedContributor>();
+        var financePricingOperations = await financePricingSeed.SeedAsync();
+        startupLogger.LogInformation(
+            "Global seed {SeedKey} completed with {OperationCount} operation(s).",
+            financePricingSeed.Key,
+            financePricingOperations.Count);
 
         startupLogger.LogInformation("Database seed routines completed successfully.");
     }
