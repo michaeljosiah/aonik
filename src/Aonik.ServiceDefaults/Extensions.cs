@@ -99,6 +99,10 @@ public static class Extensions
                     .AddSource("Aonik.Ai")
                     // Retrieval tracing — Qdrant upsert/search + embedding calls.
                     .AddSource("Aonik.VectorStore")
+                    // Finance money-action tracing — quote / confirm / capture /
+                    // transmit / settle / webhook spans tagged with order.id so
+                    // operators can pivot on OrderId in App Insights (Issue #142).
+                    .AddSource("Aonik.Finance")
                     .AddSource("*Microsoft.Extensions.AI")
                     .AddSource("*Microsoft.Extensions.Agents*");
             });
