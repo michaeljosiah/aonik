@@ -128,6 +128,12 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Pricing.IFxQuoteService, Services.Pricing.FxQuoteService>();
         services.AddSingleton<SharedKernel.Abstractions.ICurrencyMetadataProvider, Services.Pricing.CurrencyMetadataProvider>();
 
+        // ── Remittance (Spec 036) ────────────────────────────────────
+        // Payabo B2C send-money orchestration: quote → confirm (lock → debit → connector →
+        // transmission) → settle on partner webhook, over the shipped order / pricing / ledger /
+        // payout / transmission / webhook primitives.
+        services.AddScoped<Contracts.Services.Remittance.IRemittanceOrderService, Services.Remittance.RemittanceOrderService>();
+
         // Partners
         services.AddScoped<Contracts.Services.Partners.IPartnerAdminService, Services.Partners.PartnerAdminService>();
 

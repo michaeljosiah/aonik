@@ -36,11 +36,27 @@ internal sealed class LedgerPostingService
     private const string RevenueAccountCode = "4000";
     private const string RevenueAccountName = "Operating Revenue";
 
+    // Remittance accounts (Spec 036 §7.2). Lazily created like Payments Clearing so the
+    // flow does not depend on a chart-of-accounts seed change. The first slice settles in
+    // the origin (debit) currency — a "configured settlement currency" per Spec 036 §15 —
+    // so every journal entry stays single-currency and Remittance Clearing nets to zero
+    // across debit→settlement and debit→reversal. Destination-currency settlement and
+    // fee-revenue recognition remain open accounting decisions for finance review.
+    private const string RemittanceClearingAccountCode = "2150";
+    private const string RemittanceClearingAccountName = "Remittance Clearing";
+    private const string CustomerFundsAccountCode = "2200";
+    private const string CustomerFundsAccountName = "Customer Funds Liability";
+    private const string DueFromPartnerAccountCode = "1300";
+    private const string DueFromPartnerAccountName = "Due From Partner";
+
     // Source identities double as idempotency keys: the filtered unique index on
     // (TenantId, SourceType, SourceId) guarantees one entry per event, so a
     // retried capture / mark-paid cannot double-post.
     private const string PaymentCaptureSourceType = "PaymentCapture";
     private const string InvoiceSettlementSourceType = "InvoiceSettlement";
+    private const string RemittanceDebitSourceType = "RemittanceDebit";
+    private const string RemittanceSettlementSourceType = "RemittanceSettlement";
+    private const string RemittanceFailureReversalSourceType = "RemittanceFailureReversal";
 
     private readonly FinanceDbContext _db;
     private readonly ILogger<LedgerPostingService> _logger;
@@ -103,6 +119,104 @@ internal sealed class LedgerPostingService
             currency: invoice.Currency,
             narration: "Invoice settled",
             orderId: invoice.OrderId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts the customer debit for a confirmed remittance — BEFORE any connector call:
+    /// Dr Customer Funds Liability / Cr Remittance Clearing for the quote total in the
+    /// origin currency. Idempotent per order (SourceId = orderId). Spec 036 §7.
+    /// </summary>
+    public async Task PostRemittanceDebitAsync(
+        Guid tenantId,
+        Guid orderId,
+        decimal amount,
+        string currency,
+        CancellationToken cancellationToken = default)
+    {
+        var ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
+        var customerFundsAccountId = await ResolveOrCreateAccountIdAsync(
+            tenantId, ledgerId, CustomerFundsAccountCode, CustomerFundsAccountName, "Liability", cancellationToken);
+        var clearingAccountId = await ResolveOrCreateAccountIdAsync(
+            tenantId, ledgerId, RemittanceClearingAccountCode, RemittanceClearingAccountName, "Liability", cancellationToken);
+
+        await PostBalancedEntryAsync(
+            tenantId,
+            ledgerId,
+            RemittanceDebitSourceType,
+            orderId,
+            debitAccountId: customerFundsAccountId,
+            creditAccountId: clearingAccountId,
+            amount: amount,
+            currency: currency,
+            narration: "Remittance debit",
+            orderId: orderId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts settlement for a succeeded remittance payout:
+    /// Dr Remittance Clearing / Cr Due From Partner for the settled amount. Idempotent per
+    /// payout (SourceId = payoutId). Spec 036 §7.
+    /// </summary>
+    public async Task PostRemittanceSettlementAsync(
+        Guid tenantId,
+        Guid payoutId,
+        Guid? orderId,
+        decimal amount,
+        string currency,
+        CancellationToken cancellationToken = default)
+    {
+        var ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
+        var clearingAccountId = await ResolveOrCreateAccountIdAsync(
+            tenantId, ledgerId, RemittanceClearingAccountCode, RemittanceClearingAccountName, "Liability", cancellationToken);
+        var dueFromPartnerAccountId = await ResolveOrCreateAccountIdAsync(
+            tenantId, ledgerId, DueFromPartnerAccountCode, DueFromPartnerAccountName, "Asset", cancellationToken);
+
+        await PostBalancedEntryAsync(
+            tenantId,
+            ledgerId,
+            RemittanceSettlementSourceType,
+            payoutId,
+            debitAccountId: clearingAccountId,
+            creditAccountId: dueFromPartnerAccountId,
+            amount: amount,
+            currency: currency,
+            narration: "Remittance settled",
+            orderId: orderId,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Reverses the customer debit when a remittance payout fails or is reversed after the
+    /// debit posted: Dr Remittance Clearing / Cr Customer Funds Liability for the original
+    /// debited amount. Idempotent per payout (SourceId = payoutId). Spec 036 §7.
+    /// </summary>
+    public async Task PostRemittanceFailureReversalAsync(
+        Guid tenantId,
+        Guid payoutId,
+        Guid? orderId,
+        decimal amount,
+        string currency,
+        CancellationToken cancellationToken = default)
+    {
+        var ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
+        var clearingAccountId = await ResolveOrCreateAccountIdAsync(
+            tenantId, ledgerId, RemittanceClearingAccountCode, RemittanceClearingAccountName, "Liability", cancellationToken);
+        var customerFundsAccountId = await ResolveOrCreateAccountIdAsync(
+            tenantId, ledgerId, CustomerFundsAccountCode, CustomerFundsAccountName, "Liability", cancellationToken);
+
+        await PostBalancedEntryAsync(
+            tenantId,
+            ledgerId,
+            RemittanceFailureReversalSourceType,
+            payoutId,
+            debitAccountId: clearingAccountId,
+            creditAccountId: customerFundsAccountId,
+            amount: amount,
+            currency: currency,
+            narration: "Remittance reversed",
+            orderId: orderId,
             cancellationToken);
     }
 
@@ -338,5 +452,48 @@ internal sealed class LedgerPostingService
         await _db.SaveChangesAsync(cancellationToken);
 
         return clearingAccount.Id;
+    }
+
+    /// <summary>
+    /// Resolves a ledger account by code, lazily creating it with the given name/type if absent.
+    /// Mirrors the self-healing clearing-account path: the <c>LedgerAccount.Code</c> index is
+    /// non-unique, so two concurrent first-uses could each create a row — harmless, as both are
+    /// valid accounts of the same type that net identically.
+    /// </summary>
+    private async Task<Guid> ResolveOrCreateAccountIdAsync(
+        Guid tenantId,
+        Guid ledgerId,
+        string code,
+        string name,
+        string accountType,
+        CancellationToken cancellationToken)
+    {
+        var accountId = await _db.LedgerAccounts
+            .Where(account => account.TenantId == tenantId && account.Code == code)
+            .Select(account => (Guid?)account.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (accountId.HasValue)
+        {
+            return accountId.Value;
+        }
+
+        var now = DateTime.UtcNow;
+        var account = new LedgerAccount
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            LedgerId = ledgerId,
+            AccountType = accountType,
+            Name = name,
+            Code = code,
+            DimensionsJson = "{}",
+            CreatedAt = now
+        };
+
+        _db.LedgerAccounts.Add(account);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return account.Id;
     }
 }
