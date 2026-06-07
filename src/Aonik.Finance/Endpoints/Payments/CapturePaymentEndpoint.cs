@@ -33,29 +33,18 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
     public override async Task HandleAsync(CancellationToken ct)
     {
         var id = Route<Guid>("id");
+        var result = await _paymentService.CapturePaymentAsync(id, ct);
 
-        try
-        {
-            var result = await _paymentService.CapturePaymentAsync(id, ct);
+        var response = new PaymentIntentResponse(
+            result.Id,
+            result.OrderId,
+            result.InvoiceId,
+            result.Amount,
+            result.Currency,
+            result.Status.ToString(),
+            result.Reference,
+            result.CreatedUtc);
 
-            var response = new PaymentIntentResponse(
-                result.Id,
-                result.OrderId,
-                result.InvoiceId,
-                result.Amount,
-                result.Currency,
-                result.Status.ToString(),
-                result.Reference,
-                result.CreatedUtc);
-
-            await Send.OkAsync(response, ct);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // Not-found → 404; wrong-state or an unresolved payer/method (the money-movement
-            // guard) → 422, matching the Billing endpoints' convention.
-            AddError(ex.Message);
-            await Send.ErrorsAsync(ex.Message.Contains("not found") ? 404 : 422, ct);
-        }
+        await Send.OkAsync(response, ct);
     }
 }

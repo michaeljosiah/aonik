@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
@@ -33,23 +34,23 @@ internal class PublicPaymentService : IPublicPaymentService
 
         if (order == null)
         {
-            throw new InvalidOperationException($"Order {request.OrderId} not found.");
+            throw new NotFoundException($"Order {request.OrderId} not found.");
         }
 
         if (!string.Equals(order.OrderType, "BillPayment", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Payment intents can only be created for bill payment orders.");
+            throw new InvalidStateException("Payment intents can only be created for bill payment orders.");
         }
 
         if (!string.Equals(order.Status, "Draft", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(order.Status, "PendingFunding", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Only draft or pending funding orders can create payment intents.");
+            throw new InvalidStateException("Only draft or pending funding orders can create payment intents.");
         }
 
         if (order.AmountIn <= 0)
         {
-            throw new InvalidOperationException("Order amount must be greater than zero to create a payment intent.");
+            throw new InvalidStateException("Order amount must be greater than zero to create a payment intent.");
         }
 
         var provider = ResolveProvider(request.Provider);
@@ -116,7 +117,7 @@ internal class PublicPaymentService : IPublicPaymentService
     {
         if (request.PaymentIntentId == null && string.IsNullOrWhiteSpace(request.ProviderReference))
         {
-            throw new InvalidOperationException("Either paymentIntentId or providerReference is required.");
+            throw new InvalidStateException("Either paymentIntentId or providerReference is required.");
         }
 
         var order = await _dbContext.Orders
@@ -170,7 +171,7 @@ internal class PublicPaymentService : IPublicPaymentService
 
         if (gateway == null)
         {
-            throw new InvalidOperationException($"Payment provider '{provider}' is not configured.");
+            throw new InvalidStateException($"Payment provider '{provider}' is not configured.");
         }
 
         return gateway;

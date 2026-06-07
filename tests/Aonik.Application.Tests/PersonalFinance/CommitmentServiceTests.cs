@@ -432,7 +432,7 @@ public class CommitmentServiceTests
         Func<Task> action = () => service.CreateFromTransactionAsync(request);
 
         // Assert
-        await action.Should().ThrowAsync<InvalidOperationException>()
+        await action.Should().ThrowAsync<NotFoundException>()
             .WithMessage("*not found*");
     }
 
@@ -484,7 +484,7 @@ public class CommitmentServiceTests
         Func<Task> action = () => service.ConfirmDetectedAsync(bill.Id);
 
         // Assert
-        await action.Should().ThrowAsync<InvalidOperationException>()
+        await action.Should().ThrowAsync<InvalidStateException>()
             .WithMessage("*expected 'Detected'*");
     }
 
@@ -501,7 +501,7 @@ public class CommitmentServiceTests
         Func<Task> action = () => service.ConfirmDetectedAsync(Guid.NewGuid());
 
         // Assert
-        await action.Should().ThrowAsync<InvalidOperationException>()
+        await action.Should().ThrowAsync<NotFoundException>()
             .WithMessage("*not found*");
     }
 
@@ -551,7 +551,7 @@ public class CommitmentServiceTests
         Func<Task> action = () => service.RejectDetectedAsync(sub.Id);
 
         // Assert
-        await action.Should().ThrowAsync<InvalidOperationException>()
+        await action.Should().ThrowAsync<InvalidStateException>()
             .WithMessage("*expected 'Detected'*");
     }
 

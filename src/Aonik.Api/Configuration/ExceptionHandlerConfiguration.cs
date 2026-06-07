@@ -158,6 +158,14 @@ public static class ExceptionHandlerConfiguration
                     fieldName = validation.FieldName,
                 });
                 return;
+
+            case NotFoundException:
+                await WriteJsonAsync(context, StatusCodes.Status404NotFound, new { error = ex.Message });
+                return;
+
+            case InvalidStateException:
+                await WriteJsonAsync(context, StatusCodes.Status422UnprocessableEntity, new { error = ex.Message });
+                return;
         }
 
         // Default: unexpected — 500 with detail in dev, opaque in prod.

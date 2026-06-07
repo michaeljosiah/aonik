@@ -96,11 +96,6 @@ public class UploadCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPho
 
             await Send.OkAsync(new ApiCustomerPhotoUploadResponse(result.PhotoUrl), ct);
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Permission"))
-        {
-            HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await HttpContext.Response.WriteAsJsonAsync(new { error = "You don't have permission to update your profile photo." }, ct);
-        }
         catch (ArgumentException ex)
         {
             HttpContext.Response.StatusCode = 422;

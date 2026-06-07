@@ -34,16 +34,7 @@ public class IssueInvoiceEndpoint : EndpointWithoutRequest<InvoiceResponse>
     {
         var id = Route<Guid>("id");
 
-        try
-        {
-            await _billingService.IssueInvoiceAsync(id, ct);
-        }
-        catch (InvalidOperationException ex)
-        {
-            AddError(ex.Message);
-            await Send.ErrorsAsync(ex.Message.Contains("not found") ? 404 : 422, ct);
-            return;
-        }
+        await _billingService.IssueInvoiceAsync(id, ct);
 
         var result = await _billingService.GetInvoiceAsync(id, ct);
 

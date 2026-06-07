@@ -92,11 +92,6 @@ internal class UploadUserPhotoEndpoint : EndpointWithoutRequest<CustomerPhotoUpl
 
             await Send.OkAsync(new CustomerPhotoUploadResponse(result.PhotoUrl), ct);
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Permission"))
-        {
-            HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await HttpContext.Response.WriteAsJsonAsync(new { error = "You don't have permission to update this user's photo." }, ct);
-        }
         catch (ArgumentException ex)
         {
             HttpContext.Response.StatusCode = 422;

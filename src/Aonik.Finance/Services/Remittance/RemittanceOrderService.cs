@@ -200,38 +200,38 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         var quote = await _db.PricingQuotes
             .AsNoTracking()
             .FirstOrDefaultAsync(q => q.Id == request.PricingQuoteId, cancellationToken)
-            ?? throw new InvalidOperationException("Pricing quote not found.");
+            ?? throw new NotFoundException("Pricing quote not found.");
 
         if (!string.Equals(quote.QuoteType, RemittanceQuoteType, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Pricing quote is not a remittance quote.");
+            throw new InvalidStateException("Pricing quote is not a remittance quote.");
         }
 
         if (quote.ExpiresAt <= _clock.UtcNow)
         {
             _logger.OrderRejected(Guid.Empty, tenantId, "Remittance quote expired.");
-            throw new InvalidOperationException("Remittance quote has expired.");
+            throw new InvalidStateException("Remittance quote has expired.");
         }
 
         if (quote.CustomerId.HasValue && quote.CustomerId.Value != request.CustomerPartyId)
         {
-            throw new InvalidOperationException("Pricing quote does not belong to the requested customer.");
+            throw new InvalidStateException("Pricing quote does not belong to the requested customer.");
         }
 
         var account = await _db.ExternalPayoutAccounts
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == request.DestinationExternalAccountId, cancellationToken)
-            ?? throw new InvalidOperationException("Destination payout account not found.");
+            ?? throw new NotFoundException("Destination payout account not found.");
 
         if (account.CustomerPartyId != request.CustomerPartyId)
         {
-            throw new InvalidOperationException("Destination payout account is not owned by the customer.");
+            throw new InvalidStateException("Destination payout account is not owned by the customer.");
         }
 
         if (!string.IsNullOrWhiteSpace(account.Currency)
             && !string.Equals(account.Currency, quote.DestinationCurrency, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Destination payout account currency does not match the quote.");
+            throw new InvalidStateException("Destination payout account currency does not match the quote.");
         }
 
         // Reject unsupported rails up front — before any order/debit — rather than silently transmitting
@@ -239,7 +239,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         // instruction builder) compare case-insensitively.
         if (!IsSupportedDestinationRail(account.DestinationType))
         {
-            throw new InvalidOperationException(
+            throw new InvalidStateException(
                 $"Unsupported payout destination type '{account.DestinationType}'.");
         }
 
@@ -248,7 +248,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         // rails (verification flips IsVerified once the destination is confirmed with the partner).
         if (!account.IsVerified)
         {
-            throw new InvalidOperationException(
+            throw new InvalidStateException(
                 "Destination payout account is not verified; verify the beneficiary before sending.");
         }
 
@@ -436,7 +436,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             {
                 // The tenant-wide idempotency key is already held by a different customer — never return
                 // or drive their order.
-                throw new InvalidOperationException("Idempotency key is already in use.");
+                throw new InvalidStateException("Idempotency key is already in use.");
             }
 
             activity?.SetTag(FinanceActivitySource.OrderIdTag, winner.Id);
@@ -689,7 +689,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         var account = await _db.ExternalPayoutAccounts
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == details.DestinationExternalAccountId, cancellationToken)
-            ?? throw new InvalidOperationException("Destination payout account no longer exists; cannot dispatch.");
+            ?? throw new NotFoundException("Destination payout account no longer exists; cannot dispatch.");
 
         var connector = _connectorResolver.ResolvePayoutConnector(details.ProviderCode);
         var instruction = BuildPayoutInstruction(

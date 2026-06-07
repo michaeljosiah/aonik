@@ -41,30 +41,21 @@ public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, 
             req.InvoiceId,
             PaymentMethodType: req.PaymentMethodType);
 
-        try
-        {
-            var result = await _paymentService.CreatePaymentIntentAsync(appRequest, ct);
+        var result = await _paymentService.CreatePaymentIntentAsync(appRequest, ct);
 
-            var response = new PaymentIntentResponse(
-                result.Id,
-                result.OrderId,
-                result.InvoiceId,
-                result.Amount,
-                result.Currency,
-                result.Status.ToString(),
-                result.Reference,
-                result.CreatedUtc);
+        var response = new PaymentIntentResponse(
+            result.Id,
+            result.OrderId,
+            result.InvoiceId,
+            result.Amount,
+            result.Currency,
+            result.Status.ToString(),
+            result.Reference,
+            result.CreatedUtc);
 
-            await Send.CreatedAtAsync<GetPaymentIntentEndpoint>(
-                routeValues: new { id = response.Id },
-                responseBody: response,
-                cancellation: ct);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // e.g. the referenced order does not exist for this tenant — a 4xx, not a 500.
-            AddError(ex.Message);
-            await Send.ErrorsAsync(ex.Message.Contains("not found") ? 404 : 422, ct);
-        }
+        await Send.CreatedAtAsync<GetPaymentIntentEndpoint>(
+            routeValues: new { id = response.Id },
+            responseBody: response,
+            cancellation: ct);
     }
 }
