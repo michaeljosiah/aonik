@@ -44,8 +44,19 @@ internal class PricingService : IPricingService
         _logger = logger;
     }
 
-    public async Task<PricingQuoteResponse> GetBillPaymentQuoteAsync(
+    public Task<PricingQuoteResponse> GetBillPaymentQuoteAsync(
         PricingQuoteRequest request,
+        CancellationToken cancellationToken = default)
+        => GetQuoteAsync(request, "BillPayment", cancellationToken);
+
+    public Task<PricingQuoteResponse> GetRemittanceQuoteAsync(
+        PricingQuoteRequest request,
+        CancellationToken cancellationToken = default)
+        => GetQuoteAsync(request, "Remittance", cancellationToken);
+
+    private async Task<PricingQuoteResponse> GetQuoteAsync(
+        PricingQuoteRequest request,
+        string quoteType,
         CancellationToken cancellationToken = default)
     {
         // Observability: span + structured logs for Issue #142. No OrderId
@@ -58,7 +69,7 @@ internal class PricingService : IPricingService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
 
-        var actionLabel = $"BillPayment {request.OriginCurrency}->{request.DestinationCurrency}";
+        var actionLabel = $"{quoteType} {request.OriginCurrency}->{request.DestinationCurrency}";
         Guid? capturedQuoteId = null;
 
         try
@@ -150,7 +161,7 @@ internal class PricingService : IPricingService
                 fxRate.RateTimestamp,
                 feeBreakdown);
 
-            await PersistQuoteAsync(normalizedRequest, response, fxRate.Provider, cancellationToken);
+            await PersistQuoteAsync(normalizedRequest, response, fxRate.Provider, quoteType, cancellationToken);
             await WriteAuditAsync(normalizedRequest, response, cancellationToken);
 
             activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
@@ -171,6 +182,7 @@ internal class PricingService : IPricingService
         PricingQuoteRequest request,
         PricingQuoteResponse response,
         string? fxRateProvider,
+        string quoteType,
         CancellationToken cancellationToken)
     {
         var fxQuote = await _dbContext.FxQuotes
@@ -188,7 +200,7 @@ internal class PricingService : IPricingService
         {
             Id = response.PricingQuoteId,
             TenantId = _tenantProvider.GetCurrentTenantId(),
-            QuoteType = "BillPayment",
+            QuoteType = quoteType,
             OriginCurrency = request.OriginCurrency,
             DestinationCurrency = request.DestinationCurrency,
             OriginCountry = request.OriginCountry,
