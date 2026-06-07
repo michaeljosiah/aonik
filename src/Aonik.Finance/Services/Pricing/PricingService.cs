@@ -1,10 +1,13 @@
+using System.Diagnostics;
 using System.Text.Json;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Contracts.Models.Pricing;
 using Aonik.Finance.Contracts.Services.Pricing;
+using Aonik.Finance.Services.Observability;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Entities.Pricing;
 
@@ -19,6 +22,7 @@ internal class PricingService : IPricingService
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly FinanceDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly ILogger<PricingService> _logger;
 
     public PricingService(
         ITenantProvider tenantProvider,
@@ -27,7 +31,8 @@ internal class PricingService : IPricingService
         ICurrencyMetadataProvider currencyMetadataProvider,
         IAuditLogWriter auditLogWriter,
         FinanceDbContext dbContext,
-        IClock clock)
+        IClock clock,
+        ILogger<PricingService> logger)
     {
         _tenantProvider = tenantProvider;
         _pricingPolicyService = pricingPolicyService;
@@ -36,101 +41,130 @@ internal class PricingService : IPricingService
         _auditLogWriter = auditLogWriter;
         _dbContext = dbContext;
         _clock = clock;
+        _logger = logger;
     }
 
     public async Task<PricingQuoteResponse> GetBillPaymentQuoteAsync(
         PricingQuoteRequest request,
         CancellationToken cancellationToken = default)
     {
-        var normalizedRequest = NormalizeRequest(request);
-        ValidateRequest(normalizedRequest);
+        // Observability: span + structured logs for Issue #142. No OrderId
+        // exists at quote time; correlation key is PricingQuoteId, captured
+        // once the response is built. The Confirm-stage log carries both
+        // ids so KQL can chain OrderId → PricingQuoteId → quote events.
+        using var activity = FinanceActivitySource.Source.StartActivity("pricing.quote");
+        activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Quote);
 
-        var customerTier = await ResolveCustomerTierAsync(normalizedRequest, cancellationToken);
-        var policyResolution = await _pricingPolicyService.ResolvePolicyAsync(
-            normalizedRequest,
-            customerTier,
-            cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
 
-        var fxRate = await _fxRateService.GetRateAsync(
-            normalizedRequest.OriginCurrency,
-            normalizedRequest.DestinationCurrency,
-            cancellationToken);
+        var actionLabel = $"BillPayment {request.OriginCurrency}->{request.DestinationCurrency}";
+        Guid? capturedQuoteId = null;
 
-        if (fxRate.Rate <= 0m)
+        try
         {
-            throw new InvalidOperationException("FX rate is invalid for the requested currency pair.");
+            var normalizedRequest = NormalizeRequest(request);
+            ValidateRequest(normalizedRequest);
+
+            var customerTier = await ResolveCustomerTierAsync(normalizedRequest, cancellationToken);
+            var policyResolution = await _pricingPolicyService.ResolvePolicyAsync(
+                normalizedRequest,
+                customerTier,
+                cancellationToken);
+
+            var fxRate = await _fxRateService.GetRateAsync(
+                normalizedRequest.OriginCurrency,
+                normalizedRequest.DestinationCurrency,
+                cancellationToken);
+
+            if (fxRate.Rate <= 0m)
+            {
+                throw new InvalidOperationException("FX rate is invalid for the requested currency pair.");
+            }
+
+            var roundingMode = ResolveRoundingMode(policyResolution.Conditions.RoundingMode);
+            var originPrecision = _currencyMetadataProvider.GetCurrency(normalizedRequest.OriginCurrency).DecimalPlaces;
+            var destinationPrecision = _currencyMetadataProvider.GetCurrency(normalizedRequest.DestinationCurrency).DecimalPlaces;
+
+            var markupRate = (policyResolution.Conditions.MarkupBps ?? 0) / 10000m;
+            var exchangeRate = fxRate.Rate * (1 - markupRate);
+
+            if (markupRate >= 1m)
+            {
+                throw new InvalidOperationException("FX markup is invalid for the requested currency pair.");
+            }
+
+            if (exchangeRate <= 0m)
+            {
+                throw new InvalidOperationException("Effective FX rate is invalid for the requested currency pair.");
+            }
+
+            var (originAmount, destinationAmount, rawDestinationAmount) = ResolveAmounts(
+                normalizedRequest,
+                exchangeRate,
+                originPrecision,
+                destinationPrecision,
+                roundingMode);
+
+            var fixedFee = RoundCurrency(policyResolution.Policy.FixedFee, originPrecision, roundingMode);
+            var percentageFee = RoundCurrency(originAmount * policyResolution.Policy.PercentageFee, originPrecision, roundingMode);
+            var uncappedFeesTotal = RoundCurrency(fixedFee + percentageFee, originPrecision, roundingMode);
+            var feesTotal = ApplyFeeCaps(uncappedFeesTotal, policyResolution.Conditions, originPrecision, roundingMode);
+
+            var totalAmount = RoundCurrency(originAmount + feesTotal, originPrecision, roundingMode);
+            var pricingQuoteId = Guid.NewGuid();
+            capturedQuoteId = pricingQuoteId;
+            activity?.SetTag(FinanceActivitySource.PricingQuoteIdTag, pricingQuoteId);
+
+            await ValidateLimitsAsync(
+                normalizedRequest,
+                originAmount,
+                cancellationToken);
+
+            var feeBreakdown = BuildFeeBreakdown(
+                policyResolution.Conditions,
+                fixedFee,
+                percentageFee,
+                uncappedFeesTotal,
+                feesTotal,
+                originAmount,
+                destinationAmount,
+                rawDestinationAmount,
+                fxRate.Rate,
+                exchangeRate,
+                normalizedRequest.OriginCurrency,
+                originPrecision,
+                roundingMode);
+
+            var response = new PricingQuoteResponse(
+                pricingQuoteId,
+                exchangeRate,
+                markupRate,
+                feesTotal,
+                totalAmount,
+                originAmount,
+                destinationAmount,
+                policyResolution.Policy.Id,
+                policyResolution.Version,
+                fxRate.FxRateId,
+                fxRate.RateTimestamp,
+                feeBreakdown);
+
+            await PersistQuoteAsync(normalizedRequest, response, fxRate.Provider, cancellationToken);
+            await WriteAuditAsync(normalizedRequest, response, cancellationToken);
+
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
+            _logger.QuoteCreated(pricingQuoteId, tenantId, actionLabel, response.OriginAmount, normalizedRequest.OriginCurrency);
+
+            return response;
         }
-
-        var roundingMode = ResolveRoundingMode(policyResolution.Conditions.RoundingMode);
-        var originPrecision = _currencyMetadataProvider.GetCurrency(normalizedRequest.OriginCurrency).DecimalPlaces;
-        var destinationPrecision = _currencyMetadataProvider.GetCurrency(normalizedRequest.DestinationCurrency).DecimalPlaces;
-
-        var markupRate = (policyResolution.Conditions.MarkupBps ?? 0) / 10000m;
-        var exchangeRate = fxRate.Rate * (1 - markupRate);
-
-        if (markupRate >= 1m)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException("FX markup is invalid for the requested currency pair.");
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Failed);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.QuoteFailed(capturedQuoteId, tenantId, actionLabel, ex.Message, ex);
+            throw;
         }
-
-        if (exchangeRate <= 0m)
-        {
-            throw new InvalidOperationException("Effective FX rate is invalid for the requested currency pair.");
-        }
-
-        var (originAmount, destinationAmount, rawDestinationAmount) = ResolveAmounts(
-            normalizedRequest,
-            exchangeRate,
-            originPrecision,
-            destinationPrecision,
-            roundingMode);
-
-        var fixedFee = RoundCurrency(policyResolution.Policy.FixedFee, originPrecision, roundingMode);
-        var percentageFee = RoundCurrency(originAmount * policyResolution.Policy.PercentageFee, originPrecision, roundingMode);
-        var uncappedFeesTotal = RoundCurrency(fixedFee + percentageFee, originPrecision, roundingMode);
-        var feesTotal = ApplyFeeCaps(uncappedFeesTotal, policyResolution.Conditions, originPrecision, roundingMode);
-
-        var totalAmount = RoundCurrency(originAmount + feesTotal, originPrecision, roundingMode);
-        var pricingQuoteId = Guid.NewGuid();
-
-        await ValidateLimitsAsync(
-            normalizedRequest,
-            originAmount,
-            cancellationToken);
-
-        var feeBreakdown = BuildFeeBreakdown(
-            policyResolution.Conditions,
-            fixedFee,
-            percentageFee,
-            uncappedFeesTotal,
-            feesTotal,
-            originAmount,
-            destinationAmount,
-            rawDestinationAmount,
-            fxRate.Rate,
-            exchangeRate,
-            normalizedRequest.OriginCurrency,
-            originPrecision,
-            roundingMode);
-
-        var response = new PricingQuoteResponse(
-            pricingQuoteId,
-            exchangeRate,
-            markupRate,
-            feesTotal,
-            totalAmount,
-            originAmount,
-            destinationAmount,
-            policyResolution.Policy.Id,
-            policyResolution.Version,
-            fxRate.FxRateId,
-            fxRate.RateTimestamp,
-            feeBreakdown);
-
-        await PersistQuoteAsync(normalizedRequest, response, fxRate.Provider, cancellationToken);
-        await WriteAuditAsync(normalizedRequest, response, cancellationToken);
-
-        return response;
     }
 
     private async Task PersistQuoteAsync(

@@ -6,6 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.Platform.Mcp</RootNamespace>
+    <!-- Development-only host: authenticates every call as a fixed PlatformAdmin identity,
+         guarded at startup by DevelopmentOnlyHostGuard. Never deploy / publish / containerize.
+         See finding C4. -->
+    <IsPublishable>false</IsPublishable>
   </PropertyGroup>
 
   <ItemGroup>

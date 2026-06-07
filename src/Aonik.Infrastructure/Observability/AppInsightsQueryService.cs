@@ -1058,6 +1058,132 @@ public class AppInsightsQueryService : IObservabilityService
         return new TopologyResponse(true, [.. nodes.Values], edges, DateTime.UtcNow);
     }
 
+    // ── Money-action trace (Issue #142) ───────────────────────────────
+
+    public async Task<MoneyActionTraceResponse> GetMoneyActionTraceAsync(
+        Guid orderId, string timeRange, CancellationToken cancellationToken = default)
+    {
+        var range = ParseTimeRange(timeRange);
+
+        var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
+        if (appId is null || apiKey is null)
+        {
+            return new MoneyActionTraceResponse(
+                Configured: false,
+                OrderId: orderId,
+                PricingQuoteId: null,
+                TimeRange: timeRange,
+                QueryDurationMs: 0,
+                Entries: []);
+        }
+
+        // Mirrors docs/observability/queries/money-action-by-orderid.kql.
+        // orderId is a Guid (safe for literal injection); range.Ago is one
+        // of a closed set of "ago(...)" expressions emitted by ParseTimeRange.
+        // No untrusted strings reach the KQL.
+        //
+        // Three-step design (matches saved query):
+        //   1. Resolve PricingQuoteId from Confirm-stage log (EventId 1201)
+        //      so Quote-stage entries reachable.
+        //   2. Direct hits — rows carrying OrderId or PricingQuoteId in
+        //      customDimensions.
+        //   3. Inherited hits via operation_Id — children of finance spans
+        //      (SQL deps, outbound HTTP) that share the trace_id but don't
+        //      carry the OrderId tag themselves.
+        var kql = $$"""
+            let orderId = "{{orderId}}";
+            let pricingQuoteId =
+                traces
+                | where timestamp > {{range.Ago}}
+                | where tostring(customDimensions["OrderId"]) == orderId
+                | where toint(customDimensions["EventId"]) == 1201
+                | extend pq = tostring(customDimensions["PricingQuoteId"])
+                | where isnotempty(pq) and pq != "00000000-0000-0000-0000-000000000000"
+                | project pq
+                | take 1;
+            let directHits =
+                union
+                    (traces       | extend itemType = "trace"),
+                    (customEvents | extend itemType = "customEvent"),
+                    (dependencies | extend itemType = "dependency"),
+                    (exceptions   | extend itemType = "exception")
+                | where timestamp > {{range.Ago}}
+                | where tostring(customDimensions["OrderId"]) == orderId
+                   or tostring(customDimensions["PricingQuoteId"]) in (pricingQuoteId);
+            let traceIds =
+                directHits
+                | where isnotempty(operation_Id)
+                | distinct operation_Id;
+            let inheritedHits =
+                union
+                    (traces       | extend itemType = "trace"),
+                    (customEvents | extend itemType = "customEvent"),
+                    (dependencies | extend itemType = "dependency"),
+                    (exceptions   | extend itemType = "exception")
+                | where timestamp > {{range.Ago}}
+                | where operation_Id in (traceIds);
+            union directHits, inheritedHits
+            | summarize take_any(*) by itemId
+            | project
+                timestamp,
+                itemType,
+                Stage           = tostring(customDimensions["Stage"]),
+                Outcome         = tostring(customDimensions["Outcome"]),
+                EventId         = tostring(customDimensions["EventId"]),
+                name,
+                message,
+                severityLevel,
+                operation_Id,
+                PaymentIntentId = tostring(customDimensions["PaymentIntentId"]),
+                InvoiceId       = tostring(customDimensions["InvoiceId"]),
+                PricingQuoteId  = tostring(customDimensions["PricingQuoteId"]),
+                TenantId        = tostring(customDimensions["TenantId"])
+            | order by timestamp asc
+            """;
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var rows = await ExecuteQueryAsync(appId, apiKey, kql, cancellationToken);
+        stopwatch.Stop();
+
+        Guid? pricingQuoteId = null;
+        var entries = new List<MoneyActionTraceEntry>(rows.Count);
+        foreach (var row in rows)
+        {
+            var entry = new MoneyActionTraceEntry(
+                Timestamp: ParseDateTime(row, 0),
+                ItemType: GetString(row, 1),
+                Stage: NullIfEmpty(GetString(row, 2)),
+                Outcome: NullIfEmpty(GetString(row, 3)),
+                EventId: ParseNullableInt(row, 4),
+                Name: NullIfEmpty(GetString(row, 5)),
+                Message: NullIfEmpty(GetString(row, 6)),
+                SeverityLevel: ParseNullableInt(row, 7),
+                OperationId: NullIfEmpty(GetString(row, 8)),
+                PaymentIntentId: ParseNullableGuid(row, 9),
+                InvoiceId: ParseNullableGuid(row, 10),
+                PricingQuoteId: ParseNullableGuid(row, 11),
+                TenantId: ParseNullableGuid(row, 12));
+
+            // First non-null PricingQuoteId becomes the response-envelope
+            // join key — the UI can render it and operators can re-query
+            // the Quote stage directly without re-running the chain step.
+            if (pricingQuoteId is null && entry.PricingQuoteId.HasValue)
+            {
+                pricingQuoteId = entry.PricingQuoteId.Value;
+            }
+
+            entries.Add(entry);
+        }
+
+        return new MoneyActionTraceResponse(
+            Configured: true,
+            OrderId: orderId,
+            PricingQuoteId: pricingQuoteId,
+            TimeRange: timeRange,
+            QueryDurationMs: stopwatch.ElapsedMilliseconds,
+            Entries: entries);
+    }
+
     private static TopologyNode CreateRuntimeTopologyNode(
         RuntimeServiceStatus runtime,
         long calls,
@@ -1261,6 +1387,28 @@ public class AppInsightsQueryService : IObservabilityService
 
     private static string? NullIfEmpty(string s) =>
         string.IsNullOrWhiteSpace(s) ? null : s;
+
+    private static int? ParseNullableInt(JsonElement[] row, int index)
+    {
+        if (index >= row.Length) return null;
+        var cell = row[index];
+        return cell.ValueKind switch
+        {
+            JsonValueKind.Number => cell.TryGetInt32(out var i) ? i : null,
+            JsonValueKind.String when int.TryParse(cell.GetString(), out var i) => i,
+            _ => null,
+        };
+    }
+
+    private static Guid? ParseNullableGuid(JsonElement[] row, int index)
+    {
+        if (index >= row.Length) return null;
+        var cell = row[index];
+        if (cell.ValueKind != JsonValueKind.String) return null;
+        var s = cell.GetString();
+        if (string.IsNullOrEmpty(s)) return null;
+        return Guid.TryParse(s, out var g) && g != Guid.Empty ? g : null;
+    }
 
     private static string NormalizeSeverity(string severity)
     {

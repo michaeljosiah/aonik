@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Persistence;
@@ -8,6 +10,7 @@ using Aonik.Finance.Contracts.Services.Orders;
 using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Pricing;
+using Aonik.Finance.Services.Observability;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Finance.Services.Orders;
@@ -29,6 +32,7 @@ internal class OrderService : IOrderService
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ILogger<OrderService> _logger;
 
     public OrderService(
         FinanceDbContext dbContext,
@@ -37,7 +41,8 @@ internal class OrderService : IOrderService
         IComplianceService complianceService,
         IAuditLogWriter auditLogWriter,
         IClock clock,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ILogger<OrderService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -46,6 +51,7 @@ internal class OrderService : IOrderService
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+        _logger = logger;
     }
 
     public async Task<PagedResult<OrderListItem>> ListOrdersAsync(
@@ -474,50 +480,86 @@ internal class OrderService : IOrderService
 
     public async Task<BillPaymentOrderResponse> SubmitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
-        var order = await LoadOrderForUpdateAsync(orderId, cancellationToken);
-        EnsureDraft(order);
+        // Observability for Issue #142. BeginOrderScope so every child log
+        // (EF queries, compliance service, audit writer) carries OrderId.
+        // The span gives App Insights a trace; the OrderConfirmed event
+        // carries the PricingQuoteId for chaining back to the Quote stage.
+        using var orderScope = _logger.BeginOrderScope(orderId);
+        using var activity = FinanceActivitySource.Source.StartActivity("order.confirm");
+        activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Confirm);
+        activity?.SetTag(FinanceActivitySource.OrderIdTag, orderId);
 
-        if (order.Items.Count == 0)
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
+
+        try
         {
-            throw new InvalidOperationException("At least one order item is required.");
+            var order = await LoadOrderForUpdateAsync(orderId, cancellationToken);
+            EnsureDraft(order);
+
+            if (order.Items.Count == 0)
+            {
+                throw new InvalidOperationException("At least one order item is required.");
+            }
+
+            var quotes = await LoadPricingQuotesAsync(order.Items, cancellationToken);
+            var expiredItems = order.Items
+                .Where(item => item.PricingQuoteId.HasValue)
+                .Where(item => quotes.TryGetValue(item.PricingQuoteId!.Value, out var quote) && quote.ExpiresAt <= _clock.UtcNow)
+                .Select(item => item.Id)
+                .ToList();
+
+            if (expiredItems.Count > 0)
+            {
+                throw new InvalidOperationException("One or more pricing quotes have expired.");
+            }
+
+            var requiresReview = await _complianceService.RequiresComplianceReviewAsync(order.Id, cancellationToken);
+            order.Status = requiresReview ? "PendingCompliance" : "Submitted";
+            var submittedEvent = BuildHistoryEvent(order.Id, "OrderSubmitted");
+            _dbContext.OrderHistoryEvents.Add(submittedEvent);
+            order.HistoryEvents.Add(submittedEvent);
+
+            if (requiresReview)
+            {
+                await _complianceService.CreateOrderReviewCaseAsync(order.Id, cancellationToken);
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            await _auditLogWriter.LogAsync(
+                AuditEventNames.OrderSubmitted,
+                "Order",
+                order.Id,
+                order.TenantId,
+                _currentUserProvider.GetCurrentUserId(),
+                correlationId: null,
+                detailsJson: JsonSerializer.Serialize(new { OrderId = order.Id, order.Status }, JsonOptions),
+                cancellationToken: cancellationToken);
+
+            // Pull the first PricingQuoteId from the order's items — this is the
+            // join key that lets the saved KQL query chain OrderId back to the
+            // Quote-stage entries (which only carry PricingQuoteId, not OrderId).
+            var firstQuoteId = order.Items
+                .Select(item => item.PricingQuoteId)
+                .FirstOrDefault(id => id.HasValue);
+
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
+            if (firstQuoteId.HasValue)
+            {
+                activity?.SetTag(FinanceActivitySource.PricingQuoteIdTag, firstQuoteId.Value);
+            }
+            _logger.OrderConfirmed(order.Id, order.TenantId, $"Status={order.Status}", firstQuoteId);
+
+            return await MapOrderAsync(order, cancellationToken);
         }
-
-        var quotes = await LoadPricingQuotesAsync(order.Items, cancellationToken);
-        var expiredItems = order.Items
-            .Where(item => item.PricingQuoteId.HasValue)
-            .Where(item => quotes.TryGetValue(item.PricingQuoteId!.Value, out var quote) && quote.ExpiresAt <= _clock.UtcNow)
-            .Select(item => item.Id)
-            .ToList();
-
-        if (expiredItems.Count > 0)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException("One or more pricing quotes have expired.");
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Rejected);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.OrderRejected(orderId, tenantId, ex.Message);
+            throw;
         }
-
-        var requiresReview = await _complianceService.RequiresComplianceReviewAsync(order.Id, cancellationToken);
-        order.Status = requiresReview ? "PendingCompliance" : "Submitted";
-        var submittedEvent = BuildHistoryEvent(order.Id, "OrderSubmitted");
-        _dbContext.OrderHistoryEvents.Add(submittedEvent);
-        order.HistoryEvents.Add(submittedEvent);
-
-        if (requiresReview)
-        {
-            await _complianceService.CreateOrderReviewCaseAsync(order.Id, cancellationToken);
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        await _auditLogWriter.LogAsync(
-            AuditEventNames.OrderSubmitted,
-            "Order",
-            order.Id,
-            order.TenantId,
-            _currentUserProvider.GetCurrentUserId(),
-            correlationId: null,
-            detailsJson: JsonSerializer.Serialize(new { OrderId = order.Id, order.Status }, JsonOptions),
-            cancellationToken: cancellationToken);
-
-        return await MapOrderAsync(order, cancellationToken);
     }
 
     public async Task<BillPaymentOrderResponse> CancelOrderAsync(

@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Observability;
 
 namespace Aonik.Finance.Services.Ledger;
 
@@ -40,10 +43,15 @@ internal sealed class LedgerPostingService
     private const string InvoiceSettlementSourceType = "InvoiceSettlement";
 
     private readonly FinanceDbContext _db;
+    private readonly ILogger<LedgerPostingService> _logger;
 
-    public LedgerPostingService(FinanceDbContext db)
+    public LedgerPostingService(FinanceDbContext db, ILogger<LedgerPostingService>? logger = null)
     {
         _db = db;
+        // Optional logger so existing test fixtures that construct this service
+        // directly with just a DbContext keep compiling. Production DI always
+        // resolves a real logger (NullLogger as fallback in tests).
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<LedgerPostingService>.Instance;
     }
 
     /// <summary>
@@ -68,6 +76,7 @@ internal sealed class LedgerPostingService
             amount: paymentIntent.Amount,
             currency: paymentIntent.Currency,
             narration: "Payment captured",
+            orderId: paymentIntent.OrderId,
             cancellationToken);
     }
 
@@ -93,6 +102,7 @@ internal sealed class LedgerPostingService
             amount: invoice.Total,
             currency: invoice.Currency,
             narration: "Invoice settled",
+            orderId: invoice.OrderId,
             cancellationToken);
     }
 
@@ -106,8 +116,26 @@ internal sealed class LedgerPostingService
         decimal amount,
         string currency,
         string narration,
+        Guid? orderId,
         CancellationToken cancellationToken)
     {
+        // Observability span for Issue #142. Stage="settle"; tag OrderId when
+        // present so the saved KQL query can pivot. The two outcome paths we
+        // care about (idempotent skip vs successful post) and the lost-race
+        // exception path each emit their own structured log below.
+        using var activity = FinanceActivitySource.Source.StartActivity("ledger.post");
+        activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Settle);
+        activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
+        // SourceType / SourceId are internal idempotency keys; not part of
+        // the OrderId-pivoted query surface but useful when correlating a
+        // duplicate-post complaint back to the underlying capture/invoice.
+        activity?.SetTag("LedgerSourceType", sourceType);
+        activity?.SetTag("LedgerSourceId", sourceId);
+        if (orderId.HasValue && orderId.Value != Guid.Empty)
+        {
+            activity?.SetTag(FinanceActivitySource.OrderIdTag, orderId.Value);
+        }
+
         if (amount <= 0)
         {
             throw new InvalidOperationException(
@@ -127,6 +155,10 @@ internal sealed class LedgerPostingService
 
         if (alreadyPosted)
         {
+            // Previously silent — operators triaging a duplicate-post complaint
+            // had no signal that the idempotency guard had short-circuited.
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.SkippedIdempotent);
+            _logger.LedgerPostSkippedIdempotent(orderId, tenantId);
             return;
         }
 
@@ -178,8 +210,12 @@ internal sealed class LedgerPostingService
         try
         {
             await _db.SaveChangesAsync(cancellationToken);
+
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
+            activity?.SetTag(FinanceActivitySource.JournalEntryIdTag, entryId);
+            _logger.LedgerPosted(orderId, tenantId, entryId, amount, currency);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
             // Lost the idempotency race: a concurrent capture / mark-paid committed
             // the same (TenantId, SourceType, SourceId) first and tripped the
@@ -201,8 +237,16 @@ internal sealed class LedgerPostingService
 
             if (!winningEntryExists)
             {
+                activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Failed);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                _logger.LedgerPostFailed(orderId, tenantId, ex.Message, ex);
                 throw;
             }
+
+            // Lost-race-but-winner-exists: same outcome as the up-front
+            // idempotency hit — the effect is recorded exactly once.
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.SkippedIdempotent);
+            _logger.LedgerPostSkippedIdempotent(orderId, tenantId);
         }
     }
 

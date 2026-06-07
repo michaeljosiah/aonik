@@ -10,6 +10,7 @@ using Aonik.TestSupport.Multitenancy;
 
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace Aonik.Application.Tests.Finance.Orders;
@@ -50,7 +51,8 @@ public class OrderServiceMappingTests
             Mock.Of<IComplianceService>(),
             Mock.Of<IAuditLogWriter>(),
             Mock.Of<IClock>(clock => clock.UtcNow == DateTime.UtcNow),
-            new TestCurrentUserProvider());
+            new TestCurrentUserProvider(),
+            NullLogger<OrderService>.Instance);
     }
 
     private static PartyReadModel SeedParty(Guid tenantId, string displayName)

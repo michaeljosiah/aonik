@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
@@ -17,6 +19,7 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
     private readonly ITenantProvider _tenantProvider;
     private readonly FinanceMetrics _metrics;
     private readonly LedgerPostingService _ledgerPoster;
+    private readonly ILogger<PaymentService> _logger;
 
     public PaymentService(
         FinanceDbContext dbContext,
@@ -24,13 +27,15 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider,
         FinanceMetrics metrics,
-        LedgerPostingService ledgerPoster)
+        LedgerPostingService ledgerPoster,
+        ILogger<PaymentService> logger)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _metrics = metrics;
         _ledgerPoster = ledgerPoster;
+        _logger = logger;
     }
 
     public async Task<PaymentIntentResponse> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, CancellationToken cancellationToken = default)
@@ -132,44 +137,88 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
 
     public async Task<PaymentIntentResponse> CapturePaymentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
-        await EnsurePermissionAsync("Payment.Capture", cancellationToken);
-        var paymentIntent = await _dbContext.PaymentIntents
-            .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
+        // Observability for Issue #142. Span + scope are opened BEFORE the
+        // permission check so an unauthorized capture attempt is still
+        // traceable. OrderId is resolved from the intent once loaded; until
+        // then the scope only carries PaymentIntentId.
+        using var activity = FinanceActivitySource.Source.StartActivity("payment.capture");
+        activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Capture);
+        activity?.SetTag(FinanceActivitySource.PaymentIntentIdTag, paymentIntentId);
 
-        if (paymentIntent == null)
+        Guid resolvedOrderId = Guid.Empty;
+        Guid resolvedTenantId = Guid.Empty;
+
+        try
         {
-            throw new InvalidOperationException($"Payment intent with ID {paymentIntentId} not found");
-        }
+            await EnsurePermissionAsync("Payment.Capture", cancellationToken);
+            var paymentIntent = await _dbContext.PaymentIntents
+                .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
 
-        // Business logic: Validate current status before capturing
-        if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
+            if (paymentIntent == null)
+            {
+                throw new InvalidOperationException($"Payment intent with ID {paymentIntentId} not found");
+            }
+
+            resolvedOrderId = paymentIntent.OrderId;
+            resolvedTenantId = paymentIntent.TenantId;
+            activity?.SetTag(FinanceActivitySource.OrderIdTag, resolvedOrderId);
+            activity?.SetTag(FinanceActivitySource.TenantIdTag, resolvedTenantId);
+
+            // BeginOrderScope now that we know the OrderId. Every child log
+            // (ledger posting, EF SaveChanges) inherits OrderId + PaymentIntentId
+            // so a KQL pivot on either id returns the full capture trace.
+            using var orderScope = _logger.BeginOrderScope(resolvedOrderId, paymentIntentId: paymentIntentId);
+
+            // Business logic: Validate current status before capturing
+            if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
+            {
+                throw new InvalidOperationException($"Invalid payment status: {paymentIntent.Status}");
+            }
+
+            if (currentStatus != PaymentStatus.Authorized)
+            {
+                throw new InvalidOperationException("Only authorized payments can be captured");
+            }
+
+            // Re-enforce the externally material boundary here, not only at authorize: capture is
+            // the step that actually posts to the ledger, and an intent can be Authorized without
+            // ever passing through AuthorizePaymentAsync (legacy rows created before this invariant
+            // existed, with a Guid.Empty/blank payer or rail). Fail closed before any money moves.
+            EnsurePayerAndMethodResolved(paymentIntent, "capture");
+
+            // Record the cash receipt in the ledger BEFORE flipping the status:
+            // Dr Cash / Cr Payments Clearing. If the post fails the intent stays
+            // Authorized and the capture can be retried; the post is idempotent per
+            // payment intent so a retry after a partial success cannot double-post.
+            await _ledgerPoster.PostPaymentCaptureAsync(paymentIntent, cancellationToken);
+
+            paymentIntent.Status = PaymentStatus.Captured.ToString();
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
+
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
+            _logger.PaymentCaptured(
+                resolvedOrderId,
+                resolvedTenantId,
+                paymentIntentId,
+                paymentIntent.Amount,
+                paymentIntent.Currency);
+
+            return MapToResponse(paymentIntent);
+        }
+        catch (Exception ex)
         {
-            throw new InvalidOperationException($"Invalid payment status: {paymentIntent.Status}");
+            activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Failed);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            _logger.PaymentCaptureFailed(
+                resolvedOrderId,
+                resolvedTenantId,
+                paymentIntentId,
+                ex.Message,
+                ex);
+            throw;
         }
-
-        if (currentStatus != PaymentStatus.Authorized)
-        {
-            throw new InvalidOperationException("Only authorized payments can be captured");
-        }
-
-        // Re-enforce the externally material boundary here, not only at authorize: capture is the
-        // step that actually posts to the ledger, and an intent can be Authorized without ever
-        // passing through AuthorizePaymentAsync (legacy rows created before this invariant existed,
-        // with a Guid.Empty/blank payer or rail). Fail closed before any money moves.
-        EnsurePayerAndMethodResolved(paymentIntent, "capture");
-
-        // Record the cash receipt in the ledger BEFORE flipping the status:
-        // Dr Cash / Cr Payments Clearing. If the post fails the intent stays
-        // Authorized and the capture can be retried; the post is idempotent per
-        // payment intent so a retry after a partial success cannot double-post.
-        await _ledgerPoster.PostPaymentCaptureAsync(paymentIntent, cancellationToken);
-
-        paymentIntent.Status = PaymentStatus.Captured.ToString();
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
-
-        return MapToResponse(paymentIntent);
     }
 
     public async Task<PaymentIntentResponse> CancelPaymentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
