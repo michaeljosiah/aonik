@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 using Aonik.SharedKernel.Primitives;
@@ -10,33 +12,34 @@ namespace Aonik.Finance.IntegrationTests.Partners;
 /// (<see cref="FlutterwavePayoutConnector"/>).
 ///
 /// These hit the real sandbox API, so they are <strong>opt-in</strong>: they run only when sandbox
-/// credentials are present in the environment and otherwise report <em>Skipped</em> (never Failed),
-/// so CI and other developers are unaffected. Secrets are <strong>never</strong> committed — they are
-/// NOT read from appsettings; supply them as environment variables before running:
+/// credentials are supplied and otherwise report <em>Skipped</em> (never Failed), so CI and other
+/// developers are unaffected. Credentials are resolved from (in priority order):
+/// <list type="number">
+///   <item>environment variables — <c>FLW_SANDBOX_CLIENT_ID</c>, <c>FLW_SANDBOX_CLIENT_SECRET</c>,
+///   optionally <c>FLW_SANDBOX_ENCRYPTION_KEY</c> / <c>FLW_SANDBOX_BASE_URL</c> / <c>FLW_SANDBOX_IDP_URL</c>;</item>
+///   <item>a local <c>appsettings.Development.json</c> in this test project (git-ignored — see
+///   <c>appsettings.Development.json.example</c> for the shape).</item>
+/// </list>
 ///
-/// <code>
-///   # PowerShell
-///   $env:FLW_SANDBOX_CLIENT_ID     = "&lt;client id&gt;"
-///   $env:FLW_SANDBOX_CLIENT_SECRET = "&lt;client secret&gt;"
-///   # optional: $env:FLW_SANDBOX_ENCRYPTION_KEY, FLW_SANDBOX_BASE_URL, FLW_SANDBOX_IDP_URL
-///   dotnet test tests/Aonik.Finance.IntegrationTests --filter FullyQualifiedName~FlutterwaveSandboxTests
-/// </code>
+/// Secrets are <strong>never committed</strong>: the local <c>appsettings.Development.json</c> is in
+/// <c>.gitignore</c>, and nothing here reads the API's appsettings.
 ///
-/// They exercise the request-shaping that unit tests can only stub — OAuth token acquisition,
+/// The tests exercise the request-shaping that unit tests can only stub — OAuth token acquisition,
 /// <c>X-Trace-Id</c> on the GET status poll, and the <c>rcb_…</c> recipient-id round-trip — i.e. the
 /// exact paths where live-only defects hide.
 /// </summary>
 public class FlutterwaveSandboxTests
 {
-    private static string? ClientId => Env("FLW_SANDBOX_CLIENT_ID");
-    private static string? ClientSecret => Env("FLW_SANDBOX_CLIENT_SECRET");
+    private static string? ClientId => Value("FLW_SANDBOX_CLIENT_ID", "ClientId");
+    private static string? ClientSecret => Value("FLW_SANDBOX_CLIENT_SECRET", "ClientSecret");
 
     private static bool Configured =>
         !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 
     private const string SkipReason =
-        "Flutterwave sandbox credentials not set. Provide FLW_SANDBOX_CLIENT_ID and "
-        + "FLW_SANDBOX_CLIENT_SECRET environment variables to run these live sandbox tests.";
+        "Flutterwave sandbox credentials not set. Provide ClientId/ClientSecret via "
+        + "tests/Aonik.Finance.IntegrationTests/appsettings.Development.json (git-ignored) or the "
+        + "FLW_SANDBOX_CLIENT_ID / FLW_SANDBOX_CLIENT_SECRET environment variables.";
 
     // Flutterwave's documented NGN sandbox test bank account (bank code 044, 10-digit account).
     private const string TestBankCode = "044";
@@ -107,12 +110,12 @@ public class FlutterwaveSandboxTests
     private static FlutterwaveOptions Options() => new()
     {
         UseRealFlutterwaveApi = true,
-        BaseUrl = Env("FLW_SANDBOX_BASE_URL") ?? "https://developersandbox-api.flutterwave.com",
-        IdpTokenUrl = Env("FLW_SANDBOX_IDP_URL")
+        BaseUrl = Value("FLW_SANDBOX_BASE_URL", "BaseUrl") ?? "https://developersandbox-api.flutterwave.com",
+        IdpTokenUrl = Value("FLW_SANDBOX_IDP_URL", "IdpTokenUrl")
             ?? "https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token",
         ClientId = ClientId ?? string.Empty,
         ClientSecret = ClientSecret ?? string.Empty,
-        EncryptionKey = Env("FLW_SANDBOX_ENCRYPTION_KEY") ?? string.Empty,
+        EncryptionKey = Value("FLW_SANDBOX_ENCRYPTION_KEY", "EncryptionKey") ?? string.Empty,
     };
 
     private static FlutterwaveTokenProvider CreateTokenProvider()
@@ -142,9 +145,54 @@ public class FlutterwaveSandboxTests
         public HttpClient CreateClient(string name) => new() { BaseAddress = idpBaseAddress };
     }
 
-    private static string? Env(string name)
+    // ── Credential resolution (env var first, then the git-ignored local json) ─
+    private static string? Value(string envName, string fileKey)
     {
-        var value = Environment.GetEnvironmentVariable(name);
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        var env = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrWhiteSpace(env))
+        {
+            return env.Trim();
+        }
+
+        return FileValues.TryGetValue(fileKey, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value.Trim()
+            : null;
+    }
+
+    private static readonly IReadOnlyDictionary<string, string?> FileValues = LoadLocalFile();
+
+    private static IReadOnlyDictionary<string, string?> LoadLocalFile()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "appsettings.Development.json");
+        var empty = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        if (!File.Exists(path))
+        {
+            return empty;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (document.RootElement.TryGetProperty("Flutterwave", out var flutterwave)
+                && flutterwave.TryGetProperty("Sandbox", out var sandbox)
+                && sandbox.ValueKind == JsonValueKind.Object)
+            {
+                var map = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var property in sandbox.EnumerateObject())
+                {
+                    map[property.Name] = property.Value.ValueKind == JsonValueKind.String
+                        ? property.Value.GetString()
+                        : null;
+                }
+
+                return map;
+            }
+        }
+        catch (JsonException)
+        {
+            // Malformed local file — treat as unconfigured (tests skip).
+        }
+
+        return empty;
     }
 }
