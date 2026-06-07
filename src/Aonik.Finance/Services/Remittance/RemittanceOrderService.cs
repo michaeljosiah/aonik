@@ -220,6 +220,15 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             throw new InvalidOperationException("Destination payout account currency does not match the quote.");
         }
 
+        // Reject unsupported rails up front — before any order/debit — rather than silently transmitting
+        // them on the wrong rail. Saved destination types are free-form trimmed text, so this (and the
+        // instruction builder) compare case-insensitively.
+        if (!IsSupportedDestinationRail(account.DestinationType))
+        {
+            throw new InvalidOperationException(
+                $"Unsupported payout destination type '{account.DestinationType}'.");
+        }
+
         // Resolve the payout connector route. Prefer an explicit provider, then capability routing,
         // then the simulated fallback (Spec 036 §6.4 step 5).
         var (connector, providerCode) = ResolvePayoutConnector(request.ProviderCode, quote, account.DestinationType);
@@ -529,17 +538,11 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             return;
         }
 
-        // Locate the payout across tenants (webhooks carry no authenticated tenant).
-        var payout = await _db.Payouts
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(
-                p => !string.IsNullOrEmpty(translated.Reference.ProviderReference)
-                    && p.ProviderReference == translated.Reference.ProviderReference,
-                cancellationToken);
-
-        payout ??= await _db.Payouts
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(p => p.ClientReference == translated.Reference.ClientReference, cancellationToken);
+        // Locate the payout across tenants (webhooks carry no authenticated tenant). ClientReference
+        // (REM-{orderId:N}) is our own globally-unique, provider-agnostic key — the authoritative match.
+        // ProviderReference is provider-scoped and can collide across providers, so it is only a
+        // fallback, disambiguated by the remittance's stored provider.
+        var payout = await LocateRemittancePayoutAsync(providerCode, translated.Reference, cancellationToken);
 
         if (payout is null)
         {
@@ -562,6 +565,19 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             inboxRow.ProcessingStatus = "Failed";
             inboxRow.Error = "Payout is not a remittance order.";
             await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        // Defense in depth: never settle/reverse a payout whose remittance was sent via a different
+        // provider than the webhook claims to be from (provider references are provider-scoped).
+        var details = TryDeserializeDetails(item.DetailsJson);
+        if (details is not null
+            && !string.Equals(details.ProviderCode, providerCode, StringComparison.OrdinalIgnoreCase))
+        {
+            inboxRow.ProcessingStatus = "Failed";
+            inboxRow.Error = "Webhook provider does not match the remittance provider.";
+            await _db.SaveChangesAsync(cancellationToken);
+            _logger.WebhookRejected(order.Id, payout.TenantId, providerCode, "Provider mismatch.");
             return;
         }
 
@@ -725,12 +741,17 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             ? account.MaskedAccountIdentifier
             : account.ProviderBeneficiaryId!;
 
-        PayoutDestination destination = account.DestinationType switch
-        {
-            "Bank" => new BankAccountDestination(account.BankCode ?? string.Empty, reference, account.BranchCode, account.AccountName),
-            "MobileMoney" => new MobileMoneyDestination(account.MobileNetwork ?? string.Empty, reference, account.AccountName),
-            _ => new WalletDestination(reference, account.AccountName)
-        };
+        // Case-insensitive: saved rails are free-form trimmed text. Unsupported types are rejected at
+        // confirm time, so reaching the throw here would be a logic error, not bad input.
+        var rail = account.DestinationType.Trim();
+        PayoutDestination destination =
+            rail.Equals("Bank", StringComparison.OrdinalIgnoreCase)
+                ? new BankAccountDestination(account.BankCode ?? string.Empty, reference, account.BranchCode, account.AccountName)
+            : rail.Equals("MobileMoney", StringComparison.OrdinalIgnoreCase)
+                ? new MobileMoneyDestination(account.MobileNetwork ?? string.Empty, reference, account.AccountName)
+            : rail.Equals("Wallet", StringComparison.OrdinalIgnoreCase)
+                ? new WalletDestination(reference, account.AccountName)
+            : throw new InvalidOperationException($"Unsupported payout destination type '{account.DestinationType}'.");
 
         var metadata = new Dictionary<string, string>
         {
@@ -767,6 +788,72 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         }
 
         return methods;
+    }
+
+    private static bool IsSupportedDestinationRail(string? destinationType)
+        => !string.IsNullOrWhiteSpace(destinationType)
+            && CandidateDestinationMethods.Any(
+                rail => string.Equals(rail, destinationType.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Resolves the payout a partner callback refers to. <c>ClientReference</c> (our globally-unique
+    /// <c>REM-{orderId:N}</c>) is authoritative; <c>ProviderReference</c> is provider-scoped and only a
+    /// fallback, and on a cross-provider collision the candidate sent via this webhook's provider wins.
+    /// </summary>
+    private async Task<Payout?> LocateRemittancePayoutAsync(
+        string providerCode, PartnerReference reference, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(reference.ClientReference))
+        {
+            var byClient = await _db.Payouts
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.ClientReference == reference.ClientReference, cancellationToken);
+            if (byClient is not null)
+            {
+                return byClient;
+            }
+        }
+
+        if (string.IsNullOrEmpty(reference.ProviderReference))
+        {
+            return null;
+        }
+
+        var candidates = await _db.Payouts
+            .IgnoreQueryFilters()
+            .Where(p => p.ProviderReference == reference.ProviderReference)
+            .ToListAsync(cancellationToken);
+
+        if (candidates.Count <= 1)
+        {
+            return candidates.FirstOrDefault();
+        }
+
+        foreach (var candidate in candidates)
+        {
+            if (await PayoutMatchesProviderAsync(candidate, providerCode, cancellationToken))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<bool> PayoutMatchesProviderAsync(
+        Payout payout, string providerCode, CancellationToken cancellationToken)
+    {
+        if (payout.OrderItemId is null)
+        {
+            return false;
+        }
+
+        var item = await _db.OrderItems
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => i.Id == payout.OrderItemId, cancellationToken);
+        var details = TryDeserializeDetails(item?.DetailsJson);
+        return details is not null
+            && string.Equals(details.ProviderCode, providerCode, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<RemittanceOrderResponse> BuildResponseAsync(Order order, CancellationToken cancellationToken)

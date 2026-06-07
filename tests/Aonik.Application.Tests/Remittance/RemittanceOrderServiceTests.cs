@@ -87,6 +87,41 @@ public class RemittanceOrderServiceTests
         }
     }
 
+    // Records the instruction handed to the connector so a test can assert the rail it was transmitted on.
+    private sealed class CapturingPayoutConnector : IPartnerPayoutConnector
+    {
+        public PayoutInstruction? LastInstruction { get; private set; }
+        public string ProviderCode => "Simulated";
+        public IReadOnlyCollection<PartnerConnectorCapability> Capabilities { get; } = new[]
+        {
+            new PartnerConnectorCapability(
+                PartnerServiceCategory.Payout, new[] { "NG" }, new[] { "NGN" }, new[] { "Bank", "MobileMoney" })
+        };
+
+        public Task<PayoutInitiationResult> InitiatePayoutAsync(PayoutInstruction instruction, CancellationToken ct = default)
+        {
+            LastInstruction = instruction;
+            return Task.FromResult(new PayoutInitiationResult(
+                new PartnerReference(instruction.ClientReference, "pr_capture"),
+                PartnerTransactionStatus.Succeeded, null, new RawProviderResponse("00", "ok", null)));
+        }
+
+        public Task<PayoutStatusResult> GetPayoutStatusAsync(PartnerReference r, CancellationToken ct = default)
+            => throw new NotSupportedException();
+        public Task<PayoutQuoteResult> QuotePayoutAsync(PayoutQuoteRequest r, CancellationToken ct = default)
+            => throw new NotSupportedException();
+        public Task<AccountResolutionResult> ResolveAccountAsync(AccountResolutionRequest r, CancellationToken ct = default)
+            => throw new NotSupportedException();
+    }
+
+    private static IConfiguration WebhookConfig()
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Finance:Partners:Webhooks:Simulated:SigningSecret"] = Signature
+            })
+            .Build();
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
@@ -96,12 +131,13 @@ public class RemittanceOrderServiceTests
     }
 
     private static RemittanceOrderService CreateService(
-        FinanceDbContext db, Guid tenantId, IClock? clock = null, IConfiguration? configuration = null)
+        FinanceDbContext db, Guid tenantId, IClock? clock = null, IConfiguration? configuration = null,
+        IPartnerPayoutConnector? payoutConnector = null)
     {
         var simulated = new SimulatedPartnerConnector();
         var translator = new SimulatedPartnerWebhookTranslator();
         var resolver = new PartnerConnectorResolver(
-            new IPartnerPayoutConnector[] { simulated },
+            new[] { payoutConnector ?? simulated },
             new IPartnerCollectionConnector[] { simulated },
             new IPartnerBillPaymentConnector[] { simulated },
             new IPartnerWebhookTranslator[] { translator });
@@ -425,10 +461,105 @@ public class RemittanceOrderServiceTests
         (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(0);
     }
 
-    private static (Order Order, Payout Payout) SeedTransmittedRemittance(FinanceDbContext db, Guid tenantId)
+    [Fact]
+    public async Task ProcessWebhookAsync_Should_SettleByClientReference_When_ProviderReferenceCollides()
+    {
+        // Two providers can independently mint the same provider reference. The settlement must follow
+        // our own ClientReference, never settle whichever payout happens to share the provider reference.
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var (orderX, payoutX) = SeedTransmittedRemittance(db, tenantId, clientReference: "REM-AAA", providerReference: "shared-ref");
+        var (orderY, payoutY) = SeedTransmittedRemittance(db, tenantId, clientReference: "REM-BBB", providerReference: "shared-ref");
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId, configuration: WebhookConfig());
+        var envelope = BuildPayoutWebhook("REM-BBB", "shared-ref", "Succeeded");
+
+        await service.ProcessWebhookAsync(envelope);
+
+        (await db.Orders.FirstAsync(o => o.Id == orderY.Id)).Status.Should().Be(OrderStatuses.Complete);
+        (await db.Orders.FirstAsync(o => o.Id == orderX.Id)).Status.Should().Be(OrderStatuses.Transmitted); // untouched
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement" && j.SourceId == payoutY.Id)).Should().Be(1);
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement" && j.SourceId == payoutX.Id)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_Should_Reject_When_WebhookProviderDiffersFromRemittance()
+    {
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        // Remittance was sent via "Flutterwave"; an inbound "Simulated" callback must not settle it.
+        var (order, payout) = SeedTransmittedRemittance(
+            db, tenantId, clientReference: "REM-CCC", providerReference: "pr_x", detailsJson: "{\"ProviderCode\":\"Flutterwave\"}");
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId, configuration: WebhookConfig());
+        var envelope = BuildPayoutWebhook("REM-CCC", "pr_x", "Succeeded"); // arrives as provider "Simulated"
+
+        await service.ProcessWebhookAsync(envelope);
+
+        (await db.Orders.SingleAsync()).Status.Should().Be(OrderStatuses.Transmitted); // unchanged
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(0);
+    }
+
+    // ── Destination rail ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ConfirmAsync_Should_TransmitOnBankRail_When_DestinationTypeIsLowercase()
+    {
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        account.DestinationType = "bank"; // free-form lowercase, routes as Bank case-insensitively
+        await db.SaveChangesAsync();
+
+        var capturing = new CapturingPayoutConnector();
+        var service = CreateService(db, tenantId, payoutConnector: capturing);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        await service.ConfirmAsync(request, "idem-rail-1");
+
+        capturing.LastInstruction.Should().NotBeNull();
+        capturing.LastInstruction!.Destination.Should().BeOfType<BankAccountDestination>();
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_Reject_When_DestinationRailUnsupported()
+    {
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        account.DestinationType = "Crypto"; // unsupported rail -> reject, never default to Wallet
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var act = async () => await service.ConfirmAsync(request, "idem-rail-2");
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Unsupported*");
+        (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
+        (await db.JournalEntries.CountAsync()).Should().Be(0); // no debit posted
+    }
+
+    private static (Order Order, Payout Payout) SeedTransmittedRemittance(
+        FinanceDbContext db,
+        Guid tenantId,
+        string? clientReference = null,
+        string providerReference = "pr_seed_1",
+        string detailsJson = "{}")
     {
         var orderId = Guid.NewGuid();
         var orderItemId = Guid.NewGuid();
+        var clientRef = clientReference ?? $"REM-{orderId:N}";
         var order = new Order
         {
             Id = orderId,
@@ -458,7 +589,8 @@ public class RemittanceOrderServiceTests
                     CurrencyIn = "NGN",
                     AmountOut = 990m,
                     CurrencyOut = "NGN",
-                    FeesTotal = 10m
+                    FeesTotal = 10m,
+                    DetailsJson = detailsJson
                 }
             }
         };
@@ -471,8 +603,8 @@ public class RemittanceOrderServiceTests
             DebitCurrency = "NGN",
             Fee = 10m,
             FeeCurrency = "NGN",
-            ClientReference = $"REM-{orderId:N}",
-            ProviderReference = "pr_seed_1",
+            ClientReference = clientRef,
+            ProviderReference = providerReference,
             DestinationType = "Bank",
             OrderItemId = orderItemId,
             Status = "Processing"
