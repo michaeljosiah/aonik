@@ -418,7 +418,7 @@
   <strong>not</strong> source-compatible, so <strong>every</strong> implementer must add it:
   <code>SimulatedPartnerConnector</code> <strong>and the test stubs</strong> (e.g.
   <code>CapturingPayoutConnector</code> in <code>RemittanceOrderServiceTests</code>) &mdash;
-  deterministic fake <code>rcp_…</code>). <em>(The rev-2 <code>ProviderEventId</code>
+  deterministic fake <code>rcb_…</code>). <em>(The rev-2 <code>ProviderEventId</code>
   amendment is dropped &mdash; #147 dedupes by <code>PayloadHash</code>; G14.)</em></li>
   <li><span class="tag new">New</span> <code>FlutterwavePayoutConnector : IPartnerPayoutConnector</code>
   &mdash; <code>QuotePayoutAsync</code>, <code>ResolveAccountAsync</code>,
@@ -552,7 +552,7 @@
     <code>ProviderBeneficiaryId</code> is a usable Flutterwave recipient id &mdash; the
     <code>recipient_id</code> flow is effectively <strong>required, not optional</strong>; a
     name-enquiry-only destination (masked id, no token) cannot be paid. <strong>Fix:</strong> register
-    the beneficiary with Flutterwave first and store its <code>rcp_…</code> in
+    the beneficiary with Flutterwave first and store its <code>rcb_…</code> in
     <code>ProviderBeneficiaryId</code>; or have 036 pass <code>VaultRef</code> + the resolvable raw
     value. <strong>But that registration flow doesn't exist yet</strong> &mdash;
     <code>SaveBeneficiaryAsync</code> hardcodes <code>IsVerified = false</code> and never calls a
@@ -665,7 +665,7 @@ grant_type=client_credentials&amp;client_id={CLIENT_ID}&amp;client_secret={CLIEN
   <tbody>
     <tr><td>Customer</td><td><code>POST /customers</code> (email required; name/phone/address optional)</td><td><code>cus_…</code></td><td><strong>No for direct-charge</strong> &mdash; you may pass <code>customer: { email, name }</code> inline. Pre-creating enables reuse, saved payment methods, and search.</td></tr>
     <tr><td>Payment method</td><td><code>POST /payment-methods</code></td><td><code>pmd_…</code></td><td>No for direct-charge &mdash; <code>payment_method</code> is embedded inline. Pre-creating enables tokenized reuse.</td></tr>
-    <tr><td>Transfer recipient (beneficiary)</td><td><code>POST /transfers/recipients</code></td><td><code>rcp_…</code> / <code>rcb_…</code></td><td><strong>No for <code>/direct-transfers</code></strong> &mdash; the recipient is inline. The two-step (create recipient &rarr; <code>/transfers</code> with <code>recipient_id</code>) is the "orchestrator/general" flow.</td></tr>
+    <tr><td>Transfer recipient (beneficiary)</td><td><code>POST /transfers/recipients</code></td><td><code>rcb_…</code> (bank; varies by rail)</td><td><strong>No for <code>/direct-transfers</code></strong> &mdash; the recipient is inline. The two-step (create recipient &rarr; <code>/transfers</code> with <code>recipient_id</code>) is the "orchestrator/general" flow.</td></tr>
     <tr><td>Transfer sender</td><td><code>POST /transfers/senders</code></td><td><code>snd_…</code></td><td>No &mdash; <code>sender</code> may be inline on <code>/direct-transfers</code> (name, email, phone, address, national_identification, date_of_birth). For remittance, sender KYC is typically required by compliance.</td></tr>
   </tbody>
 </table>
@@ -688,7 +688,7 @@ grant_type=client_credentials&amp;client_id={CLIENT_ID}&amp;client_secret={CLIEN
   <code>VaultRef</code> or a raw account; a token-less destination arrives only as a <em>masked</em>
   identifier, which Flutterwave can't pay (G19, &sect;4). So, re-answering the task's question with the
   shipped caller in hand: <strong>yes &mdash; for real Flutterwave remittance you must pre-register the
-  beneficiary as a Flutterwave recipient and store its <code>rcp_…</code> in
+  beneficiary as a Flutterwave recipient and store its <code>rcb_…</code> in
   <code>ProviderBeneficiaryId</code></strong> (the destination is also gated on
   <code>IsVerified</code>). The <code>recipient_id</code> flow is the <em>required</em> path for real
   dispatch, not just an optimization. Decide in O4.
@@ -775,7 +775,7 @@ Content-Type: application/json
 </div>
 <p>
   <strong>Orchestrator (two-step) alternative:</strong>
-  <code>POST /transfers/recipients</code> &rarr; save <code>data.id</code> (<code>rcp_…</code>),
+  <code>POST /transfers/recipients</code> &rarr; save <code>data.id</code> (<code>rcb_…</code>),
   then <code>POST /transfers</code> with <code>payment_instruction.recipient_id</code>. Same status
   vocabulary. Use only when reusing a saved beneficiary (&sect;5.4 recommendation).
 </p>
@@ -1072,8 +1072,8 @@ Body:    { "type": "transfer.disburse", "id": "…", "timestamp": …,
     </tr>
     <tr>
       <td>G20 <span class="tag gap">new</span></td>
-      <td><strong>No contract path to obtain/store a recipient id.</strong> G19 needs <code>ProviderBeneficiaryId = rcp_…</code>, but <code>ResolveAccountAsync</code> returns only <code>(Resolved, AccountName, Raw)</code> &mdash; a name enquiry, not a recipient creation. The port has no way to create a Flutterwave recipient and hand back its id for storage.</td>
-      <td><strong>Add a payout-port method</strong> &mdash; e.g. <code>RegisterRecipientAsync(RecipientRegistrationRequest) &rarr; RecipientRegistrationResult(string? ProviderBeneficiaryId, …)</code> mapping to <code>POST /transfers/recipients</code>. 037 implements it for Flutterwave; 036 calls it at verification (the <code>IsVerified</code> gate) and stores the returned id. <strong>This is a Spec&nbsp;031 contract addition that is NOT source-compatible</strong> &mdash; <code>SimulatedPartnerConnector</code> must also implement it (return a deterministic fake <code>rcp_…</code>). Alternative: extend <code>AccountResolutionResult</code> with <code>ProviderBeneficiaryId</code> (conflates two distinct Flutterwave calls; less clean). (O4, &sect;3.1)</td>
+      <td><strong>No contract path to obtain/store a recipient id.</strong> G19 needs <code>ProviderBeneficiaryId = rcb_…</code>, but <code>ResolveAccountAsync</code> returns only <code>(Resolved, AccountName, Raw)</code> &mdash; a name enquiry, not a recipient creation. The port has no way to create a Flutterwave recipient and hand back its id for storage.</td>
+      <td><strong>Add a payout-port method</strong> &mdash; e.g. <code>RegisterRecipientAsync(RecipientRegistrationRequest) &rarr; RecipientRegistrationResult(string? ProviderBeneficiaryId, …)</code> mapping to <code>POST /transfers/recipients</code>. 037 implements it for Flutterwave; 036 calls it at verification (the <code>IsVerified</code> gate) and stores the returned id. <strong>This is a Spec&nbsp;031 contract addition that is NOT source-compatible</strong> &mdash; <code>SimulatedPartnerConnector</code> must also implement it (return a deterministic fake <code>rcb_…</code>). Alternative: extend <code>AccountResolutionResult</code> with <code>ProviderBeneficiaryId</code> (conflates two distinct Flutterwave calls; less clean). (O4, &sect;3.1)</td>
     </tr>
   </tbody>
 </table>
@@ -1182,6 +1182,8 @@ Task&lt;T&gt; GetAsync&lt;T&gt;(string path, CancellationToken ct);
 
     // InitiatePayoutAsync(PayoutInstruction i):  PRIMARY = recipient_id flow (G19/G20)
     //   reference = Sanitize(i.ClientReference) (alnum ≤42, G13); meta.aonik_client_reference = i.ClientReference (G17)
+    //   recipient id is matched by RESOURCE-ID SHAPE, not a fixed prefix — v4 recipient ids vary by rail
+    //     (bank = rcb_…, others differ); a hardcoded "rcp_" check would reject valid beneficiaries.
     //   if the destination carries a Flutterwave recipient id (ProviderBeneficiaryId):
     //     POST /transfers { reference, action="instant", transfer_purpose = meta["transfer_purpose"] ?? "family_maintenance",
     //       payment_instruction { recipient_id, amount{value=i.Amount.Amount, applies_to="destination_currency"},
@@ -1196,7 +1198,7 @@ Task&lt;T&gt; GetAsync&lt;T&gt;(string path, CancellationToken ct);
     // GetPayoutStatusAsync(PartnerReference r): GET /transfers/{r.ProviderReference} → PayoutStatusResult
     // QuotePayoutAsync(PayoutQuoteRequest q):   POST /transfers/rates → PayoutQuoteResult (Fee maybe null, G8)
     // ResolveAccountAsync(AccountResolutionRequest a): POST /banks/account-resolve → AccountResolutionResult
-    // RegisterRecipientAsync(RecipientRegistrationRequest r): POST /transfers/recipients → ProviderBeneficiaryId (rcp_…)  // NEW, G20
+    // RegisterRecipientAsync(RecipientRegistrationRequest r): POST /transfers/recipients → ProviderBeneficiaryId (rcb_…)  // NEW, G20
 }</code></pre>
 <ul>
   <li><code>Map(PayoutDestination)</code> switches on the record type &rarr; the currency-specific
@@ -1272,9 +1274,9 @@ public sealed record RecipientRegistrationResult(
   <code>VerifyAndRegisterBeneficiaryAsync</code> on <code>PayoutBeneficiaryService</code> + a
   <code>POST /payout-beneficiaries/verify</code> endpoint that accepts the transient raw details,
   runs the resolve&rarr;register&rarr;persist sequence, and sets <code>IsVerified = true</code> with the
-  real <code>rcp_…</code>. Until that lands, <strong>037's acceptance is met by manually seeding</strong>
+  real <code>rcb_…</code>. Until that lands, <strong>037's acceptance is met by manually seeding</strong>
   a verified <code>ExternalPayoutAccount</code> (<code>IsVerified = true</code>,
-  <code>ProviderBeneficiaryId = rcp_…</code>) &mdash; the connector + translator are exercised
+  <code>ProviderBeneficiaryId = rcb_…</code>) &mdash; the connector + translator are exercised
   end-to-end; only the self-service beneficiary onboarding is stubbed (O4, O12).
 </div>
 
@@ -1457,7 +1459,7 @@ if (fw?.IsConfigured() == true)
   <code>PayoutQuoteResult.Fee</code> to <code>Money?</code> <strong>and grep every <code>.Fee</code>
   consumer to handle <code>null</code></strong> (semantic change, not just source-compatible);
   <em>(b)</em> add <code>RegisterRecipientAsync</code> to <code>IPartnerPayoutConnector</code> (G20)
-  and implement it on <code>SimulatedPartnerConnector</code> (deterministic fake <code>rcp_…</code>) +
+  and implement it on <code>SimulatedPartnerConnector</code> (deterministic fake <code>rcb_…</code>) +
   update its tests so the solution still builds. <em>(No <code>ProviderEventId</code> change &mdash;
   withdrawn, G14.)</em></li>
   <li><span class="tag new">New</span> <code>FlutterwaveOptions</code> + empty
@@ -1514,7 +1516,7 @@ if (fw?.IsConfigured() == true)
   <code>scenario:successful</code> transfer settles through the shipped <code>ProcessWebhookAsync</code>
   <em>only</em> when (a) the confirm request carries <code>ProviderCode = "Flutterwave"</code> (G18,
   O11) <strong>and</strong> (b) the destination is verified with a real
-  <code>ProviderBeneficiaryId = rcp_…</code> (G19, G20). Until those 036/#147 fixes land, E2E
+  <code>ProviderBeneficiaryId = rcb_…</code> (G19, G20). Until those 036/#147 fixes land, E2E
   settlement is demonstrated with those two values supplied manually &mdash; the connector + translator
   are not the blocker. <em>(Issue&nbsp;#129 #1, conditional)</em></li>
   <li><strong>Webhook signature verification + idempotent processing</strong> &mdash; via the
@@ -1548,7 +1550,7 @@ if (fw?.IsConfigured() == true)
     <tr><td>O1</td><td><strong>Bill-pay / airtime with no v4 endpoint</strong> (G9). Leave simulated, build a v3 connector, or route to eTranzact/Interswitch?</td><td>Leave Flutterwave bill-pay simulated this phase; revisit airtime via Interswitch when the wedge needs it. Needs product sign-off because Issue&nbsp;#129 names "bill-pay."</td></tr>
     <tr><td>O2</td><td><strong><code>transfer_purpose</code> + sender KYC home</strong> (G3). Metadata now, or first-class DTO/order fields?</td><td>Metadata for the connector now (default <code>family_maintenance</code>); promote to a first-class <code>SenderDetails</code> + <code>TransferPurpose</code> on the order in Spec&nbsp;036, since the data originates order-side.</td></tr>
     <tr><td>O3</td><td><strong>Quote fee &mdash; nullable contract vs concrete fee</strong> (G8). <code>PayoutQuoteResult.Fee</code> is non-nullable today, so a pre-send "fee unknown" can't be expressed.</td><td>Widen the contract to <code>Money? Fee</code> (additive, source-compatible; aligns with the nullable <code>Fee</code> on initiation/status results), ship rate + converted from <code>/transfers/rates</code> with <code>Fee = null</code>, and capture the realized fee at execution. Add a <code>/fees</code> lookup only if product needs an exact pre-send fee. If zero contract churn is mandated, return a zero-fee sentinel instead &mdash; less honest, but no contract edit.</td></tr>
-    <tr><td>O4</td><td><strong>Recipient-id flow is required, not optional</strong> (G19, 5.4). The shipped <code>BuildPayoutInstruction</code> never sends a raw account or <code>VaultRef</code> &mdash; only <code>ProviderBeneficiaryId</code> or a masked id. So how does a destination get a Flutterwave <code>rcp_…</code>?</td><td>Pre-register the beneficiary: at verification time (the <code>IsVerified</code> gate), the connector's <code>ResolveAccountAsync</code> confirms the name and a recipient is created via <code>POST /transfers/recipients</code>, storing <code>rcp_…</code> in <code>ProviderBeneficiaryId</code>. Dispatch then uses <code>POST /transfers</code> with <code>recipient_id</code>. (Adding <code>VaultRef</code> + raw value to the instruction is the alternative, but it widens PCI surface.)</td></tr>
+    <tr><td>O4</td><td><strong>Recipient-id flow is required, not optional</strong> (G19, 5.4). The shipped <code>BuildPayoutInstruction</code> never sends a raw account or <code>VaultRef</code> &mdash; only <code>ProviderBeneficiaryId</code> or a masked id. So how does a destination get a Flutterwave <code>rcb_…</code>?</td><td>Pre-register the beneficiary: at verification time (the <code>IsVerified</code> gate), the connector's <code>ResolveAccountAsync</code> confirms the name and a recipient is created via <code>POST /transfers/recipients</code>, storing <code>rcb_…</code> in <code>ProviderBeneficiaryId</code>. Dispatch then uses <code>POST /transfers</code> with <code>recipient_id</code>. (Adding <code>VaultRef</code> + raw value to the instruction is the alternative, but it widens PCI surface.)</td></tr>
     <tr><td>O5</td><td><strong>Card collection / PCI</strong> (G6). Build AES-GCM card support or stay non-card?</td><td>Non-card (bank transfer / mobile money / USSD) first; cards via hosted redirect to avoid PCI scope.</td></tr>
     <tr><td>O6</td><td><strong>Production base URL</strong> (5.2). Confirm <code>f4bexperience.flutterwave.com</code> vs another host.</td><td>Verify against the live dashboard before go-live; keep it in config so it's a setting, not a code change.</td></tr>
     <tr><td>O7</td><td><strong>Secret storage</strong>. <code>IOptions</code>+env vs DB-backed <code>Connector.CredentialsRef</code> vs (future) Key Vault?</td><td><code>IOptions</code> + env now (Plaid precedent), with <code>IDataProtection</code> for any token at rest; align with a platform Key-Vault move when one lands.</td></tr>

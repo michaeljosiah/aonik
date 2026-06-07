@@ -220,12 +220,15 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
             _ => string.Empty,
         };
 
-        // The shipped caller passes ProviderBeneficiaryId (rcp_…) in the account field (Spec 037 G19).
-        // A masked identifier (no recipient id) cannot be paid — fail closed with a clear message.
-        if (string.IsNullOrWhiteSpace(value) || !value.StartsWith("rcp_", StringComparison.Ordinal))
+        // The shipped caller passes the connector's stored recipient id (a Flutterwave resource id
+        // such as "rcb_B9aAgsdzzl") in the account field (Spec 037 G19). A masked identifier or raw
+        // account number is not a recipient id and cannot be paid — fail closed with a clear message.
+        // Match the Flutterwave resource-id SHAPE, not a single prefix: recipient ids vary by rail
+        // (bank = rcb_, others differ), so a hardcoded "rcp_" check would reject valid beneficiaries.
+        if (!IsLikelyRecipientId(value))
         {
             throw new FlutterwaveException(
-                "Payout destination has no Flutterwave recipient id (rcp_…); register the beneficiary "
+                "Payout destination has no Flutterwave recipient id (e.g. rcb_…); register the beneficiary "
                 + "via RegisterRecipientAsync before dispatch (Spec 037 G19/G20).",
                 errorType: "NO_RECIPIENT",
                 errorCode: null,
@@ -234,6 +237,27 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         }
 
         return value;
+    }
+
+    // A Flutterwave recipient id is a resource id like "rcb_B9aAgsdzzl": a lowercase token, an
+    // underscore, then alphanumerics. This accepts every recipient-type prefix while rejecting masked
+    // identifiers ("****1234") and raw account numbers / MSISDNs (which contain no underscore).
+    private static bool IsLikelyRecipientId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length <= 4 || !value.Contains('_'))
+        {
+            return false;
+        }
+
+        foreach (var c in value)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '_')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static PartnerTransactionStatus MapTransferStatus(string? status)

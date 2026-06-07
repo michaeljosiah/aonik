@@ -82,7 +82,7 @@ public class FlutterwaveConnectorTests
             ClientReference: "REM-0a1b2c3d",
             Amount: new SharedKernel.Primitives.Money(50000m, "NGN"),
             DebitCurrency: "GBP",
-            Destination: new BankAccountDestination("044", "rcp_abc123", null, "John Doe"),
+            Destination: new BankAccountDestination("044", "rcb_abc123", null, "John Doe"),
             Narration: "Remittance",
             CallbackUrl: null,
             Metadata: new Dictionary<string, string> { ["transfer_purpose"] = "education" });
@@ -103,22 +103,41 @@ public class FlutterwaveConnectorTests
         var root = body.RootElement;
         root.GetProperty("reference").GetString().Should().Be("REM0a1b2c3d"); // hyphen sanitized
         root.GetProperty("transfer_purpose").GetString().Should().Be("education");
-        root.GetProperty("payment_instruction").GetProperty("recipient_id").GetString().Should().Be("rcp_abc123");
+        root.GetProperty("payment_instruction").GetProperty("recipient_id").GetString().Should().Be("rcb_abc123");
         root.GetProperty("meta").GetProperty("aonik_client_reference").GetString().Should().Be("REM-0a1b2c3d");
     }
 
-    [Fact]
-    public async Task InitiatePayoutAsync_Should_FailClosed_When_DestinationHasNoRecipientId()
+    [Theory]
+    [InlineData("rcb_B9aAgsdzzl")] // bank recipient — the real Flutterwave v4 prefix
+    [InlineData("rcp_abc123")]     // a different recipient-type prefix
+    public async Task InitiatePayoutAsync_Should_Accept_AnyFlutterwaveRecipientId(string recipientId)
     {
         var handler = new RecordingHandler();
+        handler.Enqueue(HttpStatusCode.Created, Envelope("{\"id\":\"trf_1\",\"status\":\"NEW\"}"));
         var connector = CreateConnector(handler);
         var instruction = new PayoutInstruction(
             "REM-1", new SharedKernel.Primitives.Money(100m, "NGN"), "GBP",
-            new BankAccountDestination("044", "****1234", null, "John Doe"), "n", null, null);
+            new BankAccountDestination("044", recipientId, null, "John Doe"), "n", null, null);
 
-        var act = () => connector.InitiatePayoutAsync(instruction);
+        await connector.InitiatePayoutAsync(instruction);
 
-        (await act.Should().ThrowAsync<FlutterwaveException>()).Which.Retryable.Should().BeFalse();
+        using var body = JsonDocument.Parse(handler.LastBody!);
+        body.RootElement.GetProperty("payment_instruction").GetProperty("recipient_id").GetString()
+            .Should().Be(recipientId); // not rejected by a hardcoded prefix
+    }
+
+    [Theory]
+    [InlineData("****1234")]    // masked identifier (ProviderBeneficiaryId was null)
+    [InlineData("0690000040")]  // raw account number — not a registered recipient id
+    public async Task InitiatePayoutAsync_Should_FailClosed_When_NotARecipientId(string accountValue)
+    {
+        var connector = CreateConnector(new RecordingHandler());
+        var instruction = new PayoutInstruction(
+            "REM-1", new SharedKernel.Primitives.Money(100m, "NGN"), "GBP",
+            new BankAccountDestination("044", accountValue, null, "John Doe"), "n", null, null);
+
+        (await ((Func<Task>)(() => connector.InitiatePayoutAsync(instruction)))
+            .Should().ThrowAsync<FlutterwaveException>()).Which.Retryable.Should().BeFalse();
     }
 
     [Fact]
@@ -243,14 +262,14 @@ public class FlutterwaveConnectorTests
     public async Task RegisterRecipientAsync_Should_PostBankRecipient_AndReturnBeneficiaryId()
     {
         var handler = new RecordingHandler();
-        handler.Enqueue(HttpStatusCode.Created, Envelope("{\"id\":\"rcp_B9aAgsdzzl\",\"type\":\"bank_ngn\"}"));
+        handler.Enqueue(HttpStatusCode.Created, Envelope("{\"id\":\"rcb_B9aAgsdzzl\",\"type\":\"bank_ngn\"}"));
         var connector = CreateConnector(handler);
 
         var result = await connector.RegisterRecipientAsync(new RecipientRegistrationRequest(
             new BankAccountDestination("044", "0690000040", null, "Alex James"), "NGN", "Alex James", "NG", null));
 
         result.Registered.Should().BeTrue();
-        result.ProviderBeneficiaryId.Should().Be("rcp_B9aAgsdzzl");
+        result.ProviderBeneficiaryId.Should().Be("rcb_B9aAgsdzzl");
         handler.LastRequest!.RequestUri!.AbsolutePath.Should().Be("/transfers/recipients");
 
         using var body = JsonDocument.Parse(handler.LastBody!);
@@ -338,7 +357,7 @@ public class FlutterwaveConnectorTests
         clientReference,
         new SharedKernel.Primitives.Money(50000m, "NGN"),
         "GBP",
-        new BankAccountDestination("044", "rcp_abc123", null, "John Doe"),
+        new BankAccountDestination("044", "rcb_abc123", null, "John Doe"),
         "Remittance",
         null,
         null);
