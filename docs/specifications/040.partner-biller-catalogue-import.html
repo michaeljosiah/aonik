@@ -248,7 +248,7 @@
     <li><a href="#model">Catalogue model &amp; field mapping</a></li>
     <li><a href="#import">Import service &mdash; idempotent upsert</a></li>
     <li><a href="#api">Endpoints</a></li>
-    <li><a href="#ui">Admin UI</a></li>
+    <li><a href="#ui">Admin UI &mdash; biller listing &amp; import</a></li>
     <li><a href="#di">DI, config &amp; secrets</a></li>
     <li><a href="#tasks">Tasks</a></li>
     <li><a href="#acceptance">Acceptance criteria</a></li>
@@ -780,26 +780,161 @@ Authorization: Bearer FLWSECK-...
   classification is unambiguous later.
 </div>
 
-<h2 id="ui">10. Admin UI</h2>
+<h2 id="ui">10. Admin UI &mdash; biller listing &amp; import</h2>
+
+<div class="callout">
+  <span class="callout-label">Visual source of truth</span>
+  These requirements are grounded in the working prototype
+  <a href="../../Templates/aonik-admin-starterkit/screens/billers.jsx"><code>Templates/aonik-admin-starterkit/screens/billers.jsx</code></a>
+  (the <code>ScreenBillers</code> screen). The production page
+  <a href="../../src/Aonik.AdminUi/src/pages/catalog/CatalogBillersPage.tsx"><code>CatalogBillersPage.tsx</code></a>
+  is to be rebuilt to match that prototype with the real component library
+  (<code>Button</code>, <code>Pill</code>/<code>Badge</code>, <code>Icon</code>, the data-table and
+  sheet primitives). The prototype is the <em>layout</em> contract; this section is the
+  <em>behaviour + data</em> contract.
+</div>
+
+<h3 id="ui-layout">10.1 Page shell</h3>
 <p>
-  An <em>Import from partner</em> button on
-  <a href="../../src/Aonik.AdminUi/src/pages/catalog/CatalogBillersPage.tsx"><code>CatalogBillersPage</code></a>
-  opens a multi-step dialog modelled on
-  <a href="../../src/Aonik.AdminUi/src/components/dialogs/ImportDemoDataDialog.tsx"><code>ImportDemoDataDialog</code></a>:
+  Two-column layout: a fixed <strong>category rail</strong> (~220px) on the left and a scrollable
+  <strong>main column</strong> on the right.
 </p>
+<ul>
+  <li><strong>Category rail.</strong> Lists <code>CatalogBillerCategory</code> rows for the tenant with
+  a per-category biller <strong>count</strong>, plus an "All billers" pseudo-row (total). Selecting a
+  category filters the main list (client- or server-side). A dashed <em>Add category</em> action maps to
+  <code>ICatalogService.CreateCategoryAsync</code>. The active row is highlighted.</li>
+  <li><strong>Header.</strong> Title "Billers" + one-line description, a <strong>search</strong> input
+  (by name / provider code), an <strong>Import from partner</strong> button (opens the wizard,
+  &sect;10.6), and a primary <strong>Add biller</strong> button (the existing manual create sheet).</li>
+</ul>
+
+<h3 id="ui-stats">10.2 Stats strip (operational KPIs)</h3>
+<p>
+  Four summary cards above the list: <em>Active billers</em> (with "N inactive · M in maintenance"
+  sub), <em>Tx this month</em>, <em>Avg success rate</em>, <em>Avg time-to-receipt</em> (p50, with a
+  p95 sub). These are <strong>aggregated operational metrics, not catalogue columns</strong> &mdash;
+  see the data-backing note in &sect;10.7. First cut may render the catalogue-backed counts (active /
+  inactive) and defer the order-derived metrics.
+</p>
+
+<h3 id="ui-list">10.3 Biller list &mdash; grid &amp; list views</h3>
+<p>A <strong>Grid / List</strong> view toggle and a "Showing N billers [in {category}]" count. Both
+  views are driven by the same data and link a row to the detail drawer (&sect;10.5).</p>
+
+<h4>Grid card anatomy (per biller)</h4>
+<ul>
+  <li><strong>Identity:</strong> logo tile (<code>LogoUrl</code>, or a deterministic symbol+colour
+  fallback derived from the name), name, "{category} · {country}".</li>
+  <li><strong>Status pill:</strong> Active / Degraded / Maintenance / Inactive (tone-coded).</li>
+  <li><strong>Metrics row:</strong> Tx&nbsp;/&nbsp;mo, Success&nbsp;%, p50&nbsp;ETA (operational, &sect;10.7).</li>
+  <li><strong>Partners + fee:</strong> a chip per partner this biller routes through (the set of its
+  <code>ConnectorBillerMapping</code> connectors &mdash; the multi-partner case is first-class), and the
+  effective fee.</li>
+  <li><strong>Provenance footer:</strong> <em>Imported · {connector} · {providerCode}</em> or
+  <em>Manual entry</em>; an inactive biller additionally shows the "dropped on {date} sync" note.</li>
+  <li>An <strong>Import from a partner</strong> add-card terminates the grid (also opens the wizard).</li>
+  <li>Inactive billers render dimmed/greyscaled but remain visible (never hidden &mdash; they are
+  soft-deactivated, &sect;8).</li>
+</ul>
+
+<h4>List view columns</h4>
+<p><code>Biller</code> (logo + name + country/code) · <code>Category</code> · <code>Source</code>
+  (provenance connector) · <code>Tx&nbsp;/&nbsp;mo</code> · <code>Success</code> · <code>Status</code>
+  · chevron. Same row click-through to the drawer.</p>
+
+<h3 id="ui-drawer">10.4 Biller &rarr; services detail drawer</h3>
+<p>
+  Clicking a biller opens a right-side drawer (~520px) &mdash; the surface that makes "a biller and the
+  services it offers" concrete:
+</p>
+<ul>
+  <li><strong>Header:</strong> logo, name, status pill, "{category} · {country}".</li>
+  <li><strong>Provenance / mapping card:</strong> "Imported from {connector}" (or "Manually authored"),
+  the <strong>provider biller code</strong> (<code>ConnectorBillerMapping.ProviderBillerCode</code>),
+  and <strong>last sync</strong> time. For an inactive biller, an explicit note: "no longer offered by
+  the partner on the last import, so it was soft-deactivated; history and orders are preserved."</li>
+  <li><strong>KPIs:</strong> Tx&nbsp;/&nbsp;mo, Success, p50&nbsp;ETA, Fee (operational, &sect;10.7).</li>
+  <li><strong>Services table:</strong> one row per <code>CatalogBillerService</code> &mdash;
+  <em>Service · field</em> (name + customer-field label from <code>FieldsJson</code> + the provider
+  item code), <em>Type</em> (<code>Fixed</code> / <code>Variable</code> from <code>AmountType</code>),
+  <em>Amount</em> (<code>FixedAmount</code>, or "—" for variable), and an active/inactive dot
+  (<code>IsActive</code>). This is exactly what the import writes (&sect;7).</li>
+  <li><strong>Footer actions:</strong> <em>View orders</em> (filter the order list by this biller) and
+  <em>Edit biller</em> (the manual update path).</li>
+</ul>
+
+<h3 id="ui-import">10.5 Import-from-partner wizard</h3>
+<p>A modal wizard with a <strong>Source &rarr; Preview &rarr; Confirm</strong> step indicator, then a
+  result screen. Mirrors the prototype's <code>BillerImportWizard</code>.</p>
 <ol>
-  <li><strong>Source</strong> &mdash; pick a configured partner connector (a Flutterwave connector row).</li>
-  <li><strong>Preview</strong> &mdash; call <code>/import/preview</code>; render the catalogue grouped
-  by category with per-row status chips (New / Mapped / Changed) and checkboxes; "select all new" /
-  category filters.</li>
-  <li><strong>Confirm</strong> &mdash; show counts ("12 new, 3 updated"), call <code>/import</code>,
-  then refresh the billers list.</li>
+  <li><strong>Source.</strong> Pick a configured partner connector. Each option shows status
+  (Connected / Sandbox) and an "~N billers available" hint. Copy states catalogues are NG-only for bill
+  payment (&sect;3). The Simulated connector appears as a sandbox fallback.</li>
+  <li><strong>Preview.</strong> Calls <code>POST /catalog/billers/import/preview</code> and renders the
+  live catalogue <strong>grouped by category</strong>, each row with a checkbox, the provider code, a
+  service count, a <strong>New / Mapped / Changed</strong> chip, and &mdash; for <em>Changed</em> &mdash;
+  a short "what changed" note (e.g. "name + fee", "2 new data bundles"). A toolbar offers a "Live ·
+  {connector}" indicator, category filter chips, and <em>Select all new</em>. Default selection =
+  everything <em>not</em> already <code>Mapped</code> (new + changed); Mapped rows are deselected by
+  default (re-importing them is a no-op).</li>
+  <li><strong>Confirm.</strong> A {connector} &rarr; Aonik catalog summary with the projected counts
+  &mdash; Billers created / updated / deactivated, Services created / updated, and
+  <strong>Duplicates: 0</strong> &mdash; plus an idempotency callout ("identity is the provider
+  mapping, so re-running reports 0 created; the deactivation is a biller the partner dropped, kept not
+  deleted"). The footer states the permission + risk tier: <em>Catalog.Write · medium-risk
+  reference-data write</em> (&sect;9).</li>
+  <li><strong>Result.</strong> On <code>POST /catalog/billers/import</code> success, a confirmation
+  screen with the <strong>actual</strong> summary counts, after which the catalogue refreshes and a
+  dismissible <strong>post-import flash banner</strong> ("Imported from {connector} — N created · M
+  updated · K deactivated") appears on the listing page.</li>
 </ol>
 <p>
-  New client <code>src/Aonik.AdminUi/src/services/billerImportService.ts</code> with
-  <code>preview()</code> / <code>import()</code> over <code>lib/api.ts</code> (auth + tenant headers are
-  automatic). Detailed visual design is deferred to implementation; the patterns are established.
+  The projected counts shown at Confirm come from the <em>preview</em> diff; the Result counts come from
+  the <em>import</em> response (&sect;8) &mdash; they should match, and any divergence (e.g. a concurrent
+  change) is surfaced honestly rather than hidden.
 </p>
+
+<h3 id="ui-service">10.6 Client service</h3>
+<p>
+  New <code>src/Aonik.AdminUi/src/services/billerImportService.ts</code> with <code>preview()</code> /
+  <code>import()</code> over <code>lib/api.ts</code> (auth + <code>X-Tenant-Id</code> headers are
+  automatic). The listing itself continues to use <code>catalogService</code>, extended so the list
+  response carries <strong>provenance</strong> (source connector(s), provider code, last sync) &mdash; a
+  read join over <code>ConnectorBillerMapping</code> &mdash; which the cards and drawer require.
+</p>
+
+<h3 id="ui-data">10.7 Data backing &mdash; what the UI needs vs. what the model holds</h3>
+<p>
+  The prototype surfaces fields beyond the catalogue tables. Mapping each so nothing is silently assumed
+  into existence:
+</p>
+<table>
+  <thead><tr><th>UI field</th><th>Backing</th><th>Source / note</th></tr></thead>
+  <tbody>
+    <tr><td>Name, logo, category, country</td><td><span class="tag ok">stored</span></td><td><code>CatalogBiller</code> (+ <code>CatalogBillerCategory</code>). Symbol/colour are a deterministic UI fallback when <code>LogoUrl</code> is null.</td></tr>
+    <tr><td>Active / Inactive status</td><td><span class="tag ok">stored</span></td><td><code>CatalogBiller.IsActive</code> (Inactive = soft-deactivated, &sect;8).</td></tr>
+    <tr><td>Service rows (name, type, amount, field, code, active)</td><td><span class="tag ok">stored</span></td><td><code>CatalogBillerService</code> (<code>AmountType</code>, <code>FixedAmount</code>, <code>FieldsJson</code>, <code>IsActive</code>) + <code>ConnectorBillerMapping.ProviderItemCode</code>.</td></tr>
+    <tr><td>Partners[] (multi-partner chips)</td><td><span class="tag ok">stored</span></td><td>The set of <code>ConnectorBillerMapping</code> connectors for the biller.</td></tr>
+    <tr><td>Provenance (source connector, provider code)</td><td><span class="tag existing">derived</span></td><td>Join over <code>ConnectorBillerMapping</code>; "Manual" = no mapping. <strong>List response must include this</strong> (&sect;10.6).</td></tr>
+    <tr><td>Preview status chip (New / Mapped / Changed) + note</td><td><span class="tag existing">derived</span></td><td>Computed by <code>PreviewAsync</code> at request time (&sect;8.2); never persisted.</td></tr>
+    <tr><td>Last sync time + "dropped on {date}"</td><td><span class="tag gap">not modeled</span></td><td>Needs a sync timestamp on the mapping &mdash; <strong>O4</strong>. The drawer/provenance surface it, so O4 is now <em>recommended</em>, not optional.</td></tr>
+    <tr><td>Tx&nbsp;/&nbsp;mo, Success&nbsp;%, p50/p95 ETA, Fee</td><td><span class="tag gap">not modeled</span></td><td>Operational read-model aggregated from <code>Order</code>/<code>PartnerBillPayment</code> (+ pricing for fee). <strong>Out of scope</strong> here; rendered "—" or hidden until a metrics endpoint exists &mdash; <strong>O7</strong>.</td></tr>
+    <tr><td>Degraded / Maintenance health states</td><td><span class="tag gap">not modeled</span></td><td>Connector health, not catalogue state. Out of scope; only Active/Inactive are backed today &mdash; <strong>O8</strong>.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="ui-states">10.8 States &amp; gating</h3>
+<ul>
+  <li><strong>Loading / empty / error</strong> for the list and the preview (the preview makes a live
+  partner call &mdash; show a spinner and surface a partner timeout/5xx as a retryable error, not a
+  blank).</li>
+  <li><strong>Permissions:</strong> Import and Add are gated on <code>Catalog.Write</code>; a read-only
+  operator sees the catalogue but not the mutating actions.</li>
+  <li><strong>No configured connector:</strong> the Source step shows only Simulated &mdash; link out to
+  <em>Settings &rarr; Payment Gateways</em> (Spec&nbsp;038) to configure Flutterwave's bills secret key
+  (&sect;11).</li>
+</ul>
 
 <h2 id="di">11. DI, config &amp; secrets</h2>
 <p>
@@ -846,8 +981,13 @@ Finance.Partners.Flutterwave.Bills.SecretKey   // FLWSECK-... — never committe
   <li><span class="tag new">New</span> <code>PreviewBillerImportEndpoint</code>,
   <code>ImportBillersEndpoint</code> (Catalog.Write).</li>
   <li><span class="tag mutate">Edit</span> <code>FinanceModule.ConfigureServices</code> (DI block + import service).</li>
-  <li><span class="tag new">New</span> Admin UI: <code>billerImportService.ts</code> + import dialog;
-  <em>Import from partner</em> button on <code>CatalogBillersPage</code>.</li>
+  <li><span class="tag new">New</span> Admin UI (&sect;10, per the
+  <a href="../../Templates/aonik-admin-starterkit/screens/billers.jsx"><code>billers.jsx</code></a>
+  prototype): rebuild the listing page (category rail, grid/list views, biller cards with provenance,
+  inactive state), the biller&rarr;services <strong>detail drawer</strong>, the
+  <strong>Source&rarr;Preview&rarr;Confirm&rarr;Result import wizard</strong>, and the post-import flash;
+  add <code>billerImportService.ts</code> and extend <code>catalogService</code> list response with
+  provenance.</li>
   <li><span class="tag new">New</span> Tests: catalogue mapping, happy-path import, idempotent re-import
   (0 created / N updated), upsert of changed name/amount, soft-deactivation of dropped biller, partner
   500, timeout.</li>
@@ -889,9 +1029,11 @@ Finance.Partners.Flutterwave.Bills.SecretKey   // FLWSECK-... — never committe
     <tr><td>O1</td><td>Add a unique index on <code>(TenantId, ConnectorId, ProviderBillerCode, ProviderItemCode)</code> for the idempotency lookup?</td><td>Yes &mdash; index seek + hard guarantee. Tool-generate the migration (&sect;8.4).</td></tr>
     <tr><td>O2</td><td>Should import depth expand every biller's products (N+1 calls) or use only the dense <code>top-bill-categories</code> rows?</td><td>Expand lazily &mdash; one item per biller from categories at preview, full products only for selected billers at import, to bound API calls.</td></tr>
     <tr><td>O3</td><td>Scheduled re-sync (Quartz) later?</td><td>Defer. The upsert is built to be re-run safely; wrapping it in a job is additive.</td></tr>
-    <tr><td>O4</td><td>Track import provenance (a <code>LastSyncedAt</code> / <code>Source</code> column)?</td><td>Not required for idempotency (the per-run "seen" set drives deactivation). Add only if operators need audit of last-sync time &mdash; would be a tool-generated migration.</td></tr>
+    <tr><td>O4</td><td>Track a <code>LastSyncedAt</code> timestamp on <code>ConnectorBillerMapping</code>?</td><td><strong>Recommended</strong> &mdash; the UI provenance card and drawer surface "last sync" and the "dropped on {date}" note (&sect;10.4, &sect;10.7), so it is now a UI requirement, not just audit. Tool-generated migration on <code>AonikDbContext</code>.</td></tr>
     <tr><td>O5</td><td>Pre- or post-launch given the remittance wedge freeze?</td><td>Product call. Default: post remittance GA (P2).</td></tr>
     <tr><td>O6</td><td>Confirm exact v3 verbs/paths (validate GET vs POST; billers path) against the live reference.</td><td>Verify in sandbox at implementation; isolated in one client file.</td></tr>
+    <tr><td>O7</td><td>Operational metrics on the cards/drawer (Tx&nbsp;/&nbsp;mo, success, ETA, fee).</td><td>A separate read-model over <code>Order</code>/<code>PartnerBillPayment</code>; out of scope here. First cut renders catalogue-backed fields and "—" for metrics until a metrics endpoint lands (&sect;10.7).</td></tr>
+    <tr><td>O8</td><td>Health states beyond Active/Inactive (Degraded / Maintenance).</td><td>Connector health, not catalogue state. Defer; only <code>IsActive</code> is backed today (&sect;10.7).</td></tr>
   </tbody>
 </table>
 
@@ -902,7 +1044,8 @@ Finance.Partners.Flutterwave.Bills.SecretKey   // FLWSECK-... — never committe
   <li><a href="038.admin-partner-connector-configuration.html">Spec 038 &mdash; Admin partner connector configuration</a> (settings + secrets surface).</li>
   <li><a href="032.tiered-ai-mutation-approval.html">Spec 032 &mdash; Tiered AI mutation approval</a> (medium-tier classification of catalogue writes).</li>
   <li>Flutterwave Bills API &mdash; <a href="https://developer.flutterwave.com/docs/bill-payment">developer.flutterwave.com/docs/bill-payment</a>, <a href="https://developer.flutterwave.com/reference/biller-types-for-data-bundles">biller types</a>, and the v3 SDK Bills docs (field shapes in &sect;5).</li>
-  <li>In-repo: <a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerBillPaymentConnector.cs"><code>IPartnerBillPaymentConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/Connectors/SimulatedPartnerConnector.cs"><code>SimulatedPartnerConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/Connectors/Flutterwave/FlutterwavePayoutConnector.cs"><code>FlutterwavePayoutConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Partners/ConnectorBillerMapping.cs"><code>ConnectorBillerMapping.cs</code></a>, <a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a>.</li>
+  <li>UI prototype (visual source of truth for &sect;10): <a href="../../Templates/aonik-admin-starterkit/screens/billers.jsx"><code>Templates/aonik-admin-starterkit/screens/billers.jsx</code></a> (<code>ScreenBillers</code>, <code>BillerDetailDrawer</code>, <code>BillerImportWizard</code>).</li>
+  <li>In-repo: <a href="../../src/Aonik.Finance/Contracts/Services/Partners/Connectors/IPartnerBillPaymentConnector.cs"><code>IPartnerBillPaymentConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/Connectors/SimulatedPartnerConnector.cs"><code>SimulatedPartnerConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Services/Partners/Connectors/Flutterwave/FlutterwavePayoutConnector.cs"><code>FlutterwavePayoutConnector.cs</code></a>, <a href="../../src/Aonik.Finance/Entities/Partners/ConnectorBillerMapping.cs"><code>ConnectorBillerMapping.cs</code></a>, <a href="../../src/Aonik.AdminUi/src/pages/catalog/CatalogBillersPage.tsx"><code>CatalogBillersPage.tsx</code></a>, <a href="../../src/Aonik.Finance/FinanceModule.cs"><code>FinanceModule.cs</code></a>.</li>
 </ul>
 
 <footer>
