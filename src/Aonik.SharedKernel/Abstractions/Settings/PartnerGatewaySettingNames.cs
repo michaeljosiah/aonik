@@ -14,4 +14,10 @@ public static class PartnerGatewaySettingNames
     public const string FlutterwaveEncryptionKey = "Finance.Partners.Flutterwave.EncryptionKey";
     public const string FlutterwaveDefaultTransferPurpose = "Finance.Partners.Flutterwave.DefaultTransferPurpose";
     public const string FlutterwaveSigningSecret = "Finance.Partners.Webhooks.Flutterwave.SigningSecret";
+
+    // Flutterwave v3 Bills connector (Spec 040). Distinct transport from the v4 keys above: a static
+    // secret key (FLWSECK-…), supplied via environment / user-secrets, never committed.
+    public const string FlutterwaveBillsEnabled = "Finance.Partners.Flutterwave.Bills.Enabled";
+    public const string FlutterwaveBillsBaseUrl = "Finance.Partners.Flutterwave.Bills.BaseUrl";
+    public const string FlutterwaveBillsSecretKey = "Finance.Partners.Flutterwave.Bills.SecretKey";
 }

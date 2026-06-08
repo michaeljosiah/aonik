@@ -33,7 +33,13 @@ public sealed record BillerCatalogEntry(
     PartnerServiceCategory ServiceCategory,
     IReadOnlyList<BillCustomerField> CustomerFields, IReadOnlyList<BillItem> Items);
 
-public sealed record BillerCatalogQuery(string? CategoryCode, string? Country, string? Currency);
+// BillerCodes + ExpandItems support lazy import depth (Spec 040 §6.2, O2): preview reads the dense
+// catalogue (ExpandItems = false, one representative item per biller); import re-reads only the
+// selected billers (BillerCodes) and expands their full product list (ExpandItems = true). Both are
+// optional and default to the prior behaviour, so existing callers and connectors are unaffected.
+public sealed record BillerCatalogQuery(
+    string? CategoryCode, string? Country, string? Currency,
+    IReadOnlyCollection<string>? BillerCodes = null, bool ExpandItems = false);
 
 public sealed record BillCustomerValidationRequest(
     string ClientReference, string BillerCode, string ItemCode, string CustomerId,

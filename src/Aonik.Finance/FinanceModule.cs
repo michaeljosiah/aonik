@@ -175,9 +175,25 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<Contracts.Services.Partners.Connectors.IPartnerWebhookTranslator,
             Services.Partners.Connectors.Flutterwave.FlutterwaveWebhookTranslator>();
 
+        // ── Flutterwave bills connector (Spec 040) ──────────────────
+        // The v3 Bills API is a DIFFERENT transport from the v4 payout connector above: a static
+        // secret key (FLWSECK-…) and base URL https://api.flutterwave.com/v3 — it cannot reuse the v4
+        // client/token provider. Registered ALONGSIDE the simulated bill connector (distinct
+        // ProviderCode), only usable once a secret key is supplied; until then it fails closed.
+        services.Configure<Services.Partners.Connectors.Flutterwave.Bills.FlutterwaveBillsOptions>(
+            configuration.GetSection("Finance:Partners:Flutterwave:Bills"));
+        services.AddScoped<Services.Partners.Connectors.Flutterwave.Bills.IFlutterwaveBillsConfigProvider,
+            Services.Partners.Connectors.Flutterwave.Bills.FlutterwaveBillsConfigProvider>();
+        services.AddTransient<Services.Partners.Connectors.Flutterwave.Bills.FlutterwaveBillsAuthHandler>();
+        services.AddHttpClient<Services.Partners.Connectors.Flutterwave.Bills.FlutterwaveBillsClient>()
+            .AddHttpMessageHandler<Services.Partners.Connectors.Flutterwave.Bills.FlutterwaveBillsAuthHandler>();
+        services.AddTransient<Contracts.Services.Partners.Connectors.IPartnerBillPaymentConnector,
+            Services.Partners.Connectors.Flutterwave.Bills.FlutterwaveBillPaymentConnector>();
+
         // Catalog
         services.AddScoped<Contracts.Services.Catalog.ICatalogService, Services.Catalog.CatalogService>();
         services.AddScoped<Contracts.Services.Catalog.IPublicCatalogService, Services.Catalog.PublicCatalogService>();
+        services.AddScoped<Contracts.Services.Catalog.IBillerImportService, Services.Catalog.BillerImportService>();
 
         // PersonalFinance
         // IBillService, IDashboardService, IHouseholdService, IPersonalAccountService,
