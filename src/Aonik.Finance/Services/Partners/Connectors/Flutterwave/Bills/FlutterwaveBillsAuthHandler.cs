@@ -11,23 +11,18 @@ namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave.Bills;
 /// </summary>
 internal sealed class FlutterwaveBillsAuthHandler : DelegatingHandler
 {
-    private readonly IFlutterwaveBillsConfigProvider _configProvider;
-
-    public FlutterwaveBillsAuthHandler(IFlutterwaveBillsConfigProvider configProvider)
-    {
-        _configProvider = configProvider;
-    }
-
-    protected override async Task<HttpResponseMessage> SendAsync(
+    protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        var options = await _configProvider.GetAsync(cancellationToken);
-        if (!string.IsNullOrWhiteSpace(options.SecretKey))
+        // The bound connector's options ride on the request (Spec 042 §7). When the key is unset the header
+        // is omitted; the connector still fails closed before any call via IsConfigured().
+        if (request.Options.TryGetValue(FlutterwaveBillsRequestContext.OptionsKey, out var options)
+            && !string.IsNullOrWhiteSpace(options.SecretKey))
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.SecretKey);
         }
 
-        return await base.SendAsync(request, cancellationToken);
+        return base.SendAsync(request, cancellationToken);
     }
 }

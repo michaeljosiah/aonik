@@ -385,6 +385,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<PartnerBranch>(modelBuilder, "PartnerBranches");
         MapFinanceTable<PartnerFundingAccount>(modelBuilder, "PartnerFundingAccounts");
         MapFinanceTable<Connector>(modelBuilder, "Connectors");
+        MapFinanceTable<CredentialBundle>(modelBuilder, "CredentialBundles");
         MapFinanceTable<RoutingRule>(modelBuilder, "RoutingRules");
         MapFinanceTable<PayoutSchema>(modelBuilder, "PayoutSchemas");
         MapFinanceTable<Transmission>(modelBuilder, "Transmissions");

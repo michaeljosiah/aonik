@@ -21,6 +21,7 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
 
     private readonly FlutterwaveBillsClient _client;
     private readonly IFlutterwaveBillsConfigProvider _configProvider;
+    private ConnectorBinding? _binding;
 
     public FlutterwaveBillPaymentConnector(
         FlutterwaveBillsClient client,
@@ -31,6 +32,16 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
     }
 
     public string ProviderCode => "Flutterwave";
+
+    /// <summary>The connector row this instance is bound to (Spec 042 §9); null for the legacy/global default.</summary>
+    public Guid? ConnectorId => _binding?.ConnectorId;
+
+    /// <summary>Binds this instance to a persisted <c>Connector</c> row so it resolves that account's secret key.</summary>
+    internal FlutterwaveBillPaymentConnector Bind(ConnectorBinding binding)
+    {
+        _binding = binding;
+        return this;
+    }
 
     public IReadOnlyCollection<PartnerConnectorCapability> Capabilities { get; } = new[]
     {
@@ -57,7 +68,7 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
         }
 
         var envelope = await _client.GetAsync<FwEnvelope<List<FwBillCategoryRow>>>(
-            $"top-bill-categories?country={country}", cancellationToken);
+            $"top-bill-categories?country={country}", options, cancellationToken);
         var rows = envelope.Data ?? new List<FwBillCategoryRow>();
 
         var entries = rows
@@ -87,7 +98,7 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
             var expanded = new List<BillerCatalogEntry>(entries.Count);
             foreach (var entry in entries)
             {
-                var items = await ExpandProductsAsync(entry, cancellationToken);
+                var items = await ExpandProductsAsync(entry, options, cancellationToken);
                 expanded.Add(entry with { Items = items });
             }
 
@@ -132,10 +143,10 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
     }
 
     private async Task<IReadOnlyList<BillItem>> ExpandProductsAsync(
-        BillerCatalogEntry entry, CancellationToken cancellationToken)
+        BillerCatalogEntry entry, FlutterwaveBillsOptions options, CancellationToken cancellationToken)
     {
         var envelope = await _client.GetAsync<FwEnvelope<FwBillerProductsData>>(
-            $"billers/{entry.BillerCode}/items", cancellationToken);
+            $"billers/{entry.BillerCode}/items", options, cancellationToken);
         var products = envelope.Data?.Products;
         if (products is null || products.Count == 0)
         {
@@ -162,13 +173,13 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
     public async Task<BillCustomerValidationResult> ValidateCustomerAsync(
         BillCustomerValidationRequest request, CancellationToken cancellationToken = default)
     {
-        await GetConfiguredOptionsAsync(cancellationToken);
+        var options = await GetConfiguredOptionsAsync(cancellationToken);
 
         // Verify exact verb/path against the live reference (O6) — validate is documented as both GET
         // and POST; the Node SDK uses POST with this body.
         var body = new { item_code = request.ItemCode, code = request.BillerCode, customer = request.CustomerId };
         var envelope = await _client.PostAsync<FwEnvelope<FwBillValidateData>>(
-            $"bill-items/{request.ItemCode}/validate", body, cancellationToken);
+            $"bill-items/{request.ItemCode}/validate", body, options, cancellationToken);
         var data = envelope.Data;
 
         var isValid = string.Equals(data?.ResponseCode, "00", StringComparison.Ordinal);
@@ -216,7 +227,7 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
         // item-scoped path keyed by the validated biller_code + item_code carried on the instruction —
         // the same codes catalogue import and validation use. Verify the exact path in sandbox (O6).
         var path = $"billers/{Uri.EscapeDataString(instruction.BillerCode)}/items/{Uri.EscapeDataString(instruction.ItemCode)}/payment";
-        var envelope = await _client.PostAsync<FwEnvelope<FwBillPayData>>(path, body, cancellationToken);
+        var envelope = await _client.PostAsync<FwEnvelope<FwBillPayData>>(path, body, options, cancellationToken);
         var status = MapStatus(envelope.Status);
 
         // Status reconciliation (GET /v3/bills/{reference}) keys off tx_ref, NOT flw_ref — bill-payment
@@ -233,10 +244,10 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
     public async Task<BillPaymentStatusResult> GetBillPaymentStatusAsync(
         PartnerReference reference, CancellationToken cancellationToken = default)
     {
-        await GetConfiguredOptionsAsync(cancellationToken);
+        var options = await GetConfiguredOptionsAsync(cancellationToken);
 
         var lookup = reference.ProviderReference ?? reference.ClientReference;
-        var envelope = await _client.GetAsync<FwEnvelope<FwBillStatusData>>($"bills/{lookup}", cancellationToken);
+        var envelope = await _client.GetAsync<FwEnvelope<FwBillStatusData>>($"bills/{lookup}", options, cancellationToken);
         var status = MapStatus(envelope.Status);
         return new BillPaymentStatusResult(
             reference, status, Token: null,
@@ -246,7 +257,9 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
     // ── Helpers ───────────────────────────────────────────────────────────────
     private async Task<FlutterwaveBillsOptions> GetConfiguredOptionsAsync(CancellationToken cancellationToken)
     {
-        var options = await _configProvider.GetAsync(cancellationToken);
+        var options = _binding is null
+            ? await _configProvider.GetAsync(cancellationToken)
+            : await _configProvider.GetAsync(_binding, cancellationToken);
         if (!options.IsConfigured())
         {
             throw new FlutterwaveException(

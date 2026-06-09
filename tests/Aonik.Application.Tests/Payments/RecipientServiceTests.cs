@@ -53,6 +53,7 @@ public class RecipientServiceTests
                 new IPartnerCollectionConnector[] { simulated },
                 new IPartnerBillPaymentConnector[] { simulated },
                 Array.Empty<IPartnerWebhookTranslator>()),
+            new Spec042NoopConnectorFactory(),
             new TestClock());
         var recipients = new RecipientService(context, party, beneficiary, tenant);
         return (recipients, party, context);

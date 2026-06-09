@@ -22,20 +22,32 @@ internal class PartnerWebhookEventConfiguration : IEntityTypeConfiguration<Partn
         builder.Property(x => x.ProcessingStatus).IsRequired().HasMaxLength(50);
         builder.Property(x => x.Error).HasMaxLength(2000);
 
-        // Two filtered unique indexes dedupe events: SQL Server treats NULLs as equal in a unique
-        // index, so one unfiltered index over the nullable ProviderEventId would reject every
-        // event-id-less row. Primary key is (ProviderCode, ProviderEventId) when present; the
-        // payload-hash fallback applies only when ProviderEventId is null.
+        // Connector-aware dedupe (Spec 042 §9.2). Once an event resolves to a connector (signature verified),
+        // its dedupe bucket is keyed by ConnectorId so two connector instances of the same provider can never
+        // alias. Events not yet resolved to a connector (ConnectorId NULL — rejected or untranslatable rows)
+        // fall back to the provider-code bucket. Each bucket splits on ProviderEventId presence because
+        // SQL Server treats NULLs as equal in a unique index, so an event-id-less row must not collide.
+        builder.HasIndex(x => new { x.ConnectorId, x.ProviderEventId })
+            .IsUnique()
+            .HasFilter("[ConnectorId] IS NOT NULL AND [ProviderEventId] IS NOT NULL")
+            .HasDatabaseName("UX_PartnerWebhookEvents_Connector_ProviderEventId");
+
+        builder.HasIndex(x => new { x.ConnectorId, x.PayloadHash })
+            .IsUnique()
+            .HasFilter("[ConnectorId] IS NOT NULL AND [ProviderEventId] IS NULL")
+            .HasDatabaseName("UX_PartnerWebhookEvents_Connector_PayloadHash");
+
         builder.HasIndex(x => new { x.ProviderCode, x.ProviderEventId })
             .IsUnique()
-            .HasFilter("[ProviderEventId] IS NOT NULL")
+            .HasFilter("[ConnectorId] IS NULL AND [ProviderEventId] IS NOT NULL")
             .HasDatabaseName("UX_PartnerWebhookEvents_ProviderCode_ProviderEventId");
 
         builder.HasIndex(x => new { x.ProviderCode, x.PayloadHash })
             .IsUnique()
-            .HasFilter("[ProviderEventId] IS NULL")
+            .HasFilter("[ConnectorId] IS NULL AND [ProviderEventId] IS NULL")
             .HasDatabaseName("UX_PartnerWebhookEvents_ProviderCode_PayloadHash");
 
+        builder.HasIndex(x => x.ConnectorId);
         builder.HasIndex(x => x.ClientReference);
         builder.HasIndex(x => x.ProviderReference);
     }

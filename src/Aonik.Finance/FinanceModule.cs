@@ -154,6 +154,19 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Partners.Connectors.IPartnerConnectorResolver,
             Services.Partners.Connectors.PartnerConnectorResolver>();
 
+        // ── Partner-owned connector credentials (ADR-010 / Spec 042) ─
+        // Bundles encrypt their own secret bytes via IDataProtection (a distinct purpose string), because
+        // the settings store only encrypts statically-defined keys. The bundle service is the only path that
+        // decrypts; the factory binds a runtime connector to a persisted Connector row + its resolved bundle.
+        services.AddSingleton<Services.Partners.Connectors.Credentials.IConnectorCredentialProtector,
+            Services.Partners.Connectors.Credentials.ConnectorCredentialProtector>();
+        services.AddScoped<Services.Partners.Connectors.Credentials.ICredentialBundleService,
+            Services.Partners.Connectors.Credentials.CredentialBundleService>();
+        services.AddScoped<Services.Partners.Connectors.IPartnerConnectorFactory,
+            Services.Partners.Connectors.PartnerConnectorFactory>();
+        services.AddScoped<Contracts.Services.Partners.ICredentialBundleAdminService,
+            Services.Partners.CredentialBundleAdminService>();
+
         // ── Flutterwave connector (Spec 037, Issue #129) ────────────
         // Registered ALONGSIDE the simulated connector (distinct ProviderCode), only when configured.
         // The remittance service selects by ProviderCode and falls back to "Simulated", so the

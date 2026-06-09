@@ -185,6 +185,8 @@ public class RemittanceOrderServiceTests
             db,
             new StubPricingService(db, tenantId, effectiveClock.UtcNow.AddMinutes(30)),
             resolver,
+            new Spec042NoopConnectorFactory(),
+            new Spec042NoopCredentialBundleService(),
             new LedgerPostingService(db),
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId ?? CallerUserId),
@@ -215,6 +217,8 @@ public class RemittanceOrderServiceTests
             db,
             new StubPricingService(db, tenantId, effectiveClock.UtcNow.AddMinutes(30)),
             resolver,
+            new Spec042NoopConnectorFactory(),
+            new Spec042NoopCredentialBundleService(),
             new LedgerPostingService(db),
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId ?? CallerUserId),
@@ -413,6 +417,32 @@ public class RemittanceOrderServiceTests
 
         await act.Should().ThrowAsync<InvalidStateException>().WithMessage("*expired*");
         (await db.Orders.CountAsync(o => o.OrderType == "Remittance")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_FailClosed_When_BeneficiaryConnector_NoLongerExists()
+    {
+        // Spec 042 §9: a beneficiary pinned to a specific connector must dispatch through that exact account.
+        // If the pinned connector has been removed, confirm fails closed — it must never silently re-route the
+        // payout through the tenant default / Simulated connector.
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        account.ConnectorId = Guid.NewGuid(); // pinned to a connector row that does not exist
+        SeedCaller(db, tenantId, customerPartyId);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var act = async () => await service.ConfirmAsync(request, "idem-failclosed-1");
+
+        await act.Should().ThrowAsync<InvalidStateException>();
+        (await db.Payouts.CountAsync()).Should().Be(0);      // nothing dispatched through a fallback account
+        (await db.Transmissions.CountAsync()).Should().Be(0);
     }
 
     [Fact]
@@ -697,6 +727,48 @@ public class RemittanceOrderServiceTests
         await service.ProcessWebhookAsync(envelope);
 
         (await db.Orders.SingleAsync()).Status.Should().Be(OrderStatuses.Transmitted); // unchanged
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_Should_Reject_When_BoundConnector_Has_No_Bundle_SigningSecret()
+    {
+        // Spec 042 fail-closed: a payout tied to a BOUND connector (one carrying a CredentialsRef) must verify
+        // the webhook ONLY against that connector's bundle signing secret. With no usable bundle signing secret
+        // it must be REJECTED — never fall back to the tenant's global legacy secret, which belongs to a
+        // different account. The webhook below is correctly signed with the LEGACY secret, so before the fix it
+        // would have settled.
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var (order, payout) = SeedTransmittedRemittance(db, tenantId);
+
+        var boundConnector = new Aonik.Finance.Entities.Partners.Connector
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartnerId = Guid.NewGuid(),
+            ConnectorType = "flutterwave-payout-v4",
+            CredentialsRef = "fw-bound", // bound — but the test's bundle service resolves no signing secret
+            ConfigJson = "{}",
+            Status = "Active",
+        };
+        db.Connectors.Add(boundConnector);
+        payout.ConnectorId = boundConnector.Id;
+        await db.SaveChangesAsync();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Finance:Partners:Webhooks:Simulated:SigningSecret"] = Signature
+            })
+            .Build();
+        var service = CreateService(db, tenantId, configuration: configuration);
+
+        var envelope = BuildPayoutWebhook(payout.ClientReference, payout.ProviderReference, "Succeeded");
+        await service.ProcessWebhookAsync(envelope);
+
+        (await db.Orders.SingleAsync()).Status.Should().Be(OrderStatuses.Transmitted); // not settled
         (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(0);
     }
 

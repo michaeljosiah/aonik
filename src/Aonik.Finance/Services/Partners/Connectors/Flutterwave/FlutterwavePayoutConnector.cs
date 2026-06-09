@@ -18,6 +18,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
 {
     private readonly FlutterwaveClient _client;
     private readonly IFlutterwaveConfigProvider _configProvider;
+    private ConnectorBinding? _binding;
 
     public FlutterwavePayoutConnector(FlutterwaveClient client, IFlutterwaveConfigProvider configProvider)
     {
@@ -26,6 +27,20 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     }
 
     public string ProviderCode => "Flutterwave";
+
+    /// <summary>The connector row this instance is bound to (Spec 042 §9); null for the legacy/global default.</summary>
+    public Guid? ConnectorId => _binding?.ConnectorId;
+
+    /// <summary>
+    /// Binds this instance to a persisted <c>Connector</c> row so it resolves that account's credentials.
+    /// Called by <see cref="Aonik.Finance.Services.Partners.Connectors.PartnerConnectorFactory"/>; the
+    /// DI-registered instance stays unbound and resolves the legacy default.
+    /// </summary>
+    internal FlutterwavePayoutConnector Bind(ConnectorBinding binding)
+    {
+        _binding = binding;
+        return this;
+    }
 
     // In-memory capability lanes (Spec 037 §7.4): the resolver matches on these, not persisted
     // ConnectorCapability rows. Destination-oriented — the Payabo UK→NG wedge.
@@ -41,7 +56,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<PayoutQuoteResult> QuotePayoutAsync(
         PayoutQuoteRequest request, CancellationToken cancellationToken = default)
     {
-        await EnsureConfiguredAsync(cancellationToken);
+        var options = await GetConfiguredOptionsAsync(cancellationToken);
         var sourceCurrency = request.Amount.Currency;          // the quoted amount is the SOURCE (debit) amount
         var destinationCurrency = request.DestinationCurrency; // the recipient receives this currency
 
@@ -66,7 +81,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         };
 
         var data = await PostDataAsync<FwRateData>(
-            "/transfers/rates", body, FlutterwaveReferences.FreshIdempotencyKey(), cancellationToken);
+            "/transfers/rates", body, FlutterwaveReferences.FreshIdempotencyKey(), options, cancellationToken);
 
         var sourcePerDestination = TryParseDecimal(data.Rate);
         Money? converted = null;
@@ -87,7 +102,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<AccountResolutionResult> ResolveAccountAsync(
         AccountResolutionRequest request, CancellationToken cancellationToken = default)
     {
-        await EnsureConfiguredAsync(cancellationToken);
+        var options = await GetConfiguredOptionsAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(request.Currency))
         {
             throw new ArgumentException(
@@ -102,7 +117,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         };
 
         var data = await PostDataAsync<FwAccountResolveData>(
-            "/banks/account-resolve", body, FlutterwaveReferences.FreshIdempotencyKey(), cancellationToken);
+            "/banks/account-resolve", body, FlutterwaveReferences.FreshIdempotencyKey(), options, cancellationToken);
 
         var resolved = !string.IsNullOrWhiteSpace(data.AccountName);
         return new AccountResolutionResult(resolved, data.AccountName, new RawProviderResponse(null, null, null));
@@ -111,7 +126,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<RecipientRegistrationResult> RegisterRecipientAsync(
         RecipientRegistrationRequest request, CancellationToken cancellationToken = default)
     {
-        await EnsureConfiguredAsync(cancellationToken);
+        var options = await GetConfiguredOptionsAsync(cancellationToken);
         var currency = request.Currency.Trim().ToUpperInvariant();
         var (first, last) = SplitName(request.AccountName);
         var name = new FwName { First = first, Last = last };
@@ -149,7 +164,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
             $"{request.Currency}:{DescribeDestination(request.Destination)}");
 
         var data = await PostDataAsync<FwRecipientData>(
-            "/transfers/recipients", body, idempotencyKey, cancellationToken);
+            "/transfers/recipients", body, idempotencyKey, options, cancellationToken);
 
         var registered = !string.IsNullOrWhiteSpace(data.Id);
         return new RecipientRegistrationResult(
@@ -186,7 +201,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         };
 
         var idempotencyKey = FlutterwaveReferences.IdempotencyKeyFrom(instruction.ClientReference);
-        var data = await PostDataAsync<FwTransferData>("/transfers", body, idempotencyKey, cancellationToken);
+        var data = await PostDataAsync<FwTransferData>("/transfers", body, idempotencyKey, options, cancellationToken);
 
         return new PayoutInitiationResult(
             new PartnerReference(instruction.ClientReference, data.Id),
@@ -198,7 +213,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     public async Task<PayoutStatusResult> GetPayoutStatusAsync(
         PartnerReference reference, CancellationToken cancellationToken = default)
     {
-        await EnsureConfiguredAsync(cancellationToken);
+        var options = await GetConfiguredOptionsAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(reference.ProviderReference))
         {
             throw new ArgumentException(
@@ -207,7 +222,7 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
         }
 
         var envelope = await _client.GetAsync<FwEnvelope<FwTransferData>>(
-            $"/transfers/{reference.ProviderReference}", cancellationToken);
+            $"/transfers/{reference.ProviderReference}", options, cancellationToken);
         var data = envelope.Data ?? throw new FlutterwaveException(
             "Flutterwave transfer status response had no data.", "EMPTY", null, null, retryable: false);
 
@@ -219,21 +234,20 @@ internal sealed class FlutterwavePayoutConnector : IPartnerPayoutConnector
     }
 
     private async Task<T> PostDataAsync<T>(
-        string path, object body, string idempotencyKey, CancellationToken cancellationToken)
+        string path, object body, string idempotencyKey, FlutterwaveOptions options, CancellationToken cancellationToken)
         where T : class
     {
-        var envelope = await _client.PostAsync<FwEnvelope<T>>(path, body, idempotencyKey, cancellationToken);
+        var envelope = await _client.PostAsync<FwEnvelope<T>>(path, body, idempotencyKey, options, cancellationToken);
         return envelope.Data
             ?? throw new FlutterwaveException(
                 $"Flutterwave response for '{path}' had no data.", "EMPTY", null, null, retryable: false);
     }
 
-    private async Task EnsureConfiguredAsync(CancellationToken cancellationToken)
-        => _ = await GetConfiguredOptionsAsync(cancellationToken);
-
     private async Task<FlutterwaveOptions> GetConfiguredOptionsAsync(CancellationToken cancellationToken)
     {
-        var options = await _configProvider.GetAsync(cancellationToken);
+        var options = _binding is null
+            ? await _configProvider.GetAsync(cancellationToken)
+            : await _configProvider.GetAsync(_binding, cancellationToken);
         if (!options.IsConfigured())
         {
             throw new FlutterwaveException(

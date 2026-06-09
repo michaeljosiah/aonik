@@ -3,6 +3,7 @@ using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Catalog;
+using Aonik.Finance.Services.Partners.Connectors;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Primitives;
@@ -83,7 +84,7 @@ public class BillerImportServiceTests
     private sealed record Fixture(
         FinanceDbContext Context, BillerImportService Service, FakeBillConnector Connector, Guid ConnectorId);
 
-    private static Fixture CreateFixture(Guid tenantId, FakeBillConnector connector)
+    private static Fixture CreateFixture(Guid tenantId, FakeBillConnector connector, string connectorType = "Flutterwave")
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
@@ -96,7 +97,7 @@ public class BillerImportServiceTests
             Id = connectorId,
             TenantId = tenantId,
             PartnerId = Guid.NewGuid(),
-            ConnectorType = "Flutterwave",
+            ConnectorType = connectorType,
             ConfigJson = "{}",
             Status = "Active"
         });
@@ -105,9 +106,15 @@ public class BillerImportServiceTests
         var resolver = new Mock<IPartnerConnectorResolver>();
         resolver.Setup(r => r.ResolveBillPaymentConnector(It.IsAny<string>())).Returns(connector);
 
+        // Spec 042: BillerImportService now binds the bill connector to the operator-selected row via the
+        // factory; the stub returns the test connector for any row (IPartnerConnectorFactory is internal,
+        // so it cannot be Moq-proxied).
+        var factory = new Spec042StubConnectorFactory(billConnector: connector);
+
         var service = new BillerImportService(
             context,
             resolver.Object,
+            factory,
             new IPartnerBillPaymentConnector[] { connector },
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),
@@ -382,5 +389,20 @@ public class BillerImportServiceTests
         source.ConnectorId.Should().Be(fx.ConnectorId);
         source.ConnectorType.Should().Be("Flutterwave");
         source.IsSandbox.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetSourcesAsync_Should_Include_LiftedBillsConnector_ByKind()
+    {
+        // Spec 042: after the legacy lift, a bills connector row stores the KIND code (flutterwave-bills-v3),
+        // not the provider code. The sources list must still surface it (registry bill-payment kinds are part
+        // of the allow-list), otherwise the lifted connector becomes invisible for import.
+        var tenantId = Guid.NewGuid();
+        var connector = new FakeBillConnector();
+        var fx = CreateFixture(tenantId, connector, connectorType: "flutterwave-bills-v3");
+
+        var sources = await fx.Service.GetSourcesAsync();
+
+        sources.Sources.Should().ContainSingle(s => s.ConnectorType == "flutterwave-bills-v3");
     }
 }

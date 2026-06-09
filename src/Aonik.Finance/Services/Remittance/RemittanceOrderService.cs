@@ -17,6 +17,7 @@ using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
+using Aonik.Finance.Services.Partners.Connectors.Registry;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Settings;
@@ -58,6 +59,8 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     private readonly FinanceDbContext _db;
     private readonly IPricingService _pricingService;
     private readonly IPartnerConnectorResolver _connectorResolver;
+    private readonly Services.Partners.Connectors.IPartnerConnectorFactory _connectorFactory;
+    private readonly Services.Partners.Connectors.Credentials.ICredentialBundleService _bundleService;
     private readonly LedgerPostingService _ledgerPostingService;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -70,6 +73,8 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         FinanceDbContext db,
         IPricingService pricingService,
         IPartnerConnectorResolver connectorResolver,
+        Services.Partners.Connectors.IPartnerConnectorFactory connectorFactory,
+        Services.Partners.Connectors.Credentials.ICredentialBundleService bundleService,
         LedgerPostingService ledgerPostingService,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
@@ -81,6 +86,8 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         _db = db;
         _pricingService = pricingService;
         _connectorResolver = connectorResolver;
+        _connectorFactory = connectorFactory;
+        _bundleService = bundleService;
         _ledgerPostingService = ledgerPostingService;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
@@ -261,9 +268,11 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         // fall back to the request/provider routing rules from Spec 036.
         var (_, providerCode) = ResolvePayoutConnector(
             ResolveRequestedProviderCode(request.ProviderCode, account.ProviderCode), quote, account.DestinationType);
-        // The simulated connector is keyed by ProviderCode and has no Connector row; a persistent
-        // ProviderCode → Connector.Id mapping is a follow-up. Guid.Empty marks "unmapped" today.
-        var connectorId = Guid.Empty;
+        // Bind the payout to a persisted Connector row (Spec 042 §9): the verified beneficiary pins its own
+        // connector, so a payout to it dispatches through that exact account; otherwise the migrated legacy
+        // default connector applies. Guid.Empty still marks the Simulated fallback (no row).
+        var connectorRow = await ResolvePayoutConnectorRowAsync(account, providerCode, cancellationToken);
+        var connectorId = connectorRow?.Id ?? Guid.Empty;
 
         var now = _clock.UtcNow;
         var orderId = Guid.NewGuid();
@@ -524,18 +533,35 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             return;
         }
 
-        var signingSecret = await ResolveWebhookSigningSecretAsync(providerCode, cancellationToken);
-        var signatureValid = !string.IsNullOrEmpty(signingSecret)
-            && translator.VerifySignature(envelope, signingSecret);
-
+        // Parse the payload to read its reference — UNTRUSTED until the signature verifies (Spec 042 §9.2).
         var translated = translator.Translate(envelope);
 
-        // Dedupe inbox: a row keyed by (ProviderCode, PayloadHash) that is already Processed short-circuits.
-        var existingEvent = await _db.PartnerWebhookEvents
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(
-                e => e.ProviderCode == providerCode && e.PayloadHash == payloadHash,
-                cancellationToken);
+        // Use the reference ONLY to locate a candidate payout → its owning connector → that connector's
+        // bundle signing secret. ClientReference (REM-{orderId:N}) is our own globally-unique, provider-agnostic
+        // key — the authoritative match; ProviderReference is a provider-scoped fallback. Nothing here is
+        // trusted for a state change until the signature validates against that secret.
+        var payout = await LocateRemittancePayoutAsync(providerCode, translated.Reference, cancellationToken);
+        var candidateConnectorId = payout?.ConnectorId ?? Guid.Empty;
+        var candidateConnector = candidateConnectorId != Guid.Empty
+            ? await _db.Connectors.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(c => c.Id == candidateConnectorId, cancellationToken)
+            : null;
+
+        var signingSecrets = await ResolveWebhookSigningSecretsAsync(candidateConnector, providerCode, cancellationToken);
+        var signatureValid = signingSecrets.Any(secret => translator.VerifySignature(envelope, secret));
+
+        // ConnectorId is stamped only once the signature validates (resolved + trusted, Spec 042 §9.2); an
+        // unresolved or rejected event stays in the provider-code dedupe bucket.
+        Guid? resolvedConnectorId = signatureValid && candidateConnectorId != Guid.Empty ? candidateConnectorId : null;
+
+        // Connector-aware dedupe: keyed by ConnectorId once resolved, else by ProviderCode.
+        var existingEvent = resolvedConnectorId is { } resolved
+            ? await _db.PartnerWebhookEvents.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(e => e.ConnectorId == resolved && e.PayloadHash == payloadHash, cancellationToken)
+            : await _db.PartnerWebhookEvents.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(
+                    e => e.ConnectorId == null && e.ProviderCode == providerCode && e.PayloadHash == payloadHash,
+                    cancellationToken);
 
         if (existingEvent is { ProcessingStatus: "Processed" })
         {
@@ -547,6 +573,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         {
             Id = Guid.NewGuid(),
             ProviderCode = providerCode,
+            ConnectorId = resolvedConnectorId,
             Category = translated.Category.ToString(),
             EventType = translated.EventType,
             ProviderReference = translated.Reference.ProviderReference ?? string.Empty,
@@ -561,6 +588,10 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         if (existingEvent is null)
         {
             _db.PartnerWebhookEvents.Add(inboxRow);
+        }
+        else
+        {
+            inboxRow.SignatureValid = signatureValid;
         }
 
         // Untrusted callbacks are stored for audit but never mutate financial state (Spec 036 §11).
@@ -581,12 +612,6 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             await _db.SaveChangesAsync(cancellationToken);
             return;
         }
-
-        // Locate the payout across tenants (webhooks carry no authenticated tenant). ClientReference
-        // (REM-{orderId:N}) is our own globally-unique, provider-agnostic key — the authoritative match.
-        // ProviderReference is provider-scoped and can collide across providers, so it is only a
-        // fallback, disambiguated by the remittance's stored provider.
-        var payout = await LocateRemittancePayoutAsync(providerCode, translated.Reference, cancellationToken);
 
         if (payout is null)
         {
@@ -688,6 +713,67 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         return await BuildResponseAsync(order, cancellationToken);
     }
 
+    /// <summary>
+    /// Resolves the persisted <see cref="Connector"/> row a payout should bind to (Spec 042 §9). A verified
+    /// beneficiary pins its own connector (so the payout dispatches through that exact account); otherwise the
+    /// migrated legacy-default payout connector applies. Returns null for the Simulated fallback (no row).
+    /// </summary>
+    private async Task<Connector?> ResolvePayoutConnectorRowAsync(
+        ExternalPayoutAccount account, string providerCode, CancellationToken cancellationToken)
+    {
+        if (account.ConnectorId is { } pinned && pinned != Guid.Empty)
+        {
+            // A beneficiary verified against a specific connector MUST dispatch through that exact account; if
+            // the pinned connector no longer resolves (deleted/disabled) fail closed rather than silently
+            // re-routing money through the tenant default (Spec 042 §9).
+            return await _db.Connectors.FirstOrDefaultAsync(c => c.Id == pinned, cancellationToken)
+                ?? throw new InvalidStateException(
+                    $"Beneficiary is bound to connector {pinned}, which no longer exists; "
+                    + "re-verify the beneficiary against an active connector before sending.");
+        }
+
+        if (string.Equals(providerCode, SimulatedProviderCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return await FindDefaultPayoutConnectorRowAsync(cancellationToken);
+    }
+
+    /// <summary>The migrated legacy-default payout connector row for this tenant, if any (Spec 042 §7.2).</summary>
+    private async Task<Connector?> FindDefaultPayoutConnectorRowAsync(CancellationToken cancellationToken)
+    {
+        var payoutTypes = ConnectorRegistry.All
+            .Where(k => k.Port == PartnerServiceCategory.Payout)
+            .SelectMany(k => new[] { k.Kind, k.ProviderCode })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return await _db.Connectors
+            .Where(c => c.IsLegacyDefault && payoutTypes.Contains(c.ConnectorType))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Builds the runtime payout connector for a dispatch: bound to the resolved row when one is set
+    /// (account-specific credentials), else the legacy/simulated DI connector resolved by provider code.
+    /// </summary>
+    private async Task<IPartnerPayoutConnector> ResolveBoundPayoutConnectorAsync(
+        Guid connectorId, string providerCode, CancellationToken cancellationToken)
+    {
+        if (connectorId != Guid.Empty)
+        {
+            // A payout bound to a connector at confirm time MUST dispatch through that same row; if it no
+            // longer resolves, fail closed rather than fall back to the unbound/legacy connector (Spec 042 §9).
+            var row = await _db.Connectors.FirstOrDefaultAsync(c => c.Id == connectorId, cancellationToken)
+                ?? throw new InvalidStateException(
+                    $"Payout is bound to connector {connectorId}, which no longer exists; cannot dispatch.");
+            return _connectorFactory.CreatePayout(row);
+        }
+
+        return _connectorResolver.ResolvePayoutConnector(providerCode);
+    }
+
     private async Task DispatchRemittanceAsync(
         Order order, OrderItem item, Payout payout, RemittanceOrderDetails details, CancellationToken cancellationToken)
     {
@@ -696,7 +782,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             .FirstOrDefaultAsync(a => a.Id == details.DestinationExternalAccountId, cancellationToken)
             ?? throw new NotFoundException("Destination payout account no longer exists; cannot dispatch.");
 
-        var connector = _connectorResolver.ResolvePayoutConnector(details.ProviderCode);
+        var connector = await ResolveBoundPayoutConnectorAsync(payout.ConnectorId, details.ProviderCode, cancellationToken);
         var instruction = BuildPayoutInstruction(
             payout.ClientReference, details, account, order.TenantId, order.Id, item.Id, payout.Id);
 
@@ -1091,6 +1177,29 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
             Error = $"No webhook translator for provider '{providerCode}'."
         });
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The signing secrets a webhook may validate against (Spec 042 §9.2, §11). A <strong>bound</strong>
+    /// connector (one carrying a <c>CredentialsRef</c>) verifies <strong>only</strong> against its own bundle's
+    /// <em>current</em> signing secret plus, during a rotation window, the <em>previous</em> one — expiry is
+    /// enforced at read time via <c>_clock.UtcNow</c>. If that bundle omits the signing secret the candidate
+    /// set is empty and the webhook is <strong>rejected</strong>: a bound connector must never borrow the
+    /// tenant's global legacy secret, which belongs to a different account (fail-closed, §7.2). The legacy
+    /// fallback is reserved for unbound / legacy-default connectors and events not resolved to a connector.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ResolveWebhookSigningSecretsAsync(
+        Connector? connector, string providerCode, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(connector?.CredentialsRef))
+        {
+            var bundle = await _bundleService.ResolveAsync(connector.CredentialsRef!, cancellationToken);
+            return bundle?.Secrets.GetVerificationCandidates(ConnectorRegistry.FieldSigningSecret, _clock.UtcNow)
+                ?? Array.Empty<string>();
+        }
+
+        var legacy = await ResolveWebhookSigningSecretAsync(providerCode, cancellationToken);
+        return string.IsNullOrEmpty(legacy) ? Array.Empty<string>() : new[] { legacy };
     }
 
     private async Task<string?> ResolveWebhookSigningSecretAsync(
