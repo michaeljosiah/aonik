@@ -35,6 +35,7 @@ Each ADR includes:
 | [007](007-keycloak-as-auth-provider.md) | Keycloak as a First-Class Operator-Choice Auth Provider | 2026-05-21 | Accepted |
 | [008](008-task-work-item-scheduling.md) | General-Purpose Task Primitive (WorkItem) in Platform | 2026-06-02 | Proposed |
 | [009](009-extract-documents-module.md) | Extract Documents into Its Own Sibling Module | 2026-06-02 | Proposed |
+| [010](010-partner-owned-connector-credentials.md) | Partner-Owned Connector Credentials | 2026-06-09 | Proposed |
 
 ### Superseded/Deprecated
 
