@@ -190,6 +190,7 @@ public class FlutterwaveBillPaymentConnectorTests
         handler.Enqueue(HttpStatusCode.OK,
             "{\"status\":\"success\",\"message\":\"Bill payment successful\",\"data\":{\"flw_ref\":\"FLW-REF-1\",\"tx_ref\":\"TX-1\"}}");
         var connector = CreateConnector(handler);
+        // Note: data carries both flw_ref and tx_ref; the provider reference must be tx_ref.
 
         var instruction = new BillPaymentInstruction(
             ClientReference: "AONIK-BILL-1",
@@ -210,7 +211,44 @@ public class FlutterwaveBillPaymentConnectorTests
         handler.LastBody.Should().Contain("\"customer_id\":\"1234567890\"");
         handler.LastBody.Should().NotContain("\"customer\":");
         result.Status.Should().Be(PartnerTransactionStatus.Succeeded);
-        result.Reference.ProviderReference.Should().Be("FLW-REF-1");
+        // tx_ref is the value the status endpoint polls by, not flw_ref.
+        result.Reference.ProviderReference.Should().Be("TX-1");
+    }
+
+    [Fact]
+    public async Task PayBillAsync_Should_UseTxRef_WhenFlwRefAbsent()
+    {
+        var handler = new RecordingHandler();
+        handler.Enqueue(HttpStatusCode.OK,
+            "{\"status\":\"success\",\"data\":{\"tx_ref\":\"BPUSSD-123\",\"network\":\"MTN\"}}");
+        var connector = CreateConnector(handler);
+
+        var instruction = new BillPaymentInstruction(
+            "AONIK-BILL-2", "BIL099", "AT099", "08038291822",
+            new Money(500m, "NGN"), null, PartnerServiceCategory.AirtimeTopup, null);
+
+        var result = await connector.PayBillAsync(instruction);
+
+        // No flw_ref in the response — the provider reference must still be the tx_ref, never null.
+        result.Reference.ProviderReference.Should().Be("BPUSSD-123");
+    }
+
+    [Fact]
+    public async Task GetBillPaymentStatusAsync_Should_PollByProviderReference_TxRef()
+    {
+        var handler = new RecordingHandler();
+        handler.Enqueue(HttpStatusCode.OK,
+            "{\"status\":\"success\",\"data\":{\"tx_ref\":\"BPUSSD-123\",\"product_name\":\"MTN\"}}");
+        var connector = CreateConnector(handler);
+
+        // Provider reference = tx_ref captured at pay time.
+        var reference = new PartnerReference("AONIK-BILL-2", "BPUSSD-123");
+
+        var result = await connector.GetBillPaymentStatusAsync(reference);
+
+        handler.RequestedUris.Should().ContainSingle();
+        handler.RequestedUris[0]!.AbsolutePath.Should().Contain("bills/BPUSSD-123");
+        result.Status.Should().Be(PartnerTransactionStatus.Succeeded);
     }
 
     [Fact]

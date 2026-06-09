@@ -218,7 +218,13 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
         var path = $"billers/{Uri.EscapeDataString(instruction.BillerCode)}/items/{Uri.EscapeDataString(instruction.ItemCode)}/payment";
         var envelope = await _client.PostAsync<FwEnvelope<FwBillPayData>>(path, body, cancellationToken);
         var status = MapStatus(envelope.Status);
-        var partnerReference = new PartnerReference(instruction.ClientReference, envelope.Data?.FlwRef);
+
+        // Status reconciliation (GET /v3/bills/{reference}) keys off tx_ref, NOT flw_ref — bill-payment
+        // responses may omit flw_ref entirely, so storing it would leave the provider reference null and
+        // status polling would miss the transaction. Use tx_ref, falling back to the reference we
+        // submitted (which Flutterwave tracks as the tx_ref).
+        var providerReference = envelope.Data?.TxRef ?? reference;
+        var partnerReference = new PartnerReference(instruction.ClientReference, providerReference);
         return new BillPaymentResult(
             partnerReference, status, Token: null,
             new RawProviderResponse(null, envelope.Message, null));
