@@ -69,7 +69,7 @@ export function SettingsCredentialBundlesPage() {
   const [saving, setSaving] = useState(false);
   const [lifting, setLifting] = useState(false);
   const [create, setCreate] = useState<CreateState | null>(null);
-  const [rotateFor, setRotateFor] = useState<{ ref: string; field: string; value: string } | null>(null);
+  const [editField, setEditField] = useState<{ ref: string; field: string; value: string; isSet: boolean } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -129,19 +129,28 @@ export function SettingsCredentialBundlesPage() {
     }
   };
 
-  const handleRotate = async () => {
-    if (!rotateFor || rotateFor.value.trim().length === 0) return;
+  const handleFieldWrite = async () => {
+    if (!editField || editField.value.trim().length === 0) return;
     setSaving(true);
     try {
-      await credentialBundleService.rotate(rotateFor.ref, {
-        field: rotateFor.field,
-        newValue: rotateFor.value.trim(),
-      });
-      toast.success('Secret rotated. The previous value verifies for the grace window.');
-      setRotateFor(null);
+      if (editField.isSet) {
+        // Rotate an existing secret — the previous value keeps verifying for the grace window (§11).
+        await credentialBundleService.rotate(editField.ref, {
+          field: editField.field,
+          newValue: editField.value.trim(),
+        });
+        toast.success('Secret rotated. The previous value verifies for the grace window.');
+      } else {
+        // Set a not-yet-configured field (e.g. add a missing signing/encryption secret) via PATCH.
+        await credentialBundleService.update(editField.ref, {
+          secrets: { [editField.field]: editField.value.trim() },
+        });
+        toast.success('Secret saved.');
+      }
+      setEditField(null);
       await load();
     } catch (err: unknown) {
-      toast.error(resolveUserMessage(err, 'Failed to rotate secret.'));
+      toast.error(resolveUserMessage(err, 'Failed to save secret.'));
     } finally {
       setSaving(false);
     }
@@ -303,32 +312,30 @@ export function SettingsCredentialBundlesPage() {
                   <div key={field.name} className="flex items-center gap-2 rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-1.5">
                     <span className="text-[12px] text-[var(--color-text-primary)]">{field.label}</span>
                     <SecretBadge field={field} pending={false} />
-                    {field.isSet ? (
-                      <button
-                        type="button"
-                        className="text-[var(--color-text-tertiary)] hover:text-[var(--color-brand-primary)]"
-                        title="Rotate this secret"
-                        onClick={() => setRotateFor({ ref: bundle.ref, field: field.name, value: '' })}
-                      >
-                        <RotateCw className="h-3 w-3" />
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="text-[var(--color-text-tertiary)] hover:text-[var(--color-brand-primary)]"
+                      title={field.isSet ? 'Rotate this secret' : 'Set this secret'}
+                      onClick={() => setEditField({ ref: bundle.ref, field: field.name, value: '', isSet: field.isSet })}
+                    >
+                      {field.isSet ? <RotateCw className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                    </button>
                   </div>
                 ))}
               </div>
 
-              {rotateFor?.ref === bundle.ref ? (
+              {editField?.ref === bundle.ref ? (
                 <div className="grid gap-2 rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning-light)]/40 p-3 lg:grid-cols-[1fr_auto_auto] lg:items-center">
                   <Input
                     type="password"
-                    value={rotateFor.value}
-                    placeholder={`New value for ${rotateFor.field}`}
-                    onChange={(event) => setRotateFor({ ...rotateFor, value: event.target.value })}
+                    value={editField.value}
+                    placeholder={`${editField.isSet ? 'New value for' : 'Set'} ${editField.field}`}
+                    onChange={(event) => setEditField({ ...editField, value: event.target.value })}
                   />
-                  <Button size="sm" className="gap-1.5" onClick={() => void handleRotate()} disabled={saving || rotateFor.value.trim().length === 0}>
-                    <RotateCw className="h-3 w-3" />Rotate
+                  <Button size="sm" className="gap-1.5" onClick={() => void handleFieldWrite()} disabled={saving || editField.value.trim().length === 0}>
+                    {editField.isSet ? (<><RotateCw className="h-3 w-3" />Rotate</>) : (<><Plus className="h-3 w-3" />Set</>)}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setRotateFor(null)}>Cancel</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditField(null)}>Cancel</Button>
                 </div>
               ) : null}
             </SectionCard>

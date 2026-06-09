@@ -155,10 +155,15 @@ export function CatalogPartnerDetailPage() {
   const [status, setStatus] = useState('Active');
   const [capabilitiesText, setCapabilitiesText] = useState('');
   const [operatingHoursText, setOperatingHoursText] = useState('');
-  const [connectorType, setConnectorType] = useState('flutterwave-payout-v4');
-  const [connectorStatus, setConnectorStatus] = useState('Active');
+  // Modern connector-form defaults (Spec 042). Shared by the initial state AND resetConnectorForm so the form
+  // never reverts to a stale CredentialsRef that the runtime would treat as a (missing) bundle binding.
+  const defaultConnectorType = 'flutterwave-payout-v4';
+  const defaultConnectorStatus = 'Active';
+  const defaultConnectorConfigJson = '{"environment":"sandbox"}';
+  const [connectorType, setConnectorType] = useState(defaultConnectorType);
+  const [connectorStatus, setConnectorStatus] = useState(defaultConnectorStatus);
   const [connectorCredentialsRef, setConnectorCredentialsRef] = useState('');
-  const [connectorConfigJson, setConnectorConfigJson] = useState('{"environment":"sandbox"}');
+  const [connectorConfigJson, setConnectorConfigJson] = useState(defaultConnectorConfigJson);
 
   const hydrateForm = useCallback((data: PartnerDetail) => {
     setName(data.name);
@@ -239,10 +244,10 @@ export function CatalogPartnerDetailPage() {
 
   const resetConnectorForm = () => {
     setEditingConnectorId(null);
-    setConnectorType('Flutterwave');
-    setConnectorStatus('Active');
-    setConnectorCredentialsRef('Finance.Partners.Flutterwave');
-    setConnectorConfigJson('{"service":"Payout","country":"NG","currency":"NGN"}');
+    setConnectorType(defaultConnectorType);
+    setConnectorStatus(defaultConnectorStatus);
+    setConnectorCredentialsRef('');
+    setConnectorConfigJson(defaultConnectorConfigJson);
   };
 
   const handleEditConnector = (connector: NonNullable<PartnerDetail['connectors']>[number]) => {
