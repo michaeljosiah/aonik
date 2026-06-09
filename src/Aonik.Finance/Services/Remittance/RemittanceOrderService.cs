@@ -1177,10 +1177,13 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     }
 
     /// <summary>
-    /// The signing secrets a webhook may validate against (Spec 042 §9.2, §11). A bound connector contributes
-    /// its bundle's <em>current</em> signing secret plus, during a rotation window, the <em>previous</em> one —
-    /// expiry is enforced at read time via <c>_clock.UtcNow</c>, so an out-of-window previous is never returned.
-    /// Falls back to the legacy global secret for the migrated default / unbound connector.
+    /// The signing secrets a webhook may validate against (Spec 042 §9.2, §11). A <strong>bound</strong>
+    /// connector (one carrying a <c>CredentialsRef</c>) verifies <strong>only</strong> against its own bundle's
+    /// <em>current</em> signing secret plus, during a rotation window, the <em>previous</em> one — expiry is
+    /// enforced at read time via <c>_clock.UtcNow</c>. If that bundle omits the signing secret the candidate
+    /// set is empty and the webhook is <strong>rejected</strong>: a bound connector must never borrow the
+    /// tenant's global legacy secret, which belongs to a different account (fail-closed, §7.2). The legacy
+    /// fallback is reserved for unbound / legacy-default connectors and events not resolved to a connector.
     /// </summary>
     private async Task<IReadOnlyList<string>> ResolveWebhookSigningSecretsAsync(
         Connector? connector, string providerCode, CancellationToken cancellationToken)
@@ -1188,12 +1191,8 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         if (!string.IsNullOrWhiteSpace(connector?.CredentialsRef))
         {
             var bundle = await _bundleService.ResolveAsync(connector.CredentialsRef!, cancellationToken);
-            var candidates = bundle?.Secrets.GetVerificationCandidates(
-                ConnectorRegistry.FieldSigningSecret, _clock.UtcNow);
-            if (candidates is { Count: > 0 })
-            {
-                return candidates;
-            }
+            return bundle?.Secrets.GetVerificationCandidates(ConnectorRegistry.FieldSigningSecret, _clock.UtcNow)
+                ?? Array.Empty<string>();
         }
 
         var legacy = await ResolveWebhookSigningSecretAsync(providerCode, cancellationToken);

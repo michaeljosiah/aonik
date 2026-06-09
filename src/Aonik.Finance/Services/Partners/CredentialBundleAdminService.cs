@@ -79,6 +79,20 @@ internal sealed class CredentialBundleAdminService : FinanceServiceBase, ICreden
         CreateCredentialBundleRequest request, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Settings.Write", cancellationToken);
+
+        // Create must NOT silently update an existing ref: a re-used ref could change the ConnectorKind /
+        // secrets of a bundle that connectors already bind to, leaving them pointed at an incompatible bundle.
+        // Reject the ref here and route mutations through UpdateBundleAsync (PATCH); the unique (TenantId, Ref)
+        // index is the hard backstop against a concurrent create.
+        var normalizedRef = request.Ref?.Trim() ?? string.Empty;
+        var exists = await _dbContext.CredentialBundles.AsNoTracking()
+            .AnyAsync(b => b.Ref == normalizedRef, cancellationToken);
+        if (exists)
+        {
+            throw new InvalidOperationException(
+                $"A credential bundle with ref '{normalizedRef}' already exists; update it via PATCH instead.");
+        }
+
         var bundle = await _bundleService.UpsertAsync(
             new CredentialBundleWriteRequest(request.Ref, request.Name, request.ConnectorKind, request.Secrets),
             cancellationToken);

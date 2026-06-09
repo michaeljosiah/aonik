@@ -705,6 +705,48 @@ public class RemittanceOrderServiceTests
     }
 
     [Fact]
+    public async Task ProcessWebhookAsync_Should_Reject_When_BoundConnector_Has_No_Bundle_SigningSecret()
+    {
+        // Spec 042 fail-closed: a payout tied to a BOUND connector (one carrying a CredentialsRef) must verify
+        // the webhook ONLY against that connector's bundle signing secret. With no usable bundle signing secret
+        // it must be REJECTED — never fall back to the tenant's global legacy secret, which belongs to a
+        // different account. The webhook below is correctly signed with the LEGACY secret, so before the fix it
+        // would have settled.
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var (order, payout) = SeedTransmittedRemittance(db, tenantId);
+
+        var boundConnector = new Aonik.Finance.Entities.Partners.Connector
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartnerId = Guid.NewGuid(),
+            ConnectorType = "flutterwave-payout-v4",
+            CredentialsRef = "fw-bound", // bound — but the test's bundle service resolves no signing secret
+            ConfigJson = "{}",
+            Status = "Active",
+        };
+        db.Connectors.Add(boundConnector);
+        payout.ConnectorId = boundConnector.Id;
+        await db.SaveChangesAsync();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Finance:Partners:Webhooks:Simulated:SigningSecret"] = Signature
+            })
+            .Build();
+        var service = CreateService(db, tenantId, configuration: configuration);
+
+        var envelope = BuildPayoutWebhook(payout.ClientReference, payout.ProviderReference, "Succeeded");
+        await service.ProcessWebhookAsync(envelope);
+
+        (await db.Orders.SingleAsync()).Status.Should().Be(OrderStatuses.Transmitted); // not settled
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(0);
+    }
+
+    [Fact]
     public async Task ProcessWebhookAsync_Should_SettleByClientReference_When_ProviderReferenceCollides()
     {
         // Two providers can independently mint the same provider reference. The settlement must follow

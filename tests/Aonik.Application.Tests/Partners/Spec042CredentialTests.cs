@@ -1,11 +1,14 @@
+using Aonik.Finance.Contracts.Models.Partners;
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Partners;
 using Aonik.Finance.Services.Partners.Connectors;
 using Aonik.Finance.Services.Partners.Connectors.Credentials;
 using Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 using Aonik.Finance.Services.Partners.Connectors.Registry;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
@@ -159,6 +162,28 @@ public class Spec042CredentialTests
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    // ── Create must not silently update an existing ref (§6) ────────────────────
+    [Fact]
+    public async Task CreateBundle_Should_Reject_Existing_Ref()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var db = CreateDb(tenantId, out var clock);
+        var admin = CreateAdminService(db, tenantId, clock);
+
+        await admin.CreateBundleAsync(new CreateCredentialBundleRequest(
+            "fw-dup", "First", PayoutKind, new Dictionary<string, string> { ["clientId"] = "id", ["clientSecret"] = "s1" }));
+
+        // A second create with the same ref must FAIL rather than silently change kind/secrets out from under
+        // connectors that already bind it.
+        var act = async () => await admin.CreateBundleAsync(new CreateCredentialBundleRequest(
+            "fw-dup", "Second", BillsKind, new Dictionary<string, string> { ["secretKey"] = "other" }));
+        await act.Should().ThrowAsync<InvalidOperationException>();
+
+        // The original bundle is untouched: its kind was NOT flipped to the bills kind by the rejected create.
+        var row = await db.CredentialBundles.AsNoTracking().SingleAsync(b => b.Ref == "fw-dup");
+        row.ConnectorKind.Should().Be(PayoutKind);
+    }
+
     // ── Config provider fail-closed precedence (§7.2, §8) ───────────────────────
     [Fact]
     public async Task ConfigProvider_Should_Fail_Closed_When_No_Bundle_And_Not_Default()
@@ -226,6 +251,14 @@ public class Spec042CredentialTests
     {
         var protector = new ConnectorCredentialProtector(new EphemeralDataProtectionProvider());
         return new CredentialBundleService(db, protector, new TestTenantProvider(tenantId), Mock.Of<IAuditLogWriter>(), clock.Object);
+    }
+
+    private static CredentialBundleAdminService CreateAdminService(FinanceDbContext db, Guid tenantId, Mock<IClock> clock)
+    {
+        var bundleService = CreateBundleService(db, tenantId, clock);
+        return new CredentialBundleAdminService(
+            db, bundleService, new TestTenantProvider(tenantId), new Mock<ISettingProvider>().Object, clock.Object,
+            new TestCurrentUserProvider(), new AllowAllPermissionService());
     }
 
     private static FlutterwaveConfigProvider CreateConfigProvider(out Mock<ISettingProvider> settings)
