@@ -187,7 +187,16 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
     {
         var options = await GetConfiguredOptionsAsync(cancellationToken);
 
-        var type = instruction.ServiceCategory == PartnerServiceCategory.AirtimeTopup ? "AIRTIME" : "BILL";
+        if (string.IsNullOrWhiteSpace(instruction.BillerCode) || string.IsNullOrWhiteSpace(instruction.ItemCode))
+        {
+            throw new FlutterwaveException(
+                "Bill payment requires both a biller code and an item code to target the correct product.",
+                errorType: "NO_ITEM",
+                errorCode: null,
+                statusCode: null,
+                retryable: false);
+        }
+
         var reference = FlutterwaveReferences.SanitizeReference(instruction.ClientReference);
         var body = new
         {
@@ -195,11 +204,15 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
             customer = instruction.CustomerId,
             amount = instruction.Amount.Amount,
             recurrence = "ONCE",
-            type,
             reference
         };
 
-        var envelope = await _client.PostAsync<FwEnvelope<FwBillPayData>>("bills", body, cancellationToken);
+        // Target the specific biller item (Spec 040 §5.4 / O6). The generic POST /bills + type cannot
+        // disambiguate item-based billers (fixed data bundles, cable packages), so we always post to the
+        // item-scoped path keyed by the validated biller_code + item_code carried on the instruction —
+        // the same codes catalogue import and validation use. Verify the exact path in sandbox (O6).
+        var path = $"billers/{Uri.EscapeDataString(instruction.BillerCode)}/items/{Uri.EscapeDataString(instruction.ItemCode)}/payment";
+        var envelope = await _client.PostAsync<FwEnvelope<FwBillPayData>>(path, body, cancellationToken);
         var status = MapStatus(envelope.Status);
         var partnerReference = new PartnerReference(instruction.ClientReference, envelope.Data?.FlwRef);
         return new BillPaymentResult(

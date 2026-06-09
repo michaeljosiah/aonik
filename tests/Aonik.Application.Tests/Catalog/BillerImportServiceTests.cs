@@ -309,6 +309,67 @@ public class BillerImportServiceTests
     }
 
     [Fact]
+    public async Task ImportAsync_Should_RespectSelectedItemCodes_AndNotImportUnselectedItems()
+    {
+        var tenantId = Guid.NewGuid();
+        var connector = new FakeBillConnector
+        {
+            Entries =
+            {
+                Entry("BIL112", "Ikeja Electric", "Utility", PartnerServiceCategory.BillPayment,
+                    VariableItem("PREPAID", "Prepaid"), FixedItem("BUNDLE", "Power Bundle", 5000m))
+            }
+        };
+        var fx = CreateFixture(tenantId, connector);
+
+        // Operator selects only the PREPAID item under the biller.
+        var summary = await fx.Service.ImportAsync(new BillerImportRequest(
+            fx.ConnectorId,
+            new List<BillerImportSelector> { new("BIL112", new List<string> { "PREPAID" }) }));
+
+        summary.ServicesCreated.Should().Be(1);
+        (await fx.Context.CatalogBillerServices.CountAsync()).Should().Be(1);
+
+        var serviceMappings = await fx.Context.ConnectorBillerMappings
+            .Where(m => m.CatalogBillerServiceId != null).ToListAsync();
+        serviceMappings.Should().ContainSingle().Which.ProviderItemCode.Should().Be("PREPAID");
+
+        // 1 biller-level mapping + 1 service-level mapping; the unselected BUNDLE is not exposed.
+        (await fx.Context.ConnectorBillerMappings.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ImportAsync_Should_NotDeactivateOfferedItemsLeftOutOfSelection()
+    {
+        var tenantId = Guid.NewGuid();
+        var connector = new FakeBillConnector
+        {
+            Entries =
+            {
+                Entry("BIL112", "Ikeja Electric", "Utility", PartnerServiceCategory.BillPayment,
+                    VariableItem("PREPAID", "Prepaid"), FixedItem("BUNDLE", "Power Bundle", 5000m))
+            }
+        };
+        var fx = CreateFixture(tenantId, connector);
+
+        // First import the whole biller (no item codes ⇒ all items).
+        await fx.Service.ImportAsync(Select(fx.ConnectorId, "BIL112"));
+
+        // Re-import selecting only PREPAID. BUNDLE is still offered by the partner — just not selected,
+        // so it must stay active (not soft-deactivated).
+        var summary = await fx.Service.ImportAsync(new BillerImportRequest(
+            fx.ConnectorId,
+            new List<BillerImportSelector> { new("BIL112", new List<string> { "PREPAID" }) }));
+
+        summary.Deactivated.Should().Be(0);
+        summary.ServicesUpdated.Should().Be(1); // only PREPAID was touched
+        (await fx.Context.CatalogBillerServices.CountAsync()).Should().Be(2);
+
+        var bundleMapping = await fx.Context.ConnectorBillerMappings.SingleAsync(m => m.ProviderItemCode == "BUNDLE");
+        bundleMapping.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetSourcesAsync_Should_ReturnConnectorsWithBillPaymentSupport()
     {
         var tenantId = Guid.NewGuid();

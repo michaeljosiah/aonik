@@ -147,13 +147,49 @@ internal sealed class BillerImportService : IBillerImportService
         var tenantId = GetCurrentTenantIdOrThrow();
         var (connector, billConnector) = await ResolveConnectorAsync(request.ConnectorId, tenantId, cancellationToken);
 
-        // Run-level dedupe of the selection (the provider may repeat codes).
-        var selectedCodes = request.Entries
-            .Where(e => !string.IsNullOrWhiteSpace(e.BillerCode))
-            .Select(e => e.BillerCode.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        // Run-level dedupe of the selection (the provider may repeat codes). Per biller we track the
+        // operator's chosen item codes: a null value means "all items under this biller", a non-empty
+        // set means "only these items" (Spec 040 §9 — BillerImportSelector.ItemCodes is honoured).
+        var itemSelectionByBiller = new Dictionary<string, HashSet<string>?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var selector in request.Entries)
+        {
+            if (string.IsNullOrWhiteSpace(selector.BillerCode))
+            {
+                continue;
+            }
 
+            var billerCode = selector.BillerCode.Trim();
+            var itemCodes = selector.ItemCodes?
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim())
+                .ToList();
+            var selectsAllItems = itemCodes is null || itemCodes.Count == 0;
+
+            if (!itemSelectionByBiller.TryGetValue(billerCode, out var existing))
+            {
+                itemSelectionByBiller[billerCode] = selectsAllItems
+                    ? null
+                    : new HashSet<string>(itemCodes!, StringComparer.OrdinalIgnoreCase);
+            }
+            else if (existing is null)
+            {
+                // Already "all items" — stays all.
+            }
+            else if (selectsAllItems)
+            {
+                // A later selector for the same biller asked for all items — widen to all.
+                itemSelectionByBiller[billerCode] = null;
+            }
+            else
+            {
+                foreach (var code in itemCodes!)
+                {
+                    existing.Add(code);
+                }
+            }
+        }
+
+        var selectedCodes = itemSelectionByBiller.Keys.ToList();
         var summary = new ImportCounters();
         if (selectedCodes.Count == 0)
         {
@@ -177,7 +213,9 @@ internal sealed class BillerImportService : IBillerImportService
             var category = await UpsertCategoryAsync(tenantId, entry, country, now, userId, categoryCache, cancellationToken);
             var biller = await UpsertBillerAsync(
                 tenantId, request.ConnectorId, connector.PartnerId, entry, category.Id, country, now, userId, summary, cancellationToken);
-            await UpsertServicesAsync(tenantId, request.ConnectorId, biller, entry, now, userId, summary, cancellationToken);
+            itemSelectionByBiller.TryGetValue(entry.BillerCode, out var itemSelection);
+            await UpsertServicesAsync(
+                tenantId, request.ConnectorId, biller, entry, itemSelection, now, userId, summary, cancellationToken);
         }
 
         // Single transaction. Concurrent imports of the same connector are guarded by the mapping's
@@ -301,20 +339,30 @@ internal sealed class BillerImportService : IBillerImportService
 
     private async Task UpsertServicesAsync(
         Guid tenantId, Guid connectorId, CatalogBiller biller, BillerCatalogEntry entry,
-        DateTime now, Guid? userId, ImportCounters summary, CancellationToken cancellationToken)
+        HashSet<string>? itemSelection, DateTime now, Guid? userId, ImportCounters summary,
+        CancellationToken cancellationToken)
     {
         var fieldsJson = SerializeFields(entry.CustomerFields);
         var requiresValidation = entry.ServiceCategory == PartnerServiceCategory.BillPayment;
         var serviceType = entry.ServiceCategory.ToString();
+
+        // Everything the partner currently offers under this biller — the authority for deactivation.
+        var offeredItemCodes = new HashSet<string>(
+            entry.Items.Select(i => i.ItemCode), StringComparer.OrdinalIgnoreCase);
+
+        // Only the items the operator selected are created/updated; a null selection means all items
+        // (Spec 040 §9). Items the partner still offers but the operator did not select are left
+        // untouched — neither created nor deactivated.
+        var itemsToUpsert = itemSelection is null
+            ? entry.Items
+            : entry.Items.Where(i => itemSelection.Contains(i.ItemCode)).ToList();
 
         var existingServiceMappings = await _dbContext.ConnectorBillerMappings
             .Where(m => m.TenantId == tenantId && m.ConnectorId == connectorId
                         && m.CatalogBillerId == biller.Id && m.CatalogBillerServiceId != null)
             .ToListAsync(cancellationToken);
 
-        var seenMappingIds = new HashSet<Guid>();
-
-        foreach (var item in entry.Items)
+        foreach (var item in itemsToUpsert)
         {
             var serviceMapping = existingServiceMappings.FirstOrDefault(
                 m => string.Equals(m.ProviderItemCode, item.ItemCode, StringComparison.OrdinalIgnoreCase));
@@ -361,7 +409,6 @@ internal sealed class BillerImportService : IBillerImportService
                 continue;
             }
 
-            seenMappingIds.Add(serviceMapping.Id);
             var existingService = await _dbContext.CatalogBillerServices
                 .FirstOrDefaultAsync(s => s.Id == serviceMapping.CatalogBillerServiceId, cancellationToken);
             if (existingService is not null)
@@ -386,8 +433,12 @@ internal sealed class BillerImportService : IBillerImportService
             summary.ServicesUpdated++;
         }
 
-        // Soft-deactivate services this connector no longer offers for this biller.
-        foreach (var stale in existingServiceMappings.Where(m => !seenMappingIds.Contains(m.Id) && m.IsActive))
+        // Soft-deactivate only services the PARTNER no longer offers (its item code is absent from the
+        // fresh authoritative catalogue) — not services the operator merely left out of this selection.
+        foreach (var stale in existingServiceMappings.Where(m =>
+                     m.IsActive
+                     && m.ProviderItemCode != null
+                     && !offeredItemCodes.Contains(m.ProviderItemCode)))
         {
             stale.IsActive = false;
             stale.UpdatedAt = now;

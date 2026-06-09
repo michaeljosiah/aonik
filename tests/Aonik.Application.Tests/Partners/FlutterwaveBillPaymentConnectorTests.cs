@@ -4,6 +4,7 @@ using System.Text;
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 using Aonik.Finance.Services.Partners.Connectors.Flutterwave.Bills;
+using Aonik.SharedKernel.Primitives;
 using FluentAssertions;
 
 namespace Aonik.Application.Tests.Partners;
@@ -177,5 +178,49 @@ public class FlutterwaveBillPaymentConnectorTests
         var act = () => connector.GetBillerCatalogAsync(new BillerCatalogQuery(null, "NG", null));
 
         (await act.Should().ThrowAsync<FlutterwaveException>()).Which.ErrorType.Should().Be("CONFIGURATION");
+    }
+
+    // ── Pay path (item-targeted) ───────────────────────────────────────────────
+    [Fact]
+    public async Task PayBillAsync_Should_PostToItemSpecificEndpoint_WithBillerAndItemCodes()
+    {
+        var handler = new RecordingHandler();
+        handler.Enqueue(HttpStatusCode.OK,
+            "{\"status\":\"success\",\"message\":\"Bill payment successful\",\"data\":{\"flw_ref\":\"FLW-REF-1\",\"tx_ref\":\"TX-1\"}}");
+        var connector = CreateConnector(handler);
+
+        var instruction = new BillPaymentInstruction(
+            ClientReference: "AONIK-BILL-1",
+            BillerCode: "BIL112",
+            ItemCode: "UB112",
+            CustomerId: "1234567890",
+            Amount: new Money(5000m, "NGN"),
+            ValidationToken: null,
+            ServiceCategory: PartnerServiceCategory.BillPayment,
+            Inputs: null);
+
+        var result = await connector.PayBillAsync(instruction);
+
+        // The request must target the specific biller item, not a generic /bills + type call.
+        handler.RequestedUris.Should().ContainSingle();
+        handler.RequestedUris[0]!.AbsolutePath.Should().Contain("billers/BIL112/items/UB112/payment");
+        result.Status.Should().Be(PartnerTransactionStatus.Succeeded);
+        result.Reference.ProviderReference.Should().Be("FLW-REF-1");
+    }
+
+    [Fact]
+    public async Task PayBillAsync_Should_FailClosed_WhenItemCodeMissing()
+    {
+        var handler = new RecordingHandler();
+        var connector = CreateConnector(handler);
+
+        var instruction = new BillPaymentInstruction(
+            "ref", "BIL112", ItemCode: "", "customer",
+            new Money(100m, "NGN"), null, PartnerServiceCategory.BillPayment, null);
+
+        var act = () => connector.PayBillAsync(instruction);
+
+        (await act.Should().ThrowAsync<FlutterwaveException>()).Which.ErrorType.Should().Be("NO_ITEM");
+        handler.RequestedUris.Should().BeEmpty();
     }
 }
