@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Partners.Connectors.Registry;
@@ -56,17 +58,20 @@ internal sealed class CredentialBundleService : ICredentialBundleService
     private readonly FinanceDbContext _dbContext;
     private readonly IConnectorCredentialProtector _protector;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
 
     public CredentialBundleService(
         FinanceDbContext dbContext,
         IConnectorCredentialProtector protector,
         ITenantProvider tenantProvider,
+        IAuditLogWriter auditLogWriter,
         IClock clock)
     {
         _dbContext = dbContext;
         _protector = protector;
         _tenantProvider = tenantProvider;
+        _auditLogWriter = auditLogWriter;
         _clock = clock;
     }
 
@@ -162,6 +167,23 @@ internal sealed class CredentialBundleService : ICredentialBundleService
         bundle.FieldMetadataJson = BuildMetadata(descriptor, store, versions);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Audit records field NAMES only — never values (Spec 042 §14, extends Spec 038's guarantee).
+        await _auditLogWriter.LogAsync(
+            isNew ? AuditEventNames.CredentialBundleCreated : AuditEventNames.CredentialBundleUpdated,
+            "CredentialBundle",
+            bundle.Id,
+            bundle.TenantId,
+            actorId: null,
+            correlationId: null,
+            detailsJson: JsonSerializer.Serialize(new
+            {
+                bundle.Ref,
+                bundle.ConnectorKind,
+                fields = request.Secrets.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray(),
+            }),
+            cancellationToken);
+
         return bundle;
     }
 
@@ -199,6 +221,17 @@ internal sealed class CredentialBundleService : ICredentialBundleService
         bundle.FieldMetadataJson = BuildMetadata(descriptor, store, versions);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CredentialBundleRotated,
+            "CredentialBundle",
+            bundle.Id,
+            bundle.TenantId,
+            actorId: null,
+            correlationId: null,
+            detailsJson: JsonSerializer.Serialize(new { bundle.Ref, bundle.ConnectorKind, field }),
+            cancellationToken);
+
         return true;
     }
 

@@ -19,6 +19,7 @@ import {
   SettingsAuthenticationPage,
   SettingsCommunicationPage,
   SettingsPaymentGatewaysPage,
+  SettingsCredentialBundlesPage,
   SettingsSpeechPage,
   SystemToolsPage,
   NotificationTemplatesPage,
@@ -119,6 +120,7 @@ const navigation: NavigationSection[] = [
               { id: 'settings-global', label: 'Settings', icon: 'SlidersHorizontal', href: '/settings/global' },
               { id: 'settings-authentication', label: 'Authentication', icon: 'Shield', href: '/settings/authentication' },
               { id: 'settings-payment-gateways', label: 'Payment Gateways', icon: 'Landmark', href: '/settings/payment-gateways' },
+              { id: 'settings-credential-bundles', label: 'Credential Bundles', icon: 'KeyRound', href: '/settings/credential-bundles' },
               { id: 'settings-speech', label: 'Speech & Voice', icon: 'AudioLines', href: '/settings/speech' },
               { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
               { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
@@ -152,6 +154,7 @@ const routes = [
   { path: '/settings/authentication', element: SettingsAuthenticationPage },
   { path: '/settings/communication', element: SettingsCommunicationPage },
   { path: '/settings/payment-gateways', element: SettingsPaymentGatewaysPage },
+  { path: '/settings/credential-bundles', element: SettingsCredentialBundlesPage },
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   // Spec 024 — consolidated speech library + recipes + voice mode + chat speech. The
   // legacy /settings/voice and /settings/text-to-speech routes were retired in Phase D
@@ -189,6 +192,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'settings-global', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-global', route: '/settings/global' },
   { id: 'settings-authentication', title: 'Authentication', type: 'internal', category: 'page', componentKey: 'settings-authentication', route: '/settings/authentication' },
   { id: 'settings-payment-gateways', title: 'Payment Gateways', type: 'internal', category: 'page', componentKey: 'settings-payment-gateways', route: '/settings/payment-gateways' },
+  { id: 'settings-credential-bundles', title: 'Credential Bundles', type: 'internal', category: 'page', componentKey: 'settings-credential-bundles', route: '/settings/credential-bundles' },
   { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', category: 'page', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
   // Spec 024 — consolidated speech page (legacy /settings/voice + /settings/text-to-speech
   // routes retired in Phase D; the page covers providers, recipes, voice mode, chat speech,
@@ -216,6 +220,7 @@ const panelComponents = {
   'settings-global': wrapPage(GlobalSettingsPage),
   'settings-authentication': wrapPage(SettingsAuthenticationPage),
   'settings-payment-gateways': wrapPage(SettingsPaymentGatewaysPage),
+  'settings-credential-bundles': wrapPage(SettingsCredentialBundlesPage),
   'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
   'settings-speech': wrapPage(SettingsSpeechPage),
   'background-jobs': wrapPage(BackgroundJobsPage),

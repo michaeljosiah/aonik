@@ -155,10 +155,10 @@ export function CatalogPartnerDetailPage() {
   const [status, setStatus] = useState('Active');
   const [capabilitiesText, setCapabilitiesText] = useState('');
   const [operatingHoursText, setOperatingHoursText] = useState('');
-  const [connectorType, setConnectorType] = useState('Flutterwave');
+  const [connectorType, setConnectorType] = useState('flutterwave-payout-v4');
   const [connectorStatus, setConnectorStatus] = useState('Active');
-  const [connectorCredentialsRef, setConnectorCredentialsRef] = useState('Finance.Partners.Flutterwave');
-  const [connectorConfigJson, setConnectorConfigJson] = useState('{"service":"Payout","country":"NG","currency":"NGN"}');
+  const [connectorCredentialsRef, setConnectorCredentialsRef] = useState('');
+  const [connectorConfigJson, setConnectorConfigJson] = useState('{"environment":"sandbox"}');
 
   const hydrateForm = useCallback((data: PartnerDetail) => {
     setName(data.name);
@@ -649,7 +649,8 @@ export function CatalogPartnerDetailPage() {
                                     {editingConnectorId ? 'Edit connector' : 'Add connector'}
                                   </h3>
                                   <p className="text-xs text-[var(--color-text-tertiary)]">
-                                    CredentialsRef points to gateway settings; never paste secrets here.
+                                    Credentials ref binds this connector to a credential bundle. Create and rotate
+                                    bundles in Settings → Credential Bundles; secrets are never entered here.
                                   </p>
                                 </div>
                                 {editingConnectorId ? (

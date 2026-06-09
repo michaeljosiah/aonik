@@ -51,7 +51,7 @@ public class FlutterwaveSandboxTests
     {
         Skip.IfNot(Configured, SkipReason);
 
-        var token = await TokenProvider.GetAccessTokenAsync(CancellationToken.None);
+        var token = await TokenProvider.GetAccessTokenAsync(Options(), CancellationToken.None);
 
         token.Should().NotBeNullOrWhiteSpace();
     }
@@ -170,13 +170,17 @@ public class FlutterwaveSandboxTests
         };
         var httpClient = new HttpClient(authHandler) { BaseAddress = new Uri(options.BaseUrl) };
         var configProvider = new StaticFlutterwaveConfigProvider(options);
-        return new FlutterwavePayoutConnector(
-            new FlutterwaveClient(httpClient, configProvider), configProvider);
+        return new FlutterwavePayoutConnector(new FlutterwaveClient(httpClient), configProvider);
     }
 
     private sealed class StaticFlutterwaveConfigProvider(FlutterwaveOptions options) : IFlutterwaveConfigProvider
     {
         public Task<FlutterwaveOptions> GetAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(options);
+
+        public Task<FlutterwaveOptions> GetAsync(
+            Aonik.Finance.Services.Partners.Connectors.ConnectorBinding binding,
+            CancellationToken cancellationToken = default)
             => Task.FromResult(options);
     }
 

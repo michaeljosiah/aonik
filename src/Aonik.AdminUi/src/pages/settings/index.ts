@@ -6,6 +6,7 @@ export { SettingsAuthenticationPage } from './SettingsAuthenticationPage';
 export { SettingsCommunicationPage } from './SettingsCommunicationPage';
 export { SettingsSpeechPage } from './SettingsSpeechPage';
 export { SettingsPaymentGatewaysPage } from './SettingsPaymentGatewaysPage';
+export { SettingsCredentialBundlesPage } from './SettingsCredentialBundlesPage';
 export { NotificationTemplatesPage } from './NotificationTemplatesPage';
 export { BackgroundJobsPage } from './BackgroundJobsPage';
 export { BackgroundJobDetailPage } from './BackgroundJobDetailPage';

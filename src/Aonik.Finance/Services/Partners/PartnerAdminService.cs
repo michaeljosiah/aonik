@@ -9,6 +9,8 @@ using Aonik.Finance.Contracts.Services.Partners;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Partners;
+using Aonik.Finance.Services.Partners.Connectors.Credentials;
+using Aonik.Finance.Services.Partners.Connectors.Registry;
 
 namespace Aonik.Finance.Services.Partners;
 
@@ -26,6 +28,7 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly ITenantCurrencyProvider _tenantCurrencyProvider;
+    private readonly ICredentialBundleService _bundleService;
 
     public PartnerAdminService(
         FinanceDbContext dbContext,
@@ -34,7 +37,8 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
         IAuditLogWriter auditLogWriter,
         ICurrentUserProvider currentUserProvider,
         IPermissionService permissionService,
-        ITenantCurrencyProvider tenantCurrencyProvider)
+        ITenantCurrencyProvider tenantCurrencyProvider,
+        ICredentialBundleService bundleService)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -42,6 +46,7 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
         _clock = clock;
         _tenantCurrencyProvider = tenantCurrencyProvider;
         _auditLogWriter = auditLogWriter;
+        _bundleService = bundleService;
     }
 
     public async Task<PagedResult<PartnerListItem>> ListPartnersAsync(
@@ -592,6 +597,46 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
             cancellationToken: cancellationToken);
     }
 
+    /// <summary>
+    /// Validates a connector's non-secret config + credential reference on save (Spec 042 §10, §6). For a
+    /// recognised connector <em>kind</em> the <c>ConfigJson</c> is validated against the kind's schema
+    /// (unknown keys / bad enum values / missing required all rejected); legacy provider-code rows skip this
+    /// for back-compat. A bound <c>CredentialsRef</c> must resolve to a bundle in this tenant (rejects
+    /// cross-tenant references) and, for a known kind, the bundle's kind must match. Throws
+    /// <see cref="ArgumentException"/> on any violation so the endpoint returns 400.
+    /// </summary>
+    private async Task ValidateConnectorConfigurationAsync(
+        string connectorType, string? configJson, string? credentialsRef, CancellationToken cancellationToken)
+    {
+        var descriptor = ConnectorRegistry.Get(connectorType);
+        if (descriptor is not null)
+        {
+            try
+            {
+                ConnectorConfigJson.Validate(descriptor, configJson);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new ArgumentException(ex.Message, nameof(configJson));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(credentialsRef))
+        {
+            var bundle = await _bundleService.ResolveAsync(credentialsRef!, cancellationToken)
+                ?? throw new ArgumentException(
+                    $"Credential bundle '{credentialsRef}' was not found in this tenant.", nameof(credentialsRef));
+
+            if (descriptor is not null
+                && !string.Equals(bundle.ConnectorKind, descriptor.Kind, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    $"Credential bundle '{credentialsRef}' is for kind '{bundle.ConnectorKind}', "
+                    + $"not '{descriptor.Kind}'.", nameof(credentialsRef));
+            }
+        }
+    }
+
     public async Task<PartnerDetail> CreateConnectorAsync(
         Guid partnerId,
         CreatePartnerConnectorRequest request,
@@ -611,6 +656,12 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
         {
             throw new InvalidOperationException($"Partner {partnerId} not found.");
         }
+
+        await ValidateConnectorConfigurationAsync(
+            request.ConnectorType.Trim(),
+            string.IsNullOrWhiteSpace(request.ConfigJson) ? "{}" : request.ConfigJson.Trim(),
+            Normalize(request.CredentialsRef),
+            cancellationToken);
 
         var connector = new Connector
         {
@@ -673,6 +724,9 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
         {
             connector.ConfigJson = string.IsNullOrWhiteSpace(request.ConfigJson) ? "{}" : request.ConfigJson.Trim();
         }
+
+        await ValidateConnectorConfigurationAsync(
+            connector.ConnectorType, connector.ConfigJson, connector.CredentialsRef, cancellationToken);
 
         connector.UpdatedAt = _clock.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);

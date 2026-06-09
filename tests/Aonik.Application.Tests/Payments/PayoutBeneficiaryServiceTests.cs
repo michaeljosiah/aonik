@@ -54,6 +54,7 @@ public class PayoutBeneficiaryServiceTests
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId ?? CallerUserId),
             new SinglePayoutConnectorResolver(connector ?? new RecordingPayoutConnector()),
+            new Spec042NoopConnectorFactory(),
             new TestClock());
 
     private static void SeedCaller(FinanceDbContext context, Guid tenantId, Guid partyId, Guid? userId = null)

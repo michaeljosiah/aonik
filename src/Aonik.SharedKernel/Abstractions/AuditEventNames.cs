@@ -14,6 +14,9 @@ public static class AuditEventNames
     public const string ConnectorCreated = "ConnectorCreated";
     public const string ConnectorUpdated = "ConnectorUpdated";
     public const string ConnectorDeleted = "ConnectorDeleted";
+    public const string CredentialBundleCreated = "CredentialBundleCreated";
+    public const string CredentialBundleUpdated = "CredentialBundleUpdated";
+    public const string CredentialBundleRotated = "CredentialBundleRotated";
     public const string CustomerProfileUpdated = "CustomerProfileUpdated";
     public const string CustomerEmailUpdated = "CustomerEmailUpdated";
     public const string CustomerPasswordUpdated = "CustomerPasswordUpdated";

@@ -65,6 +65,11 @@ public class FlutterwaveConnectorTests
     {
         public Task<FlutterwaveOptions> GetAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(options);
+
+        public Task<FlutterwaveOptions> GetAsync(
+            Aonik.Finance.Services.Partners.Connectors.ConnectorBinding binding,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(options);
     }
 
     private static FlutterwavePayoutConnector CreateConnector(RecordingHandler handler, FlutterwaveOptions? options = null)
@@ -72,8 +77,7 @@ public class FlutterwaveConnectorTests
         var effectiveOptions = options ?? ConfiguredOptions();
         var configProvider = new StaticFlutterwaveConfigProvider(effectiveOptions);
         var client = new FlutterwaveClient(
-            new HttpClient(handler) { BaseAddress = new Uri("https://sandbox.flutterwave.test/") },
-            configProvider);
+            new HttpClient(handler) { BaseAddress = new Uri("https://sandbox.flutterwave.test/") });
         return new FlutterwavePayoutConnector(client, configProvider);
     }
 
@@ -383,11 +387,11 @@ public class FlutterwaveConnectorTests
             Clock = clock
         };
 
-        (await provider.GetAccessTokenAsync(CancellationToken.None)).Should().Be("tok1");
-        (await provider.GetAccessTokenAsync(CancellationToken.None)).Should().Be("tok1"); // cached, no 2nd call
+        (await provider.GetAccessTokenAsync(null, CancellationToken.None)).Should().Be("tok1");
+        (await provider.GetAccessTokenAsync(null, CancellationToken.None)).Should().Be("tok1"); // cached, no 2nd call
 
         clock.Now = clock.Now.AddSeconds(601); // past (600 - 60) refresh window
-        (await provider.GetAccessTokenAsync(CancellationToken.None)).Should().Be("tok2");
+        (await provider.GetAccessTokenAsync(null, CancellationToken.None)).Should().Be("tok2");
     }
 
     private static PayoutInstruction Bank(string clientReference) => new(

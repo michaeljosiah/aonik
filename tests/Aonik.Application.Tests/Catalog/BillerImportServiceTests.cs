@@ -3,6 +3,7 @@ using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Catalog;
+using Aonik.Finance.Services.Partners.Connectors;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Primitives;
@@ -105,9 +106,15 @@ public class BillerImportServiceTests
         var resolver = new Mock<IPartnerConnectorResolver>();
         resolver.Setup(r => r.ResolveBillPaymentConnector(It.IsAny<string>())).Returns(connector);
 
+        // Spec 042: BillerImportService now binds the bill connector to the operator-selected row via the
+        // factory; the stub returns the test connector for any row (IPartnerConnectorFactory is internal,
+        // so it cannot be Moq-proxied).
+        var factory = new Spec042StubConnectorFactory(billConnector: connector);
+
         var service = new BillerImportService(
             context,
             resolver.Object,
+            factory,
             new IPartnerBillPaymentConnector[] { connector },
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()),

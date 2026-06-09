@@ -45,6 +45,11 @@ public class FlutterwaveBillPaymentConnectorTests
     {
         public Task<FlutterwaveBillsOptions> GetAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(options);
+
+        public Task<FlutterwaveBillsOptions> GetAsync(
+            Aonik.Finance.Services.Partners.Connectors.ConnectorBinding binding,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(options);
     }
 
     private static FlutterwaveBillPaymentConnector CreateConnector(
@@ -53,8 +58,7 @@ public class FlutterwaveBillPaymentConnectorTests
         var effective = options ?? ConfiguredOptions();
         var config = new StaticBillsConfigProvider(effective);
         var client = new FlutterwaveBillsClient(
-            new HttpClient(handler) { BaseAddress = new Uri("https://sandbox.flutterwave.test/v3/") },
-            config);
+            new HttpClient(handler) { BaseAddress = new Uri("https://sandbox.flutterwave.test/v3/") });
         return new FlutterwaveBillPaymentConnector(client, config);
     }
 

@@ -164,6 +164,8 @@ public sealed class FinanceModule : IModule
             Services.Partners.Connectors.Credentials.CredentialBundleService>();
         services.AddScoped<Services.Partners.Connectors.IPartnerConnectorFactory,
             Services.Partners.Connectors.PartnerConnectorFactory>();
+        services.AddScoped<Contracts.Services.Partners.ICredentialBundleAdminService,
+            Services.Partners.CredentialBundleAdminService>();
 
         // ── Flutterwave connector (Spec 037, Issue #129) ────────────
         // Registered ALONGSIDE the simulated connector (distinct ProviderCode), only when configured.
