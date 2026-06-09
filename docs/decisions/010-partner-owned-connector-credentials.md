@@ -4,6 +4,7 @@
 **Date**: 2026-06-09
 **Decision Makers**: Development Team
 **Related**: [ADR-005](005-adopt-module-first-modular-monolith.md), [Spec 031](../specifications/031.partner-integration-abstraction.html) (partner abstraction), [Spec 037](../specifications/037.flutterwave-partner-connector.html) (Flutterwave v4 connector), [Spec 038](../specifications/038.admin-partner-connector-configuration.html) (admin connector config), [Spec 040](../specifications/040.partner-biller-catalogue-import.html) (v3 bills import), [Spec 042](../specifications/042.partner-connector-credential-rehoming.html) (implementation of this ADR)
+**Revisions**: Rev 1 (2026-06-09) — incorporated implementation review. `CredentialBundle` promoted to a **first-class entity** (the settings store only encrypts statically-defined keys, so a dynamic bundle key would persist in plaintext); resolution **binds to the persisted `Connector` row** and propagates `ConnectorId` to downstream records; the legacy-key fallback now **fails closed**.
 
 ## Context
 
@@ -42,7 +43,7 @@ These two representations do not agree on who owns connector configuration. The 
 Concretely:
 
 - A **Partner** (Flutterwave, eTranzact, Wise, …) has **one or more Connectors**. A connector instance carries `{ ProviderType, Enabled, ConfigJson, CredentialsRef }` — non-secret config (base URL, country, transfer purpose) inline; the secret addressed by reference.
-- `CredentialsRef` resolves to a **named credential bundle** in a central encrypted store (the settings store today; a vault later — see [ADR-007](007-keycloak-as-auth-provider.html) §"out of scope" for the deferred Key Vault stance). Secrets are **write-only** and never returned by any read API — the convention already proven on the Payment Gateways page (`hasXxx` / "Configured" badges, never values).
+- `CredentialsRef` resolves to a **named credential bundle** — a **first-class, tenant-scoped `CredentialBundle` entity** whose secret fields are encrypted with explicit `IDataProtection`. It is deliberately **not** a settings-store convention: `SettingService` only protects keys carrying a static `SettingDefinition.IsEncrypted` flag (`SettingService.cs:258`), so a dynamic bundle key would persist in plaintext. A Key Vault move is deferred (same stance as [ADR-007](007-keycloak-as-auth-provider.html)). Secrets are **write-only** and never returned by any read API — the convention already proven on the Payment Gateways page (`hasXxx` / "Configured" badges, never values).
 - **Connector resolution keys on `(tenant, partner, providerType)` → connector → bound bundle**, not a global provider-singleton key.
 - **Settings → Payment Gateways is reframed** from "the global Flutterwave config" into the **credential-bundle manager** that `CredentialsRef` resolves to — or credential entry folds directly into the partner Connectivity tab with a write-through to the central store. Either way, the provider-singleton assumption is removed.
 - **Integration providers are modelled as Partners.** A single Flutterwave partner owns both the `flutterwave-payout-v4` and `flutterwave-bills-v3` connector instances, each with its own bundle.
@@ -52,9 +53,10 @@ Concretely:
 1. **Credentials follow the account; the account follows the partner.** No configuration concept is keyed by provider code alone. Two Flutterwave accounts are two partners (or two connector instances), each with its own bundle.
 2. **Secrets are write-only and centrally stored; the partner connector holds only a reference plus non-secret config.** No raw secret is ever persisted on a partner/connector row or returned by a read API.
 3. **One partner, many connectors.** v4 payout and v3 bills are distinct connector instances under one Flutterwave partner, with distinct credential bundles (OAuth client vs `FLWSECK-` secret key). The v3 bills connector thereby inherits the Connectivity UI, closing the Spec 040 no-UI gap.
-4. **Resolution is `(tenant, partner, providerType)` → connector → bundle.** The resolver stops treating "the configured Flutterwave" as a tenant-global singleton.
+4. **Resolution binds to a persisted connector row.** `(tenant, partner, providerType)` resolves to a specific `Connector` row — which already carries `Id`, `PartnerId`, `ConnectorType`, `CredentialsRef`, `ConfigJson` (`Entities/Partners/Connector.cs`) — and returns a runtime connector bound to *that* row's bundle, not a tenant-global singleton. The row's `Id` (**`ConnectorId`**) then propagates onto every downstream record the connector creates (beneficiary registration, payout, transmission, bill payment, webhook correlation) so two accounts of one provider never alias.
 5. **Launch is not blocked.** The current provider-singleton path keeps working for a single account; the `CredentialsRef` seam makes the move **additive**, not a rewrite (see Phasing).
 6. **Provider type is code, not configuration.** Operators never author transport, auth scheme, or endpoints — those ship with the connector. Operators bind credentials and toggle `Enabled`.
+7. **Fallback fails closed.** A partner-specific connector with no bound bundle does **not** silently borrow the legacy global account. The legacy-key fallback applies **only** to an explicitly-migrated default connector; any other unconfigured connector fails the call rather than rerouting money through the wrong account.
 
 ### Phasing
 
