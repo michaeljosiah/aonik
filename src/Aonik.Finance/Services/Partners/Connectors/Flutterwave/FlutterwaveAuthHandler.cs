@@ -30,7 +30,11 @@ internal sealed class FlutterwaveAuthHandler : DelegatingHandler
             await request.Content.LoadIntoBufferAsync();
         }
 
-        var token = await _tokenProvider.GetAccessTokenAsync(cancellationToken);
+        // The connector's resolved options ride on the request (Spec 042 §7) so we authenticate with the
+        // bound account's credentials. Absent (legacy/unbound callers) the token provider falls back internally.
+        var options = request.Options.TryGetValue(FlutterwaveRequestContext.OptionsKey, out var bound) ? bound : null;
+
+        var token = await _tokenProvider.GetAccessTokenAsync(options, cancellationToken);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await base.SendAsync(request, cancellationToken);
@@ -41,7 +45,12 @@ internal sealed class FlutterwaveAuthHandler : DelegatingHandler
 
         response.Dispose();
         var retry = await CloneAsync(request);
-        var refreshed = await _tokenProvider.GetAccessTokenAsync(cancellationToken, forceRefresh: true);
+        if (options is not null)
+        {
+            retry.Options.Set(FlutterwaveRequestContext.OptionsKey, options);
+        }
+
+        var refreshed = await _tokenProvider.GetAccessTokenAsync(options, cancellationToken, forceRefresh: true);
         retry.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshed);
         return await base.SendAsync(retry, cancellationToken);
     }

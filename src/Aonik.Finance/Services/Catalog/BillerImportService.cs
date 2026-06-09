@@ -26,6 +26,7 @@ internal sealed class BillerImportService : IBillerImportService
 
     private readonly FinanceDbContext _dbContext;
     private readonly IPartnerConnectorResolver _connectorResolver;
+    private readonly Services.Partners.Connectors.IPartnerConnectorFactory _connectorFactory;
     private readonly IEnumerable<IPartnerBillPaymentConnector> _billConnectors;
     private readonly IPermissionService _permissionService;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -35,6 +36,7 @@ internal sealed class BillerImportService : IBillerImportService
     public BillerImportService(
         FinanceDbContext dbContext,
         IPartnerConnectorResolver connectorResolver,
+        Services.Partners.Connectors.IPartnerConnectorFactory connectorFactory,
         IEnumerable<IPartnerBillPaymentConnector> billConnectors,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider,
@@ -43,6 +45,7 @@ internal sealed class BillerImportService : IBillerImportService
     {
         _dbContext = dbContext;
         _connectorResolver = connectorResolver;
+        _connectorFactory = connectorFactory;
         _billConnectors = billConnectors;
         _permissionService = permissionService;
         _currentUserProvider = currentUserProvider;
@@ -468,7 +471,9 @@ internal sealed class BillerImportService : IBillerImportService
             throw new InvalidOperationException($"Connector {connectorId} not found.");
         }
 
-        var billConnector = _connectorResolver.ResolveBillPaymentConnector(connector.ConnectorType);
+        // Bind the bill-payment connector to THIS operator-selected row (Spec 042 §7): it resolves the row's
+        // credential bundle (or the legacy default) rather than the global provider-singleton settings.
+        var billConnector = _connectorFactory.CreateBillPayment(connector);
         return (connector, billConnector);
     }
 

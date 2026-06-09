@@ -16,34 +16,37 @@ namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 internal sealed class FlutterwaveClient
 {
     private readonly HttpClient _httpClient;
-    private readonly IFlutterwaveConfigProvider _configProvider;
 
-    public FlutterwaveClient(HttpClient httpClient, IFlutterwaveConfigProvider configProvider)
+    public FlutterwaveClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _configProvider = configProvider;
     }
 
     public Task<TResponse> PostAsync<TResponse>(
-        string path, object body, string idempotencyKey, CancellationToken cancellationToken)
+        string path, object body, string idempotencyKey, FlutterwaveOptions options, CancellationToken cancellationToken)
         where TResponse : class
-        => SendAsync<TResponse>(HttpMethod.Post, path, body, idempotencyKey, cancellationToken);
+        => SendAsync<TResponse>(HttpMethod.Post, path, body, idempotencyKey, options, cancellationToken);
 
-    public Task<TResponse> GetAsync<TResponse>(string path, CancellationToken cancellationToken)
+    public Task<TResponse> GetAsync<TResponse>(string path, FlutterwaveOptions options, CancellationToken cancellationToken)
         where TResponse : class
-        => SendAsync<TResponse>(HttpMethod.Get, path, body: null, idempotencyKey: null, cancellationToken);
+        => SendAsync<TResponse>(HttpMethod.Get, path, body: null, idempotencyKey: null, options, cancellationToken);
 
     private async Task<TResponse> SendAsync<TResponse>(
         HttpMethod method,
         string path,
         object? body,
         string? idempotencyKey,
+        FlutterwaveOptions options,
         CancellationToken cancellationToken)
         where TResponse : class
     {
-        using var request = new HttpRequestMessage(method, path);
-        var options = await _configProvider.GetAsync(cancellationToken);
-        _httpClient.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+        // Absolute URI from the per-call options (not a mutated shared BaseAddress) so concurrent calls on
+        // two connector instances never race; the options ride on the request so the auth handler authenticates
+        // with the right account's credentials (Spec 042 §7).
+        var baseUrl = options.BaseUrl.TrimEnd('/');
+        var uri = new Uri($"{baseUrl}/{path.TrimStart('/')}", UriKind.Absolute);
+        using var request = new HttpRequestMessage(method, uri);
+        request.Options.Set(FlutterwaveRequestContext.OptionsKey, options);
 
         if (body is not null)
         {

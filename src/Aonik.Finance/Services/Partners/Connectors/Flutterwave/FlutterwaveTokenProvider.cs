@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -6,11 +7,12 @@ using Aonik.Finance.Services.Partners.Connectors.Flutterwave.Dtos;
 namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave;
 
 /// <summary>
-/// Acquires and caches a Flutterwave v4 OAuth 2.0 client-credentials access token (Spec 037 §7.2,
-/// G4). Tokens live 10 minutes; the cache is refreshed ~60s before expiry. Thread-safe via a
-/// <see cref="SemaphoreSlim"/> with a double-checked fast path. Resolves its HTTP client through the
-/// named <c>flutterwave-idp</c> client (which has no auth handler — that handler calls this provider,
-/// so using it here would recurse).
+/// Acquires and caches Flutterwave v4 OAuth 2.0 client-credentials access tokens (Spec 037 §7.2, G4).
+/// Tokens live 10 minutes; the cache refreshes ~60s before expiry. The per-call options ride on the
+/// request (Spec 042 §7), so this provider receives the bound account's credentials and caches a token
+/// <strong>per credential set</strong> (keyed by IdP URL + client id/secret) — two accounts never share or
+/// evict each other's token. Resolves its HTTP client through the named <c>flutterwave-idp</c> client
+/// (no auth handler — that handler calls this provider, so reusing it would recurse).
 /// </summary>
 internal sealed class FlutterwaveTokenProvider
 {
@@ -19,10 +21,7 @@ internal sealed class FlutterwaveTokenProvider
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IFlutterwaveConfigProvider _configProvider;
     private readonly SemaphoreSlim _gate = new(1, 1);
-
-    private string? _token;
-    private DateTimeOffset _expiresAt = DateTimeOffset.MinValue;
-    private string? _cacheKey;
+    private readonly ConcurrentDictionary<string, CachedToken> _cache = new();
 
     public FlutterwaveTokenProvider(
         IHttpClientFactory httpClientFactory,
@@ -35,9 +34,12 @@ internal sealed class FlutterwaveTokenProvider
     /// <summary>Clock seam — defaults to the system clock; tests override via object initializer.</summary>
     internal TimeProvider Clock { get; init; } = TimeProvider.System;
 
-    public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken, bool forceRefresh = false)
+    public async Task<string> GetAccessTokenAsync(
+        FlutterwaveOptions? options, CancellationToken cancellationToken, bool forceRefresh = false)
     {
-        var options = await _configProvider.GetAsync(cancellationToken);
+        // The connector always supplies resolved options; the null path covers any legacy/unbound caller and
+        // resolves the global default rather than failing.
+        options ??= await _configProvider.GetAsync(cancellationToken);
         EnsureConfigured(options);
         var cacheKey = $"{options.IdpTokenUrl}|{options.ClientId}|{options.ClientSecret}";
 
@@ -64,9 +66,9 @@ internal sealed class FlutterwaveTokenProvider
 
     private bool TryGetCached(string cacheKey, out string token)
     {
-        if (_token is not null && _cacheKey == cacheKey && Clock.GetUtcNow() < _expiresAt)
+        if (_cache.TryGetValue(cacheKey, out var entry) && Clock.GetUtcNow() < entry.ExpiresAt)
         {
-            token = _token;
+            token = entry.Token;
             return true;
         }
 
@@ -123,10 +125,9 @@ internal sealed class FlutterwaveTokenProvider
 
         // Refresh at least 60s before the documented expiry; clamp tiny/zero lifetimes.
         var lifetime = Math.Max(token.ExpiresIn, 60);
-        _expiresAt = Clock.GetUtcNow().AddSeconds(lifetime - 60);
-        _token = token.AccessToken;
-        _cacheKey = cacheKey;
-        return _token;
+        var expiresAt = Clock.GetUtcNow().AddSeconds(lifetime - 60);
+        _cache[cacheKey] = new CachedToken(token.AccessToken, expiresAt);
+        return token.AccessToken;
     }
 
     private static void EnsureConfigured(FlutterwaveOptions options)
@@ -141,4 +142,6 @@ internal sealed class FlutterwaveTokenProvider
                 retryable: false);
         }
     }
+
+    private readonly record struct CachedToken(string Token, DateTimeOffset ExpiresAt);
 }

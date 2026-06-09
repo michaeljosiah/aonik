@@ -76,6 +76,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<PartnerBranch> PartnerBranches { get; set; } = null!;
     public DbSet<PartnerFundingAccount> PartnerFundingAccounts { get; set; } = null!;
     public DbSet<Connector> Connectors { get; set; } = null!;
+    public DbSet<CredentialBundle> CredentialBundles { get; set; } = null!;
     public DbSet<RoutingRule> RoutingRules { get; set; } = null!;
     public DbSet<PayoutSchema> PayoutSchemas { get; set; } = null!;
     public DbSet<Transmission> Transmissions { get; set; } = null!;

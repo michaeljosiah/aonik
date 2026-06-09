@@ -11,14 +11,22 @@ namespace Aonik.Finance.Entities.Partners;
 ///
 /// Global with a nullable <see cref="TenantId"/> - rows land on callback receipt, before a tenant is
 /// resolved - and is purely global with NO tenant query filter, like FinancialWebhookEvent (not an
-/// IsGlobalEntity() override). Deduped by two filtered unique indexes (see the EF configuration):
-/// (ProviderCode, ProviderEventId) WHERE ProviderEventId IS NOT NULL, plus a fallback on
-/// (ProviderCode, PayloadHash) WHERE ProviderEventId IS NULL.
+/// IsGlobalEntity() override). Dedupe is <strong>connector-aware once resolved</strong> (Spec 042 §9.2):
+/// (ConnectorId, ProviderEventId) / (ConnectorId, PayloadHash) for resolved events, with the
+/// (ProviderCode, ProviderEventId) / (ProviderCode, PayloadHash) pair as the fallback only for events not
+/// yet resolved to a connector (see the EF configuration).
 /// </summary>
 public class PartnerWebhookEvent : AuditableEntity
 {
     public Guid? TenantId { get; set; }
     public string ProviderCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The owning connector instance, stamped <strong>only after the signature validates</strong> against
+    /// that connector's bundle signing secret (Spec 042 §9.2). Null while unresolved; ProviderCode remains
+    /// as denormalised provenance, never the routing key alone.
+    /// </summary>
+    public Guid? ConnectorId { get; set; }
 
     /// <summary>Service category the event belongs to (Payout | Collection | BillPayment | AirtimeTopup).</summary>
     public string Category { get; set; } = string.Empty;

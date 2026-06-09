@@ -5,8 +5,10 @@ using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Partners.Connectors.Registry;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
@@ -29,6 +31,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IPartnerConnectorResolver _connectorResolver;
+    private readonly Services.Partners.Connectors.IPartnerConnectorFactory _connectorFactory;
     private readonly IClock _clock;
 
     public PayoutBeneficiaryService(
@@ -37,6 +40,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IPartnerConnectorResolver connectorResolver,
+        Services.Partners.Connectors.IPartnerConnectorFactory connectorFactory,
         IClock clock)
     {
         _dbContext = dbContext;
@@ -44,6 +48,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _connectorResolver = connectorResolver;
+        _connectorFactory = connectorFactory;
         _clock = clock;
     }
 
@@ -160,6 +165,16 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
 
         var connector = ResolveRegistrationConnector(request.ProviderCode, country, currency, destinationType);
         var providerCode = connector.ProviderCode;
+
+        // Bind registration to a persisted Connector row (Spec 042 §9) so the beneficiary records the exact
+        // account it was registered with; payouts to it then dispatch through that same connector and bundle.
+        // Falls back to the unbound connector (Simulated / no row configured) when none is found.
+        var connectorRow = await FindRegistrationConnectorRowAsync(providerCode, cancellationToken);
+        if (connectorRow is not null)
+        {
+            connector = _connectorFactory.CreatePayout(connectorRow);
+        }
+
         var fingerprint = BuildRailFingerprint(providerCode, country, currency, destinationType, rawDestination);
 
         var existing = await _dbContext.ExternalPayoutAccounts
@@ -216,6 +231,8 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         account.AccountName = registration.AccountName ?? accountName;
         account.Currency = currency;
         account.ProviderCode = providerCode;
+        account.ConnectorId = connectorRow?.Id;
+        account.PartnerId = connectorRow?.PartnerId ?? account.PartnerId;
         account.ProviderBeneficiaryId = registration.ProviderBeneficiaryId.Trim();
         account.IsVerified = true;
         account.VerifiedAt = _clock.UtcNow;
@@ -304,6 +321,33 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
             throw new UnauthorizedAccessException(
                 "The requested customer party does not belong to the authenticated user.");
         }
+    }
+
+    /// <summary>
+    /// The persisted payout connector row a beneficiary registration binds to (Spec 042 §9): prefers the
+    /// migrated legacy-default connector for the resolved provider, else the first configured one, else null
+    /// (no row — unbound Simulated / legacy registration). Explicit per-connector selection is available via
+    /// <c>SaveBeneficiaryAsync</c>, which carries an explicit <c>ConnectorId</c>.
+    /// </summary>
+    private async Task<Connector?> FindRegistrationConnectorRowAsync(string providerCode, CancellationToken cancellationToken)
+    {
+        var payoutTypes = ConnectorRegistry.All
+            .Where(k => k.Port == PartnerServiceCategory.Payout
+                        && string.Equals(k.ProviderCode, providerCode, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(k => new[] { k.Kind, k.ProviderCode })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (payoutTypes.Count == 0)
+        {
+            return null;
+        }
+
+        var rows = await _dbContext.Connectors
+            .Where(c => payoutTypes.Contains(c.ConnectorType))
+            .ToListAsync(cancellationToken);
+
+        return rows.FirstOrDefault(c => c.IsLegacyDefault) ?? rows.FirstOrDefault();
     }
 
     private IPartnerPayoutConnector ResolveRegistrationConnector(

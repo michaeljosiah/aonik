@@ -19,34 +19,35 @@ namespace Aonik.Finance.Services.Partners.Connectors.Flutterwave.Bills;
 internal sealed class FlutterwaveBillsClient
 {
     private readonly HttpClient _httpClient;
-    private readonly IFlutterwaveBillsConfigProvider _configProvider;
 
-    public FlutterwaveBillsClient(HttpClient httpClient, IFlutterwaveBillsConfigProvider configProvider)
+    public FlutterwaveBillsClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _configProvider = configProvider;
     }
 
-    public Task<TResponse> GetAsync<TResponse>(string path, CancellationToken cancellationToken)
+    public Task<TResponse> GetAsync<TResponse>(string path, FlutterwaveBillsOptions options, CancellationToken cancellationToken)
         where TResponse : class
-        => SendAsync<TResponse>(HttpMethod.Get, path, body: null, cancellationToken);
+        => SendAsync<TResponse>(HttpMethod.Get, path, body: null, options, cancellationToken);
 
-    public Task<TResponse> PostAsync<TResponse>(string path, object body, CancellationToken cancellationToken)
+    public Task<TResponse> PostAsync<TResponse>(string path, object body, FlutterwaveBillsOptions options, CancellationToken cancellationToken)
         where TResponse : class
-        => SendAsync<TResponse>(HttpMethod.Post, path, body, cancellationToken);
+        => SendAsync<TResponse>(HttpMethod.Post, path, body, options, cancellationToken);
 
     private async Task<TResponse> SendAsync<TResponse>(
         HttpMethod method,
         string path,
         object? body,
+        FlutterwaveBillsOptions options,
         CancellationToken cancellationToken)
         where TResponse : class
     {
-        var options = await _configProvider.GetAsync(cancellationToken);
         var baseUrl = options.BaseUrl.TrimEnd('/');
         var uri = new Uri($"{baseUrl}/{path.TrimStart('/')}", UriKind.Absolute);
 
         using var request = new HttpRequestMessage(method, uri);
+        // The bound connector's options ride on the request so the auth handler stamps the right account's
+        // secret key (Spec 042 §7).
+        request.Options.Set(FlutterwaveBillsRequestContext.OptionsKey, options);
         if (body is not null)
         {
             request.Content = JsonContent.Create(body, options: FlutterwaveJson.Options);
