@@ -760,6 +760,18 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
             return;
         }
 
+        // Fail closed: a connector still bound by payout beneficiaries must not be removed — doing so would
+        // orphan their ConnectorId pin and silently re-route their payouts through the tenant default
+        // (Spec 042 §9). The operator must re-point or remove those beneficiaries first.
+        var boundBeneficiaries = await _dbContext.ExternalPayoutAccounts
+            .AnyAsync(account => account.TenantId == tenantId && account.ConnectorId == connectorId, cancellationToken);
+        if (boundBeneficiaries)
+        {
+            throw new InvalidOperationException(
+                $"Connector {connectorId} is still bound by one or more payout beneficiaries; "
+                + "re-point or remove those beneficiaries before deleting it.");
+        }
+
         _dbContext.Connectors.Remove(connector);
         await _dbContext.SaveChangesAsync(cancellationToken);
 

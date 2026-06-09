@@ -420,6 +420,32 @@ public class RemittanceOrderServiceTests
     }
 
     [Fact]
+    public async Task ConfirmAsync_Should_FailClosed_When_BeneficiaryConnector_NoLongerExists()
+    {
+        // Spec 042 §9: a beneficiary pinned to a specific connector must dispatch through that exact account.
+        // If the pinned connector has been removed, confirm fails closed — it must never silently re-route the
+        // payout through the tenant default / Simulated connector.
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        account.ConnectorId = Guid.NewGuid(); // pinned to a connector row that does not exist
+        SeedCaller(db, tenantId, customerPartyId);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var act = async () => await service.ConfirmAsync(request, "idem-failclosed-1");
+
+        await act.Should().ThrowAsync<InvalidStateException>();
+        (await db.Payouts.CountAsync()).Should().Be(0);      // nothing dispatched through a fallback account
+        (await db.Transmissions.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task ConfirmAsync_Should_Reject_When_DestinationNotOwnedByCustomer()
     {
         var tenantId = Guid.NewGuid();

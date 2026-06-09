@@ -7,6 +7,7 @@ using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Partners.Connectors.Registry;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -58,9 +59,16 @@ internal sealed class BillerImportService : IBillerImportService
     {
         var tenantId = GetCurrentTenantIdOrThrow();
 
-        // The provider codes we actually have a bill-payment implementation for.
+        // A connector row's ConnectorType is the connector KIND (e.g. "flutterwave-bills-v3") under the
+        // partner-owned model, but legacy rows may still hold the bare provider code (e.g. "Flutterwave").
+        // Accept both: the provider codes we have a bill-payment implementation for, plus the registry's
+        // bill-payment kind codes (Spec 042 §4) — otherwise lifted bills connectors are omitted here even
+        // though ResolveConnectorAsync can use them by id.
         var supported = _billConnectors
             .Select(c => c.ProviderCode)
+            .Concat(ConnectorRegistry.All
+                .Where(kind => kind.Port == PartnerServiceCategory.BillPayment)
+                .Select(kind => kind.Kind))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var connectors = await _dbContext.Connectors.AsNoTracking()

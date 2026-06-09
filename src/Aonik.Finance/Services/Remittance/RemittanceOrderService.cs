@@ -723,11 +723,13 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     {
         if (account.ConnectorId is { } pinned && pinned != Guid.Empty)
         {
-            var row = await _db.Connectors.FirstOrDefaultAsync(c => c.Id == pinned, cancellationToken);
-            if (row is not null)
-            {
-                return row;
-            }
+            // A beneficiary verified against a specific connector MUST dispatch through that exact account; if
+            // the pinned connector no longer resolves (deleted/disabled) fail closed rather than silently
+            // re-routing money through the tenant default (Spec 042 §9).
+            return await _db.Connectors.FirstOrDefaultAsync(c => c.Id == pinned, cancellationToken)
+                ?? throw new InvalidStateException(
+                    $"Beneficiary is bound to connector {pinned}, which no longer exists; "
+                    + "re-verify the beneficiary against an active connector before sending.");
         }
 
         if (string.Equals(providerCode, SimulatedProviderCode, StringComparison.OrdinalIgnoreCase))
@@ -761,11 +763,12 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     {
         if (connectorId != Guid.Empty)
         {
-            var row = await _db.Connectors.FirstOrDefaultAsync(c => c.Id == connectorId, cancellationToken);
-            if (row is not null)
-            {
-                return _connectorFactory.CreatePayout(row);
-            }
+            // A payout bound to a connector at confirm time MUST dispatch through that same row; if it no
+            // longer resolves, fail closed rather than fall back to the unbound/legacy connector (Spec 042 §9).
+            var row = await _db.Connectors.FirstOrDefaultAsync(c => c.Id == connectorId, cancellationToken)
+                ?? throw new InvalidStateException(
+                    $"Payout is bound to connector {connectorId}, which no longer exists; cannot dispatch.");
+            return _connectorFactory.CreatePayout(row);
         }
 
         return _connectorResolver.ResolvePayoutConnector(providerCode);
