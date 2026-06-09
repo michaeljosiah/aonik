@@ -1,5 +1,6 @@
 using Aonik.Finance.Contracts.Models.Partners;
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
+using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Partners;
 using Aonik.Finance.Services.Partners.Connectors;
@@ -160,6 +161,22 @@ public class Spec042CredentialTests
         var act = async () => await service.UpsertAsync(new CredentialBundleWriteRequest(
             "fw-x", "X", PayoutKind, new Dictionary<string, string> { ["wat"] = "x" }));
         await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    // ── Module context must target the canonical (Ank-prefixed) table ──────────
+    [Fact]
+    public void FinanceDbContext_Should_Map_CredentialBundle_To_PrefixedTable()
+    {
+        // The module read/write context must target the same physical table the canonical context + migration
+        // create (dbo.AnkCredentialBundles), not the config's bare ToTable name — otherwise the bundle
+        // endpoints / lift fail with an invalid-object error on real SQL Server. InMemory ignores table names,
+        // so this asserts the EF model metadata directly.
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDb(tenantId, out _);
+
+        var entityType = db.Model.FindEntityType(typeof(CredentialBundle));
+        entityType.Should().NotBeNull();
+        entityType!.GetTableName().Should().Be("AnkCredentialBundles");
     }
 
     // ── Create must not silently update an existing ref (§6) ────────────────────

@@ -230,6 +230,7 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<PartnerBranch>(modelBuilder, "PartnerBranches");
         MapTable<PartnerFundingAccount>(modelBuilder, "PartnerFundingAccounts");
         MapTable<Connector>(modelBuilder, "Connectors");
+        MapTable<CredentialBundle>(modelBuilder, "CredentialBundles");
         MapTable<RoutingRule>(modelBuilder, "RoutingRules");
         MapTable<PayoutSchema>(modelBuilder, "PayoutSchemas");
         MapTable<Transmission>(modelBuilder, "Transmissions");
