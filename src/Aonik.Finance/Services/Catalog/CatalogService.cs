@@ -216,7 +216,9 @@ internal class CatalogService : ICatalogService
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
 
-        var query = _dbContext.CatalogBillers.AsNoTracking().Where(biller => biller.IsActive);
+        // Admin listing includes soft-deactivated billers (Spec 040 §10.3) — they render dimmed,
+        // never hidden. The consumer-facing catalogue (PublicCatalogService) keeps its IsActive filter.
+        var query = _dbContext.CatalogBillers.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(request.CountryCode))
             query = query.Where(biller => biller.CountryCode == request.CountryCode.Trim().ToUpperInvariant());
@@ -226,11 +228,50 @@ internal class CatalogService : ICatalogService
             query = query.Where(biller => biller.Name.Contains(request.Search.Trim()));
 
         var totalCount = await query.CountAsync(cancellationToken);
-        var billers = await query
+        var pageBillers = await query
             .OrderBy(biller => biller.SortOrder).ThenBy(biller => biller.Name)
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(biller => new CatalogBillerSummaryItem(biller.Id, biller.Name, biller.LogoUrl, biller.CountryCode, biller.CategoryId, biller.CorrespondentPartnerId, biller.IsActive, biller.IsFeatured))
+            .Select(biller => new
+            {
+                biller.Id, biller.Name, biller.LogoUrl, biller.CountryCode,
+                biller.CategoryId, biller.CorrespondentPartnerId, biller.IsActive, biller.IsFeatured
+            })
             .ToListAsync(cancellationToken);
+
+        // Provenance: source connector(s), provider biller code, last sync — a read join over
+        // ConnectorBillerMapping + Connector (Spec 040 §10.6). Two small lookups bounded by the page.
+        var billerIds = pageBillers.Select(b => b.Id).ToList();
+        var mappings = await _dbContext.ConnectorBillerMappings.AsNoTracking()
+            .Where(m => billerIds.Contains(m.CatalogBillerId))
+            .ToListAsync(cancellationToken);
+        var connectorTypeById = await _dbContext.Connectors.AsNoTracking()
+            .Where(c => mappings.Select(m => m.ConnectorId).Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.ConnectorType, cancellationToken);
+        var mappingsByBiller = mappings
+            .GroupBy(m => m.CatalogBillerId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var billers = pageBillers.Select(b =>
+        {
+            mappingsByBiller.TryGetValue(b.Id, out var billerMappings);
+            var sources = billerMappings is null
+                ? new List<string>()
+                : billerMappings
+                    .Select(m => connectorTypeById.TryGetValue(m.ConnectorId, out var t) ? t : null)
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .Select(t => t!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            var billerLevel = billerMappings?.FirstOrDefault(m => m.CatalogBillerServiceId == null);
+            var providerCode = billerLevel?.ProviderBillerCode ?? billerMappings?.FirstOrDefault()?.ProviderBillerCode;
+            DateTimeOffset? lastSynced = billerMappings is null
+                ? null
+                : billerMappings.Where(m => m.LastSyncedAt.HasValue).Select(m => m.LastSyncedAt).Max();
+
+            return new CatalogBillerSummaryItem(
+                b.Id, b.Name, b.LogoUrl, b.CountryCode, b.CategoryId, b.CorrespondentPartnerId,
+                b.IsActive, b.IsFeatured, sources, providerCode, lastSynced);
+        }).ToList();
 
         var totalPages = totalCount == 0 ? 0 : (int)Math.Ceiling(totalCount / (double)pageSize);
         return new CatalogBillerResponse(billers, new CatalogPaginationMetadata(page, pageSize, totalCount, totalPages));
@@ -251,13 +292,51 @@ internal class CatalogService : ICatalogService
     public async Task<CatalogBillerServiceResponse> GetBillerServicesAsync(Guid billerId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync(cancellationToken);
+        // Admin drawer includes soft-deactivated services (Spec 040 §10.4) — rendered with an inactive dot.
         var services = await _dbContext.CatalogBillerServices.AsNoTracking()
-            .Where(service => service.BillerId == billerId && service.IsActive)
+            .Where(service => service.BillerId == billerId)
             .OrderBy(service => service.SortOrder).ThenBy(service => service.Name)
-            .Select(service => new CatalogBillerServiceItem(service.Id, service.ServiceCode, service.Name, service.Type, service.Currency, service.MinAmount, service.MaxAmount, service.SupportsPartialPayment, service.RequiresValidation, service.IsActive))
+            .Select(service => new
+            {
+                service.Id, service.ServiceCode, service.Name, service.Type, service.Currency,
+                service.MinAmount, service.MaxAmount, service.SupportsPartialPayment,
+                service.RequiresValidation, service.IsActive, service.AmountType, service.FixedAmount, service.FieldsJson
+            })
             .ToListAsync(cancellationToken);
 
-        return new CatalogBillerServiceResponse(services);
+        // Provider item code (the routing mapping) for the provenance column.
+        var serviceIds = services.Select(s => s.Id).ToList();
+        var providerItemByService = (await _dbContext.ConnectorBillerMappings.AsNoTracking()
+            .Where(m => m.CatalogBillerServiceId != null && serviceIds.Contains(m.CatalogBillerServiceId!.Value))
+            .ToListAsync(cancellationToken))
+            .GroupBy(m => m.CatalogBillerServiceId!.Value)
+            .ToDictionary(g => g.Key, g => g.First().ProviderItemCode);
+
+        var items = services.Select(s => new CatalogBillerServiceItem(
+            s.Id, s.ServiceCode, s.Name, s.Type, s.Currency, s.MinAmount, s.MaxAmount,
+            s.SupportsPartialPayment, s.RequiresValidation, s.IsActive,
+            s.AmountType, s.FixedAmount,
+            providerItemByService.TryGetValue(s.Id, out var pic) ? pic : null,
+            FirstFieldLabel(s.FieldsJson))).ToList();
+
+        return new CatalogBillerServiceResponse(items);
+    }
+
+    // The customer-field label shown in the admin services drawer — the first field in FieldsJson
+    // (e.g. "Meter Number"). Defensive: bad/empty JSON yields null rather than throwing.
+    private static string? FirstFieldLabel(string? fieldsJson)
+    {
+        if (string.IsNullOrWhiteSpace(fieldsJson))
+            return null;
+        try
+        {
+            var fields = JsonSerializer.Deserialize<List<CatalogServiceField>>(fieldsJson);
+            return fields is { Count: > 0 } ? fields[0].Label : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     public async Task<CatalogBillerServiceDetailResponse?> GetBillerServiceDetailAsync(Guid billerId, Guid serviceId, CancellationToken cancellationToken = default)

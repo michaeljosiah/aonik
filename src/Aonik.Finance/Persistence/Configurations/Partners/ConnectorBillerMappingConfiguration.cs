@@ -18,6 +18,16 @@ internal class ConnectorBillerMappingConfiguration : IEntityTypeConfiguration<Co
         builder.HasIndex(x => new { x.TenantId, x.ConnectorId, x.CatalogBillerId, x.CatalogBillerServiceId }).IsUnique();
         builder.HasIndex(x => new { x.TenantId, x.CatalogBillerId });
 
+        // Provider-code identity key for the idempotent import lookup (Spec 040 §8.4 / O1): makes the
+        // "have I imported this provider biller/item before?" lookup an index seek and a hard
+        // uniqueness guarantee. HasFilter(null) overrides EF's default "[ProviderItemCode] IS NOT NULL"
+        // filter so the index ALSO covers biller-level rows (null ProviderItemCode) — SQL Server treats
+        // NULLs as equal, enforcing exactly one biller-level mapping per (Tenant, Connector,
+        // ProviderBillerCode), which is the import's idempotency anchor (§8).
+        builder.HasIndex(x => new { x.TenantId, x.ConnectorId, x.ProviderBillerCode, x.ProviderItemCode })
+            .IsUnique()
+            .HasFilter(null);
+
         builder.HasOne<Connector>().WithMany().HasForeignKey(x => x.ConnectorId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<CatalogBiller>().WithMany().HasForeignKey(x => x.CatalogBillerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<CatalogBillerService>().WithMany().HasForeignKey(x => x.CatalogBillerServiceId).OnDelete(DeleteBehavior.Restrict);

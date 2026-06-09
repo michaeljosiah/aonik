@@ -643,6 +643,10 @@ export interface CatalogBillerSummaryItem {
   correspondentPartnerId?: string | null;
   isActive: boolean;
   isFeatured: boolean;
+  // Import provenance (Spec 040). Empty sourceConnectors ⇒ manually authored.
+  sourceConnectors?: string[] | null;
+  providerBillerCode?: string | null;
+  lastSyncedAt?: string | null;
 }
 
 export interface CatalogBillerResponse {
@@ -676,10 +680,68 @@ export interface CatalogBillerServiceItem {
   supportsPartialPayment: boolean;
   requiresValidation: boolean;
   isActive: boolean;
+  // Spec 040: pricing + import provenance for the admin services drawer.
+  amountType?: string | null;
+  fixedAmount?: number | null;
+  providerItemCode?: string | null;
+  customerFieldLabel?: string | null;
 }
 
 export interface CatalogBillerServiceResponse {
   services: CatalogBillerServiceItem[];
+}
+
+// ── Partner biller catalogue import (Spec 040) ──────────────────────────────
+export interface BillerImportSourceItem {
+  connectorId: string;
+  connectorType: string;
+  status: string;
+  isSandbox: boolean;
+}
+
+export interface BillerImportSourcesResponse {
+  sources: BillerImportSourceItem[];
+}
+
+export interface BillerImportPreviewRequest {
+  connectorId: string;
+  categoryCode?: string | null;
+  country?: string | null;
+}
+
+export type BillerImportStatus = 'New' | 'Mapped' | 'Changed';
+
+export interface BillerImportPreviewEntry {
+  billerCode: string;
+  billerName: string;
+  categoryCode: string;
+  categoryName: string;
+  serviceCategory: string;
+  serviceCount: number;
+  importStatus: BillerImportStatus;
+  changeNote?: string | null;
+}
+
+export interface BillerImportPreviewResponse {
+  entries: BillerImportPreviewEntry[];
+}
+
+export interface BillerImportSelector {
+  billerCode: string;
+  itemCodes?: string[] | null;
+}
+
+export interface BillerImportRequest {
+  connectorId: string;
+  entries: BillerImportSelector[];
+}
+
+export interface BillerImportSummaryResponse {
+  billersCreated: number;
+  billersUpdated: number;
+  servicesCreated: number;
+  servicesUpdated: number;
+  deactivated: number;
 }
 
 export interface CatalogServiceFieldOption {

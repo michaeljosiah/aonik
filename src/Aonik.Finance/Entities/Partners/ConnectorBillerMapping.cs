@@ -18,4 +18,11 @@ public class ConnectorBillerMapping : AuditableEntity, ITenantScoped
     public string ProviderBillerCode { get; set; } = string.Empty;
     public string? ProviderItemCode { get; set; }
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// When this mapping was last touched by a partner catalogue import (Spec 040). Surfaces the
+    /// "last sync" / "dropped on" provenance in the Admin UI and audits re-imports. Null until the
+    /// first import writes the row.
+    /// </summary>
+    public DateTimeOffset? LastSyncedAt { get; set; }
 }

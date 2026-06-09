@@ -6,10 +6,16 @@ public record CatalogCurrencyItem(string Code, string Name);
 public record CatalogCurrencyResponse(List<CatalogCurrencyItem> Currencies, string? DefaultCurrencyCode = null);
 public record CatalogBillerCategoryItem(Guid CategoryId, string Name, string? Description, string? IconUrl, string CountryCode);
 public record CatalogBillerCategoryResponse(List<CatalogBillerCategoryItem> Categories);
-public record CatalogBillerSummaryItem(Guid BillerId, string Name, string? LogoUrl, string CountryCode, Guid CategoryId, Guid CorrespondentPartnerId, bool IsActive, bool IsFeatured);
+// SourceConnectors / ProviderBillerCode / LastSyncedAt are import provenance (Spec 040 §10.6),
+// a read join over ConnectorBillerMapping. Defaulted so non-admin callers (PublicCatalogService)
+// need not supply them. SourceConnectors empty ⇒ manually authored.
+public record CatalogBillerSummaryItem(Guid BillerId, string Name, string? LogoUrl, string CountryCode, Guid CategoryId, Guid CorrespondentPartnerId, bool IsActive, bool IsFeatured, IReadOnlyList<string>? SourceConnectors = null, string? ProviderBillerCode = null, DateTimeOffset? LastSyncedAt = null);
 public record CatalogBillerResponse(List<CatalogBillerSummaryItem> Billers, CatalogPaginationMetadata Pagination);
 public record CatalogBillerDetailResponse(Guid BillerId, string Name, string? Description, string? LogoUrl, string? BannerUrl, string? SupportPhone, string? SupportEmail, string CountryCode, Guid CategoryId, Guid CorrespondentPartnerId, bool IsActive, int ServiceCount);
-public record CatalogBillerServiceItem(Guid ServiceId, string ServiceCode, string Name, string Type, string Currency, decimal? MinAmount, decimal? MaxAmount, bool SupportsPartialPayment, bool RequiresValidation, bool IsActive);
+// AmountType / FixedAmount surface the Fixed-vs-Variable pricing; ProviderItemCode / CustomerFieldLabel
+// are import provenance for the admin services drawer (Spec 040 §10.4). Defaulted so PublicCatalogService
+// need not supply them.
+public record CatalogBillerServiceItem(Guid ServiceId, string ServiceCode, string Name, string Type, string Currency, decimal? MinAmount, decimal? MaxAmount, bool SupportsPartialPayment, bool RequiresValidation, bool IsActive, string? AmountType = null, decimal? FixedAmount = null, string? ProviderItemCode = null, string? CustomerFieldLabel = null);
 public record CatalogBillerServiceResponse(List<CatalogBillerServiceItem> Services);
 public record CatalogBillerServiceDetailResponse(Guid ServiceId, string ServiceCode, string Name, string Type, string Currency, decimal? MinAmount, decimal? MaxAmount, bool SupportsPartialPayment, bool RequiresValidation, List<CatalogServiceField> Fields, CatalogServiceValidation? Validation);
 public record CatalogServiceField(string Key, string Label, string FieldType, bool Required, int? MinLength, int? MaxLength, string? Mask, string? Placeholder, List<CatalogServiceFieldOption>? Options);

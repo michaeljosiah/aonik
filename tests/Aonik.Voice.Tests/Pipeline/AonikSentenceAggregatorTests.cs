@@ -211,7 +211,10 @@ public class AonikSentenceAggregatorTests
         public async Task<IReadOnlyList<TextFrame>> WaitForTextFramesAsync(int minCount)
         {
             var collected = new List<TextFrame>();
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            // Generous timeout: the async frame pipeline is fast locally but a tight 2s wait flakes on
+            // loaded CI runners (TaskCanceledException). 10s is ample headroom without slowing the happy
+            // path, which completes as soon as the expected frames arrive.
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             while (collected.Count < minCount)
             {
                 collected.Add(await _text.Reader.ReadAsync(cts.Token));
