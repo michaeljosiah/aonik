@@ -92,4 +92,4 @@ Concretely:
 
 ## Open Question
 
-**Is Flutterwave a Partner or a rail under a Partner?** This ADR recommends modelling integration providers (Flutterwave, eTranzact, Wise) **as Partners**, with billers imported under the partner's bills connector. The existing "Gold Coast Bill Hub" seed (a biller-hub partner with Flutterwave as a sub-connector) represents a different, later abstraction. This must be resolved before more connectors land; Spec 042 carries the decision.
+**Is Flutterwave a Partner or a rail under a Partner?** **Resolved for this phase** ([Spec 042](../specifications/042.partner-connector-credential-rehoming.html) §17): Flutterwave is modelled as a **rail Partner** — a Partner record whose connector instances move money and expose billers, with `ConnectorId` hanging off that rail partner. The biller-hub abstraction (a partner reached *through* a rail, e.g. "Gold Coast Bill Hub") remains a future, coexisting model; revisit when a biller-hub partner is first onboarded.
