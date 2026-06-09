@@ -17,6 +17,7 @@ public class FlutterwaveBillPaymentConnectorTests
         private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _responses = new();
 
         public List<Uri?> RequestedUris { get; } = new();
+        public string? LastBody { get; private set; }
 
         public void Enqueue(HttpStatusCode status, string json)
             => _responses.Enqueue(_ => new HttpResponseMessage(status)
@@ -26,16 +27,17 @@ public class FlutterwaveBillPaymentConnectorTests
 
         public void EnqueueThrow(Exception ex) => _responses.Enqueue(_ => throw ex);
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestedUris.Add(request.RequestUri);
+            LastBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             if (_responses.Count == 0)
             {
                 throw new InvalidOperationException("No fake HTTP response was queued.");
             }
 
-            return Task.FromResult(_responses.Dequeue()(request));
+            return _responses.Dequeue()(request);
         }
     }
 
@@ -204,6 +206,9 @@ public class FlutterwaveBillPaymentConnectorTests
         // The request must target the specific biller item, not a generic /bills + type call.
         handler.RequestedUris.Should().ContainSingle();
         handler.RequestedUris[0]!.AbsolutePath.Should().Contain("billers/BIL112/items/UB112/payment");
+        // And it must send the documented customer_id field, not customer.
+        handler.LastBody.Should().Contain("\"customer_id\":\"1234567890\"");
+        handler.LastBody.Should().NotContain("\"customer\":");
         result.Status.Should().Be(PartnerTransactionStatus.Succeeded);
         result.Reference.ProviderReference.Should().Be("FLW-REF-1");
     }

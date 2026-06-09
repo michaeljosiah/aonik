@@ -198,12 +198,16 @@ internal sealed class FlutterwaveBillPaymentConnector : IPartnerBillPaymentConne
         }
 
         var reference = FlutterwaveReferences.SanitizeReference(instruction.ClientReference);
+
+        // Body fields per Flutterwave v3 "Create a bill payment" (the item-scoped endpoint): the customer
+        // identifier is customer_id — NOT customer, which only the generic POST /bills uses — and there is
+        // no recurrence parameter here. Sending customer would be treated as a missing customer id and the
+        // payment rejected. https://developer.flutterwave.com/v3.0/reference/create-a-bill-payment
         var body = new
         {
             country = options.Country,
-            customer = instruction.CustomerId,
+            customer_id = instruction.CustomerId,
             amount = instruction.Amount.Amount,
-            recurrence = "ONCE",
             reference
         };
 
