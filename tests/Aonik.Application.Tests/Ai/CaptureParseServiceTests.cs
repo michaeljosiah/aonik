@@ -60,6 +60,8 @@ public sealed class CaptureParseServiceTests
         result.Draft.Amount.Currency.Should().Be("GBP");
         result.Draft.Channel.Should().Be("wise");
         result.Draft.FieldConfidence!["amount"].Should().BeApproximately(0.98, 0.001);
+        // The audited AiRun id rides back on the proposal so the confirmed write can reference it.
+        result.AiRunId.Should().Be(runWriter.LastRunId);
     }
 
     [Fact]
@@ -213,12 +215,13 @@ public sealed class CaptureParseServiceTests
         public List<(string UseCase, string InputRefsJson)> Started { get; } = [];
         public List<(Guid Id, int Tokens, int LatencyMs)> Completed { get; } = [];
         public List<(Guid Id, string Reason)> Failed { get; } = [];
+        public Guid LastRunId { get; private set; }
 
         public Task<Guid> StartRunAsync(string useCase, string inputRefsJson, CancellationToken cancellationToken = default)
         {
-            var id = Guid.NewGuid();
+            LastRunId = Guid.NewGuid();
             Started.Add((useCase, inputRefsJson));
-            return Task.FromResult(id);
+            return Task.FromResult(LastRunId);
         }
 
         public Task MarkRunCompletedAsync(Guid aiRunId, string? outputRef = null, CancellationToken cancellationToken = default)

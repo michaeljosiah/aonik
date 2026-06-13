@@ -65,11 +65,14 @@ public record CaptureMoney(decimal Value, string Currency);
 /// <summary>
 /// Response from <c>POST /ai/capture/parse</c> — a PROPOSAL, never persisted.
 /// <see cref="Draft"/> is <c>null</c> only when <see cref="Status"/> is
-/// <c>unparseable</c>.
+/// <c>unparseable</c>. <see cref="AiRunId"/> is the audited AI execution that produced
+/// the draft (Spec 047 §8); the client carries it onto the confirmed Spec 045 create so
+/// the financial record references the AI run that proposed it.
 /// </summary>
 public record CaptureParseResponse(
     string Status,
-    CaptureDraft? Draft);
+    CaptureDraft? Draft,
+    Guid? AiRunId = null);
 
 /// <summary>
 /// The structured draft the user reviews before confirming. Any field whose

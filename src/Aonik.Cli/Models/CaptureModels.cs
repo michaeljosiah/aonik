@@ -23,7 +23,8 @@ public sealed record CaptureMoney(decimal Value, string Currency);
 
 public sealed record CaptureParseResponse(
     string Status,
-    CaptureDraft? Draft);
+    CaptureDraft? Draft,
+    Guid? AiRunId = null);
 
 public sealed record CaptureDraft(
     string Kind,

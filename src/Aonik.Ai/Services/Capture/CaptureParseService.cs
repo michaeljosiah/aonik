@@ -82,7 +82,7 @@ internal sealed class CaptureParseService : ICaptureParseService
                 await _aiRunWriter.MarkRunCompletedWithMetricsAsync(
                     aiRunId, tokensUsed: 0, latencyMs: 0, costEstimate: 0m,
                     outputRef: $"capture:{CaptureParseStatuses.Unparseable}", cancellationToken: cancellationToken);
-                return new CaptureParseResponse(CaptureParseStatuses.Unparseable, null);
+                return new CaptureParseResponse(CaptureParseStatuses.Unparseable, null, aiRunId);
             }
 
             var schema = JsonDocument.Parse(CaptureParseStructuredOutputContract.JsonSchema).RootElement;
@@ -105,7 +105,7 @@ internal sealed class CaptureParseService : ICaptureParseService
             stopwatch.Stop();
 
             var tokensUsed = (int)Math.Min(int.MaxValue, response.Usage?.TotalTokenCount ?? 0L);
-            var result = ParseResponseText(response.Text);
+            var result = ParseResponseText(response.Text) with { AiRunId = aiRunId };
 
             await _aiRunWriter.MarkRunCompletedWithMetricsAsync(
                 aiRunId,

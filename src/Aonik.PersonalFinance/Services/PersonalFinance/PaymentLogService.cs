@@ -76,10 +76,15 @@ internal sealed class PaymentLogService : IPaymentLogService
             throw new ArgumentException("CommitmentCycleId requires CommitmentId.", nameof(request));
         }
 
-        // Idempotent replay — return the existing log for a repeated key.
+        // Idempotent replay — return the existing log for a repeated key. Bypass the global
+        // soft-delete filter (tenant/user kept explicit): the unique index on
+        // (TenantId, UserId, IdempotencyKey) still holds a soft-deleted row's key, so a replay
+        // after delete must find the prior log here rather than attempt a duplicate insert that
+        // fails at the database. Returning it is idempotent and does not resurrect a user-deleted log.
         if (request.IdempotencyKey is Guid key)
         {
             var existing = await _dbContext.PaymentLogs
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(
                     p => p.TenantId == tenantId && p.UserId == userId && p.IdempotencyKey == key,
                     cancellationToken);

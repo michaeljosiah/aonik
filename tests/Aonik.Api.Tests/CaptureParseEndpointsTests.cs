@@ -110,6 +110,7 @@ public class CaptureParseEndpointsTests : IClassFixture<CustomWebApplicationFact
         body.Draft!.Amount!.Value.Should().Be(200.00m);
         body.Draft.Amount.Currency.Should().Be("GBP");
         body.Draft.EntityMatch!.Id.Should().Be("ce_1");
+        body.AiRunId.Should().NotBeNull(); // the audited run id rides back on the proposal
 
         // Still nothing persisted — the draft is a proposal.
         await using var scope = factory.Services.CreateAsyncScope();

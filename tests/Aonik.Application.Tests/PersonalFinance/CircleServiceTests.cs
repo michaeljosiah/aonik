@@ -161,6 +161,49 @@ public class CircleServiceTests
     }
 
     [Fact]
+    public async Task MultipleGrants_AreMerged_SoEverySharedEntityIsVisible()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var flat = await SeedEntityAsync(ctx, owner, "Flat");
+        var mum = await SeedEntityAsync(ctx, owner, "Mum");
+
+        // Two separate active grants to the same member (e.g. shared one entity, later another).
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "entities", new[] { flat }, false));
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "entities", new[] { mum }, false));
+
+        var shared = await Circle(ctx, member).ListSharedEntitiesAsync(owner);
+        shared.Should().NotBeNull();
+        shared!.Select(e => e.Id).Should().Contain(new[] { flat, mum });
+
+        // Both resolve individually — the later grant is not ignored.
+        (await Circle(ctx, member).GetSharedEntityAsync(owner, flat)).Should().NotBeNull();
+        (await Circle(ctx, member).GetSharedEntityAsync(owner, mum)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DocsOnlyEntity_DoesNotInheritAmounts_FromAnotherEntitiesGrant()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var flat = await SeedEntityAsync(ctx, owner, "Flat");
+        var mum = await SeedEntityAsync(ctx, owner, "Mum");
+        await SeedLogAsync(ctx, owner, mum, 200m, "GBP", new DateTime(2026, 5, 1));
+
+        // Flat shared with amounts; Mum shared docsOnly. The flat grant must not leak Mum's amounts.
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "entities", new[] { flat }, false));
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "docsOnly", new[] { mum }, true));
+
+        var mumView = await Circle(ctx, member).GetSharedEntityAsync(owner, mum);
+
+        mumView.Should().NotBeNull();
+        mumView!.DocsOnly.Should().NotBeNull(); // amount-free projection
+        mumView.Full.Should().BeNull();
+    }
+
+    [Fact]
     public async Task AcceptInvite_ConsumesToken_AndIsNotReusable()
     {
         using var ctx = CreateContext();

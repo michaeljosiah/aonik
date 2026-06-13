@@ -190,6 +190,26 @@ public class PaymentLogServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_Should_BeIdempotent_AfterSoftDelete_ReturningPriorLog()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var entityId = await SeedCareEntityAsync(context, tenantId, userId);
+        var service = CreateService(context, tenantId, userId);
+        var key = Guid.NewGuid();
+
+        var created = await service.CreateAsync(LogRequest(entityId, idempotencyKey: key));
+        (await service.SoftDeleteAsync(created.Id)).Should().BeTrue();
+
+        // Replaying the same offline create after delete must return the prior log (the unique
+        // key still holds), not silently create a duplicate (or, on SQL Server, crash).
+        var replay = await service.CreateAsync(LogRequest(entityId, idempotencyKey: key));
+
+        replay.Id.Should().Be(created.Id);
+    }
+
+    [Fact]
     public async Task CreateAsync_Should_BeIdempotent_OnIdempotencyKey()
     {
         var tenantId = Guid.NewGuid();

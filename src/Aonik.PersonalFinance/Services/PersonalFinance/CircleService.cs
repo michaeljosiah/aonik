@@ -168,18 +168,39 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
     public async Task<CircleGrantView?> ResolveAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
     {
-        var (tenantId, memberUserId) = GetContext();
-        var grant = await _dbContext.CircleGrants.AsNoTracking()
-            .FirstOrDefaultAsync(
-                g => g.TenantId == tenantId && g.OwnerUserId == ownerUserId
-                    && g.MemberUserId == memberUserId && g.Status == "active",
-                cancellationToken);
-        if (grant is null || !Scopes.Contains(grant.Scope))
+        var grants = await GetActiveGrantsAsync(ownerUserId, cancellationToken);
+        if (grants.Count == 0)
         {
-            return null; // fail closed: no grant or unknown scope → no access
+            return null; // fail closed: no active grant → no access
         }
 
-        return new CircleGrantView(grant.OwnerUserId, grant.Scope, ParseIds(grant.EntityIdsJson), grant.NoAmounts);
+        // A member may hold several active grants for one owner (a direct grant plus an
+        // invite-accepted one, or shares of different entities). Merge them so nothing is missed:
+        // most-permissive scope, union of entity ids, amounts shown if any grant shows them. This
+        // merged view drives listing + the general access check; the per-entity amount decision is
+        // made in GetSharedEntityAsync so a docsOnly entity never inherits another grant's amounts.
+        var scope = grants.Any(g => g.Scope == "all") ? "all"
+            : grants.Any(g => g.Scope == "entities") ? "entities"
+            : "docsOnly";
+        var entityIds = grants.SelectMany(g => g.EntityIds).Distinct().ToList();
+        var noAmounts = grants.All(g => g.NoAmounts);
+
+        return new CircleGrantView(ownerUserId, scope, entityIds, noAmounts);
+    }
+
+    /// <summary>All active, known-scope grants for (current member → owner). Fail-closed: unknown scopes dropped.</summary>
+    private async Task<IReadOnlyList<CircleGrantView>> GetActiveGrantsAsync(Guid ownerUserId, CancellationToken cancellationToken)
+    {
+        var (tenantId, memberUserId) = GetContext();
+        var grants = await _dbContext.CircleGrants.AsNoTracking()
+            .Where(g => g.TenantId == tenantId && g.OwnerUserId == ownerUserId
+                && g.MemberUserId == memberUserId && g.Status == "active")
+            .ToListAsync(cancellationToken);
+
+        return grants
+            .Where(g => Scopes.Contains(g.Scope))
+            .Select(g => new CircleGrantView(g.OwnerUserId, g.Scope, ParseIds(g.EntityIdsJson), g.NoAmounts))
+            .ToList();
     }
 
     // ── Shared reads (member viewing an owner's data) ───────────────────
@@ -208,15 +229,15 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
     public async Task<CircleSharedEntityResult?> GetSharedEntityAsync(Guid ownerUserId, Guid careEntityId, CancellationToken cancellationToken = default)
     {
-        var grant = await ResolveAsync(ownerUserId, cancellationToken);
-        if (grant is null)
+        // Resolve PER ENTITY across all the member's active grants — find every grant that covers
+        // this entity, then take the most-permissive of them. This avoids both under-reporting
+        // (a later grant being ignored) and over-reporting (a docsOnly entity inheriting amounts
+        // from an unrelated entities/all grant).
+        var grants = await GetActiveGrantsAsync(ownerUserId, cancellationToken);
+        var covering = grants.Where(g => g.Scope == "all" || g.EntityIds.Contains(careEntityId)).ToList();
+        if (covering.Count == 0)
         {
-            return null;
-        }
-
-        if (grant.Scope != "all" && !grant.EntityIds.Contains(careEntityId))
-        {
-            return null; // out of scope → not found
+            return null; // no grant covers this entity → not found
         }
 
         var (tenantId, _) = GetContext();
@@ -234,8 +255,9 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         // above has already authorised this member to see this entity.
         var documents = await GetOwnerDocumentsAsync(ownerUserId, careEntityId, cancellationToken);
 
-        // docsOnly → the structurally amount-free projection (no logs/totals joined).
-        if (grant.Scope == "docsOnly")
+        // Only docsOnly grants cover this entity → the structurally amount-free projection.
+        var hasFullScope = covering.Any(g => g.Scope == "all" || g.Scope == "entities");
+        if (!hasFullScope)
         {
             return new CircleSharedEntityResult(
                 "docsOnly",
@@ -243,12 +265,13 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
                 DocsOnly: new CircleSharedDocsView(entity.Id, entity.Name, documents));
         }
 
-        // all | entities → full view. When the grant hides amounts (NoAmounts, Spec 048), keep the
-        // entity + documents but suppress the money-bearing fields — and don't even read the logs.
+        // Full view. Amounts are shown only if a covering grant permits them (NoAmounts=false);
+        // otherwise the money-bearing fields are suppressed and the logs are not even read.
+        var amountsAllowed = covering.Any(g => !g.NoAmounts);
         IReadOnlyList<CurrencyTotal> yearTotals = [];
         IReadOnlyList<CareEntityPaymentLogSummary> recentLogs = [];
 
-        if (!grant.NoAmounts)
+        if (amountsAllowed)
         {
             var logs = await _dbContext.PaymentLogs.AsNoTracking()
                 .Where(p => p.TenantId == tenantId && p.UserId == ownerUserId && p.CareEntityId == careEntityId)
@@ -267,8 +290,9 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
                 .ToList();
         }
 
+        var effectiveScope = covering.Any(g => g.Scope == "all") ? "all" : "entities";
         return new CircleSharedEntityResult(
-            grant.Scope,
+            effectiveScope,
             Full: new CircleSharedEntityView(MapEntity(entity), yearTotals, recentLogs, documents),
             DocsOnly: null);
     }
