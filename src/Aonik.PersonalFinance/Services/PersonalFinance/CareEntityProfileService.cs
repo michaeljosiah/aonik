@@ -10,15 +10,18 @@ internal sealed class CareEntityProfileService : ICareEntityProfileService
 
     private readonly ICareEntityService _careEntityService;
     private readonly IPaymentLogService _paymentLogService;
+    private readonly ICommitmentService _commitmentService;
     private readonly IDocumentLinkReader _documentLinkReader;
 
     public CareEntityProfileService(
         ICareEntityService careEntityService,
         IPaymentLogService paymentLogService,
+        ICommitmentService commitmentService,
         IDocumentLinkReader documentLinkReader)
     {
         _careEntityService = careEntityService;
         _paymentLogService = paymentLogService;
+        _commitmentService = commitmentService;
         _documentLinkReader = documentLinkReader;
     }
 
@@ -34,10 +37,11 @@ internal sealed class CareEntityProfileService : ICareEntityProfileService
 
         // One round-trip composition (Spec 043 §8):
         //   YearTotals + RecentLogs ← PaymentLog (Spec 045)
+        //   Commitments             ← open commitments for the entity (Spec 044)
         //   Documents               ← DocumentLink via IDocumentLinkReader (Spec 046, cross-module read)
-        //   Commitments             ← wired when the commitment→CareEntity read lands (Spec 044 follow-up)
         var yearTotals = await _paymentLogService.GetEntityYearTotalsAsync(id, year: null, cancellationToken);
         var recentLogs = await _paymentLogService.GetRecentForEntityAsync(id, RecentLogCount, cancellationToken);
+        var commitments = await _commitmentService.GetSummariesForEntityAsync(id, cancellationToken);
 
         var documentRefs = await _documentLinkReader.GetForTargetAsync("careEntity", id, cancellationToken);
         var documents = documentRefs
@@ -47,7 +51,7 @@ internal sealed class CareEntityProfileService : ICareEntityProfileService
         return new CareEntityProfileResponse(
             Entity: entity,
             YearTotals: yearTotals,
-            Commitments: [],
+            Commitments: commitments,
             RecentLogs: recentLogs,
             Documents: documents);
     }

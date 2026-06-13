@@ -75,6 +75,22 @@ public class CommitmentLifecycleServiceTests
             null, firstDue ?? new DateTime(2026, 5, 28), 3, null, null);
 
     [Fact]
+    public async Task CreateSupport_Should_Throw_When_NonExplicitRhythmHasNoFirstDueDate()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var (commitments, _, care) = CreateServices(context, tenantId, userId);
+        var entityId = await SeedCareEntityAsync(care);
+
+        // Monthly with a default (DateTime.MinValue) FirstDueDate must be rejected, not opened on 0001-01-01.
+        var act = async () => await commitments.CreateSupportAsync(
+            new CreateSupportCommitmentRequest(entityId, "Mum", 200m, "GBP", "Monthly", 1, 28, null, default, 3, null, null));
+
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*FirstDueDate is required*");
+    }
+
+    [Fact]
     public async Task UpdateSupport_Should_Throw_When_TermlyWithoutTermDates()
     {
         var tenantId = Guid.NewGuid();

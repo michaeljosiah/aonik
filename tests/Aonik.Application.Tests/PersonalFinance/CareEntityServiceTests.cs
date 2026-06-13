@@ -4,8 +4,10 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -55,6 +57,21 @@ public class CareEntityServiceTests
 
     private static PaymentLogService CreatePaymentLogService(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
         => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId));
+
+    private static CommitmentService CreateCommitmentService(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
+        => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId),
+            CreatePaymentLogService(context, tenantId, userId), new FakeTaskService(), NullLogger<CommitmentService>.Instance);
+
+    private sealed class FakeTaskService : ITaskService
+    {
+        public Task<TaskResponse> ScheduleAsync(ScheduleTaskRequest request, CancellationToken ct = default) => Task.FromResult<TaskResponse>(null!);
+        public Task<TaskResponse?> GetAsync(Guid taskId, CancellationToken ct = default) => Task.FromResult<TaskResponse?>(null);
+        public Task<IReadOnlyList<TaskResponse>> ListForSubjectAsync(string subjectType, Guid subjectId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TaskResponse>>([]);
+        public Task<IReadOnlyList<TaskResponse>> ListForAssigneeAsync(string assigneeType, Guid? assigneeId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TaskResponse>>([]);
+        public Task PauseAsync(Guid taskId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task ResumeAsync(Guid taskId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task CancelAsync(Guid taskId, CancellationToken ct = default) => Task.CompletedTask;
+    }
 
     private sealed class FakeDocumentLinkReader : IDocumentLinkReader
     {
@@ -350,7 +367,7 @@ public class CareEntityServiceTests
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
         var service = CreateService(context, tenantId, userId);
-        var profileService = new CareEntityProfileService(service, CreatePaymentLogService(context, tenantId, userId), new FakeDocumentLinkReader());
+        var profileService = new CareEntityProfileService(service, CreatePaymentLogService(context, tenantId, userId), CreateCommitmentService(context, tenantId, userId), new FakeDocumentLinkReader());
 
         var created = await service.CreateAsync(AssetRequest("property", "Surulere flat"));
 
@@ -375,6 +392,7 @@ public class CareEntityServiceTests
         var strangerProfileService = new CareEntityProfileService(
             CreateService(context, tenantId, stranger),
             CreatePaymentLogService(context, tenantId, stranger),
+            CreateCommitmentService(context, tenantId, stranger),
             new FakeDocumentLinkReader());
 
         var created = await ownerService.CreateAsync(PersonRequest("Mum"));
@@ -382,5 +400,30 @@ public class CareEntityServiceTests
         var profile = await strangerProfileService.GetProfileAsync(created.Id);
 
         profile.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetProfileAsync_Should_IncludeOpenCommitments_ForEntity()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId, userId);
+        var profileService = new CareEntityProfileService(
+            service,
+            CreatePaymentLogService(context, tenantId, userId),
+            CreateCommitmentService(context, tenantId, userId),
+            new FakeDocumentLinkReader());
+
+        var entity = await service.CreateAsync(PersonRequest("Mum"));
+        await CreateCommitmentService(context, tenantId, userId).CreateSupportAsync(
+            new CreateSupportCommitmentRequest(
+                entity.Id, "Mum — monthly allowance", 200m, "GBP", "Monthly", 1, 28,
+                null, new DateTime(2026, 5, 28), 3, null, null));
+
+        var profile = await profileService.GetProfileAsync(entity.Id);
+
+        profile.Should().NotBeNull();
+        profile!.Commitments.Should().ContainSingle(c => c.DisplayName == "Mum — monthly allowance");
     }
 }

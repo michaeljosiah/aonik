@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
@@ -324,6 +325,14 @@ internal sealed class CommitmentService : ICommitmentService
         else
         {
             firstDue = request.FirstDueDate.Date;
+
+            // A non-explicit rhythm needs a real first due date. An omitted one deserializes to
+            // DateTime.MinValue (0001-01-01), which would sort the item to the wrong end of lists
+            // and arm a reminder millennia in the past — reject it before opening a cycle.
+            if (firstDue == default || firstDue.Year < 2000)
+            {
+                throw new ArgumentException("FirstDueDate is required for Weekly/Monthly/Quarterly/Yearly commitments.", nameof(request));
+            }
         }
 
         var bill = new PersonalRecurringBill
@@ -453,42 +462,78 @@ internal sealed class CommitmentService : ICommitmentService
 
         var date = (request.Date ?? bill.NextDueDate).Date;
 
-        // Write the PaymentLog that honours this cycle (Spec 045).
-        var log = await _paymentLogService.CreateAsync(
-            new CreatePaymentLogRequest(
-                careEntityId,
-                commitmentId,
-                cycle.Id,
-                request.Amount,
-                request.Currency,
-                request.ApproxGbp,
-                date,
-                request.Channel,
-                "markDone",
-                request.Note,
-                request.IdempotencyKey),
-            cancellationToken);
-
-        cycle.Status = "Paid";
-        cycle.PaymentLogId = log.Id;
-        cycle.ResolvedAt = DateTime.UtcNow;
-
-        bill.LastPaidAt = date;
-        bill.LastPaidAmount = request.Amount;
-
-        var next = RhythmFor(bill).NextAfter(cycle.DueDate);
-        if (next is DateTime nextDue)
+        // Write the PaymentLog (Spec 045) and resolve + advance the cycle in ONE unit of work.
+        // PaymentLogService.CreateAsync commits its own SaveChanges, so without a wrapping
+        // transaction a failure of the cycle save would leave an orphaned log that double-counts
+        // a payment which did not win the cycle resolution. The Serializable transaction (and the
+        // cycle's rowversion token) also serialises concurrent mark-dones of the same cycle.
+        // Mirrors FinancialLifeGraphWriteService / HouseholdService.
+        DateTime? next = null;
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async ct =>
         {
-            bill.NextDueDate = nextDue;
-            OpenCycle(bill, tenantId, userId, nextDue);
-        }
-        else
-        {
-            bill.Status = "Completed"; // OneOff / exhausted Termly
-        }
+            var useTransaction = _dbContext.Database.IsRelational();
+            var committed = false;
+            await using var transaction = useTransaction
+                ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
+                : null;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                var log = await _paymentLogService.CreateAsync(
+                    new CreatePaymentLogRequest(
+                        careEntityId,
+                        commitmentId,
+                        cycle.Id,
+                        request.Amount,
+                        request.Currency,
+                        request.ApproxGbp,
+                        date,
+                        request.Channel,
+                        "markDone",
+                        request.Note,
+                        request.IdempotencyKey),
+                    ct);
 
+                cycle.Status = "Paid";
+                cycle.PaymentLogId = log.Id;
+                cycle.ResolvedAt = DateTime.UtcNow;
+
+                bill.LastPaidAt = date;
+                bill.LastPaidAmount = request.Amount;
+
+                next = RhythmFor(bill).NextAfter(cycle.DueDate);
+                if (next is DateTime nextDue)
+                {
+                    bill.NextDueDate = nextDue;
+                    OpenCycle(bill, tenantId, userId, nextDue);
+                }
+                else
+                {
+                    bill.Status = "Completed"; // OneOff / exhausted Termly
+                }
+
+                await _dbContext.SaveChangesAsync(ct);
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(ct);
+                    committed = true;
+                }
+            }
+            catch
+            {
+                if (transaction != null && !committed)
+                {
+                    await transaction.RollbackAsync(ct);
+                }
+
+                throw;
+            }
+        }, cancellationToken);
+
+        // Reminders are re-armed after the cycle change has committed (a side effect, not part of
+        // the financial unit of work).
         if (next is not null)
         {
             await ReArmReminderAsync(bill, userId, cancellationToken);
@@ -649,6 +694,25 @@ internal sealed class CommitmentService : ICommitmentService
             .ToListAsync(cancellationToken);
 
         return cycles.Select(MapCycle).ToList();
+    }
+
+    public async Task<IReadOnlyList<CareEntityCommitmentSummary>> GetSummariesForEntityAsync(
+        Guid careEntityId,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+
+        var bills = await _dbContext.Set<PersonalRecurringBill>()
+            .AsNoTracking()
+            .Where(b => b.TenantId == tenantId && b.UserId == userId && b.CareEntityId == careEntityId
+                && b.Status != "Completed" && b.Status != "Cancelled" && b.Status != "Archived")
+            .OrderBy(b => b.NextDueDate)
+            .ToListAsync(cancellationToken);
+
+        return bills
+            .Select(b => new CareEntityCommitmentSummary(
+                b.Id, b.Payee, b.Frequency, b.ExpectedAmount, b.Currency, b.NextDueDate, b.Status))
+            .ToList();
     }
 
     public async Task<int> BackfillOpenCyclesAsync(CancellationToken cancellationToken = default)

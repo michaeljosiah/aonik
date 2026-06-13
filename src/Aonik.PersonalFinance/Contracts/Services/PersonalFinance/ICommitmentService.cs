@@ -111,4 +111,12 @@ public interface ICommitmentService
     /// number of cycles opened.
     /// </summary>
     Task<int> BackfillOpenCyclesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Open commitments attached to a CareEntity, for the one-call profile (Spec 043 §8) and the
+    /// Keeper. Excludes terminal states (Completed / Cancelled / Archived). Owner-scoped.
+    /// </summary>
+    Task<IReadOnlyList<CareEntityCommitmentSummary>> GetSummariesForEntityAsync(
+        Guid careEntityId,
+        CancellationToken cancellationToken = default);
 }
