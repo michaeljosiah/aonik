@@ -41,6 +41,7 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
     public DbSet<Goal> Goals { get; set; } = null!;
     public DbSet<CareEntity> CareEntities { get; set; } = null!;
     public DbSet<PaymentLog> PaymentLogs { get; set; } = null!;
+    public DbSet<CommitmentCycle> CommitmentCycles { get; set; } = null!;
     public DbSet<FinancialConnection> FinancialConnections { get; set; } = null!;
     public DbSet<FinancialConnectionSession> FinancialConnectionSessions { get; set; } = null!;
     public DbSet<FinancialWebhookEvent> FinancialWebhookEvents { get; set; } = null!;
@@ -117,6 +118,7 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
         MapTable<Goal>(modelBuilder, "Goals");
         MapTable<CareEntity>(modelBuilder, "CareEntities");
         MapTable<PaymentLog>(modelBuilder, "PaymentLogs");
+        MapTable<CommitmentCycle>(modelBuilder, "CommitmentCycles");
         MapTable<FinancialConnection>(modelBuilder, "FinancialConnections");
         MapTable<FinancialConnectionSession>(modelBuilder, "FinancialConnectionSessions");
         MapTable<FinancialWebhookEvent>(modelBuilder, "FinancialWebhookEvents");

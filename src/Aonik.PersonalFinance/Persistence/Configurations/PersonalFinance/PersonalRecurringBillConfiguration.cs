@@ -71,9 +71,26 @@ internal class PersonalRecurringBillConfiguration : IEntityTypeConfiguration<Per
         builder.Property(x => x.LastPaidAmount)
             .HasPrecision(19, 4);
 
+        // ── Support commitment & rhythm (Spec 044) ───────────
+
+        builder.Property(x => x.CommitmentKind)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasDefaultValue("Bill");
+
+        builder.Property(x => x.RhythmUnit)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasDefaultValue("Monthly");
+
+        builder.Property(x => x.RhythmInterval)
+            .HasDefaultValue(1);
+
         // ── Indexes ──────────────────────────────────────────
 
         builder.HasIndex(x => new { x.TenantId, x.UserId });
+        builder.HasIndex(x => new { x.TenantId, x.UserId, x.CareEntityId })
+            .HasFilter("[CareEntityId] IS NOT NULL");
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.NextDueDate });
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.Status });
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.VerificationStatus });
