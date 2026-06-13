@@ -52,6 +52,9 @@ public class CareEntityServiceTests
     private static CareEntityService CreateService(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
         => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId));
 
+    private static PaymentLogService CreatePaymentLogService(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
+        => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId));
+
     private static CreateCareEntityRequest PersonRequest(string name = "Mum", string country = "NG")
         => new("person", null, name, country, "mother", "👩🏾", null, null);
 
@@ -334,7 +337,7 @@ public class CareEntityServiceTests
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
         var service = CreateService(context, tenantId, userId);
-        var profileService = new CareEntityProfileService(service);
+        var profileService = new CareEntityProfileService(service, CreatePaymentLogService(context, tenantId, userId));
 
         var created = await service.CreateAsync(AssetRequest("property", "Surulere flat"));
 
@@ -356,7 +359,9 @@ public class CareEntityServiceTests
         var stranger = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
         var ownerService = CreateService(context, tenantId, owner);
-        var strangerProfileService = new CareEntityProfileService(CreateService(context, tenantId, stranger));
+        var strangerProfileService = new CareEntityProfileService(
+            CreateService(context, tenantId, stranger),
+            CreatePaymentLogService(context, tenantId, stranger));
 
         var created = await ownerService.CreateAsync(PersonRequest("Mum"));
 

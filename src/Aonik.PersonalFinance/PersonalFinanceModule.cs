@@ -63,6 +63,8 @@ public sealed class PersonalFinanceModule : IModule
         services.AddScoped<IBillService, BillService>();
         services.AddScoped<ICareEntityService, CareEntityService>();
         services.AddScoped<ICareEntityProfileService, CareEntityProfileService>();
+        services.AddScoped<IPaymentLogService, PaymentLogService>();
+        services.AddScoped<IPaymentLogSummaryService, PaymentLogSummaryService>();
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<ICommitmentService, CommitmentService>();
         services.AddScoped<ITransactionAttachmentService, TransactionAttachmentService>();

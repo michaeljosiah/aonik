@@ -401,6 +401,34 @@ public sealed class CreateCareEntityRequestValidator : Validator<CreateCareEntit
     }
 }
 
+// ── PaymentLogs (Spec 045) ──────────────────────────────────────────
+
+public sealed class CreatePaymentLogRequestValidator : Validator<CreatePaymentLogRequest>
+{
+    private static readonly string[] Channels = ["bank", "wise", "cash", "other"];
+    private static readonly string[] Origins =
+        ["manual", "captureImage", "captureText", "captureVoice", "markDone", "plaidDetected"];
+
+    public CreatePaymentLogRequestValidator()
+    {
+        RuleFor(x => x.CareEntityId).RequiredId();
+        RuleFor(x => x.CommitmentId).ValidIdWhenSupplied();
+        RuleFor(x => x.CommitmentCycleId).ValidIdWhenSupplied();
+        RuleFor(x => x.Amount).PositiveMoney();
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ApproxGbp).NonNegativeMoney();
+        RuleFor(x => x.Channel)
+            .NotEmpty()
+            .Must(c => Channels.Contains(c))
+            .WithMessage($"Channel must be one of: {string.Join(", ", Channels)}.");
+        RuleFor(x => x.Origin)
+            .NotEmpty()
+            .Must(o => Origins.Contains(o))
+            .WithMessage($"Origin must be one of: {string.Join(", ", Origins)}.");
+        RuleFor(x => x.Note).MaximumLength(2000);
+    }
+}
+
 public sealed class CreateBudgetRequestValidator : Validator<CreateBudgetRequest>
 {
     public CreateBudgetRequestValidator() => RuleFor(x => x.CategoryId).MaximumLength(128);

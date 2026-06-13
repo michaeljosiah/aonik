@@ -5,10 +5,18 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class CareEntityProfileService : ICareEntityProfileService
 {
-    private readonly ICareEntityService _careEntityService;
+    private const int RecentLogCount = 10;
 
-    public CareEntityProfileService(ICareEntityService careEntityService)
-        => _careEntityService = careEntityService;
+    private readonly ICareEntityService _careEntityService;
+    private readonly IPaymentLogService _paymentLogService;
+
+    public CareEntityProfileService(
+        ICareEntityService careEntityService,
+        IPaymentLogService paymentLogService)
+    {
+        _careEntityService = careEntityService;
+        _paymentLogService = paymentLogService;
+    }
 
     public async Task<CareEntityProfileResponse?> GetProfileAsync(
         Guid id,
@@ -20,17 +28,17 @@ internal sealed class CareEntityProfileService : ICareEntityProfileService
             return null;
         }
 
-        // The dependent aggregates attach as their specs land (§8):
-        //   YearTotals + RecentLogs ← PaymentLog            (Spec 045)
-        //   Commitments             ← Commitment.CareEntityId (Spec 044)
-        //   Documents               ← DocumentLink            (Spec 046)
-        // Until then the profile is the entity with empty dependent arrays —
-        // one round-trip that "grows richer as 044–046 land".
+        // YearTotals + RecentLogs come from PaymentLog (Spec 045 — now wired);
+        // both are empty until the entity has logged acts. Commitments (Spec 044)
+        // and Documents (Spec 046) attach as those specs land. One round-trip.
+        var yearTotals = await _paymentLogService.GetEntityYearTotalsAsync(id, year: null, cancellationToken);
+        var recentLogs = await _paymentLogService.GetRecentForEntityAsync(id, RecentLogCount, cancellationToken);
+
         return new CareEntityProfileResponse(
             Entity: entity,
-            YearTotals: [],
+            YearTotals: yearTotals,
             Commitments: [],
-            RecentLogs: [],
+            RecentLogs: recentLogs,
             Documents: []);
     }
 }

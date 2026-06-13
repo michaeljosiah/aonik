@@ -142,6 +142,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<Goal> Goals { get; set; } = null!;
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
     public virtual DbSet<CareEntity> CareEntities { get; set; } = null!;
+    public virtual DbSet<PaymentLog> PaymentLogs { get; set; } = null!;
     public virtual DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
     public virtual DbSet<StatementImport> StatementImports { get; set; } = null!;
     public virtual DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
@@ -424,6 +425,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<Goal>(modelBuilder, "Goals");
         MapFinanceTable<Budget>(modelBuilder, "Budgets");
         MapFinanceTable<CareEntity>(modelBuilder, "CareEntities");
+        MapFinanceTable<PaymentLog>(modelBuilder, "PaymentLogs");
         MapFinanceTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
         MapFinanceTable<StatementImport>(modelBuilder, "StatementImports");
         MapFinanceTable<StatementImportRow>(modelBuilder, "StatementImportRows");
