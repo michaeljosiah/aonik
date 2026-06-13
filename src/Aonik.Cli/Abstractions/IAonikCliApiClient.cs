@@ -340,4 +340,42 @@ public interface IAonikCliApiClient
         Guid documentId,
         Guid linkId,
         CancellationToken cancellationToken = default);
+
+    // ── Circle (Spec 048) ───────────────────────────────────────────────
+
+    Task<CircleGrantResponse> CreateCircleGrantAsync(
+        CliSession session,
+        CreateCircleGrantRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CircleGrantResponse>> ListCircleGrantsAsync(
+        CliSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CircleGrantResponse>> ListCircleSharedWithMeAsync(
+        CliSession session,
+        CancellationToken cancellationToken = default);
+
+    Task RevokeCircleGrantAsync(
+        CliSession session,
+        Guid grantId,
+        CancellationToken cancellationToken = default);
+
+    Task<CircleInviteResponse> CreateCircleInviteAsync(
+        CliSession session,
+        CreateCircleInviteRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CircleGrantResponse> AcceptCircleInviteAsync(
+        CliSession session,
+        string token,
+        CancellationToken cancellationToken = default);
+
+    Task<StatementData> GetSupportStatementAsync(
+        CliSession session,
+        Guid careEntityId,
+        DateTime? from,
+        DateTime? to,
+        string? preparedFor,
+        CancellationToken cancellationToken = default);
 }

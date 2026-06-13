@@ -81,6 +81,7 @@ public sealed class CliApplicationTests
         var paymentLogHandler = new PaymentLogCommandHandler(apiClient, sessionStore, outputWriter);
         var commitmentHandler = new CommitmentCommandHandler(apiClient, sessionStore, outputWriter);
         var documentHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
-        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler);
+        var circleHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
+        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler, circleHandler);
     }
 }

@@ -649,4 +649,44 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
 
     public Task RemoveDocumentLinkAsync(CliSession session, Guid documentId, Guid linkId, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
+
+    // ── Circle (Spec 048) ───────────────────────────────────────────────
+
+    public CircleGrantResponse CircleGrant { get; set; } = new(
+        Guid.Parse("aa111111-1111-1111-1111-111111111111"),
+        Guid.Parse("bb222222-2222-2222-2222-222222222222"),
+        Guid.Parse("cc333333-3333-3333-3333-333333333333"),
+        "entities",
+        new[] { Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1") },
+        false,
+        "active",
+        DateTime.Parse("2026-05-28T08:00:00Z").ToUniversalTime());
+
+    public CircleInviteResponse CircleInvite { get; set; } = new(
+        Guid.Parse("dd444444-4444-4444-4444-444444444444"),
+        "tok_fake_invite",
+        "entities",
+        new[] { Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1") },
+        false,
+        "link",
+        DateTime.Parse("2026-06-04T08:00:00Z").ToUniversalTime(),
+        "pending");
+
+    public StatementData Statement { get; set; } = new(
+        new CareEntityRef(Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"), "Mum", "person", "NG"),
+        DateTime.Parse("2026-01-01T00:00:00Z").ToUniversalTime(),
+        DateTime.Parse("2026-12-31T00:00:00Z").ToUniversalTime(),
+        "HMRC",
+        [],
+        [],
+        [],
+        "SIMI-A1A1A1A1-20260101");
+
+    public Task<CircleGrantResponse> CreateCircleGrantAsync(CliSession session, CreateCircleGrantRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CircleGrant);
+    public Task<IReadOnlyList<CircleGrantResponse>> ListCircleGrantsAsync(CliSession session, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CircleGrantResponse>>([CircleGrant]);
+    public Task<IReadOnlyList<CircleGrantResponse>> ListCircleSharedWithMeAsync(CliSession session, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CircleGrantResponse>>([CircleGrant]);
+    public Task RevokeCircleGrantAsync(CliSession session, Guid grantId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task<CircleInviteResponse> CreateCircleInviteAsync(CliSession session, CreateCircleInviteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CircleInvite);
+    public Task<CircleGrantResponse> AcceptCircleInviteAsync(CliSession session, string token, CancellationToken cancellationToken = default) => Task.FromResult(CircleGrant);
+    public Task<StatementData> GetSupportStatementAsync(CliSession session, Guid careEntityId, DateTime? from, DateTime? to, string? preparedFor, CancellationToken cancellationToken = default) => Task.FromResult(Statement);
 }

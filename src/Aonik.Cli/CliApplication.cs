@@ -17,7 +17,8 @@ public sealed class CliApplication
         CareEntityCommandHandler careEntityCommandHandler,
         PaymentLogCommandHandler paymentLogCommandHandler,
         CommitmentCommandHandler commitmentCommandHandler,
-        DocumentCommandHandler documentCommandHandler)
+        DocumentCommandHandler documentCommandHandler,
+        CircleCommandHandler circleCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
@@ -27,7 +28,8 @@ public sealed class CliApplication
             careEntityCommandHandler,
             paymentLogCommandHandler,
             commitmentCommandHandler,
-            documentCommandHandler);
+            documentCommandHandler,
+            circleCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -55,6 +57,7 @@ public sealed class CliApplication
         var paymentLogCommandHandler = new PaymentLogCommandHandler(apiClient, sessionStore, outputWriter);
         var commitmentCommandHandler = new CommitmentCommandHandler(apiClient, sessionStore, outputWriter);
         var documentCommandHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
+        var circleCommandHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
 
         return new CliApplication(
             authCommandHandler,
@@ -64,7 +67,8 @@ public sealed class CliApplication
             careEntityCommandHandler,
             paymentLogCommandHandler,
             commitmentCommandHandler,
-            documentCommandHandler);
+            documentCommandHandler,
+            circleCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
@@ -75,7 +79,8 @@ public sealed class CliApplication
         CareEntityCommandHandler careEntityCommandHandler,
         PaymentLogCommandHandler paymentLogCommandHandler,
         CommitmentCommandHandler commitmentCommandHandler,
-        DocumentCommandHandler documentCommandHandler)
+        DocumentCommandHandler documentCommandHandler,
+        CircleCommandHandler circleCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
@@ -86,6 +91,7 @@ public sealed class CliApplication
         rootCommand.Add(BuildPaymentLogsCommand(paymentLogCommandHandler));
         rootCommand.Add(BuildCommitmentsCommand(commitmentCommandHandler));
         rootCommand.Add(BuildDocumentsCommand(documentCommandHandler));
+        rootCommand.Add(BuildCircleCommand(circleCommandHandler));
         return rootCommand;
     }
 
@@ -660,6 +666,123 @@ public sealed class CliApplication
         ordersCommand.Add(ordersSubmitCommand);
         ordersCommand.Add(ordersCancelCommand);
         return ordersCommand;
+    }
+
+    private static Command BuildCircleCommand(CircleCommandHandler handler)
+    {
+        var command = new Command("circle", "Entity-scoped sharing + the Support Statement (Spec 048).");
+
+        // grant
+        var grantCommand = new Command("grant", "Share a scoped slice with a member.");
+        var memberOption = new Option<Guid>("--member-user-id") { Description = "Member user id.", Required = true };
+        var scopeOption = new Option<string>("--scope") { Description = "all | entities | docsOnly.", Required = true };
+        var entityIdOption = new Option<Guid[]>("--entity-id") { Description = "CareEntity id (repeatable; for entities/docsOnly).", AllowMultipleArgumentsPerToken = true };
+        var noAmountsOption = new Option<bool>("--no-amounts") { Description = "Hide amounts (docsOnly)." };
+        var grantOutputOption = CreateOutputOption(includeNdjson: false);
+        grantCommand.Add(memberOption);
+        grantCommand.Add(scopeOption);
+        grantCommand.Add(entityIdOption);
+        grantCommand.Add(noAmountsOption);
+        grantCommand.Add(grantOutputOption);
+        grantCommand.SetAction((parseResult, cancellationToken) =>
+            handler.GrantAsync(
+                new CreateCircleGrantOptions(
+                    parseResult.GetRequiredValue(memberOption),
+                    parseResult.GetRequiredValue(scopeOption),
+                    parseResult.GetValue(entityIdOption) ?? Array.Empty<Guid>(),
+                    parseResult.GetValue(noAmountsOption),
+                    OutputModeParser.Parse(parseResult.GetValue(grantOutputOption))),
+                cancellationToken));
+
+        // grants (Shared with)
+        var grantsCommand = new Command("grants", "List grants you've shared (Shared with).");
+        var grantsOutputOption = CreateOutputOption(includeNdjson: false);
+        grantsCommand.Add(grantsOutputOption);
+        grantsCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ListGrantsAsync(OutputModeParser.Parse(parseResult.GetValue(grantsOutputOption)), cancellationToken));
+
+        // shared (Can see)
+        var sharedCommand = new Command("shared", "List grants shared with you (Can see).");
+        var sharedOutputOption = CreateOutputOption(includeNdjson: false);
+        sharedCommand.Add(sharedOutputOption);
+        sharedCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ListSharedAsync(OutputModeParser.Parse(parseResult.GetValue(sharedOutputOption)), cancellationToken));
+
+        // revoke
+        var revokeCommand = new Command("revoke", "Revoke a grant.");
+        var revokeIdArgument = new Argument<Guid>("grant-id");
+        var revokeOutputOption = CreateOutputOption(includeNdjson: false);
+        revokeCommand.Add(revokeIdArgument);
+        revokeCommand.Add(revokeOutputOption);
+        revokeCommand.SetAction((parseResult, cancellationToken) =>
+            handler.RevokeAsync(
+                parseResult.GetRequiredValue(revokeIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(revokeOutputOption)),
+                cancellationToken));
+
+        // invite
+        var inviteCommand = new Command("invite", "Create an invite link.");
+        var inviteScopeOption = new Option<string>("--scope") { Description = "all | entities | docsOnly.", Required = true };
+        var inviteEntityIdOption = new Option<Guid[]>("--entity-id") { Description = "CareEntity id (repeatable).", AllowMultipleArgumentsPerToken = true };
+        var inviteNoAmountsOption = new Option<bool>("--no-amounts") { Description = "Hide amounts (docsOnly)." };
+        var inviteChannelOption = new Option<string?>("--channel") { Description = "email | phone | link." };
+        var inviteOutputOption = CreateOutputOption(includeNdjson: false);
+        inviteCommand.Add(inviteScopeOption);
+        inviteCommand.Add(inviteEntityIdOption);
+        inviteCommand.Add(inviteNoAmountsOption);
+        inviteCommand.Add(inviteChannelOption);
+        inviteCommand.Add(inviteOutputOption);
+        inviteCommand.SetAction((parseResult, cancellationToken) =>
+            handler.InviteAsync(
+                new CreateCircleInviteOptions(
+                    parseResult.GetRequiredValue(inviteScopeOption),
+                    parseResult.GetValue(inviteEntityIdOption) ?? Array.Empty<Guid>(),
+                    parseResult.GetValue(inviteNoAmountsOption),
+                    parseResult.GetValue(inviteChannelOption),
+                    OutputModeParser.Parse(parseResult.GetValue(inviteOutputOption))),
+                cancellationToken));
+
+        // accept
+        var acceptCommand = new Command("accept", "Accept an invite token.");
+        var acceptTokenOption = new Option<string>("--token") { Description = "Invite token.", Required = true };
+        var acceptOutputOption = CreateOutputOption(includeNdjson: false);
+        acceptCommand.Add(acceptTokenOption);
+        acceptCommand.Add(acceptOutputOption);
+        acceptCommand.SetAction((parseResult, cancellationToken) =>
+            handler.AcceptAsync(
+                parseResult.GetRequiredValue(acceptTokenOption),
+                OutputModeParser.Parse(parseResult.GetValue(acceptOutputOption)),
+                cancellationToken));
+
+        // statement
+        var statementCommand = new Command("statement", "Compose a Support Statement for your entity.");
+        var statementIdArgument = new Argument<Guid>("care-entity-id");
+        var statementFromOption = new Option<DateTime?>("--from") { Description = "From date." };
+        var statementToOption = new Option<DateTime?>("--to") { Description = "To date." };
+        var statementPreparedForOption = new Option<string?>("--prepared-for") { Description = "Recipient label." };
+        var statementOutputOption = CreateOutputOption(includeNdjson: false);
+        statementCommand.Add(statementIdArgument);
+        statementCommand.Add(statementFromOption);
+        statementCommand.Add(statementToOption);
+        statementCommand.Add(statementPreparedForOption);
+        statementCommand.Add(statementOutputOption);
+        statementCommand.SetAction((parseResult, cancellationToken) =>
+            handler.StatementAsync(
+                parseResult.GetRequiredValue(statementIdArgument),
+                parseResult.GetValue(statementFromOption),
+                parseResult.GetValue(statementToOption),
+                parseResult.GetValue(statementPreparedForOption),
+                OutputModeParser.Parse(parseResult.GetValue(statementOutputOption)),
+                cancellationToken));
+
+        command.Add(grantCommand);
+        command.Add(grantsCommand);
+        command.Add(sharedCommand);
+        command.Add(revokeCommand);
+        command.Add(inviteCommand);
+        command.Add(acceptCommand);
+        command.Add(statementCommand);
+        return command;
     }
 
     private static Command BuildDocumentsCommand(DocumentCommandHandler handler)

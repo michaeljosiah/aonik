@@ -806,6 +806,65 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         => SendNoContentAsync(
             session.BaseUrl, HttpMethod.Delete, $"/documents/{documentId:D}/links/{linkId:D}", session, body: null, cancellationToken);
 
+    public Task<CircleGrantResponse> CreateCircleGrantAsync(
+        CliSession session,
+        CreateCircleGrantRequest request,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CircleGrantResponse>(
+            session.BaseUrl, HttpMethod.Post, "/personal-finance/circle/grants", session, request, cancellationToken);
+
+    public async Task<IReadOnlyList<CircleGrantResponse>> ListCircleGrantsAsync(
+        CliSession session,
+        CancellationToken cancellationToken = default)
+        => await SendAsync<List<CircleGrantResponse>>(
+            session.BaseUrl, HttpMethod.Get, "/personal-finance/circle/grants", session, body: null, cancellationToken);
+
+    public async Task<IReadOnlyList<CircleGrantResponse>> ListCircleSharedWithMeAsync(
+        CliSession session,
+        CancellationToken cancellationToken = default)
+        => await SendAsync<List<CircleGrantResponse>>(
+            session.BaseUrl, HttpMethod.Get, "/personal-finance/circle/shared", session, body: null, cancellationToken);
+
+    public Task RevokeCircleGrantAsync(
+        CliSession session,
+        Guid grantId,
+        CancellationToken cancellationToken = default)
+        => SendNoContentAsync(
+            session.BaseUrl, HttpMethod.Delete, $"/personal-finance/circle/grants/{grantId:D}", session, body: null, cancellationToken);
+
+    public Task<CircleInviteResponse> CreateCircleInviteAsync(
+        CliSession session,
+        CreateCircleInviteRequest request,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CircleInviteResponse>(
+            session.BaseUrl, HttpMethod.Post, "/personal-finance/circle/invites", session, request, cancellationToken);
+
+    public Task<CircleGrantResponse> AcceptCircleInviteAsync(
+        CliSession session,
+        string token,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CircleGrantResponse>(
+            session.BaseUrl, HttpMethod.Post, "/personal-finance/circle/invites/accept", session, new { token }, cancellationToken);
+
+    public Task<StatementData> GetSupportStatementAsync(
+        CliSession session,
+        Guid careEntityId,
+        DateTime? from,
+        DateTime? to,
+        string? preparedFor,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (from.HasValue) query.Add($"from={from.Value:yyyy-MM-dd}");
+        if (to.HasValue) query.Add($"to={to.Value:yyyy-MM-dd}");
+        if (!string.IsNullOrWhiteSpace(preparedFor)) query.Add($"preparedFor={Uri.EscapeDataString(preparedFor)}");
+
+        var path = $"/personal-finance/care-entities/{careEntityId:D}/statement"
+            + (query.Count > 0 ? $"?{string.Join('&', query)}" : string.Empty);
+
+        return SendAsync<StatementData>(session.BaseUrl, HttpMethod.Get, path, session, body: null, cancellationToken);
+    }
+
     public Task<CommitmentDetail> CreateSupportCommitmentAsync(
         CliSession session,
         CreateSupportCommitmentRequest request,
