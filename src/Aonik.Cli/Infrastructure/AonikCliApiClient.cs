@@ -620,6 +620,147 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
             cancellationToken);
     }
 
+    public Task<PaymentLogResponse> CreatePaymentLogAsync(
+        CliSession session,
+        CreatePaymentLogRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<PaymentLogResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            "/personal-finance/payment-logs",
+            session,
+            request,
+            cancellationToken);
+    }
+
+    public async Task<PaymentLogListResponse> ListPaymentLogsAsync(
+        CliSession session,
+        Guid? careEntityId,
+        Guid? commitmentId,
+        int? year,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>
+        {
+            $"page={Math.Max(1, page)}",
+            $"pageSize={(pageSize is > 0 and <= 100 ? pageSize : 20)}"
+        };
+        if (careEntityId.HasValue) query.Add($"careEntityId={careEntityId.Value:D}");
+        if (commitmentId.HasValue) query.Add($"commitmentId={commitmentId.Value:D}");
+        if (year.HasValue) query.Add($"year={year.Value}");
+
+        return await SendAsync<PaymentLogListResponse>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/personal-finance/payment-logs?{string.Join('&', query)}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<PaymentLogResponse> GetPaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<PaymentLogResponse>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/personal-finance/payment-logs/{id:D}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<PaymentLogResponse> UpdatePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        UpdatePaymentLogRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<PaymentLogResponse>(
+            session.BaseUrl,
+            HttpMethod.Put,
+            $"/personal-finance/payment-logs/{id:D}",
+            session,
+            request,
+            cancellationToken);
+    }
+
+    public Task DeletePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return SendNoContentAsync(
+            session.BaseUrl,
+            HttpMethod.Delete,
+            $"/personal-finance/payment-logs/{id:D}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<PaymentLogResponse> RestorePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<PaymentLogResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/personal-finance/payment-logs/{id:D}/restore",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<PaymentLogResponse> LinkPaymentLogTransactionAsync(
+        CliSession session,
+        Guid id,
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<PaymentLogResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/personal-finance/payment-logs/{id:D}/transaction-link",
+            session,
+            new { transactionId },
+            cancellationToken);
+    }
+
+    public Task<PaymentLogResponse> UnlinkPaymentLogTransactionAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<PaymentLogResponse>(
+            session.BaseUrl,
+            HttpMethod.Delete,
+            $"/personal-finance/payment-logs/{id:D}/transaction-link",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<YearSummary> GetPaymentLogYearSummaryAsync(
+        CliSession session,
+        int year,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<YearSummary>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/personal-finance/summary/year?year={year}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyList<CareEntityResponse>> ListCareEntitiesAsync(
         CliSession session,
         string? kind,

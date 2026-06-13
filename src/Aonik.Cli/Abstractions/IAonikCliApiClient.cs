@@ -217,4 +217,57 @@ public interface IAonikCliApiClient
         CliSession session,
         Guid id,
         CancellationToken cancellationToken = default);
+
+    // ── PaymentLog (Spec 045) ───────────────────────────────────────────
+
+    Task<PaymentLogResponse> CreatePaymentLogAsync(
+        CliSession session,
+        CreatePaymentLogRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogListResponse> ListPaymentLogsAsync(
+        CliSession session,
+        Guid? careEntityId,
+        Guid? commitmentId,
+        int? year,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> GetPaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> UpdatePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        UpdatePaymentLogRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeletePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> RestorePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> LinkPaymentLogTransactionAsync(
+        CliSession session,
+        Guid id,
+        Guid transactionId,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> UnlinkPaymentLogTransactionAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<YearSummary> GetPaymentLogYearSummaryAsync(
+        CliSession session,
+        int year,
+        CancellationToken cancellationToken = default);
 }

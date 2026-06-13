@@ -14,14 +14,16 @@ public sealed class CliApplication
         AgentCommandHandler agentCommandHandler,
         OpsCommandHandler opsCommandHandler,
         ApprovalCommandHandler approvalCommandHandler,
-        CareEntityCommandHandler careEntityCommandHandler)
+        CareEntityCommandHandler careEntityCommandHandler,
+        PaymentLogCommandHandler paymentLogCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
             agentCommandHandler,
             opsCommandHandler,
             approvalCommandHandler,
-            careEntityCommandHandler);
+            careEntityCommandHandler,
+            paymentLogCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -46,13 +48,15 @@ public sealed class CliApplication
         var opsCommandHandler = new OpsCommandHandler(apiClient, sessionStore, outputWriter);
         var approvalCommandHandler = new ApprovalCommandHandler(apiClient, sessionStore, outputWriter);
         var careEntityCommandHandler = new CareEntityCommandHandler(apiClient, sessionStore, outputWriter);
+        var paymentLogCommandHandler = new PaymentLogCommandHandler(apiClient, sessionStore, outputWriter);
 
         return new CliApplication(
             authCommandHandler,
             agentCommandHandler,
             opsCommandHandler,
             approvalCommandHandler,
-            careEntityCommandHandler);
+            careEntityCommandHandler,
+            paymentLogCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
@@ -60,7 +64,8 @@ public sealed class CliApplication
         AgentCommandHandler agentCommandHandler,
         OpsCommandHandler opsCommandHandler,
         ApprovalCommandHandler approvalCommandHandler,
-        CareEntityCommandHandler careEntityCommandHandler)
+        CareEntityCommandHandler careEntityCommandHandler,
+        PaymentLogCommandHandler paymentLogCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
@@ -68,6 +73,7 @@ public sealed class CliApplication
         rootCommand.Add(BuildOpsCommand(opsCommandHandler));
         rootCommand.Add(BuildApprovalCommand(approvalCommandHandler));
         rootCommand.Add(BuildCareEntitiesCommand(careEntityCommandHandler));
+        rootCommand.Add(BuildPaymentLogsCommand(paymentLogCommandHandler));
         return rootCommand;
     }
 
@@ -642,6 +648,196 @@ public sealed class CliApplication
         ordersCommand.Add(ordersSubmitCommand);
         ordersCommand.Add(ordersCancelCommand);
         return ordersCommand;
+    }
+
+    private static Command BuildPaymentLogsCommand(PaymentLogCommandHandler handler)
+    {
+        var command = new Command("payment-logs", "Record and manage acts of support (Spec 045).");
+
+        // create
+        var createCommand = new Command("create", "Record a payment log.");
+        var careEntityIdOption = new Option<Guid>("--care-entity-id") { Description = "CareEntity this act is for.", Required = true };
+        var commitmentIdOption = new Option<Guid?>("--commitment-id") { Description = "Optional commitment it honours." };
+        var amountOption = new Option<decimal>("--amount") { Description = "Amount paid.", Required = true };
+        var currencyOption = new Option<string>("--currency") { Description = "ISO-4217 currency.", Required = true };
+        var approxGbpOption = new Option<decimal?>("--approx-gbp") { Description = "Optional approx GBP label (display-only)." };
+        var dateOption = new Option<DateTime?>("--date") { Description = "Date of the act (defaults to today)." };
+        var channelOption = new Option<string>("--channel") { Description = "bank | wise | cash | other." };
+        var originOption = new Option<string>("--origin") { Description = "manual | captureImage | captureText | captureVoice | markDone | plaidDetected." };
+        var noteOption = new Option<string?>("--note") { Description = "Optional note." };
+        var idempotencyKeyOption = new Option<Guid?>("--idempotency-key") { Description = "Optional client idempotency key." };
+        var createOutputOption = CreateOutputOption(includeNdjson: false);
+        createCommand.Add(careEntityIdOption);
+        createCommand.Add(commitmentIdOption);
+        createCommand.Add(amountOption);
+        createCommand.Add(currencyOption);
+        createCommand.Add(approxGbpOption);
+        createCommand.Add(dateOption);
+        createCommand.Add(channelOption);
+        createCommand.Add(originOption);
+        createCommand.Add(noteOption);
+        createCommand.Add(idempotencyKeyOption);
+        createCommand.Add(createOutputOption);
+        createCommand.SetAction((parseResult, cancellationToken) =>
+            handler.CreateAsync(
+                new CreatePaymentLogOptions(
+                    parseResult.GetRequiredValue(careEntityIdOption),
+                    parseResult.GetValue(commitmentIdOption),
+                    parseResult.GetRequiredValue(amountOption),
+                    parseResult.GetRequiredValue(currencyOption),
+                    parseResult.GetValue(approxGbpOption),
+                    parseResult.GetValue(dateOption),
+                    parseResult.GetValue(channelOption) ?? "bank",
+                    parseResult.GetValue(originOption) ?? "manual",
+                    parseResult.GetValue(noteOption),
+                    parseResult.GetValue(idempotencyKeyOption),
+                    OutputModeParser.Parse(parseResult.GetValue(createOutputOption))),
+                cancellationToken));
+
+        // list
+        var listCommand = new Command("list", "List payment logs.");
+        var listCareEntityOption = new Option<Guid?>("--care-entity-id") { Description = "Filter by CareEntity." };
+        var listCommitmentOption = new Option<Guid?>("--commitment-id") { Description = "Filter by commitment." };
+        var listYearOption = new Option<int?>("--year") { Description = "Filter by year." };
+        var listPageOption = new Option<int>("--page") { Description = "Results page." };
+        var listPageSizeOption = new Option<int>("--page-size") { Description = "Results per page." };
+        var listOutputOption = CreateOutputOption(includeNdjson: false);
+        listCommand.Add(listCareEntityOption);
+        listCommand.Add(listCommitmentOption);
+        listCommand.Add(listYearOption);
+        listCommand.Add(listPageOption);
+        listCommand.Add(listPageSizeOption);
+        listCommand.Add(listOutputOption);
+        listCommand.SetAction((parseResult, cancellationToken) =>
+        {
+            var parsedPageSize = parseResult.GetValue(listPageSizeOption);
+            return handler.ListAsync(
+                new ListPaymentLogsOptions(
+                    parseResult.GetValue(listCareEntityOption),
+                    parseResult.GetValue(listCommitmentOption),
+                    parseResult.GetValue(listYearOption),
+                    Math.Max(parseResult.GetValue(listPageOption), 1),
+                    parsedPageSize is > 0 and <= 100 ? parsedPageSize : 20,
+                    OutputModeParser.Parse(parseResult.GetValue(listOutputOption))),
+                cancellationToken);
+        });
+
+        // get
+        var getCommand = new Command("get", "Get a payment log by id.");
+        var getIdArgument = new Argument<Guid>("id");
+        var getOutputOption = CreateOutputOption(includeNdjson: false);
+        getCommand.Add(getIdArgument);
+        getCommand.Add(getOutputOption);
+        getCommand.SetAction((parseResult, cancellationToken) =>
+            handler.GetAsync(
+                parseResult.GetRequiredValue(getIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(getOutputOption)),
+                cancellationToken));
+
+        // update
+        var updateCommand = new Command("update", "Update a payment log.");
+        var updateIdArgument = new Argument<Guid>("id");
+        var updateAmountOption = new Option<decimal>("--amount") { Description = "Amount.", Required = true };
+        var updateCurrencyOption = new Option<string>("--currency") { Description = "ISO-4217 currency.", Required = true };
+        var updateApproxGbpOption = new Option<decimal?>("--approx-gbp") { Description = "Optional approx GBP label." };
+        var updateDateOption = new Option<DateTime?>("--date") { Description = "Date." };
+        var updateChannelOption = new Option<string>("--channel") { Description = "bank | wise | cash | other." };
+        var updateNoteOption = new Option<string?>("--note") { Description = "Optional note." };
+        var updateOutputOption = CreateOutputOption(includeNdjson: false);
+        updateCommand.Add(updateIdArgument);
+        updateCommand.Add(updateAmountOption);
+        updateCommand.Add(updateCurrencyOption);
+        updateCommand.Add(updateApproxGbpOption);
+        updateCommand.Add(updateDateOption);
+        updateCommand.Add(updateChannelOption);
+        updateCommand.Add(updateNoteOption);
+        updateCommand.Add(updateOutputOption);
+        updateCommand.SetAction((parseResult, cancellationToken) =>
+            handler.UpdateAsync(
+                new UpdatePaymentLogOptions(
+                    parseResult.GetRequiredValue(updateIdArgument),
+                    parseResult.GetRequiredValue(updateAmountOption),
+                    parseResult.GetRequiredValue(updateCurrencyOption),
+                    parseResult.GetValue(updateApproxGbpOption),
+                    parseResult.GetValue(updateDateOption),
+                    parseResult.GetValue(updateChannelOption) ?? "bank",
+                    parseResult.GetValue(updateNoteOption),
+                    OutputModeParser.Parse(parseResult.GetValue(updateOutputOption))),
+                cancellationToken));
+
+        // delete
+        var deleteCommand = new Command("delete", "Soft-delete a payment log (30-day restore window).");
+        var deleteIdArgument = new Argument<Guid>("id");
+        var deleteOutputOption = CreateOutputOption(includeNdjson: false);
+        deleteCommand.Add(deleteIdArgument);
+        deleteCommand.Add(deleteOutputOption);
+        deleteCommand.SetAction((parseResult, cancellationToken) =>
+            handler.DeleteAsync(
+                parseResult.GetRequiredValue(deleteIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(deleteOutputOption)),
+                cancellationToken));
+
+        // restore
+        var restoreCommand = new Command("restore", "Restore a soft-deleted payment log.");
+        var restoreIdArgument = new Argument<Guid>("id");
+        var restoreOutputOption = CreateOutputOption(includeNdjson: false);
+        restoreCommand.Add(restoreIdArgument);
+        restoreCommand.Add(restoreOutputOption);
+        restoreCommand.SetAction((parseResult, cancellationToken) =>
+            handler.RestoreAsync(
+                parseResult.GetRequiredValue(restoreIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(restoreOutputOption)),
+                cancellationToken));
+
+        // link-transaction
+        var linkCommand = new Command("link-transaction", "Confirm a bank-transaction corroboration link.");
+        var linkIdArgument = new Argument<Guid>("id");
+        var linkTxOption = new Option<Guid>("--transaction-id") { Description = "PersonalTransaction id.", Required = true };
+        var linkOutputOption = CreateOutputOption(includeNdjson: false);
+        linkCommand.Add(linkIdArgument);
+        linkCommand.Add(linkTxOption);
+        linkCommand.Add(linkOutputOption);
+        linkCommand.SetAction((parseResult, cancellationToken) =>
+            handler.LinkTransactionAsync(
+                parseResult.GetRequiredValue(linkIdArgument),
+                parseResult.GetRequiredValue(linkTxOption),
+                OutputModeParser.Parse(parseResult.GetValue(linkOutputOption)),
+                cancellationToken));
+
+        // unlink-transaction
+        var unlinkCommand = new Command("unlink-transaction", "Remove a corroboration link.");
+        var unlinkIdArgument = new Argument<Guid>("id");
+        var unlinkOutputOption = CreateOutputOption(includeNdjson: false);
+        unlinkCommand.Add(unlinkIdArgument);
+        unlinkCommand.Add(unlinkOutputOption);
+        unlinkCommand.SetAction((parseResult, cancellationToken) =>
+            handler.UnlinkTransactionAsync(
+                parseResult.GetRequiredValue(unlinkIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(unlinkOutputOption)),
+                cancellationToken));
+
+        // summary-year
+        var summaryCommand = new Command("summary-year", "Per-currency year summary (Today hero).");
+        var summaryYearArgument = new Argument<int>("year");
+        var summaryOutputOption = CreateOutputOption(includeNdjson: false);
+        summaryCommand.Add(summaryYearArgument);
+        summaryCommand.Add(summaryOutputOption);
+        summaryCommand.SetAction((parseResult, cancellationToken) =>
+            handler.YearSummaryAsync(
+                parseResult.GetRequiredValue(summaryYearArgument),
+                OutputModeParser.Parse(parseResult.GetValue(summaryOutputOption)),
+                cancellationToken));
+
+        command.Add(createCommand);
+        command.Add(listCommand);
+        command.Add(getCommand);
+        command.Add(updateCommand);
+        command.Add(deleteCommand);
+        command.Add(restoreCommand);
+        command.Add(linkCommand);
+        command.Add(unlinkCommand);
+        command.Add(summaryCommand);
+        return command;
     }
 
     private static Command BuildCareEntitiesCommand(CareEntityCommandHandler handler)
