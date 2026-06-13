@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 048 - The Circle: entity-scoped sharing &amp; the Support Statement</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 048</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Priority: P2 (Simi M5)</span>
+  <span class="meta-tag">Domain: PersonalFinance / Simi</span>
+  <h1>The Circle — entity-scoped sharing &amp; the Support Statement</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    "Shared safely": invite the people who share the load — including those who have <strong>never installed the
+    app</strong> — to see a defined slice of your records. A partner sees everything; a sibling sees the co-owned
+    flat; the property manager sees that asset's <strong>documents only, with no amounts anywhere</strong>. Extends
+    <a href="020.payabo-household.md">Spec&nbsp;020</a>'s households, which today share <em>whole bank accounts</em>
+    with <em>already-registered users</em> and have no scoping or amount-masking. This spec adds a
+    <strong>CircleGrant</strong> model, a single fail-closed visibility filter, link/email/phone invites that
+    provision on accept, and the <strong>Support Statement</strong> proof projection. The heaviest and most
+    security-sensitive of the Simi specs. Implements <a href="../simi-readiness-plan.html">Simi readiness plan</a>
+    &sect;5.6 (and Phase D's proof projection).
+  </p>
+</header>
+
+<div class="callout p0">
+  <span class="callout-label">This is a security spec, not a UI nicety</span>
+  The "documents-only member sees no amounts anywhere" rule is a <strong>security property</strong>. It must be
+  enforced by one central server-side filter and proven by a test logged in <em>as</em> that member asserting every
+  amount-bearing field is absent — the same fail-closed rigour <a href="042.partner-connector-credential-rehoming.html">Spec&nbsp;042</a>
+  applied to connector credentials. A leaked total is a trust breach, not a cosmetic bug.
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#grant">The CircleGrant model</a></li>
+    <li><a href="#filter">The visibility filter</a></li>
+    <li><a href="#presets">The three scope presets</a></li>
+    <li><a href="#invite">Non-user invites</a></li>
+    <li><a href="#unit">Re-pointing the share unit</a></li>
+    <li><a href="#statement">The Support Statement</a></li>
+    <li><a href="#enforcement">Enforcement &amp; testing</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  The Circle is how a cross-border household carries the load together — and the only growth channel Phase 1 needs
+  (every invite lands Simi in the hands of exactly the right next user). It needs three things the current household
+  model cannot do: invite someone who is <strong>not yet a registered user</strong> (WhatsApp-first, by link);
+  scope a member to <strong>specific people/assets</strong> rather than everything; and a
+  <strong>documents-only</strong> role that shows an asset's paperwork while hiding every amount. This spec layers a
+  <code>CircleGrant</code> over the existing household container, enforces it through one visibility filter, and adds
+  the Support Statement — the proof artifact a member, an accountant, or a consulate can trust.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Fola invites her brother Seyi by a shared link; he installs, accepts, and sees the Surulere flat (co-owner scope)
+  and nothing else of her life. She invites Mr Bello, the property manager, who accepts and sees the flat's
+  documents only — never one amount Fola sends Mum, and never will. Seyi logs a ₦120,000 repair; it appears on
+  Fola's Today with his name. She exports Mum's Support Statement: a dated PDF, 12 payments, £2,400, receipts
+  appended — in the accountant's inbox four minutes after his email.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<p>Confirmed against the tree — the readiness review's "materially optimistic" row:</p>
+<ul>
+  <li><strong>The share unit is a whole bank account.</strong> <code>PersonalAccountService.ShareAccountWithHouseholdAsync</code>
+    sets <code>account.HouseholdId</code>; every accepted member then sees that account's transactions and amounts.
+    There is no way to share a <em>person</em> or an <em>asset</em>.</li>
+  <li><strong>No scoping field.</strong> <code>HouseholdMember</code> has <code>Role</code> (Owner/Manager/Viewer,
+    <code>HouseholdRoles</code>) and a <code>PermissionsJson</code> string that is parsed and normalised but
+    <strong>never enforced in any query path</strong>. There is no <code>ScopedEntityId</code>, no visibility level,
+    no amount mask — access is all-or-nothing within a household.</li>
+  <li><strong>Invites require a registered user.</strong> <code>InviteHouseholdMemberEndpoint</code> takes a
+    <code>Guid UserId</code>; <code>HouseholdService.EnsureUserExistsWithPersonalProfileAsync</code> throws "User not
+    found" if the invitee has not registered. There is no token / link / email / phone path for a stranger to
+    accept and join.</li>
+</ul>
+<p>So the household gives us a <em>container</em> and an invite <em>lifecycle skeleton</em> — and nothing else the Circle needs.</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> A <code>CircleGrant</code> entity: member, scope (all | entities | docsOnly), entity ids, a no-amounts flag (&sect;4).</li>
+  <li><span class="tag new">New</span> A single, fail-closed <strong>visibility filter</strong> all shared reads pass through (&sect;5).</li>
+  <li><span class="tag new">New</span> Link / email / phone invites that provision an account + grant on accept (&sect;7).</li>
+  <li><span class="tag mutate">Edit</span> Re-point the share unit from accounts to CareEntities (&sect;8).</li>
+  <li><span class="tag new">New</span> The <strong>Support Statement</strong> compose projection (&sect;9).</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Money movement.</strong> The Circle shares records; no member can move funds.</li>
+  <li><strong>The PDF render.</strong> The Support Statement PDF is produced <strong>client-side</strong> (mobile
+    <code>printing</code>/<code>pdf</code>) from the compose projection; this spec ships the data, not the document.</li>
+  <li><strong>The statement verification page</strong> (<code>simi.app/verify/…</code>) — the code is printed now;
+    the page is Phase 2.</li>
+  <li><strong>WhatsApp delivery</strong> of invites/summaries — a fast-follow channel; the invite link rides the OS
+    share sheet (WhatsApp-first) today.</li>
+</ul>
+
+<h2 id="grant">4. The CircleGrant model <span class="tag new">new</span></h2>
+<p>
+  Per readiness Decision&nbsp;D4, keep <code>Household</code> as the container and add a grant per member that
+  defines exactly what they see:
+</p>
+<pre><code>public class CircleGrant : AuditableEntity, ITenantScoped
+{
+    public Guid   TenantId  { get; set; }
+    public Guid   OwnerUserId  { get; set; }   // whose records are shared
+    public Guid?  MemberUserId { get; set; }   // null until the invite is accepted (§7)
+    public Guid   HouseholdId  { get; set; }   // the container (Spec 020)
+
+    public string Scope        { get; set; } = "entities"; // all | entities | docsOnly
+    public string EntityIdsJson{ get; set; } = "[]";       // CareEntity ids for scope=entities|docsOnly
+    public bool   NoAmounts    { get; set; }               // true for docsOnly; hides every amount
+
+    public string Status       { get; set; } = "pending";  // pending | active | revoked
+}</code></pre>
+<p>
+  <code>Scope</code> + <code>NoAmounts</code> together express the three presets (&sect;6). The legacy
+  <code>HouseholdMember.Role</code>/<code>PermissionsJson</code> remain for back-compat but the
+  <strong>grant is authoritative</strong> for Simi visibility — the never-read permissions string finally gets a
+  real successor.
+</p>
+
+<h2 id="filter">5. The visibility filter <span class="tag new">the crux</span></h2>
+<p>
+  Every read of <em>another user's</em> shared data — Today, an entity profile, a commitment list, payment logs,
+  documents, a statement — passes through <strong>one</strong> <code>ICircleVisibility</code> resolver. It is the
+  single place the security property lives; no per-endpoint ad-hoc checks.
+</p>
+<pre><code>public interface ICircleVisibility
+{
+    // The active grant for (memberUserId → ownerUserId), or null if none.
+    Task&lt;CircleGrantView?&gt; ResolveAsync(Guid ownerUserId, CancellationToken ct = default);
+}
+
+// Applied centrally:
+//   scope=all       → owner's entities (+ their logs/commitments/documents)
+//   scope=entities  → ONLY EntityIds (+ their logs/commitments/documents)
+//   scope=docsOnly  → ONLY EntityIds' DOCUMENTS; logs, commitments, totals, amounts all EXCLUDED
+//   NoAmounts=true  → every amount-bearing field stripped at projection time (defence in depth)</code></pre>
+<div class="callout p0">
+  <span class="callout-label">Fail closed</span>
+  No grant → no access (404, not 403 — existence not revealed). An unknown scope value → deny. A docsOnly response
+  is built from a <strong>document-only projection</strong> that never joins payment logs or totals — so there is no
+  amount in the object graph to leak, and <code>NoAmounts</code> is belt-and-braces over that. The default for every
+  new shared surface is "invisible unless a grant explicitly includes it."
+</div>
+
+<h2 id="presets">6. The three scope presets</h2>
+<table>
+  <thead><tr><th>Preset</th><th>Grant</th><th>Sees</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Everything</strong></td><td><code>scope=all</code></td><td>All of the owner's entities, commitments, logs, documents, totals.</td><td>Partner (Dan)</td></tr>
+    <tr><td><strong>Specific people/assets</strong></td><td><code>scope=entities</code>, <code>EntityIds=[…]</code></td><td>Only the named entities, in full (incl. amounts).</td><td>Sibling co-owner (Seyi → the flat)</td></tr>
+    <tr><td><strong>Documents only</strong></td><td><code>scope=docsOnly</code>, <code>EntityIds=[…]</code>, <code>NoAmounts=true</code></td><td>Only the named entities' <em>documents</em> — no amounts, anywhere.</td><td>Property manager (Mr Bello → the flat's docs)</td></tr>
+  </tbody>
+</table>
+<p>
+  The invite flow picks scope first, then entities if scoped — and the invite preview shows <em>exactly</em> what
+  the member will see, as a rendered miniature of their view (rebuild spec &sect;7.8). Revoke is one tap
+  (<code>Status=revoked</code>), always.
+</p>
+
+<h2 id="invite">7. Non-user invites <span class="tag new">new</span></h2>
+<p>
+  Per readiness Decision&nbsp;D5, an invite must reach someone with no account (WhatsApp-first reality):
+</p>
+<div class="ascii-diagram">create invite → CircleInvite { token (signed, opaque), ownerUserId, scope, entityIds, noAmounts,
+                               channel?(email|phone|link), expiresAt }
+   → owner shares the link via the OS sheet (WhatsApp, etc.)
+accept(token) → if invitee unregistered: run existing registration + OTP (Spec 001) → new user
+              → bind CircleGrant.MemberUserId, set Status=active, attach to the household
+              → consume the token (single-use, expiry-checked)</div>
+<p>
+  The token is signed and single-use; acceptance reuses the existing identity registration + email/phone OTP flow
+  (Spec&nbsp;001) — no shadow users, no pre-provisioning. Email/phone are optional hints for delivery; the link
+  itself carries the grant. A member on the free tier can accept (rebuild spec &sect;7.8 acceptance).
+</p>
+
+<h2 id="unit">8. Re-pointing the share unit <span class="tag mutate">edit</span></h2>
+<p>
+  Today sharing keys on <code>account.HouseholdId</code> (a whole bank account). Simi shares <strong>CareEntities</strong>.
+  The grant's <code>EntityIds</code> become the unit; the visibility filter resolves an entity's commitments, logs,
+  and documents (Specs&nbsp;043–046) for the member. Bank-account sharing (Spec&nbsp;020) is unchanged and orthogonal
+  — a household can still share accounts for the PFM features; the Circle simply shares a different, keeper-shaped
+  unit. A member's logged act (Seyi's ₦120,000 repair) is a <code>PaymentLog</code> on a shared entity, attributed
+  to him, surfacing on the owner's Today.
+</p>
+
+<h2 id="statement">9. The Support Statement <span class="tag new">new — the proof</span></h2>
+<p>
+  Phase D is "the circle <em>and</em> the proof." The Support Statement is the proof artifact: one tap turns a
+  relationship into evidence (rebuild spec &sect;7.9). The backend contribution is a compose projection; the PDF is
+  client-side.
+</p>
+<pre><code>GET /personal-finance/care-entities/{id}/statement?from=&amp;to=
+public record StatementData(
+    CareEntityRef Entity, DateTime From, DateTime To, string? PreparedFor,  // date-only semantics
+    IReadOnlyList&lt;StatementRow&gt; Rows,           // date · description · channel · amount(original ccy) · receiptRef
+    IReadOnlyList&lt;CurrencyTotal&gt; Totals,        // per-currency, never a converted grand total
+    IReadOnlyList&lt;DocumentRef&gt; ReceiptAppendix, // for the PDF appendix
+    string VerificationCode);                    // printed now; verify page is Phase 2</code></pre>
+<ul>
+  <li><strong>Per-currency totals, never fabricated.</strong> "12 payments totalling £2,400.00" — and a separate
+    line for any other currency. No conversion (Spec&nbsp;043 &sect;9).</li>
+  <li><strong>Corroboration column reserved.</strong> Rows whose <code>PaymentLog</code> has
+    <code>CorroborationStatus=confirmed</code> (Spec&nbsp;045) carry "verified against linked account" — the column
+    is in the projection from day one so early statements don't look inferior later.</li>
+  <li><strong>Free tier:</strong> one export ever (taste it); paid: unlimited — the paywall moment is a client gate
+    over this projection.</li>
+</ul>
+
+<h2 id="enforcement">10. Enforcement &amp; testing</h2>
+<p>The no-amounts guarantee gets Spec-042-grade treatment:</p>
+<ul>
+  <li><strong>One filter, centrally applied</strong> — not per-endpoint. Every shared-read endpoint resolves
+    <code>ICircleVisibility</code> first; a new shared surface added later inherits the default-deny.</li>
+  <li><strong>A docs-only projection that cannot carry amounts</strong> — built from documents alone, never joining
+    logs/totals — so the guarantee holds structurally, with <code>NoAmounts</code> as defence in depth.</li>
+  <li><strong>A logged-in-as-member test</strong> asserting that for a <code>docsOnly</code> grant, <em>every</em>
+    amount-bearing field across Today, the entity profile, logs, commitments, and the statement endpoint is absent
+    or 404 — the explicit security assertion (acceptance &sect;14).</li>
+  <li><strong>Revocation is immediate</strong> — a revoked grant denies on the next request (no cached visibility).</li>
+</ul>
+
+<h2 id="persistence">11. Persistence &amp; migration</h2>
+<ul>
+  <li><strong>New tables</strong> <code>CircleGrant</code> and <code>CircleInvite</code> →
+    <code>dbo.AnkCircleGrants</code> / <code>dbo.AnkCircleInvites</code> via <code>MapFinanceTable</code>
+    (AonikDbContext) + <code>MapTable</code> (PersonalFinanceDbContext); DbSets on <strong>both</strong> contexts
+    (every new DbSet lives on the canonical <code>AonikDbContext</code>, CLAUDE.md); configs with indexes on
+    <code>(TenantId, OwnerUserId, MemberUserId, Status)</code> and a unique index on the invite <code>token</code>.</li>
+  <li><strong>No backfill.</strong> Existing households/accounts are untouched; the Circle is additive. (Existing
+    household members keep their account-sharing; they gain Circle grants only when an owner creates one.)</li>
+  <li><strong>Tool-generated migration only</strong> against <code>AonikDbContext</code> (CLAUDE.md).</li>
+</ul>
+
+<h2 id="security">12. Security</h2>
+<ul>
+  <li><strong>The no-amounts property</strong> (&sect;5, &sect;10) is the headline guarantee, structurally enforced
+    and explicitly tested.</li>
+  <li><strong>Tenant + owner scoping.</strong> A grant binds <code>OwnerUserId</code> within a tenant; a member only
+    ever sees what an explicit, active grant includes; cross-tenant grants are rejected.</li>
+  <li><strong>Single-use, expiring invites</strong>; signed opaque tokens; acceptance through the standard
+    registration + OTP path (no privilege escalation, no shadow accounts).</li>
+  <li><strong>Revoke one-tap, effective immediately.</strong> Every profile shows "Shared with"; every member screen
+    shows "Can see" (rebuild spec &sect;7.8) — read from the same grants.</li>
+  <li><strong>Audit.</strong> Grant create / accept / revoke and statement export are audited (who shared what scope
+    with whom; who exported which entity's statement).</li>
+</ul>
+
+<h2 id="tasks">13. Tasks</h2>
+<ol>
+  <li><code>CircleGrant</code> + <code>CircleInvite</code> entities + configs + DbSets + <code>MapFinanceTable</code>/<code>MapTable</code>; tool-generated migration.</li>
+  <li><code>ICircleVisibility</code> resolver + central application across all shared-read surfaces (Today, profile, logs, commitments, documents).</li>
+  <li>Scope presets (all | entities | docsOnly) + the docs-only amount-free projection; <code>NoAmounts</code> defence-in-depth strip.</li>
+  <li>Invite create + accept (token, registration/OTP provisioning, single-use/expiry); invite-preview data.</li>
+  <li>Re-point the share unit to CareEntities; member-logged acts surface on the owner's Today.</li>
+  <li>Support Statement compose projection (per-currency totals, corroboration column, receipt appendix, verification code).</li>
+  <li>Revoke + "Shared with" / "Can see" read surfaces; audit events.</li>
+  <li>Tests (&sect;14) — including the logged-in-as-docsOnly no-amounts assertion.</li>
+</ol>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+<ul>
+  <li><strong>Non-user invite.</strong> An owner invites by link; an unregistered invitee accepts, registers via OTP,
+    and is bound to an active grant — no pre-existing account required.</li>
+  <li><strong>Entity scope.</strong> A <code>scope=entities</code> member sees exactly the named entities (full,
+    incl. amounts) and 404s on every other entity.</li>
+  <li><strong>Documents-only, no amounts — the security assertion.</strong> Logged in as a <code>docsOnly</code>
+    member, <em>no</em> amount-bearing field is present on any surface (Today, profile, logs, commitments,
+    statement) — the member sees the named entities' documents and nothing else; asserted field-by-field.</li>
+  <li><strong>Shared act.</strong> A member's logged payment on a shared entity surfaces on the owner's Today,
+    attributed to the member.</li>
+  <li><strong>Statement.</strong> Compose returns per-currency totals (never converted), a receipt appendix, the
+    reserved corroboration column, and a verification code; free tier allows one export, paid unlimited (client
+    gate over the projection).</li>
+  <li><strong>Revoke.</strong> Revoking a grant denies the member on the next request immediately.</li>
+  <li><strong>Build &amp; migration.</strong> <code>dotnet build</code> green; tool-generated migration adds
+    <code>AnkCircleGrants</code> + <code>AnkCircleInvites</code> only; the visibility filter is the single
+    enforcement point (architecture/integration test).</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Member-write scope.</strong> Can a <code>scope=entities</code> co-owner <em>log</em> on a shared entity (Seyi logs the repair), or only read? Leaning <strong>yes, log-only</strong> for entity-scoped members (no edit/delete of others' records); docsOnly is read-only. Finalise the write matrix in implementation.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Household vs grant as the container.</strong> Whether every Circle owner needs a Household row, or grants can stand alone with Household optional. Leaning grants reference a household for continuity with Spec 020, auto-created if absent.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — Statement verification page.</strong> The code prints now; the <code>simi.app/verify/…</code> page (proving a statement is genuine) is Phase 2 — confirm the code format is forward-compatible.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O4 — Invite expiry &amp; resend.</strong> Default token TTL and resend/revoke-pending semantics (Spec 020 uses 7-day member-invite expiry; reuse).</li>
+</ul>
+
+<h2 id="refs">16. References</h2>
+<ul>
+  <li><a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.6, &sect;7 (Decisions D4, D5), Phase D (the circle &amp; the proof), &sect;11 (the no-amounts security risk).</li>
+  <li>Simi source docs: <code>simi-mobile-rebuild-spec.html</code> &sect;7.8 (Circle), &sect;7.9 (Support Statement); <code>simi-positioning.html</code> (shared safely; the circle's edge needs no install).</li>
+  <li><a href="020.payabo-household.md">Spec&nbsp;020 — Households</a> &middot; <a href="001.identity-auth.md">Spec&nbsp;001 — Identity &amp; auth</a> (registration/OTP) &middot; <a href="043.care-entity-people-and-assets.html">043</a> / <a href="045.payment-log.html">045</a> / <a href="046.document-entity-linking-and-sharing.html">046</a> (the shared aggregates) &middot; <a href="042.partner-connector-credential-rehoming.html">Spec&nbsp;042</a> (fail-closed security precedent)</li>
+  <li>Code idioms (all under <code>src/Aonik.PersonalFinance</code>): <code>Entities/PersonalFinance/Household.cs</code> / <code>HouseholdMember.cs</code> (no scoping field; <code>PermissionsJson</code> parsed but unenforced), <code>Contracts/Models/PersonalFinance/HouseholdRoles.cs</code> (Owner/Manager/Viewer), <code>Endpoints/PersonalFinance/InviteHouseholdMemberEndpoint.cs</code> (<code>internal record InviteHouseholdMemberEndpointRequest(Guid UserId, string Role, IReadOnlyList&lt;string&gt;? Permissions)</code>, <code>UserPolicy</code>), <code>Services/PersonalFinance/HouseholdService.cs</code> (<code>EnsureUserExistsWithPersonalProfileAsync</code> — the registered-user constraint; <code>InvitationExpiryDays = 7</code>), <code>Services/PersonalFinance/PersonalAccountService.cs:244</code> (<code>account.HouseholdId = request.HouseholdId</code> — the account-keyed share unit).</li>
+</ul>
+
+<footer>
+  Spec 048 &middot; Draft Rev 1 &middot; 2026-06-13 &middot; extends Spec 020 &middot; implements Simi readiness plan &sect;5.6 &middot; Domain: PersonalFinance / Simi
+</footer>
+
+</body>
+</html>

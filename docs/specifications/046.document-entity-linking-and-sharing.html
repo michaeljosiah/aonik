@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 046 - Vault: document entity-linking, filter &amp; selective share</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 046</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P2 (Simi M3)</span>
+  <span class="meta-tag">Domain: Documents / PersonalFinance / Simi</span>
+  <h1>Vault — document entity-linking, filter &amp; selective share</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Makes <a href="035.extract-documents-module.html">Spec&nbsp;035</a>'s Documents module <strong>entity-aware</strong>
+    for Simi's Vault: a consumer links a receipt / contract / deed to a
+    <a href="043.care-entity-people-and-assets.html">CareEntity</a> and to a
+    <a href="045.payment-log.html">PaymentLog</a>, filters by person/asset/type/year, and (with
+    <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>) shares selected documents with a scoped
+    circle member. Storage, upload, and consumer access already exist; <strong>entity/receipt linking and
+    filter-by-entity are the gap</strong> — today a document only carries an <code>OwnerPartyId</code> and an
+    untyped <code>TagsJson</code>. Implements <a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.4.
+  </p>
+</header>
+
+<div class="callout">
+  <span class="callout-label">Spec family (043–048)</span>
+  Builds on <a href="043.care-entity-people-and-assets.html">Spec&nbsp;043</a> (the entity a document is "for") and
+  <a href="045.payment-log.html">Spec&nbsp;045</a> (the log a receipt proves). The selective-share enforcement lives
+  in <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>; this spec makes documents
+  <em>query-scopable by entity</em> so that gate has something to filter on.
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#link">DocumentLink &amp; read contract</a></li>
+    <li><a href="#type">Doc type &amp; tagging</a></li>
+    <li><a href="#filter">Filter &amp; list</a></li>
+    <li><a href="#download">Consumer read / download</a></li>
+    <li><a href="#autofile">Receipt auto-file</a></li>
+    <li><a href="#share">Selective share (defer to 048)</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  Simi's Vault is "Provable forever": receipts file themselves against people and assets, and one tap finds "the
+  school-fee receipt from last term." The Documents module (Spec&nbsp;035) already gives blob storage, upload,
+  listing, and consumer-reachable access — but a document can only be <em>owned</em> by a party and <em>tagged</em>
+  with free-form JSON. It cannot be linked to a Simi CareEntity or to the PaymentLog it proves, and there is no
+  filter-by-entity query. This spec adds a small, module-respecting link + a read contract, a typed Vault doc-type,
+  the filter, and the consumer read path — and reserves selective sharing for Spec&nbsp;048.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Fola uploads a repair invoice, tags it <em>receipt</em>, links it to "the Surulere flat" — and it appears on the
+  flat's profile and in the Vault filtered to that entity + year in three taps. Marking Mum's allowance done with a
+  screenshot auto-files that screenshot as a <em>receipt</em>, pre-linked to Mum and to the PaymentLog. Mr Bello
+  (documents-only, Spec&nbsp;048) sees the flat's documents and no amounts anywhere.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<ul>
+  <li><strong>Consumer access already works</strong> — and is <em>not</em> admin-only despite the policy name. Create
+    (<code>POST /documents</code>) and upload (<code>POST /documents/{id}/files</code>) use
+    <code>AdminUserWritePolicy</code>, which <strong>includes the <code>PersonalUser</code> role</strong>; list/get
+    use <code>AdminUserPolicy</code> (also includes <code>PersonalUser</code>), owner-scoped so a customer sees only
+    their own documents. Erase (<code>DELETE /documents/{id}</code>) is <code>AdminPolicy</code> — platform/tenant
+    admin only — consistent with the Vault's archive-not-delete posture. Storage is real: <code>DocumentFileStore</code> over <code>FluentStorage</code>,
+    tenant-scoped blob keys, SHA-256 hashing; <code>IDocumentReader</code> issues time-limited signed read URLs.</li>
+  <li><strong>The gap is linking + filtering.</strong> <code>Document</code> carries <code>OwnerPartyId</code>,
+    <code>Classification</code>, and an untyped <code>TagsJson</code> — but <strong>no link to a CareEntity or a
+    PaymentLog</strong>, and no consumer filter "documents for entity X." Re-linking, the Vault's typed filter, and
+    the receipt↔log association all need building.</li>
+  <li><strong>Module boundary.</strong> CareEntity / PaymentLog live in PersonalFinance; <code>Document</code> lives
+    in the Documents module. Modules don't <code>ProjectReference</code> each other — so the link is a soft
+    association by Guid + a <code>SharedKernel</code> read contract, exactly as PersonalFinance already reads Finance
+    data (ADR-006).</li>
+</ul>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> A <code>DocumentLink</code> association (document → CareEntity / PaymentLog / commitment) in the Documents module, by opaque Guid (&sect;4).</li>
+  <li><span class="tag new">New</span> An <code>IDocumentLinkReader</code> added to the <strong>existing</strong> <code>SharedKernel.Abstractions.Documents</code> contract set, so PersonalFinance &amp; Spec&nbsp;048 can list "documents for entity X" without a cross-module reference (&sect;4).</li>
+  <li><span class="tag new">New</span> Vault doc-types as validated values of the <strong>existing</strong> <code>DocumentType</code> field (receipt · contract · deed · id · other) + a new <code>Title</code> column (&sect;5).</li>
+  <li><span class="tag new">New</span> Consumer filter-by-entity/type/year list + a confirmed consumer read/download path (&sect;6–7).</li>
+  <li><span class="tag extend">Edit</span> Receipt auto-file on mark-done / capture-confirm (&sect;8).</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Selective-share enforcement</strong> — the docs-only, no-amounts circle role lives in
+    <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>. This spec only makes documents
+    entity-scopable so that gate can filter (&sect;9).</li>
+  <li><strong>Re-storage / OCR changes.</strong> Blob storage, hashing, and text-extraction status are Spec&nbsp;035
+    as-is.</li>
+  <li><strong>Versioning history queries</strong> beyond what Spec&nbsp;035 provides — deferred.</li>
+</ul>
+
+<h2 id="link">4. DocumentLink &amp; read contract <span class="tag new">new</span></h2>
+<p>
+  A thin association entity in the Documents module — a document can link to several targets (a contract for a
+  co-owned flat links to the flat entity; a receipt links to the entity <em>and</em> the PaymentLog):
+</p>
+<pre><code>public class DocumentLink : AuditableEntity, ITenantScoped
+{
+    public Guid   TenantId   { get; set; }
+    public Guid   DocumentId { get; set; }          // → Document.Id (same module → real FK)
+    public string TargetType { get; set; } = "";    // careEntity | paymentLog | commitment
+    public Guid   TargetId   { get; set; }          // opaque Guid into PersonalFinance — NO cross-module FK
+}</code></pre>
+<p>
+  PersonalFinance never references the Documents module directly. The <code>SharedKernel.Abstractions.Documents</code>
+  contract set <strong>already exists and is rich</strong> — <code>IDocumentReader</code>, <code>IDocumentWriter</code>,
+  <code>IDocumentFileStore</code>, <code>IDocumentSearch</code>, <code>IDocumentTextExtractor</code>,
+  <code>DocumentContracts</code> (incl. <code>DocumentFileDto</code>) — implemented by the Documents module,
+  mirroring the <code>SharedKernel.Abstractions.Finance</code> pattern PersonalFinance reads Finance through
+  (ADR-006). This spec adds <strong>one interface alongside <code>IDocumentReader</code></strong>, letting the
+  CareEntity profile (Spec&nbsp;043 &sect;8) and the circle gate (Spec&nbsp;048) read links:
+</p>
+<pre><code>namespace Aonik.SharedKernel.Abstractions.Documents;
+public interface IDocumentLinkReader
+{
+    // Document refs (id + filename + type + thumbnail URL) linked to a target — never bytes.
+    Task&lt;IReadOnlyList&lt;DocumentRef&gt;&gt; GetForTargetAsync(string targetType, Guid targetId, CancellationToken ct = default);
+    Task&lt;IReadOnlyDictionary&lt;Guid, int&gt;&gt; CountForEntitiesAsync(IReadOnlyList&lt;Guid&gt; careEntityIds, CancellationToken ct = default);
+}</code></pre>
+
+<h2 id="type">5. Doc type &amp; tagging</h2>
+<p>
+  The Vault filter needs a small typed dimension: <code>receipt · contract · deed · id · other</code>. Grounding
+  note: <code>Document</code> <strong>already carries a free-string <code>DocumentType</code></strong> — it is on
+  <code>CreateDocumentRequest(OwnerPartyId, DocumentType, Status, …)</code>, whose contracts and validator still
+  live in Platform's compliance models (<code>Aonik.Platform/Contracts</code> + <code>PlatformValidators.cs</code>,
+  a Spec&nbsp;035 extraction leftover). So the Vault adds <strong>no new type column</strong>: Simi documents use
+  validated <em>values</em> of the existing <code>DocumentType</code>, coexisting with the platform's compliance
+  kinds, and <code>Classification</code> (a platform RAG/indexing concept) stays untouched. The mobile upload's
+  3-field tag sheet (title, entity, type — rebuild spec &sect;7.7) maps to: a <strong>new nullable
+  <code>Title</code> column</strong> (the entity has reference metadata — <code>IssuerName</code>,
+  <code>ReferenceNumber</code>, <code>IssuedOn</code> — but no display title today), a <code>DocumentLink</code> to
+  the entity (&sect;4), and a <code>DocumentType</code> value. Tagging stays tiny but required, because it is what
+  makes the Vault searchable.
+</p>
+
+<h2 id="filter">6. Filter &amp; list <span class="tag new">new</span></h2>
+<p>Consumer list, owner-scoped, filterable by the dimensions the Vault grid exposes:</p>
+<table>
+  <thead><tr><th>Route</th><th>Verb</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>/documents?careEntityId=&amp;type=&amp;year=</code></td><td>GET</td><td>Filter the Vault by entity, doc-type, and year (the "find the school-fee receipt ≤ 3 taps" query). Extends the existing list.</td></tr>
+    <tr><td><code>/documents/{id}/links</code></td><td>GET / POST / DELETE</td><td>List / add / remove a document's links (re-link a contract, attach a receipt to a log).</td></tr>
+  </tbody>
+</table>
+<p>
+  "Documents for an entity" is served two ways: the consumer Vault calls the filtered list; PersonalFinance's
+  CareEntity profile and the circle gate call <code>IDocumentLinkReader</code> (&sect;4) — same data, no cross-module
+  reference. New request DTOs ship validators (build-time enforced).
+</p>
+
+<h2 id="download">7. Consumer read / download <span class="tag gap">confirm / expose</span></h2>
+<p>
+  The Vault viewer needs to fetch content. <code>IDocumentReader.GetReadUrlAsync(fileId, ttl)</code> already issues
+  a time-limited signed blob URL at the service layer; this spec confirms a <strong>consumer-reachable</strong>
+  endpoint exposes it — <code>GET /documents/{id}/files/{fileId}/read-url</code> (or a streaming
+  <code>/content</code>) under <code>PersonalUser</code>, owner-scoped (an unknown/foreign id yields 404, never
+  revealing existence). No bytes pass through the API for large files; the client fetches the signed URL directly.
+</p>
+
+<h2 id="autofile">8. Receipt auto-file <span class="tag extend">extend</span></h2>
+<p>
+  When a mark-done (Spec&nbsp;044) or a capture-confirm (Spec&nbsp;047) carries an image, the flow:
+</p>
+<div class="ascii-diagram">capture/mark-done with image
+   → Documents: create Document (DocumentType=receipt, Title from context) + upload file (existing endpoints)
+   → DocumentLink → careEntity (the log's entity)   and   → paymentLog (the new log)
+   → PaymentLogResponse returns the receipt DocumentRef (Spec 045 §10)
+"Saved. Receipt filed under Mum."  — pre-tagged, zero extra taps.</div>
+<p>
+  The receipt is a real Vault item from birth, discoverable by the entity/year filter, and printable in the Support
+  Statement appendix (Spec&nbsp;048).
+</p>
+
+<h2 id="share">9. Selective share — deferred to Spec 048</h2>
+<p>
+  Simi's circle includes a <strong>documents-only</strong> member (a property manager) who sees an asset's documents
+  and <strong>no amounts anywhere</strong>. That visibility rule is a circle-grant concern, enforced by
+  <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>'s single visibility filter. This spec's
+  contribution is the prerequisite: documents are <em>linked to entities</em> (&sect;4), so 048 can resolve "the
+  documents this member may see" as "documents linked to the entities in their grant." A docs-only response returns
+  <code>DocumentRef</code>s only — no PaymentLog, no totals — so there is no amount to leak.
+</p>
+
+<h2 id="persistence">10. Persistence &amp; migration</h2>
+<ul>
+  <li><strong>New table</strong> <code>DocumentLink</code> in the Documents module: DbSets on
+    <code>AonikDbContext</code> — which maps the document family via <code>MapPlatformTable&lt;T&gt;</code>
+    (<code>Document</code>, <code>DocumentFile</code>, <code>DocumentVersion</code>, … → <code>dbo.AnkDocuments</code>
+    etc.), so <code>DocumentLink</code> follows: <code>MapPlatformTable&lt;DocumentLink&gt;(modelBuilder,
+    "DocumentLinks")</code> — and on the internal <code>DocumentsDbContext</code> (its <code>MapTable</code> /
+    <code>ModuleTablePrefixes.Default</code>). Indexes on <code>(TenantId, TargetType, TargetId)</code> and
+    <code>(TenantId, DocumentId)</code>.</li>
+  <li><strong><code>Title</code></strong> as a new nullable column on <code>Document</code>, and Vault doc-types as
+    validated values of the <strong>existing</strong> <code>DocumentType</code> string (&sect;5) — one
+    tool-generated migration covers both.</li>
+  <li><strong>No backfill required</strong> — existing documents simply have no links yet; the Vault shows them under
+    "untagged" until linked.</li>
+  <li><strong>Tool-generated migration only</strong> against <code>AonikDbContext</code> (CLAUDE.md).</li>
+</ul>
+
+<h2 id="security">11. Security</h2>
+<ul>
+  <li><strong>Owner scoping preserved.</strong> A consumer sees only their own documents; an unknown id yields an
+    empty list / 404 (Spec&nbsp;035's guarantee), never revealing existence.</li>
+  <li><strong>Links are caller-validated.</strong> A <code>DocumentLink</code> may only target a CareEntity /
+    PaymentLog that belongs to the caller (checked via the PersonalFinance read side), preventing a document from
+    being attached to someone else's entity.</li>
+  <li><strong>Encryption &amp; signed URLs</strong> inherit from Spec&nbsp;035 (at-rest encryption, time-limited read
+    URLs); the viewer honours the app's biometric lock client-side.</li>
+  <li><strong>No-amounts guarantee</strong> for docs-only sharing is owned and tested by Spec&nbsp;048; this spec
+    keeps the document response amount-free by construction.</li>
+</ul>
+
+<h2 id="tasks">12. Tasks</h2>
+<ol>
+  <li><code>DocumentLink</code> entity + config + DbSet + Ank-prefixed mapping; tool-generated migration.</li>
+  <li><code>SharedKernel.Abstractions.Documents.IDocumentLinkReader</code> + Documents-module implementation.</li>
+  <li><code>Title</code> column + Vault values on the existing <code>DocumentType</code> (validated) + index; map the mobile 3-field tag sheet.</li>
+  <li>Filter-by-entity/type/year list + <code>/documents/{id}/links</code> CRUD + DTOs + validators.</li>
+  <li>Confirm/expose the consumer read-url endpoint (owner-scoped).</li>
+  <li>Receipt auto-file on mark-done / capture-confirm; return <code>DocumentRef</code> on the PaymentLog (Spec&nbsp;045 &sect;10).</li>
+  <li>Wire <code>IDocumentLinkReader</code> into the CareEntity profile (Spec&nbsp;043 &sect;8).</li>
+  <li>Tests (&sect;13).</li>
+</ol>
+
+<h2 id="acceptance">13. Acceptance criteria</h2>
+<ul>
+  <li><strong>Link &amp; filter.</strong> A consumer uploads a document, links it to a CareEntity with
+    <code>DocumentType = "receipt"</code>, and finds it via <code>?careEntityId=&amp;type=receipt&amp;year=</code>;
+    it also appears on that entity's profile via <code>IDocumentLinkReader</code>.</li>
+  <li><strong>Re-link.</strong> A document can be re-linked to a different entity and to a PaymentLog; removing a link
+    leaves the document intact.</li>
+  <li><strong>Auto-file.</strong> A mark-done with an image produces a <code>receipt</code> document pre-linked to the
+    entity and the log, returned as a <code>DocumentRef</code> on the PaymentLog.</li>
+  <li><strong>Read path.</strong> A consumer fetches a signed read URL for their own file; a foreign file id yields
+    404.</li>
+  <li><strong>Module boundary.</strong> PersonalFinance reads document links only through
+    <code>IDocumentLinkReader</code> — no <code>ProjectReference</code> to the Documents module (architecture test
+    holds).</li>
+  <li><strong>Build &amp; migration.</strong> <code>dotnet build</code> green; tool-generated migration adds
+    <code>AnkDocumentLinks</code> + the <code>Title</code>/<code>DocumentType</code> change only.</li>
+</ul>
+
+<h2 id="open">14. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Vault vocabulary on the existing <code>DocumentType</code>.</strong> Simi types (receipt/contract/deed/id/other) become validated values of the existing free-string <code>DocumentType</code>, coexisting with the platform's compliance kinds — vs introducing a parallel Simi-only field. Leaning the former; confirm no compliance flow filters on <code>DocumentType</code> in a way Vault values would pollute.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Relocate the document request contracts?</strong> <code>CreateDocumentRequest</code> + validator still live in Platform's compliance models despite the Spec&nbsp;035 extraction. Adding <code>Title</code>/links touches them; decide whether to move them into <code>Aonik.Documents</code> contracts as part of this spec or leave the relocation for a cleanup pass.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — Document ownership: party vs user.</strong> Spec 035 owns by <code>OwnerPartyId</code>; Simi documents are user-scoped via their links. Confirm the owner-party resolution for a consumer at implementation (likely the user's own party).</li>
+</ul>
+
+<h2 id="refs">15. References</h2>
+<ul>
+  <li><a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.4, Phase B.</li>
+  <li>Simi source docs: <code>simi-mobile-rebuild-spec.html</code> &sect;7.7 (Vault), &sect;7.9 (statement appendix).</li>
+  <li><a href="035.extract-documents-module.html">Spec&nbsp;035 — Documents module</a> &middot; <a href="043.care-entity-people-and-assets.html">Spec&nbsp;043 — CareEntity</a> &middot; <a href="045.payment-log.html">Spec&nbsp;045 — PaymentLog</a> &middot; <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048 — Circle &amp; selective share</a> &middot; <a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> (module read-contract pattern)</li>
+  <li>Code idioms: <code>Aonik.Documents/Entities/Document.cs</code> (<code>OwnerPartyId</code>, free-string <code>DocumentType</code>, <code>Classification</code>, <code>TagsJson "[]"</code> / <code>AttributesJson "{}"</code>, <code>Versions</code> — and no <code>Title</code>), <code>Entities/DocumentFile.cs</code>, <code>Aonik.Documents/Persistence/DocumentsDbContext.cs</code> (internal, <code>ModuleTablePrefixes.Default</code>), <code>AonikDbContext</code> (<code>MapPlatformTable&lt;Document&gt;</code> family + DbSets), <code>Aonik.Infrastructure/Storage/DocumentFileStore.cs</code>, <code>Aonik.SharedKernel/Abstractions/Documents/</code> (<code>IDocumentReader.GetReadUrlAsync(documentFileId, ttl)</code>, <code>IDocumentWriter</code>, <code>DocumentContracts</code>), <code>Aonik.Platform/Contracts</code> (<code>CreateDocumentRequest(OwnerPartyId, DocumentType, …)</code>) + <code>PlatformValidators.cs</code>.</li>
+</ul>
+
+<footer>
+  Spec 046 &middot; Draft Rev 1 &middot; 2026-06-13 &middot; extends Spec 035 &middot; implements Simi readiness plan &sect;5.4 &middot; Domain: Documents / PersonalFinance / Simi
+</footer>
+
+</body>
+</html>
