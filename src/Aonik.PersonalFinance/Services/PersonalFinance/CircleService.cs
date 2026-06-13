@@ -151,8 +151,11 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             Status = "active",
         };
         _dbContext.CircleGrants.Add(grant);
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
+        // Consume the invite and create the grant in ONE save so they commit together: a crash
+        // between two separate saves would otherwise leave the grant created but the token still
+        // "pending" (reusable). The RowVersion concurrency token on the invite makes two overlapping
+        // accepts conflict — the loser's save throws rather than minting a second grant.
         invite.Status = "accepted";
         invite.ConsumedAt = DateTime.UtcNow;
         invite.GrantId = grant.Id;
@@ -240,22 +243,29 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
                 DocsOnly: new CircleSharedDocsView(entity.Id, entity.Name, documents));
         }
 
-        // all | entities → full view with the owner's per-currency totals + recent logs.
-        var logs = await _dbContext.PaymentLogs.AsNoTracking()
-            .Where(p => p.TenantId == tenantId && p.UserId == ownerUserId && p.CareEntityId == careEntityId)
-            .ToListAsync(cancellationToken);
+        // all | entities → full view. When the grant hides amounts (NoAmounts, Spec 048), keep the
+        // entity + documents but suppress the money-bearing fields — and don't even read the logs.
+        IReadOnlyList<CurrencyTotal> yearTotals = [];
+        IReadOnlyList<CareEntityPaymentLogSummary> recentLogs = [];
 
-        var yearTotals = logs
-            .GroupBy(p => p.Currency)
-            .Select(g => new CurrencyTotal(g.Key, g.Sum(p => p.Amount), g.Count()))
-            .OrderBy(t => t.Currency)
-            .ToList();
+        if (!grant.NoAmounts)
+        {
+            var logs = await _dbContext.PaymentLogs.AsNoTracking()
+                .Where(p => p.TenantId == tenantId && p.UserId == ownerUserId && p.CareEntityId == careEntityId)
+                .ToListAsync(cancellationToken);
 
-        var recentLogs = logs
-            .OrderByDescending(p => p.Date).ThenByDescending(p => p.CreatedAt)
-            .Take(RecentLogCount)
-            .Select(p => new CareEntityPaymentLogSummary(p.Id, p.Amount, p.Currency, p.Date, p.Channel))
-            .ToList();
+            yearTotals = logs
+                .GroupBy(p => p.Currency)
+                .Select(g => new CurrencyTotal(g.Key, g.Sum(p => p.Amount), g.Count()))
+                .OrderBy(t => t.Currency)
+                .ToList();
+
+            recentLogs = logs
+                .OrderByDescending(p => p.Date).ThenByDescending(p => p.CreatedAt)
+                .Take(RecentLogCount)
+                .Select(p => new CareEntityPaymentLogSummary(p.Id, p.Amount, p.Currency, p.Date, p.Channel))
+                .ToList();
+        }
 
         return new CircleSharedEntityResult(
             grant.Scope,

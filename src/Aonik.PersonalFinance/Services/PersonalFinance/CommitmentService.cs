@@ -387,6 +387,16 @@ internal sealed class CommitmentService : ICommitmentService
         var interval = request.RhythmInterval <= 0 ? 1 : request.RhythmInterval;
         var termDates = request.TermDates?.Select(d => d.Date).OrderBy(d => d).ToList();
 
+        // Termly/OneOff have no computed roll — they need explicit dates (same rule as create).
+        // Without this, an update to Termly with no dates would store null and the next
+        // MarkDoneAsync would complete the commitment instead of rolling to the next term.
+        var isExplicit = unit.Equals("Termly", StringComparison.OrdinalIgnoreCase)
+            || unit.Equals("OneOff", StringComparison.OrdinalIgnoreCase);
+        if (isExplicit && termDates is not { Count: > 0 })
+        {
+            throw new ArgumentException("Termly/OneOff commitments require explicit TermDates.", nameof(request));
+        }
+
         // Edit never rewrites past cycles (history is append-only); it updates the
         // rhythm for future rolls and re-arms the reminder off the current due date.
         bill.Payee = request.DisplayName.Trim();

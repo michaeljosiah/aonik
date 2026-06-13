@@ -75,6 +75,25 @@ public class CommitmentLifecycleServiceTests
             null, firstDue ?? new DateTime(2026, 5, 28), 3, null, null);
 
     [Fact]
+    public async Task UpdateSupport_Should_Throw_When_TermlyWithoutTermDates()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var (commitments, _, care) = CreateServices(context, tenantId, userId);
+        var entityId = await SeedCareEntityAsync(care);
+        var created = await commitments.CreateSupportAsync(MonthlyAllowance(entityId));
+
+        // Switching to Termly with no dates would store null and break the next mark-done roll.
+        var act = async () => await commitments.UpdateSupportAsync(
+            created.CommitmentId,
+            new UpdateSupportCommitmentRequest("Mum — allowance", 200m, "GBP", "Termly", 1, null, null, 3, null));
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*Termly/OneOff commitments require explicit TermDates*");
+    }
+
+    [Fact]
     public async Task CreateSupport_Should_OpenFirstCycle_AndReturnSupportDetail()
     {
         var tenantId = Guid.NewGuid();

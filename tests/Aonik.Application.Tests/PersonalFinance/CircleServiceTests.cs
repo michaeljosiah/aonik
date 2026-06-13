@@ -139,6 +139,47 @@ public class CircleServiceTests
     }
 
     [Fact]
+    public async Task EntitiesGrant_WithNoAmounts_ReturnsEntity_ButSuppressesTotalsAndLogs()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        await SeedLogAsync(ctx, owner, entityId, 200m, "GBP", new DateTime(2026, 5, 28));
+
+        // scope=entities but NoAmounts=true → the member may see the entity, never the money.
+        await Circle(ctx, owner).CreateGrantAsync(
+            new CreateCircleGrantRequest(member, "entities", new[] { entityId }, true));
+
+        var result = await Circle(ctx, member).GetSharedEntityAsync(owner, entityId);
+
+        result.Should().NotBeNull();
+        result!.Full.Should().NotBeNull();              // entity detail preserved
+        result.Full!.Entity.Id.Should().Be(entityId);
+        result.Full.YearTotals.Should().BeEmpty();      // amounts suppressed
+        result.Full.RecentLogs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AcceptInvite_ConsumesToken_AndIsNotReusable()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+
+        var invite = await Circle(ctx, owner).CreateInviteAsync(
+            new CreateCircleInviteRequest("entities", new[] { entityId }, false, "link"));
+
+        var grant = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        grant.Should().NotBeNull();
+
+        // The token is consumed atomically with grant creation, so a replay is rejected.
+        var second = await Circle(ctx, member).AcceptInviteAsync(invite.Token);
+        second.Should().BeNull();
+    }
+
+    [Fact]
     public async Task DocsOnlyGrant_ReturnsAmountFreeView_TheSecurityProperty()
     {
         using var ctx = CreateContext();
