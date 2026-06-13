@@ -16,7 +16,8 @@ public sealed class CliApplication
         ApprovalCommandHandler approvalCommandHandler,
         CareEntityCommandHandler careEntityCommandHandler,
         PaymentLogCommandHandler paymentLogCommandHandler,
-        CommitmentCommandHandler commitmentCommandHandler)
+        CommitmentCommandHandler commitmentCommandHandler,
+        DocumentCommandHandler documentCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
@@ -25,7 +26,8 @@ public sealed class CliApplication
             approvalCommandHandler,
             careEntityCommandHandler,
             paymentLogCommandHandler,
-            commitmentCommandHandler);
+            commitmentCommandHandler,
+            documentCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -52,6 +54,7 @@ public sealed class CliApplication
         var careEntityCommandHandler = new CareEntityCommandHandler(apiClient, sessionStore, outputWriter);
         var paymentLogCommandHandler = new PaymentLogCommandHandler(apiClient, sessionStore, outputWriter);
         var commitmentCommandHandler = new CommitmentCommandHandler(apiClient, sessionStore, outputWriter);
+        var documentCommandHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
 
         return new CliApplication(
             authCommandHandler,
@@ -60,7 +63,8 @@ public sealed class CliApplication
             approvalCommandHandler,
             careEntityCommandHandler,
             paymentLogCommandHandler,
-            commitmentCommandHandler);
+            commitmentCommandHandler,
+            documentCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
@@ -70,7 +74,8 @@ public sealed class CliApplication
         ApprovalCommandHandler approvalCommandHandler,
         CareEntityCommandHandler careEntityCommandHandler,
         PaymentLogCommandHandler paymentLogCommandHandler,
-        CommitmentCommandHandler commitmentCommandHandler)
+        CommitmentCommandHandler commitmentCommandHandler,
+        DocumentCommandHandler documentCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
@@ -80,6 +85,7 @@ public sealed class CliApplication
         rootCommand.Add(BuildCareEntitiesCommand(careEntityCommandHandler));
         rootCommand.Add(BuildPaymentLogsCommand(paymentLogCommandHandler));
         rootCommand.Add(BuildCommitmentsCommand(commitmentCommandHandler));
+        rootCommand.Add(BuildDocumentsCommand(documentCommandHandler));
         return rootCommand;
     }
 
@@ -654,6 +660,90 @@ public sealed class CliApplication
         ordersCommand.Add(ordersSubmitCommand);
         ordersCommand.Add(ordersCancelCommand);
         return ordersCommand;
+    }
+
+    private static Command BuildDocumentsCommand(DocumentCommandHandler handler)
+    {
+        var command = new Command("documents", "Vault: link documents to entities and filter (Spec 046).");
+
+        // list
+        var listCommand = new Command("list", "List documents (filter by entity / type / year).");
+        var listCareEntityOption = new Option<Guid?>("--care-entity-id") { Description = "Filter by linked CareEntity." };
+        var listTypeOption = new Option<string?>("--type") { Description = "Filter by document type." };
+        var listYearOption = new Option<int?>("--year") { Description = "Filter by year." };
+        var listPageOption = new Option<int>("--page") { Description = "Results page." };
+        var listPageSizeOption = new Option<int>("--page-size") { Description = "Results per page." };
+        var listOutputOption = CreateOutputOption(includeNdjson: false);
+        listCommand.Add(listCareEntityOption);
+        listCommand.Add(listTypeOption);
+        listCommand.Add(listYearOption);
+        listCommand.Add(listPageOption);
+        listCommand.Add(listPageSizeOption);
+        listCommand.Add(listOutputOption);
+        listCommand.SetAction((parseResult, cancellationToken) =>
+        {
+            var ps = parseResult.GetValue(listPageSizeOption);
+            return handler.ListAsync(
+                new ListDocumentsOptions(
+                    parseResult.GetValue(listCareEntityOption),
+                    parseResult.GetValue(listTypeOption),
+                    parseResult.GetValue(listYearOption),
+                    Math.Max(parseResult.GetValue(listPageOption), 1),
+                    ps is > 0 and <= 100 ? ps : 20,
+                    OutputModeParser.Parse(parseResult.GetValue(listOutputOption))),
+                cancellationToken);
+        });
+
+        // links (list)
+        var linksCommand = new Command("links", "List a document's links.");
+        var linksIdArgument = new Argument<Guid>("id");
+        var linksOutputOption = CreateOutputOption(includeNdjson: false);
+        linksCommand.Add(linksIdArgument);
+        linksCommand.Add(linksOutputOption);
+        linksCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ListLinksAsync(
+                parseResult.GetRequiredValue(linksIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(linksOutputOption)),
+                cancellationToken));
+
+        // link (add)
+        var linkCommand = new Command("link", "Link a document to a target.");
+        var linkIdArgument = new Argument<Guid>("id");
+        var linkTargetTypeOption = new Option<string>("--target-type") { Description = "careEntity | paymentLog | commitment.", Required = true };
+        var linkTargetIdOption = new Option<Guid>("--target-id") { Description = "Target id.", Required = true };
+        var linkOutputOption = CreateOutputOption(includeNdjson: false);
+        linkCommand.Add(linkIdArgument);
+        linkCommand.Add(linkTargetTypeOption);
+        linkCommand.Add(linkTargetIdOption);
+        linkCommand.Add(linkOutputOption);
+        linkCommand.SetAction((parseResult, cancellationToken) =>
+            handler.LinkAsync(
+                parseResult.GetRequiredValue(linkIdArgument),
+                parseResult.GetRequiredValue(linkTargetTypeOption),
+                parseResult.GetRequiredValue(linkTargetIdOption),
+                OutputModeParser.Parse(parseResult.GetValue(linkOutputOption)),
+                cancellationToken));
+
+        // unlink (remove)
+        var unlinkCommand = new Command("unlink", "Remove a document link.");
+        var unlinkIdArgument = new Argument<Guid>("id");
+        var unlinkLinkIdArgument = new Argument<Guid>("link-id");
+        var unlinkOutputOption = CreateOutputOption(includeNdjson: false);
+        unlinkCommand.Add(unlinkIdArgument);
+        unlinkCommand.Add(unlinkLinkIdArgument);
+        unlinkCommand.Add(unlinkOutputOption);
+        unlinkCommand.SetAction((parseResult, cancellationToken) =>
+            handler.UnlinkAsync(
+                parseResult.GetRequiredValue(unlinkIdArgument),
+                parseResult.GetRequiredValue(unlinkLinkIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(unlinkOutputOption)),
+                cancellationToken));
+
+        command.Add(listCommand);
+        command.Add(linksCommand);
+        command.Add(linkCommand);
+        command.Add(unlinkCommand);
+        return command;
     }
 
     private static Command BuildCommitmentsCommand(CommitmentCommandHandler handler)

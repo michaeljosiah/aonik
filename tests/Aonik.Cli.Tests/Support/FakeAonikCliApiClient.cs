@@ -620,4 +620,33 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
     public Task<IReadOnlyList<CommitmentCycleResponse>> GetCommitmentCyclesAsync(CliSession session, Guid commitmentId, int page, int pageSize, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<CommitmentCycleResponse>>(
             [new CommitmentCycleResponse(Guid.Parse("d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4"), commitmentId, Commitment.DueDate, "Open", null, null, null, null, DateTime.Parse("2026-05-01T00:00:00Z").ToUniversalTime())]);
+
+    // ── Documents / Vault (Spec 046) ────────────────────────────────────
+
+    public DocumentLinkDto DocumentLink { get; set; } = new(
+        Guid.Parse("f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6"),
+        Guid.Parse("e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5"),
+        "careEntity",
+        Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"),
+        DateTime.Parse("2026-05-28T08:00:00Z").ToUniversalTime());
+
+    public PagedResponse<DocumentListItemDto> DocumentsPage { get; set; } = new(
+        [new DocumentListItemDto(
+            Guid.Parse("e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5"),
+            Guid.Parse("a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2"),
+            "receipt", "Personal", "Submitted", "Pending", null, null, 1,
+            DateTime.Parse("2026-05-28T08:00:00Z").ToUniversalTime())],
+        1, 1, 20);
+
+    public Task<PagedResponse<DocumentListItemDto>> ListDocumentsAsync(CliSession session, Guid? careEntityId, string? documentType, int? year, int page, int pageSize, CancellationToken cancellationToken = default)
+        => Task.FromResult(DocumentsPage);
+
+    public Task<IReadOnlyList<DocumentLinkDto>> ListDocumentLinksAsync(CliSession session, Guid documentId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<DocumentLinkDto>>([DocumentLink]);
+
+    public Task<DocumentLinkDto> AddDocumentLinkAsync(CliSession session, Guid documentId, AddDocumentLinkRequest request, CancellationToken cancellationToken = default)
+        => Task.FromResult(DocumentLink with { TargetType = request.TargetType, TargetId = request.TargetId });
+
+    public Task RemoveDocumentLinkAsync(CliSession session, Guid documentId, Guid linkId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 }

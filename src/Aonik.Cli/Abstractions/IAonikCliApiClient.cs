@@ -312,4 +312,32 @@ public interface IAonikCliApiClient
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    // ── Documents / Vault (Spec 046) ────────────────────────────────────
+
+    Task<PagedResponse<DocumentListItemDto>> ListDocumentsAsync(
+        CliSession session,
+        Guid? careEntityId,
+        string? documentType,
+        int? year,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DocumentLinkDto>> ListDocumentLinksAsync(
+        CliSession session,
+        Guid documentId,
+        CancellationToken cancellationToken = default);
+
+    Task<DocumentLinkDto> AddDocumentLinkAsync(
+        CliSession session,
+        Guid documentId,
+        AddDocumentLinkRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task RemoveDocumentLinkAsync(
+        CliSession session,
+        Guid documentId,
+        Guid linkId,
+        CancellationToken cancellationToken = default);
 }

@@ -761,6 +761,51 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
             cancellationToken);
     }
 
+    public async Task<PagedResponse<DocumentListItemDto>> ListDocumentsAsync(
+        CliSession session,
+        Guid? careEntityId,
+        string? documentType,
+        int? year,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={Math.Max(1, page)}",
+            $"pageSize={(pageSize is > 0 and <= 100 ? pageSize : 20)}"
+        };
+        if (careEntityId.HasValue) query.Add($"careEntityId={careEntityId.Value:D}");
+        if (!string.IsNullOrWhiteSpace(documentType)) query.Add($"documentType={Uri.EscapeDataString(documentType)}");
+        if (year.HasValue) query.Add($"year={year.Value}");
+
+        return await SendAsync<PagedResponse<DocumentListItemDto>>(
+            session.BaseUrl, HttpMethod.Get, $"/documents?{string.Join('&', query)}", session, body: null, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DocumentLinkDto>> ListDocumentLinksAsync(
+        CliSession session,
+        Guid documentId,
+        CancellationToken cancellationToken = default)
+        => await SendAsync<List<DocumentLinkDto>>(
+            session.BaseUrl, HttpMethod.Get, $"/documents/{documentId:D}/links", session, body: null, cancellationToken);
+
+    public Task<DocumentLinkDto> AddDocumentLinkAsync(
+        CliSession session,
+        Guid documentId,
+        AddDocumentLinkRequest request,
+        CancellationToken cancellationToken = default)
+        => SendAsync<DocumentLinkDto>(
+            session.BaseUrl, HttpMethod.Post, $"/documents/{documentId:D}/links", session, request, cancellationToken);
+
+    public Task RemoveDocumentLinkAsync(
+        CliSession session,
+        Guid documentId,
+        Guid linkId,
+        CancellationToken cancellationToken = default)
+        => SendNoContentAsync(
+            session.BaseUrl, HttpMethod.Delete, $"/documents/{documentId:D}/links/{linkId:D}", session, body: null, cancellationToken);
+
     public Task<CommitmentDetail> CreateSupportCommitmentAsync(
         CliSession session,
         CreateSupportCommitmentRequest request,
