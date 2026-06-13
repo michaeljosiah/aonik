@@ -1,3 +1,4 @@
+using Aonik.Cli;
 using Aonik.Cli.Commands;
 using Aonik.Cli.Infrastructure;
 using Aonik.Cli.Models;
@@ -70,5 +71,98 @@ public sealed class AuthCommandHandlerTests
         sessionStore.Session!.UserId.Should().Be(apiClient.UserInfoResponse.UserId);
         sessionStore.Session.TenantId.Should().Be(apiClient.UserInfoResponse.TenantId);
         writer.ToString().Should().Contain("Authenticated user: operator@aonik.io");
+    }
+
+    // ── Dev-environment regression: the public auth-provider settings endpoint is
+    // gated behind tenant resolution in deployed environments and 401s for the
+    // tenant-less CLI. That discovery call must be best-effort when the caller already
+    // has a token or an explicit --client-id, so login still completes.
+
+    [Fact]
+    public async Task LoginAsync_Should_Succeed_WithAccessToken_When_SettingsEndpointBlockedByTenant()
+    {
+        // Arrange — the deployed API blocks the anonymous discovery endpoint.
+        var apiClient = new FakeAonikCliApiClient
+        {
+            AuthSettingsException = new AonikCliException(
+                "AONIK API call failed with status 401 (Unauthorized): {\"error\":\"Tenant context missing\"}")
+        };
+        var sessionStore = new InMemorySessionStore();
+        var handler = new AuthCommandHandler(apiClient, sessionStore, new TextWriterCliOutputWriter(new StringWriter()));
+
+        // Act
+        var exitCode = await handler.LoginAsync(
+            new LoginOptions(
+                BaseUrl: "https://aonik-dev-api.example.azurecontainerapps.io",
+                Username: null,
+                Password: null,
+                AccessToken: "header.payload.signature",
+                ClientId: null,
+                Scope: null,
+                TenantId: null,
+                OutputMode: OutputMode.Json));
+
+        // Assert — login completes; token stored and userinfo resolved despite the block.
+        exitCode.Should().Be(0);
+        sessionStore.Session.Should().NotBeNull();
+        sessionStore.Session!.AccessToken.Should().Be("header.payload.signature");
+        sessionStore.Session.Email.Should().Be("operator@aonik.io");
+    }
+
+    [Fact]
+    public async Task LoginAsync_Should_Succeed_WithPasswordAndExplicitClientId_When_SettingsEndpointBlocked()
+    {
+        // Arrange — explicit --client-id removes the need for provider discovery.
+        var apiClient = new FakeAonikCliApiClient
+        {
+            AuthSettingsException = new AonikCliException("401 Tenant context missing")
+        };
+        var sessionStore = new InMemorySessionStore();
+        var handler = new AuthCommandHandler(apiClient, sessionStore, new TextWriterCliOutputWriter(new StringWriter()));
+
+        // Act
+        var exitCode = await handler.LoginAsync(
+            new LoginOptions(
+                BaseUrl: "https://aonik-dev-api.example.azurecontainerapps.io",
+                Username: "user@example.com",
+                Password: "secret",
+                AccessToken: null,
+                ClientId: "explicit-client-id",
+                Scope: "openid",
+                TenantId: null,
+                OutputMode: OutputMode.Json));
+
+        // Assert — the password grant runs against the explicit client-id; session saved.
+        exitCode.Should().Be(0);
+        sessionStore.Session.Should().NotBeNull();
+        sessionStore.Session!.AccessToken.Should().Be("token");
+    }
+
+    [Fact]
+    public async Task LoginAsync_Should_Propagate_WithPasswordAndNoClientId_When_SettingsEndpointBlocked()
+    {
+        // Arrange — a password grant with no token and no client-id genuinely needs
+        // discovery, so a blocked settings endpoint must surface (we cannot proceed).
+        var apiClient = new FakeAonikCliApiClient
+        {
+            AuthSettingsException = new AonikCliException("401 Tenant context missing")
+        };
+        var sessionStore = new InMemorySessionStore();
+        var handler = new AuthCommandHandler(apiClient, sessionStore, new TextWriterCliOutputWriter(new StringWriter()));
+
+        // Act
+        var act = async () => await handler.LoginAsync(
+            new LoginOptions(
+                BaseUrl: "https://aonik-dev-api.example.azurecontainerapps.io",
+                Username: "user@example.com",
+                Password: "secret",
+                AccessToken: null,
+                ClientId: null,
+                Scope: null,
+                TenantId: null,
+                OutputMode: OutputMode.Json));
+
+        // Assert
+        await act.Should().ThrowAsync<AonikCliException>().WithMessage("*Tenant context missing*");
     }
 }

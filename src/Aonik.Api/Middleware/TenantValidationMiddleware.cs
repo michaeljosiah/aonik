@@ -24,11 +24,30 @@ public class TenantValidationMiddleware
     {
         try
         {
-            // Skip health, swagger, and scalar (public endpoints)
+            // Skip health, swagger, scalar, and the anonymous pre-tenant identity
+            // endpoints. Two classes are whitelisted here, both safe without a tenant:
+            //   • Public settings discovery (GET /v1/settings/auth-provider and
+            //     /v1/settings/public) — the auth provider is configured per-deployment
+            //     (ADR-007), not per-tenant, so these settings are global.
+            //   • Credential→token exchange (POST /auth/token) — this runs BEFORE the
+            //     caller holds any token, so there is no JWT tenant claim and, in an
+            //     ACA / no-subdomain deployment, no resolvable tenant. The endpoint is
+            //     AllowAnonymous and IdentityService.TokenAsync only reads the global
+            //     Auth.Provider setting then calls the IdP; it needs no tenant. The
+            //     resulting JWT carries the tenant, which TenantContextMiddleware resolves
+            //     on every subsequent request.
+            // Without these skips the AllowAnonymous endpoints are unreachable — they 401
+            // "Tenant context missing" for any caller with no resolvable tenant (e.g. the
+            // CLI's `auth login`, which exchanges credentials before it has a tenant). The
+            // authenticated, tenant-scoped /v1/settings/user and /v1/settings/resolved
+            // endpoints still get validated.
             if (context.Request.Path.StartsWithSegments("/health") ||
                 context.Request.Path.StartsWithSegments("/alive") ||
                 context.Request.Path.StartsWithSegments("/swagger") ||
                 context.Request.Path.StartsWithSegments("/scalar") ||
+                context.Request.Path.StartsWithSegments("/v1/settings/auth-provider") ||
+                context.Request.Path.StartsWithSegments("/v1/settings/public") ||
+                context.Request.Path.StartsWithSegments("/auth/token") ||
                 HttpMethods.IsOptions(context.Request.Method))
             {
                 await _next(context);

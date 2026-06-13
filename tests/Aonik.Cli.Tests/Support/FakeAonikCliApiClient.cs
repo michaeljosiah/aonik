@@ -244,10 +244,19 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
             "{}")
     ];
 
+    // When set, GetPublicAuthProviderSettingsAsync throws this — simulating a deployed
+    // environment whose tenant middleware blocks the anonymous discovery endpoint.
+    public Exception? AuthSettingsException { get; set; }
+
     public Task<PublicAuthProviderSettingsResponse> GetPublicAuthProviderSettingsAsync(string baseUrl, CancellationToken cancellationToken = default)
     {
         _ = baseUrl;
         _ = cancellationToken;
+        if (AuthSettingsException is not null)
+        {
+            throw AuthSettingsException;
+        }
+
         return Task.FromResult(AuthSettings);
     }
 
