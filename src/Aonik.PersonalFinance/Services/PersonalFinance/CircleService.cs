@@ -5,6 +5,7 @@ using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,15 +24,18 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
     private readonly PersonalFinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IDocumentLinkReader _documentLinkReader;
 
     public CircleService(
         PersonalFinanceDbContext dbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IDocumentLinkReader documentLinkReader)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _documentLinkReader = documentLinkReader;
     }
 
     // ── Grants ──────────────────────────────────────────────────────────
@@ -222,15 +226,18 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             return null;
         }
 
+        // The owner's linked document refs (refs only — no bytes, no amounts), read by the
+        // owner's identity since the member can't see them through their own scope. The grant
+        // above has already authorised this member to see this entity.
+        var documents = await GetOwnerDocumentsAsync(ownerUserId, careEntityId, cancellationToken);
+
         // docsOnly → the structurally amount-free projection (no logs/totals joined).
-        // (Owner-linked document refs in the shared view are a cross-module owner-read
-        // follow-up; the security property — no amounts — holds by construction here.)
         if (grant.Scope == "docsOnly")
         {
             return new CircleSharedEntityResult(
                 "docsOnly",
                 Full: null,
-                DocsOnly: new CircleSharedDocsView(entity.Id, entity.Name, Documents: []));
+                DocsOnly: new CircleSharedDocsView(entity.Id, entity.Name, documents));
         }
 
         // all | entities → full view with the owner's per-currency totals + recent logs.
@@ -252,8 +259,23 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 
         return new CircleSharedEntityResult(
             grant.Scope,
-            Full: new CircleSharedEntityView(MapEntity(entity), yearTotals, recentLogs, Documents: []),
+            Full: new CircleSharedEntityView(MapEntity(entity), yearTotals, recentLogs, documents),
             DocsOnly: null);
+    }
+
+    /// <summary>
+    /// The owner's linked document refs for an entity, read by the owner's identity (Spec 046
+    /// cross-module owner-read). Refs only — no amounts — so the docsOnly guarantee holds.
+    /// Callers must have authorised the member via the grant first.
+    /// </summary>
+    private async Task<IReadOnlyList<CareEntityDocumentRef>> GetOwnerDocumentsAsync(
+        Guid ownerUserId, Guid careEntityId, CancellationToken cancellationToken)
+    {
+        var refs = await _documentLinkReader.GetForOwnerTargetAsync(
+            ownerUserId, "careEntity", careEntityId, cancellationToken);
+        return refs
+            .Select(d => new CareEntityDocumentRef(d.DocumentId, d.Title, d.DocumentType))
+            .ToList();
     }
 
     // ── helpers ─────────────────────────────────────────────────────────

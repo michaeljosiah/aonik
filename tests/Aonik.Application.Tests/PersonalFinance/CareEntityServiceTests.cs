@@ -61,6 +61,9 @@ public class CareEntityServiceTests
         public Task<IReadOnlyList<DocumentRef>> GetForTargetAsync(string targetType, Guid targetId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<DocumentRef>>([]);
 
+        public Task<IReadOnlyList<DocumentRef>> GetForOwnerTargetAsync(Guid ownerUserId, string targetType, Guid targetId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<DocumentRef>>([]);
+
         public Task<IReadOnlyDictionary<Guid, int>> CountForEntitiesAsync(IReadOnlyList<Guid> careEntityIds, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyDictionary<Guid, int>>(new Dictionary<Guid, int>());
     }

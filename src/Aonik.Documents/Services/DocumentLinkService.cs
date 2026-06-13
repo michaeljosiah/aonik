@@ -62,22 +62,40 @@ internal sealed class DocumentLinkService : IDocumentLinkReader, IDocumentLinkSe
             select doc;
 
         var docs = await docsQuery.Distinct().ToListAsync(cancellationToken);
-        if (docs.Count == 0)
+        return await BuildRefsAsync(docs, tenantId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DocumentRef>> GetForOwnerTargetAsync(
+        Guid ownerUserId,
+        string targetType,
+        Guid targetId,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        if (ownerUserId == Guid.Empty)
         {
             return Array.Empty<DocumentRef>();
         }
 
-        var docIds = docs.Select(d => d.Id).ToList();
-        var files = await _dbContext.DocumentFiles.AsNoTracking()
-            .Where(f => f.TenantId == tenantId && docIds.Contains(f.DocumentId))
-            .OrderBy(f => f.PageIndex)
+        // Scope to the OWNER's party (not the caller). The caller is a Circle member whose access
+        // was already authorised by the grant before we got here (Spec 048); this returns only the
+        // owner's documents for the target, refs only.
+        var ownerPartyId = await _userPartyResolver.GetPartyIdForUserAsync(tenantId, ownerUserId, cancellationToken);
+        if (ownerPartyId is null)
+        {
+            return Array.Empty<DocumentRef>();
+        }
+
+        var docs = await (
+            from link in _dbContext.DocumentLinks.AsNoTracking()
+            join doc in _dbContext.Documents.AsNoTracking() on link.DocumentId equals doc.Id
+            where link.TenantId == tenantId && link.TargetType == targetType && link.TargetId == targetId
+                && doc.TenantId == tenantId && doc.OwnerPartyId == ownerPartyId
+            select doc)
+            .Distinct()
             .ToListAsync(cancellationToken);
 
-        return docs.Select(d =>
-        {
-            var fileName = files.FirstOrDefault(f => f.DocumentId == d.Id)?.FileName;
-            return new DocumentRef(d.Id, d.Title, d.DocumentType, fileName, ThumbnailUrl: null);
-        }).ToList();
+        return await BuildRefsAsync(docs, tenantId, cancellationToken);
     }
 
     public async Task<IReadOnlyDictionary<Guid, int>> CountForEntitiesAsync(
@@ -225,6 +243,28 @@ internal sealed class DocumentLinkService : IDocumentLinkReader, IDocumentLinkSe
 
         var partyId = await _userPartyResolver.GetPartyIdForUserAsync(tenantId, userId.Value, cancellationToken);
         return new CallerScope(TenantWide: false, OwnerPartyId: partyId);
+    }
+
+    /// <summary>Materialises document refs (with the first page's file name) for a set of documents.</summary>
+    private async Task<IReadOnlyList<DocumentRef>> BuildRefsAsync(
+        List<Document> docs, Guid tenantId, CancellationToken cancellationToken)
+    {
+        if (docs.Count == 0)
+        {
+            return Array.Empty<DocumentRef>();
+        }
+
+        var docIds = docs.Select(d => d.Id).ToList();
+        var files = await _dbContext.DocumentFiles.AsNoTracking()
+            .Where(f => f.TenantId == tenantId && docIds.Contains(f.DocumentId))
+            .OrderBy(f => f.PageIndex)
+            .ToListAsync(cancellationToken);
+
+        return docs.Select(d =>
+        {
+            var fileName = files.FirstOrDefault(f => f.DocumentId == d.Id)?.FileName;
+            return new DocumentRef(d.Id, d.Title, d.DocumentType, fileName, ThumbnailUrl: null);
+        }).ToList();
     }
 
     private static DocumentLinkDto Map(DocumentLink l)

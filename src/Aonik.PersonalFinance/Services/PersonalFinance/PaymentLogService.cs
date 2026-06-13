@@ -44,12 +44,36 @@ internal sealed class PaymentLogService : IPaymentLogService
 
         if (request.CommitmentId is Guid commitmentId)
         {
-            var commitmentOwned = await _dbContext.Set<PersonalRecurringBill>()
-                .AnyAsync(b => b.Id == commitmentId && b.TenantId == tenantId && b.UserId == userId, cancellationToken);
-            if (!commitmentOwned)
+            var bill = await _dbContext.Set<PersonalRecurringBill>()
+                .FirstOrDefaultAsync(b => b.Id == commitmentId && b.TenantId == tenantId && b.UserId == userId, cancellationToken);
+            if (bill is null)
             {
                 throw new ArgumentException("Commitment not found.", nameof(request));
             }
+
+            // The commitment and the log must agree on the care entity, else entity totals
+            // and commitment history would disagree (e.g. a log against Mum pointing at Dad's
+            // commitment). A commitment with no CareEntityId (a plain bill) is not constrained.
+            if (bill.CareEntityId is Guid billEntityId && billEntityId != request.CareEntityId)
+            {
+                throw new ArgumentException("Commitment does not belong to the specified care entity.", nameof(request));
+            }
+
+            // A supplied cycle must belong to the supplied commitment.
+            if (request.CommitmentCycleId is Guid cycleId)
+            {
+                var cycleBelongs = await _dbContext.Set<CommitmentCycle>()
+                    .AnyAsync(c => c.Id == cycleId && c.CommitmentId == commitmentId && c.TenantId == tenantId, cancellationToken);
+                if (!cycleBelongs)
+                {
+                    throw new ArgumentException("Commitment cycle does not belong to the specified commitment.", nameof(request));
+                }
+            }
+        }
+        else if (request.CommitmentCycleId is not null)
+        {
+            // A cycle is meaningless without the commitment that owns it.
+            throw new ArgumentException("CommitmentCycleId requires CommitmentId.", nameof(request));
         }
 
         // Idempotent replay — return the existing log for a repeated key.

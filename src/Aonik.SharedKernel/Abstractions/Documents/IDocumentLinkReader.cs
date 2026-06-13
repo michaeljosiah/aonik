@@ -15,6 +15,19 @@ public interface IDocumentLinkReader
         Guid targetId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Document refs linked to a target, scoped to a SPECIFIC owner (by user id) rather than
+    /// the current caller — for the Circle shared view (Spec 048), where a member views the
+    /// owner's entity. The caller MUST have already authorised access (an active Circle grant);
+    /// this method does not itself check the grant. Returns only the owner's documents, refs
+    /// only (no bytes, no amounts).
+    /// </summary>
+    Task<IReadOnlyList<DocumentRef>> GetForOwnerTargetAsync(
+        Guid ownerUserId,
+        string targetType,
+        Guid targetId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Linked-document counts per CareEntity, for grid badges. Entities with no links are omitted.</summary>
     Task<IReadOnlyDictionary<Guid, int>> CountForEntitiesAsync(
         IReadOnlyList<Guid> careEntityIds,

@@ -60,6 +60,40 @@ public class PaymentLogServiceTests
         => new(careEntityId, null, null, amount, currency, null,
             date ?? new DateTime(2026, 5, 28), "bank", "manual", null, idempotencyKey);
 
+    private static CreatePaymentLogRequest LogRequestFor(Guid careEntityId, Guid? commitmentId, Guid? cycleId)
+        => new(careEntityId, commitmentId, cycleId, 200m, "GBP", null,
+            new DateTime(2026, 6, 28), "bank", "markDone", null, null);
+
+    private static async Task<(Guid CommitmentId, Guid CycleId)> SeedCommitmentWithCycleAsync(
+        PersonalFinanceDbContext context, Guid tenantId, Guid userId, Guid careEntityId)
+    {
+        var commitmentId = Guid.NewGuid();
+        context.Set<PersonalRecurringBill>().Add(new PersonalRecurringBill
+        {
+            Id = commitmentId,
+            TenantId = tenantId,
+            UserId = userId,
+            CareEntityId = careEntityId,
+            CommitmentKind = "Support",
+            Payee = "Mum",
+            Currency = "GBP",
+        });
+
+        var cycleId = Guid.NewGuid();
+        context.Set<CommitmentCycle>().Add(new CommitmentCycle
+        {
+            Id = cycleId,
+            TenantId = tenantId,
+            UserId = userId,
+            CommitmentId = commitmentId,
+            DueDate = new DateTime(2026, 6, 28),
+            Status = "Open",
+        });
+
+        await context.SaveChangesAsync();
+        return (commitmentId, cycleId);
+    }
+
     [Fact]
     public async Task CreateAsync_Should_PersistAndAttributeToEntity()
     {
@@ -89,6 +123,70 @@ public class PaymentLogServiceTests
         var act = async () => await service.CreateAsync(LogRequest(Guid.NewGuid()));
 
         await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Throw_When_CommitmentBelongsToDifferentCareEntity()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var mum = await SeedCareEntityAsync(context, tenantId, userId, "Mum");
+        var dad = await SeedCareEntityAsync(context, tenantId, userId, "Dad");
+        var (dadsCommitment, _) = await SeedCommitmentWithCycleAsync(context, tenantId, userId, dad);
+        var service = CreateService(context, tenantId, userId);
+
+        // A log against Mum that points at Dad's commitment must be rejected.
+        var act = async () => await service.CreateAsync(LogRequestFor(mum, dadsCommitment, null));
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*does not belong to the specified care entity*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Throw_When_CycleDoesNotBelongToCommitment()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var entity = await SeedCareEntityAsync(context, tenantId, userId);
+        var (commitmentId, _) = await SeedCommitmentWithCycleAsync(context, tenantId, userId, entity);
+        var service = CreateService(context, tenantId, userId);
+
+        var act = async () => await service.CreateAsync(LogRequestFor(entity, commitmentId, Guid.NewGuid()));
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*cycle does not belong to the specified commitment*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Throw_When_CycleSuppliedWithoutCommitment()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var entity = await SeedCareEntityAsync(context, tenantId, userId);
+        var service = CreateService(context, tenantId, userId);
+
+        var act = async () => await service.CreateAsync(LogRequestFor(entity, null, Guid.NewGuid()));
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*CommitmentCycleId requires CommitmentId*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Succeed_When_Commitment_Entity_AndCycle_Agree()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var entity = await SeedCareEntityAsync(context, tenantId, userId);
+        var (commitmentId, cycleId) = await SeedCommitmentWithCycleAsync(context, tenantId, userId, entity);
+        var service = CreateService(context, tenantId, userId);
+
+        var result = await service.CreateAsync(LogRequestFor(entity, commitmentId, cycleId));
+
+        result.CareEntityId.Should().Be(entity);
     }
 
     [Fact]

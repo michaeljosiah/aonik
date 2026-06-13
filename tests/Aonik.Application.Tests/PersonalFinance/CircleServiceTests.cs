@@ -35,8 +35,12 @@ public class CircleServiceTests
 
     private sealed class FakeDocumentLinkReader : IDocumentLinkReader
     {
+        public List<DocumentRef> OwnerDocs { get; } = [];
+
         public Task<IReadOnlyList<DocumentRef>> GetForTargetAsync(string targetType, Guid targetId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<DocumentRef>>([]);
+        public Task<IReadOnlyList<DocumentRef>> GetForOwnerTargetAsync(Guid ownerUserId, string targetType, Guid targetId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<DocumentRef>>(OwnerDocs);
         public Task<IReadOnlyDictionary<Guid, int>> CountForEntitiesAsync(IReadOnlyList<Guid> careEntityIds, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyDictionary<Guid, int>>(new Dictionary<Guid, int>());
     }
@@ -47,8 +51,8 @@ public class CircleServiceTests
         => new(new DbContextOptionsBuilder<PersonalFinanceDbContext>()
             .UseInMemoryDatabase($"Circle_{Guid.NewGuid()}").Options, new TestTenantProvider(_tenantId));
 
-    private CircleService Circle(PersonalFinanceDbContext ctx, Guid userId)
-        => new(ctx, new TestTenantProvider(_tenantId), new TestCurrentUserProvider(userId));
+    private CircleService Circle(PersonalFinanceDbContext ctx, Guid userId, IDocumentLinkReader? documentLinkReader = null)
+        => new(ctx, new TestTenantProvider(_tenantId), new TestCurrentUserProvider(userId), documentLinkReader ?? new FakeDocumentLinkReader());
 
     private SupportStatementService Statement(PersonalFinanceDbContext ctx, Guid userId)
         => new(ctx, new TestTenantProvider(_tenantId), new TestCurrentUserProvider(userId), new FakeDocumentLinkReader());
@@ -106,6 +110,32 @@ public class CircleServiceTests
         result.Full.Should().NotBeNull();
         result.DocsOnly.Should().BeNull();
         result.Full!.YearTotals.Should().Contain(t => t.Currency == "GBP" && t.Total == 200m);
+    }
+
+    [Fact]
+    public async Task DocsOnlyGrant_ReturnsOwnerLinkedDocs_AndNoAmounts()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        // The owner has amounts on this entity — they must NOT leak through a docsOnly share.
+        await SeedLogAsync(ctx, owner, entityId, 500m, "GBP", new DateTime(2026, 5, 1));
+
+        await Circle(ctx, owner).CreateGrantAsync(
+            new CreateCircleGrantRequest(member, "docsOnly", new[] { entityId }, true));
+
+        // The owner's linked docs surface through the owner-scoped reader (Spec 046 cross-module read).
+        var reader = new FakeDocumentLinkReader();
+        reader.OwnerDocs.Add(new DocumentRef(Guid.NewGuid(), "Tenancy agreement", "tenancy", "lease.pdf", null));
+
+        var result = await Circle(ctx, member, reader).GetSharedEntityAsync(owner, entityId);
+
+        result.Should().NotBeNull();
+        result!.Scope.Should().Be("docsOnly");
+        result.Full.Should().BeNull();
+        result.DocsOnly.Should().NotBeNull();
+        result.DocsOnly!.Documents.Should().ContainSingle(d => d.Title == "Tenancy agreement");
     }
 
     [Fact]
