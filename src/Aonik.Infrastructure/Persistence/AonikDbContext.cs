@@ -145,6 +145,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<CareEntity> CareEntities { get; set; } = null!;
     public virtual DbSet<PaymentLog> PaymentLogs { get; set; } = null!;
     public virtual DbSet<CommitmentCycle> CommitmentCycles { get; set; } = null!;
+    public virtual DbSet<CircleGrant> CircleGrants { get; set; } = null!;
+    public virtual DbSet<CircleInvite> CircleInvites { get; set; } = null!;
     public virtual DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
     public virtual DbSet<StatementImport> StatementImports { get; set; } = null!;
     public virtual DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
@@ -430,6 +432,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<CareEntity>(modelBuilder, "CareEntities");
         MapFinanceTable<PaymentLog>(modelBuilder, "PaymentLogs");
         MapFinanceTable<CommitmentCycle>(modelBuilder, "CommitmentCycles");
+        MapFinanceTable<CircleGrant>(modelBuilder, "CircleGrants");
+        MapFinanceTable<CircleInvite>(modelBuilder, "CircleInvites");
         MapFinanceTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
         MapFinanceTable<StatementImport>(modelBuilder, "StatementImports");
         MapFinanceTable<StatementImportRow>(modelBuilder, "StatementImportRows");

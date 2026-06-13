@@ -533,10 +533,49 @@ public sealed class SnoozeCommitmentRequestValidator : Validator<SnoozeCommitmen
             .WithMessage("Snooze date must not be in the past.");
 }
 
+// ── Circle (Spec 048) ───────────────────────────────────────────────
+
+public sealed class CreateCircleGrantRequestValidator : Validator<CreateCircleGrantRequest>
+{
+    public CreateCircleGrantRequestValidator()
+    {
+        RuleFor(x => x.MemberUserId).RequiredId();
+        RuleFor(x => x.Scope)
+            .NotEmpty()
+            .Must(s => PersonalFinanceValidatorConstants.CircleScopes.Any(v => string.Equals(v, s, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"Scope must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.CircleScopes)}.");
+        RuleFor(x => x.EntityIds)
+            .Must(ids => ids != null && ids.Count > 0)
+            .When(x => !string.Equals(x.Scope, "all", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("EntityIds is required for entities/docsOnly scope.");
+    }
+}
+
+public sealed class CreateCircleInviteRequestValidator : Validator<CreateCircleInviteRequest>
+{
+    private static readonly string[] Channels = ["email", "phone", "link"];
+
+    public CreateCircleInviteRequestValidator()
+    {
+        RuleFor(x => x.Scope)
+            .NotEmpty()
+            .Must(s => PersonalFinanceValidatorConstants.CircleScopes.Any(v => string.Equals(v, s, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"Scope must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.CircleScopes)}.");
+        RuleFor(x => x.EntityIds)
+            .Must(ids => ids != null && ids.Count > 0)
+            .When(x => !string.Equals(x.Scope, "all", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("EntityIds is required for entities/docsOnly scope.");
+        RuleFor(x => x.Channel)
+            .Must(c => c == null || Channels.Contains(c))
+            .WithMessage($"Channel must be one of: {string.Join(", ", Channels)}.");
+    }
+}
+
 internal static class PersonalFinanceValidatorConstants
 {
     internal static readonly string[] MatchTypes = ["exact", "contains", "startsWith", "endsWith", "regex"];
     internal static readonly string[] RuleScopes = ["account", "user", "household"];
     internal static readonly string[] ApprovalStatuses = ["Pending", "Approved", "Rejected"];
     internal static readonly string[] RhythmUnits = ["Weekly", "Monthly", "Quarterly", "Termly", "Yearly", "OneOff"];
+    internal static readonly string[] CircleScopes = ["all", "entities", "docsOnly"];
 }

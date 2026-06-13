@@ -42,6 +42,8 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
     public DbSet<CareEntity> CareEntities { get; set; } = null!;
     public DbSet<PaymentLog> PaymentLogs { get; set; } = null!;
     public DbSet<CommitmentCycle> CommitmentCycles { get; set; } = null!;
+    public DbSet<CircleGrant> CircleGrants { get; set; } = null!;
+    public DbSet<CircleInvite> CircleInvites { get; set; } = null!;
     public DbSet<FinancialConnection> FinancialConnections { get; set; } = null!;
     public DbSet<FinancialConnectionSession> FinancialConnectionSessions { get; set; } = null!;
     public DbSet<FinancialWebhookEvent> FinancialWebhookEvents { get; set; } = null!;
@@ -119,6 +121,8 @@ internal sealed class PersonalFinanceDbContext : AonikDbContextBase
         MapTable<CareEntity>(modelBuilder, "CareEntities");
         MapTable<PaymentLog>(modelBuilder, "PaymentLogs");
         MapTable<CommitmentCycle>(modelBuilder, "CommitmentCycles");
+        MapTable<CircleGrant>(modelBuilder, "CircleGrants");
+        MapTable<CircleInvite>(modelBuilder, "CircleInvites");
         MapTable<FinancialConnection>(modelBuilder, "FinancialConnections");
         MapTable<FinancialConnectionSession>(modelBuilder, "FinancialConnectionSessions");
         MapTable<FinancialWebhookEvent>(modelBuilder, "FinancialWebhookEvents");
