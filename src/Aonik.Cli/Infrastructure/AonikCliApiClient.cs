@@ -620,6 +620,102 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
             cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CareEntityResponse>> ListCareEntitiesAsync(
+        CliSession session,
+        string? kind,
+        string? assetType,
+        bool includeArchived,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(kind)) query.Add($"kind={Uri.EscapeDataString(kind)}");
+        if (!string.IsNullOrWhiteSpace(assetType)) query.Add($"assetType={Uri.EscapeDataString(assetType)}");
+        if (includeArchived) query.Add("includeArchived=true");
+
+        var path = query.Count == 0
+            ? "/personal-finance/care-entities"
+            : $"/personal-finance/care-entities?{string.Join('&', query)}";
+
+        return await SendAsync<List<CareEntityResponse>>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            path,
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<CareEntityResponse> GetCareEntityAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<CareEntityResponse>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/personal-finance/care-entities/{id:D}",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
+    public Task<CareEntityResponse> CreateCareEntityAsync(
+        CliSession session,
+        CreateCareEntityRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<CareEntityResponse>(
+            session.BaseUrl,
+            HttpMethod.Post,
+            "/personal-finance/care-entities",
+            session,
+            request,
+            cancellationToken);
+    }
+
+    public Task<CareEntityResponse> UpdateCareEntityAsync(
+        CliSession session,
+        Guid id,
+        UpdateCareEntityRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<CareEntityResponse>(
+            session.BaseUrl,
+            HttpMethod.Put,
+            $"/personal-finance/care-entities/{id:D}",
+            session,
+            request,
+            cancellationToken);
+    }
+
+    public Task ArchiveCareEntityAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return SendNoContentAsync(
+            session.BaseUrl,
+            HttpMethod.Post,
+            $"/personal-finance/care-entities/{id:D}/archive",
+            session,
+            body: new { },
+            cancellationToken);
+    }
+
+    public Task<CareEntityProfileResponse> GetCareEntityProfileAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync<CareEntityProfileResponse>(
+            session.BaseUrl,
+            HttpMethod.Get,
+            $"/personal-finance/care-entities/{id:D}/profile",
+            session,
+            body: null,
+            cancellationToken);
+    }
+
     private async Task<TResponse> SendAsync<TResponse>(
         string baseUrl,
         HttpMethod method,

@@ -61,6 +61,8 @@ public sealed class PersonalFinanceModule : IModule
         // Spec 027 Phase 3: services migrate here progressively. The duplicate
         // registration is removed from FinanceModule when each service moves.
         services.AddScoped<IBillService, BillService>();
+        services.AddScoped<ICareEntityService, CareEntityService>();
+        services.AddScoped<ICareEntityProfileService, CareEntityProfileService>();
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<ICommitmentService, CommitmentService>();
         services.AddScoped<ITransactionAttachmentService, TransactionAttachmentService>();

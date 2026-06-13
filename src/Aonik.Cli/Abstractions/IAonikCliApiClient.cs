@@ -182,4 +182,39 @@ public interface IAonikCliApiClient
         Guid proposalId,
         RejectFinancialLifeGraphProposalRequest request,
         CancellationToken cancellationToken = default);
+
+    // ── CareEntity (Spec 043) ───────────────────────────────────────────
+
+    Task<IReadOnlyList<CareEntityResponse>> ListCareEntitiesAsync(
+        CliSession session,
+        string? kind,
+        string? assetType,
+        bool includeArchived,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityResponse> GetCareEntityAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityResponse> CreateCareEntityAsync(
+        CliSession session,
+        CreateCareEntityRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityResponse> UpdateCareEntityAsync(
+        CliSession session,
+        Guid id,
+        UpdateCareEntityRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task ArchiveCareEntityAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityProfileResponse> GetCareEntityProfileAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
 }

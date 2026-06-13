@@ -373,6 +373,34 @@ public sealed class CreateBillRequestValidator : Validator<CreateBillRequest>
 
 // ── Budgets ─────────────────────────────────────────────────────────
 
+// ── CareEntities (Spec 043) ─────────────────────────────────────────
+
+public sealed class CreateCareEntityRequestValidator : Validator<CreateCareEntityRequest>
+{
+    public CreateCareEntityRequestValidator()
+    {
+        RuleFor(x => x.Kind)
+            .NotEmpty()
+            .Must(k => k is "person" or "asset")
+            .WithMessage("Kind must be 'person' or 'asset'.");
+        RuleFor(x => x.Name).RequiredText(120);
+        RuleFor(x => x.CountryCode).CountryCode();
+        RuleFor(x => x.AssetType)
+            .NotEmpty().When(x => x.Kind == "asset")
+            .WithMessage("An asset must have an assetType.");
+        RuleFor(x => x.AssetType)
+            .Empty().When(x => x.Kind == "person")
+            .WithMessage("A person cannot have an assetType.");
+        RuleFor(x => x.AssetType).MaximumLength(32);
+        RuleFor(x => x.Relationship).MaximumLength(80);
+        RuleFor(x => x.Emoji).MaximumLength(16);
+        RuleFor(x => x.PhotoDocumentId).ValidIdWhenSupplied();
+        RuleFor(x => x.Attributes)
+            .Must(a => a == null || a.Count <= 50)
+            .WithMessage("Attributes may include at most 50 entries.");
+    }
+}
+
 public sealed class CreateBudgetRequestValidator : Validator<CreateBudgetRequest>
 {
     public CreateBudgetRequestValidator() => RuleFor(x => x.CategoryId).MaximumLength(128);

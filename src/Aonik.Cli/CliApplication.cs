@@ -13,13 +13,15 @@ public sealed class CliApplication
         AuthCommandHandler authCommandHandler,
         AgentCommandHandler agentCommandHandler,
         OpsCommandHandler opsCommandHandler,
-        ApprovalCommandHandler approvalCommandHandler)
+        ApprovalCommandHandler approvalCommandHandler,
+        CareEntityCommandHandler careEntityCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
             agentCommandHandler,
             opsCommandHandler,
-            approvalCommandHandler);
+            approvalCommandHandler,
+            careEntityCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -43,25 +45,29 @@ public sealed class CliApplication
         var agentCommandHandler = new AgentCommandHandler(apiClient, sessionStore, outputWriter);
         var opsCommandHandler = new OpsCommandHandler(apiClient, sessionStore, outputWriter);
         var approvalCommandHandler = new ApprovalCommandHandler(apiClient, sessionStore, outputWriter);
+        var careEntityCommandHandler = new CareEntityCommandHandler(apiClient, sessionStore, outputWriter);
 
         return new CliApplication(
             authCommandHandler,
             agentCommandHandler,
             opsCommandHandler,
-            approvalCommandHandler);
+            approvalCommandHandler,
+            careEntityCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
         AuthCommandHandler authCommandHandler,
         AgentCommandHandler agentCommandHandler,
         OpsCommandHandler opsCommandHandler,
-        ApprovalCommandHandler approvalCommandHandler)
+        ApprovalCommandHandler approvalCommandHandler,
+        CareEntityCommandHandler careEntityCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
         rootCommand.Add(BuildAgentCommand(agentCommandHandler));
         rootCommand.Add(BuildOpsCommand(opsCommandHandler));
         rootCommand.Add(BuildApprovalCommand(approvalCommandHandler));
+        rootCommand.Add(BuildCareEntitiesCommand(careEntityCommandHandler));
         return rootCommand;
     }
 
@@ -636,6 +642,142 @@ public sealed class CliApplication
         ordersCommand.Add(ordersSubmitCommand);
         ordersCommand.Add(ordersCancelCommand);
         return ordersCommand;
+    }
+
+    private static Command BuildCareEntitiesCommand(CareEntityCommandHandler handler)
+    {
+        var command = new Command("care-entities", "Manage Simi care entities (people & assets you look after).");
+
+        // list
+        var listCommand = new Command("list", "List your care entities.");
+        var kindFilterOption = new Option<string?>("--kind") { Description = "Filter by kind: person or asset." };
+        var assetTypeFilterOption = new Option<string?>("--asset-type") { Description = "Filter by asset type." };
+        var includeArchivedOption = new Option<bool>("--include-archived") { Description = "Include archived entities." };
+        var listOutputOption = CreateOutputOption(includeNdjson: false);
+        listCommand.Add(kindFilterOption);
+        listCommand.Add(assetTypeFilterOption);
+        listCommand.Add(includeArchivedOption);
+        listCommand.Add(listOutputOption);
+        listCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ListAsync(
+                new ListCareEntitiesOptions(
+                    parseResult.GetValue(kindFilterOption),
+                    parseResult.GetValue(assetTypeFilterOption),
+                    parseResult.GetValue(includeArchivedOption),
+                    OutputModeParser.Parse(parseResult.GetValue(listOutputOption))),
+                cancellationToken));
+
+        // get
+        var getCommand = new Command("get", "Get a care entity by id.");
+        var getIdArgument = new Argument<Guid>("id");
+        var getOutputOption = CreateOutputOption(includeNdjson: false);
+        getCommand.Add(getIdArgument);
+        getCommand.Add(getOutputOption);
+        getCommand.SetAction((parseResult, cancellationToken) =>
+            handler.GetAsync(
+                parseResult.GetRequiredValue(getIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(getOutputOption)),
+                cancellationToken));
+
+        // create
+        var createCommand = new Command("create", "Create a person or asset.");
+        var createKindOption = new Option<string>("--kind") { Description = "person or asset.", Required = true };
+        var createNameOption = new Option<string>("--name") { Description = "Display name.", Required = true };
+        var createCountryOption = new Option<string>("--country") { Description = "ISO-3166-1 alpha-2 country code.", Required = true };
+        var createAssetTypeOption = new Option<string?>("--asset-type") { Description = "Asset type (required when --kind asset)." };
+        var createRelationshipOption = new Option<string?>("--relationship") { Description = "Free-text relationship label." };
+        var createEmojiOption = new Option<string?>("--emoji") { Description = "Avatar emoji." };
+        var createPhotoOption = new Option<Guid?>("--photo-document-id") { Description = "Optional avatar document id." };
+        var createAttributesFileOption = new Option<string?>("--attributes-file") { Description = "Path to a JSON object of type-specific attributes." };
+        var createOutputOption = CreateOutputOption(includeNdjson: false);
+        createCommand.Add(createKindOption);
+        createCommand.Add(createNameOption);
+        createCommand.Add(createCountryOption);
+        createCommand.Add(createAssetTypeOption);
+        createCommand.Add(createRelationshipOption);
+        createCommand.Add(createEmojiOption);
+        createCommand.Add(createPhotoOption);
+        createCommand.Add(createAttributesFileOption);
+        createCommand.Add(createOutputOption);
+        createCommand.SetAction((parseResult, cancellationToken) =>
+            handler.CreateAsync(
+                new CreateCareEntityOptions(
+                    parseResult.GetRequiredValue(createKindOption),
+                    parseResult.GetValue(createAssetTypeOption),
+                    parseResult.GetRequiredValue(createNameOption),
+                    parseResult.GetRequiredValue(createCountryOption),
+                    parseResult.GetValue(createRelationshipOption),
+                    parseResult.GetValue(createEmojiOption),
+                    parseResult.GetValue(createPhotoOption),
+                    parseResult.GetValue(createAttributesFileOption),
+                    OutputModeParser.Parse(parseResult.GetValue(createOutputOption))),
+                cancellationToken));
+
+        // update
+        var updateCommand = new Command("update", "Update a care entity.");
+        var updateIdArgument = new Argument<Guid>("id");
+        var updateNameOption = new Option<string>("--name") { Description = "Display name.", Required = true };
+        var updateCountryOption = new Option<string>("--country") { Description = "ISO-3166-1 alpha-2 country code.", Required = true };
+        var updateAssetTypeOption = new Option<string?>("--asset-type") { Description = "Asset type (assets only)." };
+        var updateRelationshipOption = new Option<string?>("--relationship") { Description = "Relationship label." };
+        var updateEmojiOption = new Option<string?>("--emoji") { Description = "Avatar emoji." };
+        var updatePhotoOption = new Option<Guid?>("--photo-document-id") { Description = "Avatar document id." };
+        var updateAttributesFileOption = new Option<string?>("--attributes-file") { Description = "Path to a JSON object of attributes." };
+        var updateOutputOption = CreateOutputOption(includeNdjson: false);
+        updateCommand.Add(updateIdArgument);
+        updateCommand.Add(updateNameOption);
+        updateCommand.Add(updateCountryOption);
+        updateCommand.Add(updateAssetTypeOption);
+        updateCommand.Add(updateRelationshipOption);
+        updateCommand.Add(updateEmojiOption);
+        updateCommand.Add(updatePhotoOption);
+        updateCommand.Add(updateAttributesFileOption);
+        updateCommand.Add(updateOutputOption);
+        updateCommand.SetAction((parseResult, cancellationToken) =>
+            handler.UpdateAsync(
+                new UpdateCareEntityOptions(
+                    parseResult.GetRequiredValue(updateIdArgument),
+                    parseResult.GetRequiredValue(updateNameOption),
+                    parseResult.GetValue(updateAssetTypeOption),
+                    parseResult.GetRequiredValue(updateCountryOption),
+                    parseResult.GetValue(updateRelationshipOption),
+                    parseResult.GetValue(updateEmojiOption),
+                    parseResult.GetValue(updatePhotoOption),
+                    parseResult.GetValue(updateAttributesFileOption),
+                    OutputModeParser.Parse(parseResult.GetValue(updateOutputOption))),
+                cancellationToken));
+
+        // archive
+        var archiveCommand = new Command("archive", "Archive a care entity (soft; history preserved).");
+        var archiveIdArgument = new Argument<Guid>("id");
+        var archiveOutputOption = CreateOutputOption(includeNdjson: false);
+        archiveCommand.Add(archiveIdArgument);
+        archiveCommand.Add(archiveOutputOption);
+        archiveCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ArchiveAsync(
+                parseResult.GetRequiredValue(archiveIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(archiveOutputOption)),
+                cancellationToken));
+
+        // profile
+        var profileCommand = new Command("profile", "Get a care entity's one-call profile projection.");
+        var profileIdArgument = new Argument<Guid>("id");
+        var profileOutputOption = CreateOutputOption(includeNdjson: false);
+        profileCommand.Add(profileIdArgument);
+        profileCommand.Add(profileOutputOption);
+        profileCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ProfileAsync(
+                parseResult.GetRequiredValue(profileIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(profileOutputOption)),
+                cancellationToken));
+
+        command.Add(listCommand);
+        command.Add(getCommand);
+        command.Add(createCommand);
+        command.Add(updateCommand);
+        command.Add(archiveCommand);
+        command.Add(profileCommand);
+        return command;
     }
 
     private static Command BuildApprovalCommand(ApprovalCommandHandler approvalCommandHandler)
