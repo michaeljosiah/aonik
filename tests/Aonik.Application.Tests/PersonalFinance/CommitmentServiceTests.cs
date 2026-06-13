@@ -4,8 +4,10 @@ using Aonik.PersonalFinance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -597,13 +599,30 @@ public class CommitmentServiceTests
         return new PersonalFinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
+    private sealed class FakeTaskService : ITaskService
+    {
+        public Task<TaskResponse> ScheduleAsync(ScheduleTaskRequest request, CancellationToken ct = default) => Task.FromResult<TaskResponse>(null!);
+        public Task<TaskResponse?> GetAsync(Guid taskId, CancellationToken ct = default) => Task.FromResult<TaskResponse?>(null);
+        public Task<IReadOnlyList<TaskResponse>> ListForSubjectAsync(string subjectType, Guid subjectId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TaskResponse>>([]);
+        public Task<IReadOnlyList<TaskResponse>> ListForAssigneeAsync(string assigneeType, Guid? assigneeId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<TaskResponse>>([]);
+        public Task PauseAsync(Guid taskId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task ResumeAsync(Guid taskId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task CancelAsync(Guid taskId, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
     private static CommitmentService CreateService(
         PersonalFinanceDbContext context, Guid tenantId, Guid userId)
     {
+        var tenantProvider = new TestTenantProvider(tenantId);
+        var userProvider = new TestCurrentUserProvider(userId);
+        var paymentLogService = new PaymentLogService(context, tenantProvider, userProvider);
         return new CommitmentService(
             context,
-            new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            tenantProvider,
+            userProvider,
+            paymentLogService,
+            new FakeTaskService(),
+            NullLogger<CommitmentService>.Instance);
     }
 
     private static PersonalRecurringBill SeedBill(

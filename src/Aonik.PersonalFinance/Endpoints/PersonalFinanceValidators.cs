@@ -463,9 +463,80 @@ public sealed class CreateCommitmentFromTransactionRequestValidator : Validator<
 
 // ── Shared constants ────────────────────────────────────────────────
 
+// ── Support commitments (Spec 044) ──────────────────────────────────
+
+public sealed class CreateSupportCommitmentRequestValidator : Validator<CreateSupportCommitmentRequest>
+{
+    public CreateSupportCommitmentRequestValidator()
+    {
+        RuleFor(x => x.CareEntityId).RequiredId();
+        RuleFor(x => x.DisplayName).RequiredText(256);
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ExpectedAmount).PositiveMoney();
+        RuleFor(x => x.RhythmUnit)
+            .NotEmpty()
+            .Must(u => PersonalFinanceValidatorConstants.RhythmUnits.Any(r => string.Equals(r, u, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"RhythmUnit must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.RhythmUnits)}.");
+        RuleFor(x => x.RhythmInterval).InclusiveBetween(1, 365);
+        RuleFor(x => x.AnchorDay).InclusiveBetween(1, 31).When(x => x.AnchorDay.HasValue);
+        RuleFor(x => x.ReminderDaysBefore).InclusiveBetween(0, 365).When(x => x.ReminderDaysBefore.HasValue);
+        RuleFor(x => x.PaidFromAccountId).ValidIdWhenSupplied();
+        RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+public sealed class UpdateSupportCommitmentRequestValidator : Validator<UpdateSupportCommitmentRequest>
+{
+    public UpdateSupportCommitmentRequestValidator()
+    {
+        RuleFor(x => x.DisplayName).RequiredText(256);
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ExpectedAmount).PositiveMoney();
+        RuleFor(x => x.RhythmUnit)
+            .NotEmpty()
+            .Must(u => PersonalFinanceValidatorConstants.RhythmUnits.Any(r => string.Equals(r, u, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"RhythmUnit must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.RhythmUnits)}.");
+        RuleFor(x => x.RhythmInterval).InclusiveBetween(1, 365);
+        RuleFor(x => x.AnchorDay).InclusiveBetween(1, 31).When(x => x.AnchorDay.HasValue);
+        RuleFor(x => x.ReminderDaysBefore).InclusiveBetween(0, 365).When(x => x.ReminderDaysBefore.HasValue);
+        RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+public sealed class MarkCommitmentDoneRequestValidator : Validator<MarkCommitmentDoneRequest>
+{
+    private static readonly string[] Channels = ["bank", "wise", "cash", "other"];
+
+    public MarkCommitmentDoneRequestValidator()
+    {
+        RuleFor(x => x.Amount).PositiveMoney();
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ApproxGbp).NonNegativeMoney();
+        RuleFor(x => x.Channel)
+            .NotEmpty()
+            .Must(c => Channels.Contains(c))
+            .WithMessage($"Channel must be one of: {string.Join(", ", Channels)}.");
+        RuleFor(x => x.Note).MaximumLength(2000);
+    }
+}
+
+public sealed class SkipCommitmentRequestValidator : Validator<SkipCommitmentRequest>
+{
+    public SkipCommitmentRequestValidator() => RuleFor(x => x.Reason).MaximumLength(500);
+}
+
+public sealed class SnoozeCommitmentRequestValidator : Validator<SnoozeCommitmentRequest>
+{
+    public SnoozeCommitmentRequestValidator()
+        => RuleFor(x => x.Until)
+            .GreaterThan(DateTime.UtcNow.AddDays(-1))
+            .WithMessage("Snooze date must not be in the past.");
+}
+
 internal static class PersonalFinanceValidatorConstants
 {
     internal static readonly string[] MatchTypes = ["exact", "contains", "startsWith", "endsWith", "regex"];
     internal static readonly string[] RuleScopes = ["account", "user", "household"];
     internal static readonly string[] ApprovalStatuses = ["Pending", "Approved", "Rejected"];
+    internal static readonly string[] RhythmUnits = ["Weekly", "Monthly", "Quarterly", "Termly", "Yearly", "OneOff"];
 }
