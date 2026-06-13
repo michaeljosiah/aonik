@@ -24,11 +24,20 @@ public class TenantValidationMiddleware
     {
         try
         {
-            // Skip health, swagger, and scalar (public endpoints)
+            // Skip health, swagger, scalar, and the anonymous public-settings discovery
+            // endpoints (GET /v1/settings/auth-provider and /v1/settings/public). The auth
+            // provider is configured per-deployment (ADR-007), not per-tenant, so these
+            // settings are global and safe to serve without tenant context. Without this
+            // skip those AllowAnonymous endpoints are unreachable — they 401 "Tenant
+            // context missing" for any caller (e.g. the CLI) with no resolvable tenant.
+            // Only the two anonymous paths are skipped; the authenticated, tenant-scoped
+            // /v1/settings/user and /v1/settings/resolved endpoints still get validated.
             if (context.Request.Path.StartsWithSegments("/health") ||
                 context.Request.Path.StartsWithSegments("/alive") ||
                 context.Request.Path.StartsWithSegments("/swagger") ||
                 context.Request.Path.StartsWithSegments("/scalar") ||
+                context.Request.Path.StartsWithSegments("/v1/settings/auth-provider") ||
+                context.Request.Path.StartsWithSegments("/v1/settings/public") ||
                 HttpMethods.IsOptions(context.Request.Method))
             {
                 await _next(context);

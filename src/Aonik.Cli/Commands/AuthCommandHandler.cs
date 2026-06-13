@@ -23,11 +23,7 @@ public sealed class AuthCommandHandler
     {
         ValidateLoginOptions(options);
 
-        PublicAuthProviderSettingsResponse? settings = null;
-        if (!string.IsNullOrWhiteSpace(options.BaseUrl))
-        {
-            settings = await _apiClient.GetPublicAuthProviderSettingsAsync(options.BaseUrl, cancellationToken);
-        }
+        var settings = await TryGetAuthProviderSettingsAsync(options, cancellationToken);
 
         CliSession session;
         if (!string.IsNullOrWhiteSpace(options.AccessToken))
@@ -115,6 +111,39 @@ public sealed class AuthCommandHandler
         await _sessionStore.ClearAsync(cancellationToken);
         await _outputWriter.WriteInfoAsync("AONIK CLI session cleared.", cancellationToken);
         return 0;
+    }
+
+    // The public auth-provider settings endpoint only serves to DISCOVER the OAuth
+    // client-id/provider for a password grant. When the caller already supplies an
+    // access token (or an explicit --client-id), the call is optional — so a failure
+    // must not abort login. Deployed environments gate every non-whitelisted path
+    // behind tenant resolution and this anonymous discovery call carries no tenant, so
+    // it 401s ("Tenant context missing") there; swallowing that in the optional case
+    // keeps token-based login working against dev/prod, where it previously failed
+    // before the access token was ever used.
+    private async Task<PublicAuthProviderSettingsResponse?> TryGetAuthProviderSettingsAsync(
+        LoginOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(options.BaseUrl))
+        {
+            return null;
+        }
+
+        var settingsAreOptional =
+            !string.IsNullOrWhiteSpace(options.AccessToken) ||
+            !string.IsNullOrWhiteSpace(options.ClientId);
+
+        try
+        {
+            return await _apiClient.GetPublicAuthProviderSettingsAsync(options.BaseUrl, cancellationToken);
+        }
+        catch (AonikCliException) when (settingsAreOptional)
+        {
+            // Best-effort: we have a token or explicit client-id, so provider discovery
+            // is not required. ActiveProvider simply stays unset on the stored session.
+            return null;
+        }
     }
 
     private async Task<CliSession> RequireSessionAsync(CancellationToken cancellationToken)

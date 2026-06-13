@@ -36,7 +36,15 @@ public sealed class CliApplication
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        return _rootCommand.Parse(args).InvokeAsync(cancellationToken: cancellationToken);
+        // Disable System.CommandLine's default exception handler so domain failures
+        // (AonikCliException) propagate to Program.Main, which prints a concise
+        // "Error: <message>" instead of dumping an unhandled-exception stack trace.
+        var invocationConfiguration = new InvocationConfiguration
+        {
+            EnableDefaultExceptionHandler = false
+        };
+
+        return _rootCommand.Parse(args).InvokeAsync(invocationConfiguration, cancellationToken);
     }
 
     public static CliApplication CreateDefault()
