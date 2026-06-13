@@ -2,6 +2,7 @@ using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -54,6 +55,15 @@ public class CareEntityServiceTests
 
     private static PaymentLogService CreatePaymentLogService(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
         => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId));
+
+    private sealed class FakeDocumentLinkReader : IDocumentLinkReader
+    {
+        public Task<IReadOnlyList<DocumentRef>> GetForTargetAsync(string targetType, Guid targetId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<DocumentRef>>([]);
+
+        public Task<IReadOnlyDictionary<Guid, int>> CountForEntitiesAsync(IReadOnlyList<Guid> careEntityIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<Guid, int>>(new Dictionary<Guid, int>());
+    }
 
     private static CreateCareEntityRequest PersonRequest(string name = "Mum", string country = "NG")
         => new("person", null, name, country, "mother", "👩🏾", null, null);
@@ -337,7 +347,7 @@ public class CareEntityServiceTests
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
         var service = CreateService(context, tenantId, userId);
-        var profileService = new CareEntityProfileService(service, CreatePaymentLogService(context, tenantId, userId));
+        var profileService = new CareEntityProfileService(service, CreatePaymentLogService(context, tenantId, userId), new FakeDocumentLinkReader());
 
         var created = await service.CreateAsync(AssetRequest("property", "Surulere flat"));
 
@@ -361,7 +371,8 @@ public class CareEntityServiceTests
         var ownerService = CreateService(context, tenantId, owner);
         var strangerProfileService = new CareEntityProfileService(
             CreateService(context, tenantId, stranger),
-            CreatePaymentLogService(context, tenantId, stranger));
+            CreatePaymentLogService(context, tenantId, stranger),
+            new FakeDocumentLinkReader());
 
         var created = await ownerService.CreateAsync(PersonRequest("Mum"));
 

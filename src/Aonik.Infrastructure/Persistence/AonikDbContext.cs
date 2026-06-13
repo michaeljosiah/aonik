@@ -99,6 +99,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Documents (Spec 035) — new module entities; canonical migration stream stays here.
     public virtual DbSet<DocumentIngestion> DocumentIngestions { get; set; } = null!;
     public virtual DbSet<DocumentExtraction> DocumentExtractions { get; set; } = null!;
+    public virtual DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -334,6 +335,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<DocumentVersion>(modelBuilder, "DocumentVersions");
         MapPlatformTable<DocumentIngestion>(modelBuilder, "DocumentIngestions");
         MapPlatformTable<DocumentExtraction>(modelBuilder, "DocumentExtractions");
+        MapPlatformTable<DocumentLink>(modelBuilder, "DocumentLinks");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

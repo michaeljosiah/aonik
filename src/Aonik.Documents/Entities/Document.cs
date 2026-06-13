@@ -10,6 +10,9 @@ public class Document : AuditableEntity, ITenantScoped
     public string DocumentType { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
 
+    /// <summary>Optional display title for the Vault tag sheet (Spec 046). Null for legacy documents.</summary>
+    public string? Title { get; set; }
+
     // Spec 035 §9/§10 — generic-document RAG + classification fields. Existing rows
     // default to Internal/NotIndexable (see DocumentConfiguration) so legacy compliance
     // evidence is never auto-indexed until reclassified by a backfill.
