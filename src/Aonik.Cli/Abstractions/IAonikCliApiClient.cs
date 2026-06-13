@@ -270,4 +270,46 @@ public interface IAonikCliApiClient
         CliSession session,
         int year,
         CancellationToken cancellationToken = default);
+
+    // ── Commitment lifecycle (Spec 044) ─────────────────────────────────
+
+    Task<CommitmentDetail> CreateSupportCommitmentAsync(
+        CliSession session,
+        CreateSupportCommitmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> MarkCommitmentDoneAsync(
+        CliSession session,
+        Guid commitmentId,
+        MarkCommitmentDoneRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> SkipCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> SnoozeCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        DateTime until,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> PauseCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> ResumeCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CommitmentCycleResponse>> GetCommitmentCyclesAsync(
+        CliSession session,
+        Guid commitmentId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

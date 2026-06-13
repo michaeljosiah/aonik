@@ -601,4 +601,23 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
 
     public Task<YearSummary> GetPaymentLogYearSummaryAsync(CliSession session, int year, CancellationToken cancellationToken = default)
         => Task.FromResult(new YearSummary(year, [new CurrencyTotal("GBP", 200m, 1)], 1));
+
+    // ── Commitment lifecycle (Spec 044) ─────────────────────────────────
+
+    public CommitmentDetail Commitment { get; set; } = new(
+        Guid.Parse("c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3"),
+        "Bill", "Support", "Mum — monthly allowance", 200m, "GBP",
+        DateTime.Parse("2026-05-28T00:00:00Z").ToUniversalTime(), "Active", "Monthly · 28th",
+        Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"));
+
+    public Task<CommitmentDetail> CreateSupportCommitmentAsync(CliSession session, CreateSupportCommitmentRequest request, CancellationToken cancellationToken = default) => Task.FromResult(Commitment);
+    public Task<CommitmentDetail> MarkCommitmentDoneAsync(CliSession session, Guid commitmentId, MarkCommitmentDoneRequest request, CancellationToken cancellationToken = default) => Task.FromResult(Commitment with { DueDate = Commitment.DueDate.AddMonths(1) });
+    public Task<CommitmentDetail> SkipCommitmentAsync(CliSession session, Guid commitmentId, string? reason, CancellationToken cancellationToken = default) => Task.FromResult(Commitment);
+    public Task<CommitmentDetail> SnoozeCommitmentAsync(CliSession session, Guid commitmentId, DateTime until, CancellationToken cancellationToken = default) => Task.FromResult(Commitment);
+    public Task<CommitmentDetail> PauseCommitmentAsync(CliSession session, Guid commitmentId, CancellationToken cancellationToken = default) => Task.FromResult(Commitment with { Status = "Paused" });
+    public Task<CommitmentDetail> ResumeCommitmentAsync(CliSession session, Guid commitmentId, CancellationToken cancellationToken = default) => Task.FromResult(Commitment with { Status = "Active" });
+
+    public Task<IReadOnlyList<CommitmentCycleResponse>> GetCommitmentCyclesAsync(CliSession session, Guid commitmentId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<CommitmentCycleResponse>>(
+            [new CommitmentCycleResponse(Guid.Parse("d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4"), commitmentId, Commitment.DueDate, "Open", null, null, null, null, DateTime.Parse("2026-05-01T00:00:00Z").ToUniversalTime())]);
 }

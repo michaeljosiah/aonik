@@ -15,7 +15,8 @@ public sealed class CliApplication
         OpsCommandHandler opsCommandHandler,
         ApprovalCommandHandler approvalCommandHandler,
         CareEntityCommandHandler careEntityCommandHandler,
-        PaymentLogCommandHandler paymentLogCommandHandler)
+        PaymentLogCommandHandler paymentLogCommandHandler,
+        CommitmentCommandHandler commitmentCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
@@ -23,7 +24,8 @@ public sealed class CliApplication
             opsCommandHandler,
             approvalCommandHandler,
             careEntityCommandHandler,
-            paymentLogCommandHandler);
+            paymentLogCommandHandler,
+            commitmentCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -49,6 +51,7 @@ public sealed class CliApplication
         var approvalCommandHandler = new ApprovalCommandHandler(apiClient, sessionStore, outputWriter);
         var careEntityCommandHandler = new CareEntityCommandHandler(apiClient, sessionStore, outputWriter);
         var paymentLogCommandHandler = new PaymentLogCommandHandler(apiClient, sessionStore, outputWriter);
+        var commitmentCommandHandler = new CommitmentCommandHandler(apiClient, sessionStore, outputWriter);
 
         return new CliApplication(
             authCommandHandler,
@@ -56,7 +59,8 @@ public sealed class CliApplication
             opsCommandHandler,
             approvalCommandHandler,
             careEntityCommandHandler,
-            paymentLogCommandHandler);
+            paymentLogCommandHandler,
+            commitmentCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
@@ -65,7 +69,8 @@ public sealed class CliApplication
         OpsCommandHandler opsCommandHandler,
         ApprovalCommandHandler approvalCommandHandler,
         CareEntityCommandHandler careEntityCommandHandler,
-        PaymentLogCommandHandler paymentLogCommandHandler)
+        PaymentLogCommandHandler paymentLogCommandHandler,
+        CommitmentCommandHandler commitmentCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
@@ -74,6 +79,7 @@ public sealed class CliApplication
         rootCommand.Add(BuildApprovalCommand(approvalCommandHandler));
         rootCommand.Add(BuildCareEntitiesCommand(careEntityCommandHandler));
         rootCommand.Add(BuildPaymentLogsCommand(paymentLogCommandHandler));
+        rootCommand.Add(BuildCommitmentsCommand(commitmentCommandHandler));
         return rootCommand;
     }
 
@@ -648,6 +654,172 @@ public sealed class CliApplication
         ordersCommand.Add(ordersSubmitCommand);
         ordersCommand.Add(ordersCancelCommand);
         return ordersCommand;
+    }
+
+    private static Command BuildCommitmentsCommand(CommitmentCommandHandler handler)
+    {
+        var command = new Command("commitments", "Author and run the lifecycle of Support commitments (Spec 044).");
+
+        // create
+        var createCommand = new Command("create", "Author a Support commitment.");
+        var careEntityIdOption = new Option<Guid>("--care-entity-id") { Description = "CareEntity this commitment is for.", Required = true };
+        var nameOption = new Option<string>("--name") { Description = "Display name.", Required = true };
+        var amountOption = new Option<decimal?>("--amount") { Description = "Expected amount." };
+        var currencyOption = new Option<string>("--currency") { Description = "ISO-4217 currency.", Required = true };
+        var rhythmUnitOption = new Option<string>("--rhythm-unit") { Description = "Weekly | Monthly | Quarterly | Termly | Yearly | OneOff." };
+        var rhythmIntervalOption = new Option<int>("--rhythm-interval") { Description = "Every N units (default 1)." };
+        var anchorDayOption = new Option<int?>("--anchor-day") { Description = "Day-of-month for monthly rhythms." };
+        var firstDueOption = new Option<DateTime>("--first-due") { Description = "First due date.", Required = true };
+        var reminderDaysOption = new Option<int?>("--reminder-days-before") { Description = "Reminder lead days (default 3)." };
+        var createNotesOption = new Option<string?>("--notes") { Description = "Optional notes." };
+        var createOutputOption = CreateOutputOption(includeNdjson: false);
+        createCommand.Add(careEntityIdOption);
+        createCommand.Add(nameOption);
+        createCommand.Add(amountOption);
+        createCommand.Add(currencyOption);
+        createCommand.Add(rhythmUnitOption);
+        createCommand.Add(rhythmIntervalOption);
+        createCommand.Add(anchorDayOption);
+        createCommand.Add(firstDueOption);
+        createCommand.Add(reminderDaysOption);
+        createCommand.Add(createNotesOption);
+        createCommand.Add(createOutputOption);
+        createCommand.SetAction((parseResult, cancellationToken) =>
+        {
+            var interval = parseResult.GetValue(rhythmIntervalOption);
+            return handler.CreateAsync(
+                new CreateSupportCommitmentOptions(
+                    parseResult.GetRequiredValue(careEntityIdOption),
+                    parseResult.GetRequiredValue(nameOption),
+                    parseResult.GetValue(amountOption),
+                    parseResult.GetRequiredValue(currencyOption),
+                    parseResult.GetValue(rhythmUnitOption) ?? "Monthly",
+                    interval <= 0 ? 1 : interval,
+                    parseResult.GetValue(anchorDayOption),
+                    parseResult.GetRequiredValue(firstDueOption),
+                    parseResult.GetValue(reminderDaysOption),
+                    parseResult.GetValue(createNotesOption),
+                    OutputModeParser.Parse(parseResult.GetValue(createOutputOption))),
+                cancellationToken);
+        });
+
+        // done
+        var doneCommand = new Command("done", "Mark the current cycle done.");
+        var doneIdArgument = new Argument<Guid>("id");
+        var doneAmountOption = new Option<decimal>("--amount") { Description = "Amount paid.", Required = true };
+        var doneCurrencyOption = new Option<string>("--currency") { Description = "ISO-4217 currency.", Required = true };
+        var doneApproxGbpOption = new Option<decimal?>("--approx-gbp") { Description = "Optional approx GBP label." };
+        var doneDateOption = new Option<DateTime?>("--date") { Description = "Date of the act." };
+        var doneChannelOption = new Option<string>("--channel") { Description = "bank | wise | cash | other." };
+        var doneNoteOption = new Option<string?>("--note") { Description = "Optional note." };
+        var doneKeyOption = new Option<Guid?>("--idempotency-key") { Description = "Optional client idempotency key." };
+        var doneOutputOption = CreateOutputOption(includeNdjson: false);
+        doneCommand.Add(doneIdArgument);
+        doneCommand.Add(doneAmountOption);
+        doneCommand.Add(doneCurrencyOption);
+        doneCommand.Add(doneApproxGbpOption);
+        doneCommand.Add(doneDateOption);
+        doneCommand.Add(doneChannelOption);
+        doneCommand.Add(doneNoteOption);
+        doneCommand.Add(doneKeyOption);
+        doneCommand.Add(doneOutputOption);
+        doneCommand.SetAction((parseResult, cancellationToken) =>
+            handler.MarkDoneAsync(
+                new MarkCommitmentDoneOptions(
+                    parseResult.GetRequiredValue(doneIdArgument),
+                    parseResult.GetRequiredValue(doneAmountOption),
+                    parseResult.GetRequiredValue(doneCurrencyOption),
+                    parseResult.GetValue(doneApproxGbpOption),
+                    parseResult.GetValue(doneDateOption),
+                    parseResult.GetValue(doneChannelOption) ?? "bank",
+                    parseResult.GetValue(doneNoteOption),
+                    parseResult.GetValue(doneKeyOption),
+                    OutputModeParser.Parse(parseResult.GetValue(doneOutputOption))),
+                cancellationToken));
+
+        // skip
+        var skipCommand = new Command("skip", "Skip the current cycle.");
+        var skipIdArgument = new Argument<Guid>("id");
+        var skipReasonOption = new Option<string?>("--reason") { Description = "Optional reason." };
+        var skipOutputOption = CreateOutputOption(includeNdjson: false);
+        skipCommand.Add(skipIdArgument);
+        skipCommand.Add(skipReasonOption);
+        skipCommand.Add(skipOutputOption);
+        skipCommand.SetAction((parseResult, cancellationToken) =>
+            handler.SkipAsync(
+                parseResult.GetRequiredValue(skipIdArgument),
+                parseResult.GetValue(skipReasonOption),
+                OutputModeParser.Parse(parseResult.GetValue(skipOutputOption)),
+                cancellationToken));
+
+        // snooze
+        var snoozeCommand = new Command("snooze", "Snooze the current cycle's reminder.");
+        var snoozeIdArgument = new Argument<Guid>("id");
+        var snoozeUntilOption = new Option<DateTime>("--until") { Description = "New reminder date.", Required = true };
+        var snoozeOutputOption = CreateOutputOption(includeNdjson: false);
+        snoozeCommand.Add(snoozeIdArgument);
+        snoozeCommand.Add(snoozeUntilOption);
+        snoozeCommand.Add(snoozeOutputOption);
+        snoozeCommand.SetAction((parseResult, cancellationToken) =>
+            handler.SnoozeAsync(
+                parseResult.GetRequiredValue(snoozeIdArgument),
+                parseResult.GetRequiredValue(snoozeUntilOption),
+                OutputModeParser.Parse(parseResult.GetValue(snoozeOutputOption)),
+                cancellationToken));
+
+        // pause
+        var pauseCommand = new Command("pause", "Pause a commitment.");
+        var pauseIdArgument = new Argument<Guid>("id");
+        var pauseOutputOption = CreateOutputOption(includeNdjson: false);
+        pauseCommand.Add(pauseIdArgument);
+        pauseCommand.Add(pauseOutputOption);
+        pauseCommand.SetAction((parseResult, cancellationToken) =>
+            handler.PauseAsync(
+                parseResult.GetRequiredValue(pauseIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(pauseOutputOption)),
+                cancellationToken));
+
+        // resume
+        var resumeCommand = new Command("resume", "Resume a commitment.");
+        var resumeIdArgument = new Argument<Guid>("id");
+        var resumeOutputOption = CreateOutputOption(includeNdjson: false);
+        resumeCommand.Add(resumeIdArgument);
+        resumeCommand.Add(resumeOutputOption);
+        resumeCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ResumeAsync(
+                parseResult.GetRequiredValue(resumeIdArgument),
+                OutputModeParser.Parse(parseResult.GetValue(resumeOutputOption)),
+                cancellationToken));
+
+        // cycles
+        var cyclesCommand = new Command("cycles", "List a commitment's cycle history.");
+        var cyclesIdArgument = new Argument<Guid>("id");
+        var cyclesPageOption = new Option<int>("--page") { Description = "Results page." };
+        var cyclesPageSizeOption = new Option<int>("--page-size") { Description = "Results per page." };
+        var cyclesOutputOption = CreateOutputOption(includeNdjson: false);
+        cyclesCommand.Add(cyclesIdArgument);
+        cyclesCommand.Add(cyclesPageOption);
+        cyclesCommand.Add(cyclesPageSizeOption);
+        cyclesCommand.Add(cyclesOutputOption);
+        cyclesCommand.SetAction((parseResult, cancellationToken) =>
+        {
+            var ps = parseResult.GetValue(cyclesPageSizeOption);
+            return handler.CyclesAsync(
+                parseResult.GetRequiredValue(cyclesIdArgument),
+                Math.Max(parseResult.GetValue(cyclesPageOption), 1),
+                ps is > 0 and <= 100 ? ps : 20,
+                OutputModeParser.Parse(parseResult.GetValue(cyclesOutputOption)),
+                cancellationToken);
+        });
+
+        command.Add(createCommand);
+        command.Add(doneCommand);
+        command.Add(skipCommand);
+        command.Add(snoozeCommand);
+        command.Add(pauseCommand);
+        command.Add(resumeCommand);
+        command.Add(cyclesCommand);
+        return command;
     }
 
     private static Command BuildPaymentLogsCommand(PaymentLogCommandHandler handler)

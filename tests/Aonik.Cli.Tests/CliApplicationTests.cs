@@ -79,6 +79,7 @@ public sealed class CliApplicationTests
         var approvalHandler = new ApprovalCommandHandler(apiClient, sessionStore, outputWriter);
         var careEntityHandler = new CareEntityCommandHandler(apiClient, sessionStore, outputWriter);
         var paymentLogHandler = new PaymentLogCommandHandler(apiClient, sessionStore, outputWriter);
-        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler);
+        var commitmentHandler = new CommitmentCommandHandler(apiClient, sessionStore, outputWriter);
+        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler);
     }
 }

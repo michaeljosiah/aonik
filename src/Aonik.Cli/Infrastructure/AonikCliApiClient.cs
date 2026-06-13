@@ -761,6 +761,62 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
             cancellationToken);
     }
 
+    public Task<CommitmentDetail> CreateSupportCommitmentAsync(
+        CliSession session,
+        CreateSupportCommitmentRequest request,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CommitmentDetail>(
+            session.BaseUrl, HttpMethod.Post, "/personal-finance/commitments", session, request, cancellationToken);
+
+    public Task<CommitmentDetail> MarkCommitmentDoneAsync(
+        CliSession session,
+        Guid commitmentId,
+        MarkCommitmentDoneRequest request,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CommitmentDetail>(
+            session.BaseUrl, HttpMethod.Post, $"/personal-finance/commitments/{commitmentId:D}/done", session, request, cancellationToken);
+
+    public Task<CommitmentDetail> SkipCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CommitmentDetail>(
+            session.BaseUrl, HttpMethod.Post, $"/personal-finance/commitments/{commitmentId:D}/skip", session, new { reason }, cancellationToken);
+
+    public Task<CommitmentDetail> SnoozeCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        DateTime until,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CommitmentDetail>(
+            session.BaseUrl, HttpMethod.Post, $"/personal-finance/commitments/{commitmentId:D}/snooze", session, new { until }, cancellationToken);
+
+    public Task<CommitmentDetail> PauseCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CommitmentDetail>(
+            session.BaseUrl, HttpMethod.Post, $"/personal-finance/commitments/{commitmentId:D}/pause", session, new { }, cancellationToken);
+
+    public Task<CommitmentDetail> ResumeCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CommitmentDetail>(
+            session.BaseUrl, HttpMethod.Post, $"/personal-finance/commitments/{commitmentId:D}/resume", session, new { }, cancellationToken);
+
+    public async Task<IReadOnlyList<CommitmentCycleResponse>> GetCommitmentCyclesAsync(
+        CliSession session,
+        Guid commitmentId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+        => await SendAsync<List<CommitmentCycleResponse>>(
+            session.BaseUrl, HttpMethod.Get,
+            $"/personal-finance/commitments/{commitmentId:D}/cycles?page={page}&pageSize={pageSize}",
+            session, body: null, cancellationToken);
+
     public async Task<IReadOnlyList<CareEntityResponse>> ListCareEntitiesAsync(
         CliSession session,
         string? kind,
