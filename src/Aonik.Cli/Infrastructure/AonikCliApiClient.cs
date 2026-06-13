@@ -865,6 +865,13 @@ public sealed class AonikCliApiClient : IAonikCliApiClient
         return SendAsync<StatementData>(session.BaseUrl, HttpMethod.Get, path, session, body: null, cancellationToken);
     }
 
+    public Task<CaptureParseResponse> ParseCaptureAsync(
+        CliSession session,
+        CaptureParseRequest request,
+        CancellationToken cancellationToken = default)
+        => SendAsync<CaptureParseResponse>(
+            session.BaseUrl, HttpMethod.Post, "/ai/capture/parse", session, request, cancellationToken);
+
     public Task<CommitmentDetail> CreateSupportCommitmentAsync(
         CliSession session,
         CreateSupportCommitmentRequest request,

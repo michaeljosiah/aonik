@@ -324,6 +324,53 @@ internal sealed class UpdateTenantAgentSettingsRequestValidator : Validator<Upda
     }
 }
 
+// ── Capture-parse (Spec 047) ────────────────────────────────────────
+
+internal sealed class CaptureParseRequestValidator : Validator<CaptureParseRequest>
+{
+    // ~6 MB image as base64 is ~8M chars; this is the request-edge backstop
+    // (the service re-checks decoded bytes). Spec 047 §10/§12 — bounded payload.
+    private const int MaxPayloadLength = 8_000_000;
+
+    public CaptureParseRequestValidator()
+    {
+        RuleFor(x => x.InputType)
+            .NotEmpty().WithMessage("inputType is required.")
+            .Must(t => CaptureInputTypes.All.Contains(t))
+            .WithMessage($"inputType must be one of: {string.Join(", ", CaptureInputTypes.All)}.");
+
+        RuleFor(x => x.Payload)
+            .NotEmpty().WithMessage("payload is required.")
+            .MaximumLength(MaxPayloadLength).WithMessage("payload exceeds the maximum permitted size.");
+
+        When(x => x.Hints is not null, () =>
+        {
+            RuleFor(x => x.Hints!.Entities)
+                .Must(e => e is null || e.Count <= 500)
+                .WithMessage("hints.entities may not exceed 500 items.");
+
+            RuleFor(x => x.Hints!.OpenCommitments)
+                .Must(c => c is null || c.Count <= 500)
+                .WithMessage("hints.openCommitments may not exceed 500 items.");
+
+            RuleForEach(x => x.Hints!.Entities).ChildRules(entity =>
+            {
+                entity.RuleFor(e => e.Id).RequiredText(128);
+                entity.RuleFor(e => e.Name).RequiredText(256);
+            });
+
+            RuleForEach(x => x.Hints!.OpenCommitments).ChildRules(commitment =>
+            {
+                commitment.RuleFor(c => c.Id).RequiredText(128);
+                commitment.RuleFor(c => c.Title).RequiredText(256);
+                commitment.RuleFor(c => c.Expected!.Currency)
+                    .CurrencyCode()
+                    .When(c => c.Expected is not null);
+            });
+        });
+    }
+}
+
 // ── Shared constants ────────────────────────────────────────────────
 
 internal static class AiValidatorConstants

@@ -689,4 +689,26 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
     public Task<CircleInviteResponse> CreateCircleInviteAsync(CliSession session, CreateCircleInviteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CircleInvite);
     public Task<CircleGrantResponse> AcceptCircleInviteAsync(CliSession session, string token, CancellationToken cancellationToken = default) => Task.FromResult(CircleGrant);
     public Task<StatementData> GetSupportStatementAsync(CliSession session, Guid careEntityId, DateTime? from, DateTime? to, string? preparedFor, CancellationToken cancellationToken = default) => Task.FromResult(Statement);
+
+    // ── AI capture-parse (Spec 047) ─────────────────────────────────────
+
+    public CaptureParseResponse CaptureResult { get; set; } = new(
+        "parsed",
+        new CaptureDraft(
+            "paymentLog",
+            new CaptureMatch("ce_1", 0.93),
+            null,
+            new CaptureMoney(200.00m, "GBP"),
+            new DateTime(2026, 6, 13),
+            "wise",
+            "Wise transfer ref P2046-XK",
+            new Dictionary<string, double> { ["amount"] = 0.98, ["entity"] = 0.93 }));
+
+    public CaptureParseRequest? LastCaptureRequest { get; private set; }
+
+    public Task<CaptureParseResponse> ParseCaptureAsync(CliSession session, CaptureParseRequest request, CancellationToken cancellationToken = default)
+    {
+        LastCaptureRequest = request;
+        return Task.FromResult(CaptureResult);
+    }
 }

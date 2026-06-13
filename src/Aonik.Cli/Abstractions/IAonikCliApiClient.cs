@@ -378,4 +378,11 @@ public interface IAonikCliApiClient
         DateTime? to,
         string? preparedFor,
         CancellationToken cancellationToken = default);
+
+    // ── AI capture-parse (Spec 047) ─────────────────────────────────────
+
+    Task<CaptureParseResponse> ParseCaptureAsync(
+        CliSession session,
+        CaptureParseRequest request,
+        CancellationToken cancellationToken = default);
 }

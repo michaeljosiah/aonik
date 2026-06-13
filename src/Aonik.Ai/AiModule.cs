@@ -216,6 +216,9 @@ public sealed class AiModule : IModule
         services.AddScoped<IAiTraceReader, LangfuseAiTraceReader>();
         services.AddScoped<ICustomerInsightAiSummaryService, CustomerInsightAiSummaryService>();
         services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
+
+        // Capture-parse (Spec 047) — image/text/transcript → structured draft proposal.
+        services.AddScoped<Contracts.Services.ICaptureParseService, Services.Capture.CaptureParseService>();
         services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();
         services.AddScoped<TextToSpeechService>();
         services.AddScoped<ITextToSpeechService>(sp => sp.GetRequiredService<TextToSpeechService>());

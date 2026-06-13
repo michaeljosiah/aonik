@@ -18,7 +18,8 @@ public sealed class CliApplication
         PaymentLogCommandHandler paymentLogCommandHandler,
         CommitmentCommandHandler commitmentCommandHandler,
         DocumentCommandHandler documentCommandHandler,
-        CircleCommandHandler circleCommandHandler)
+        CircleCommandHandler circleCommandHandler,
+        CaptureCommandHandler captureCommandHandler)
     {
         _rootCommand = BuildRootCommand(
             authCommandHandler,
@@ -29,7 +30,8 @@ public sealed class CliApplication
             paymentLogCommandHandler,
             commitmentCommandHandler,
             documentCommandHandler,
-            circleCommandHandler);
+            circleCommandHandler,
+            captureCommandHandler);
     }
 
     public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
@@ -58,6 +60,7 @@ public sealed class CliApplication
         var commitmentCommandHandler = new CommitmentCommandHandler(apiClient, sessionStore, outputWriter);
         var documentCommandHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
         var circleCommandHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
+        var captureCommandHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
 
         return new CliApplication(
             authCommandHandler,
@@ -68,7 +71,8 @@ public sealed class CliApplication
             paymentLogCommandHandler,
             commitmentCommandHandler,
             documentCommandHandler,
-            circleCommandHandler);
+            circleCommandHandler,
+            captureCommandHandler);
     }
 
     private static RootCommand BuildRootCommand(
@@ -80,7 +84,8 @@ public sealed class CliApplication
         PaymentLogCommandHandler paymentLogCommandHandler,
         CommitmentCommandHandler commitmentCommandHandler,
         DocumentCommandHandler documentCommandHandler,
-        CircleCommandHandler circleCommandHandler)
+        CircleCommandHandler circleCommandHandler,
+        CaptureCommandHandler captureCommandHandler)
     {
         var rootCommand = new RootCommand("AONIK CLI");
         rootCommand.Add(BuildAuthCommand(authCommandHandler));
@@ -92,6 +97,7 @@ public sealed class CliApplication
         rootCommand.Add(BuildCommitmentsCommand(commitmentCommandHandler));
         rootCommand.Add(BuildDocumentsCommand(documentCommandHandler));
         rootCommand.Add(BuildCircleCommand(circleCommandHandler));
+        rootCommand.Add(BuildCaptureCommand(captureCommandHandler));
         return rootCommand;
     }
 
@@ -782,6 +788,35 @@ public sealed class CliApplication
         command.Add(inviteCommand);
         command.Add(acceptCommand);
         command.Add(statementCommand);
+        return command;
+    }
+
+    private static Command BuildCaptureCommand(CaptureCommandHandler handler)
+    {
+        var command = new Command("capture", "AI capture-parse: turn text or an image into a draft proposal (Spec 047).");
+
+        var parseCommand = new Command("parse", "Parse captured text/image into a structured draft (never persisted).");
+        var inputTypeOption = new Option<string?>("--input-type") { Description = "text | audioTranscript (image is inferred from --image)." };
+        var textOption = new Option<string?>("--text") { Description = "Raw text or transcript to parse." };
+        var imageOption = new Option<string?>("--image") { Description = "Path to an image file (base64-encoded, sent as inputType=image)." };
+        var hintsOption = new Option<string?>("--hints-json") { Description = "Optional hints JSON: {\"entities\":[{\"id\":..,\"name\":..}],\"openCommitments\":[..]}." };
+        var parseOutputOption = CreateOutputOption(includeNdjson: false);
+        parseCommand.Add(inputTypeOption);
+        parseCommand.Add(textOption);
+        parseCommand.Add(imageOption);
+        parseCommand.Add(hintsOption);
+        parseCommand.Add(parseOutputOption);
+        parseCommand.SetAction((parseResult, cancellationToken) =>
+            handler.ParseAsync(
+                new CaptureParseOptions(
+                    parseResult.GetValue(inputTypeOption) ?? "text",
+                    parseResult.GetValue(textOption),
+                    parseResult.GetValue(imageOption),
+                    parseResult.GetValue(hintsOption),
+                    OutputModeParser.Parse(parseResult.GetValue(parseOutputOption))),
+                cancellationToken));
+
+        command.Add(parseCommand);
         return command;
     }
 
