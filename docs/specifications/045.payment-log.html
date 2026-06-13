@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 045 - PaymentLog: acts of support &amp; bank corroboration</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 045</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P1 (Simi M2 spine)</span>
+  <span class="meta-tag">Domain: PersonalFinance / Simi</span>
+  <h1>PaymentLog — acts of support &amp; bank corroboration</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    The "Effortless to keep / Provable forever" half of Simi: a <strong>PaymentLog</strong> is one real-world act of
+    support — attached to a <a href="044.commitment-cycle-lifecycle.html">commitment</a> (rolling it forward) or
+    standalone (the one-off plumber) — recorded in its <strong>original currency</strong>, optionally with a
+    receipt, and optionally <strong>linked back to the bank transaction that corroborates it</strong>. It is the one
+    new aggregate the Simi launch plan already budgeted. Today only spending <em>transactions</em> exist
+    (a different object with no CareEntity attribution, no commitment roll-forward, no receipt linkage). Implements
+    <a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.3.
+  </p>
+</header>
+
+<div class="callout">
+  <span class="callout-label">Spec family (043–048)</span>
+  Depends on <a href="043.care-entity-people-and-assets.html">Spec&nbsp;043</a> (the entity a log is for) and pairs
+  with <a href="044.commitment-cycle-lifecycle.html">Spec&nbsp;044</a> (mark-done writes a log). Receipts attach via
+  <a href="046.document-entity-linking-and-sharing.html">Spec&nbsp;046</a>; the Support Statement and the circle
+  read these logs (<a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>).
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#entity">PaymentLog entity</a></li>
+    <li><a href="#layers">The three-layer model</a></li>
+    <li><a href="#corroboration">Corroboration &amp; dedup</a></li>
+    <li><a href="#totals">Per-currency summaries</a></li>
+    <li><a href="#idempotency">Idempotent create &amp; offline</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#receipts">Receipts</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security &amp; audit</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  Simi never moves money — the user pays via bank, Wise, or cash as they always have, then <em>captures</em> that
+  it happened. A <strong>PaymentLog</strong> is that capture: who/what it was for (a CareEntity), what it honoured
+  (a commitment cycle, or nothing), how much in which currency, through which channel, with an optional receipt and
+  note, and how it was recorded (manual, a captured screenshot, a voice note, a mark-done, or — later — a detected
+  bank debit). It is the unit the year totals sum, the rows a Support Statement prints, and the proof a circle
+  member sees.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Fola marks Mum's allowance done: a PaymentLog for £200 (GBP) is written against the "Mum" entity and the May
+  cycle, with the Wise screenshot filed as its receipt. The plumber is a standalone ₦85,000 log against the
+  Surulere flat with no commitment. Her year total reads "£4,250 + ₦1.2m" — never a fabricated converted sum. When
+  her linked account later shows the same £200 Wise debit, the matcher links it to her existing log (one record,
+  marked "verified against linked account") instead of double-counting.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<ul>
+  <li><strong>No PaymentLog aggregate exists.</strong> The closest object is <code>PersonalTransaction</code> — a
+    <em>spending</em> record (signed <code>Amount</code>, <code>SourceType</code> Plaid/Manual, category,
+    <code>ImportFingerprint</code> for dedup). It has no CareEntity attribution, no commitment link, no
+    roll-forward, no per-currency support totals, and its receipts (<code>TransactionAttachment</code>) are
+    spending-scoped. Reusing it would smuggle the generic-PFM model into the keeper (Guardrail&nbsp;1).</li>
+  <li><strong>The launch plan already budgets it.</strong> Simi launch-plan &sect;7 lists "payment-log CRUD" as the
+    one new backend module; rebuild spec &sect;8.1/&sect;8.3 give the model and repository.</li>
+  <li><strong>The transaction-link pattern is established.</strong> <code>PersonalRecurringBill</code> already
+    carries a nullable <code>SourceTransactionId</code>, and <code>PersonalTransaction</code> carries a nullable
+    <code>AiRunId</code> / <code>FinancialContextId</code> — so "hang a nullable reference to a transaction off a
+    record" is an existing idiom we reuse for corroboration (&sect;6).</li>
+</ul>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <code>PaymentLog</code> entity + CRUD, original currency, channel, origin, receipt links, note (&sect;4).</li>
+  <li><span class="tag new">New</span> A nullable <code>SourceTransactionId</code> + <code>CorroborationStatus</code> — the bank-evidence link (&sect;6).</li>
+  <li><span class="tag new">New</span> Per-currency year/period summaries (&sect;7).</li>
+  <li><span class="tag new">New</span> Idempotent create for the offline capture queue; soft-delete + restore (&sect;8).</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Money movement &amp; FX.</strong> A log records what was paid elsewhere; it never funds or converts.
+    The optional <code>ApproxGbp</code> is a user-entered, display-only label — no rates, no engine.</li>
+  <li><strong>The fuzzy matcher</strong> that auto-links a transaction to a log (Plaid auto-capture / corroboration)
+    is a <strong>fast-follow</strong> (readiness Phase E). This spec ships the <em>schema</em> (the nullable FK +
+    status) and the confirm-gated <em>link/unlink</em> endpoint so nothing is rebuilt; the matching job lands
+    later (&sect;6).</li>
+</ul>
+
+<h2 id="entity">4. PaymentLog entity <span class="tag new">new</span></h2>
+<pre><code>public class PaymentLog : AuditableEntity, ITenantScoped
+{
+    public Guid    TenantId     { get; set; }
+    public Guid    UserId       { get; set; }
+    public Guid    CareEntityId { get; set; }   // → CareEntity (Spec 043); always attributed
+    public Guid?   CommitmentId { get; set; }   // → the commitment it honours; null for one-offs (Spec 044)
+    public Guid?   CommitmentCycleId { get; set; } // the specific cycle marked Paid (Spec 044 §6)
+
+    // ── Money that keeps its origin (never converted) ─────────────
+    public decimal Amount     { get; set; }     // positive magnitude (a log is an outflow of support)
+    public string  Currency   { get; set; } = string.Empty; // ISO-4217, as actually paid
+    public decimal? ApproxGbp { get; set; }     // optional user-entered label only — NOT computed
+
+    public DateTime Date    { get; set; }             // date-only semantics (DateTime, per codebase convention)
+    public string   Channel { get; set; } = "bank";   // bank | wise | cash | other
+    public string   Origin  { get; set; } = "manual"; // manual | captureImage | captureText | captureVoice | markDone | plaidDetected
+    public string?  Note    { get; set; }
+
+    // ── Bank corroboration (schema now; matcher is a fast-follow, §6) ──
+    public Guid?   SourceTransactionId { get; set; } // → PersonalTransaction.Id
+    public string  CorroborationStatus { get; set; } = "none"; // none | matched | confirmed
+
+    // ── Offline-safe create &amp; soft delete ───────────────────────
+    public Guid?     IdempotencyKey { get; set; } // client-supplied; unique (TenantId, UserId, IdempotencyKey)
+    public DateTime? DeletedAt      { get; set; } // soft delete, 30-day restore window
+}</code></pre>
+<p>
+  Receipts are <code>Document</code>s linked to the log (&sect;10), not embedded blobs — so a receipt is a
+  first-class vault item. A log always has a <code>CareEntityId</code>; <code>CommitmentId</code> is optional (the
+  one-off plumber attaches to the flat entity but no commitment).
+</p>
+
+<h2 id="layers">5. The three-layer model</h2>
+<p>
+  The crucial modelling point (readiness &sect;5.3): a bank transaction does <strong>not</strong> link directly to
+  a commitment — it links through the act. Three layers, each with one job:
+</p>
+<div class="ascii-diagram">PersonalTransaction        PaymentLog                    Commitment (+ Cycle)
+  "bank evidence"   ──────▶  "the act, this cycle"  ──────▶  "the rhythm"
+  £200 Wise debit          CareEntity=Mum, May cycle        Mum — monthly allowance
+  SourceType=Plaid         Currency=GBP, receipt 📎          NextDue rolls 28 May → 28 Jun
+  (Spec 028 / linked acct)  SourceTransactionId ───┘          (Spec 044)
+                            CorroborationStatus=confirmed</div>
+<p>
+  Linking a transaction straight to a commitment would lose per-cycle granularity ("which month did this £200
+  satisfy?"). Routing it through the <code>PaymentLog</code> — which already knows its <code>CommitmentCycleId</code>
+  — keeps the history exact and gives one place to dedupe.
+</p>
+
+<h2 id="corroboration">6. Corroboration &amp; dedup <span class="tag new">the dedup key</span></h2>
+<p>The nullable <code>SourceTransactionId</code> + <code>CorroborationStatus</code> unlock three things:</p>
+<ol>
+  <li><strong>Auto-capture nudge</strong> — a detected linked-account debit becomes a proposed
+    <code>PaymentLog</code> (<code>Origin = plaidDetected</code>) against an open commitment cycle; one tap confirms
+    (readiness Phase E).</li>
+  <li><strong>Bank-corroborated statements</strong> — a "verified against linked account" marker on Support
+    Statement rows whose log is linked (<a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a> reserves
+    the column).</li>
+  <li><strong>Deduplication</strong> — the one the rebuild spec doesn't name. If the user <em>manually</em> captures
+    a payment <strong>and</strong> Plaid imports the same debit, the link collapses them into <strong>one</strong>
+    log instead of double-counting and corrupting the year total. <code>SourceTransactionId</code> is the dedup key
+    (unique per non-null value, mirroring <code>PersonalTransaction.ImportFingerprint</code>).</li>
+</ol>
+<div class="callout p0">
+  <span class="callout-label">The matcher proposes; it never auto-links silently</span>
+  Matching is fuzzy: a £200 instruction posts as £198.50 + £1.50 fee, settles two days late, GBP debit vs NGN
+  receipt. A wrong auto-link would corrupt the proof. So: this spec ships the <strong>schema</strong> (the nullable
+  FK + the three-state status) and a <strong>confirm-gated</strong> link/unlink endpoint; the matching <em>job</em>
+  is a fast-follow that only ever <em>proposes</em> a link (<code>matched</code>) for the user to accept
+  (<code>confirmed</code>) — never settles a link on its own. <code>none → matched → confirmed</code> is one-way to
+  <code>confirmed</code>; unlink returns to <code>none</code>.
+</div>
+
+<h2 id="totals">7. Per-currency summaries <span class="tag gap">recorded, never computed</span></h2>
+<p>
+  A <code>PaymentLogSummaryService</code> exposes per-currency rollups — the Today hero ("£4,250 · 6 people &amp;
+  places" + "+ ₦1.2m recorded in naira") and each CareEntity profile total (Spec&nbsp;043 &sect;8/&sect;9):
+</p>
+<pre><code>public record YearSummary(int Year, IReadOnlyList&lt;CurrencyTotal&gt; Totals, int EntityCount);
+public record CurrencyTotal(string Currency, decimal Total, int Count);
+// GROUP BY Currency — one row per currency, summed. NEVER a converted grand total.</code></pre>
+<p>
+  Corroboration-deduped logs count once. There is no FX anywhere: a converted figure is never produced, in keeping
+  with the absolute multi-currency-computation freeze (Simi launch-plan &sect;10).
+</p>
+
+<h2 id="idempotency">8. Idempotent create &amp; offline <span class="tag new">new</span></h2>
+<p>
+  The mobile capture queue saves locally and syncs on reconnect (rebuild spec &sect;7.5 acceptance), so a create can
+  be replayed. The client supplies an <code>IdempotencyKey</code> (a stable GUID per captured act); a unique index
+  on <code>(TenantId, UserId, IdempotencyKey)</code> makes a replayed create return the existing log rather than
+  inserting a duplicate. Delete is <strong>soft</strong> (<code>DeletedAt</code>) with a 30-day restore window —
+  "never delete history" (rebuild spec &sect;2.4); the vault and statements treat soft-deleted logs as absent.
+</p>
+
+<h2 id="api">9. API surface</h2>
+<p>Customer-scoped (<code>UserPolicy</code>), under <code>/personal-finance/payment-logs</code>:</p>
+<table>
+  <thead><tr><th>Route</th><th>Verb</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>/personal-finance/payment-logs</code></td><td>POST</td><td>Create a log (idempotent). Standalone, or via commitment mark-done (Spec&nbsp;044 calls this internally).</td></tr>
+    <tr><td><code>/personal-finance/payment-logs</code></td><td>GET</td><td>List (filter: <code>careEntityId</code>, <code>commitmentId</code>, <code>year</code>; paged). Powers "Recently handled" + profile history.</td></tr>
+    <tr><td><code>/personal-finance/payment-logs/{id}</code></td><td>GET / PUT / DELETE</td><td>Get / edit / soft-delete (+ restore within window).</td></tr>
+    <tr><td><code>/personal-finance/payment-logs/{id}/transaction-link</code></td><td>POST / DELETE</td><td>Confirm or remove a corroboration link (<code>confirmed</code> ↔ <code>none</code>); the matcher proposes <code>matched</code> (&sect;6).</td></tr>
+    <tr><td><code>/personal-finance/summary/year?year=</code></td><td>GET</td><td>Per-currency year summary for the Today hero (&sect;7).</td></tr>
+  </tbody>
+</table>
+<p>
+  Every request DTO ships a <code>Validator&lt;T&gt;</code> (build-time enforced). <code>CreatePaymentLogRequest</code>
+  validates a positive <code>Amount</code> (<code>.PositiveMoney()</code>), a <code>.CurrencyCode()</code>, a
+  channel/origin from the allowed sets, and that <code>CareEntityId</code> (and <code>CommitmentId</code> when
+  present) belong to the caller.
+</p>
+
+<h2 id="receipts">10. Receipts</h2>
+<p>
+  A receipt is a <code>Document</code> (Spec&nbsp;035) linked to the log via the entity/receipt linking added in
+  <a href="046.document-entity-linking-and-sharing.html">Spec&nbsp;046</a>. A mark-done or capture-confirm that
+  carries an image creates the Document and links it; <code>PaymentLogResponse</code> returns receipt
+  <code>DocumentRef</code>s (id + thumbnail URL), never bytes. Before Spec&nbsp;046 lands, a log can still be
+  created without a receipt (the link is optional), so 045 is independently shippable.
+</p>
+
+<h2 id="persistence">11. Persistence &amp; migration</h2>
+<ul>
+  <li><strong>New table</strong> <code>PaymentLog</code> → <code>dbo.AnkPaymentLogs</code> via
+    <code>MapFinanceTable</code> (AonikDbContext) + <code>MapTable</code> (PersonalFinanceDbContext); DbSets on
+    <strong>both</strong> contexts (every new DbSet lives on the canonical <code>AonikDbContext</code>, CLAUDE.md);
+    <code>IEntityTypeConfiguration</code> with indexes on
+    <code>(TenantId, UserId, CareEntityId, Date)</code> and <code>(TenantId, UserId, CommitmentId)</code>, a
+    unique filtered index on <code>(TenantId, UserId, IdempotencyKey)</code> WHERE not null, and a unique filtered
+    index on <code>SourceTransactionId</code> WHERE not null (dedup).</li>
+  <li><strong>No backfill.</strong> New table; existing spending transactions are <em>not</em> migrated into logs
+    (different object). A future convenience could offer "log this transaction as support," but that is user-driven,
+    not a migration.</li>
+  <li><strong>Tool-generated migration only</strong> against <code>AonikDbContext</code> (CLAUDE.md).</li>
+</ul>
+
+<h2 id="security">12. Security &amp; audit</h2>
+<ul>
+  <li>Tenant + user scoping on every read and write; <code>CareEntityId</code>/<code>CommitmentId</code> validated
+    to the caller. A circle member's access to another user's logs is governed entirely by
+    <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>'s visibility filter (including the
+    "docs-only, no amounts" rule).</li>
+  <li><code>UserPolicy</code>; no admin path.</li>
+  <li>A PaymentLog records a payment but <strong>moves no money</strong> — it is not a money action in the
+    Issue&nbsp;#142 sense (no quote/capture/settle/webhook), so that logging convention does not apply. Create /
+    edit / delete / corroboration-link changes are ordinary audited writes.</li>
+</ul>
+
+<h2 id="tasks">13. Tasks</h2>
+<ol>
+  <li><code>PaymentLog</code> entity + config + DbSet + <code>MapFinanceTable</code>/<code>MapTable</code>; indexes (incl. idempotency + source-transaction uniqueness); tool-generated migration.</li>
+  <li><code>IPaymentLogService</code> + implementation: idempotent create, list/get/edit, soft-delete + restore, tenant/user scoping, DTO mapping.</li>
+  <li>Corroboration: <code>SourceTransactionId</code> + <code>CorroborationStatus</code>; confirm-gated link/unlink endpoint (matcher job is Phase E, out of scope here).</li>
+  <li><code>PaymentLogSummaryService</code> — per-currency year/period totals; wire into CareEntity profile (Spec&nbsp;043 &sect;8) and the Today hero.</li>
+  <li>Endpoints + DTOs + validators (&sect;9).</li>
+  <li>Mark-done integration: Spec&nbsp;044's <code>MarkDoneAsync</code> calls create internally and links the cycle.</li>
+  <li>Tests (&sect;14).</li>
+</ol>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+<ul>
+  <li><strong>Attributed acts.</strong> A standalone log (plumber, ₦85,000, flat entity, no commitment) and a
+    mark-done log (£200, Mum, May cycle) both persist; both carry original currency; the cycle log links its
+    <code>CommitmentCycleId</code>.</li>
+  <li><strong>Per-currency totals.</strong> Logs in GBP + NGN yield two <code>CurrencyTotal</code> rows; no
+    converted grand total is produced.</li>
+  <li><strong>Idempotent offline create.</strong> Two creates with the same <code>IdempotencyKey</code> yield one
+    log (the second returns the first).</li>
+  <li><strong>Corroboration + dedup.</strong> Confirming a transaction link sets <code>CorroborationStatus =
+    confirmed</code>; a manual log + a Plaid transaction for the same act, once linked, count <strong>once</strong>
+    in the year total; the matcher never auto-confirms a link.</li>
+  <li><strong>Soft delete.</strong> A deleted log disappears from lists/summaries/statements but restores within 30
+    days; history is never hard-deleted.</li>
+  <li><strong>Build &amp; migration.</strong> <code>dotnet build</code> green; tool-generated migration adds only
+    <code>AnkPaymentLogs</code> with the specified indexes.</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Corroboration match confidence on the link.</strong> Whether to store the matcher's confidence + the mismatch deltas (fee, settlement lag, currency) on the link for the review UI. Leaning yes (cheap, aids the confirm decision); finalised with the Phase E matcher.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Cross-currency corroboration.</strong> A GBP debit corroborating an NGN-received log. Phase 1: link is allowed (currencies differ legitimately); the statement shows the recorded currency and notes the linked-account currency. No conversion.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — Restore window length.</strong> 30 days proposed; trivially configurable.</li>
+</ul>
+
+<h2 id="refs">16. References</h2>
+<ul>
+  <li><a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.3, &sect;7 (Decision D7), Phases A &amp; E.</li>
+  <li>Simi source docs: <code>simi-mobile-rebuild-spec.html</code> &sect;3.2, &sect;8.1, &sect;8.3, &sect;11 (corroboration / auto-capture fast-follows).</li>
+  <li><a href="043.care-entity-people-and-assets.html">Spec&nbsp;043 — CareEntity</a> &middot; <a href="044.commitment-cycle-lifecycle.html">Spec&nbsp;044 — Commitment cycles</a> &middot; <a href="046.document-entity-linking-and-sharing.html">Spec&nbsp;046 — Document linking</a> &middot; <a href="028.finance-account-transaction-auto-categorization.html">Spec&nbsp;028 — Transactions</a> &middot; <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048 — Circle &amp; statements</a></li>
+  <li>Code idioms: <code>Entities/PersonalFinance/PersonalTransaction.cs</code> (SourceType/SourceId/ImportFingerprint), <code>PersonalRecurringBill.SourceTransactionId</code> (link precedent), <code>PersonalFinanceDbContext</code>, <code>Services/PersonalFinance/BillService.cs</code> (service idiom).</li>
+</ul>
+
+<footer>
+  Spec 045 &middot; Draft Rev 1 &middot; 2026-06-13 &middot; implements Simi readiness plan &sect;5.3 &middot; Domain: PersonalFinance / Simi
+</footer>
+
+</body>
+</html>

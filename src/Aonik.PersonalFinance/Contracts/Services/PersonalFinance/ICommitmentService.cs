@@ -52,4 +52,71 @@ public interface ICommitmentService
     /// </summary>
     Task<IReadOnlyList<CommitmentItem>> ListDetectedAsync(
         CancellationToken cancellationToken = default);
+
+    // ── Support commitment lifecycle (Spec 044) ─────────────────────────
+
+    /// <summary>
+    /// Authors a Support commitment attached to a CareEntity with a structured
+    /// rhythm — the first manual-create path for a commitment-projected entity.
+    /// Opens the first cycle and arms a reminder.
+    /// </summary>
+    Task<CommitmentDetail> CreateSupportAsync(
+        CreateSupportCommitmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Edits a commitment (never rewrites past cycles). Null if not owned.</summary>
+    Task<CommitmentDetail?> UpdateSupportAsync(
+        Guid commitmentId,
+        UpdateSupportCommitmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks the current cycle done: writes a PaymentLog (Spec 045), records the
+    /// cycle Paid, rolls the due date forward, opens the next cycle, re-arms the
+    /// reminder. Idempotent per cycle. Null if not owned.
+    /// </summary>
+    Task<CommitmentDetail?> MarkDoneAsync(
+        Guid commitmentId,
+        MarkCommitmentDoneRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Skips the current cycle (honest history), advances, re-arms. Null if not owned.</summary>
+    Task<CommitmentDetail?> SkipCycleAsync(
+        Guid commitmentId,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Reschedules the current cycle's reminder without resolving it. Null if not owned.</summary>
+    Task<CommitmentDetail?> SnoozeAsync(
+        Guid commitmentId,
+        DateTime until,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Pauses reminders. Null if not owned.</summary>
+    Task<CommitmentDetail?> PauseAsync(Guid commitmentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Resumes and re-arms from today. Null if not owned.</summary>
+    Task<CommitmentDetail?> ResumeAsync(Guid commitmentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Per-cycle history timeline (paged, newest first). Null if the commitment is not owned.</summary>
+    Task<IReadOnlyList<CommitmentCycleResponse>?> GetCyclesAsync(
+        Guid commitmentId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Idempotent backfill: opens one cycle per active commitment that has none,
+    /// so existing detected/promoted commitments enter the lifecycle. Returns the
+    /// number of cycles opened.
+    /// </summary>
+    Task<int> BackfillOpenCyclesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Open commitments attached to a CareEntity, for the one-call profile (Spec 043 §8) and the
+    /// Keeper. Excludes terminal states (Completed / Cancelled / Archived). Owner-scoped.
+    /// </summary>
+    Task<IReadOnlyList<CareEntityCommitmentSummary>> GetSummariesForEntityAsync(
+        Guid careEntityId,
+        CancellationToken cancellationToken = default);
 }

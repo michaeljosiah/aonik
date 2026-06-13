@@ -25,6 +25,7 @@ internal sealed class DocumentsDbContext : AonikDbContextBase
     public DbSet<DocumentVersion> DocumentVersions { get; set; } = null!;
     public DbSet<DocumentIngestion> DocumentIngestions { get; set; } = null!;
     public DbSet<DocumentExtraction> DocumentExtractions { get; set; } = null!;
+    public DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
 
     public DocumentsDbContext(
         DbContextOptions<DocumentsDbContext> options,
@@ -57,6 +58,7 @@ internal sealed class DocumentsDbContext : AonikDbContextBase
         MapTable<DocumentVersion>(modelBuilder, "DocumentVersions");
         MapTable<DocumentIngestion>(modelBuilder, "DocumentIngestions");
         MapTable<DocumentExtraction>(modelBuilder, "DocumentExtractions");
+        MapTable<DocumentLink>(modelBuilder, "DocumentLinks");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

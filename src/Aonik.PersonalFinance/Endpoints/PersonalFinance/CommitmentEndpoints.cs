@@ -265,3 +265,324 @@ internal sealed class ListDetectedCommitmentsEndpoint
         await Send.OkAsync(response, ct);
     }
 }
+
+// ── Create Support Commitment (Spec 044) ──────────────────────────────
+
+internal sealed class CreateSupportCommitmentEndpoint
+    : Endpoint<CreateSupportCommitmentRequest, CommitmentDetail>
+{
+    private readonly ICommitmentService _service;
+
+    public CreateSupportCommitmentEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/personal-finance/commitments");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Author a Support commitment";
+            s.Description = "Creates a user-authored Support commitment attached to a CareEntity with a structured rhythm — the first manual-create path for a commitment-projected entity. Opens the first cycle and arms a reminder.";
+            s.Response(201, "Commitment created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CreateSupportCommitmentRequest req, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _service.CreateSupportAsync(req, ct);
+            await Send.CreatedAtAsync<GetCommitmentEndpoint>(
+                routeValues: new { commitmentId = response.CommitmentId },
+                responseBody: response,
+                cancellation: ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
+    }
+}
+
+// ── Update Support Commitment ─────────────────────────────────────────
+
+internal sealed class UpdateSupportCommitmentEndpoint
+    : Endpoint<UpdateSupportCommitmentRequest, CommitmentDetail>
+{
+    private readonly ICommitmentService _service;
+
+    public UpdateSupportCommitmentEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Put("/personal-finance/commitments/{commitmentId}");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a commitment";
+            s.Description = "Edits a commitment's name, amount, rhythm, reminder lead, and notes. Never rewrites past cycles.";
+            s.Response(200, "Commitment updated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Commitment not found");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(UpdateSupportCommitmentRequest req, CancellationToken ct)
+    {
+        var id = Route<Guid>("commitmentId");
+        try
+        {
+            var response = await _service.UpdateSupportAsync(id, req, ct);
+            if (response is null)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
+
+            await Send.OkAsync(response, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
+    }
+}
+
+// ── Mark cycle done ───────────────────────────────────────────────────
+
+internal sealed class MarkCommitmentDoneEndpoint
+    : Endpoint<MarkCommitmentDoneRequest, CommitmentDetail>
+{
+    private readonly ICommitmentService _service;
+
+    public MarkCommitmentDoneEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/personal-finance/commitments/{commitmentId}/done");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Mark the current cycle done";
+            s.Description = "Records a PaymentLog for the current cycle, rolls the due date forward, opens the next cycle, and re-arms the reminder. Idempotent per cycle.";
+            s.Response(200, "Cycle marked done successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Commitment not found");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(MarkCommitmentDoneRequest req, CancellationToken ct)
+    {
+        var id = Route<Guid>("commitmentId");
+        try
+        {
+            var response = await _service.MarkDoneAsync(id, req, ct);
+            if (response is null)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
+
+            await Send.OkAsync(response, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
+    }
+}
+
+// ── Skip cycle ────────────────────────────────────────────────────────
+
+internal sealed class SkipCommitmentEndpoint
+    : Endpoint<SkipCommitmentRequest, CommitmentDetail>
+{
+    private readonly ICommitmentService _service;
+
+    public SkipCommitmentEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/personal-finance/commitments/{commitmentId}/skip");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Skip the current cycle";
+            s.Description = "Records the current cycle as Skipped (honest history) and advances to the next cycle.";
+            s.Response(200, "Cycle skipped successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Commitment not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(SkipCommitmentRequest req, CancellationToken ct)
+    {
+        var id = Route<Guid>("commitmentId");
+        var response = await _service.SkipCycleAsync(id, req.Reason, ct);
+        if (response is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.OkAsync(response, ct);
+    }
+}
+
+// ── Snooze ────────────────────────────────────────────────────────────
+
+internal sealed class SnoozeCommitmentEndpoint
+    : Endpoint<SnoozeCommitmentRequest, CommitmentDetail>
+{
+    private readonly ICommitmentService _service;
+
+    public SnoozeCommitmentEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/personal-finance/commitments/{commitmentId}/snooze");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Snooze the current cycle's reminder";
+            s.Description = "Reschedules the current cycle's reminder to a chosen date without resolving the cycle.";
+            s.Response(200, "Reminder snoozed successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Commitment not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(SnoozeCommitmentRequest req, CancellationToken ct)
+    {
+        var id = Route<Guid>("commitmentId");
+        var response = await _service.SnoozeAsync(id, req.Until, ct);
+        if (response is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.OkAsync(response, ct);
+    }
+}
+
+// ── Pause / Resume ────────────────────────────────────────────────────
+
+internal sealed class PauseCommitmentEndpoint : EndpointWithoutRequest<CommitmentDetail>
+{
+    private readonly ICommitmentService _service;
+
+    public PauseCommitmentEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/personal-finance/commitments/{commitmentId}/pause");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Pause a commitment";
+            s.Description = "Pauses reminders for a commitment until resumed.";
+            s.Response(200, "Commitment paused successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Commitment not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var id = Route<Guid>("commitmentId");
+        var response = await _service.PauseAsync(id, ct);
+        if (response is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.OkAsync(response, ct);
+    }
+}
+
+internal sealed class ResumeCommitmentEndpoint : EndpointWithoutRequest<CommitmentDetail>
+{
+    private readonly ICommitmentService _service;
+
+    public ResumeCommitmentEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/personal-finance/commitments/{commitmentId}/resume");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Resume a commitment";
+            s.Description = "Resumes a paused commitment and re-arms its reminder.";
+            s.Response(200, "Commitment resumed successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Commitment not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var id = Route<Guid>("commitmentId");
+        var response = await _service.ResumeAsync(id, ct);
+        if (response is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.OkAsync(response, ct);
+    }
+}
+
+// ── Cycle history ─────────────────────────────────────────────────────
+
+internal sealed class ListCommitmentCyclesEndpoint : EndpointWithoutRequest<IReadOnlyList<CommitmentCycleResponse>>
+{
+    private readonly ICommitmentService _service;
+
+    public ListCommitmentCyclesEndpoint(ICommitmentService service) => _service = service;
+
+    public override void Configure()
+    {
+        Get("/personal-finance/commitments/{commitmentId}/cycles");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List commitment cycles";
+            s.Description = "Per-cycle history timeline (paid / skipped / snoozed), newest first, paged.";
+            s.Response(200, "Cycles returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Commitment not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var id = Route<Guid>("commitmentId");
+        var page = Query<int?>("page", isRequired: false) ?? 1;
+        var pageSize = Query<int?>("pageSize", isRequired: false) ?? 20;
+
+        var response = await _service.GetCyclesAsync(id, page, pageSize, ct);
+        if (response is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.OkAsync(response, ct);
+    }
+}

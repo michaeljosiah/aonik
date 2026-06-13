@@ -99,6 +99,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Documents (Spec 035) — new module entities; canonical migration stream stays here.
     public virtual DbSet<DocumentIngestion> DocumentIngestions { get; set; } = null!;
     public virtual DbSet<DocumentExtraction> DocumentExtractions { get; set; } = null!;
+    public virtual DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -141,6 +142,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<DebtRepayment> DebtRepayments { get; set; } = null!;
     public virtual DbSet<Goal> Goals { get; set; } = null!;
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
+    public virtual DbSet<CareEntity> CareEntities { get; set; } = null!;
+    public virtual DbSet<PaymentLog> PaymentLogs { get; set; } = null!;
+    public virtual DbSet<CommitmentCycle> CommitmentCycles { get; set; } = null!;
+    public virtual DbSet<CircleGrant> CircleGrants { get; set; } = null!;
+    public virtual DbSet<CircleInvite> CircleInvites { get; set; } = null!;
     public virtual DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
     public virtual DbSet<StatementImport> StatementImports { get; set; } = null!;
     public virtual DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
@@ -331,6 +337,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<DocumentVersion>(modelBuilder, "DocumentVersions");
         MapPlatformTable<DocumentIngestion>(modelBuilder, "DocumentIngestions");
         MapPlatformTable<DocumentExtraction>(modelBuilder, "DocumentExtractions");
+        MapPlatformTable<DocumentLink>(modelBuilder, "DocumentLinks");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
@@ -422,6 +429,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<DebtRepayment>(modelBuilder, "DebtRepayments");
         MapFinanceTable<Goal>(modelBuilder, "Goals");
         MapFinanceTable<Budget>(modelBuilder, "Budgets");
+        MapFinanceTable<CareEntity>(modelBuilder, "CareEntities");
+        MapFinanceTable<PaymentLog>(modelBuilder, "PaymentLogs");
+        MapFinanceTable<CommitmentCycle>(modelBuilder, "CommitmentCycles");
+        MapFinanceTable<CircleGrant>(modelBuilder, "CircleGrants");
+        MapFinanceTable<CircleInvite>(modelBuilder, "CircleInvites");
         MapFinanceTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
         MapFinanceTable<StatementImport>(modelBuilder, "StatementImports");
         MapFinanceTable<StatementImportRow>(modelBuilder, "StatementImportRows");

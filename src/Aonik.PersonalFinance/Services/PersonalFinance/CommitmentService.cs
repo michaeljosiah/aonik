@@ -1,10 +1,14 @@
+using System.Data;
+using System.Text.Json;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
@@ -16,18 +20,33 @@ namespace Aonik.Finance.Services.PersonalFinance;
 /// </summary>
 internal sealed class CommitmentService : ICommitmentService
 {
+    /// <summary>Default reminder lead for Support commitments (Spec 044 §10); legacy Bill keeps 14.</summary>
+    private const int DefaultSupportReminderDays = 3;
+
+    private static readonly HashSet<string> RhythmUnits =
+        new(StringComparer.OrdinalIgnoreCase) { "Weekly", "Monthly", "Quarterly", "Termly", "Yearly", "OneOff" };
+
     private readonly PersonalFinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IPaymentLogService _paymentLogService;
+    private readonly ITaskService _taskService;
+    private readonly ILogger<CommitmentService> _logger;
 
     public CommitmentService(
         PersonalFinanceDbContext dbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IPaymentLogService paymentLogService,
+        ITaskService taskService,
+        ILogger<CommitmentService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _paymentLogService = paymentLogService;
+        _taskService = taskService;
+        _logger = logger;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -258,6 +277,589 @@ internal sealed class CommitmentService : ICommitmentService
         var filter = new CommitmentListFilter(VerificationStatus: "Detected", PageSize: 100);
         var result = await ListCommitmentsAsync(filter, cancellationToken);
         return result.Items;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Support commitment lifecycle (Spec 044)
+    // ═══════════════════════════════════════════════════════════════════
+
+    public async Task<CommitmentDetail> CreateSupportAsync(
+        CreateSupportCommitmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+
+        var entityOwned = await _dbContext.CareEntities
+            .AnyAsync(e => e.Id == request.CareEntityId && e.TenantId == tenantId && e.UserId == userId, cancellationToken);
+        if (!entityOwned)
+        {
+            throw new ArgumentException("CareEntity not found.", nameof(request));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            throw new ArgumentException("DisplayName is required.", nameof(request));
+        }
+
+        var unit = (request.RhythmUnit ?? "Monthly").Trim();
+        if (!RhythmUnits.Contains(unit))
+        {
+            throw new ArgumentException($"RhythmUnit must be one of: {string.Join(", ", RhythmUnits)}.", nameof(request));
+        }
+
+        var isExplicit = unit.Equals("Termly", StringComparison.OrdinalIgnoreCase)
+            || unit.Equals("OneOff", StringComparison.OrdinalIgnoreCase);
+        var termDates = request.TermDates?.Select(d => d.Date).OrderBy(d => d).ToList();
+        var interval = request.RhythmInterval <= 0 ? 1 : request.RhythmInterval;
+
+        DateTime firstDue;
+        if (isExplicit)
+        {
+            if (termDates is not { Count: > 0 })
+            {
+                throw new ArgumentException("Termly/OneOff commitments require explicit TermDates.", nameof(request));
+            }
+
+            firstDue = termDates[0];
+        }
+        else
+        {
+            firstDue = request.FirstDueDate.Date;
+
+            // A non-explicit rhythm needs a real first due date. An omitted one deserializes to
+            // DateTime.MinValue (0001-01-01), which would sort the item to the wrong end of lists
+            // and arm a reminder millennia in the past — reject it before opening a cycle.
+            if (firstDue == default || firstDue.Year < 2000)
+            {
+                throw new ArgumentException("FirstDueDate is required for Weekly/Monthly/Quarterly/Yearly commitments.", nameof(request));
+            }
+        }
+
+        var bill = new PersonalRecurringBill
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            CareEntityId = request.CareEntityId,
+            Payee = request.DisplayName.Trim(),
+            CommitmentKind = "Support",
+            Origin = "Manual",
+            VerificationStatus = "Confirmed",
+            Status = "Active",
+            ExpectedAmount = request.ExpectedAmount,
+            Currency = (request.Currency ?? string.Empty).Trim().ToUpperInvariant(),
+            RhythmUnit = unit,
+            RhythmInterval = interval,
+            AnchorDay = request.AnchorDay,
+            TermDatesJson = termDates is { Count: > 0 } ? JsonSerializer.Serialize(termDates) : null,
+            Frequency = MapRhythmToFrequency(unit, interval),
+            NextDueDate = firstDue,
+            ReminderDaysBefore = request.ReminderDaysBefore ?? DefaultSupportReminderDays,
+            PaidFromAccountId = request.PaidFromAccountId,
+            Notes = request.Notes,
+            Autopay = false,
+        };
+
+        _dbContext.Set<PersonalRecurringBill>().Add(bill);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        OpenCycle(bill, tenantId, userId, firstDue);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await ArmReminderAsync(bill, userId, cancellationToken);
+
+        return MapBillToDetail(bill);
+    }
+
+    public async Task<CommitmentDetail?> UpdateSupportAsync(
+        Guid commitmentId,
+        UpdateSupportCommitmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+        var bill = await GetOwnedBillAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (bill is null)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            throw new ArgumentException("DisplayName is required.", nameof(request));
+        }
+
+        var unit = (request.RhythmUnit ?? "Monthly").Trim();
+        if (!RhythmUnits.Contains(unit))
+        {
+            throw new ArgumentException($"RhythmUnit must be one of: {string.Join(", ", RhythmUnits)}.", nameof(request));
+        }
+
+        var interval = request.RhythmInterval <= 0 ? 1 : request.RhythmInterval;
+        var termDates = request.TermDates?.Select(d => d.Date).OrderBy(d => d).ToList();
+
+        // Termly/OneOff have no computed roll — they need explicit dates (same rule as create).
+        // Without this, an update to Termly with no dates would store null and the next
+        // MarkDoneAsync would complete the commitment instead of rolling to the next term.
+        var isExplicit = unit.Equals("Termly", StringComparison.OrdinalIgnoreCase)
+            || unit.Equals("OneOff", StringComparison.OrdinalIgnoreCase);
+        if (isExplicit && termDates is not { Count: > 0 })
+        {
+            throw new ArgumentException("Termly/OneOff commitments require explicit TermDates.", nameof(request));
+        }
+
+        // Edit never rewrites past cycles (history is append-only); it updates the
+        // rhythm for future rolls and re-arms the reminder off the current due date.
+        bill.Payee = request.DisplayName.Trim();
+        bill.ExpectedAmount = request.ExpectedAmount;
+        bill.Currency = (request.Currency ?? string.Empty).Trim().ToUpperInvariant();
+        bill.RhythmUnit = unit;
+        bill.RhythmInterval = interval;
+        bill.AnchorDay = request.AnchorDay;
+        bill.TermDatesJson = termDates is { Count: > 0 } ? JsonSerializer.Serialize(termDates) : null;
+        bill.Frequency = MapRhythmToFrequency(unit, interval);
+        bill.ReminderDaysBefore = request.ReminderDaysBefore ?? bill.ReminderDaysBefore;
+        bill.Notes = request.Notes;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await ReArmReminderAsync(bill, userId, cancellationToken);
+
+        return MapBillToDetail(bill);
+    }
+
+    public async Task<CommitmentDetail?> MarkDoneAsync(
+        Guid commitmentId,
+        MarkCommitmentDoneRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+        var bill = await GetOwnedBillAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (bill is null)
+        {
+            return null;
+        }
+
+        if (bill.CareEntityId is not Guid careEntityId)
+        {
+            throw new ArgumentException("This commitment is not attached to a CareEntity; mark-done requires one.");
+        }
+
+        // Replay-safe: if this idempotency key already logged a payment, the
+        // mark-done already happened — return without advancing another cycle.
+        if (request.IdempotencyKey is Guid replayKey)
+        {
+            var alreadyLogged = await _dbContext.PaymentLogs
+                .AnyAsync(p => p.TenantId == tenantId && p.UserId == userId && p.IdempotencyKey == replayKey, cancellationToken);
+            if (alreadyLogged)
+            {
+                return MapBillToDetail(bill);
+            }
+        }
+
+        var cycle = await GetCurrentCycleAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (cycle is null || cycle.Status == "Paid")
+        {
+            return MapBillToDetail(bill); // idempotent — no double log
+        }
+
+        var date = (request.Date ?? bill.NextDueDate).Date;
+
+        // Write the PaymentLog (Spec 045) and resolve + advance the cycle in ONE unit of work.
+        // PaymentLogService.CreateAsync commits its own SaveChanges, so without a wrapping
+        // transaction a failure of the cycle save would leave an orphaned log that double-counts
+        // a payment which did not win the cycle resolution. The Serializable transaction (and the
+        // cycle's rowversion token) also serialises concurrent mark-dones of the same cycle.
+        // Mirrors FinancialLifeGraphWriteService / HouseholdService.
+        DateTime? next = null;
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async ct =>
+        {
+            var useTransaction = _dbContext.Database.IsRelational();
+            var committed = false;
+            await using var transaction = useTransaction
+                ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct)
+                : null;
+
+            try
+            {
+                var log = await _paymentLogService.CreateAsync(
+                    new CreatePaymentLogRequest(
+                        careEntityId,
+                        commitmentId,
+                        cycle.Id,
+                        request.Amount,
+                        request.Currency,
+                        request.ApproxGbp,
+                        date,
+                        request.Channel,
+                        "markDone",
+                        request.Note,
+                        request.IdempotencyKey),
+                    ct);
+
+                cycle.Status = "Paid";
+                cycle.PaymentLogId = log.Id;
+                cycle.ResolvedAt = DateTime.UtcNow;
+
+                bill.LastPaidAt = date;
+                bill.LastPaidAmount = request.Amount;
+
+                next = RhythmFor(bill).NextAfter(cycle.DueDate);
+                if (next is DateTime nextDue)
+                {
+                    bill.NextDueDate = nextDue;
+                    OpenCycle(bill, tenantId, userId, nextDue);
+                }
+                else
+                {
+                    bill.Status = "Completed"; // OneOff / exhausted Termly
+                }
+
+                await _dbContext.SaveChangesAsync(ct);
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(ct);
+                    committed = true;
+                }
+            }
+            catch
+            {
+                if (transaction != null && !committed)
+                {
+                    await transaction.RollbackAsync(ct);
+                }
+
+                throw;
+            }
+        }, cancellationToken);
+
+        // Reminders are re-armed after the cycle change has committed (a side effect, not part of
+        // the financial unit of work).
+        if (next is not null)
+        {
+            await ReArmReminderAsync(bill, userId, cancellationToken);
+        }
+        else
+        {
+            await CancelRemindersAsync(commitmentId, cancellationToken);
+        }
+
+        return MapBillToDetail(bill);
+    }
+
+    public async Task<CommitmentDetail?> SkipCycleAsync(
+        Guid commitmentId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+        var bill = await GetOwnedBillAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (bill is null)
+        {
+            return null;
+        }
+
+        var cycle = await GetCurrentCycleAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (cycle is null)
+        {
+            return MapBillToDetail(bill);
+        }
+
+        cycle.Status = "Skipped";
+        cycle.SkipReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        cycle.ResolvedAt = DateTime.UtcNow;
+
+        var next = RhythmFor(bill).NextAfter(cycle.DueDate);
+        if (next is DateTime nextDue)
+        {
+            bill.NextDueDate = nextDue;
+            OpenCycle(bill, tenantId, userId, nextDue);
+        }
+        else
+        {
+            bill.Status = "Completed";
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (next is not null)
+        {
+            await ReArmReminderAsync(bill, userId, cancellationToken);
+        }
+        else
+        {
+            await CancelRemindersAsync(commitmentId, cancellationToken);
+        }
+
+        return MapBillToDetail(bill);
+    }
+
+    public async Task<CommitmentDetail?> SnoozeAsync(
+        Guid commitmentId,
+        DateTime until,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+        var bill = await GetOwnedBillAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (bill is null)
+        {
+            return null;
+        }
+
+        var cycle = await GetCurrentCycleAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (cycle is null)
+        {
+            return MapBillToDetail(bill);
+        }
+
+        // Reschedule the current cycle's reminder without resolving it (§7).
+        cycle.Status = "Snoozed";
+        cycle.SnoozedUntil = until;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await CancelRemindersAsync(commitmentId, cancellationToken);
+        await ScheduleReminderAsync(bill, userId, DateTime.SpecifyKind(until, DateTimeKind.Utc), cancellationToken);
+
+        return MapBillToDetail(bill);
+    }
+
+    public async Task<CommitmentDetail?> PauseAsync(Guid commitmentId, CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+        var bill = await GetOwnedBillAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (bill is null)
+        {
+            return null;
+        }
+
+        bill.Status = "Paused";
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var tasks = await _taskService.ListForSubjectAsync("Commitment", commitmentId, cancellationToken);
+            foreach (var t in tasks)
+            {
+                await _taskService.PauseAsync(t.Id, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to pause reminders for commitment {CommitmentId}.", commitmentId);
+        }
+
+        return MapBillToDetail(bill);
+    }
+
+    public async Task<CommitmentDetail?> ResumeAsync(Guid commitmentId, CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+        var bill = await GetOwnedBillAsync(commitmentId, tenantId, userId, cancellationToken);
+        if (bill is null)
+        {
+            return null;
+        }
+
+        bill.Status = "Active";
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await ReArmReminderAsync(bill, userId, cancellationToken);
+
+        return MapBillToDetail(bill);
+    }
+
+    public async Task<IReadOnlyList<CommitmentCycleResponse>?> GetCyclesAsync(
+        Guid commitmentId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+        var owned = await _dbContext.Set<PersonalRecurringBill>()
+            .AnyAsync(b => b.Id == commitmentId && b.TenantId == tenantId && b.UserId == userId, cancellationToken);
+        if (!owned)
+        {
+            return null;
+        }
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var cycles = await _dbContext.Set<CommitmentCycle>()
+            .AsNoTracking()
+            .Where(c => c.CommitmentId == commitmentId && c.TenantId == tenantId && c.UserId == userId)
+            .OrderByDescending(c => c.DueDate)
+            .ThenByDescending(c => c.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return cycles.Select(MapCycle).ToList();
+    }
+
+    public async Task<IReadOnlyList<CareEntityCommitmentSummary>> GetSummariesForEntityAsync(
+        Guid careEntityId,
+        CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+
+        var bills = await _dbContext.Set<PersonalRecurringBill>()
+            .AsNoTracking()
+            .Where(b => b.TenantId == tenantId && b.UserId == userId && b.CareEntityId == careEntityId
+                && b.Status != "Completed" && b.Status != "Cancelled" && b.Status != "Archived")
+            .OrderBy(b => b.NextDueDate)
+            .ToListAsync(cancellationToken);
+
+        return bills
+            .Select(b => new CareEntityCommitmentSummary(
+                b.Id, b.Payee, b.Frequency, b.ExpectedAmount, b.Currency, b.NextDueDate, b.Status))
+            .ToList();
+    }
+
+    public async Task<int> BackfillOpenCyclesAsync(CancellationToken cancellationToken = default)
+    {
+        var (tenantId, userId) = GetContext();
+
+        var active = await _dbContext.Set<PersonalRecurringBill>()
+            .Where(b => b.TenantId == tenantId && b.UserId == userId && b.Status == "Active")
+            .ToListAsync(cancellationToken);
+
+        var opened = 0;
+        foreach (var bill in active)
+        {
+            var hasOpen = await _dbContext.Set<CommitmentCycle>()
+                .AnyAsync(c => c.CommitmentId == bill.Id && c.ResolvedAt == null, cancellationToken);
+            if (!hasOpen)
+            {
+                OpenCycle(bill, tenantId, userId, bill.NextDueDate);
+                opened++;
+            }
+        }
+
+        if (opened > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return opened;
+    }
+
+    // ── Lifecycle helpers ───────────────────────────────────────────────
+
+    private async Task<PersonalRecurringBill?> GetOwnedBillAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+        => await _dbContext.Set<PersonalRecurringBill>()
+            .FirstOrDefaultAsync(b => b.Id == id && b.TenantId == tenantId && b.UserId == userId, ct);
+
+    private async Task<CommitmentCycle?> GetCurrentCycleAsync(Guid commitmentId, Guid tenantId, Guid userId, CancellationToken ct)
+        => await _dbContext.Set<CommitmentCycle>()
+            .Where(c => c.CommitmentId == commitmentId && c.TenantId == tenantId && c.UserId == userId && c.ResolvedAt == null)
+            .OrderByDescending(c => c.DueDate)
+            .FirstOrDefaultAsync(ct);
+
+    private void OpenCycle(PersonalRecurringBill bill, Guid tenantId, Guid userId, DateTime dueDate)
+        => _dbContext.Set<CommitmentCycle>().Add(new CommitmentCycle
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            CommitmentId = bill.Id,
+            DueDate = dueDate.Date,
+            Status = "Open",
+        });
+
+    private static Rhythm RhythmFor(PersonalRecurringBill b)
+        => new(b.RhythmUnit, b.RhythmInterval, b.AnchorDay, ParseTermDates(b.TermDatesJson));
+
+    private static IReadOnlyList<DateTime>? ParseTermDates(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<DateTime>>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string MapRhythmToFrequency(string unit, int interval)
+        => unit.ToLowerInvariant() switch
+        {
+            "weekly" => "Weekly",
+            "monthly" => "Monthly",
+            "quarterly" => "Quarterly",
+            "yearly" => "Annually",
+            "termly" => "Quarterly",
+            "oneoff" => "OneOff",
+            _ => "Monthly",
+        };
+
+    private static CommitmentCycleResponse MapCycle(CommitmentCycle c)
+        => new(c.Id, c.CommitmentId, c.DueDate, c.Status, c.PaymentLogId, c.SkipReason, c.SnoozedUntil, c.ResolvedAt, c.CreatedAt);
+
+    private async Task ArmReminderAsync(PersonalRecurringBill bill, Guid userId, CancellationToken ct)
+    {
+        var lead = bill.ReminderDaysBefore ?? DefaultSupportReminderDays;
+        var dueUtc = DateTime.SpecifyKind(bill.NextDueDate, DateTimeKind.Utc);
+        await ScheduleReminderAsync(bill, userId, dueUtc.AddDays(-lead), ct);
+    }
+
+    private async Task ScheduleReminderAsync(PersonalRecurringBill bill, Guid userId, DateTime runAtUtc, CancellationToken ct)
+    {
+        var payloadJson = JsonSerializer.Serialize(new
+        {
+            userId,
+            severity = "Info",
+            title = "Commitment due",
+            body = $"{bill.Payee} is due on {bill.NextDueDate:d} ({bill.ExpectedAmount} {bill.Currency}).",
+        });
+
+        try
+        {
+            await _taskService.ScheduleAsync(
+                new ScheduleTaskRequest(
+                    Title: $"Commitment due: {bill.Payee}",
+                    Kind: TaskKinds.Reminder,
+                    ActionType: TaskActionTypes.NotifyUser,
+                    ActionPayloadJson: payloadJson,
+                    AssigneeType: TaskAssigneeTypes.System,
+                    SubjectType: "Commitment",
+                    SubjectId: bill.Id,
+                    RunAtUtc: runAtUtc,
+                    CorrelationId: bill.Id.ToString(),
+                    SourceModule: "PersonalFinance"),
+                ct);
+        }
+        catch (Exception ex)
+        {
+            // Reminders are a best-effort side benefit; never fail the operation.
+            _logger.LogWarning(ex, "Failed to arm reminder for commitment {CommitmentId}.", bill.Id);
+        }
+    }
+
+    private async Task ReArmReminderAsync(PersonalRecurringBill bill, Guid userId, CancellationToken ct)
+    {
+        await CancelRemindersAsync(bill.Id, ct);
+        await ArmReminderAsync(bill, userId, ct);
+    }
+
+    private async Task CancelRemindersAsync(Guid commitmentId, CancellationToken ct)
+    {
+        try
+        {
+            var existing = await _taskService.ListForSubjectAsync("Commitment", commitmentId, ct);
+            foreach (var t in existing)
+            {
+                await _taskService.CancelAsync(t.Id, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cancel reminders for commitment {CommitmentId}.", commitmentId);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -553,7 +1155,10 @@ internal sealed class CommitmentService : ICommitmentService
         Notes: b.Notes,
         AccountReference: b.PayeeReference,
         CreatedAt: b.CreatedAt,
-        UpdatedAt: b.UpdatedAt);
+        UpdatedAt: b.UpdatedAt,
+        CareEntityId: b.CareEntityId,
+        CommitmentKind: b.CommitmentKind,
+        RhythmLabel: RhythmFor(b).Label());
 
     private static CommitmentDetail MapSubscriptionToDetail(Subscription s) => new(
         CommitmentId: s.Id,
@@ -580,7 +1185,9 @@ internal sealed class CommitmentService : ICommitmentService
         Notes: s.Notes,
         AccountReference: null,
         CreatedAt: s.CreatedAt,
-        UpdatedAt: s.UpdatedAt);
+        UpdatedAt: s.UpdatedAt,
+        CommitmentKind: "Subscription",
+        RhythmLabel: s.Frequency);
 
     private static CommitmentDetail MapDebtToDetail(DebtRepayment d) => new(
         CommitmentId: d.Id,
@@ -607,7 +1214,9 @@ internal sealed class CommitmentService : ICommitmentService
         Notes: d.Notes,
         AccountReference: d.AccountReference,
         CreatedAt: d.CreatedAt,
-        UpdatedAt: d.UpdatedAt);
+        UpdatedAt: d.UpdatedAt,
+        CommitmentKind: "DebtRepayment",
+        RhythmLabel: d.Frequency);
 
     // ═══════════════════════════════════════════════════════════════════
     // Shared helpers

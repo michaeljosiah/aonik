@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 043 - CareEntity: people &amp; assets you look after</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 043</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag">Priority: P1 (Simi M2 spine)</span>
+  <span class="meta-tag">Domain: PersonalFinance / Simi</span>
+  <h1>CareEntity — people &amp; assets you look after</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    The foundational object for the Simi mobile app: a <strong>CareEntity</strong> is a <em>person</em> ("Mum") or
+    an <em>asset</em> you look after — a property, land, a vehicle, a business stake, a foreign account — each with
+    a country, that owns commitments, payment history, documents, and per-currency totals. Today the
+    <code>Party</code> model only types as <code>Person | Organization</code> (no asset of any kind), and the only
+    neutral customer-facing entity CRUD is the generic financial-life-graph node API. This spec introduces a
+    first-class, <strong>tenant- and user-scoped</strong> CareEntity in the PersonalFinance module with customer
+    CRUD and a one-call profile projection. Implements
+    <a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.1.
+  </p>
+</header>
+
+<div class="callout">
+  <span class="callout-label">Family of specs (043–048)</span>
+  This is the first of six specs that make AONIK "Simi-ready," one per identified backend gap. CareEntity is the
+  spine the other five hang off: <a href="044.commitment-cycle-lifecycle.html">Spec&nbsp;044</a> (commitment
+  cycles), <a href="045.payment-log.html">Spec&nbsp;045</a> (payment logs),
+  <a href="046.document-entity-linking-and-sharing.html">Spec&nbsp;046</a> (vault linking),
+  <a href="047.ai-capture-parse-and-keeper.html">Spec&nbsp;047</a> (capture parse), and
+  <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a> (the circle). Build order starts here.
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#model">The object model</a></li>
+    <li><a href="#entity">CareEntity entity</a></li>
+    <li><a href="#taxonomy">Kind &amp; asset taxonomy</a></li>
+    <li><a href="#api">API surface</a></li>
+    <li><a href="#profile">Profile projection</a></li>
+    <li><a href="#totals">Per-currency totals</a></li>
+    <li><a href="#relationship">Relationship to Party / graph</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  Simi is "the keeper of a cross-border life." Everything in it hangs off the people and the things a user looks
+  after across borders. The Simi rebuild spec (&sect;3.2) names this object a <strong>CareEntity</strong> and
+  models it as <em>person</em> or <em>place</em>; the readiness review widened "place" to <em>asset</em> — a
+  property, but equally land, a car, a business stake, or a foreign account — because the founding insight is
+  inheritance and continuity ("anything a loved one would leave"), not location. From the system's point of view
+  every CareEntity behaves identically: a named thing, in a country, that owns commitments, a payment history,
+  documents, and per-currency totals.
+</p>
+<p>
+  No such neutral, customer-owned object exists today. This spec adds <code>CareEntity</code> to the
+  PersonalFinance module (sibling to Finance, <a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a>),
+  with consumer CRUD and a single-call profile projection that the People &amp; Places screen renders from alone.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  A consumer creates "Mum" (person, Nigeria) and "the Surulere flat" (asset / property, Nigeria) from the mobile
+  app with a <code>PersonalUser</code> JWT — no admin surface, no remittance-beneficiary coupling. Tapping either
+  one returns its whole profile in one call: per-currency year totals, its commitments, its recent payment logs,
+  and its document thumbnails. A car, a plot of land, or a business stake is created the same way and behaves the
+  same way. Nothing in the model says "Nigeria" or "remittance," so a Toronto→Kochi caregiver and a Leeds→Lagos
+  flat are both first-class with zero corridor-specific code.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<p>Confirmed against the tree. Three facts shape the design:</p>
+<ul>
+  <li><strong>Party cannot model an asset — and is not user-owned.</strong> <code>Entities/Party/Party.cs</code>
+    carries a free-string <code>PartyType</code>, validated to <code>"Person" | "Organization"</code> only
+    (<code>PlatformValidators.cs:570</code> — the same rule repeats in <code>FinanceValidators.cs:136</code>:
+    <code>.Must(t =&gt; t is "Person" or "Organization")</code>). There is no place/property/vehicle concept
+    anywhere in the codebase. And <code>Party</code> has <strong>no <code>UserId</code></strong> — it is
+    tenant-scoped, a shared platform object, not a private per-user record.</li>
+  <li><strong>The only neutral customer CRUD is generic graph nodes.</strong> <code>POST /personal-finance/graph/nodes</code>
+    (<code>UserPolicy</code>) creates arbitrary financial-life-graph nodes (<code>NodeType</code>,
+    <code>DisplayName</code>, <code>MetadataJson</code>) — untyped, with no country, no profile, no first-class
+    fields. The direct <code>/parties</code> create <em>is</em> technically consumer-reachable
+    (<code>AdminUserPolicy</code> <strong>includes</strong> the <code>PersonalUser</code> role) — but it writes the
+    tenant-global platform Party above, with no per-user ownership, so it cannot serve as a private keeper object.
+    The customer-facing <code>Recipients</code> surface is likewise reachable, but it is explicitly the
+    "payout-beneficiary party graph (Spec&nbsp;008)" — remittance-coupled, and exactly what Simi's mobile "great
+    deletion" (M0) removes.</li>
+  <li><strong>No one-call entity profile.</strong> The People profile screen needs entity + totals + commitments +
+    recent logs + document refs in a single round-trip (rebuild spec &sect;7.6 acceptance). Today that would be
+    several queries against the graph; the graph returns the <em>whole</em> life graph, not one entity's rollup.</li>
+</ul>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <code>CareEntity</code> entity (&sect;5) — tenant + user scoped, in PersonalFinance.</li>
+  <li><span class="tag new">New</span> A <code>kind = person | asset</code> discriminator with an open
+    <code>assetType</code> taxonomy and an <code>attributesJson</code> bag (&sect;6).</li>
+  <li><span class="tag new">New</span> Customer CRUD endpoints: list, get, create, update, archive (&sect;7).</li>
+  <li><span class="tag new">New</span> A one-call <code>GET …/care-entities/{id}/profile</code> projection (&sect;8).</li>
+  <li><span class="tag new">New</span> Per-currency totals over payment logs (&sect;9; depends on
+    <a href="045.payment-log.html">Spec&nbsp;045</a>, degrades gracefully before it).</li>
+</ul>
+<h3>3.2 Out of scope <span class="tag gap">the guardrail</span></h3>
+<ul>
+  <li><strong>Asset management of any kind.</strong> No valuations, no net-worth rollup, no depreciation, no rent
+    ledgers, no yield, no per-type tooling. An asset gets <em>only</em> the five primitives — commitments,
+    documents, payment history, totals, circle-scope — exactly as a person does. A car gets an insurance
+    commitment and a logbook document, not a maintenance scheduler. The moment "asset" means "a thing to
+    <em>value</em>" rather than "a thing to <em>pay for and document</em>," the product drifts into a net-worth
+    tracker (Simi launch-plan Guardrail&nbsp;1). This spec deliberately ships no field or endpoint that invites
+    valuation.</li>
+  <li><strong>Money movement.</strong> CareEntity is record-keeping. It never funds, settles, or routes a payment.</li>
+  <li><strong>Relationship graph beyond a label.</strong> A free-text <code>relationship</code>/<code>label</code>
+    ("mother", "co-owned rental") is in; a typed kinship/ownership graph is not.</li>
+</ul>
+
+<h2 id="model">4. The object model</h2>
+<p>
+  Five objects, three verbs (capture, remind, prove). CareEntity is the hub; the other four specs attach to it:
+</p>
+<div class="ascii-diagram">CareEntity  (this spec — person | asset, country, attributes)
+  ├── Commitment        Spec 044   "what I owe this entity, on a rhythm"   (CareEntityId FK)
+  ├── PaymentLog        Spec 045   "an act that honoured it"               (CareEntityId FK)
+  ├── Document          Spec 046   "the proof"                            (CareEntityId link)
+  └── CircleGrant       Spec 048   "who may see this entity"              (scope → CareEntityId[])
+
+GET /care-entities/{id}/profile  ──▶  one call returns:
+     entity + per-currency totals + commitments + recent logs + document refs   (§8)</div>
+<p>
+  The entity is intentionally thin: identity, type, country, presentation, and an extensibility bag. All behaviour
+  (totals, history, rhythms) lives in services and the dependent aggregates, per the AONIK anemic-entity rule
+  (CLAUDE.md).
+</p>
+
+<h2 id="entity">5. CareEntity entity <span class="tag new">new</span></h2>
+<p>
+  An anemic, tenant- and user-scoped entity in <code>src/Aonik.PersonalFinance/Entities/PersonalFinance/</code>,
+  inheriting <code>AuditableEntity</code> and implementing <code>ITenantScoped</code> — matching the shape of the
+  module's existing <code>PersonalAccount</code> / <code>Bill</code> entities:
+</p>
+<pre><code>public class CareEntity : AuditableEntity, ITenantScoped
+{
+    public Guid   TenantId { get; set; }
+    public Guid   UserId   { get; set; }            // owner; scoped per user like Bill/PersonalAccount
+
+    // ── Identity &amp; type ───────────────────────────────────────────
+    public string Kind        { get; set; } = "person";   // person | asset   (§6)
+    public string? AssetType  { get; set; }               // property|land|vehicle|business|account|other
+    public string Name        { get; set; } = string.Empty;
+    public string CountryCode { get; set; } = string.Empty; // ISO-3166 alpha-2 → flag + default currency
+
+    // ── Presentation &amp; meaning ────────────────────────────────────
+    public string? Relationship { get; set; }   // "mother", "co-owned rental", free text (avoid bank-speak)
+    public string? Emoji        { get; set; }   // avatar fallback
+    public Guid?   PhotoDocumentId { get; set; } // optional avatar, stored via Documents (Spec 035)
+
+    // ── Extensibility (no schema churn for new asset types) ────────
+    public string AttributesJson { get; set; } = "{}"; // type-specific: vehicle reg, property address, …
+
+    // ── Lifecycle ─────────────────────────────────────────────────
+    public bool Archived { get; set; }          // hidden from grids; history preserved (never hard-delete)
+}</code></pre>
+<p>
+  An <code>IEntityTypeConfiguration&lt;CareEntity&gt;</code> in
+  <code>Persistence/Configurations/PersonalFinance/</code> sets <code>Name</code>/<code>Kind</code>/<code>AssetType</code>
+  max-lengths, a <code>CountryCode</code> length of 2, and an index on <code>(TenantId, UserId, Archived)</code>
+  for the grid query. No unique constraint on name — two children can both be "Tope."
+</p>
+
+<h2 id="taxonomy">6. Kind &amp; asset taxonomy</h2>
+<p>Two top-level <strong>kinds</strong>, because a person and a thing carry different presentation and meaning:</p>
+<table>
+  <thead><tr><th>Kind</th><th>Meaning</th><th>Carries</th><th>Examples</th></tr></thead>
+  <tbody>
+    <tr><td><code>person</code></td><td>Someone you look after / support / administer for.</td><td>A <em>relationship</em> ("mother", "niece").</td><td>Mum, Tope, Appa</td></tr>
+    <tr><td><code>asset</code></td><td>A thing you are responsible for, pay for, and document.</td><td>An <em>assetType</em> + an ownership <em>label</em>.</td><td>Surulere flat, the Hilux, family land, a business stake</td></tr>
+  </tbody>
+</table>
+<p>
+  For <code>kind = asset</code>, <code>assetType</code> is a <strong>small curated, open enum</strong>:
+  <code>property · land · vehicle · business · account · other</code>. The curated set drives the avatar glyph,
+  default reminder copy, and the Support Statement noun ("expenses against the Surulere flat" vs "…the Hilux").
+  <code>other</code> + a free <code>label</code> covers the long tail (a boat, livestock, equipment) <strong>without
+  a migration</strong>; type-specific optional metadata (a vehicle registration, a property address, a land title
+  number) lives in <code>attributesJson</code> — the same idiom as <code>PersonalTransaction.TagsJson</code> and
+  <code>Document</code> attributes. Validation accepts any string for <code>assetType</code> but the UI offers the
+  curated list first.
+</p>
+<div class="callout p0">
+  <span class="callout-label">Restraint, restated as a rule</span>
+  Adding an <code>assetType</code> must never add a <em>capability</em>. The taxonomy is for icons, copy, and
+  statement language — not for unlocking valuation, scheduling, or analytics. If a proposed asset type would only
+  make sense alongside a new management feature, that feature is out of scope (&sect;3.2), and so is the type until
+  Simi has paying users asking for it.
+</div>
+
+<h2 id="api">7. API surface</h2>
+<p>
+  FastEndpoints, customer-scoped (<code>Policies("UserPolicy")</code>), under <code>/personal-finance/care-entities</code>,
+  following the module's existing <code>Endpoint&lt;TRequest,TResponse&gt;</code> + positional-record-DTO idiom
+  (e.g. <code>CreateBillEndpoint</code>). Every request DTO ships a <code>Validator&lt;T&gt;</code> — enforced at
+  build time by <code>RequestDtoValidatorCoverageTests</code>.
+</p>
+<table>
+  <thead><tr><th>Route</th><th>Verb</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>/personal-finance/care-entities</code></td><td>GET</td><td>List the user's entities (filter: <code>kind</code>, <code>assetType</code>, <code>includeArchived</code>).</td></tr>
+    <tr><td><code>/personal-finance/care-entities</code></td><td>POST</td><td>Create a person or asset.</td></tr>
+    <tr><td><code>/personal-finance/care-entities/{id}</code></td><td>GET</td><td>Get one entity (lightweight).</td></tr>
+    <tr><td><code>/personal-finance/care-entities/{id}</code></td><td>PUT</td><td>Update name / relationship / country / type / attributes / photo.</td></tr>
+    <tr><td><code>/personal-finance/care-entities/{id}/archive</code></td><td>POST</td><td>Archive (soft; history preserved).</td></tr>
+    <tr><td><code>/personal-finance/care-entities/{id}/profile</code></td><td>GET</td><td>The one-call profile (&sect;8).</td></tr>
+  </tbody>
+</table>
+<h4>DTOs (records)</h4>
+<pre><code>public record CreateCareEntityRequest(
+    string Kind, string? AssetType, string Name, string CountryCode,
+    string? Relationship, string? Emoji, Guid? PhotoDocumentId,
+    IReadOnlyDictionary&lt;string, string&gt;? Attributes);
+
+public record CareEntityResponse(
+    Guid Id, string Kind, string? AssetType, string Name, string CountryCode,
+    string? Relationship, string? Emoji, Guid? PhotoDocumentId,
+    IReadOnlyDictionary&lt;string, string&gt; Attributes, bool Archived,
+    DateTime CreatedAt, DateTime UpdatedAt);</code></pre>
+<h4>Validation (FluentValidation)</h4>
+<pre><code>public sealed class CreateCareEntityRequestValidator : Validator&lt;CreateCareEntityRequest&gt;
+{
+    public CreateCareEntityRequestValidator()
+    {
+        RuleFor(x =&gt; x.Kind).Must(k =&gt; k is "person" or "asset");
+        RuleFor(x =&gt; x.Name).RequiredText(120);
+        RuleFor(x =&gt; x.CountryCode).Length(2);
+        RuleFor(x =&gt; x.AssetType)
+            .NotEmpty().When(x =&gt; x.Kind == "asset")     // an asset has a type
+            .Must(BeNullOrEmpty).When(x =&gt; x.Kind == "person"); // a person does not
+        RuleFor(x =&gt; x.Relationship).MaximumLength(80);
+        RuleFor(x =&gt; x.PhotoDocumentId).ValidIdWhenSupplied();
+    }
+}</code></pre>
+
+<h2 id="profile">8. Profile projection <span class="tag new">new</span></h2>
+<p>
+  The People profile screen "renders fully from one repository call" (rebuild spec &sect;7.6). A
+  <code>CareEntityProfileService</code> composes the rollup server-side:
+</p>
+<pre><code>public record CareEntityProfileResponse(
+    CareEntityResponse Entity,
+    IReadOnlyList&lt;CurrencyTotal&gt;   YearTotals,    // per-currency, never converted (§9)
+    IReadOnlyList&lt;CommitmentSummary&gt; Commitments,  // open commitments for this entity (Spec 044)
+    IReadOnlyList&lt;PaymentLogSummary&gt; RecentLogs,   // last N acts (Spec 045)
+    IReadOnlyList&lt;DocumentRef&gt;      Documents);    // linked vault items (Spec 046)
+
+public record CurrencyTotal(string Currency, decimal Total, int Count);</code></pre>
+<p>
+  The projection is assembled from the dependent aggregates as each ships. Before
+  <a href="045.payment-log.html">Spec&nbsp;045</a> lands, <code>YearTotals</code>/<code>RecentLogs</code> are empty
+  arrays and the screen shows its "nothing recorded yet" state — so 043 is independently shippable and the profile
+  grows richer as 044–046 land. The route is one GET; no N+1 round-trips from the client.
+</p>
+
+<h2 id="totals">9. Per-currency totals <span class="tag gap">currency is recorded, never computed</span></h2>
+<p>
+  A core Simi rule (rebuild spec &sect;2.3 Move&nbsp;3): money keeps its origin and is <strong>never auto-converted</strong>.
+  Year totals are therefore a list, one row per currency — "£2,400 + ₦85,000," not a fabricated grand total.
+  <code>YearTotals</code> groups the entity's payment logs by <code>currency</code> and sums; the Today hero and
+  every profile total use the same shape. There is no FX engine, no rates table, and no converted figure anywhere
+  in this spec — that freeze (Simi launch-plan &sect;10) is absolute. (An optional user-entered "≈ £" lives on the
+  individual <code>PaymentLog</code>, Spec&nbsp;045, and is display-only.)
+</p>
+
+<h2 id="relationship">10. Relationship to Party / graph</h2>
+<p>
+  Why a new entity rather than extending <code>Party</code> or reusing graph nodes (readiness Decision&nbsp;D1):
+</p>
+<ul>
+  <li><strong>Decoupling.</strong> The remittance party/Recipients graph is what Simi's mobile M0 deletes from the
+    app surface; binding the keeper's core object to the payout-beneficiary model would re-couple them. CareEntity
+    is a clean, neutral, B2C object owned by PersonalFinance.</li>
+  <li><strong>Type fit.</strong> <code>Party</code> is people/organizations; an asset is neither. Widening
+    <code>PartyType</code> to carry vehicles and land would distort a finance-domain concept used by orders and
+    compliance.</li>
+  <li><strong>Scope fit.</strong> CareEntity is <em>user</em>-scoped (Fola's people and assets), like
+    <code>Bill</code>/<code>PersonalAccount</code> — not tenant-global like <code>Party</code>.</li>
+</ul>
+<div class="callout open">
+  <span class="callout-label">Bridge, if needed later</span>
+  If a cross-module read contract ever needs CareEntities (e.g. an agent reasoning over "who Fola supports"), the
+  cleanest bridge is to mirror a CareEntity to a <code>Party</code> node lazily, or expose a
+  <code>SharedKernel.Abstractions</code> read contract — <em>not</em> to make CareEntity a Party up front. Deferred;
+  no consumer needs it for Phase 1.
+</div>
+
+<h2 id="persistence">11. Persistence &amp; migration</h2>
+<p>Follow the module's exact persistence recipe (verified against the tree):</p>
+<ol>
+  <li>Entity in <code>Entities/PersonalFinance/CareEntity.cs</code>; <code>IEntityTypeConfiguration</code> in
+    <code>Persistence/Configurations/PersonalFinance/CareEntityConfiguration.cs</code> (auto-discovered by
+    <code>ApplyConfigurationsFromAssembly</code> in both contexts).</li>
+  <li>Add <code>DbSet&lt;CareEntity&gt; CareEntities</code> to <code>PersonalFinanceDbContext</code> (module
+    runtime context) and map it there: <code>MapTable&lt;CareEntity&gt;(modelBuilder, "CareEntities")</code> →
+    <code>Ank</code>-prefixed (<code>ModuleTablePrefixes.Finance</code>).</li>
+  <li>Register in <code>AonikDbContext.ApplyDboPrefixedTableNames</code>:
+    <code>MapFinanceTable&lt;CareEntity&gt;(modelBuilder, "CareEntities")</code> → table <code>dbo.AnkCareEntities</code>
+    — exactly as the existing PF entities are mapped there (<code>MapFinanceTable&lt;PersonalRecurringBill&gt;</code>,
+    <code>MapFinanceTable&lt;Household&gt;</code>, …) — and add the <code>DbSet&lt;CareEntity&gt;</code> on
+    <code>AonikDbContext</code> too: every new DbSet lives on the canonical context (CLAUDE.md).
+    <strong>This is the context that owns migrations.</strong></li>
+  <li><strong>Tool-generated</strong> migration only:
+    <code>dotnet ef migrations add AddCareEntity --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>;
+    review; <code>database update</code> to verify; commit the <code>.cs</code> + <code>.Designer.cs</code>
+    (CLAUDE.md — never hand-author migrations).</li>
+</ol>
+<p><strong>No backfill.</strong> New table, no existing data to migrate. (Importing existing remittance beneficiaries
+  into CareEntities is a possible later convenience, deferred — and would be a one-way copy, not a coupling.)</p>
+
+<h2 id="security">12. Security</h2>
+<ul>
+  <li><strong>Tenant + user isolation.</strong> Every query filters
+    <code>.Where(e =&gt; e.TenantId == tenantId &amp;&amp; e.UserId == userId)</code> via
+    <code>ITenantProvider</code> + <code>ICurrentUserProvider</code>; an entity is visible only to its owner (and,
+    later, to circle members granted scope — <a href="048.circle-entity-scoped-sharing.html">Spec&nbsp;048</a>,
+    which enforces its own filter).</li>
+  <li><strong>Authz.</strong> <code>UserPolicy</code> (consumer). No admin surface; no cross-user read.</li>
+  <li><strong>Photos via Documents.</strong> An avatar is a <code>Document</code> (Spec&nbsp;035) referenced by
+    <code>PhotoDocumentId</code>, inheriting its encryption-at-rest and signed-URL read — no separate blob path.</li>
+  <li><strong>No secrets, no money.</strong> CareEntity holds no credentials and moves no funds; the
+    money-action-logging convention does not apply.</li>
+</ul>
+
+<h2 id="tasks">13. Tasks</h2>
+<ol>
+  <li><code>CareEntity</code> entity + <code>IEntityTypeConfiguration</code>; DbSet in <code>PersonalFinanceDbContext</code>; <code>MapFinanceTable</code> + <code>MapTable</code> registration; tool-generated migration.</li>
+  <li><code>ICareEntityService</code> + implementation (CRUD, tenant/user scoping, DTO mapping).</li>
+  <li>CRUD endpoints (list/get/create/update/archive) + request DTOs + validators.</li>
+  <li><code>CareEntityProfileService</code> + <code>GET …/{id}/profile</code> projection (degrades gracefully pre-045/046).</li>
+  <li>Per-currency <code>YearTotals</code> aggregation (wired to PaymentLogs when Spec&nbsp;045 lands).</li>
+  <li>Tests (&sect;14).</li>
+</ol>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+<ul>
+  <li><strong>Customer CRUD.</strong> A <code>PersonalUser</code> JWT creates, lists, updates, and archives both a
+    <code>person</code> and an <code>asset</code> entity; no admin role is required and no remittance-beneficiary
+    row is created.</li>
+  <li><strong>Asset generality.</strong> Creating <code>kind=asset</code> with <code>assetType</code> of
+    <code>property</code>, <code>vehicle</code>, <code>land</code>, <code>business</code>, <code>account</code>, and
+    <code>other</code>+label all succeed and round-trip <code>attributesJson</code>; a <code>person</code> with an
+    <code>assetType</code> is rejected, and an <code>asset</code> without one is rejected.</li>
+  <li><strong>One-call profile.</strong> <code>GET …/{id}/profile</code> returns entity + per-currency totals +
+    commitments + recent logs + document refs in a single response; before Specs&nbsp;044–046 it returns the entity
+    with empty dependent arrays (asserted).</li>
+  <li><strong>Per-currency, never converted.</strong> An entity with logs in GBP and NGN yields two
+    <code>YearTotals</code> rows; no converted grand total is produced anywhere.</li>
+  <li><strong>Isolation.</strong> User A cannot read or mutate User B's CareEntity (404, not 403 — existence not
+    revealed).</li>
+  <li><strong>Build &amp; migration.</strong> <code>dotnet build Aonik.sln</code> green; the tool-generated
+    migration applies cleanly with only <code>AnkCareEntities</code> added.</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Mirror CareEntity to a Party for cross-module reads? (OPEN, leaning no for Phase 1.)</strong> Only build the bridge (&sect;10) when a concrete cross-module consumer appears.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Relationship vocabulary: free text vs a small suggested set?</strong> Spec ships free text with UI suggestions ("mother", "co-owned rental"); a controlled vocabulary can come later if statements need normalised wording. Avoid "beneficiary"/"dependant" (rebuild spec &sect;2.4).</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — Tab label.</strong> Backend-neutral, but flagged: with assets beyond places, the mobile fallback label "Yours" (rebuild spec &sect;12.4) reads better than "People &amp; Places." Not a backend decision; noted so copy and DTO names ("care-entities") stay label-agnostic.</li>
+</ul>
+
+<h2 id="refs">16. References</h2>
+<ul>
+  <li><a href="../simi-readiness-plan.html">AONIK × Simi backend readiness plan</a> &sect;5.1, &sect;7 (Decision D1) — the gap this spec closes.</li>
+  <li>Simi source docs (Simi repo): <code>simi-mobile-rebuild-spec.html</code> &sect;3.2, &sect;7.6, &sect;8.1; <code>simi-positioning.html</code> (continuity north star); <code>simi-launch-plan.html</code> &sect;10 (freeze list, Guardrail&nbsp;1).</li>
+  <li><a href="../decisions/006-extract-personal-finance-module.md">ADR-006 — Extract PersonalFinance module</a> &middot; <a href="013.financial-life-graph.md">Spec&nbsp;013 — Financial life graph</a> &middot; <a href="008.recipients.html">Spec&nbsp;008 — Recipients</a> &middot; <a href="035.extract-documents-module.html">Spec&nbsp;035 — Documents</a></li>
+  <li>Companion specs: <a href="044.commitment-cycle-lifecycle.html">044</a> &middot; <a href="045.payment-log.html">045</a> &middot; <a href="046.document-entity-linking-and-sharing.html">046</a> &middot; <a href="047.ai-capture-parse-and-keeper.html">047</a> &middot; <a href="048.circle-entity-scoped-sharing.html">048</a></li>
+  <li>Code idioms: <code>Entities/PersonalFinance/PersonalRecurringBill.cs</code>, <code>Persistence/PersonalFinanceDbContext.cs</code>, <code>AonikDbContext.ApplyDboPrefixedTableNames</code> (<code>MapFinanceTable</code>), <code>Endpoints/PersonalFinance/BillEndpoints.cs</code> (<code>UserPolicy</code>), <code>Endpoints/PersonalFinanceValidators.cs</code> + <code>Aonik.SharedKernel/Validation/CommonValidationRules.cs</code> (<code>RequiredText</code> / <code>CurrencyCode</code> / <code>PositiveMoney</code> / <code>ValidIdWhenSupplied</code>), <code>Aonik.Platform/Endpoints/PlatformValidators.cs:570</code> (the Person|Organization constraint), <code>Services/PersonalFinance/BillService.cs</code>.</li>
+</ul>
+
+<footer>
+  Spec 043 &middot; Draft Rev 1 &middot; 2026-06-13 &middot; implements Simi readiness plan &sect;5.1 &middot; Domain: PersonalFinance / Simi
+</footer>
+
+</body>
+</html>

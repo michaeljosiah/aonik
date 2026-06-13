@@ -90,6 +90,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             OwnerPartyId = ownerPartyId,
             DocumentType = command.DocumentType.Trim(),
             Status = string.IsNullOrWhiteSpace(command.Status) ? "Draft" : command.Status!.Trim(),
+            Title = string.IsNullOrWhiteSpace(command.Title) ? null : command.Title!.Trim(),
             Classification = classification,
             Source = string.IsNullOrWhiteSpace(command.Source) ? "CustomerUpload" : command.Source!.Trim(),
             IndexStatus = ResolveInitialIndexStatus(classification),
@@ -281,6 +282,22 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
                 (d.IssuerName != null && EF.Functions.Like(d.IssuerName, pattern)));
         }
 
+        // Spec 046 Vault filters: documents linked to a CareEntity, and by year.
+        if (query.CareEntityId is Guid careEntityId)
+        {
+            q = q.Where(d => _dbContext.DocumentLinks.Any(l =>
+                l.TenantId == tenantId
+                && l.DocumentId == d.Id
+                && l.TargetType == "careEntity"
+                && l.TargetId == careEntityId));
+        }
+        if (query.Year is int year)
+        {
+            q = q.Where(d =>
+                (d.IssuedOn != null && d.IssuedOn.Value.Year == year)
+                || (d.IssuedOn == null && d.CreatedAt.Year == year));
+        }
+
         var totalCount = await q.CountAsync(cancellationToken);
 
         var rows = await q
@@ -415,7 +432,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
     private static DocumentDto MapDocument(Document d) => new(
         d.Id, d.OwnerPartyId, d.DocumentType, d.Classification, d.Status, d.Source, d.IndexStatus, d.IndexedAt,
         d.IssuedOn, d.ExpiresOn, d.IssuerName, d.CountryCode, d.ReferenceNumber,
-        DeserializeTags(d.TagsJson), d.AttributesJson, d.CreatedAt, d.UpdatedAt);
+        DeserializeTags(d.TagsJson), d.AttributesJson, d.CreatedAt, d.UpdatedAt, d.Title);
 
     private static DocumentFileDto MapFile(DocumentFile f) => new(
         f.Id, f.DocumentId, f.StorageProvider, f.StorageContainer, f.StorageKey, f.ContentType,

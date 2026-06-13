@@ -538,4 +538,177 @@ internal sealed class FakeAonikCliApiClient : IAonikCliApiClient
         _ = cancellationToken;
         return Task.CompletedTask;
     }
+
+    // ── CareEntity (Spec 043) ───────────────────────────────────────────
+
+    public CareEntityResponse CareEntity { get; set; } = new(
+        Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"),
+        "person", null, "Mum", "NG", "mother", "M", null,
+        new Dictionary<string, string>(), false,
+        DateTime.Parse("2026-04-06T08:00:00Z").ToUniversalTime(), null);
+
+    public Task<IReadOnlyList<CareEntityResponse>> ListCareEntitiesAsync(CliSession session, string? kind, string? assetType, bool includeArchived, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<CareEntityResponse>>([CareEntity]);
+
+    public Task<CareEntityResponse> GetCareEntityAsync(CliSession session, Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(CareEntity);
+
+    public Task<CareEntityResponse> CreateCareEntityAsync(CliSession session, CreateCareEntityRequest request, CancellationToken cancellationToken = default)
+        => Task.FromResult(CareEntity);
+
+    public Task<CareEntityResponse> UpdateCareEntityAsync(CliSession session, Guid id, UpdateCareEntityRequest request, CancellationToken cancellationToken = default)
+        => Task.FromResult(CareEntity);
+
+    public Task ArchiveCareEntityAsync(CliSession session, Guid id, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<CareEntityProfileResponse> GetCareEntityProfileAsync(CliSession session, Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(new CareEntityProfileResponse(CareEntity, [], [], [], []));
+
+    // ── PaymentLog (Spec 045) ───────────────────────────────────────────
+
+    public PaymentLogResponse PaymentLog { get; set; } = new(
+        Guid.Parse("b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2"),
+        Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"),
+        null, null, 200m, "GBP", null,
+        DateTime.Parse("2026-05-28T00:00:00Z").ToUniversalTime(),
+        "bank", "manual", null, null, "none",
+        DateTime.Parse("2026-05-28T08:00:00Z").ToUniversalTime(), null);
+
+    public Task<PaymentLogResponse> CreatePaymentLogAsync(CliSession session, CreatePaymentLogRequest request, CancellationToken cancellationToken = default)
+        => Task.FromResult(PaymentLog);
+
+    public Task<PaymentLogListResponse> ListPaymentLogsAsync(CliSession session, Guid? careEntityId, Guid? commitmentId, int? year, int page, int pageSize, CancellationToken cancellationToken = default)
+        => Task.FromResult(new PaymentLogListResponse([PaymentLog], page, pageSize, false));
+
+    public Task<PaymentLogResponse> GetPaymentLogAsync(CliSession session, Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(PaymentLog);
+
+    public Task<PaymentLogResponse> UpdatePaymentLogAsync(CliSession session, Guid id, UpdatePaymentLogRequest request, CancellationToken cancellationToken = default)
+        => Task.FromResult(PaymentLog);
+
+    public Task DeletePaymentLogAsync(CliSession session, Guid id, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<PaymentLogResponse> RestorePaymentLogAsync(CliSession session, Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(PaymentLog);
+
+    public Task<PaymentLogResponse> LinkPaymentLogTransactionAsync(CliSession session, Guid id, Guid transactionId, CancellationToken cancellationToken = default)
+        => Task.FromResult(PaymentLog with { CorroborationStatus = "confirmed", SourceTransactionId = transactionId });
+
+    public Task<PaymentLogResponse> UnlinkPaymentLogTransactionAsync(CliSession session, Guid id, CancellationToken cancellationToken = default)
+        => Task.FromResult(PaymentLog with { CorroborationStatus = "none", SourceTransactionId = null });
+
+    public Task<YearSummary> GetPaymentLogYearSummaryAsync(CliSession session, int year, CancellationToken cancellationToken = default)
+        => Task.FromResult(new YearSummary(year, [new CurrencyTotal("GBP", 200m, 1)], 1));
+
+    // ── Commitment lifecycle (Spec 044) ─────────────────────────────────
+
+    public CommitmentDetail Commitment { get; set; } = new(
+        Guid.Parse("c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3"),
+        "Bill", "Support", "Mum — monthly allowance", 200m, "GBP",
+        DateTime.Parse("2026-05-28T00:00:00Z").ToUniversalTime(), "Active", "Monthly · 28th",
+        Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"));
+
+    public Task<CommitmentDetail> CreateSupportCommitmentAsync(CliSession session, CreateSupportCommitmentRequest request, CancellationToken cancellationToken = default) => Task.FromResult(Commitment);
+    public Task<CommitmentDetail> MarkCommitmentDoneAsync(CliSession session, Guid commitmentId, MarkCommitmentDoneRequest request, CancellationToken cancellationToken = default) => Task.FromResult(Commitment with { DueDate = Commitment.DueDate.AddMonths(1) });
+    public Task<CommitmentDetail> SkipCommitmentAsync(CliSession session, Guid commitmentId, string? reason, CancellationToken cancellationToken = default) => Task.FromResult(Commitment);
+    public Task<CommitmentDetail> SnoozeCommitmentAsync(CliSession session, Guid commitmentId, DateTime until, CancellationToken cancellationToken = default) => Task.FromResult(Commitment);
+    public Task<CommitmentDetail> PauseCommitmentAsync(CliSession session, Guid commitmentId, CancellationToken cancellationToken = default) => Task.FromResult(Commitment with { Status = "Paused" });
+    public Task<CommitmentDetail> ResumeCommitmentAsync(CliSession session, Guid commitmentId, CancellationToken cancellationToken = default) => Task.FromResult(Commitment with { Status = "Active" });
+
+    public Task<IReadOnlyList<CommitmentCycleResponse>> GetCommitmentCyclesAsync(CliSession session, Guid commitmentId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<CommitmentCycleResponse>>(
+            [new CommitmentCycleResponse(Guid.Parse("d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4"), commitmentId, Commitment.DueDate, "Open", null, null, null, null, DateTime.Parse("2026-05-01T00:00:00Z").ToUniversalTime())]);
+
+    // ── Documents / Vault (Spec 046) ────────────────────────────────────
+
+    public DocumentLinkDto DocumentLink { get; set; } = new(
+        Guid.Parse("f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6"),
+        Guid.Parse("e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5"),
+        "careEntity",
+        Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"),
+        DateTime.Parse("2026-05-28T08:00:00Z").ToUniversalTime());
+
+    public PagedResponse<DocumentListItemDto> DocumentsPage { get; set; } = new(
+        [new DocumentListItemDto(
+            Guid.Parse("e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5"),
+            Guid.Parse("a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2"),
+            "receipt", "Personal", "Submitted", "Pending", null, null, 1,
+            DateTime.Parse("2026-05-28T08:00:00Z").ToUniversalTime())],
+        1, 1, 20);
+
+    public Task<PagedResponse<DocumentListItemDto>> ListDocumentsAsync(CliSession session, Guid? careEntityId, string? documentType, int? year, int page, int pageSize, CancellationToken cancellationToken = default)
+        => Task.FromResult(DocumentsPage);
+
+    public Task<IReadOnlyList<DocumentLinkDto>> ListDocumentLinksAsync(CliSession session, Guid documentId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<DocumentLinkDto>>([DocumentLink]);
+
+    public Task<DocumentLinkDto> AddDocumentLinkAsync(CliSession session, Guid documentId, AddDocumentLinkRequest request, CancellationToken cancellationToken = default)
+        => Task.FromResult(DocumentLink with { TargetType = request.TargetType, TargetId = request.TargetId });
+
+    public Task RemoveDocumentLinkAsync(CliSession session, Guid documentId, Guid linkId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    // ── Circle (Spec 048) ───────────────────────────────────────────────
+
+    public CircleGrantResponse CircleGrant { get; set; } = new(
+        Guid.Parse("aa111111-1111-1111-1111-111111111111"),
+        Guid.Parse("bb222222-2222-2222-2222-222222222222"),
+        Guid.Parse("cc333333-3333-3333-3333-333333333333"),
+        "entities",
+        new[] { Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1") },
+        false,
+        "active",
+        DateTime.Parse("2026-05-28T08:00:00Z").ToUniversalTime());
+
+    public CircleInviteResponse CircleInvite { get; set; } = new(
+        Guid.Parse("dd444444-4444-4444-4444-444444444444"),
+        "tok_fake_invite",
+        "entities",
+        new[] { Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1") },
+        false,
+        "link",
+        DateTime.Parse("2026-06-04T08:00:00Z").ToUniversalTime(),
+        "pending");
+
+    public StatementData Statement { get; set; } = new(
+        new CareEntityRef(Guid.Parse("a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"), "Mum", "person", "NG"),
+        DateTime.Parse("2026-01-01T00:00:00Z").ToUniversalTime(),
+        DateTime.Parse("2026-12-31T00:00:00Z").ToUniversalTime(),
+        "HMRC",
+        [],
+        [],
+        [],
+        "SIMI-A1A1A1A1-20260101");
+
+    public Task<CircleGrantResponse> CreateCircleGrantAsync(CliSession session, CreateCircleGrantRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CircleGrant);
+    public Task<IReadOnlyList<CircleGrantResponse>> ListCircleGrantsAsync(CliSession session, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CircleGrantResponse>>([CircleGrant]);
+    public Task<IReadOnlyList<CircleGrantResponse>> ListCircleSharedWithMeAsync(CliSession session, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CircleGrantResponse>>([CircleGrant]);
+    public Task RevokeCircleGrantAsync(CliSession session, Guid grantId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task<CircleInviteResponse> CreateCircleInviteAsync(CliSession session, CreateCircleInviteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CircleInvite);
+    public Task<CircleGrantResponse> AcceptCircleInviteAsync(CliSession session, string token, CancellationToken cancellationToken = default) => Task.FromResult(CircleGrant);
+    public Task<StatementData> GetSupportStatementAsync(CliSession session, Guid careEntityId, DateTime? from, DateTime? to, string? preparedFor, CancellationToken cancellationToken = default) => Task.FromResult(Statement);
+
+    // ── AI capture-parse (Spec 047) ─────────────────────────────────────
+
+    public CaptureParseResponse CaptureResult { get; set; } = new(
+        "parsed",
+        new CaptureDraft(
+            "paymentLog",
+            new CaptureMatch("ce_1", 0.93),
+            null,
+            new CaptureMoney(200.00m, "GBP"),
+            new DateTime(2026, 6, 13),
+            "wise",
+            "Wise transfer ref P2046-XK",
+            new Dictionary<string, double> { ["amount"] = 0.98, ["entity"] = 0.93 }));
+
+    public CaptureParseRequest? LastCaptureRequest { get; private set; }
+
+    public Task<CaptureParseResponse> ParseCaptureAsync(CliSession session, CaptureParseRequest request, CancellationToken cancellationToken = default)
+    {
+        LastCaptureRequest = request;
+        return Task.FromResult(CaptureResult);
+    }
 }

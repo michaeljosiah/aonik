@@ -182,4 +182,207 @@ public interface IAonikCliApiClient
         Guid proposalId,
         RejectFinancialLifeGraphProposalRequest request,
         CancellationToken cancellationToken = default);
+
+    // ── CareEntity (Spec 043) ───────────────────────────────────────────
+
+    Task<IReadOnlyList<CareEntityResponse>> ListCareEntitiesAsync(
+        CliSession session,
+        string? kind,
+        string? assetType,
+        bool includeArchived,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityResponse> GetCareEntityAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityResponse> CreateCareEntityAsync(
+        CliSession session,
+        CreateCareEntityRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityResponse> UpdateCareEntityAsync(
+        CliSession session,
+        Guid id,
+        UpdateCareEntityRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task ArchiveCareEntityAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<CareEntityProfileResponse> GetCareEntityProfileAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    // ── PaymentLog (Spec 045) ───────────────────────────────────────────
+
+    Task<PaymentLogResponse> CreatePaymentLogAsync(
+        CliSession session,
+        CreatePaymentLogRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogListResponse> ListPaymentLogsAsync(
+        CliSession session,
+        Guid? careEntityId,
+        Guid? commitmentId,
+        int? year,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> GetPaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> UpdatePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        UpdatePaymentLogRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeletePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> RestorePaymentLogAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> LinkPaymentLogTransactionAsync(
+        CliSession session,
+        Guid id,
+        Guid transactionId,
+        CancellationToken cancellationToken = default);
+
+    Task<PaymentLogResponse> UnlinkPaymentLogTransactionAsync(
+        CliSession session,
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    Task<YearSummary> GetPaymentLogYearSummaryAsync(
+        CliSession session,
+        int year,
+        CancellationToken cancellationToken = default);
+
+    // ── Commitment lifecycle (Spec 044) ─────────────────────────────────
+
+    Task<CommitmentDetail> CreateSupportCommitmentAsync(
+        CliSession session,
+        CreateSupportCommitmentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> MarkCommitmentDoneAsync(
+        CliSession session,
+        Guid commitmentId,
+        MarkCommitmentDoneRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> SkipCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        string? reason,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> SnoozeCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        DateTime until,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> PauseCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<CommitmentDetail> ResumeCommitmentAsync(
+        CliSession session,
+        Guid commitmentId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CommitmentCycleResponse>> GetCommitmentCyclesAsync(
+        CliSession session,
+        Guid commitmentId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    // ── Documents / Vault (Spec 046) ────────────────────────────────────
+
+    Task<PagedResponse<DocumentListItemDto>> ListDocumentsAsync(
+        CliSession session,
+        Guid? careEntityId,
+        string? documentType,
+        int? year,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<DocumentLinkDto>> ListDocumentLinksAsync(
+        CliSession session,
+        Guid documentId,
+        CancellationToken cancellationToken = default);
+
+    Task<DocumentLinkDto> AddDocumentLinkAsync(
+        CliSession session,
+        Guid documentId,
+        AddDocumentLinkRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task RemoveDocumentLinkAsync(
+        CliSession session,
+        Guid documentId,
+        Guid linkId,
+        CancellationToken cancellationToken = default);
+
+    // ── Circle (Spec 048) ───────────────────────────────────────────────
+
+    Task<CircleGrantResponse> CreateCircleGrantAsync(
+        CliSession session,
+        CreateCircleGrantRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CircleGrantResponse>> ListCircleGrantsAsync(
+        CliSession session,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CircleGrantResponse>> ListCircleSharedWithMeAsync(
+        CliSession session,
+        CancellationToken cancellationToken = default);
+
+    Task RevokeCircleGrantAsync(
+        CliSession session,
+        Guid grantId,
+        CancellationToken cancellationToken = default);
+
+    Task<CircleInviteResponse> CreateCircleInviteAsync(
+        CliSession session,
+        CreateCircleInviteRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<CircleGrantResponse> AcceptCircleInviteAsync(
+        CliSession session,
+        string token,
+        CancellationToken cancellationToken = default);
+
+    Task<StatementData> GetSupportStatementAsync(
+        CliSession session,
+        Guid careEntityId,
+        DateTime? from,
+        DateTime? to,
+        string? preparedFor,
+        CancellationToken cancellationToken = default);
+
+    // ── AI capture-parse (Spec 047) ─────────────────────────────────────
+
+    Task<CaptureParseResponse> ParseCaptureAsync(
+        CliSession session,
+        CaptureParseRequest request,
+        CancellationToken cancellationToken = default);
 }

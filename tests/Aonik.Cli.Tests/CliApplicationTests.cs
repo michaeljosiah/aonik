@@ -54,6 +54,22 @@ public sealed class CliApplicationTests
         writer.ToString().Should().Contain("daily-reconciliation");
     }
 
+    [Fact]
+    public async Task RunAsync_ShouldInvokeCommandTree_ForCaptureParse()
+    {
+        // Arrange
+        var application = CreateApplication(out var writer);
+
+        // Act
+        var exitCode = await application.RunAsync(
+            ["capture", "parse", "--text", "Sent £200 to Mum via Wise", "--output", "json"]);
+
+        // Assert
+        exitCode.Should().Be(0);
+        writer.ToString().Should().Contain("parsed");
+        writer.ToString().Should().Contain("paymentLog");
+    }
+
     private static CliApplication CreateApplication(out StringWriter writer)
     {
         var apiClient = new FakeAonikCliApiClient();
@@ -77,6 +93,12 @@ public sealed class CliApplicationTests
         var agentHandler = new AgentCommandHandler(apiClient, sessionStore, outputWriter);
         var opsHandler = new OpsCommandHandler(apiClient, sessionStore, outputWriter);
         var approvalHandler = new ApprovalCommandHandler(apiClient, sessionStore, outputWriter);
-        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler);
+        var careEntityHandler = new CareEntityCommandHandler(apiClient, sessionStore, outputWriter);
+        var paymentLogHandler = new PaymentLogCommandHandler(apiClient, sessionStore, outputWriter);
+        var commitmentHandler = new CommitmentCommandHandler(apiClient, sessionStore, outputWriter);
+        var documentHandler = new DocumentCommandHandler(apiClient, sessionStore, outputWriter);
+        var circleHandler = new CircleCommandHandler(apiClient, sessionStore, outputWriter);
+        var captureHandler = new CaptureCommandHandler(apiClient, sessionStore, outputWriter);
+        return new CliApplication(authHandler, agentHandler, opsHandler, approvalHandler, careEntityHandler, paymentLogHandler, commitmentHandler, documentHandler, circleHandler, captureHandler);
     }
 }

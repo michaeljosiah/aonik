@@ -373,6 +373,62 @@ public sealed class CreateBillRequestValidator : Validator<CreateBillRequest>
 
 // ── Budgets ─────────────────────────────────────────────────────────
 
+// ── CareEntities (Spec 043) ─────────────────────────────────────────
+
+public sealed class CreateCareEntityRequestValidator : Validator<CreateCareEntityRequest>
+{
+    public CreateCareEntityRequestValidator()
+    {
+        RuleFor(x => x.Kind)
+            .NotEmpty()
+            .Must(k => k is "person" or "asset")
+            .WithMessage("Kind must be 'person' or 'asset'.");
+        RuleFor(x => x.Name).RequiredText(120);
+        RuleFor(x => x.CountryCode).CountryCode();
+        RuleFor(x => x.AssetType)
+            .NotEmpty().When(x => x.Kind == "asset")
+            .WithMessage("An asset must have an assetType.");
+        RuleFor(x => x.AssetType)
+            .Empty().When(x => x.Kind == "person")
+            .WithMessage("A person cannot have an assetType.");
+        RuleFor(x => x.AssetType).MaximumLength(32);
+        RuleFor(x => x.Relationship).MaximumLength(80);
+        RuleFor(x => x.Emoji).MaximumLength(16);
+        RuleFor(x => x.PhotoDocumentId).ValidIdWhenSupplied();
+        RuleFor(x => x.Attributes)
+            .Must(a => a == null || a.Count <= 50)
+            .WithMessage("Attributes may include at most 50 entries.");
+    }
+}
+
+// ── PaymentLogs (Spec 045) ──────────────────────────────────────────
+
+public sealed class CreatePaymentLogRequestValidator : Validator<CreatePaymentLogRequest>
+{
+    private static readonly string[] Channels = ["bank", "wise", "cash", "other"];
+    private static readonly string[] Origins =
+        ["manual", "captureImage", "captureText", "captureVoice", "markDone", "plaidDetected"];
+
+    public CreatePaymentLogRequestValidator()
+    {
+        RuleFor(x => x.CareEntityId).RequiredId();
+        RuleFor(x => x.CommitmentId).ValidIdWhenSupplied();
+        RuleFor(x => x.CommitmentCycleId).ValidIdWhenSupplied();
+        RuleFor(x => x.Amount).PositiveMoney();
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ApproxGbp).NonNegativeMoney();
+        RuleFor(x => x.Channel)
+            .NotEmpty()
+            .Must(c => Channels.Contains(c))
+            .WithMessage($"Channel must be one of: {string.Join(", ", Channels)}.");
+        RuleFor(x => x.Origin)
+            .NotEmpty()
+            .Must(o => Origins.Contains(o))
+            .WithMessage($"Origin must be one of: {string.Join(", ", Origins)}.");
+        RuleFor(x => x.Note).MaximumLength(2000);
+    }
+}
+
 public sealed class CreateBudgetRequestValidator : Validator<CreateBudgetRequest>
 {
     public CreateBudgetRequestValidator() => RuleFor(x => x.CategoryId).MaximumLength(128);
@@ -407,9 +463,119 @@ public sealed class CreateCommitmentFromTransactionRequestValidator : Validator<
 
 // ── Shared constants ────────────────────────────────────────────────
 
+// ── Support commitments (Spec 044) ──────────────────────────────────
+
+public sealed class CreateSupportCommitmentRequestValidator : Validator<CreateSupportCommitmentRequest>
+{
+    public CreateSupportCommitmentRequestValidator()
+    {
+        RuleFor(x => x.CareEntityId).RequiredId();
+        RuleFor(x => x.DisplayName).RequiredText(256);
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ExpectedAmount).PositiveMoney();
+        RuleFor(x => x.RhythmUnit)
+            .NotEmpty()
+            .Must(u => PersonalFinanceValidatorConstants.RhythmUnits.Any(r => string.Equals(r, u, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"RhythmUnit must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.RhythmUnits)}.");
+        RuleFor(x => x.RhythmInterval).InclusiveBetween(1, 365);
+        RuleFor(x => x.AnchorDay).InclusiveBetween(1, 31).When(x => x.AnchorDay.HasValue);
+        RuleFor(x => x.ReminderDaysBefore).InclusiveBetween(0, 365).When(x => x.ReminderDaysBefore.HasValue);
+        RuleFor(x => x.PaidFromAccountId).ValidIdWhenSupplied();
+        RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+public sealed class UpdateSupportCommitmentRequestValidator : Validator<UpdateSupportCommitmentRequest>
+{
+    public UpdateSupportCommitmentRequestValidator()
+    {
+        RuleFor(x => x.DisplayName).RequiredText(256);
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ExpectedAmount).PositiveMoney();
+        RuleFor(x => x.RhythmUnit)
+            .NotEmpty()
+            .Must(u => PersonalFinanceValidatorConstants.RhythmUnits.Any(r => string.Equals(r, u, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"RhythmUnit must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.RhythmUnits)}.");
+        RuleFor(x => x.RhythmInterval).InclusiveBetween(1, 365);
+        RuleFor(x => x.AnchorDay).InclusiveBetween(1, 31).When(x => x.AnchorDay.HasValue);
+        RuleFor(x => x.ReminderDaysBefore).InclusiveBetween(0, 365).When(x => x.ReminderDaysBefore.HasValue);
+        RuleFor(x => x.Notes).MaximumLength(1000);
+    }
+}
+
+public sealed class MarkCommitmentDoneRequestValidator : Validator<MarkCommitmentDoneRequest>
+{
+    private static readonly string[] Channels = ["bank", "wise", "cash", "other"];
+
+    public MarkCommitmentDoneRequestValidator()
+    {
+        RuleFor(x => x.Amount).PositiveMoney();
+        RuleFor(x => x.Currency).CurrencyCode();
+        RuleFor(x => x.ApproxGbp).NonNegativeMoney();
+        RuleFor(x => x.Channel)
+            .NotEmpty()
+            .Must(c => Channels.Contains(c))
+            .WithMessage($"Channel must be one of: {string.Join(", ", Channels)}.");
+        RuleFor(x => x.Note).MaximumLength(2000);
+    }
+}
+
+public sealed class SkipCommitmentRequestValidator : Validator<SkipCommitmentRequest>
+{
+    public SkipCommitmentRequestValidator() => RuleFor(x => x.Reason).MaximumLength(500);
+}
+
+public sealed class SnoozeCommitmentRequestValidator : Validator<SnoozeCommitmentRequest>
+{
+    public SnoozeCommitmentRequestValidator()
+        => RuleFor(x => x.Until)
+            .GreaterThan(DateTime.UtcNow.AddDays(-1))
+            .WithMessage("Snooze date must not be in the past.");
+}
+
+// ── Circle (Spec 048) ───────────────────────────────────────────────
+
+public sealed class CreateCircleGrantRequestValidator : Validator<CreateCircleGrantRequest>
+{
+    public CreateCircleGrantRequestValidator()
+    {
+        RuleFor(x => x.MemberUserId).RequiredId();
+        RuleFor(x => x.Scope)
+            .NotEmpty()
+            .Must(s => PersonalFinanceValidatorConstants.CircleScopes.Any(v => string.Equals(v, s, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"Scope must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.CircleScopes)}.");
+        RuleFor(x => x.EntityIds)
+            .Must(ids => ids != null && ids.Count > 0)
+            .When(x => !string.Equals(x.Scope, "all", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("EntityIds is required for entities/docsOnly scope.");
+    }
+}
+
+public sealed class CreateCircleInviteRequestValidator : Validator<CreateCircleInviteRequest>
+{
+    private static readonly string[] Channels = ["email", "phone", "link"];
+
+    public CreateCircleInviteRequestValidator()
+    {
+        RuleFor(x => x.Scope)
+            .NotEmpty()
+            .Must(s => PersonalFinanceValidatorConstants.CircleScopes.Any(v => string.Equals(v, s, StringComparison.OrdinalIgnoreCase)))
+            .WithMessage($"Scope must be one of: {string.Join(", ", PersonalFinanceValidatorConstants.CircleScopes)}.");
+        RuleFor(x => x.EntityIds)
+            .Must(ids => ids != null && ids.Count > 0)
+            .When(x => !string.Equals(x.Scope, "all", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("EntityIds is required for entities/docsOnly scope.");
+        RuleFor(x => x.Channel)
+            .Must(c => c == null || Channels.Contains(c))
+            .WithMessage($"Channel must be one of: {string.Join(", ", Channels)}.");
+    }
+}
+
 internal static class PersonalFinanceValidatorConstants
 {
     internal static readonly string[] MatchTypes = ["exact", "contains", "startsWith", "endsWith", "regex"];
     internal static readonly string[] RuleScopes = ["account", "user", "household"];
     internal static readonly string[] ApprovalStatuses = ["Pending", "Approved", "Rejected"];
+    internal static readonly string[] RhythmUnits = ["Weekly", "Monthly", "Quarterly", "Termly", "Yearly", "OneOff"];
+    internal static readonly string[] CircleScopes = ["all", "entities", "docsOnly"];
 }

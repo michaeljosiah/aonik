@@ -46,6 +46,12 @@ public sealed class DocumentsModule
         services.AddScoped<IDocumentReader>(sp => sp.GetRequiredService<DocumentService>());
         services.AddScoped<IDocumentWriter>(sp => sp.GetRequiredService<DocumentService>());
 
+        // Spec 046 — document linking (Vault). One service implements the cross-module
+        // IDocumentLinkReader contract and the internal IDocumentLinkService CRUD.
+        services.AddScoped<DocumentLinkService>();
+        services.AddScoped<IDocumentLinkReader>(sp => sp.GetRequiredService<DocumentLinkService>());
+        services.AddScoped<IDocumentLinkService>(sp => sp.GetRequiredService<DocumentLinkService>());
+
         // Async RAG ingestion pipeline (Spec 035 §13). The indexer orchestrates
         // extract→chunk→embed→upsert; DocumentIngestionHandler consumes DocumentUploadedEvent.
         // Handlers are registered by assembly scan so the outbox dispatcher can resolve them — the

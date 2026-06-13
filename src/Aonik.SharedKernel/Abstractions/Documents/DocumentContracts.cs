@@ -24,7 +24,20 @@ public sealed record DocumentDto(
     IReadOnlyList<string> Tags,
     string AttributesJson,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    string? Title = null);
+
+/// <summary>
+/// A lightweight reference to a linked document (Spec 046) — id + display title +
+/// type + first file name + optional thumbnail URL. Never bytes, never amounts;
+/// safe for the CareEntity profile and the docs-only circle response.
+/// </summary>
+public sealed record DocumentRef(
+    Guid DocumentId,
+    string? Title,
+    string DocumentType,
+    string? FileName,
+    Uri? ThumbnailUrl);
 
 /// <summary>A physical file attached to a document (blob reference + metadata).</summary>
 public sealed record DocumentFileDto(
@@ -63,7 +76,10 @@ public sealed record ListDocumentsQuery(
     string? Status = null,
     DocumentClassification? Classification = null,
     string? Tag = null,
-    string? Search = null);
+    string? Search = null,
+    // Spec 046 Vault filter — documents linked to a CareEntity, and by year.
+    Guid? CareEntityId = null,
+    int? Year = null);
 
 /// <summary>Command to create a generic document. Classification defaults from <see cref="DocumentType"/> when omitted.</summary>
 public sealed record CreateDocumentCommand(
@@ -78,7 +94,8 @@ public sealed record CreateDocumentCommand(
     string? CountryCode = null,
     string? ReferenceNumber = null,
     IReadOnlyList<string>? Tags = null,
-    string? AttributesJson = null);
+    string? AttributesJson = null,
+    string? Title = null);
 
 /// <summary>Command to upload a file's bytes into an existing document. The stream is passed separately to <see cref="IDocumentWriter.UploadFileAsync"/>.</summary>
 public sealed record UploadFileCommand(

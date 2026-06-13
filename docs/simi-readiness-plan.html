@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AONIK × Simi — Backend Readiness Plan · June 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#fbf7ef; --paper-1:#f6efe2; --paper-2:#efe5d2;
+    --ink:#221e18; --ink-soft:#4a443b; --muted:#7a7264; --rule:#e6ddcb;
+    --card:#fffdf8;
+    --evergreen:#1f5040; --evergreen-deep:#173e32; --evergreen-tint:#e3ede7;
+    --clay:#a8552e; --clay-deep:#8e4523; --clay-tint:#f4e4d9;
+    --gold:#c29752; --info:#2a5670; --warn:#b97700; --danger:#9e2b1c;
+    --ok:#3e7d54; --ok-tint:#e9f2eb;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth;}
+  body{margin:0;background:radial-gradient(1200px 520px at 88% -6%,#f3ead7 0%,transparent 60%),var(--paper);
+    color:var(--ink);font:17px/1.65 "Newsreader","Iowan Old Style",Georgia,serif;}
+  .page{max-width:900px;margin:0 auto;padding:64px 42px 140px;}
+  header.cover{border-bottom:1px solid var(--rule);margin-bottom:40px;padding-bottom:34px;}
+  .eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:12px;color:var(--clay);
+    font-family:-apple-system,"Segoe UI",sans-serif;margin-bottom:16px;font-weight:600;}
+  header.cover h1{font-family:"Fraunces",Georgia,serif;font-size:45px;line-height:1.08;margin:0 0 16px;
+    font-weight:600;letter-spacing:-.018em;}
+  header.cover h1 .dot{color:var(--clay);}
+  header.cover .lede{color:var(--ink-soft);font-size:20px;max-width:64ch;}
+  header.cover .meta{margin-top:24px;color:var(--muted);font-size:13px;font-family:-apple-system,"Segoe UI",sans-serif;}
+  h2{font-family:"Fraunces",Georgia,serif;font-size:29px;font-weight:600;letter-spacing:-.01em;
+    margin:62px 0 12px;padding-bottom:9px;border-bottom:1px solid var(--rule);}
+  h2 .num{color:var(--clay);font-weight:500;margin-right:14px;}
+  h3{font-family:"Fraunces",Georgia,serif;font-size:21px;font-weight:600;margin:34px 0 8px;}
+  h4{font-size:13px;font-weight:700;margin:20px 0 4px;font-family:-apple-system,"Segoe UI",sans-serif;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--evergreen);}
+  p{margin:12px 0 16px;}
+  ul,ol{margin:10px 0 18px;padding-left:24px;}
+  li{margin:7px 0;}
+  strong{font-weight:600;}
+  em{color:var(--ink-soft);}
+  code{font-family:"JetBrains Mono","SF Mono",Menlo,monospace;font-size:12.5px;background:#f0e7d6;
+    padding:1px 6px;border-radius:3px;color:#3a342b;}
+  .big-quote{font-family:"Fraunces",Georgia,serif;font-size:24px;line-height:1.42;color:var(--ink);
+    margin:28px 0;padding-left:22px;border-left:3px solid var(--clay);}
+  .callout{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--clay);
+    padding:18px 22px;margin:22px 0;border-radius:3px;font-size:16px;}
+  .callout.accent{border-left-color:var(--evergreen);}
+  .callout.warn{border-left-color:var(--warn);}
+  .callout.danger{border-left-color:var(--danger);}
+  .callout.info{border-left-color:var(--info);background:#f3f7f9;}
+  .callout .label{text-transform:uppercase;letter-spacing:.1em;font-size:11px;
+    font-family:-apple-system,"Segoe UI",sans-serif;color:var(--muted);margin-bottom:7px;font-weight:700;}
+  .callout.accent .label{color:var(--evergreen);}
+  .callout.danger .label{color:var(--danger);}
+  .callout.warn .label{color:var(--warn);}
+  .callout.info .label{color:var(--info);}
+  table{width:100%;border-collapse:collapse;margin:16px 0 26px;font-size:13.5px;font-family:-apple-system,"Segoe UI",sans-serif;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top;}
+  th{background:#f0e7d6;font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:11.5px;}
+  .toc{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:20px 26px;margin-bottom:46px;
+    font-family:-apple-system,"Segoe UI",sans-serif;font-size:14px;}
+  .toc ol{margin:8px 0;padding-left:22px;columns:2;column-gap:34px;}
+  .toc a{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--muted);}
+  .toc a:hover{color:var(--clay);border-bottom-color:var(--clay);}
+
+  /* verdict pills */
+  .v{display:inline-block;font-size:10.5px;font-family:-apple-system,sans-serif;text-transform:uppercase;
+    letter-spacing:.06em;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;}
+  .v.ready{background:var(--ok-tint);color:#2c5d3d;}
+  .v.partial{background:#f7eedc;color:var(--clay-deep);}
+  .v.absent{background:#f6e2dc;color:var(--danger);}
+  .v.config{background:var(--evergreen-tint);color:var(--evergreen-deep);}
+
+  /* readiness bar */
+  .rb{display:inline-flex;height:8px;width:84px;border-radius:5px;overflow:hidden;border:1px solid var(--rule);vertical-align:middle;}
+  .rb i{display:block;height:100%;}
+  .rb i.fill{background:var(--evergreen);}
+  .rb i.gap{background:#efe5d2;}
+
+  /* scorecard */
+  table.score td:first-child{font-weight:600;width:24%;}
+  table.score td .sub{font-weight:400;color:var(--muted);font-size:12px;display:block;margin-top:2px;}
+
+  /* gap cards */
+  .gap{border:1px solid var(--rule);border-radius:10px;margin:22px 0;overflow:hidden;background:var(--card);}
+  .gap .gh{background:linear-gradient(180deg,#f3ecdc,#fffdf8);padding:14px 22px;border-bottom:1px solid var(--rule);
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .gap .gh h3{margin:0;font-size:19px;}
+  .gap .gh .tag{margin-left:auto;display:flex;gap:6px;}
+  .gap .gi{padding:6px 22px 18px;}
+  .gap .gi h4{margin-top:16px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
+  .evi{font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--ink-soft);background:#f6efe2;
+    border:1px solid var(--rule);border-radius:6px;padding:9px 12px;margin:10px 0 4px;line-height:1.7;}
+  .evi b{color:var(--clay-deep);font-weight:600;}
+
+  /* phase ribbons */
+  .phase{border:1px solid var(--rule);border-radius:10px;padding:20px 24px 12px;margin:22px 0;background:var(--card);}
+  .phase.flag{border-color:var(--clay);border-width:2px;}
+  .phase h3{margin-top:0;display:flex;align-items:baseline;gap:14px;padding-bottom:11px;
+    border-bottom:1px solid var(--rule);flex-wrap:wrap;}
+  .phase h3 .when{color:var(--muted);font-weight:400;font-size:13px;font-family:-apple-system,sans-serif;margin-left:auto;}
+  .pill{display:inline-block;font-size:10.5px;font-family:-apple-system,sans-serif;text-transform:uppercase;
+    letter-spacing:.06em;font-weight:700;padding:2px 9px;border-radius:20px;vertical-align:middle;}
+  .pill.ship{background:var(--evergreen-tint);color:var(--evergreen-deep);}
+  .pill.sev{background:#f4ecdd;color:var(--clay-deep);}
+  .pill.s{background:#eef3ef;color:var(--evergreen);} .pill.m{background:#f7eedc;color:var(--clay-deep);}
+  .pill.l{background:#f6e2dc;color:var(--danger);}
+  .work{font-family:-apple-system,"Segoe UI",sans-serif;font-size:14.5px;}
+  .work table{font-size:13px;}
+  .work td:first-child{font-weight:600;width:30%;}
+  .lane{font-family:-apple-system,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--evergreen);font-weight:700;margin:14px 0 2px;}
+  .lane.un{color:var(--info);}
+
+  .footnote{font-size:13px;color:var(--muted);font-family:-apple-system,sans-serif;margin-top:34px;
+    padding-top:18px;border-top:1px solid var(--rule);}
+  @media(max-width:680px){.page{padding:34px 18px 80px;}header.cover h1{font-size:31px;}h2{font-size:23px;}
+    .toc ol{columns:1;}.grid2{grid-template-columns:1fr;}.phase h3 .when{margin-left:0;}}
+</style>
+</head>
+<body>
+<main class="page">
+
+<header class="cover">
+  <div class="eyebrow">Platform Readiness · AONIK backend · Pairs with the Simi positioning, launch plan &amp; rebuild spec</div>
+  <h1>AONIK × Simi — the backend readiness plan<span class="dot">.</span></h1>
+  <p class="lede">An evidence-based audit of what the AONIK platform can support for the Simi mobile app today, where the real gaps are, and a phased plan — sequenced to the mobile build and disciplined against drift — to close them. The conclusion in one line: the hard infrastructure already exists; the gaps are concentrated, well-understood, and thin.</p>
+  <div class="meta">June 2026 · Author: Claude (Opus 4.8) · Repo: <code>aonik</code> @ <code>117cab85</code> · Inputs: <code>simi-positioning.html</code>, <code>simi-launch-plan.html</code>, <code>simi-mobile-rebuild-spec.html</code> (Rev 3)</div>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#summary">Executive summary</a></li>
+    <li><a href="#method">Method — how this was assessed</a></li>
+    <li><a href="#scorecard">The readiness scorecard</a></li>
+    <li><a href="#leverage">The leverage — what already exists</a></li>
+    <li><a href="#gaps">The gaps — six things to build</a></li>
+    <li><a href="#reconcile">Reconciling with the spec's §8.6</a></li>
+    <li><a href="#phase0">Phase 0 — decisions before code</a></li>
+    <li><a href="#plan">The phased plan</a></li>
+    <li><a href="#surface">New &amp; changed API surface</a></li>
+    <li><a href="#guardrails">Guardrails — against backend drift</a></li>
+    <li><a href="#risks">Risks</a></li>
+  </ol>
+</nav>
+
+<!-- 1 -->
+<section id="summary">
+<h2><span class="num">1.</span>Executive summary</h2>
+<p>Simi needs five object types and three verbs from the backend: a <strong>CareEntity</strong> (a person or asset you look after — Mum, the Lagos flat, the car), a <strong>Commitment</strong> (a rhythm of support), a <strong>PaymentLog</strong> (an act that honoured it), a <strong>Document</strong> (the proof), and a <strong>CircleMember</strong> (someone who sees a slice) — captured, reminded, and proved. I mapped each against the AONIK codebase with file-level evidence.</p>
+<p>The result is encouraging and specific. <strong>Of the twelve backend capabilities Simi requires, five are production-ready today, three are partial (real infrastructure, missing only the Simi-specific slice), and four need genuinely new work</strong> — but every "new" item lives <em>inside an existing module</em> (PersonalFinance, Documents, Ai) and rides infrastructure that is already built and shipping. None requires a new platform primitive. The launch plan's "the hard parts already exist" claim is true for the machinery (auth, blob storage, Quartz reminders, FCM push, the read-tool agent, the AiRun audit) — and the rebuild spec's §8.6 mapping is <em>too optimistic</em> for four of its rows, which this plan corrects.</p>
+<div class="callout accent">
+  <div class="label">The shape of the work</div>
+  Two backend lifts are real and deserve respect: the <strong>commitment cycle-lifecycle</strong> (mark-done → roll forward, skip, snooze, per-cycle history — none of which exists) and the <strong>Circle's entity-scoped sharing</strong> (today's households share whole bank accounts with already-registered users; Simi needs link-invited members scoped to one person or place, with a documents-only role that hides every amount). The other four — a neutral CareEntity model, a PaymentLog module, the capture-parse endpoint, and Document↔entity linking — are each a thin slice over an existing module. The Keeper Q&amp;A is almost pure configuration.
+</div>
+<p>Sequenced correctly, this is not a platform project. It is a series of thin endpoints that land alongside mobile milestones M2–M5, each one demonstrable, each one honouring the launch plan's merge rule. The total is meaningfully more than the spec's "thin endpoints" sentence implies — but it is still additive, module-local, and free of the 27k-LOC drift the launch plan warns against, provided the guardrails in §10 hold.</p>
+</section>
+
+<!-- 2 -->
+<section id="method">
+<h2><span class="num">2.</span>Method — how this was assessed</h2>
+<p>I read the three Simi documents end to end, extracted the backend obligations (the four promises, the five-object model in §3.2, the data contracts in §8, and the capture API in §8.5), then audited the codebase for each — reading entity definitions, endpoint <code>Configure()</code> auth scoping, and service interfaces rather than trusting names. Where a capability looked present, I checked whether it is <em>customer-facing</em> (callable by a consumer <code>PersonalUser</code> JWT) versus admin-only, and whether senders/jobs are <em>actually wired</em> versus interface-only. Verdicts below cite <code>file</code> evidence so they can be challenged.</p>
+<p>One correction worth stating up front, because it recurs: several endpoints carry an <code>AdminUserPolicy</code> / <code>AdminUserWritePolicy</code> name but those policies <em>include the <code>PersonalUser</code> role</em> — so they are consumer-reachable despite the "admin" label. Documents are the clearest case: a consumer can already upload and list. The gaps there are linking and sharing, not access.</p>
+</section>
+
+<!-- 3 -->
+<section id="scorecard">
+<h2><span class="num">3.</span>The readiness scorecard</h2>
+<p>Twelve capabilities, each rated on how much of the Simi-shaped need exists today. <span class="v ready">Ready</span> = ships as-is or trivially. <span class="v partial">Partial</span> = real infra, missing the Simi slice. <span class="v absent">New</span> = must be built (but module-local and thin). <span class="v config">Config</span> = exists; needs wiring/prompting, not code.</p>
+<table class="score">
+  <thead><tr><th>Capability</th><th>Readiness</th><th>Verdict</th><th>What's missing for Simi</th></tr></thead>
+  <tbody>
+    <tr><td>Identity, auth, registration, OTP<span class="sub">login, refresh, email/phone verify, profile</span></td><td><span class="rb"><i class="fill" style="width:96%"></i><i class="gap" style="width:4%"></i></span></td><td><span class="v ready">Ready</span></td><td>Nothing. The Flutter app already consumes it.</td></tr>
+    <tr><td>Push delivery<span class="sub">device registration → send</span></td><td><span class="rb"><i class="fill" style="width:58%"></i><i class="gap" style="width:42%"></i></span></td><td><span class="v partial">Partial</span></td><td>FCM/Android is real and wired; <strong>iOS/APNs path absent</strong> — must be added or verified via FCM-iOS.</td></tr>
+    <tr><td>In-app notifications<span class="sub">DB + SSE stream</span></td><td><span class="rb"><i class="fill" style="width:92%"></i><i class="gap" style="width:8%"></i></span></td><td><span class="v ready">Ready</span></td><td>Nothing material.</td></tr>
+    <tr><td>Reminder scheduling<span class="sub">Quartz WorkItem dispatch</span></td><td><span class="rb"><i class="fill" style="width:62%"></i><i class="gap" style="width:38%"></i></span></td><td><span class="v partial">Partial</span></td><td>Due-date reminders fire; <strong>no re-arm on roll-forward/snooze</strong>, hard-coded 14-day lead, no quiet-hours/digest.</td></tr>
+    <tr><td>Document storage &amp; upload<span class="sub">blob, SHA-256, consumer upload/list</span></td><td><span class="rb"><i class="fill" style="width:55%"></i><i class="gap" style="width:45%"></i></span></td><td><span class="v partial">Partial</span></td><td>Storage rich; <strong>no entity/receipt linking, no filter-by-entity/year, no selective share, consumer file-download to confirm</strong>.</td></tr>
+    <tr><td>Keeper Q&amp;A agent<span class="sub">chat + read tools + scoping</span></td><td><span class="rb"><i class="fill" style="width:80%"></i><i class="gap" style="width:20%"></i></span></td><td><span class="v config">Config</span></td><td>Chat, read tools, per-user scoping, ungated reads all exist; needs a describe-only prompt + read tools over the new aggregates.</td></tr>
+    <tr><td>AI audit &amp; structured output<span class="sub">AiRun, schema-constrained gen</span></td><td><span class="rb"><i class="fill" style="width:70%"></i><i class="gap" style="width:30%"></i></span></td><td><span class="v partial">Partial</span></td><td>One-shot AiRun audit + structured output exist for sub-agents; no <em>vision</em> input path.</td></tr>
+    <tr><td>CareEntity (People &amp; Assets)<span class="sub">person/asset + country + profile</span></td><td><span class="rb"><i class="fill" style="width:34%"></i><i class="gap" style="width:66%"></i></span></td><td><span class="v absent">New</span></td><td>Party can't model an <strong>asset</strong> (place, car, land…); only neutral customer CRUD is the graph-node API; <strong>no one-call entity profile</strong>.</td></tr>
+    <tr><td>Support-commitments + cycles<span class="sub">manual rhythm + lifecycle</span></td><td><span class="rb"><i class="fill" style="width:40%"></i><i class="gap" style="width:60%"></i></span></td><td><span class="v partial">Partial</span></td><td>Manual create exists; <strong>mark-done/skip/snooze/roll-forward, anchor-day &amp; termly rhythm, per-cycle history, CareEntity link</strong> all new.</td></tr>
+    <tr><td>PaymentLog<span class="sub">act of support + currency + receipt</span></td><td><span class="rb"><i class="fill" style="width:14%"></i><i class="gap" style="width:86%"></i></span></td><td><span class="v absent">New</span></td><td>Whole aggregate is new — the one module the launch plan already budgeted. Plus per-currency totals projection.</td></tr>
+    <tr><td>Capture parse endpoint<span class="sub">image/text → draft proposal</span></td><td><span class="rb"><i class="fill" style="width:32%"></i><i class="gap" style="width:68%"></i></span></td><td><span class="v absent">New</span></td><td><code>POST /ai/capture/parse</code> doesn't exist; vision input absent (infra for audit + structured output is present).</td></tr>
+    <tr><td>Circle (entity-scoped sharing)<span class="sub">link-invite + scope + docs-only</span></td><td><span class="rb"><i class="fill" style="width:30%"></i><i class="gap" style="width:70%"></i></span></td><td><span class="v absent">New</span></td><td>Households share <strong>whole accounts</strong> with <strong>registered users only</strong>; need entity-scope, link/email invite, docs-only-no-amounts role.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- 4 -->
+<section id="leverage">
+<h2><span class="num">4.</span>The leverage — what already exists</h2>
+<p>Before the gaps, the honest good news. These are built, tested, and shipping, and Simi rides them with little or no backend work:</p>
+<ul>
+  <li><strong>Identity &amp; auth, end to end</strong> — OAuth2 token/refresh, individual registration, email + phone OTP verification, profile + photo, multi-tenant context. The mobile app already authenticates against it.</li>
+  <li><strong>Blob document storage</strong> — a real <code>FluentStorage</code> abstraction (<code>DocumentFileStore</code>), tenant-scoped keys, SHA-256 content hashing; consumer upload/list reachable via the <code>PersonalUser</code> role. The Vault stands on this.</li>
+  <li><strong>Scheduled-reminder machinery</strong> — a Quartz <code>WorkItemDispatchJob</code> runs every minute, scans due <code>WorkItem</code>s, and a <code>NotifyUserTaskActionHandler</code> turns them into notifications + push. Bill creation already schedules a due-date reminder through it.</li>
+  <li><strong>Push + in-app notifications</strong> — a real FCM sender (<code>FirebasePushNotificationSender</code>) integrated into <code>NotificationService</code>, plus DB-backed in-app notifications with an SSE stream and a full template/binding system.</li>
+  <li><strong>The conversational-AI stack</strong> — a customer chat endpoint (<code>POST /ai/chat</code>) and AG-UI streaming (<code>POST /ai/agui</code>), a master orchestrator, and a <code>PersonalFinanceAgent</code> carrying 20+ <em>read</em> tools over accounts/transactions/commitments/spending. Read tools execute without approval; every call is tenant + user scoped.</li>
+  <li><strong>The audit + safety spine</strong> — the <code>AiRun</code> record with a one-shot writer, and the tool-approval gate (low/medium/high) that already enforces "agents propose; systems execute" — the exact rule the capture review screen depends on.</li>
+  <li><strong>Manual commitment creation</strong> — <code>POST /personal-finance/bills</code> persists a user-authored bill (payee, frequency, next-due, amount, currency) with no transaction required; <code>SourceTransactionId</code> is nullable and <code>Origin = "Manual"</code> is a first-class value.</li>
+</ul>
+<div class="callout">
+  <div class="label">Why this matters for the estimate</div>
+  Every gap below is a slice <em>over</em> this list, not a foundation under it. That is precisely what makes a part-time, agent-assisted backend cadence realistic: there is no platform to build, only endpoints to add.
+</div>
+</section>
+
+<!-- 5 -->
+<section id="gaps">
+<h2><span class="num">5.</span>The gaps — six things to build</h2>
+<p>Six gap areas, each with what Simi needs, what exists, the precise delta, and the evidence. They are ordered by the mobile milestone that consumes them.</p>
+
+<!-- GAP 1 -->
+<div class="gap">
+  <div class="gh"><h3>5.1 CareEntity — People &amp; Assets</h3><div class="tag"><span class="v absent">New (thin)</span></div></div>
+  <div class="gi">
+    <div class="grid2">
+      <div>
+        <h4>What Simi needs</h4>
+        <p>A neutral, customer-owned entity for a <em>person</em> ("Mum") or an <em>asset</em> you look after — a property ("Surulere flat"), but equally land, a car, a business stake, or a foreign account — each with a country, owning commitments, payment history, documents and totals, plus a one-call <code>getProfile(id)</code> returning the lot (rebuild spec §7.6, §8.1, §8.3; and the positioning's <em>continuity</em> north star — "anything a loved one would leave").</p>
+      </div>
+      <div>
+        <h4>What exists</h4>
+        <p>A <code>Party</code> model, but <code>PartyType</code> is validated to <code>"Person" | "Organization"</code> only — <strong>no asset/place of any kind</strong>. The only neutral, customer-facing entity CRUD is the generic financial-life-graph node API. The remittance <code>Recipients</code> surface is customer-facing but payout-coupled (Spec 008) — exactly what M0 deletes.</p>
+      </div>
+    </div>
+    <h4>The delta</h4>
+    <ul>
+      <li>A generic <strong>asset</strong> concept, not just "place": <code>kind = person | asset</code>, an open <code>assetType</code> (property · land · vehicle · business · account · other-with-label), and an <code>attributesJson</code> bag for type-specific detail (a vehicle's registration, a property's address) so no migration is needed to add "boat".</li>
+      <li>A <strong>neutral</strong> care-entity CRUD not tied to payouts/beneficiaries.</li>
+      <li>A <strong>one-call profile projection</strong> (entity + per-currency totals + commitments + recent logs + document refs) — today this would be several queries against the graph.</li>
+    </ul>
+    <div class="evi"><b>Party.cs</b> — PartyType free string; <b>FinanceValidators.cs</b> — <code>.Must(t =&gt; t is "Person" or "Organization")</code> · <b>/parties</b> create = <code>AdminUserPolicy</code> (admin) · <b>/personal-finance/graph/nodes</b> = <code>UserPolicy</code> (customer, but generic) · <b>Recipients</b> = customer-facing but "payout-beneficiary party graph (Spec 008)".</div>
+    <div class="callout warn" style="margin-top:14px;"><div class="label">The guardrail that keeps "any asset" from drifting</div>An asset of any type still gets only the five primitives — commitments, documents, payment history, totals, circle-scope. <strong>No valuations, no net-worth rollup, no per-type management tooling.</strong> A car gets insurance/road-tax commitments and a logbook document, not a depreciation curve; the flat gets a service charge and a deed, not a rent ledger. The moment "asset" means "a thing to <em>value</em>" rather than "a thing to <em>pay for and document</em>," it becomes a net-worth tracker and trips Guardrail 1. Your freeze list already says this for places — generalise the restraint, not just the entity.</div>
+    <p style="font-size:13px;color:var(--muted);margin:12px 0 0;font-family:-apple-system,'Segoe UI',sans-serif;">Mobile knock-on: the pre-build <code>CareEntityKind</code> enum broadens to match, and an "Asset" category alongside "Person" strengthens the case for the spec's fallback <em>"Yours"</em> tab label (§12.4) over "People &amp; Places".</p>
+  </div>
+</div>
+
+<!-- GAP 2 -->
+<div class="gap">
+  <div class="gh"><h3>5.2 Commitment cycle-lifecycle &amp; rhythm</h3><div class="tag"><span class="v partial">Partial</span></div></div>
+  <div class="gi">
+    <div class="grid2">
+      <div>
+        <h4>What Simi needs</h4>
+        <p>A user-authored support commitment attached to a CareEntity, with a rhythm rich enough for "monthly on the 28th" and "termly", and a per-cycle lifecycle: <strong>mark-done</strong> (writes a PaymentLog and rolls <code>nextDue</code> forward), <strong>skip</strong> (with reason, recorded), <strong>snooze</strong> (to a date / to payday), <strong>pause</strong>, and a visible <strong>per-cycle history</strong> (rebuild spec §7.3, §8.2).</p>
+      </div>
+      <div>
+        <h4>What exists</h4>
+        <p><code>ICommitmentService</code> exposes only detection <em>verification</em> — <code>ConfirmDetectedAsync</code> / <code>RejectDetectedAsync</code>. <code>Frequency</code> is a free string (Daily…Annually). <code>LastPaidAt</code>/<code>LastPaidAmount</code> are scalars.</p>
+      </div>
+    </div>
+    <h4>The delta</h4>
+    <ul>
+      <li><strong>No mark-done / roll-forward</strong> anywhere — <code>NextDueDate</code> is set once and never advances.</li>
+      <li><strong>No skip / snooze</strong>; <code>Status</code> has a <code>"Paused"</code> value but no service method sets it per cycle.</li>
+      <li><strong>No anchor-day or termly</strong> rhythm, and no roll-forward date math (clamp 29–31 → month end, explicit termly dates).</li>
+      <li><strong>No per-cycle history</strong> entity — only the two "last paid" scalars.</li>
+      <li>A commitment can't yet point at a <strong>CareEntity</strong> (today it has a <code>Payee</code> string + <code>PaidFromAccountId</code>).</li>
+    </ul>
+    <div class="evi"><b>ICommitmentService.cs</b> — interface is List/Get/CreateFromTransaction/Confirm/Reject only · <b>PersonalRecurringBill.cs</b> — <code>Frequency</code> string, <code>NextDueDate</code>, no anchor day, no CareEntityId · <b>FinancialLifeGraphRetrievalService.cs</b> — frequency switch has no "Termly".</div>
+  </div>
+</div>
+
+<!-- GAP 3 -->
+<div class="gap">
+  <div class="gh"><h3>5.3 PaymentLog</h3><div class="tag"><span class="v absent">New (budgeted)</span></div></div>
+  <div class="gi">
+    <div class="grid2">
+      <div>
+        <h4>What Simi needs</h4>
+        <p>An act of support: attached to a commitment (rolling it forward) or standalone (the one-off plumber), in its <strong>original currency</strong> (+ optional ≈£), with a channel (bank/Wise/cash), an <code>origin</code> (manual / capture-image / capture-voice / mark-done / plaid-detected), receipt attachments, and a note. Plus a <strong>per-currency year summary</strong> for the Today hero and entity totals, and — when a linked account exists — a link back to the <strong>bank transaction that corroborates it</strong> (rebuild spec §3.2, §8.1, §8.3, and the §11 corroboration / auto-capture fast-follows).</p>
+      </div>
+      <div>
+        <h4>What exists</h4>
+        <p>Manual <em>transactions</em> exist, but they are spending records — no CareEntity attribution, no commitment-roll-forward, no receipt linkage, no per-currency support totals. Helpfully, commitment-detection already hangs a nullable <code>SourceTransactionId</code> off a detected commitment, so the link-a-record-to-a-transaction pattern is established. The spec flags PaymentLog as the one new module.</p>
+      </div>
+    </div>
+    <h4>The delta</h4>
+    <ul>
+      <li>The whole <strong>PaymentLog aggregate</strong> + CRUD, idempotent create (for the offline capture queue), soft-delete with restore.</li>
+      <li>A nullable <strong><code>sourceTransactionId</code> + <code>corroborationStatus</code></strong> (none | matched | confirmed) — the bank-evidence link.</li>
+      <li>A <strong>per-currency aggregation</strong> projection (<code>yearSummary</code>) — totals are listed per currency, never converted.</li>
+      <li>Wiring so <strong>mark-done writes a PaymentLog</strong> and a capture-confirm writes one too.</li>
+    </ul>
+    <div class="callout info" style="margin-top:6px;"><div class="label">Three layers, and why the link matters</div>The transaction does not link to the commitment directly — it links through the act: <strong>Transaction (bank evidence) → PaymentLog (the act, this cycle) → Commitment (the rhythm)</strong>. Linking a transaction straight to a commitment would lose per-cycle granularity ("which month did this £200 satisfy?"). The <code>sourceTransactionId</code> unlocks three things: the <strong>auto-capture nudge</strong> ("£200 to Wise — Mum's allowance?"), the <strong>"verified against linked account"</strong> statement column, and — the one the spec doesn't name — <strong>deduplication</strong>: if the user manually captures a payment <em>and</em> Plaid imports the same debit, the link collapses them into one log instead of double-counting and corrupting the year total. The link is the dedup key.</div>
+    <div class="evi"><b>No PaymentLog entity</b> in <code>src/Aonik.PersonalFinance/Entities</code> · transactions = spending model, not support acts · <b>PersonalRecurringBill.cs</b> — existing nullable <code>SourceTransactionId</code> precedent · launch plan §7 budgets "payment-log CRUD" as the one new module.</div>
+  </div>
+</div>
+
+<!-- GAP 4 -->
+<div class="gap">
+  <div class="gh"><h3>5.4 Document linking, filter &amp; selective share</h3><div class="tag"><span class="v partial">Partial</span></div></div>
+  <div class="gi">
+    <div class="grid2">
+      <div>
+        <h4>What Simi needs</h4>
+        <p>A consumer tags each document with a person/place + type; filters by person/place/year; links a document to a <strong>PaymentLog</strong> (the receipt) and a <strong>CareEntity</strong>; and shares specific documents to a circle member with a documents-only role (rebuild spec §7.7, §7.8).</p>
+      </div>
+      <div>
+        <h4>What exists</h4>
+        <p>Customer upload/list (via <code>PersonalUser</code> in <code>AdminUserWritePolicy</code>), real blob storage, an <code>OwnerPartyId</code>, and a <code>TagsJson</code> field. A signed-URL reader exists at the service layer.</p>
+      </div>
+    </div>
+    <h4>The delta</h4>
+    <ul>
+      <li><strong>No link</strong> from a document to a CareEntity or a PaymentLog/receipt — only <code>OwnerPartyId</code> + untyped <code>TagsJson</code>.</li>
+      <li><strong>No filter-by-entity/year</strong> query exposed to the consumer.</li>
+      <li><strong>Selective document sharing</strong> to a scoped circle member is absent (depends on §5.6).</li>
+      <li>A consumer <strong>file-download / signed-URL</strong> endpoint to confirm (list-files exists; content fetch to verify).</li>
+    </ul>
+    <div class="evi"><b>Document.cs</b> — <code>OwnerPartyId</code>, <code>TagsJson</code> (untyped), no <code>CareEntityId</code>/<code>PaymentLogId</code> · create/upload = <code>AdminUserWritePolicy</code> which <em>includes PersonalUser</em> · <b>DocumentFileStore.cs</b> — real blob, tenant-scoped keys.</div>
+  </div>
+</div>
+
+<!-- GAP 5 -->
+<div class="gap">
+  <div class="gh"><h3>5.5 Capture parse endpoint</h3><div class="tag"><span class="v absent">New · severable (M4)</span></div></div>
+  <div class="gi">
+    <div class="grid2">
+      <div>
+        <h4>What Simi needs</h4>
+        <p><code>POST /ai/capture/parse</code>: accept an image (base64 receipt/screenshot), text, or audio-transcript plus hints (the user's entities + open commitments) and return a <strong>structured draft proposal</strong> (matched entity, matched commitment, amount+currency, date, channel, per-field confidence) — never auto-saved, recorded as an <code>AiRun</code> (rebuild spec §8.5).</p>
+      </div>
+      <div>
+        <h4>What exists</h4>
+        <p>The one-shot <code>AiRun</code> audit writer; schema-constrained structured output for sub-agents; deterministic CSV statement-import (not a vision template). <code>ChatRequest</code> takes a string only.</p>
+      </div>
+    </div>
+    <h4>The delta</h4>
+    <ul>
+      <li><strong>Vision/multimodal input</strong> — no image path into the LLM today.</li>
+      <li>The <strong>endpoint itself</strong>, returning a proposal draft (not a saved record), audited as an <code>AiRun</code>, with entity/commitment hints constraining the match to near-classification.</li>
+    </ul>
+    <div class="evi"><b>AiRunWriter.SaveRunAsync</b> — one-shot audit exists · <b>InsightsStructuredModels.cs</b> etc. — schema-constrained output exists for sub-agents · <b>ChatRequest.cs</b> — <code>Message</code> string only, no image · no <code>/ai/capture/parse</code> route.</div>
+  </div>
+</div>
+
+<!-- GAP 6 -->
+<div class="gap">
+  <div class="gh"><h3>5.6 The Circle — entity-scoped sharing</h3><div class="tag"><span class="v absent">New · the big one</span></div></div>
+  <div class="gi">
+    <div class="grid2">
+      <div>
+        <h4>What Simi needs</h4>
+        <p>Invite someone (who may <strong>not</strong> be a registered user) by shareable link / email / phone; they accept and get scoped read access. Three presets — <em>everything · specific people/places · documents-only</em> — where a documents-only member (the property manager) <strong>sees no amounts anywhere</strong>, and a scoped member sees exactly one CareEntity (rebuild spec §7.8).</p>
+      </div>
+      <div>
+        <h4>What exists</h4>
+        <p>Households with an invite lifecycle and three roles (Owner/Manager/Viewer). The sharing unit is the whole <strong>bank account</strong> (<code>account.HouseholdId</code>); invites are by <strong>existing <code>UserId</code></strong> only; <code>PermissionsJson</code> exists but is never enforced.</p>
+      </div>
+    </div>
+    <h4>The delta</h4>
+    <ul>
+      <li><strong>Invite a not-yet-registered person</strong> — today <code>EnsureUserExistsWithPersonalProfileAsync</code> throws if the <code>UserId</code> isn't already registered; no token/link/email/phone path.</li>
+      <li><strong>Entity-scoped visibility</strong> — <code>HouseholdMember</code> has no scoping field; access is all-or-nothing within a household.</li>
+      <li><strong>A documents-only, no-amounts role</strong> — roles only vary read/write; nothing masks money.</li>
+      <li><strong>Re-point the share unit</strong> from bank accounts to CareEntities/people-places — the whole "share the flat with Seyi, hide it from Mr Bello's view of amounts" model.</li>
+    </ul>
+    <div class="evi"><b>HouseholdMember.cs</b> — no <code>ScopedEntityId</code>/visibility field · <b>InviteHouseholdMemberEndpoint</b> — request is <code>Guid UserId</code>; <b>HouseholdService.cs</b> — <code>EnsureUserExistsWithPersonalProfileAsync</code> throws "User not found" · <b>PersonalAccountService.ShareAccountWithHouseholdAsync</b> — share unit is the account; all members see all amounts · <b>HouseholdRoles.cs</b> — Owner/Manager/Viewer only.</div>
+  </div>
+</div>
+</section>
+
+<!-- 6 -->
+<section id="reconcile">
+<h2><span class="num">6.</span>Reconciling with the rebuild spec's §8.6</h2>
+<p>The rebuild spec includes its own AONIK mapping. It is mostly right, and where it is optimistic it is optimistic in <em>predictable</em> places — the sharing and lifecycle rows. This table is the honest correction, row by row, so no one plans against "as-is" and is surprised mid-build.</p>
+<table>
+  <thead><tr><th>Spec §8.6 row</th><th>Spec's claim</th><th>Evidence-based verdict</th></tr></thead>
+  <tbody>
+    <tr><td>CareEntity → Party + relationship tag</td><td>"Thin: expose CRUD + profile projection"</td><td><span class="v partial">Optimistic.</span> Party can't model an asset of any kind (place, car, land…); a neutral person|asset entity + a real profile projection are new. Closer to a small new aggregate than a thin expose.</td></tr>
+    <tr><td>Commitment + cycles → Spec 019</td><td>"Extend: manual create, rhythm, mark-done/skip/snooze cycle events"</td><td><span class="v partial">Right that it's an extension; under-counts it.</span> Manual create exists; the entire cycle lifecycle, rhythm math, per-cycle history and CareEntity link are net-new.</td></tr>
+    <tr><td>PaymentLog → new thin endpoints</td><td>"The one new module the launch plan budgeted"</td><td><span class="v ready">Correct.</span> Plus a per-currency totals projection and a nullable transaction link for corroboration + dedup.</td></tr>
+    <tr><td>Documents/Vault → Spec 035</td><td>"As-is"</td><td><span class="v partial">Optimistic.</span> Storage + upload are there; entity/receipt linking, filter-by-entity/year and selective share are not.</td></tr>
+    <tr><td>Circle → Households + roles</td><td>"As-is; role presets for everything / scoped / docs-only"</td><td><span class="v absent">Materially optimistic — the biggest lift.</span> Households share accounts with registered users; entity-scope, link-invite and a no-amounts role are all new.</td></tr>
+    <tr><td>Capture parse → AI module</td><td>"One endpoint, M4"</td><td><span class="v partial">Right on scope; vision input is the catch.</span> Audit + structured-output infra exist; the multimodal path and the endpoint are new.</td></tr>
+    <tr><td>Reminders → Notifications + Quartz</td><td>"Schedule off commitment due dates"</td><td><span class="v partial">Mostly there.</span> The dispatch chain is real; re-arm on roll-forward/snooze, configurable lead, quiet-hours/digest are missing. iOS push needs an APNs path.</td></tr>
+  </tbody>
+</table>
+<div class="callout info">
+  <div class="label">The pattern</div>
+  Optimism clusters on the two rows that touch <em>sharing semantics</em> and <em>state machines</em> — exactly where "we already have households / we already have commitments" hides that what we have shares the wrong unit and lacks the lifecycle. Naming it now is cheaper than discovering it in M5.
+</div>
+</section>
+
+<!-- 7 -->
+<section id="phase0">
+<h2><span class="num">7.</span>Phase 0 — decisions before code</h2>
+<p>Six decisions shape everything downstream. None needs a meeting longer than the merge that resolves it; all should be settled before M2 backend work starts. My recommendation is given for each.</p>
+<table>
+  <thead><tr><th>Decision</th><th>Options</th><th>Recommendation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>D1 · CareEntity home &amp; shape</strong></td><td>(a) extend <code>Party</code>; (b) new neutral <code>CareEntity</code> in PersonalFinance; (c) reuse graph nodes.</td><td><strong>(b)</strong> — a typed <code>CareEntity</code> in PersonalFinance: <code>kind = person | asset</code>, an open <code>assetType</code> (property · land · vehicle · business · account · other) and an <code>attributesJson</code> bag, all with a country. Decoupled from the remittance party graph (which M0 deletes) and a clean home for the profile projection. <em>Hold the line: any asset still gets only commitments/documents/history/totals — no valuation tooling.</em></td></tr>
+    <tr><td><strong>D2 · Commitment shape</strong></td><td>(a) widen <code>PersonalRecurringBill</code> with a <code>Support</code> kind + <code>CareEntityId</code> + rhythm; (b) a separate <code>CareCommitment</code> entity.</td><td><strong>(a)</strong> — extend the existing entity so the detected-bill flow and the Simi support-commitment share one read model (Spec 019's unified <code>Commitment</code>), per the spec's "widen CommitmentType with <code>support</code>".</td></tr>
+    <tr><td><strong>D3 · Cycle history</strong></td><td>(a) derive cycles from PaymentLogs; (b) a dedicated <code>CommitmentCycle</code> record per cycle.</td><td><strong>(b)</strong> — an explicit per-cycle row (due, status: paid|skipped|snoozed, logId?) so "skipped" is honest history and "never missed" is computable. PaymentLogs alone can't represent a skip.</td></tr>
+    <tr><td><strong>D4 · Circle scoping</strong></td><td>(a) bolt scoping onto <code>HouseholdMember</code>; (b) a new entity-scoped <code>CircleGrant</code> model layered on the household container.</td><td><strong>(b)</strong> — keep Household as the container, add a <code>CircleGrant</code> (member, scope = all|entities|docs-only, entityIds[], a no-amounts flag) enforced in a single visibility filter. Avoids overloading the account-sharing path.</td></tr>
+    <tr><td><strong>D5 · Non-user invites</strong></td><td>(a) pre-create a shadow user; (b) a token/link invite that provisions on accept.</td><td><strong>(b)</strong> — a signed invite link (email/phone optional) that creates the account + grant on acceptance, reusing the existing registration + OTP flow. This is the WhatsApp-first reality the spec assumes.</td></tr>
+    <tr><td><strong>D6 · iOS push</strong></td><td>(a) add a native APNs sender; (b) route iOS through FCM (Firebase Messaging on the Flutter iOS app).</td><td><strong>(b)</strong> — the FCM sender already exists; with Firebase Messaging configured on iOS, the same token path delivers to APNs under the hood. Verify on a device early; fall back to (a) only if needed.</td></tr>
+    <tr><td><strong>D7 · PaymentLog corroboration</strong></td><td>(a) link a transaction straight to the commitment; (b) link Transaction → PaymentLog, schema now + fuzzy matcher later.</td><td><strong>(b)</strong> — add a nullable <code>sourceTransactionId</code> + <code>corroborationStatus</code> to PaymentLog (the act), preserving per-cycle granularity and giving the dedup key. Ship the <em>column</em> in Phase A so nothing is rebuilt; ship the fuzzy <em>matcher</em> in Phase E, confirm-gated and never silent (a wrong link corrupts the proof).</td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <div class="label">Migration discipline (non-negotiable, per CLAUDE.md)</div>
+  Every new entity (<code>CareEntity</code>, <code>PaymentLog</code>, <code>CommitmentCycle</code>, <code>CircleGrant</code>) and every column added to <code>PersonalRecurringBill</code> / <code>Document</code> / <code>HouseholdMember</code> ships through a <strong>tool-generated</strong> migration against <code>AonikDbContext</code> only — never hand-written, never against a module context. Add the <code>DbSet</code> to <code>AonikDbContext</code> (and the module context if read there), with <code>Ank</code>-prefixed tables. This is the same rule that governed Spec 042.
+</div>
+</section>
+
+<!-- 8 -->
+<section id="plan">
+<h2><span class="num">8.</span>The phased plan</h2>
+<p>Backend phases are named for the mobile milestone they unblock, so each thin endpoint lands exactly when the app needs it — and never ahead of it (the merge rule, §10). M0–M1 are pure mobile (deletion + rebrand) and need <em>zero</em> backend; the backend's first job is the spine.</p>
+
+<div class="phase flag">
+  <h3>Phase A — The spine (unblocks mobile M2) <span class="when">first &amp; largest · the daily loop</span></h3>
+  <p class="work">Everything the daily loop needs to run on live data instead of mocks: entities to attach to, commitments that advance, logs that prove, reminders that fire.</p>
+  <div class="work">
+  <table>
+    <thead><tr><th>Work item</th><th>Size</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>CareEntity model + customer CRUD + EF + migration</td><td><span class="pill m">M</span></td><td>D1. <code>kind=person|asset</code> + <code>assetType</code> + <code>attributesJson</code> + country; <code>GET/POST/PUT /personal-finance/care-entities</code>.</td></tr>
+      <tr><td>CareEntity one-call profile projection</td><td><span class="pill s">S</span></td><td>entity + per-currency totals + commitments + recent logs + doc refs.</td></tr>
+      <tr><td>Extend commitment: <code>CareEntityId</code>, rhythm (anchor-day, termly), <code>support</code> kind</td><td><span class="pill m">M</span></td><td>D2. roll-forward date math (clamp 29–31; explicit termly dates).</td></tr>
+      <tr><td>Cycle lifecycle: mark-done → log + roll, skip, snooze, pause</td><td><span class="pill m">M</span></td><td>new <code>ICommitmentService</code> methods + endpoints.</td></tr>
+      <tr><td>CommitmentCycle history record</td><td><span class="pill s">S</span></td><td>D3. per-cycle due/status; powers "never missed".</td></tr>
+      <tr><td>PaymentLog aggregate + CRUD + idempotent create</td><td><span class="pill m">M</span></td><td>original currency + ≈£, channel, origin, attachments, nullable <code>sourceTransactionId</code> + <code>corroborationStatus</code> (D7); offline-queue safe.</td></tr>
+      <tr><td>Per-currency year-summary projection</td><td><span class="pill s">S</span></td><td>Today hero + entity totals; never converted.</td></tr>
+      <tr><td>Reminder: configurable lead, re-arm on roll-forward/snooze</td><td><span class="pill m">M</span></td><td>extend the existing WorkItem reminder; default 3 days; quiet-hours flag.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="lane">Demo at the end</p>
+  <p class="work">The mobile daily loop runs against AONIK: create "Mum" → "monthly allowance, £200, 28th" → it appears on Today → mark-done writes a log, rolls to 28 June, ticks the year total → a reminder fires 3 days out.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase B — The vault (unblocks mobile M3) <span class="when">documents become entity-aware</span></h3>
+  <div class="work">
+  <table>
+    <thead><tr><th>Work item</th><th>Size</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Link Document → CareEntity + PaymentLog (receipt)</td><td><span class="pill s">S</span></td><td>typed link columns, replacing reliance on untyped <code>TagsJson</code>.</td></tr>
+      <tr><td>Filter documents by entity / type / year (consumer)</td><td><span class="pill s">S</span></td><td>the "find the school-fee receipt ≤ 3 taps" query.</td></tr>
+      <tr><td>Consumer file-download / signed-URL endpoint</td><td><span class="pill s">S</span></td><td>confirm/expose the existing <code>IDocumentReader</code> read-URL to <code>PersonalUser</code>.</td></tr>
+      <tr><td>Receipt auto-file on mark-done / capture-confirm</td><td><span class="pill s">S</span></td><td>attachment created in Phase A arrives pre-tagged to the entity.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="lane">Demo at the end</p>
+  <p class="work">Upload a receipt, tag it to Mum, find it by entity+year; a mark-done receipt is already filed under the right person.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase C — Capture &amp; the Keeper (unblocks mobile M4) <span class="when">severable</span> <span class="pill sev">cut without touching A/B</span></h3>
+  <div class="work">
+  <table>
+    <thead><tr><th>Work item</th><th>Size</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /ai/capture/parse</code> — image/text/transcript → draft proposal</td><td><span class="pill m">M</span></td><td>vision input + structured output + hints; returns a proposal, never saves; <code>AiRun</code>-audited.</td></tr>
+      <tr><td>Keeper Q&amp;A: read tools over CareEntity / PaymentLog / cycles</td><td><span class="pill s">S</span></td><td>add read tools to the existing agent; reuses scoping + ungated reads.</td></tr>
+      <tr><td>Keeper prompt — describe-never-prescribe</td><td><span class="pill s">S</span></td><td>config over the existing chat/stream endpoints; no new endpoint.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="lane">Demo at the end</p>
+  <p class="work">A Wise screenshot → a confirmed log in ~10s; "what's the Lagos flat costing me?" → answered from the user's own records, no advice.</p>
+  <div class="callout"><div class="label">Severability, kept</div>If the founder cuts AI (open question §12.1 of the spec), Phase C drops entirely and the manual Type-it path from Phase A carries capture. Nothing in A/B depends on C.</div>
+</div>
+
+<div class="phase">
+  <h3>Phase D — The circle &amp; the proof (unblocks mobile M5) <span class="when">the heaviest backend lift</span></h3>
+  <div class="work">
+  <table>
+    <thead><tr><th>Work item</th><th>Size</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>CircleGrant</code> model — scope (all|entities|docs-only) + no-amounts flag</td><td><span class="pill l">L</span></td><td>D4. layered on the household container; one central visibility filter.</td></tr>
+      <tr><td>Entity-scoped visibility enforcement across reads</td><td><span class="pill m">M</span></td><td>the part that must be airtight — a docs-only member sees zero amounts anywhere.</td></tr>
+      <tr><td>Link / email / phone invite that provisions on accept</td><td><span class="pill m">M</span></td><td>D5. signed token + existing registration/OTP; no pre-registration required.</td></tr>
+      <tr><td>Selective document share to a scoped member</td><td><span class="pill s">S</span></td><td>completes Phase B's share gap under the grant model.</td></tr>
+      <tr><td>Support Statement <code>compose(entityId, period)</code> projection</td><td><span class="pill s">S</span></td><td>logs + receipt refs + per-currency totals; PDF renders client-side.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="lane">Demo at the end</p>
+  <p class="work">Invite Mr Bello by link → he sees the flat's documents and not one amount; export Mum's Support Statement → a dated PDF with a receipt appendix.</p>
+  <div class="callout warn"><div class="label">Test this like money depends on it</div>The no-amounts guarantee is a security property, not a UI nicety. It needs a server-side test logged in as a docs-only member asserting that <em>every</em> amount-bearing field is absent — the same fail-closed rigour Spec 042 applied to connector credentials.</div>
+</div>
+
+<div class="phase">
+  <h3>Phase E — Cross-cutting &amp; fast-follow hooks <span class="when">alongside &amp; after</span></h3>
+  <div class="work">
+  <table>
+    <thead><tr><th>Work item</th><th>Size</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>iOS push verification / APNs</td><td><span class="pill s">S</span></td><td>D6. confirm FCM-iOS on a device early (it gates real reminders on iPhones).</td></tr>
+      <tr><td>Quiet-hours + digest bundling (&gt;3/day)</td><td><span class="pill s">S</span></td><td>reminder-fatigue mitigation from the spec's risk table.</td></tr>
+      <tr><td>Plaid transaction↔log matcher — auto-capture nudge, corroboration &amp; dedup</td><td><span class="pill m">M</span></td><td>D7. extend the existing detected→confirm engine to PaymentLogs; sets <code>sourceTransactionId</code>; <strong>confirm-gated, never silent</strong>. Powers the nudge, the "verified" column, and manual↔bank dedup.</td></tr>
+      <tr><td>WhatsApp inbound capture channel (BSP webhook → parse pipeline)</td><td><span class="pill m">M</span></td><td>fast-follow; a thin channel adapter over Phase C's parse engine.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="work">These are <em>designed-for now, built on evidence</em> (the spec's §11 accelerators). Phase A–D must not paint them out — PaymentLog carries an <code>origin</code>, the parse endpoint is channel-agnostic, grants already model people who never install the app — but none is built until a lagging metric pulls it forward.</p>
+</div>
+
+<div class="callout accent">
+  <div class="label">Effort, honestly</div>
+  Roughly: Phase A is the bulk (one M-heavy spine), Phase B is small, Phase C is medium and optional, Phase D contains the single L (the grant model + its enforcement), Phase E is opportunistic. With agent leverage this is a handful of focused backend sessions, not a quarter — <em>provided</em> each piece ships behind a mobile milestone and the guardrails hold. The aggregate exceeds the spec's one-sentence "thin endpoints," but no single piece is thick, and nothing is a new platform.
+</div>
+</section>
+
+<!-- 9 -->
+<section id="surface">
+<h2><span class="num">9.</span>New &amp; changed API surface</h2>
+<p>The concrete routes Simi introduces or extends, all under existing modules, all consumer-scoped (<code>UserPolicy</code> / <code>PersonalUser</code>). Names are indicative; shapes follow the rebuild spec §8.</p>
+<table>
+  <thead><tr><th>Route</th><th>Status</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>GET/POST/PUT /personal-finance/care-entities</code></td><td><span class="v absent">new</span></td><td>People &amp; Assets CRUD (<code>person | asset</code> + <code>assetType</code>).</td></tr>
+    <tr><td><code>GET /personal-finance/care-entities/{id}/profile</code></td><td><span class="v absent">new</span></td><td>One-call entity profile (§7.6).</td></tr>
+    <tr><td><code>POST /personal-finance/commitments</code> (manual, support kind)</td><td><span class="v partial">extend</span></td><td>User-authored support commitment + rhythm + CareEntity link.</td></tr>
+    <tr><td><code>POST /personal-finance/commitments/{id}/done|skip|snooze|pause</code></td><td><span class="v absent">new</span></td><td>The cycle lifecycle (§7.3).</td></tr>
+    <tr><td><code>GET /personal-finance/commitments/{id}/cycles</code></td><td><span class="v absent">new</span></td><td>Per-cycle history timeline.</td></tr>
+    <tr><td><code>GET/POST /personal-finance/payment-logs</code> (idempotent create)</td><td><span class="v absent">new</span></td><td>Acts of support; offline-queue safe; carries optional <code>sourceTransactionId</code>.</td></tr>
+    <tr><td><code>GET /personal-finance/summary/year?year=</code></td><td><span class="v absent">new</span></td><td>Per-currency totals for Today + profiles.</td></tr>
+    <tr><td><code>GET /documents?careEntityId=&amp;type=&amp;year=</code> · <code>GET /documents/{id}/content</code></td><td><span class="v partial">extend</span></td><td>Entity/receipt links, filter, consumer download.</td></tr>
+    <tr><td><code>POST /ai/capture/parse</code></td><td><span class="v absent">new</span></td><td>Image/text → structured draft proposal, <code>AiRun</code>-audited (§8.5).</td></tr>
+    <tr><td><code>POST /personal-finance/circle/invites</code> (link/email/phone) · <code>/accept</code></td><td><span class="v absent">new</span></td><td>Invite a not-yet-registered member; provision on accept.</td></tr>
+    <tr><td><code>POST /personal-finance/circle/grants</code> (scope + no-amounts)</td><td><span class="v absent">new</span></td><td>Entity-scoped, docs-only visibility (§7.8).</td></tr>
+    <tr><td><code>GET /personal-finance/care-entities/{id}/statement?period=</code></td><td><span class="v absent">new</span></td><td>Support Statement compose projection (§7.9).</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- 10 -->
+<section id="guardrails">
+<h2><span class="num">10.</span>Guardrails — against backend drift</h2>
+<p>The launch plan's central fear is that the backend eats the mobile push again (it has, twice). This plan is only safe if it stays disciplined. Five rules, borrowed from the launch plan and CLAUDE.md and made backend-specific:</p>
+<ul>
+  <li><strong>The merge rule is law.</strong> No backend PR merges in a week whose mobile milestone has no commits. The backend serves the app's current milestone — never races ahead to Phase D while the app is on M2.</li>
+  <li><strong>Thin endpoints over existing modules.</strong> If a work item starts to feel like a new module, a new platform primitive, or tenant-agent extensibility, stop — that is the documented drift. Everything here lives in PersonalFinance, Documents, or Ai.</li>
+  <li><strong>Single migration stream, tool-generated only.</strong> All schema changes through <code>AonikDbContext</code> via the EF CLI; never hand-written, never against a module context (the rule that kept Spec 042 clean).</li>
+  <li><strong>No money movement, no FX.</strong> Simi's backend stores <code>amount + currency</code> and displays it; it never converts, never posts to the ledger, never calls a partner. That is Payabo, gated on the slow track.</li>
+  <li><strong>Severable AI.</strong> Phase C is isolated. If the founder cuts the Keeper, the backend drops one endpoint + a toolset and everything else ships unchanged.</li>
+</ul>
+<div class="callout danger">
+  <div class="label">The one-question test for any backend task</div>
+  <em>Does this unblock the mobile milestone in flight, as a thin endpoint over an existing module, without moving money?</em> If not, it is drift — log it for later, don't build it now.
+</div>
+</section>
+
+<!-- 11 -->
+<section id="risks">
+<h2><span class="num">11.</span>Risks</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>The Circle's no-amounts guarantee leaks an amount somewhere (a profile total, a log list, a graph node).</td><td>One central visibility filter, not per-endpoint checks; a server-side fail-closed test logged in as a docs-only member asserting every amount field is absent. Treat like Spec 042's credential isolation.</td></tr>
+    <tr><td>Commitment rhythm edge cases (29–31 clamp, termly, leap years) produce wrong next-due dates — eroding trust in the spine.</td><td>Put the roll-forward math in one tested value object with a table of cases; never scatter date arithmetic across services.</td></tr>
+    <tr><td>Backend races ahead of mobile (Phase D built while app is on M2) — the historic drift.</td><td>The merge rule, enforced. Phases are gated on the mobile milestone, not on backend appetite.</td></tr>
+    <tr><td>iOS reminders silently don't deliver (no APNs path).</td><td>Verify FCM-iOS on a physical device in Phase E <em>before</em> the beta; it gates the core "reminds before it's due" promise on iPhones.</td></tr>
+    <tr><td>CareEntity/PaymentLog quietly recreate a spending-analytics surface (generic-PFM drift, Guardrail 1).</td><td>Keep the projections support-shaped (per-entity, per-currency totals), not category/merchant analytics. The analytics suite stays unrouted in the app.</td></tr>
+    <tr><td>Capture parse quality disappoints on real screenshots.</td><td>The review screen is mandatory (the endpoint returns proposals only); the manual path ships two phases earlier; entity/commitment hints reduce the match to near-classification. Phase C is severable.</td></tr>
+    <tr><td>A wrong auto-link between a bank transaction and a log corrupts the proof or double-counts a payment.</td><td>The matcher proposes; the user confirms — never silent. The schema (nullable FK) ships in Phase A but the matcher in Phase E on evidence; currency/fee/settlement-lag mismatches are surfaced for review, not auto-resolved.</td></tr>
+  </tbody>
+</table>
+<div class="big-quote">The infrastructure is built. The gaps are six, they are thin, and they are concentrated in sharing and lifecycle. Ship them behind the mobile milestones, keep money out, and AONIK is Simi-ready without becoming a platform project.</div>
+</section>
+
+<p class="footnote">
+  AONIK × Simi backend readiness plan · June 2026 · authored against <code>aonik</code> @ <code>117cab85</code>. Verdicts are evidence-based (entity definitions, endpoint auth scoping, service interfaces, wired-vs-stub senders) and cite file names so they can be challenged. Pairs with — and respectfully corrects four rows of — <code>simi-mobile-rebuild-spec.html</code> §8.6, and honours the <code>simi-launch-plan.html</code> merge rule and freeze list. Effort sizes are relative (S/M/L) for one engineer with agent leverage, not date commitments. No money-movement, FX, ledger, or partner work is in scope — that is Payabo, gated.
+</p>
+
+</main>
+</body>
+</html>

@@ -46,7 +46,11 @@ public record CommitmentDetail(
     string? Notes,
     string? AccountReference,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    // ── Support commitment additions (Spec 044) ──
+    Guid? CareEntityId = null,
+    string CommitmentKind = "Bill",
+    string? RhythmLabel = null);
 
 public record CommitmentListResponse(
     IReadOnlyList<CommitmentItem> Items,
@@ -91,3 +95,55 @@ public record CommitmentListFilter(
     string? Search = null,
     int Page = 1,
     int PageSize = 20);
+
+// ── Support commitment lifecycle (Spec 044) ─────────────────────────
+
+public record CreateSupportCommitmentRequest(
+    Guid CareEntityId,
+    string DisplayName,
+    decimal? ExpectedAmount,
+    string Currency,
+    string RhythmUnit,
+    int RhythmInterval,
+    int? AnchorDay,
+    IReadOnlyList<DateTime>? TermDates,
+    DateTime FirstDueDate,
+    int? ReminderDaysBefore,
+    Guid? PaidFromAccountId,
+    string? Notes);
+
+public record UpdateSupportCommitmentRequest(
+    string DisplayName,
+    decimal? ExpectedAmount,
+    string Currency,
+    string RhythmUnit,
+    int RhythmInterval,
+    int? AnchorDay,
+    IReadOnlyList<DateTime>? TermDates,
+    int? ReminderDaysBefore,
+    string? Notes);
+
+/// <summary>Body for mark-done — the payment-log draft (Spec 045) for this cycle.</summary>
+public record MarkCommitmentDoneRequest(
+    decimal Amount,
+    string Currency,
+    decimal? ApproxGbp,
+    DateTime? Date,
+    string Channel,
+    string? Note,
+    Guid? IdempotencyKey);
+
+public record SkipCommitmentRequest(string? Reason);
+
+public record SnoozeCommitmentRequest(DateTime Until);
+
+public record CommitmentCycleResponse(
+    Guid Id,
+    Guid CommitmentId,
+    DateTime DueDate,
+    string Status,
+    Guid? PaymentLogId,
+    string? SkipReason,
+    DateTime? SnoozedUntil,
+    DateTime? ResolvedAt,
+    DateTime CreatedAt);

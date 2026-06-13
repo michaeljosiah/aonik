@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 047 - AI capture-parse &amp; the Keeper Q&amp;A read surface</title>
+  <style>
+    :root {
+      --fg: #1c2730; --muted: #5a6a76; --soft: #f4f6f8; --border: #d9dde2; --accent: #055a60;
+      --code-bg: #f7f9fb; --note-bg: #fff8e6; --note-border: #e8c878; --open-bg: #eef5fa;
+      --open-border: #88b8d4; --p0-bg: #fbe9e7; --p0-border: #d97a6c; --ok-bg: #ecf6ee; --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
+    header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
+    .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
+    .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
+    h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
+    h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(5, 90, 96, 0.4); }
+    a:hover { text-decoration-color: var(--accent); }
+    code { font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+    pre { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; color: var(--muted); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border-left: 4px solid var(--note-border); background: var(--note-bg); padding: 12px 14px; border-radius: 0 6px 6px 0; margin: 14px 0; font-size: 14.5px; }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 8px; }
+    nav.toc { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 20px 0 32px; }
+    nav.toc h2 { border: 0; padding: 0; margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram { font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; margin: 12px 0 20px; }
+    .tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+    @media (max-width: 720px) { body { padding: 24px 16px 60px; } nav.toc ol { columns: 1; } h1 { font-size: 25px; } }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 047</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag">Priority: P2 (Simi M4 · severable)</span>
+  <span class="meta-tag">Domain: Ai / Agents / Simi</span>
+  <h1>AI capture-parse &amp; the Keeper Q&amp;A read surface</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Simi's "Effortless to keep" thesis as two AI capabilities, both fenced to <em>describe, never prescribe</em>:
+    (1) <code>POST /ai/capture/parse</code> — an image (receipt / screenshot), text, or voice transcript plus hints
+    becomes a <strong>structured draft proposal</strong> (matched entity, matched commitment, amount + currency,
+    date, channel, per-field confidence), <strong>never auto-saved</strong>, recorded as an <code>AiRun</code>; and
+    (2) the <strong>Keeper Q&amp;A</strong> — descriptive answers over the user's own records ("what's the Lagos
+    flat costing me?"). The agent stack, structured-output, and audit machinery exist; the parse endpoint,
+    <strong>vision input</strong>, and a Keeper toolset/prompt do not. Implements
+    <a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.5 (and the Keeper "config" item). Cleanly
+    <strong>severable</strong>: cut it and the manual path (Specs&nbsp;044/045) still ships.
+  </p>
+</header>
+
+<div class="callout">
+  <span class="callout-label">Spec family (043–048)</span>
+  Consumes <a href="043.care-entity-people-and-assets.html">043</a> (entity hints),
+  <a href="044.commitment-cycle-lifecycle.html">044</a> (open-commitment hints), and
+  <a href="045.payment-log.html">045</a> (a confirmed draft becomes a PaymentLog). Nothing in 043–046 or
+  <a href="048.circle-entity-scoped-sharing.html">048</a> depends on 047 — it is the one severable spec.
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#contract">The capture-parse contract</a></li>
+    <li><a href="#vision">Vision input (the real lift)</a></li>
+    <li><a href="#structured">Structured output</a></li>
+    <li><a href="#fence">Propose, never execute</a></li>
+    <li><a href="#audit">AiRun audit</a></li>
+    <li><a href="#keeper">The Keeper Q&amp;A surface</a></li>
+    <li><a href="#endpoint">Endpoint &amp; auth</a></li>
+    <li><a href="#sever">Severability</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  Capture is the product's thesis: a Wise screenshot becomes a logged payment, matched to "Mum — May allowance,"
+  in under ten seconds — the moment in the demo where people reach for their own phone. The AI does exactly two
+  fenced things. It <strong>transcribes</strong>: turns a screenshot, photo, forwarded message, or sentence into a
+  draft record the user must confirm. And it <strong>answers</strong>: descriptive questions over the user's own
+  records. It never <strong>prescribes</strong> — no advice, no "you should." The test for any feature here is one
+  question: <em>does it describe, or does it prescribe?</em>
+</p>
+<p>
+  The infrastructure is two-thirds there: a one-shot <code>IChatClient</code> path, JSON-schema-constrained
+  structured output, the <code>AiRun</code> audit, a read-tool agent over personal-finance data, and an
+  ungated-reads approval gate. The three missing pieces are the parse <em>endpoint</em>, <strong>vision input</strong>
+  (the chat pipeline is text-only today), and a Keeper toolset/prompt over the new Simi aggregates.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  Fola shares a Wise confirmation into Simi. <code>/ai/capture/parse</code> returns a draft: <em>Mum · £200 ·
+  today · Wise · counts as May allowance</em>, high confidence, the screenshot attached — pre-filled, nothing
+  saved. She taps Confirm; only then is a PaymentLog written (Spec&nbsp;045). Later she asks the Keeper "what's the
+  flat costing me this year?" and gets "£1,240 across 6 payments" — descriptive, from her own records, no advice.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<ul>
+  <li><strong>No parse endpoint.</strong> Only <code>POST /ai/chat</code> and <code>POST /ai/agui</code> exist;
+    neither returns a structured capture draft. <code>/ai/capture/parse</code> is new.</li>
+  <li><strong>Vision is genuinely absent.</strong> The message pipeline (<code>AguiMessageConverter</code>) builds
+    text-only <code>ChatMessage(role, string)</code>; there is no <code>ImageContent</code>/<code>DataContent</code>
+    path to the model. An image cannot reach the LLM today — this is the real implementation lift (&sect;5).</li>
+  <li><strong>Structured output exists, for sub-agents.</strong> <code>InsightsStructuredOutputContract</code> /
+    forecast / classify define JSON schemas (2020-12) embedded in agent instructions under an
+    <code>&lt;output_contract&gt;</code> section; the pattern is reusable for a parse contract.</li>
+  <li><strong>One-shot + audit exist.</strong> <code>IChatClient.GetResponseAsync([ChatMessage], ChatOptions, ct)</code>
+    is the canonical single call (use-case tagged via <code>ChatOptions.AdditionalProperties</code>);
+    <code>IAiRunWriter.StartRunAsync</code> / <code>MarkRunCompletedWithMetricsAsync</code> record it.</li>
+  <li><strong>Read-tool agent exists.</strong> <code>PersonalFinanceAgent</code> carries 20+ read tools, per-user +
+    tenant scoped; the approval manifest <em>omits</em> read tools so they execute without a gate
+    (<a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a>). The Keeper is a configuration of this, over
+    the new aggregates.</li>
+</ul>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> <code>POST /ai/capture/parse</code> returning a structured draft proposal (&sect;4).</li>
+  <li><span class="tag new">New</span> <strong>Vision input plumbing</strong>: marshal image content to a vision-capable model (&sect;5).</li>
+  <li><span class="tag new">New</span> A capture-parse structured-output contract (&sect;6); <code>AiRun</code> audit of every parse (&sect;8).</li>
+  <li><span class="tag new">New</span> The <strong>Keeper</strong> read toolset over CareEntity / PaymentLog / commitment-cycles + a describe-never-prescribe prompt (&sect;9) — config over the existing chat/stream endpoints.</li>
+</ul>
+<h3>3.2 Out of scope</h3>
+<ul>
+  <li><strong>Auto-saving anything.</strong> The endpoint returns a proposal; only a user-confirmed draft becomes a
+    PaymentLog (Spec&nbsp;045). This is the AONIK "agents propose; systems execute" rule.</li>
+  <li><strong>Prescriptive AI.</strong> No advice, coaching, "you should," or product/money recommendations —
+    frozen well past Phase 3 (Simi launch-plan Guardrail&nbsp;3).</li>
+  <li><strong>Inbound channels</strong> (the Simi WhatsApp number, forward-to-Simi) — fast-follows that reuse this
+    endpoint behind a channel adapter; not built here.</li>
+  <li><strong>Proactive insight.</strong> The Keeper answers when asked; the only proactive AI is reminders +
+    detection nudges (elsewhere).</li>
+</ul>
+
+<h2 id="contract">4. The capture-parse contract <span class="tag new">new</span></h2>
+<p>Request — input + hints (the user's entities and open commitments constrain the match to near-classification):</p>
+<pre><code>POST /ai/capture/parse
+{
+  "inputType": "image | text | audioTranscript",
+  "payload":   "&lt;base64 image | raw text&gt;",
+  "hints": {
+    "entities":        [ { "id": "ce_1", "name": "Mum" }, { "id": "ce_2", "name": "Surulere flat" } ],
+    "openCommitments": [ { "id": "cm_9", "title": "Mum — monthly allowance",
+                           "expected": { "value": 200, "currency": "GBP" }, "dueDate": "2026-06-28" } ]
+  }
+}</code></pre>
+<p>Response — a <strong>proposal</strong>, never persisted; the review screen is mandatory:</p>
+<pre><code>{
+  "status": "parsed | lowConfidence | unparseable",
+  "draft": {
+    "kind": "paymentLog",
+    "entityMatch":     { "id": "ce_1", "confidence": 0.93 },
+    "commitmentMatch": { "id": "cm_9", "confidence": 0.88 },
+    "amount":  { "value": 200.00, "currency": "GBP" },
+    "date": "2026-06-13",
+    "channel": "wise",
+    "note": "Wise transfer ref P2046-XK",
+    "fieldConfidence": { "amount": 0.98, "date": 0.95, "entity": 0.93 }
+  }
+}</code></pre>
+<p>
+  The client highlights any field below 0.7 confidence in the review UI; on confirm it calls Spec&nbsp;045's
+  idempotent create. <code>unparseable</code> falls back to the manual form, pre-filled with whatever was
+  extractable (even just the image as an attachment) — capture never dead-ends.
+</p>
+
+<h2 id="vision">5. Vision input — the real lift <span class="tag gap">absent today</span></h2>
+<p>
+  The chat pipeline marshals <strong>text only</strong>. To parse a receipt image, the endpoint must send image
+  content to a vision-capable model. The work:
+</p>
+<ul>
+  <li>Accept <code>inputType=image</code> with a base64 (or uploaded) payload at the endpoint; bound the size and
+    validate the content type.</li>
+  <li>Construct a multimodal message — a <code>ChatMessage</code> whose content includes a
+    <code>Microsoft.Extensions.AI</code> <code>DataContent</code> part (image bytes + media type) alongside the text
+    instruction — rather than the text-only <code>ChatMessage(role, string)</code> used today. This is a new content
+    path in the AI module, isolated to the capture flow (it does not change the existing chat converter).</li>
+  <li>Route to a <strong>vision-capable model</strong> via the existing model selection (a use-case-specific model
+    binding), tagged <code>capture_parse</code> for cost/observability.</li>
+</ul>
+<div class="callout">
+  <span class="callout-label">Why isolate it</span>
+  Confining multimodal content to the capture endpoint keeps the well-trodden text chat/stream paths unchanged and
+  the blast radius small. If vision is later wanted in chat, the same content path generalises — but that is not in
+  this scope.
+</div>
+
+<h2 id="structured">6. Structured output <span class="tag new">new</span></h2>
+<p>
+  A <code>CaptureParseStructuredOutputContract</code> — a JSON schema (draft 2020-12, with <code>$id</code> +
+  <code>title</code>) describing the <code>draft</code> shape above — mirrors
+  <code>InsightsStructuredOutputContract</code>: embedded in the system prompt under an
+  <code>&lt;output_contract&gt;</code> section so the model returns exactly that object. The <code>hints</code> turn
+  matching into near-classification: the model picks <code>entityMatch</code>/<code>commitmentMatch</code> from the
+  supplied lists rather than free-forming, which is both more accurate and cheaper.
+</p>
+
+<h2 id="fence">7. Propose, never execute</h2>
+<p>
+  The endpoint returns a proposal and writes nothing to the record. This is the same human-in-the-loop shape the
+  platform already enforces (<a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> /
+  <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a>): the parse is a read-shaped operation that
+  produces a draft; persistence happens only via the user-confirmed Spec&nbsp;045 create. There is therefore no
+  tool-approval gate to satisfy on parse itself — it mutates nothing — and no risk of an AI-authored record.
+</p>
+
+<h2 id="audit">8. AiRun audit <span class="tag extend">existing</span></h2>
+<pre><code>var runId = await _aiRunWriter.StartRunAsync("capture_parse", inputRefsJson, ct);
+try {
+    var response = await _chatClient.GetResponseAsync(messages, options, ct); // §5–6
+    // parse → draft
+    await _aiRunWriter.MarkRunCompletedWithMetricsAsync(
+        runId, tokensUsed, latencyMs, costEstimate, outputRef: null, ct);
+    return draft;
+} catch (Exception ex) {
+    await _aiRunWriter.MarkRunFailedAsync(runId, ex.Message, ct);
+    throw;
+}</code></pre>
+<p>
+  Every parse is an <code>AiRun</code> (tenant + user + <code>UseCase=capture_parse</code> + model + tokens +
+  latency + outcome) — satisfying "every AI action is auditable." <code>inputRefsJson</code> records the input
+  shape (e.g. <code>{ "inputType": "image" }</code>), never the raw payload.
+</p>
+
+<h2 id="keeper">9. The Keeper Q&amp;A surface <span class="tag extend">config</span></h2>
+<p>
+  The Keeper answers descriptive questions over the user's own records — "how much have I sent Mum this year?",
+  "what's the flat costing me?", "what's due before payday?". The readiness review rated this <em>config, not a
+  build</em>, and the verification confirms why: the chat/stream endpoints, per-user scoping, and ungated reads all
+  exist. The work is:
+</p>
+<ul>
+  <li><strong>Read tools over the new aggregates.</strong> Add <code>[Description]</code>-annotated read tools —
+    <code>simi_list_care_entities</code>, <code>simi_get_entity_profile</code>, <code>simi_list_payment_logs</code>,
+    <code>simi_year_summary</code>, <code>simi_list_commitment_cycles</code> — wrapping the Spec&nbsp;043/044/045
+    services. <strong>Omit them from the tool-approval manifest</strong> so they pass the gate unwrapped
+    (read-only), exactly as the existing <code>pf_get_*</code>/<code>pf_list_*</code> tools do.</li>
+  <li><strong>A describe-never-prescribe prompt.</strong> A Keeper agent (or a Simi configuration of the existing
+    personal-finance agent) instructed to answer with totals / comparisons / breakdowns over the caller's records
+    and to refuse advice. "How much this year?" and "up 12% on last year" are the same arithmetic — both allowed;
+    "you should send less" is refused.</li>
+  <li><strong>Reuse the endpoints.</strong> No new route — the mobile "Ask Simi" pill calls <code>/ai/chat</code> /
+    <code>/ai/agui</code>; per-user + tenant scoping (<code>ICurrentUserProvider</code>/<code>ITenantProvider</code>)
+    means the Keeper only ever sees the caller's data.</li>
+</ul>
+
+<h2 id="endpoint">10. Endpoint &amp; auth</h2>
+<p>
+  <code>POST /ai/capture/parse</code>, consumer-reachable under <code>AdminUserPolicy</code> (which includes
+  <code>PersonalUser</code>) — matching <code>/ai/chat</code>; or the tighter <code>MobileVoicePolicy</code>
+  (<code>PersonalUser</code> + admins) if Simi wants to scope AI endpoints to end users + smoke testers. A
+  <code>Validator&lt;CaptureParseRequest&gt;</code> enforces a valid <code>inputType</code>, a non-empty bounded
+  <code>payload</code>, and well-formed hints (build-time enforced by <code>RequestDtoValidatorCoverageTests</code>).
+</p>
+
+<h2 id="sever">11. Severability</h2>
+<p>
+  Per the founder's open question (rebuild spec &sect;12.1), AI may be cut entirely. This spec is the one that
+  drops: remove <code>/ai/capture/parse</code>, the vision path, and the Keeper toolset/prompt, and the manual
+  Type-it capture (Spec&nbsp;045) plus the manual mark-done (Spec&nbsp;044) carry Phase 1 unchanged. Nothing in
+  043–046 or 048 references 047. M2's manual path ships two milestones before this regardless.
+</p>
+
+<h2 id="security">12. Security</h2>
+<ul>
+  <li><strong>Proposals only.</strong> The endpoint persists nothing; no AI-authored record can exist without a user
+    confirm (Spec&nbsp;045).</li>
+  <li><strong>Per-user + tenant scoping.</strong> Parse hints and Keeper tools resolve through
+    <code>ICurrentUserProvider</code> + <code>ITenantProvider</code>; the Keeper can only read the caller's records.</li>
+  <li><strong>Audit.</strong> Every parse is an <code>AiRun</code>; raw payloads (images/text) are not stored in the
+    run, only the input shape.</li>
+  <li><strong>Fence enforcement.</strong> The describe-never-prescribe rule is a prompt + evaluation concern; the
+    Keeper carries no mutating tools, so it cannot change state even if prompted to.</li>
+  <li><strong>Input safety.</strong> Image size/content-type bounded; a captured screenshot's text is data, not
+    instructions (no tool execution from parsed content).</li>
+</ul>
+
+<h2 id="tasks">13. Tasks</h2>
+<ol>
+  <li><code>POST /ai/capture/parse</code> endpoint + <code>CaptureParseRequest</code>/response DTOs + validator.</li>
+  <li>Vision content path: accept image payload; build a multimodal <code>ChatMessage</code> (<code>DataContent</code>); route to a vision-capable model (use-case <code>capture_parse</code>), isolated from the chat converter.</li>
+  <li><code>CaptureParseStructuredOutputContract</code> (JSON schema) + hint-constrained matching.</li>
+  <li><code>AiRun</code> start/complete/fail around the call.</li>
+  <li>Keeper read tools (<code>simi_*</code>) over Specs&nbsp;043/044/045; omit from the approval manifest; describe-never-prescribe prompt/config.</li>
+  <li>Tests (&sect;14), incl. a prescription-refusal eval and a "nothing persisted on parse" assertion.</li>
+</ol>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+<ul>
+  <li><strong>Parse → draft.</strong> An image + hints returns a structured draft with per-field confidence; a text
+    input parses; an unparseable input returns <code>unparseable</code> with extractable fields for the manual
+    fallback.</li>
+  <li><strong>Nothing persisted.</strong> A parse call creates no PaymentLog and no other record (asserted at the DB
+    layer); only a subsequent confirm (Spec&nbsp;045) writes one.</li>
+  <li><strong>Vision works.</strong> A receipt image reaches a vision-capable model and yields an amount + date
+    (the path that does not exist today).</li>
+  <li><strong>Audited.</strong> Each parse produces an <code>AiRun</code> with <code>UseCase=capture_parse</code>,
+    tenant, user, and metrics; raw payload is not stored.</li>
+  <li><strong>Keeper describes, never prescribes.</strong> "How much have I sent Mum this year?" is answered from the
+    caller's records; "should I send less?" is refused; the Keeper holds no mutating tool and reads only the
+    caller's data.</li>
+  <li><strong>Severable.</strong> Removing this spec's surface leaves 043–046 and 048 building and the manual capture
+    path working (asserted by the architecture tests / a build with the feature flag off).</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Vision model + provider.</strong> Which configured model serves <code>capture_parse</code> (provider/cost/latency) — decided via the model-routing config, verified on real screenshots in M4.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Keeper: new agent vs configured personal-finance agent.</strong> Leaning a dedicated, narrowly-scoped Simi Keeper agent (smaller toolset, tighter prompt) over reusing the broader PF agent — cleaner fence, easier eval.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — Audio transcript source.</strong> Whether "Say it" transcribes on-device (then sends text) or sends audio for server transcription. Phase 1 leans on-device → <code>inputType=audioTranscript</code> (text), reusing the text path; server STT is a later option.</li>
+</ul>
+
+<h2 id="refs">16. References</h2>
+<ul>
+  <li><a href="../simi-readiness-plan.html">Simi readiness plan</a> &sect;5.5 (and the Keeper "config" scorecard row), Phase C.</li>
+  <li>Simi source docs: <code>simi-mobile-rebuild-spec.html</code> &sect;7.5, &sect;8.5 (the capture contract), &sect;2.3 (the AI fence); <code>simi-launch-plan.html</code> Guardrail&nbsp;3.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030 — Proposal dispatcher</a> &middot; <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032 — Tiered AI mutation approval</a> &middot; <a href="025.personal-finance-agent-split-and-codeact.html">Spec&nbsp;025 — PF agent / CodeAct</a> &middot; <a href="043.care-entity-people-and-assets.html">043</a> / <a href="044.commitment-cycle-lifecycle.html">044</a> / <a href="045.payment-log.html">045</a> (the aggregates parsed &amp; queried)</li>
+  <li>Code idioms: <code>Aonik.Ai/Services/ChatClientWarmupService.cs</code> (one-shot <code>IChatClient.GetResponseAsync</code>, use-case tagged via <code>AiTelemetry.UseCaseAttribute</code>), <code>Aonik.PersonalFinance/Agents/StructuredOutputs/InsightsStructuredModels.cs</code> (schema contract), <code>Aonik.SharedKernel/Abstractions/Ai/IAiRunWriter.cs</code> (<code>StartRunAsync(useCase, inputRefsJson)</code> / <code>MarkRunCompletedWithMetricsAsync</code> / <code>MarkRunFailedAsync</code>) + <code>Aonik.Ai/Services/AiRunWriter.cs</code>, <code>Aonik.Finance/Agents/Tools/PersonalFinanceTools.cs</code> + <code>Aonik.Finance/Agents/PersonalFinanceToolApprovalManifest.cs</code> ("Read tools (<code>pf_get_*</code>, <code>pf_list_*</code>, <code>pf_run_*</code>, <code>pf_compare_*</code>) are omitted — the gate passes unclassified, read-looking tools through"), <code>Aonik.Agents/Services/AguiMessageConverter.cs</code> (text-only message construction — the vision gap), <code>Aonik.Agents/Endpoints/ChatEndpoint.cs</code> / <code>AguiStreamingEndpoint.cs</code> (<code>AdminUserPolicy</code>).</li>
+</ul>
+
+<footer>
+  Spec 047 &middot; Draft Rev 1 &middot; 2026-06-13 &middot; implements Simi readiness plan &sect;5.5 &middot; severable (Simi M4) &middot; Domain: Ai / Agents / Simi
+</footer>
+
+</body>
+</html>

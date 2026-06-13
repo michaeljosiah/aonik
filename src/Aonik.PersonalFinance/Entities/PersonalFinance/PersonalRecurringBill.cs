@@ -71,4 +71,25 @@ public class PersonalRecurringBill : AuditableEntity, ITenantScoped
 
     /// <summary>Amount of the most recent payment.</summary>
     public decimal? LastPaidAmount { get; set; }
+
+    // ── Support commitment & rhythm (Spec 044) ───────────────
+    // All nullable / defaulted so existing detected bills are valid unchanged.
+
+    /// <summary>The CareEntity this commitment is for (Spec 043); null for legacy detected bills.</summary>
+    public Guid? CareEntityId { get; set; }
+
+    /// <summary>Bill | Subscription | DebtRepayment | Support. "Support" is the Simi-native kind.</summary>
+    public string CommitmentKind { get; set; } = "Bill";
+
+    /// <summary>Weekly | Monthly | Quarterly | Termly | Yearly | OneOff (structured rhythm).</summary>
+    public string RhythmUnit { get; set; } = "Monthly";
+
+    /// <summary>Every N units.</summary>
+    public int RhythmInterval { get; set; } = 1;
+
+    /// <summary>Day-of-month for monthly rhythms ("the 28th"); clamped to month end.</summary>
+    public int? AnchorDay { get; set; }
+
+    /// <summary>Explicit ISO dates (JSON array) for Termly / OneOff — no computed roll.</summary>
+    public string? TermDatesJson { get; set; }
 }
