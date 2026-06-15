@@ -18,10 +18,18 @@ public class CareEntity : AuditableEntity, ITenantScoped
     public Guid UserId { get; set; }
 
     // ── Identity &amp; type ───────────────────────────────────────────────
-    /// <summary><c>person</c> | <c>asset</c> (Spec 043 §6).</summary>
+    /// <summary>
+    /// <c>person</c> | <c>asset</c> | <c>organization</c> (Spec 043 §6, widened by Spec 049 §4).
+    /// <c>organization</c> models a body the user has a standing financial relationship with but
+    /// does not own and that is not a person (a church, a school, a cooperative, a charity). The
+    /// stored value is deliberately generic; the consuming frontend chooses the audience label.
+    /// </summary>
     public string Kind { get; set; } = "person";
 
-    /// <summary>property | land | vehicle | business | account | other (asset only).</summary>
+    /// <summary>
+    /// property | land | vehicle | business | account | other. Only a <c>kind = asset</c> carries
+    /// an assetType; <c>person</c> and <c>organization</c> must not (Spec 049 §5).
+    /// </summary>
     public string? AssetType { get; set; }
 
     public string Name { get; set; } = string.Empty;

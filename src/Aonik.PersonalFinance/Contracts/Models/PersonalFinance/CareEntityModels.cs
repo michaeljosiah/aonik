@@ -30,6 +30,10 @@ public record CareEntityResponse(
     string? Relationship,
     string? Emoji,
     Guid? PhotoDocumentId,
+    // Resolved, time-limited signed URL to the banner image (Spec 049 §9). Null when no photo
+    // is set, and null on list responses (resolved only by Get/Create/Update + the profile to
+    // avoid an N+1 over Documents).
+    Uri? PhotoUrl,
     IReadOnlyDictionary<string, string> Attributes,
     bool Archived,
     DateTime CreatedAt,

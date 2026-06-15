@@ -314,3 +314,110 @@ internal sealed class GetCareEntityProfileEndpoint : Endpoint<CareEntityProfileR
         await Send.OkAsync(response, ct);
     }
 }
+
+// ── Banner photo upload / remove (Spec 049 Part B) ──────────────────
+
+internal sealed class SetCareEntityPhotoEndpoint : EndpointWithoutRequest<CareEntityResponse>
+{
+    private readonly ICareEntityPhotoService _service;
+
+    public SetCareEntityPhotoEndpoint(ICareEntityPhotoService service) => _service = service;
+
+    public override void Configure()
+    {
+        Post("/personal-finance/care-entities/{Id}/photo");
+        Policies("UserPolicy");
+        AllowFileUploads();
+        Summary(s =>
+        {
+            s.Summary = "Set a care entity's banner photo";
+            s.Description = "Uploads (or replaces) the entity's single banner image via multipart form. Returns the updated entity with a resolved, signed photoUrl.";
+            s.Response(200, "Photo set successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Care entity not found");
+            s.Response(422, "Invalid image (content type or size)");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var id = Route<Guid>("Id");
+
+        if (Files.Count == 0)
+        {
+            ThrowError("An image file is required.", 422);
+            return;
+        }
+
+        var file = Files[0];
+        if (file.Length == 0)
+        {
+            ThrowError("The image file is empty.", 422);
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var response = await _service.SetPhotoAsync(
+                id, stream, file.FileName, file.ContentType, file.Length, ct);
+
+            if (response is null)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
+
+            await Send.OkAsync(response, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
+    }
+}
+
+internal sealed class RemoveCareEntityPhotoRequest
+{
+    public Guid Id { get; set; }
+}
+
+internal sealed class RemoveCareEntityPhotoRequestValidator : Validator<RemoveCareEntityPhotoRequest>
+{
+    public RemoveCareEntityPhotoRequestValidator() => RuleFor(x => x.Id).RequiredId();
+}
+
+internal sealed class RemoveCareEntityPhotoEndpoint : Endpoint<RemoveCareEntityPhotoRequest>
+{
+    private readonly ICareEntityPhotoService _service;
+
+    public RemoveCareEntityPhotoEndpoint(ICareEntityPhotoService service) => _service = service;
+
+    public override void Configure()
+    {
+        Delete("/personal-finance/care-entities/{Id}/photo");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Remove a care entity's banner photo";
+            s.Description = "Clears the entity's banner image and erases the underlying document.";
+            s.Response(204, "Photo removed successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Care entity not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(RemoveCareEntityPhotoRequest req, CancellationToken ct)
+    {
+        var removed = await _service.RemovePhotoAsync(req.Id, ct);
+        if (!removed)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.NoContentAsync(ct);
+    }
+}
