@@ -35,6 +35,14 @@ public interface IDocumentFileStore
     Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Builds a read URL for a previously-uploaded file from its storage key (Spec 035 §11). Mirrors
+    /// the customer profile-photo convention (<c>ProfilePhotoStore.GetPhotoUrl</c> / <c>FileStore.GetUrl</c>):
+    /// when a <c>PublicBaseUrl</c> (CDN / public blob endpoint) is configured the URL is absolute,
+    /// otherwise a relative <c>/storage/&lt;path&gt;/&lt;key&gt;</c> served by the dev static-file middleware.
+    /// </summary>
+    Uri GetReadUrl(string storageKey);
+
+    /// <summary>
     /// Permanently removes a file's bytes from blob storage by its storage key (right-to-erasure,
     /// Spec 035 §15). Idempotent — deleting an already-absent object is a no-op.
     /// </summary>

@@ -516,7 +516,7 @@ private static string? NormalizeAssetType(string kind, string? assetType)
   <code>EndpointWithoutRequest</code> multipart idiom of <code>UploadDocumentFileEndpoint</code>
   (<code>Files[0]</code>, empty-file guard → 422).
 </p>
-<h3>9.2 Response — resolved signed URL <span class="tag extend">extend</span></h3>
+<h3>9.2 Response — resolved read URL <span class="tag extend">extend</span></h3>
 <p>
   <code>CareEntityResponse</code> gains one nullable field, <code>photoUrl</code>, populated from
   <code>PhotoDocumentId</code> when present. The raw <code>PhotoDocumentId</code> stays for clients that manage the
@@ -526,17 +526,32 @@ private static string? NormalizeAssetType(string kind, string? assetType)
 <pre><code>public record CareEntityResponse(
     Guid Id, string Kind, string? AssetType, string Name, string CountryCode,
     string? Relationship, string? Emoji, Guid? PhotoDocumentId,
-    Uri? PhotoUrl,                       // ← NEW: signed, short-TTL read URL (null when no photo)
+    Uri? PhotoUrl,                       // ← NEW: resolved read URL (null when no photo)
     IReadOnlyDictionary&lt;string,string&gt; Attributes, bool Archived,
     DateTime CreatedAt, DateTime? UpdatedAt);</code></pre>
 <p>
-  Resolution: <code>GetFilesAsync(photoDocumentId)</code> → first file → <code>GetReadUrlAsync(fileId, ttl)</code> with
-  a short TTL (<strong>O3</strong>: 15&nbsp;min default, vs. issuing on demand via a dedicated read-url endpoint).
+  Resolution: <code>GetFilesAsync(photoDocumentId)</code> → first file → <code>GetReadUrlAsync(fileId, ttl)</code>.
+  This spec also <strong>implements</strong> <code>IDocumentReader.GetReadUrlAsync</code> (previously a Spec&nbsp;035
+  "later phase" stub that threw <code>NotImplementedException</code>): it resolves the file's storage key
+  (tenant- and owner-scoped, the same check as <code>GetFilesAsync</code>) and returns a URL via the
+  <strong>same convention as customer profile photos</strong> — <code>DocumentFileStore.GetReadUrl</code> mirrors
+  <code>ProfilePhotoStore.GetPhotoUrl</code>/<code>FileStore.GetUrl</code>: an absolute
+  <code>{Documents.PublicBaseUrl}/{key}</code> when a CDN/public blob endpoint is configured, otherwise a relative
+  <code>/storage/documents/{key}</code> served by the dev static-file middleware (a new
+  <code>/storage/documents</code> mount). The <code>ttl</code> argument is advisory under this convention (URLs are
+  stable, not expiring), and is the seam where provider-native SAS can later be substituted without touching callers.
   Resolving a URL per row in <code>ListAsync</code> would be N+1; list responses therefore return
   <code>PhotoDocumentId</code> only and <code>PhotoUrl = null</code>, while <code>GetAsync</code> and the profile
   resolve it. (A list grid that wants a thumbnail can resolve banners lazily, or a future pass can populate
   <code>DocumentRef.ThumbnailUrl</code> — already a field on the contract.)
 </p>
+<div class="callout ok">
+  <span class="callout-label">Resolves reviewer finding (PR&nbsp;#155)</span>
+  An automated review flagged that <code>photoUrl</code> depended on <code>GetReadUrlAsync</code>, which threw
+  <code>NotImplementedException</code>. That method is now implemented (this §), so the banner resolves end-to-end
+  exactly like a customer profile photo. The <code>CareEntityService</code> resolver additionally wraps the call and
+  degrades to <code>null</code> if a document/file is ever missing — a broken banner never fails the entity read.
+</div>
 
 <h2 id="photo-validation">10. Image validation &amp; limits</h2>
 <p>Enforced at the PersonalFinance boundary before any blob is written:</p>

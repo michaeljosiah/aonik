@@ -17,6 +17,8 @@ namespace Aonik.Api.Configuration;
 ///         user-uploaded attachments.</item>
 ///   <item><c>/storage/content-media</c> — AI-generated content media
 ///         (CMS hero images, etc.).</item>
+///   <item><c>/storage/documents</c> — generic document files (Spec 035),
+///         e.g. CareEntity banner images (Spec 049).</item>
 /// </list>
 ///
 /// Each is served with a 1-hour <c>Cache-Control</c> so dev iteration
@@ -67,6 +69,12 @@ public static class DevelopmentStaticFilesConfiguration
             basePath,
             relativePath: configuration["BlobStorage:ContentMedia:Path"] ?? "content-media",
             requestPath: "/storage/content-media");
+
+        MountStaticFiles(
+            app,
+            basePath,
+            relativePath: configuration["BlobStorage:Documents:Path"] ?? "documents",
+            requestPath: "/storage/documents");
 
         return app;
     }
