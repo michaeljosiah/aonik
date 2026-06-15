@@ -208,10 +208,11 @@
     Two additive extensions to the <a href="043.care-entity-people-and-assets.html"><code>CareEntity</code></a>
     introduced in Spec&nbsp;043. <strong>(A)</strong> A third <code>kind</code> — <code>organization</code> — for the
     things a user has a financial relationship with but does <em>not</em> own and that are not a person: a church, a
-    mosque, a school, a cooperative, a hometown union, a charity. <strong>(B)</strong> First-class <em>photo upload</em>
-    for any CareEntity, so a user can attach a picture (their church, their late father, the Surulere flat) — composed
-    entirely over the existing <a href="035.extract-documents-module.html">Documents module (Spec&nbsp;035)</a>
-    contracts, with no new blob path. The data model stays deliberately generic; the consuming frontend chooses the
+    mosque, a school, a cooperative, a hometown union, a charity. <strong>(B)</strong> First-class <em>banner-image upload</em>
+    for any CareEntity, so a user can attach one picture (their church, their late father, the Surulere flat) that the
+    mobile app displays as a banner at the top of the entity — composed entirely over the existing
+    <a href="035.extract-documents-module.html">Documents module (Spec&nbsp;035)</a> contracts, with no new blob path.
+    Scope is exactly that: upload one image, render it. No gallery, no editing, no valuation. The data model stays deliberately generic; the consuming frontend chooses the
     audience-facing language for each <code>kind</code>.
   </p>
 </header>
@@ -323,9 +324,11 @@
     documents, totals, circle-scope.</li>
   <li><strong>No relationship/ownership graph.</strong> The free-text <code>relationship</code> label ("my parish",
     "the co-op") is the only relational field; a typed membership/ownership graph is not in scope.</li>
-  <li><strong>No avatar in the vault list.</strong> The photo is the entity's <em>picture</em>, not a piece of proof.
-    It is referenced solely via <code>PhotoDocumentId</code> and is <strong>not</strong> a <code>DocumentLink</code>
-    (Spec&nbsp;046), so it never appears in the profile's <code>Documents[]</code> vault array (§8).</li>
+  <li><strong>One image, displayed as a banner — not a vault item.</strong> The picture is the entity's <em>banner</em>
+    (a single header image shown by the mobile app), not a piece of proof. It is referenced solely via
+    <code>PhotoDocumentId</code> and is <strong>not</strong> a <code>DocumentLink</code> (Spec&nbsp;046), so it never
+    appears in the profile's <code>Documents[]</code> vault array (§8). There is exactly one banner per entity;
+    re-uploading replaces it.</li>
   <li><strong>No image editing.</strong> No cropping, filters, or face detection. Optional server-side resize/thumbnail
     is a noted enhancement (§10), not a requirement.</li>
   <li><strong>Money movement.</strong> Unchanged from Spec&nbsp;043: a CareEntity is record-keeping; it never funds or
@@ -439,7 +442,7 @@ private static string? NormalizeAssetType(string kind, string? assetType)
   1. load &amp; own-check the CareEntity (tenant + user)         ── PersonalFinance
   2. validate image (content-type allow-list, size cap)        ── PersonalFinance (§10)
   3. resolve OwnerPartyId for the current user                 ── PersonalProfile (UserId → PartyId)
-  4. CreateDocumentAsync(type="avatar", classification=Personal) ─ IDocumentWriter  (SharedKernel)
+  4. CreateDocumentAsync(type="banner", classification=Personal) ─ IDocumentWriter  (SharedKernel)
   5. UploadFileAsync(documentId, image stream)                 ── IDocumentWriter
   6. CareEntity.PhotoDocumentId = documentId; SaveChanges      ── PersonalFinance
   7. resolve signed photoUrl (GetFilesAsync → GetReadUrlAsync) ── IDocumentReader
@@ -448,11 +451,11 @@ private static string? NormalizeAssetType(string kind, string? assetType)
   Steps 4–5 and 7 are the existing SharedKernel contracts (<code>IDocumentWriter</code> /
   <code>IDocumentReader</code>); step 3 is the inverse of <code>PersonalFinancePartyResolver</code> — a lookup of the
   user's <code>PersonalProfile.PartyId</code>. <strong>No <code>DocumentLink</code> is created</strong> (§3.2): the
-  avatar is referenced only by <code>PhotoDocumentId</code> and stays out of the vault list.
+  banner is referenced only by <code>PhotoDocumentId</code> and stays out of the vault list.
 </p>
 <div class="callout open">
   <span class="callout-label">Replace &amp; remove</span>
-  Re-uploading repoints <code>PhotoDocumentId</code> to the new document and erases the previous avatar document via
+  Re-uploading repoints <code>PhotoDocumentId</code> to the new document and erases the previous banner document via
   <code>IDocumentWriter.DeleteDocumentAsync</code> (right-to-erasure, Spec&nbsp;035 §15) so orphaned blobs don't
   accumulate. <code>DELETE …/{id}/photo</code> clears the pointer and erases the document the same way. Both are
   owner-scoped and idempotent.
@@ -476,9 +479,9 @@ private static string? NormalizeAssetType(string kind, string? assetType)
 
     var doc = await _documents.CreateDocumentAsync(new CreateDocumentCommand(
         OwnerPartyId: ownerPartyId,
-        DocumentType: "avatar",
+        DocumentType: "banner",
         Classification: DocumentClassification.Personal,
-        Source: "personal-finance/care-entity-photo"), ct);
+        Source: "personal-finance/care-entity-banner"), ct);
 
     await _documents.UploadFileAsync(
         new UploadFileCommand(doc.DocumentId, fileName, contentType), image, ct);
@@ -487,14 +490,14 @@ private static string? NormalizeAssetType(string kind, string? assetType)
     entity.PhotoDocumentId = doc.DocumentId;
     await _db.SaveChangesAsync(ct);
 
-    if (previous is { } old) await _documents.DeleteDocumentAsync(old, ct); // erase replaced avatar
+    if (previous is { } old) await _documents.DeleteDocumentAsync(old, ct); // erase replaced banner
 
     return await _mapper.ToResponseWithPhotoAsync(entity, ct);             // resolves signed photoUrl (§9)
 }</code></pre>
 <p>
-  <code>Classification = Personal</code> matches the owner-party-scoped, non-shared nature of a profile picture (the
-  tax-return / payslip pattern in Spec&nbsp;035 §10) and keeps it out of any tenant-wide index.
-  <code>DocumentType = "avatar"</code> is a neutral marker; it is <em>not</em> a Spec&nbsp;046 vault type and the avatar
+  <code>Classification = Personal</code> matches the owner-party-scoped, non-shared nature of a personal banner image
+  (the tax-return / payslip pattern in Spec&nbsp;035 §10) and keeps it out of any tenant-wide index.
+  <code>DocumentType = "banner"</code> is a neutral marker; it is <em>not</em> a Spec&nbsp;046 vault type and the banner
   is never linked, so it never surfaces in <code>profile.Documents[]</code>.
 </p>
 
@@ -517,8 +520,8 @@ private static string? NormalizeAssetType(string kind, string? assetType)
 <p>
   <code>CareEntityResponse</code> gains one nullable field, <code>photoUrl</code>, populated from
   <code>PhotoDocumentId</code> when present. The raw <code>PhotoDocumentId</code> stays for clients that manage the
-  document directly. The profile (§8 of Spec&nbsp;043) returns the same enriched entity, so the People/Places screen
-  renders the avatar from its single call.
+  document directly. The profile (§8 of Spec&nbsp;043) returns the same enriched entity, so the entity screen renders
+  the banner from its single call.
 </p>
 <pre><code>public record CareEntityResponse(
     Guid Id, string Kind, string? AssetType, string Name, string CountryCode,
@@ -531,8 +534,8 @@ private static string? NormalizeAssetType(string kind, string? assetType)
   a short TTL (<strong>O3</strong>: 15&nbsp;min default, vs. issuing on demand via a dedicated read-url endpoint).
   Resolving a URL per row in <code>ListAsync</code> would be N+1; list responses therefore return
   <code>PhotoDocumentId</code> only and <code>PhotoUrl = null</code>, while <code>GetAsync</code> and the profile
-  resolve it. (Future: populate <code>DocumentRef.ThumbnailUrl</code> — already a field on the contract — for cheap
-  grid thumbnails.)
+  resolve it. (A list grid that wants a thumbnail can resolve banners lazily, or a future pass can populate
+  <code>DocumentRef.ThumbnailUrl</code> — already a field on the contract.)
 </p>
 
 <h2 id="photo-validation">10. Image validation &amp; limits</h2>
@@ -540,7 +543,7 @@ private static string? NormalizeAssetType(string kind, string? assetType)
 <ul>
   <li><strong>Content-type allow-list:</strong> <code>image/jpeg</code>, <code>image/png</code>,
     <code>image/webp</code>. Anything else → <code>422</code>. (The generic Documents upload accepts any type; the
-    image constraint is specific to this avatar path.)</li>
+    image constraint is specific to this banner path.)</li>
   <li><strong>Size cap:</strong> reject empty files and files over a configured maximum (<strong>O2</strong>: default
     <code>8&nbsp;MB</code>).</li>
   <li><strong>Optional magic-byte / dimension check:</strong> the platform already ships
@@ -562,7 +565,7 @@ private static string? NormalizeAssetType(string kind, string? assetType)
     <code>CareEntityConfiguration.cs</code>. If a future hardening adds a <code>CHECK</code> on <code>Kind</code>, it
     must be a single tool-generated migration that includes all three values (CLAUDE.md — never hand-author
     migrations).</li>
-  <li><strong>Part B: no new PersonalFinance table.</strong> The avatar lives as a Documents-module
+  <li><strong>Part B: no new PersonalFinance table.</strong> The banner lives as a Documents-module
     <code>Document</code> + <code>DocumentFile</code> (its own tables, created by their own spec); the only mutated
     column is the already-existing <code>CareEntity.PhotoDocumentId</code>. <code>PhotoUrl</code> is a computed
     response field, not stored.</li>
@@ -572,12 +575,12 @@ private static string? NormalizeAssetType(string kind, string? assetType)
 <ul>
   <li><strong>Owner isolation, unchanged.</strong> Every photo operation loads the CareEntity through the same
     <code>TenantId == tenantId &amp;&amp; UserId == userId</code> filter; a non-owned id returns 404 (not 403).</li>
-  <li><strong>Document ownership.</strong> The created avatar document's <code>OwnerPartyId</code> is the current
+  <li><strong>Document ownership.</strong> The created banner document's <code>OwnerPartyId</code> is the current
     user's party, resolved server-side from <code>PersonalProfile</code> — never from request input. Classification
     <code>Personal</code> keeps it owner-scoped and out of any shared index.</li>
   <li><strong>Signed-URL reads.</strong> The client never receives blob credentials — only a short-TTL signed URL from
     <code>GetReadUrlAsync</code>. Bytes are fetched directly from storage, not streamed through the API.</li>
-  <li><strong>Erasure on replace/delete.</strong> Replaced and removed avatars are erased via
+  <li><strong>Erasure on replace/delete.</strong> Replaced and removed banners are erased via
     <code>DeleteDocumentAsync</code> (vectors purged, blob removed, rows soft-deleted), so no orphaned personal image
     persists.</li>
   <li><strong>Untrusted bytes.</strong> The content-type allow-list and optional <code>ValidateImageAsync</code> guard
@@ -609,15 +612,15 @@ private static string? NormalizeAssetType(string kind, string? assetType)
   <li><strong>Photo upload sets the pointer and returns a URL.</strong> <code>POST …/{id}/photo</code> with a JPEG
     returns 200 with <code>photoDocumentId</code> set and a non-null, fetchable <code>photoUrl</code>;
     <code>GET …/{id}</code> and the profile return the same signed URL.</li>
-  <li><strong>Replace erases the old avatar.</strong> A second upload repoints <code>photoDocumentId</code> and the
+  <li><strong>Replace erases the old banner.</strong> A second upload repoints <code>photoDocumentId</code> and the
     previously referenced document is erased (<code>GetDocumentAsync</code> → not found).</li>
   <li><strong>Remove clears it.</strong> <code>DELETE …/{id}/photo</code> returns 204; the entity then returns
     <code>photoDocumentId = null</code>, <code>photoUrl = null</code>.</li>
   <li><strong>Validation fails closed.</strong> A non-image content type and an over-cap file are both rejected (422)
     and create no document/blob (asserted via the writer mock).</li>
   <li><strong>Isolation.</strong> User A cannot set, read, or remove the photo of User B's CareEntity (404).</li>
-  <li><strong>Avatar is not a vault item.</strong> After upload, the profile's <code>Documents[]</code> array does not
-    contain the avatar document.</li>
+  <li><strong>Banner is not a vault item.</strong> After upload, the profile's <code>Documents[]</code> array does not
+    contain the banner document.</li>
   <li><strong>Build &amp; no migration.</strong> <code>dotnet build Aonik.sln</code> green; <code>dotnet ef migrations
     list</code> shows no new migration introduced by Part&nbsp;A.</li>
 </ul>
