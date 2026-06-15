@@ -3,9 +3,12 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -45,7 +48,7 @@ public class PaymentLogServiceTests
 
     private static async Task<Guid> SeedCareEntityAsync(PersonalFinanceDbContext context, Guid tenantId, Guid userId, string name = "Mum")
     {
-        var careService = new CareEntityService(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId));
+        var careService = new CareEntityService(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId), new Mock<IDocumentReader>().Object, NullLogger<CareEntityService>.Instance);
         var created = await careService.CreateAsync(
             new CreateCareEntityRequest("person", null, name, "NG", null, null, null, null));
         return created.Id;

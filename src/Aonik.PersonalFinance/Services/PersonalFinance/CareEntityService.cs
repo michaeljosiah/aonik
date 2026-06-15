@@ -4,8 +4,10 @@ using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
@@ -14,18 +16,27 @@ internal sealed class CareEntityService : ICareEntityService
     private static readonly IReadOnlyDictionary<string, string> EmptyAttributes =
         new Dictionary<string, string>();
 
+    /// <summary>TTL of the signed banner URL embedded in entity responses (Spec 049 §9).</summary>
+    private static readonly TimeSpan PhotoUrlTtl = TimeSpan.FromMinutes(15);
+
     private readonly PersonalFinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IDocumentReader _documentReader;
+    private readonly ILogger<CareEntityService> _logger;
 
     public CareEntityService(
         PersonalFinanceDbContext dbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IDocumentReader documentReader,
+        ILogger<CareEntityService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _documentReader = documentReader;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<CareEntityResponse>> ListAsync(
@@ -61,13 +72,15 @@ internal sealed class CareEntityService : ICareEntityService
             .OrderBy(e => e.Name)
             .ToListAsync(cancellationToken);
 
-        return entities.Select(MapToResponse).ToList();
+        // List omits PhotoUrl (resolved only by Get/Create/Update + profile) to avoid an
+        // N+1 over the Documents module across the whole grid (Spec 049 §9).
+        return entities.Select(e => MapToResponse(e)).ToList();
     }
 
     public async Task<CareEntityResponse?> GetAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entity = await GetOwnedAsync(id, cancellationToken);
-        return entity is null ? null : MapToResponse(entity);
+        return entity is null ? null : await MapWithPhotoAsync(entity, cancellationToken);
     }
 
     public async Task<CareEntityResponse> CreateAsync(
@@ -77,9 +90,9 @@ internal sealed class CareEntityService : ICareEntityService
         var (tenantId, userId) = GetContext();
 
         var kind = (request.Kind ?? string.Empty).Trim().ToLowerInvariant();
-        if (kind is not ("person" or "asset"))
+        if (kind is not ("person" or "asset" or "organization"))
         {
-            throw new ArgumentException("Kind must be 'person' or 'asset'.", nameof(request));
+            throw new ArgumentException("Kind must be 'person', 'asset', or 'organization'.", nameof(request));
         }
 
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -105,7 +118,7 @@ internal sealed class CareEntityService : ICareEntityService
         _dbContext.CareEntities.Add(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return MapToResponse(entity);
+        return await MapWithPhotoAsync(entity, cancellationToken);
     }
 
     public async Task<CareEntityResponse?> UpdateAsync(
@@ -135,7 +148,7 @@ internal sealed class CareEntityService : ICareEntityService
         entity.AttributesJson = SerializeAttributes(request.Attributes);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return MapToResponse(entity);
+        return await MapWithPhotoAsync(entity, cancellationToken);
     }
 
     public async Task<bool> ArchiveAsync(Guid id, CancellationToken cancellationToken = default)
@@ -172,24 +185,24 @@ internal sealed class CareEntityService : ICareEntityService
     }
 
     /// <summary>
-    /// Enforces the kind ↔ assetType invariant (§6): an asset must carry an
-    /// assetType; a person must not. Validators enforce this at the boundary
-    /// for create; this is the authoritative check for update (where the
+    /// Enforces the kind ↔ assetType invariant (Spec 043 §6, generalised by Spec 049 §5):
+    /// only a <c>kind = asset</c> may carry an assetType — <c>person</c> and
+    /// <c>organization</c> must not — and an asset must carry one. Validators enforce this
+    /// at the boundary for create; this is the authoritative check for update (where the
     /// route DTO does not know the entity's kind).
     /// </summary>
     private static string? NormalizeAssetType(string kind, string? assetType)
     {
-        if (kind == "person")
+        if (kind != "asset")
         {
             if (!string.IsNullOrWhiteSpace(assetType))
             {
-                throw new ArgumentException("A person cannot have an assetType.", nameof(assetType));
+                throw new ArgumentException("Only an asset can have an assetType.", nameof(assetType));
             }
 
             return null;
         }
 
-        // kind == asset
         if (string.IsNullOrWhiteSpace(assetType))
         {
             throw new ArgumentException("An asset must have an assetType.", nameof(assetType));
@@ -227,7 +240,41 @@ internal sealed class CareEntityService : ICareEntityService
         }
     }
 
-    private static CareEntityResponse MapToResponse(CareEntity e)
+    /// <summary>Maps the entity and resolves a signed banner URL from <c>PhotoDocumentId</c> (Spec 049 §9).</summary>
+    private async Task<CareEntityResponse> MapWithPhotoAsync(CareEntity e, CancellationToken cancellationToken)
+        => MapToResponse(e, await ResolvePhotoUrlAsync(e.PhotoDocumentId, cancellationToken));
+
+    /// <summary>
+    /// Resolves a document pointer to a time-limited signed read URL via the Documents module.
+    /// Returns null (never throws) when there is no photo or the document/file is gone — a broken
+    /// banner must never fail the entity read.
+    /// </summary>
+    private async Task<Uri?> ResolvePhotoUrlAsync(Guid? photoDocumentId, CancellationToken cancellationToken)
+    {
+        if (photoDocumentId is not { } documentId)
+        {
+            return null;
+        }
+
+        try
+        {
+            var files = await _documentReader.GetFilesAsync(documentId, cancellationToken);
+            var file = files.FirstOrDefault();
+            if (file is null)
+            {
+                return null;
+            }
+
+            return await _documentReader.GetReadUrlAsync(file.DocumentFileId, PhotoUrlTtl, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve banner URL for document {DocumentId}", documentId);
+            return null;
+        }
+    }
+
+    private static CareEntityResponse MapToResponse(CareEntity e, Uri? photoUrl = null)
         => new(
             e.Id,
             e.Kind,
@@ -237,6 +284,7 @@ internal sealed class CareEntityService : ICareEntityService
             e.Relationship,
             e.Emoji,
             e.PhotoDocumentId,
+            photoUrl,
             DeserializeAttributes(e.AttributesJson),
             e.Archived,
             e.CreatedAt,

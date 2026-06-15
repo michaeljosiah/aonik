@@ -352,12 +352,33 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         return files.Select(MapFile).ToList();
     }
 
-    public Task<Uri> GetReadUrlAsync(
+    public async Task<Uri> GetReadUrlAsync(
         Guid documentFileId,
         TimeSpan ttl,
         CancellationToken cancellationToken = default)
-        => throw new NotImplementedException(
-            "Signed read URLs are wired in a later phase of Spec 035 (§11).");
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var scope = await ResolveCallerScopeAsync(tenantId, cancellationToken);
+        if (scope.IsDeniedCustomer)
+            throw new InvalidOperationException($"Document file '{documentFileId}' was not found.");
+
+        var query = _dbContext.DocumentFiles.AsNoTracking()
+            .Where(f => f.Id == documentFileId && f.TenantId == tenantId);
+
+        // A customer may only read files of their own documents — mirror the GetFilesAsync scope check.
+        if (!scope.TenantWide)
+        {
+            query = query.Where(f => _dbContext.Documents.Any(
+                d => d.Id == f.DocumentId && d.TenantId == tenantId && d.OwnerPartyId == scope.OwnerPartyId));
+        }
+
+        var storageKey = await query.Select(f => f.StorageKey).FirstOrDefaultAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(storageKey))
+            throw new InvalidOperationException($"Document file '{documentFileId}' was not found.");
+
+        // URL convention matches customer profile photos (PublicBaseUrl / dev static middleware).
+        return _documentFileStore.GetReadUrl(storageKey);
+    }
 
     // ── helpers ──────────────────────────────────────────────────────────
 

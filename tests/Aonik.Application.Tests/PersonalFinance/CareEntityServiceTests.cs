@@ -53,7 +53,23 @@ public class CareEntityServiceTests
     }
 
     private static CareEntityService CreateService(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
-        => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId));
+        => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId),
+            new FakeDocumentReader(), NullLogger<CareEntityService>.Instance);
+
+    private sealed class FakeDocumentReader : IDocumentReader
+    {
+        public Task<DocumentDto?> GetDocumentAsync(Guid documentId, CancellationToken ct = default)
+            => Task.FromResult<DocumentDto?>(null);
+
+        public Task<Aonik.SharedKernel.Abstractions.PagedResult<DocumentListItem>> ListDocumentsAsync(ListDocumentsQuery query, CancellationToken ct = default)
+            => Task.FromResult(new Aonik.SharedKernel.Abstractions.PagedResult<DocumentListItem>([], 0, query.PageNumber, query.PageSize));
+
+        public Task<IReadOnlyList<DocumentFileDto>> GetFilesAsync(Guid documentId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<DocumentFileDto>>([]);
+
+        public Task<Uri> GetReadUrlAsync(Guid documentFileId, TimeSpan ttl, CancellationToken ct = default)
+            => Task.FromResult(new Uri("https://blob.test/read"));
+    }
 
     private static PaymentLogService CreatePaymentLogService(PersonalFinanceDbContext context, Guid tenantId, Guid userId)
         => new(context, new TestTenantProvider(tenantId), new TestCurrentUserProvider(userId));
@@ -202,6 +218,57 @@ public class CareEntityServiceTests
         var act = async () => await service.CreateAsync(request);
 
         await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    // ── Organization kind (Spec 049 §4–§5) ──────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_Should_PersistOrganization_WithoutAssetType()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId, userId);
+
+        var result = await service.CreateAsync(
+            new CreateCareEntityRequest("organization", null, "St. Stephen's", "NG", "my parish", "⛪", null, null));
+
+        result.Kind.Should().Be("organization");
+        result.AssetType.Should().BeNull();
+        result.Name.Should().Be("St. Stephen's");
+        result.Relationship.Should().Be("my parish");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Throw_When_OrganizationHasAssetType()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId, userId);
+
+        var request = new CreateCareEntityRequest("organization", "property", "St. Stephen's", "NG", null, null, null, null);
+
+        var act = async () => await service.CreateAsync(request);
+
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task ListAsync_Should_FilterByOrganizationKind()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = CreateService(context, tenantId, userId);
+
+        await service.CreateAsync(PersonRequest("Mum"));
+        await service.CreateAsync(
+            new CreateCareEntityRequest("organization", null, "St. Stephen's", "NG", null, null, null, null));
+
+        var orgs = await service.ListAsync(kind: "organization");
+
+        orgs.Should().ContainSingle().Which.Name.Should().Be("St. Stephen's");
     }
 
     // ── List ────────────────────────────────────────────────────────

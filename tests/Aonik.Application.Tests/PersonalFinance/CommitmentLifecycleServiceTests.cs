@@ -3,11 +3,13 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -60,7 +62,7 @@ public class CommitmentLifecycleServiceTests
         var up = new TestCurrentUserProvider(userId);
         var payments = new PaymentLogService(context, tp, up);
         var commitments = new CommitmentService(context, tp, up, payments, new FakeTaskService(), NullLogger<CommitmentService>.Instance);
-        var care = new CareEntityService(context, tp, up);
+        var care = new CareEntityService(context, tp, up, new Mock<IDocumentReader>().Object, NullLogger<CareEntityService>.Instance);
         return (commitments, payments, care);
     }
 

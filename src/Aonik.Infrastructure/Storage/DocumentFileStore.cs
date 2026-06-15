@@ -95,6 +95,25 @@ public class DocumentFileStore : IDocumentFileStore
             $"Document blob '{storageKey}' was not found in storage.");
     }
 
+    public Uri GetReadUrl(string storageKey)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            throw new ArgumentException("Storage key is required.", nameof(storageKey));
+        }
+
+        var normalizedKey = storageKey.TrimStart('/');
+
+        // Same convention as ProfilePhotoStore.GetPhotoUrl / FileStore.GetUrl: a configured
+        // PublicBaseUrl (CDN / public blob endpoint) yields an absolute URL; otherwise a relative
+        // path served by the dev static-file middleware (/storage/documents/...).
+        var url = !string.IsNullOrWhiteSpace(_contentTypeOptions.PublicBaseUrl)
+            ? $"{_contentTypeOptions.PublicBaseUrl.TrimEnd('/')}/{normalizedKey}"
+            : $"/storage/{_contentTypeOptions.Path}/{normalizedKey}";
+
+        return new Uri(url, UriKind.RelativeOrAbsolute);
+    }
+
     public async Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(storageKey))

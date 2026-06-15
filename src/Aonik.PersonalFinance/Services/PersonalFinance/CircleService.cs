@@ -368,9 +368,11 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
         => new(i.Id, i.Token, i.Scope, ParseIds(i.EntityIdsJson), i.NoAmounts, i.Channel, i.ExpiresAt, i.Status);
 
     private static CareEntityResponse MapEntity(CareEntity e)
+        // PhotoUrl is null here: the circle (docs-only) list view omits the resolved banner URL to
+        // avoid an N+1 over Documents, matching CareEntityService.ListAsync (Spec 049 §9).
         => new(
             e.Id, e.Kind, e.AssetType, e.Name, e.CountryCode, e.Relationship, e.Emoji, e.PhotoDocumentId,
-            ParseAttributes(e.AttributesJson), e.Archived, e.CreatedAt, e.UpdatedAt);
+            null, ParseAttributes(e.AttributesJson), e.Archived, e.CreatedAt, e.UpdatedAt);
 
     private static IReadOnlyDictionary<string, string> ParseAttributes(string? json)
     {

@@ -381,16 +381,17 @@ public sealed class CreateCareEntityRequestValidator : Validator<CreateCareEntit
     {
         RuleFor(x => x.Kind)
             .NotEmpty()
-            .Must(k => k is "person" or "asset")
-            .WithMessage("Kind must be 'person' or 'asset'.");
+            .Must(k => k is "person" or "asset" or "organization")
+            .WithMessage("Kind must be 'person', 'asset', or 'organization'.");
         RuleFor(x => x.Name).RequiredText(120);
         RuleFor(x => x.CountryCode).CountryCode();
         RuleFor(x => x.AssetType)
             .NotEmpty().When(x => x.Kind == "asset")
             .WithMessage("An asset must have an assetType.");
         RuleFor(x => x.AssetType)
-            .Empty().When(x => x.Kind == "person")
-            .WithMessage("A person cannot have an assetType.");
+            // Only an asset carries an assetType; person and organization must not (Spec 049 §5).
+            .Empty().When(x => x.Kind != "asset")
+            .WithMessage("Only an asset can have an assetType.");
         RuleFor(x => x.AssetType).MaximumLength(32);
         RuleFor(x => x.Relationship).MaximumLength(80);
         RuleFor(x => x.Emoji).MaximumLength(16);
