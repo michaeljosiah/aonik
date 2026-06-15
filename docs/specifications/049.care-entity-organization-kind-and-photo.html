@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 049 - CareEntity: organization kind &amp; photo upload</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-small { background: #e7f0fb; color: #2b5b91; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.extend { background: #e4f6ea; color: #1f6b3a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.gap { background: #fbe3d6; color: #8a3a12; }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 049</span>
+  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag size-small">Size: Small</span>
+  <span class="meta-tag">Priority: P2</span>
+  <span class="meta-tag">Domain: PersonalFinance</span>
+  <h1>CareEntity — organization kind &amp; photo upload</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Two additive extensions to the <a href="043.care-entity-people-and-assets.html"><code>CareEntity</code></a>
+    introduced in Spec&nbsp;043. <strong>(A)</strong> A third <code>kind</code> — <code>organization</code> — for the
+    things a user has a financial relationship with but does <em>not</em> own and that are not a person: a church, a
+    mosque, a school, a cooperative, a hometown union, a charity. <strong>(B)</strong> First-class <em>photo upload</em>
+    for any CareEntity, so a user can attach a picture (their church, their late father, the Surulere flat) — composed
+    entirely over the existing <a href="035.extract-documents-module.html">Documents module (Spec&nbsp;035)</a>
+    contracts, with no new blob path. The data model stays deliberately generic; the consuming frontend chooses the
+    audience-facing language for each <code>kind</code>.
+  </p>
+</header>
+
+<div class="callout">
+  <span class="callout-label">Why this is small</span>
+  Neither half needs a new table. The <code>kind</code> discriminator is a plain <code>nvarchar(16)</code> with no
+  check constraint, so widening it adds <strong>zero migrations</strong>. Photo upload reuses
+  <code>CareEntity.PhotoDocumentId</code> (already present, §5 of Spec&nbsp;043) and the SharedKernel
+  <code>IDocumentWriter</code>/<code>IDocumentReader</code> contracts — <strong>no new persistence</strong>. The
+  dependent aggregates (commitments, payment logs) FK to <code>CareEntityId</code> regardless of kind, so an
+  <code>organization</code> is fully functional the moment the discriminator accepts it.
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#problem">Problem &amp; current state</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#kind">Part A — the organization kind</a></li>
+    <li><a href="#invariant">The kind ↔ assetType invariant</a></li>
+    <li><a href="#kind-touch">Part A — touch points</a></li>
+    <li><a href="#photo">Part B — photo upload</a></li>
+    <li><a href="#photo-flow">Photo composition flow</a></li>
+    <li><a href="#photo-api">Photo API &amp; DTO changes</a></li>
+    <li><a href="#photo-validation">Image validation &amp; limits</a></li>
+    <li><a href="#persistence">Persistence &amp; migration</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#acceptance">Acceptance criteria</a></li>
+    <li><a href="#open">Open decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  Spec&nbsp;043 modelled a <code>CareEntity</code> as exactly two kinds: a <code>person</code> ("Mum") or an
+  <code>asset</code> you own and look after (a property, land, a vehicle, a business stake, a foreign account). Real
+  users also have <strong>standing financial relationships with institutions they do not own</strong> — they tithe to
+  a church, pay fees to a school, contribute to a cooperative or a hometown union, donate to a charity. None of these
+  is a person, and none is an owned asset. Forcing them into <code>asset</code> would be a lie (no
+  <code>assetType</code> fits, and §3.2 of Spec&nbsp;043 forbids growing <code>asset</code> toward valuation), and
+  forcing them into <code>person</code> distorts presentation and meaning.
+</p>
+<p>
+  This spec adds a third <code>kind</code>, <code>organization</code>, and generalises the
+  <code>kind&nbsp;↔&nbsp;assetType</code> invariant accordingly. Separately, it makes the long-present
+  <code>PhotoDocumentId</code> field <em>usable</em>: a single consumer endpoint uploads an image, stores it through
+  the Documents module, points <code>PhotoDocumentId</code> at it, and the entity's responses return a time-limited
+  signed URL the client can render.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  A consumer creates "St. Stephen's" (<code>organization</code>, Nigeria) with a <code>PersonalUser</code> JWT — no
+  <code>assetType</code> required, no admin surface — attaches a <code>Support</code> commitment (Spec&nbsp;044) for a
+  monthly tithe, logs payments against it (Spec&nbsp;045), and the one-call profile rolls those up per currency. The
+  same user uploads a photo of the church building; <code>GET …/care-entities/{id}</code> and the profile both return a
+  signed <code>photoUrl</code> that renders directly from blob storage. The stored discriminator is the neutral word
+  <code>organization</code>; whatever a given product calls it ("place of worship", "community", "biller") is a
+  frontend choice, not a backend one.
+</div>
+
+<h2 id="problem">2. Problem &amp; current state</h2>
+<p>Confirmed against the tree:</p>
+<ul>
+  <li><strong>The discriminator is a hard binary, enforced only in C#.</strong> Both the public validator
+    (<code>PersonalFinanceValidators.cs:384</code> — <code>.Must(k =&gt; k is "person" or "asset")</code>) and the
+    service (<code>CareEntityService.cs:80</code> — <code>kind is not ("person" or "asset")</code>) reject anything
+    else. There is <strong>no database check constraint</strong>: <code>CareEntityConfiguration.cs:16</code> maps
+    <code>Kind</code> as <code>nvarchar(16)</code> only. So a third value is a code change, not a schema change.</li>
+  <li><strong>The assetType rule is phrased around "person".</strong> The invariant today is "a <em>person</em> has no
+    assetType; an <em>asset</em> must have one" (<code>CareEntityService.NormalizeAssetType</code>,
+    <code>PersonalFinanceValidators.cs:388–393</code>). A third non-asset kind needs the rule generalised to "only an
+    <em>asset</em> carries an assetType."</li>
+  <li><strong><code>PhotoDocumentId</code> exists but nothing populates or resolves it.</strong>
+    <code>CareEntity.PhotoDocumentId</code> (<code>Guid?</code>) and the matching create/update DTO fields are present
+    (Spec&nbsp;043 §5/§7), but PersonalFinance has <strong>no <code>IDocumentWriter</code> usage at all</strong> (grep:
+    zero hits) — it only reads links via <code>IDocumentLinkReader</code> in
+    <code>CareEntityProfileService</code>. There is no upload path that sets <code>PhotoDocumentId</code>, and no
+    response field that turns it into a viewable URL. A client can store a Guid but cannot show a picture.</li>
+  <li><strong>The Documents module already does everything the blob side needs.</strong>
+    <code>IDocumentWriter.CreateDocumentAsync</code> + <code>UploadFileAsync</code> persist a tenant-scoped, Sha256'd
+    blob and an encrypted-at-rest <code>DocumentFile</code>; <code>IDocumentReader.GetFilesAsync</code> +
+    <code>GetReadUrlAsync(fileId, ttl)</code> issue a time-limited signed read URL. Both are SharedKernel contracts
+    PersonalFinance is allowed to call. No new storage primitive is required.</li>
+</ul>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+<h3>3.1 In scope</h3>
+<ul>
+  <li><span class="tag new">New</span> A third <code>kind</code> value <code>organization</code> (§4), with the
+    <code>kind&nbsp;↔&nbsp;assetType</code> invariant generalised (§5).</li>
+  <li><span class="tag mutate">Mutate</span> The create/update validators and <code>CareEntityService</code> to accept
+    and round-trip <code>organization</code> (§6).</li>
+  <li><span class="tag new">New</span> A consumer photo-upload endpoint that composes the Documents module to set
+    <code>PhotoDocumentId</code> (§7–§8), and a remove-photo endpoint.</li>
+  <li><span class="tag extend">Extend</span> <code>CareEntityResponse</code> (and the profile's embedded entity) with a
+    resolved, signed <code>photoUrl</code> (§9).</li>
+  <li><span class="tag new">New</span> Image content-type and size validation at the PersonalFinance boundary (§10).</li>
+</ul>
+<h3>3.2 Out of scope <span class="tag gap">the guardrail, inherited from Spec 043 §3.2</span></h3>
+<ul>
+  <li><strong>No new capability per kind.</strong> <code>organization</code> unlocks no valuation, no scheduling, no
+    analytics, no org-directory — exactly the restraint applied to <code>assetType</code>. It is a presentation and
+    grouping discriminator that carries the same five primitives every CareEntity has: commitments, payment history,
+    documents, totals, circle-scope.</li>
+  <li><strong>No relationship/ownership graph.</strong> The free-text <code>relationship</code> label ("my parish",
+    "the co-op") is the only relational field; a typed membership/ownership graph is not in scope.</li>
+  <li><strong>No avatar in the vault list.</strong> The photo is the entity's <em>picture</em>, not a piece of proof.
+    It is referenced solely via <code>PhotoDocumentId</code> and is <strong>not</strong> a <code>DocumentLink</code>
+    (Spec&nbsp;046), so it never appears in the profile's <code>Documents[]</code> vault array (§8).</li>
+  <li><strong>No image editing.</strong> No cropping, filters, or face detection. Optional server-side resize/thumbnail
+    is a noted enhancement (§10), not a requirement.</li>
+  <li><strong>Money movement.</strong> Unchanged from Spec&nbsp;043: a CareEntity is record-keeping; it never funds or
+    routes a payment.</li>
+</ul>
+
+<h2 id="kind">4. Part A — the <code>organization</code> kind <span class="tag new">new</span></h2>
+<p>Three top-level <strong>kinds</strong>. A person, a thing you own, and a body you have a relationship with:</p>
+<table>
+  <thead><tr><th>Kind</th><th>Meaning</th><th>Carries</th><th>Examples</th></tr></thead>
+  <tbody>
+    <tr><td><code>person</code></td><td>Someone you look after / support / administer for.</td><td>A free-text <em>relationship</em>.</td><td>Mum, Tope, Appa</td></tr>
+    <tr><td><code>asset</code></td><td>A thing you are responsible for, pay for, and document — and own.</td><td>An <em>assetType</em> + an ownership <em>label</em>.</td><td>Surulere flat, the Hilux, family land</td></tr>
+    <tr><td><code>organization</code></td><td>A body you have a standing financial relationship with but do not own, and that is not a person.</td><td>A free-text <em>relationship</em> (e.g. "my parish"); <strong>no</strong> assetType.</td><td>A church, a school, a cooperative, a hometown union, a charity</td></tr>
+  </tbody>
+</table>
+<div class="callout p0">
+  <span class="callout-label">Generic by design</span>
+  <code>organization</code> is the stored, neutral value — the data schema is product-agnostic. The
+  <strong>consuming frontend determines the audience-facing language</strong> (a faith app may render it "place of
+  worship", a B2B surface "biller", a generic PFM "organisation"). No Simi-specific or product-specific vocabulary
+  enters the entity, the DTOs, or the validators. Adding the kind must not add a capability (Spec&nbsp;043 §3.2,
+  §6 restraint rule).
+</div>
+
+<h2 id="invariant">5. The <code>kind&nbsp;↔&nbsp;assetType</code> invariant</h2>
+<p>
+  Spec&nbsp;043 enforced: <em>a person has no <code>assetType</code>; an asset must have one</em>. With a third
+  non-asset kind, the rule generalises cleanly to a single sentence:
+</p>
+<div class="callout">
+  <span class="callout-label">Invariant</span>
+  <strong>Only <code>kind = asset</code> may carry an <code>assetType</code>; <code>person</code> and
+  <code>organization</code> must not.</strong> An <code>asset</code> still requires one.
+</div>
+<p>
+  <code>kind</code> remains immutable after create (Spec&nbsp;043 — <code>CareEntityService.UpdateAsync</code> keeps the
+  existing kind). All other fields — <code>name</code>, <code>countryCode</code>, <code>relationship</code>,
+  <code>emoji</code>, <code>photoDocumentId</code>, <code>attributesJson</code> — apply to all three kinds unchanged.
+</p>
+
+<h2 id="kind-touch">6. Part A — touch points <span class="tag mutate">mutate</span></h2>
+<p>Five small edits; no migration:</p>
+<table>
+  <thead><tr><th>File</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>Entities/PersonalFinance/CareEntity.cs</code></td>
+      <td>Doc comment only: <code>Kind</code> is now <code>person | asset | organization</code>. No structural change; default stays <code>"person"</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Endpoints/PersonalFinanceValidators.cs</code> (<code>CreateCareEntityRequestValidator</code>, ~:382)</td>
+      <td><code>.Must(k =&gt; k is "person" or "asset" or "organization")</code>; change the person-only assetType guard to <code>.Empty().When(x =&gt; x.Kind != "asset")</code> with message "Only an asset can have an assetType."</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/CareEntityService.cs</code> (<code>CreateAsync</code> :80)</td>
+      <td><code>kind is not ("person" or "asset" or "organization")</code>.</td>
+    </tr>
+    <tr>
+      <td><code>Services/PersonalFinance/CareEntityService.cs</code> (<code>NormalizeAssetType</code> :180)</td>
+      <td>Generalise the guard from <code>if (kind == "person")</code> to <code>if (kind != "asset")</code> (the no-assetType branch), so <code>organization</code> is covered.</td>
+    </tr>
+    <tr>
+      <td><code>Endpoints/PersonalFinance/CareEntityEndpoints.cs</code> (list/update validators)</td>
+      <td>No change — <code>Kind</code> <code>MaximumLength(16)</code> already fits <code>"organization"</code> (12).</td>
+    </tr>
+  </tbody>
+</table>
+<pre><code>// PersonalFinanceValidators.cs — generalised rules
+RuleFor(x =&gt; x.Kind)
+    .NotEmpty()
+    .Must(k =&gt; k is "person" or "asset" or "organization")
+    .WithMessage("Kind must be 'person', 'asset', or 'organization'.");
+
+RuleFor(x =&gt; x.AssetType)
+    .NotEmpty().When(x =&gt; x.Kind == "asset")
+    .WithMessage("An asset must have an assetType.");
+RuleFor(x =&gt; x.AssetType)
+    .Empty().When(x =&gt; x.Kind != "asset")     // person AND organization
+    .WithMessage("Only an asset can have an assetType.");
+
+// CareEntityService.NormalizeAssetType — generalised guard
+private static string? NormalizeAssetType(string kind, string? assetType)
+{
+    if (kind != "asset")                       // person | organization
+    {
+        if (!string.IsNullOrWhiteSpace(assetType))
+            throw new ArgumentException("Only an asset can have an assetType.", nameof(assetType));
+        return null;
+    }
+    if (string.IsNullOrWhiteSpace(assetType))
+        throw new ArgumentException("An asset must have an assetType.", nameof(assetType));
+    return assetType.Trim().ToLowerInvariant();
+}</code></pre>
+
+<h2 id="photo">7. Part B — photo upload <span class="tag new">new</span></h2>
+<p>
+  Goal: a consumer attaches an image to any CareEntity (person, asset, or organization) and the entity's responses
+  render it. The blob lifecycle lives entirely in the Documents module; PersonalFinance orchestrates and owns only the
+  <code>PhotoDocumentId</code> pointer.
+</p>
+<h3>7.1 Design decision — one convenience endpoint, not client orchestration</h3>
+<p>
+  The raw Documents primitives would make a mobile client issue three or four calls (create document → upload file →
+  set pointer) and handle partial failure. Instead PersonalFinance exposes a <strong>single multipart endpoint</strong>
+  that composes the contracts server-side — the same "one round-trip" ethos as the §8 profile in Spec&nbsp;043. The
+  client sends one image; the server does the rest in a transaction-like sequence and returns the updated entity with a
+  ready-to-render URL.
+</p>
+<div class="ascii-diagram">POST /personal-finance/care-entities/{id}/photo   (multipart: file)
+  1. load &amp; own-check the CareEntity (tenant + user)         ── PersonalFinance
+  2. validate image (content-type allow-list, size cap)        ── PersonalFinance (§10)
+  3. resolve OwnerPartyId for the current user                 ── PersonalProfile (UserId → PartyId)
+  4. CreateDocumentAsync(type="avatar", classification=Personal) ─ IDocumentWriter  (SharedKernel)
+  5. UploadFileAsync(documentId, image stream)                 ── IDocumentWriter
+  6. CareEntity.PhotoDocumentId = documentId; SaveChanges      ── PersonalFinance
+  7. resolve signed photoUrl (GetFilesAsync → GetReadUrlAsync) ── IDocumentReader
+  ──▶ 200 CareEntityResponse { …, photoUrl }</div>
+<p>
+  Steps 4–5 and 7 are the existing SharedKernel contracts (<code>IDocumentWriter</code> /
+  <code>IDocumentReader</code>); step 3 is the inverse of <code>PersonalFinancePartyResolver</code> — a lookup of the
+  user's <code>PersonalProfile.PartyId</code>. <strong>No <code>DocumentLink</code> is created</strong> (§3.2): the
+  avatar is referenced only by <code>PhotoDocumentId</code> and stays out of the vault list.
+</p>
+<div class="callout open">
+  <span class="callout-label">Replace &amp; remove</span>
+  Re-uploading repoints <code>PhotoDocumentId</code> to the new document and erases the previous avatar document via
+  <code>IDocumentWriter.DeleteDocumentAsync</code> (right-to-erasure, Spec&nbsp;035 §15) so orphaned blobs don't
+  accumulate. <code>DELETE …/{id}/photo</code> clears the pointer and erases the document the same way. Both are
+  owner-scoped and idempotent.
+</div>
+
+<h2 id="photo-flow">8. Photo composition flow (service)</h2>
+<p>
+  A <code>CareEntityPhotoService</code> (PersonalFinance) injects <code>IDocumentWriter</code>,
+  <code>IDocumentReader</code>, the <code>PersonalFinanceDbContext</code>, <code>ITenantProvider</code> /
+  <code>ICurrentUserProvider</code>, and the party lookup. Sketch:
+</p>
+<pre><code>public async Task&lt;CareEntityResponse?&gt; SetPhotoAsync(
+    Guid careEntityId, Stream image, string fileName, string contentType, CancellationToken ct)
+{
+    var entity = await GetOwnedAsync(careEntityId, ct);   // tenant + user; null → 404
+    if (entity is null) return null;
+
+    ImageGuards.Validate(contentType, image.Length);       // §10 — throws ArgumentException → 422
+
+    var ownerPartyId = await ResolveOwnerPartyIdAsync(ct); // PersonalProfile.PartyId for current user
+
+    var doc = await _documents.CreateDocumentAsync(new CreateDocumentCommand(
+        OwnerPartyId: ownerPartyId,
+        DocumentType: "avatar",
+        Classification: DocumentClassification.Personal,
+        Source: "personal-finance/care-entity-photo"), ct);
+
+    await _documents.UploadFileAsync(
+        new UploadFileCommand(doc.DocumentId, fileName, contentType), image, ct);
+
+    var previous = entity.PhotoDocumentId;
+    entity.PhotoDocumentId = doc.DocumentId;
+    await _db.SaveChangesAsync(ct);
+
+    if (previous is { } old) await _documents.DeleteDocumentAsync(old, ct); // erase replaced avatar
+
+    return await _mapper.ToResponseWithPhotoAsync(entity, ct);             // resolves signed photoUrl (§9)
+}</code></pre>
+<p>
+  <code>Classification = Personal</code> matches the owner-party-scoped, non-shared nature of a profile picture (the
+  tax-return / payslip pattern in Spec&nbsp;035 §10) and keeps it out of any tenant-wide index.
+  <code>DocumentType = "avatar"</code> is a neutral marker; it is <em>not</em> a Spec&nbsp;046 vault type and the avatar
+  is never linked, so it never surfaces in <code>profile.Documents[]</code>.
+</p>
+
+<h2 id="photo-api">9. Photo API &amp; DTO changes</h2>
+<h3>9.1 Endpoints <span class="tag new">new</span></h3>
+<table>
+  <thead><tr><th>Route</th><th>Verb</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>/personal-finance/care-entities/{id}/photo</code></td><td>POST</td><td>Upload/replace the entity's photo (multipart <code>file</code>). Returns the updated <code>CareEntityResponse</code> with <code>photoUrl</code>.</td></tr>
+    <tr><td><code>/personal-finance/care-entities/{id}/photo</code></td><td>DELETE</td><td>Remove the photo: clear <code>PhotoDocumentId</code>, erase the document. Returns 204.</td></tr>
+  </tbody>
+</table>
+<p>
+  Both are <code>Policies("UserPolicy")</code>, owner-scoped, under the existing
+  <code>/personal-finance/care-entities</code> group, following the <code>AllowFileUploads()</code> +
+  <code>EndpointWithoutRequest</code> multipart idiom of <code>UploadDocumentFileEndpoint</code>
+  (<code>Files[0]</code>, empty-file guard → 422).
+</p>
+<h3>9.2 Response — resolved signed URL <span class="tag extend">extend</span></h3>
+<p>
+  <code>CareEntityResponse</code> gains one nullable field, <code>photoUrl</code>, populated from
+  <code>PhotoDocumentId</code> when present. The raw <code>PhotoDocumentId</code> stays for clients that manage the
+  document directly. The profile (§8 of Spec&nbsp;043) returns the same enriched entity, so the People/Places screen
+  renders the avatar from its single call.
+</p>
+<pre><code>public record CareEntityResponse(
+    Guid Id, string Kind, string? AssetType, string Name, string CountryCode,
+    string? Relationship, string? Emoji, Guid? PhotoDocumentId,
+    Uri? PhotoUrl,                       // ← NEW: signed, short-TTL read URL (null when no photo)
+    IReadOnlyDictionary&lt;string,string&gt; Attributes, bool Archived,
+    DateTime CreatedAt, DateTime? UpdatedAt);</code></pre>
+<p>
+  Resolution: <code>GetFilesAsync(photoDocumentId)</code> → first file → <code>GetReadUrlAsync(fileId, ttl)</code> with
+  a short TTL (<strong>O3</strong>: 15&nbsp;min default, vs. issuing on demand via a dedicated read-url endpoint).
+  Resolving a URL per row in <code>ListAsync</code> would be N+1; list responses therefore return
+  <code>PhotoDocumentId</code> only and <code>PhotoUrl = null</code>, while <code>GetAsync</code> and the profile
+  resolve it. (Future: populate <code>DocumentRef.ThumbnailUrl</code> — already a field on the contract — for cheap
+  grid thumbnails.)
+</p>
+
+<h2 id="photo-validation">10. Image validation &amp; limits</h2>
+<p>Enforced at the PersonalFinance boundary before any blob is written:</p>
+<ul>
+  <li><strong>Content-type allow-list:</strong> <code>image/jpeg</code>, <code>image/png</code>,
+    <code>image/webp</code>. Anything else → <code>422</code>. (The generic Documents upload accepts any type; the
+    image constraint is specific to this avatar path.)</li>
+  <li><strong>Size cap:</strong> reject empty files and files over a configured maximum (<strong>O2</strong>: default
+    <code>8&nbsp;MB</code>).</li>
+  <li><strong>Optional magic-byte / dimension check:</strong> the platform already ships
+    <code>IImageProcessingService</code> (<code>ValidateImageAsync</code>, <code>GetImageDimensionsAsync</code>,
+    <code>ResizeImageAsync</code>, <code>CreateThumbnailAsync</code>). Using it to confirm the bytes are a real image
+    and to down-size very large originals is a recommended enhancement; it is <em>not</em> required for the first cut
+    and adds no new dependency.</li>
+</ul>
+<div class="callout p0">
+  <span class="callout-label">Fail closed</span>
+  Validation runs before <code>CreateDocumentAsync</code>, so a rejected upload writes nothing — no orphan document,
+  no orphan blob. The own-check (404 for a non-owned entity) runs first of all, so existence is never revealed.
+</div>
+
+<h2 id="persistence">11. Persistence &amp; migration</h2>
+<ul>
+  <li><strong>Part A: no migration.</strong> <code>Kind</code> is <code>nvarchar(16)</code> with no check constraint;
+    <code>"organization"</code> (12 chars) fits. Verified against
+    <code>CareEntityConfiguration.cs</code>. If a future hardening adds a <code>CHECK</code> on <code>Kind</code>, it
+    must be a single tool-generated migration that includes all three values (CLAUDE.md — never hand-author
+    migrations).</li>
+  <li><strong>Part B: no new PersonalFinance table.</strong> The avatar lives as a Documents-module
+    <code>Document</code> + <code>DocumentFile</code> (its own tables, created by their own spec); the only mutated
+    column is the already-existing <code>CareEntity.PhotoDocumentId</code>. <code>PhotoUrl</code> is a computed
+    response field, not stored.</li>
+</ul>
+
+<h2 id="security">12. Security</h2>
+<ul>
+  <li><strong>Owner isolation, unchanged.</strong> Every photo operation loads the CareEntity through the same
+    <code>TenantId == tenantId &amp;&amp; UserId == userId</code> filter; a non-owned id returns 404 (not 403).</li>
+  <li><strong>Document ownership.</strong> The created avatar document's <code>OwnerPartyId</code> is the current
+    user's party, resolved server-side from <code>PersonalProfile</code> — never from request input. Classification
+    <code>Personal</code> keeps it owner-scoped and out of any shared index.</li>
+  <li><strong>Signed-URL reads.</strong> The client never receives blob credentials — only a short-TTL signed URL from
+    <code>GetReadUrlAsync</code>. Bytes are fetched directly from storage, not streamed through the API.</li>
+  <li><strong>Erasure on replace/delete.</strong> Replaced and removed avatars are erased via
+    <code>DeleteDocumentAsync</code> (vectors purged, blob removed, rows soft-deleted), so no orphaned personal image
+    persists.</li>
+  <li><strong>Untrusted bytes.</strong> The content-type allow-list and optional <code>ValidateImageAsync</code> guard
+    against non-image payloads; no server-side rendering of the upload occurs in this module.</li>
+</ul>
+
+<h2 id="tasks">13. Tasks</h2>
+<ol>
+  <li>Part A: widen <code>kind</code> in the create validator and <code>CareEntityService.CreateAsync</code>; generalise
+    <code>NormalizeAssetType</code> and the assetType validator rules; update the <code>CareEntity</code> doc comment.</li>
+  <li>Part B: <code>CareEntityPhotoService</code> + <code>ICareEntityPhotoService</code> (set/remove), injecting
+    <code>IDocumentWriter</code>/<code>IDocumentReader</code> and the <code>PersonalProfile</code> party lookup.</li>
+  <li>Image validation helper (content-type allow-list + size cap; optional <code>IImageProcessingService</code>).</li>
+  <li>Photo endpoints (<code>POST</code>/<code>DELETE …/{id}/photo</code>, multipart, <code>UserPolicy</code>).</li>
+  <li><code>photoUrl</code> resolution in the <code>GetAsync</code> and profile mappers (TTL-signed; null in list).</li>
+  <li>Tests (§14).</li>
+</ol>
+
+<h2 id="acceptance">14. Acceptance criteria</h2>
+<ul>
+  <li><strong>Organization round-trips.</strong> A <code>PersonalUser</code> JWT creates, lists (filtered by
+    <code>kind=organization</code>), updates, and archives an <code>organization</code> CareEntity with no
+    <code>assetType</code>; an <code>organization</code> <em>with</em> an <code>assetType</code> is rejected (422), and
+    an <code>asset</code> without one is still rejected. <code>person</code> and <code>asset</code> behaviour is
+    unchanged.</li>
+  <li><strong>Commitments &amp; totals work for an organization.</strong> A <code>Support</code> commitment and payment
+    logs against an <code>organization</code> roll up into per-currency <code>YearTotals</code> on the profile —
+    proving the dependent aggregates are kind-agnostic.</li>
+  <li><strong>Photo upload sets the pointer and returns a URL.</strong> <code>POST …/{id}/photo</code> with a JPEG
+    returns 200 with <code>photoDocumentId</code> set and a non-null, fetchable <code>photoUrl</code>;
+    <code>GET …/{id}</code> and the profile return the same signed URL.</li>
+  <li><strong>Replace erases the old avatar.</strong> A second upload repoints <code>photoDocumentId</code> and the
+    previously referenced document is erased (<code>GetDocumentAsync</code> → not found).</li>
+  <li><strong>Remove clears it.</strong> <code>DELETE …/{id}/photo</code> returns 204; the entity then returns
+    <code>photoDocumentId = null</code>, <code>photoUrl = null</code>.</li>
+  <li><strong>Validation fails closed.</strong> A non-image content type and an over-cap file are both rejected (422)
+    and create no document/blob (asserted via the writer mock).</li>
+  <li><strong>Isolation.</strong> User A cannot set, read, or remove the photo of User B's CareEntity (404).</li>
+  <li><strong>Avatar is not a vault item.</strong> After upload, the profile's <code>Documents[]</code> array does not
+    contain the avatar document.</li>
+  <li><strong>Build &amp; no migration.</strong> <code>dotnet build Aonik.sln</code> green; <code>dotnet ef migrations
+    list</code> shows no new migration introduced by Part&nbsp;A.</li>
+</ul>
+
+<h2 id="open">15. Open decisions</h2>
+<ul>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O1 — Backfill of the <code>asset</code> vs <code>organization</code> boundary.</strong> Some things created today as <code>asset</code> (e.g. "a business stake") are genuinely owned; a church previously had nowhere to go and may have been mis-entered. No automatic reclassification is proposed (kind is immutable); a user re-creates if needed. Flagged, leaning no-op.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O2 — Image size cap &amp; allowed types.</strong> Spec proposes 8&nbsp;MB and <code>jpeg/png/webp</code>. Confirm against mobile capture sizes; <code>heic</code> may warrant transcoding via <code>IImageProcessingService</code> if iOS clients send it.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O3 — URL delivery: embedded vs dedicated endpoint.</strong> Spec embeds a short-TTL <code>photoUrl</code> on <code>GetAsync</code>/profile (one round-trip). Alternative: a dedicated <code>GET …/{id}/photo/url</code> that mints a URL on demand (longer-lived entity responses, extra call to view). Embed chosen for the one-call ethos; revisit if responses are heavily cached.</li>
+  <li class="callout open" style="list-style:none; margin-left:-22px; padding-left:14px;"><strong>O4 — Thumbnails.</strong> <code>DocumentRef.ThumbnailUrl</code> already exists but is unpopulated. Generating a 128px thumbnail on upload (<code>CreateThumbnailAsync</code>) would make grids cheap. Deferred; not required for Phase&nbsp;1.</li>
+</ul>
+
+<h2 id="refs">16. References</h2>
+<ul>
+  <li><a href="043.care-entity-people-and-assets.html">Spec&nbsp;043 — CareEntity: people &amp; assets</a> (the entity, §5; the kind/assetType taxonomy, §6; the one-call profile, §8; the restraint guardrail, §3.2) — this spec extends it.</li>
+  <li><a href="035.extract-documents-module.html">Spec&nbsp;035 — Documents module</a> (blob storage, classification, signed URLs, erasure §15) &middot; <a href="046.document-entity-linking-and-sharing.html">Spec&nbsp;046 — Document entity linking</a> (<code>DocumentLink</code>, <code>IDocumentLinkReader</code>, <code>DocumentRef</code>).</li>
+  <li><a href="044.commitment-cycle-lifecycle.html">Spec&nbsp;044 — Commitment cycles</a> &middot; <a href="045.payment-log.html">Spec&nbsp;045 — Payment log</a> — the <code>Support</code> commitment + per-currency totals an organization uses.</li>
+  <li>Code idioms: <code>Entities/PersonalFinance/CareEntity.cs</code>, <code>Services/PersonalFinance/CareEntityService.cs</code> (<code>NormalizeAssetType</code>), <code>Services/PersonalFinance/CareEntityProfileService.cs</code> (<code>IDocumentLinkReader</code> usage), <code>Endpoints/PersonalFinance/CareEntityEndpoints.cs</code>, <code>Endpoints/PersonalFinanceValidators.cs</code> (<code>CreateCareEntityRequestValidator</code>), <code>Services/PersonalFinance/PersonalFinancePartyResolver.cs</code> + <code>Entities/PersonalFinance/PersonalProfile.cs</code> (UserId ↔ PartyId).</li>
+  <li>Documents contracts: <code>SharedKernel/Abstractions/Documents/IDocumentWriter.cs</code> (<code>CreateDocumentAsync</code>, <code>UploadFileAsync</code>, <code>DeleteDocumentAsync</code>), <code>IDocumentReader.cs</code> (<code>GetFilesAsync</code>, <code>GetReadUrlAsync</code>), <code>DocumentContracts.cs</code> (<code>CreateDocumentCommand</code>, <code>UploadFileCommand</code>, <code>DocumentRef</code>), <code>Documents/Endpoints/UploadDocumentFileEndpoint.cs</code> (multipart idiom), <code>Platform/Contracts/Services/Storage/IImageProcessingService.cs</code>.</li>
+</ul>
+
+<footer>
+  Spec 049 &middot; Draft Rev 1 &middot; 2026-06-15 &middot; extends Spec 043 &middot; Domain: PersonalFinance
+</footer>
+
+</body>
+</html>
