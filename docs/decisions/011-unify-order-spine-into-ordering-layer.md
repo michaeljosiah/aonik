@@ -1,6 +1,6 @@
 # ADR-011: Unify the Order Spine into a Shared Ordering Layer (Order as a Core Concept)
 
-**Status**: Accepted — Phase 1 landed (generalise in place); Phases 2–4 pending
+**Status**: Accepted — Phases 1–2 landed (generalise in place; contract seam); Phases 3–4 pending
 **Date**: 2026-06-17
 **Decision Makers**: Development Team
 **Related**: [ADR-005](005-adopt-module-first-modular-monolith.md), [ADR-006](006-extract-personal-finance-module.md), [ADR-002](002-anemic-domain-model.md), [Spec 041](../specifications/041.unified-order-spine-ordering-layer.html), [Spec 005](../specifications/005.orders-intent.md)
@@ -77,7 +77,7 @@ Staged so the system stays shippable between phases.
 | Phase | Description |
 |-------|-------------|
 | 1 ✅ | **Generalise in place (landed).** Added the nullable retail columns (`Quantity`, `UnitPrice`, `ProductId`, `Sku`) to `OrderItem`, added `ProductPurchase` to `OrderType`, updated the doctrine. One tool-generated migration (`OrderItemRetailColumns`) against `AonikDbContext`. No relocation yet — Finance's `Order` is now retail-capable. Lowest-risk, fully reversible, proves the "just another order type" thesis against the real schema. |
-| 2 | **Promote the contract.** Introduce `SharedKernel.Abstractions.Ordering` (`IOrderService`, DTOs, events, constants). Finance's existing order callers route through the contract. No entity move yet. |
+| 2 ✅ | **Promote the contract (landed).** Introduced `SharedKernel.Abstractions.Ordering` (`IOrderService`, `CreateOrderCommand`/`OrderItemCommand`, `OrderDto`/`OrderItemDto`/`OrderSummary`, `OrderFulfilmentLink`, `OrderTypeCodes`). Implemented by `CoreOrderService` in Finance (impl stays here until Phase 3) covering create/get/list/transition/funding/fulfilment for any `OrderType` incl. `ProductPurchase`; reuses the existing `OrderCreatedEvent`/`OrderStatusChangedEvent`. No entity move yet. |
 | 3 | **Relocate the spine.** Move the Order entities + EF configs into `SharedKernel` (namespace-preserving, no migration). Create `Aonik.Ordering` with `OrderingDbContext`, the generic `OrderService` impl, lifecycle endpoints, and order agent tools + approval manifest. Finance retains only its type-specific orchestration. |
 | 4 | **Build `Aonik.Commerce`.** Product / Inventory / Cart entities + services, a `commerce-agent` with approval-gated tools ([Spec 032](../specifications/032.tiered-ai-mutation-approval.html)), product-purchase orders funded via the existing public `PaymentIntent` and billed via the existing `Invoice`. |
 

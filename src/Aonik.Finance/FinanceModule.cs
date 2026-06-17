@@ -82,6 +82,10 @@ public sealed class FinanceModule : IModule
 
         // Orders
         services.AddScoped<Contracts.Services.Orders.IOrderService, Services.Orders.OrderService>();
+        // Spec 041 / ADR-011 — the core, type-agnostic Order spine (incl. ProductPurchase),
+        // exposed through the SharedKernel contract. Impl lives here until Phase 3 relocates it
+        // to Aonik.Ordering behind the same contract.
+        services.AddScoped<SharedKernel.Abstractions.Ordering.IOrderService, Services.Orders.CoreOrderService>();
         services.AddScoped<Contracts.Services.Orders.IPublicOrderService, Services.Orders.PublicOrderService>();
         services.AddScoped<SharedKernel.Abstractions.IOrderExistenceChecker, Services.Orders.OrderExistenceChecker>();
         services.AddScoped<SharedKernel.Abstractions.ICustomerFinanceStatsProvider, Services.Orders.CustomerFinanceStatsProvider>();
