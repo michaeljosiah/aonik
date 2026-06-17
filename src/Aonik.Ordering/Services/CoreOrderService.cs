@@ -1,31 +1,31 @@
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.Finance.Persistence;
 using Aonik.Finance.Entities.Orders;
+using Aonik.Ordering.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Events.Integration;
 
-namespace Aonik.Finance.Services.Orders;
+namespace Aonik.Ordering.Services;
 
 /// <summary>
-/// Spec 041 / ADR-011 Phase 2 — the type-agnostic implementation of the core
-/// <see cref="IOrderService"/> contract. Owns the generic order spine (create, read, list,
-/// transitions, funding/fulfilment links) for every <c>OrderType</c>, including
-/// <c>ProductPurchase</c>. Type-specific creation (bill payment, remittance) continues to live in
-/// <see cref="OrderService"/> and will compose this. The implementation lives in Finance for now;
-/// Phase 3 relocates it to <c>Aonik.Ordering</c> behind the same SharedKernel contract.
+/// Spec 041 / ADR-011 Phase 3 — the type-agnostic implementation of the core
+/// <see cref="IOrderService"/> contract, now resident in <c>Aonik.Ordering</c> over the
+/// module-scoped <see cref="OrderingDbContext"/>. Owns the generic order spine (create, read,
+/// list, transitions, funding/fulfilment links) for every <c>OrderType</c>, including
+/// <c>ProductPurchase</c>. Type-specific creation (bill payment, remittance) lives in
+/// <c>Aonik.Finance</c> and composes this contract.
 /// </summary>
 internal sealed class CoreOrderService : IOrderService
 {
-    private readonly FinanceDbContext _dbContext;
+    private readonly OrderingDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
 
     public CoreOrderService(
-        FinanceDbContext dbContext,
+        OrderingDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
         ICurrentUserProvider currentUserProvider)

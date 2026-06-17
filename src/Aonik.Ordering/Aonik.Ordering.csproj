@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aonik.Ordering</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Spec 041 / ADR-011 — Aonik.Ordering is the middle-layer module that owns the
+    generic Order spine (entities, EF configs, the core OrderService, a scoping
+    DbContext). It references ONLY SharedKernel. Finance and a future Aonik.Commerce
+    depend downward on it; the IOrderService contract lives in
+    SharedKernel.Abstractions.Ordering so read/create consumers need not reference
+    this module. The canonical migration stream stays in AonikDbContext.
+
+    Entity/config C# namespaces are deliberately preserved as
+    Aonik.Finance.Entities.Orders / Aonik.Finance.Persistence.Configurations so the
+    EF model-snapshot FQN strings stay valid and the relocation needs no migration
+    (the ADR-006 / Spec 027 technique). A namespace rename can land later.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Api" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Finance" />
+    <InternalsVisibleTo Include="Aonik.Worker" />
+    <InternalsVisibleTo Include="Aonik.Migrator" />
+    <InternalsVisibleTo Include="Aonik.Ordering.Tests" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+  </ItemGroup>
+
+</Project>

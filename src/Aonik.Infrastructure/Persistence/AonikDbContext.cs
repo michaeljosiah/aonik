@@ -213,6 +213,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Apply Finance configurations from Finance assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LedgerEntity).Assembly);
 
+        // Spec 041 / ADR-011: the Order EF configurations relocated to Aonik.Ordering (namespace
+        // preserved). Apply them here so AonikDbContext — the canonical migration stream — keeps
+        // the identical Order model (table names come from the MapTable calls below).
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Order).Assembly);
+
         // Apply PersonalFinance configurations from Aonik.PersonalFinance assembly.
         // Spec 027 Phase 2: PF entity types + EF configs now live in their own
         // assembly. The canonical migration stream stays in AonikDbContext, so

@@ -1,6 +1,6 @@
 using Aonik.Finance.Entities.Orders;
-using Aonik.Finance.Persistence;
-using Aonik.Finance.Services.Orders;
+using Aonik.Ordering.Persistence;
+using Aonik.Ordering.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.TestSupport.Identity;
@@ -24,15 +24,15 @@ public class CoreOrderServiceTests
         public DateTime UtcNow { get; } = new(2026, 6, 17, 12, 0, 0, DateTimeKind.Utc);
     }
 
-    private static FinanceDbContext CreateDbContext(DbContextOptions<FinanceDbContext> options, Guid tenantId)
+    private static OrderingDbContext CreateDbContext(DbContextOptions<OrderingDbContext> options, Guid tenantId)
         => new(options, new TestTenantProvider(tenantId), new TestCurrentUserProvider());
 
-    private static (DbContextOptions<FinanceDbContext> Options, Guid TenantId) NewDb()
-        => (new DbContextOptionsBuilder<FinanceDbContext>()
+    private static (DbContextOptions<OrderingDbContext> Options, Guid TenantId) NewDb()
+        => (new DbContextOptionsBuilder<OrderingDbContext>()
                 .UseInMemoryDatabase($"CoreOrder_{Guid.NewGuid()}").Options,
             Guid.NewGuid());
 
-    private static CoreOrderService CreateService(FinanceDbContext context, Guid tenantId)
+    private static CoreOrderService CreateService(OrderingDbContext context, Guid tenantId)
         => new(context, new TestTenantProvider(tenantId), new TestClock(), new TestCurrentUserProvider());
 
     private static CreateOrderCommand ProductPurchaseCommand(Guid? payerPartyId = null)

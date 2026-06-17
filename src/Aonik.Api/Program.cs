@@ -8,6 +8,7 @@ using Aonik.Documents;
 using Aonik.Finance;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.VectorStore;
+using Aonik.Ordering;
 using Aonik.PersonalFinance;
 using Aonik.Platform;
 using Aonik.Platform.Endpoints.Admin.Notifications;
@@ -27,6 +28,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 builder.Services.AddPlatformModule(builder.Configuration);
+builder.Services.AddOrderingModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
