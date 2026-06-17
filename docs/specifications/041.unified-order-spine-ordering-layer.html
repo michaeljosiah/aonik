@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 041 · Unify the Order spine into a shared Ordering layer (Order as a core concept)</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2784; }
+    .meta-tag.priority-p1 { background: #fff0d6; color: #8a5510; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 8px;
+      color: var(--accent);
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 18px 0 6px;
+      color: var(--fg);
+    }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open {
+      border-left-color: var(--open-border);
+      background: var(--open-bg);
+    }
+    .callout.p0 {
+      border-left-color: var(--p0-border);
+      background: var(--p0-bg);
+    }
+    .callout.ok {
+      border-left-color: var(--ok-border);
+      background: var(--ok-bg);
+    }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0;
+      padding: 0;
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.move { background: #f3e8fb; color: #5a2784; }
+    .status-row td:first-child { font-weight: 600; }
+    .status-ok { color: #2a7f3c; }
+    .status-gap { color: #8a2a15; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 {
+      margin: 0 0 6px;
+      color: var(--accent);
+    }
+    .phase-card .phase-summary {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 041</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p1">Priority: P1</span>
+  <span class="meta-tag">Domain: Architecture / Ordering / Commerce</span>
+  <h1>Unify the Order spine into a shared Ordering layer (Order as a core concept)</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Promotes <code>Order</code> &mdash; today a <code>Aonik.Finance</code>-private concept framed
+    narrowly as &ldquo;a requested financial service&rdquo; &mdash; into a <strong>core,
+    cross-cutting concept</strong>: the contract and the anemic entities move into
+    <code>Aonik.SharedKernel</code>, the generic order machinery into a new middle-layer module
+    <code>Aonik.Ordering</code>, and <code>Aonik.Finance</code> keeps only its type-specific
+    orchestration. A product purchase becomes just another <code>OrderType</code> alongside bill
+    payment, transfer and remittance &mdash; unlocking a future <code>Aonik.Commerce</code> retail
+    module that reuses one order spine, one lifecycle, one audit trail, and the agentic / payment
+    rails, without any sibling-module coupling. Follows the
+    <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> /
+    <a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> relocation precedent
+    so the move needs no migration.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#current-state">Current-state inventory</a></li>
+    <li><a href="#three-layers">The three-layer split</a></li>
+    <li><a href="#naming">Why a neutral Ordering layer</a></li>
+    <li><a href="#target-layout">Target layout</a></li>
+    <li><a href="#dep-graph">Dependency graph (before / after)</a></li>
+    <li><a href="#domain-model">Domain model &amp; entity changes</a></li>
+    <li><a href="#order-type">OrderType &amp; the product-purchase shape</a></li>
+    <li><a href="#contracts">SharedKernel contracts &amp; events</a></li>
+    <li><a href="#finance-refactor">Finance refactor</a></li>
+    <li><a href="#commerce-module">The Commerce consumer (Phase 4)</a></li>
+    <li><a href="#agent-rails">Agentic reuse</a></li>
+    <li><a href="#code-csproj">Project files (csproj)</a></li>
+    <li><a href="#code-dbcontext">OrderingDbContext</a></li>
+    <li><a href="#migrations">Migration &amp; data strategy</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK wants a B2C commerce capability (selling physical wellness-food products) that reuses the
+  platform's agentic, multi-tenant, audited foundations. The cleanest home is a new
+  <code>Aonik.Commerce</code> module &mdash; but it collides with where <code>Order</code> lives.
+</p>
+
+<p>
+  <code>Order</code> sits inside <code>Aonik.Finance</code>
+  (<a href="../../src/Aonik.Finance/Entities/Orders/">src/Aonik.Finance/Entities/Orders/</a>) and is
+  doctrinally framed as &ldquo;the canonical record of a customer's intent to use an AONIK
+  <em>financial service</em>.&rdquo; Yet the entity is <strong>already generic</strong>:
+  <code>OrderType</code> is an open <code>string</code>, <code>OrderItem.DetailsJson</code> is a
+  type-discriminated container, <code>OrderFulfilmentRef</code> already fans out to multiple
+  fulfilment kinds under a one-of CHECK, and orders already link to both <code>Invoice</code> and
+  <code>PaymentIntent</code>. A product purchase is structurally just another order type.
+</p>
+
+<p>
+  The blocker is <strong>ownership and layering</strong>, not the entity. The modular-monolith
+  rule (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>) forbids a
+  new <code>Aonik.Commerce</code> from referencing <code>Aonik.Finance</code>, so an Order trapped
+  inside Finance cannot be reused by a peer domain. This spec makes Order <em>core</em>:
+</p>
+
+<ul>
+  <li>The <strong>contract</strong> (<code>IOrderService</code>, DTOs, <code>OrderType</code> /
+      <code>OrderStatuses</code> / <code>OrderPartyRoles</code> constants, order events) &rarr;
+      <code>SharedKernel.Abstractions.Ordering</code>.</li>
+  <li>The <strong>anemic entities + EF configs</strong> &rarr; <code>Aonik.SharedKernel</code>,
+      extending the precedent that SharedKernel already hosts persisted cross-cutting entities
+      (<code>OutboxMessage</code> / <code>InboxMessage</code>).</li>
+  <li>The <strong>generic machinery</strong> (the <code>OrderService</code> implementation,
+      lifecycle endpoints, order agent tools, a scoped <code>OrderingDbContext</code>) &rarr; a new
+      middle-layer module <code>Aonik.Ordering</code>.</li>
+  <li><code>Aonik.Finance</code> keeps only its <strong>type-specific orchestration</strong> (FX
+      quoting, compliance screening). A later <code>Aonik.Commerce</code> adds its own (product,
+      inventory, cart).</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  <code>dotnet build Aonik.sln</code> succeeds with the Order spine living in
+  <code>SharedKernel</code> + <code>Aonik.Ordering</code> and <code>Aonik.Finance</code> holding no
+  Order entity; a product-purchase order can be created, invoiced, and paid through the existing
+  <code>Invoice</code> + <code>PaymentIntent</code> rails; <code>Aonik.Finance</code> and a future
+  <code>Aonik.Commerce</code> never reference each other; tables keep their <code>Ank</code> prefix
+  and the relocation produces no migration (only the new nullable <code>OrderItem</code> columns
+  do); <code>dotnet test Aonik.sln</code> stays green.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  AONIK is an AI-native platform powering three products (Payabo B2C, MyBillAfrica B2B,
+  RemitExchange remittance). A wellness-food storefront is a fourth surface whose differentiating
+  value is the platform's agentic infrastructure &mdash; domain agents, tiered tool approval
+  (<a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a>), durable proposals
+  (<a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a>), <code>AiRun</code> audit
+  &mdash; plus multi-tenancy, the <code>Party</code> system, and a payment-capable
+  <code>PaymentIntent</code> with a public guest-checkout path. Selling products is mostly net-new
+  domain (catalog, inventory, cart), but the <em>order</em> at the centre of it already exists.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Observation</th><th>Evidence</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>OrderType</code> is an open string, not a closed enum</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Orders/Order.cs">Order.cs</a> line 8 (<code>public string OrderType</code>); the <a href="../../src/Aonik.Finance/Entities/Orders/OrderType.cs">OrderType.cs</a> enum is only a known-values helper. Adding <code>ProductPurchase</code> is additive.</td>
+    </tr>
+    <tr>
+      <td>Line items already carry a type-discriminated payload</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Orders/OrderItem.cs">OrderItem.cs</a> line 11 (<code>DetailsJson</code>) &mdash; bill-pay lines hold meter numbers, remittance lines hold recipient detail.</td>
+    </tr>
+    <tr>
+      <td>Fulfilment is already polymorphic</td>
+      <td><a href="../../src/Aonik.Finance/Entities/Orders/OrderFulfilmentRef.cs">OrderFulfilmentRef.cs</a> &mdash; three typed nullable FKs under a &ldquo;exactly one set&rdquo; CHECK. A future <code>ShipmentId</code> is a fourth, not a new paradigm.</td>
+    </tr>
+    <tr>
+      <td>Orders are already invoiced and funded</td>
+      <td><code>Invoice.OrderId</code> links billing; <a href="../../src/Aonik.Finance/Entities/Orders/OrderFundingRef.cs">OrderFundingRef.cs</a> links a <code>PaymentIntent</code>.</td>
+    </tr>
+    <tr>
+      <td>Order is owned by the wrong layer for sharing</td>
+      <td>Entities under <a href="../../src/Aonik.Finance/Entities/Orders/">src/Aonik.Finance/Entities/Orders/</a>; a sibling <code>Aonik.Commerce</code> cannot <code>ProjectReference</code> Finance per <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>.</td>
+    </tr>
+    <tr>
+      <td>Doctrine never actually excluded product purchases</td>
+      <td>CLAUDE.md / <a href="005.orders-intent.md">Spec&nbsp;005</a> &ldquo;Not Orders&rdquo; list is: imported bank transaction, manual categorisation, ledger correction &mdash; a product purchase is not among them.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> anticipated
+  selective restructuring once a concept earns its own boundary, and
+  <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> /
+  <a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> established the
+  mechanics for relocating entities without a migration (preserve namespaces so
+  <code>Designer.cs</code> snapshot FQN strings stay valid). Order now meets the bar to become a
+  core concept: it is shared by two peer domains and has its own lifecycle, audit, and agent
+  surface that belongs to no single product.
+</p>
+
+<h2 id="scope">3. Scope (in / out)</h2>
+
+<h3>In scope</h3>
+<ul>
+  <li>Generalise the <code>Order</code> domain model: add <code>ProductPurchase</code> to <code>OrderType</code>; add nullable <code>Quantity</code>, <code>UnitPrice</code>, <code>ProductId</code>, <code>Sku</code> to <code>OrderItem</code>.</li>
+  <li>Generalise the doctrine in CLAUDE.md and <a href="005.orders-intent.md">Spec&nbsp;005</a> (Order = intent to transact; <code>OrderType</code> discriminates).</li>
+  <li>Define <code>SharedKernel.Abstractions.Ordering</code> (<code>IOrderService</code>, DTOs, events, constants).</li>
+  <li>Relocate the Order entities + EF configs into <code>SharedKernel</code> (namespace-preserving).</li>
+  <li>Create the <code>Aonik.Ordering</code> module: <code>OrderingDbContext</code>, the generic <code>OrderService</code>, lifecycle endpoints, and order agent tools + an <code>IToolApprovalManifest</code>.</li>
+  <li>Refactor <code>Aonik.Finance</code> to keep only type-specific order orchestration, building on the shared core.</li>
+  <li>One EF-CLI migration against <code>AonikDbContext</code> for the new <code>OrderItem</code> columns + the enum value.</li>
+</ul>
+
+<h3>Out of scope</h3>
+<ul>
+  <li>Building the <code>Aonik.Commerce</code> retail domain itself (product catalog, inventory, cart, storefront UI) &mdash; specified at a high level in &sect;14 and delivered as a follow-up (Phase 4 / its own spec).</li>
+  <li>Shipping / carrier / delivery-tracking and a tax-calculation engine (the <code>ShipmentId</code> fulfilment slot is noted as a forward extension).</li>
+  <li>Discounts / coupons / promotions (a future Commerce concern).</li>
+  <li>Changing the physical SQL database, table names (<code>Ank</code> prefix), or migration ownership &mdash; migrations stay with <code>AonikDbContext</code> per <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>.</li>
+  <li>Any change to <code>/orders/*</code> HTTP contracts for existing callers.</li>
+  <li>Collapsing or altering the Order / Payment / Ledger separation.</li>
+</ul>
+
+<h2 id="guardrails">4. Constraints &amp; guardrails</h2>
+
+<ul>
+  <li><strong>No sibling cross-module references.</strong> <code>Aonik.Finance</code> and <code>Aonik.Commerce</code> never reference each other. They depend <em>downward</em> on <code>SharedKernel.Abstractions.Ordering</code> and, where the generic impl is needed, on <code>Aonik.Ordering</code>. Depending on a shared lower layer is sanctioned by <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>; sibling-to-sibling coupling is not.</li>
+  <li><strong>Single migration stream.</strong> All schema deltas are EF-CLI-generated against <code>AonikDbContext</code> in <code>Aonik.Infrastructure</code>. <code>OrderingDbContext</code> is a runtime scoping context with <em>no</em> migrations. Agents never hand-author migrations or edit <code>.Designer.cs</code>.</li>
+  <li><strong>Relocation must not produce a migration.</strong> C# namespaces are preserved when files move (per the <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> Phase 2 rationale); tables keep their <code>Ank</code> names; only the new columns + enum value generate a migration.</li>
+  <li><strong>Anemic entities.</strong> <code>Order*</code> stay <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> and inheriting <code>AuditableEntity</code> (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); all logic lives in <code>OrderService</code> returning DTOs.</li>
+  <li><strong>SharedKernel discipline.</strong> Only the anemic entities, their EF configs, and the contract live in the kernel. No <code>OrderService</code>, no endpoints, no FastEndpoints surface in SharedKernel.</li>
+  <li><strong>Tenant scoping is an invariant.</strong> Every order query is filtered by <code>TenantId</code>; cross-tenant writes fail closed via <code>AonikDbContextBase</code>.</li>
+  <li><strong>Order &ne; Payment &ne; Ledger.</strong> The non-negotiable separation is preserved. A product purchase is funded by a <code>PaymentIntent</code> and proven by ledger entries &mdash; the Order is still only the requested-service record.</li>
+  <li><strong>Agents propose; systems execute.</strong> Order reads are direct agent tools; order mutations are governed by the <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> tiers, with money movement marshalled into durable proposals (<a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a>).</li>
+</ul>
+
+<h2 id="current-state">5. Current-state inventory</h2>
+
+<p>Everything that touches the Order spine today, and where it goes:</p>
+
+<table>
+  <thead>
+    <tr><th>Artifact</th><th>Location today</th><th>Disposition</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Order</code>, <code>OrderItem</code>, <code>OrderPartyRole</code>, <code>OrderFundingRef</code>, <code>OrderFulfilmentRef</code>, <code>OrderHistoryEvent</code>, <code>OrderNote</code></td><td>Aonik.Finance/Entities/Orders/</td><td><span class="tag move">move</span> &rarr; Aonik.SharedKernel (+ new <code>OrderItem</code> columns)</td></tr>
+    <tr><td><code>OrderType</code>, <code>OrderStatuses</code>, <code>OrderPartyRoles</code></td><td>Aonik.Finance/Entities/Orders/</td><td><span class="tag move">move</span> &rarr; SharedKernel.Abstractions.Ordering (+ <code>ProductPurchase</code>)</td></tr>
+    <tr><td>Order EF configurations</td><td>Aonik.Finance/Persistence/Configurations/Orders/</td><td><span class="tag move">move</span> &rarr; SharedKernel/Persistence/ (alongside Outbox config)</td></tr>
+    <tr><td><code>IOrderService</code> + order DTOs</td><td>Aonik.Finance/Contracts/Services/Orders/ + Models/</td><td><span class="tag move">split</span> generic contract &rarr; SharedKernel.Abstractions.Ordering; remittance/bill-pay request shapes stay in Finance</td></tr>
+    <tr><td><code>OrderService</code> (generic CRUD + lifecycle)</td><td>Aonik.Finance/Services/Orders/</td><td><span class="tag move">move</span> &rarr; Aonik.Ordering (generic core)</td></tr>
+    <tr><td><code>OrderService</code> type-specific creation (bill-pay, remittance, FX, compliance)</td><td>Aonik.Finance/Services/Orders/</td><td><span class="tag existing">stay</span> Finance; builds orders via the shared core</td></tr>
+    <tr><td>Order endpoints (<code>/orders/*</code> generic: get, list, cancel, history)</td><td>Aonik.Finance/Endpoints/Orders/</td><td><span class="tag move">re-home</span> &rarr; Aonik.Ordering; routes unchanged</td></tr>
+    <tr><td>Order creation endpoints (bill-payment, remittance)</td><td>Aonik.Finance/Endpoints/Orders/</td><td><span class="tag existing">stay</span> Finance</td></tr>
+    <tr><td>Order agent tools (read + generic mutate)</td><td>Aonik.Finance/Agents/Tools/</td><td><span class="tag move">move</span> &rarr; Aonik.Ordering; classified in an Ordering manifest</td></tr>
+    <tr><td><code>DbSet&lt;Order&gt;</code> &hellip; on <code>AonikDbContext</code> + <code>FinanceDbContext</code></td><td>Aonik.Infrastructure + Aonik.Finance</td><td><span class="tag new">re-scope</span> generic sets to <code>OrderingDbContext</code>; all sets remain on <code>AonikDbContext</code></td></tr>
+    <tr><td><code>ICustomerOrderHistoryReader</code> + <code>OrderHistoryItem</code></td><td>SharedKernel.Abstractions.Finance/</td><td><span class="tag move">re-home</span> &rarr; SharedKernel.Abstractions.Ordering (it was never Finance-specific)</td></tr>
+    <tr><td>Orders design doc</td><td><a href="005.orders-intent.md">Spec&nbsp;005</a> + CLAUDE.md</td><td><span class="tag existing">update</span> doctrine to point here</td></tr>
+  </tbody>
+</table>
+
+<h2 id="three-layers">6. The three-layer split</h2>
+
+<p>
+  The core move recognises that &ldquo;Order&rdquo; conflates three responsibilities with
+  different homes:
+</p>
+
+<table>
+  <thead>
+    <tr><th></th><th>Contract</th><th>Entity + config</th><th>Generic machinery</th><th>Type-specific orchestration</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>What</td><td><code>IOrderService</code>, DTOs, events, constants</td><td><code>Order</code>, <code>OrderItem</code>, &hellip; + EF configs</td><td><code>OrderService</code> impl, lifecycle endpoints, order tools, <code>OrderingDbContext</code></td><td>Create-bill-payment, create-remittance (FX, compliance); create-product-purchase (inventory)</td></tr>
+    <tr><td>Home</td><td><code>SharedKernel.Abstractions.Ordering</code></td><td><code>Aonik.SharedKernel</code></td><td><code>Aonik.Ordering</code> (new middle layer)</td><td><code>Aonik.Finance</code> / <code>Aonik.Commerce</code></td></tr>
+    <tr><td>Precedent</td><td>ADR-006 read contracts</td><td>Outbox/Inbox entities already in SharedKernel</td><td>per-module scoping DbContext (Spec&nbsp;027)</td><td>existing domain services</td></tr>
+  </tbody>
+</table>
+
+<p>
+  This mirrors the platform's <strong>Order vs Payment vs Ledger</strong> discipline: distinct
+  responsibilities are not collapsed just because they co-occur. The kernel owns the durable
+  shape; the middle layer owns the generic behaviour; the domains own only what is unique to their
+  order type.
+</p>
+
+<h2 id="naming">7. Why a neutral Ordering layer, not &ldquo;Commerce&rdquo;</h2>
+
+<p>
+  The shared layer is named after <strong>what is common to everything that depends on it</strong>
+  &mdash; <em>ordering</em> &mdash; not after one consumer. Naming it <code>Commerce</code> would
+  force <code>Aonik.Finance</code> to depend on a module that also owns products, inventory, and
+  cart, leaking retail concepts into a remittance path; and a module named &ldquo;Commerce&rdquo;
+  owning bill-payment and remittance orders reads wrong to the next engineer.
+  <code>Aonik.Commerce</code> remains a real module &mdash; the <strong>retail domain on
+  top</strong> of the ordering core, not the owner of the order spine. The decision is reversible
+  (a module rename is mechanical and touches no data), so we pick the label that ages best.
+</p>
+
+<h2 id="target-layout">8. Target layout</h2>
+
+<div class="ascii-diagram">src/Aonik.SharedKernel/
+├── Abstractions/Ordering/
+│   ├── IOrderService.cs                     # the core order contract
+│   ├── OrderDtos.cs                         # OrderDto, OrderItemDto, OrderListItem, commands
+│   ├── OrderType.cs                         # open string + known-values (+ ProductPurchase)
+│   ├── OrderStatuses.cs / OrderPartyRoles.cs
+│   ├── ICustomerOrderHistoryReader.cs       # re-homed from Abstractions.Finance
+│   └── Events: OrderCreatedEvent, OrderStatusChangedEvent, OrderFulfilledEvent
+├── Ordering/                                # anemic entities (namespace preserved on move)
+│   ├── Order.cs  OrderItem.cs  OrderPartyRole.cs
+│   ├── OrderFundingRef.cs  OrderFulfilmentRef.cs
+│   └── OrderHistoryEvent.cs  OrderNote.cs
+└── Persistence/Configurations/Ordering/     # alongside the existing Outbox/Inbox configs
+    └── OrderConfiguration.cs  OrderItemConfiguration.cs  …
+
+src/Aonik.Ordering/                          # NEW middle-layer module
+├── Aonik.Ordering.csproj                    # ProjectReference: SharedKernel only
+├── OrderingModule.cs                        # IModule registration
+├── Persistence/OrderingDbContext.cs         # scoping context, NO migrations
+├── Services/OrderService.cs                 # generic CRUD + lifecycle + history + funding/fulfilment
+├── Endpoints/                               # /orders/{id}, GET /orders, cancel, history (routes unchanged)
+└── Agents/
+    ├── OrderingToolApprovalManifest.cs      # classifies order tools (Spec 032)
+    └── Tools/OrderTools.cs                  # ordering_get_order (read), ordering_cancel_order (mutate), …
+
+src/Aonik.Finance/                           # keeps type-specific orchestration only
+├── Services/Orders/OrderService.cs          # CreateBillPaymentOrder / CreateRemittanceOrder (FX, compliance)
+│                                            #   → builds orders via IOrderService
+└── Endpoints/Orders/Create*Endpoint.cs      # /orders/bill-payments, /orders/remittances
+
+src/Aonik.Commerce/                          # NEW retail domain (Phase 4 / own spec)
+├── Entities/  Product, ProductVariant, InventoryLevel, Cart, CartItem
+├── Services/  CreateProductPurchaseOrder → IOrderService; inventory; cart
+└── Agents/    commerce-agent + tools (Spec 032)
+
+src/Aonik.Infrastructure/
+└── (AonikDbContext keeps every Order DbSet; canonical migration stream)</div>
+
+<h2 id="dep-graph">9. Dependency graph (before / after)</h2>
+
+<div class="ascii-diagram">BEFORE
+  Aonik.Finance ──owns──▶ Order* entities + OrderService + /orders/* endpoints + order tools
+  (a sibling Aonik.Commerce could not reach Order without referencing Finance — forbidden)
+
+AFTER
+  Aonik.SharedKernel
+    ├── Ordering (Order* entities + EF configs)
+    └── Abstractions.Ordering (IOrderService + DTOs + events + constants)
+              ▲                    ▲                         ▲
+              │ implemented by     │ contract                │ contract
+              ▼                    │                         │
+        Aonik.Ordering  ───────────┘                         │
+        (OrderService impl, /orders/* lifecycle, order tools) │
+              ▲                    ▲                          │
+              │                    │                          │
+        Aonik.Finance        Aonik.Commerce  ─────────────────┘
+        (bill-pay/remit)     (product purchase; product/inventory/cart)
+              │                    │
+              └──── both reuse ────┴──▶ Invoice, PaymentIntent, Party, Spec-032 approval rails
+        (Aonik.Finance ⊥ Aonik.Commerce — no sibling reference)
+
+  Aonik.Infrastructure ──▶ Aonik.Ordering   (permanent; hosts the canonical migration stream)</div>
+
+<h2 id="domain-model">10. Domain model &amp; entity changes</h2>
+
+<p>
+  Entities stay anemic, <code>ITenantScoped</code>, and inherit <code>AuditableEntity</code>.
+  Existing fields are unchanged; new fields are marked <span class="tag new">new</span>.
+</p>
+
+<h3>OrderItem &mdash; add nullable retail columns</h3>
+<pre><code>public class OrderItem : AuditableEntity, ITenantScoped
+{
+    // ── existing (unchanged) ─────────────────────────────────
+    public Guid TenantId { get; set; }
+    public Guid OrderId { get; set; }
+    public string ItemType { get; set; } = string.Empty;
+    public int ItemIndex { get; set; }
+    public string DetailsJson { get; set; } = "{}";
+    public string Status { get; set; } = string.Empty;
+    public Guid? ReceiverPartyId { get; set; }
+    public decimal AmountIn { get; set; }          // reused as the line total (Quantity × UnitPrice)
+    public string CurrencyIn { get; set; } = string.Empty;
+    public decimal AmountOut { get; set; }
+    public string CurrencyOut { get; set; } = string.Empty;
+    public decimal FeesTotal { get; set; }
+    public Guid? PricingQuoteId { get; set; }
+
+    // ── new: retail line shape (nullable; populated only for product lines) ──
+    public decimal? Quantity   { get; set; }       // new — e.g. 3
+    public decimal? UnitPrice  { get; set; }       // new — e.g. 4500.00
+    public Guid?    ProductId  { get; set; }       // new — SOFT reference, no FK (cf. Order.PayerPartyId → Party)
+    public string?  Sku        { get; set; }       // new — e.g. "WELL-GRANOLA-500G"
+}</code></pre>
+
+<ul>
+  <li><strong>No <code>LineTotal</code> column.</strong> <code>AmountIn</code> already means &ldquo;amount in source currency&rdquo;; for a product line it carries <code>Quantity × UnitPrice</code>. Adding a second total invites drift.</li>
+  <li><strong><code>ProductId</code> is a soft reference</strong> &mdash; a plain <code>Guid?</code> with no FK constraint, exactly how <code>Order.PayerPartyId</code> points at a Party in another module. This keeps the kernel from depending on the (future) Commerce product table.</li>
+</ul>
+
+<h3>Order header &mdash; reused as-is for product purchases</h3>
+<p>
+  No new header columns. For a <code>ProductPurchase</code>: <code>AmountIn</code> /
+  <code>CurrencyIn</code> = order total + currency; <code>AmountOut</code> /
+  <code>CurrencyOut</code> / <code>FxQuoteId</code> / <code>OriginCountry</code> /
+  <code>DestinationCountry</code> / <code>PurposeCode</code> are left null (they were always
+  nullable &mdash; FX/remittance baggage simply unused). <code>PayerPartyId</code> is the buyer;
+  an <code>OrderPartyRole</code> of <code>Receiver</code>/<code>Payee</code> can carry the merchant.
+</p>
+
+<h3>OrderFulfilmentRef &mdash; forward extension</h3>
+<p>
+  When shipping lands (out of scope here), a nullable <code>ShipmentId</code> is added under the
+  existing &ldquo;exactly one set&rdquo; CHECK alongside <code>PayoutId</code> /
+  <code>PaymentIntentId</code> / <code>PartnerBillPaymentId</code>. A product order's immediate
+  fulfilment ref is its <code>PaymentIntentId</code>; physical dispatch is modelled later.
+</p>
+
+<h2 id="order-type">11. OrderType &amp; the product-purchase shape</h2>
+
+<pre><code>public enum OrderType
+{
+    BillPayment, BankTransfer, CashCollection,
+    Payout, Collection, AirtimeTopup, Remittance,
+    ProductPurchase            // new — additive; the column is an open string
+}</code></pre>
+
+<p>A product purchase, expressed in the existing spine:</p>
+<table>
+  <thead><tr><th>Concept</th><th>Carried by</th></tr></thead>
+  <tbody>
+    <tr><td>&ldquo;Buy 3 jars of granola + 1 tea&rdquo;</td><td>Two <code>OrderItem</code> rows, each with <code>ProductId</code>, <code>Sku</code>, <code>Quantity</code>, <code>UnitPrice</code>; <code>AmountIn</code> = line total</td></tr>
+    <tr><td>Buyer</td><td><code>Order.PayerPartyId</code> (a <code>Party</code>; guest checkout via the public path)</td></tr>
+    <tr><td>Merchant / seller</td><td><code>OrderPartyRole</code> (Receiver/Payee)</td></tr>
+    <tr><td>Order total</td><td><code>Order.AmountIn</code> / <code>CurrencyIn</code></td></tr>
+    <tr><td>Bill</td><td><code>Invoice</code> with <code>Invoice.OrderId</code> (existing)</td></tr>
+    <tr><td>Funding</td><td><code>OrderFundingRef</code> &rarr; <code>PaymentIntent</code> (card / transfer / mobile money; existing)</td></tr>
+    <tr><td>Lifecycle</td><td><code>OrderStatuses</code> (Draft → Pending → Approved → Complete/Cancelled/Failed); <code>OrderHistoryEvent</code> trail</td></tr>
+    <tr><td>Product-specific detail (e.g. variant, gift note)</td><td><code>OrderItem.DetailsJson</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="contracts">12. SharedKernel contracts &amp; events</h2>
+
+<p>
+  Consumption flows through <code>Aonik.SharedKernel.Abstractions.Ordering</code>. Shapes are
+  illustrative; final signatures accept <code>CancellationToken cancellationToken = default</code>
+  and return DTOs (records), never entities.
+</p>
+
+<pre><code>namespace Aonik.SharedKernel.Abstractions.Ordering;
+
+public sealed record OrderItemCommand(
+    string ItemType, int ItemIndex,
+    decimal AmountIn, string CurrencyIn,
+    Guid? ReceiverPartyId = null,
+    decimal? Quantity = null, decimal? UnitPrice = null,   // retail
+    Guid? ProductId = null, string? Sku = null,            // retail (soft ref)
+    string? DetailsJson = null);
+
+public sealed record CreateOrderCommand(
+    string OrderType,                 // "ProductPurchase", "BillPayment", …
+    Guid? PayerPartyId,
+    string CurrencyIn,
+    IReadOnlyList&lt;OrderItemCommand&gt; Items,
+    string? IdempotencyKey = null,
+    string? ProvenanceJson = null);
+
+public interface IOrderService
+{
+    Task&lt;OrderDto&gt; CreateAsync(CreateOrderCommand cmd, CancellationToken ct = default);
+    Task&lt;OrderDto?&gt; GetAsync(Guid orderId, CancellationToken ct = default);
+    Task&lt;PagedResult&lt;OrderListItem&gt;&gt; ListAsync(ListOrdersQuery query, CancellationToken ct = default);
+    Task&lt;OrderDto&gt; TransitionAsync(Guid orderId, string toStatus, string reason, CancellationToken ct = default);
+    Task LinkFundingAsync(Guid orderId, Guid paymentIntentId, CancellationToken ct = default);
+    Task LinkFulfilmentAsync(Guid orderId, OrderFulfilmentLink link, CancellationToken ct = default);
+}</code></pre>
+
+<p>
+  Type-specific creation (bill payment with FX + compliance, product purchase with inventory
+  reservation) stays in the owning domain and composes <code>IOrderService.CreateAsync</code> for
+  persistence + lifecycle &mdash; the domain adds its own pre/post steps around the core call.
+</p>
+
+<p><strong>Integration events</strong> (in <code>SharedKernel</code>, raised by Ordering):</p>
+<ul>
+  <li><code>OrderCreatedEvent(TenantId, OrderId, OrderType, PayerPartyId, AmountIn, CurrencyIn)</code> &mdash; the existing event, re-homed; consumers (PersonalFinance life-graph, insights) already subscribe.</li>
+  <li><code>OrderStatusChangedEvent(TenantId, OrderId, FromStatus, ToStatus)</code>.</li>
+  <li><code>OrderFulfilledEvent(TenantId, OrderId, FulfilmentKind)</code>.</li>
+</ul>
+
+<h2 id="finance-refactor">13. Finance refactor</h2>
+
+<p>Finance loses ownership of the Order spine but keeps everything that is finance-specific:</p>
+<ul>
+  <li>The generic <code>OrderService</code> (CRUD, status transitions, history, funding/fulfilment linking) moves to <code>Aonik.Ordering</code>.</li>
+  <li>The bill-payment and remittance <em>creation</em> services stay in Finance and are refactored to call <code>IOrderService.CreateAsync</code> for persistence, wrapping it with FX quoting, pricing, and compliance screening (their unique value).</li>
+  <li>Generic <code>/orders/{id}</code>, list, cancel, and history endpoints re-home to <code>Aonik.Ordering</code> (routes unchanged); the <code>/orders/bill-payments</code> and <code>/orders/remittances</code> creation endpoints stay in Finance.</li>
+  <li><code>FinanceDbContext</code> drops the generic Order <code>DbSet</code>s (they live on <code>OrderingDbContext</code> + <code>AonikDbContext</code>); Finance reads order data it needs via <code>IOrderService</code> / <code>ICustomerOrderHistoryReader</code>.</li>
+  <li><code>ICustomerOrderHistoryReader</code> + <code>OrderHistoryItem</code> move from <code>Abstractions.Finance</code> to <code>Abstractions.Ordering</code> (they were never Finance-specific); the implementation re-homes to <code>Aonik.Ordering</code>. PersonalFinance consumers are unaffected (same contract, new namespace).</li>
+</ul>
+
+<h2 id="commerce-module">14. The Commerce consumer (Phase 4 &mdash; high level)</h2>
+
+<p>
+  Delivered as a follow-up (its own spec), <code>Aonik.Commerce</code> is the retail domain that
+  motivates this work. It owns what does <em>not</em> exist today &mdash; product catalog,
+  inventory, cart &mdash; and reuses everything below it:
+</p>
+<ul>
+  <li><strong>New entities:</strong> <code>Product</code>, <code>ProductVariant</code>, <code>InventoryLevel</code>, <code>Cart</code>, <code>CartItem</code> (+ later discounts, shipping).</li>
+  <li><strong>Orders:</strong> a <code>CreateProductPurchaseOrderService</code> reserves inventory then calls <code>IOrderService.CreateAsync</code> with <code>OrderType = ProductPurchase</code> and product line items.</li>
+  <li><strong>Billing &amp; payment:</strong> reuse <code>Invoice</code> (via <code>Invoice.OrderId</code>) and the public guest-checkout <code>PaymentIntent</code> path &mdash; no new payment plumbing.</li>
+  <li><strong>Customers:</strong> reuse the <code>Party</code> system (open <code>PartyType</code>, typed shipping addresses, tiers) via the existing <code>IPartyReader</code> contract.</li>
+  <li><strong>Agentic surface:</strong> a <code>commerce-agent</code> (<code>IDomainAgentDescriptor</code>) with approval-gated tools (<code>commerce_create_product</code> → medium; price/inventory writes → medium; refunds / payment capture → high → durable proposal) per <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a>.</li>
+</ul>
+<p>The proof this spec must guarantee: a product-purchase order can be created, invoiced, and paid end-to-end using only the relocated spine + existing rails, with no Finance ↔ Commerce reference.</p>
+
+<h2 id="agent-rails">15. Agentic reuse</h2>
+
+<p>
+  Order agent tools move to <code>Aonik.Ordering</code> and are classified by a new
+  <code>OrderingToolApprovalManifest</code> (<code>IToolApprovalManifest</code>): reads
+  (<code>ordering_get_order</code>, <code>ordering_list_orders</code>) pass through;
+  <code>ordering_cancel_order</code> and other generic mutations are <strong>medium</strong>
+  (in-session confirmation, args-hash-bound). Money movement is never an Ordering concern &mdash;
+  it stays with the funding <code>PaymentIntent</code> tools in Finance/Commerce, which are
+  <strong>high</strong> and marshalled into durable proposals
+  (<a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a>). Because the gate aggregates
+  every module's manifest, the Ordering tools are wrapped uniformly the moment the module
+  registers &mdash; no change to the gate itself.
+</p>
+
+<h2 id="code-csproj">16. Project files (csproj)</h2>
+
+<pre><code>&lt;!-- src/Aonik.Ordering/Aonik.Ordering.csproj --&gt;
+&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
+  &lt;/PropertyGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" /&gt;
+    &lt;!-- NO reference to Aonik.Finance / Aonik.Commerce / Aonik.PersonalFinance --&gt;
+  &lt;/ItemGroup&gt;
+  &lt;ItemGroup&gt;
+    &lt;FrameworkReference Include="Microsoft.AspNetCore.App" /&gt;
+    &lt;PackageReference Include="FastEndpoints" /&gt;
+    &lt;PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" /&gt;
+    &lt;PackageReference Include="Microsoft.Extensions.AI" /&gt;
+  &lt;/ItemGroup&gt;
+&lt;/Project&gt;</code></pre>
+
+<p>
+  <code>Aonik.Ordering</code> depends only on <code>SharedKernel</code>.
+  <code>Aonik.Infrastructure</code> adds a permanent <code>ProjectReference</code> to
+  <code>Aonik.Ordering</code> (hosting the canonical migration stream, as it already does for every
+  module). <code>Aonik.Finance</code> adds a <code>ProjectReference</code> to
+  <code>Aonik.Ordering</code> (downward, allowed); it keeps referencing <code>SharedKernel</code>
+  for the contract.
+</p>
+
+<h2 id="code-dbcontext">17. OrderingDbContext</h2>
+
+<p>
+  A module-scoped context over the same physical database, exposing the Order sets. It inherits
+  <code>AonikDbContextBase</code> (tenancy, audit, soft-delete) and declares <strong>no
+  migrations</strong> &mdash; <code>AonikDbContext</code> remains the single migration stream and
+  continues to own every <code>DbSet</code>.
+</p>
+
+<pre><code>internal sealed class OrderingDbContext : AonikDbContextBase
+{
+    public DbSet&lt;Order&gt; Orders =&gt; Set&lt;Order&gt;();
+    public DbSet&lt;OrderItem&gt; OrderItems =&gt; Set&lt;OrderItem&gt;();
+    public DbSet&lt;OrderPartyRole&gt; OrderPartyRoles =&gt; Set&lt;OrderPartyRole&gt;();
+    public DbSet&lt;OrderFundingRef&gt; OrderFundingRefs =&gt; Set&lt;OrderFundingRef&gt;();
+    public DbSet&lt;OrderFulfilmentRef&gt; OrderFulfilmentRefs =&gt; Set&lt;OrderFulfilmentRef&gt;();
+    public DbSet&lt;OrderHistoryEvent&gt; OrderHistoryEvents =&gt; Set&lt;OrderHistoryEvent&gt;();
+    public DbSet&lt;OrderNote&gt; OrderNotes =&gt; Set&lt;OrderNote&gt;();
+
+    protected override void OnModelCreating(ModelBuilder b)
+    {
+        base.OnModelCreating(b);
+        b.HasDefaultSchema(SchemaNames.Default);
+        // Order configs live in SharedKernel; apply from there + map Ank-prefixed tables.
+        b.ApplyConfigurationsFromAssembly(typeof(Order).Assembly);
+    }
+}</code></pre>
+
+<h2 id="migrations">18. Migration &amp; data strategy</h2>
+
+<p>
+  Tables keep their <code>Ank</code>-prefixed names (<code>AnkOrders</code>,
+  <code>AnkOrderItems</code>, &hellip;). The relocation is project-structure-only: C# namespaces
+  are <strong>preserved</strong> on the move (e.g. files keep <code>namespace
+  Aonik.Finance.Entities.Orders</code> even under <code>SharedKernel</code>), so the
+  <code>Designer.cs</code> snapshot FQN strings stay valid and the move yields <strong>no
+  migration</strong> &mdash; the same technique <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a>
+  used. A namespace rename to <code>Aonik.SharedKernel.Ordering</code> can land later as an
+  isolated change.
+</p>
+
+<p>The only schema delta is in Phase 1, before any relocation:</p>
+<ul>
+  <li><code>AnkOrderItems</code>: add nullable <code>Quantity</code>, <code>UnitPrice</code>, <code>ProductId</code>, <code>Sku</code>.</li>
+  <li><code>ProductPurchase</code> is an application-level enum value (the column is already <code>nvarchar</code>) &mdash; no column change.</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Migration rule</span>
+  The delta is generated <strong>only</strong> by the EF CLI against <code>AonikDbContext</code>:
+  <code>dotnet ef migrations add OrderItemRetailColumns --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code>,
+  then reviewed (expect only the four nullable <code>AnkOrderItems</code> columns) and applied with
+  <code>dotnet ef database update</code>. No hand-authored migrations; no edits to the
+  <code>.Designer.cs</code> snapshot. When entities relocate in Phase 3, the configs move first (so
+  the model still compiles), the <code>DbSet</code>s stay on <code>AonikDbContext</code>, and a
+  no-op re-generation confirms an empty diff.
+</div>
+
+<h2 id="phases">19. Phased rollout</h2>
+
+<div class="phase-card">
+  <h4>Phase 1 &mdash; Generalise in place (shippable alone)</h4>
+  <div class="phase-summary">Prove &ldquo;just another order type&rdquo; against the real schema before moving anything.</div>
+  <ul>
+    <li>Add nullable <code>Quantity</code> / <code>UnitPrice</code> / <code>ProductId</code> / <code>Sku</code> to <code>OrderItem</code>; add <code>ProductPurchase</code> to <code>OrderType</code>.</li>
+    <li>One tool-generated migration against <code>AonikDbContext</code>; review + apply.</li>
+    <li>Update CLAUDE.md + <a href="005.orders-intent.md">Spec&nbsp;005</a> doctrine. No relocation. Fully reversible.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 &mdash; Promote the contract</h4>
+  <div class="phase-summary">Introduce the seam without moving entities.</div>
+  <ul>
+    <li>Add <code>SharedKernel.Abstractions.Ordering</code> (<code>IOrderService</code>, DTOs, commands, events, constants).</li>
+    <li>Route Finance's existing order callers through <code>IOrderService</code>; keep the impl in Finance for now.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 &mdash; Relocate the spine</h4>
+  <div class="phase-summary">Order becomes core; no migration.</div>
+  <ul>
+    <li>Move <code>Order*</code> entities + EF configs into <code>SharedKernel</code> (namespace-preserving).</li>
+    <li>Create <code>Aonik.Ordering</code>: <code>OrderingDbContext</code>, generic <code>OrderService</code>, <code>/orders/*</code> lifecycle endpoints, order tools + <code>OrderingToolApprovalManifest</code>.</li>
+    <li><code>Aonik.Infrastructure → Aonik.Ordering</code> reference; register the module + FastEndpoints assembly in the composition root.</li>
+    <li>Finance retains only bill-pay / remittance creation, composing the core; re-home <code>ICustomerOrderHistoryReader</code> to <code>Abstractions.Ordering</code>.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 4 &mdash; Build Aonik.Commerce (own spec)</h4>
+  <div class="phase-summary">The retail domain on top.</div>
+  <ul>
+    <li>Product / Inventory / Cart entities + services; <code>commerce-agent</code> + approval-gated tools.</li>
+    <li>Product-purchase orders via <code>IOrderService</code>; billing via <code>Invoice</code>; funding via the public <code>PaymentIntent</code> path.</li>
+  </ul>
+</div>
+
+<h2 id="requirements">20. Requirements</h2>
+
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td><code>OrderType</code> includes <code>ProductPurchase</code>; <code>OrderItem</code> carries nullable <code>Quantity</code>, <code>UnitPrice</code>, <code>ProductId</code> (no FK), <code>Sku</code>.</td></tr>
+    <tr><td>R2</td><td>The order contract (<code>IOrderService</code>, DTOs, events, <code>OrderType</code>/<code>OrderStatuses</code>/<code>OrderPartyRoles</code>) lives in <code>SharedKernel.Abstractions.Ordering</code>.</td></tr>
+    <tr><td>R3</td><td>The anemic <code>Order*</code> entities + EF configs live in <code>Aonik.SharedKernel</code>; no <code>OrderService</code>, endpoint, or FastEndpoints type is added to the kernel.</td></tr>
+    <tr><td>R4</td><td>The generic <code>OrderService</code> impl, <code>/orders/*</code> lifecycle endpoints, order tools, and <code>OrderingDbContext</code> live in <code>Aonik.Ordering</code>, which references only <code>SharedKernel</code>.</td></tr>
+    <tr><td>R5</td><td><code>Aonik.Finance</code> keeps only type-specific order orchestration and composes <code>IOrderService</code>; it holds no Order entity.</td></tr>
+    <tr><td>R6</td><td><code>Aonik.Finance</code> and <code>Aonik.Commerce</code> hold no <code>ProjectReference</code> to each other; both depend downward on Ordering / SharedKernel.</td></tr>
+    <tr><td>R7</td><td>A <code>ProductPurchase</code> order can be created, invoiced (<code>Invoice.OrderId</code>), and funded (<code>OrderFundingRef</code> → <code>PaymentIntent</code>) using only relocated + existing components.</td></tr>
+    <tr><td>R8</td><td>Order, Payment, and Ledger remain distinct; a product purchase does not collapse them.</td></tr>
+    <tr><td>R9</td><td>All schema changes are EF-CLI-generated against <code>AonikDbContext</code>; tables keep <code>Ank</code> prefixes; the relocation produces no migration (namespaces preserved); no hand-authored migrations.</td></tr>
+    <tr><td>R10</td><td>Existing <code>/orders/*</code> HTTP contracts and the <code>OrderCreatedEvent</code> consumers (PersonalFinance) are unaffected.</td></tr>
+    <tr><td>R11</td><td>Order tools are classified by an <code>OrderingToolApprovalManifest</code>: reads pass through, generic mutations are medium; money movement stays high in the funding domain (Spec&nbsp;032 / 030).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">21. Tasks</h2>
+
+<ol>
+  <li>Add the four nullable retail columns to <code>OrderItem</code> + <code>ProductPurchase</code> to <code>OrderType</code>; generate the tool-made migration against <code>AonikDbContext</code>; review + apply locally. <span class="tag new">P1</span></li>
+  <li>Update CLAUDE.md &ldquo;Orders&rdquo; doctrine + <a href="005.orders-intent.md">Spec&nbsp;005</a> to the generalised definition.</li>
+  <li>Add unit tests: a <code>ProductPurchase</code> order with product line items persists, totals, and round-trips through the existing service.</li>
+  <li>Define <code>SharedKernel.Abstractions.Ordering</code> (<code>IOrderService</code>, <code>CreateOrderCommand</code>, DTOs, events, constants); re-home <code>ICustomerOrderHistoryReader</code> + <code>OrderHistoryItem</code>.</li>
+  <li>Route Finance order callers through <code>IOrderService</code> (impl still in Finance) &mdash; behaviour-preserving.</li>
+  <li>Scaffold <code>Aonik.Ordering.csproj</code>, <code>OrderingModule</code>, <code>OrderingDbContext</code>; register in the AppHost / Api composition root + FastEndpoints assemblies.</li>
+  <li>Move <code>Order*</code> entities + EF configs into <code>SharedKernel</code> (namespaces preserved); confirm an empty migration diff.</li>
+  <li>Move the generic <code>OrderService</code> + <code>/orders/*</code> lifecycle endpoints + order tools into <code>Aonik.Ordering</code>; add <code>OrderingToolApprovalManifest</code>.</li>
+  <li>Trim Finance: keep bill-pay / remittance creation composing the core; drop generic Order <code>DbSet</code>s from <code>FinanceDbContext</code>; add the <code>Aonik.Infrastructure → Aonik.Ordering</code> reference.</li>
+  <li>End-to-end test: create a product-purchase order → invoice it → fund it via a (simulated) <code>PaymentIntent</code> → assert lifecycle + history, with no Finance↔Commerce reference.</li>
+  <li>Update <code>docs/architecture/module-organization.md</code> and add <a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> cross-links.</li>
+</ol>
+
+<h2 id="verification">22. Verification</h2>
+
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; <code>Aonik.Finance</code> contains no <code>Order</code> entity; <code>Aonik.Ordering</code> references only <code>SharedKernel</code>.</li>
+  <li><strong>No-migration relocation:</strong> after Phase 3, <code>dotnet ef migrations add Probe --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code> yields an empty diff (then removed).</li>
+  <li><strong>Product order end-to-end:</strong> create a <code>ProductPurchase</code> with two product lines → totals correct → <code>Invoice</code> issued against <code>OrderId</code> → <code>PaymentIntent</code> captured → order transitions to Complete; <code>OrderHistoryEvent</code> trail present.</li>
+  <li><strong>Regression:</strong> bill-payment and remittance creation still work through the composed <code>IOrderService</code>; <code>OrderCreatedEvent</code> still reaches PersonalFinance consumers.</li>
+  <li><strong>Boundary:</strong> a build-time assertion / architecture test confirms no <code>Aonik.Finance ↔ Aonik.Commerce</code> reference and no Order entity outside SharedKernel.</li>
+  <li><strong>Approval:</strong> <code>ordering_cancel_order</code> surfaces a medium approval; a money-movement tool remains high (durable proposal).</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">23. Risk register</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Migration snapshot drift while relocating entities across projects</td><td class="status-gap">High</td><td>Preserve namespaces (Spec&nbsp;027 technique); move configs before <code>DbSet</code>s; tool-generated migrations only; verify an empty probe diff; keep <code>Ank</code> table names.</td></tr>
+    <tr><td>A rich aggregate bloats SharedKernel and erodes its &ldquo;abstractions-only&rdquo; role</td><td>Medium</td><td>Only anemic entities + configs + contract enter the kernel (precedent: Outbox/Inbox); all orchestration stays in <code>Aonik.Ordering</code>; reviewer checklist + architecture test.</td></tr>
+    <tr><td>Wide <code>Order</code> carrying both FX and retail nullable columns becomes confusing</td><td>Medium</td><td><code>OrderType</code> discriminates; DTOs/validators per type reject irrelevant fields; documented in &sect;10&ndash;11; the alternative (two order tables) was explicitly rejected.</td></tr>
+    <tr><td>Finance refactor regresses bill-pay / remittance behaviour</td><td>Medium</td><td>Phase 2 introduces the contract behaviour-preserving before any move; full regression suite; type-specific orchestration unchanged, only its persistence path swaps to the core.</td></tr>
+    <tr><td>New shared layer misread as a cross-module-reference violation</td><td>Low</td><td><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> blesses downward dependence on <code>Aonik.Ordering</code>; the forbidden case is sibling-to-sibling only.</td></tr>
+    <tr><td>Soft <code>ProductId</code> (no FK) allows dangling product references</td><td>Low</td><td>Same trade-off the platform already accepts for <code>PayerPartyId</code>; Commerce validates product existence at order-creation time before calling the core.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">24. Decisions baked in</h2>
+<ul>
+  <li><strong>Order is a core concept</strong> &mdash; unified one spine, not duplicated per domain.</li>
+  <li><strong>Contract + anemic entities in SharedKernel; generic machinery in a new <code>Aonik.Ordering</code> middle layer</strong> &mdash; the kernel stays orchestration-free.</li>
+  <li><strong>Neutral <code>Ordering</code> layer, <code>Commerce</code> as a consumer on top</strong> &mdash; named for the superset, not one consumer.</li>
+  <li><strong>Product purchase is an <code>OrderType</code></strong>, with nullable retail columns and <code>AmountIn</code> reused as the line total; <code>ProductId</code> is a soft reference.</li>
+  <li><strong>Relocation produces no migration</strong> (namespaces preserved); only the new columns do; migrations stay with <code>AonikDbContext</code>.</li>
+  <li><strong>Order / Payment / Ledger separation preserved</strong>; the &ldquo;Not Orders&rdquo; exclusions are unchanged.</li>
+  <li><strong>Phase 1 ships in place</strong> to prove the model before the larger relocation.</li>
+</ul>
+
+<h2 id="open">25. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Entity placement: SharedKernel vs Aonik.Ordering.</strong> This spec places the anemic
+  entities + configs in <code>SharedKernel</code> (faithful to the Outbox precedent; lets
+  read-only consumers avoid referencing <code>Aonik.Ordering</code>). The alternative keeps the
+  entities inside <code>Aonik.Ordering</code> so they travel with their service and the kernel
+  stays leaner &mdash; at the cost that any consumer touching the entity type must reference the
+  module. Reversible; decide before Phase 3.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Namespace rename timing.</strong> Whether to rename <code>Aonik.Finance.Entities.Orders</code>
+  → <code>Aonik.SharedKernel.Ordering</code> immediately (one regenerated no-op snapshot revision)
+  or defer it as an isolated later change (as ADR-006 did).
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Where product-purchase order creation composes the core.</strong> A thin
+  <code>CreateProductPurchaseOrderService</code> in <code>Aonik.Commerce</code> (preferred, keeps
+  inventory logic with its domain) vs a generic typed-creation extension point on
+  <code>Aonik.Ordering</code>.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Shipping fulfilment modelling.</strong> Whether a future <code>ShipmentId</code> on
+  <code>OrderFulfilmentRef</code> suffices or commerce fulfilment warrants its own entity &mdash;
+  deferred to the Commerce spec.
+</div>
+
+<h2 id="refs">26. References</h2>
+<ul>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> &mdash; the decision this spec implements.</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> &mdash; module-first modular monolith (sibling-reference rule).</li>
+  <li><a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> / <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> &mdash; relocation &amp; namespace-preservation precedent.</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> &mdash; anemic domain entities.</li>
+  <li><a href="005.orders-intent.md">Spec&nbsp;005</a> &mdash; the original Orders-as-intent design (doctrine generalised here).</li>
+  <li><a href="006.payments-intents.md">Spec&nbsp;006</a> &mdash; payment intents (funding rail reused by product orders).</li>
+  <li><a href="009.billing-bills.md">Spec&nbsp;009</a> &mdash; billing / invoices (reused via <code>Invoice.OrderId</code>).</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> &amp; <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> &mdash; agent mutation governance for order &amp; commerce tools.</li>
+  <li><a href="../../src/Aonik.Finance/Entities/Orders/">src/Aonik.Finance/Entities/Orders/</a> &mdash; the current Order spine being relocated.</li>
+</ul>
+
+<footer>
+  Spec 041 &middot; Unify the Order spine into a shared Ordering layer (Order as a core concept)
+  &middot; Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>
