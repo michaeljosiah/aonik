@@ -17,4 +17,14 @@ public class OrderItem : AuditableEntity, ITenantScoped
     public string CurrencyOut { get; set; } = string.Empty;
     public decimal FeesTotal { get; set; }
     public Guid? PricingQuoteId { get; set; }
+
+    // Spec 041 / ADR-011 - retail line shape, populated only for ProductPurchase order items.
+    // Nullable so financial-service lines (bill payment, remittance, ...) are unaffected.
+    // The line total is carried by the existing AmountIn (Quantity * UnitPrice); no separate
+    // LineTotal column. ProductId is a soft reference (no FK), mirroring Order.PayerPartyId ->
+    // Party: the Product table lives in the future Aonik.Commerce module.
+    public decimal? Quantity { get; set; }
+    public decimal? UnitPrice { get; set; }
+    public Guid? ProductId { get; set; }
+    public string? Sku { get; set; }
 }

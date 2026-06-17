@@ -11,5 +11,11 @@ public enum OrderType
     Payout,
     Collection,
     AirtimeTopup,
-    Remittance
+    Remittance,
+
+    // Spec 041 / ADR-011 - Order is a core "intent to transact" record, not only a financial
+    // service. A product purchase is just another order type: the retail line shape lives on
+    // OrderItem (Quantity / UnitPrice / ProductId / Sku); funding still flows through a
+    // PaymentIntent and billing through an Invoice, exactly as the financial types do.
+    ProductPurchase
 }
