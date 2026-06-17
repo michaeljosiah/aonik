@@ -231,6 +231,7 @@
     <li><a href="#pricing">Product pricing</a></li>
     <li><a href="#inventory">Inventory &amp; reservation</a></li>
     <li><a href="#checkout">Cart &amp; checkout flow</a></li>
+    <li><a href="#composite">Composite / build-your-own-box products</a></li>
     <li><a href="#write-contracts">Billing &amp; payment write contracts</a></li>
     <li><a href="#agent">Commerce agent &amp; tools</a></li>
     <li><a href="#storefront">Storefront &amp; public API</a></li>
@@ -264,8 +265,9 @@
 <ul>
   <li><strong>Own (new):</strong> <code>Product</code>, <code>ProductVariant</code>,
       <code>ProductPrice</code>, <code>InventoryLevel</code>, <code>InventoryReservation</code>,
-      <code>Cart</code>, <code>CartItem</code>, plus catalog/cart services and a
-      <code>commerce-agent</code>.</li>
+      <code>Cart</code>, <code>CartItem</code>, <strong>composite / build-your-own-box
+      bundles</strong> (<code>BundleSlot</code>, <code>CartItemSelection</code>), plus
+      catalog/cart services and a <code>commerce-agent</code>.</li>
   <li><strong>Reuse (existing):</strong> create the purchase as a <code>ProductPurchase</code>
       order through <code>SharedKernel.Abstractions.Ordering.IOrderService</code>; bill it through
       <code>Invoice</code>; fund it through <code>PaymentIntent</code> (incl. guest checkout);
@@ -321,6 +323,7 @@
     <tr><td>Product pricing</td><td><span class="tag new">build</span></td><td><code>ProductPrice</code> (per variant/currency); Finance "pricing" is FX-only and not reused.</td></tr>
     <tr><td>Inventory</td><td><span class="tag new">build</span></td><td><code>InventoryLevel</code> + <code>InventoryReservation</code>.</td></tr>
     <tr><td>Cart / checkout</td><td><span class="tag new">build</span></td><td><code>Cart</code>/<code>CartItem</code> + a checkout orchestrator.</td></tr>
+    <tr><td>Composite / build-your-own-box products</td><td><span class="tag new">build</span></td><td><code>Product.Kind=Bundle</code> + selection slots + bundle pricing; checks out as one <code>ProductPurchase</code> line, inventory fans out to components (&sect;12).</td></tr>
     <tr><td>Discounts, shipping, tax</td><td><span class="tag new">build (later)</span></td><td>Deferred to a later phase; <code>ShipmentId</code> fulfilment slot noted in Spec&nbsp;041.</td></tr>
   </tbody>
 </table>
@@ -333,6 +336,7 @@
   <li>Catalog: <code>Product</code>, <code>ProductVariant</code>, <code>ProductCategory</code>, <code>ProductMedia</code>, <code>ProductPrice</code> + services + customer/admin endpoints.</li>
   <li>Inventory: <code>InventoryLevel</code>, <code>InventoryReservation</code> + reserve/commit/release.</li>
   <li>Cart: <code>Cart</code>, <code>CartItem</code> + a checkout orchestrator that creates a <code>ProductPurchase</code> order, invoice, and payment intent.</li>
+  <li>Composite / build-your-own-box products: bundle definition (selection slots, allowed source, min/max), bundle pricing modes, validated cart selection, and component inventory fan-out.</li>
   <li>New <code>SharedKernel</code> write contracts for invoicing + payment initiation, implemented by Finance.</li>
   <li><code>commerce-agent</code> (<code>IDomainAgentDescriptor</code>) + <code>CommerceToolApprovalManifest</code> + product/cart tools + proposal handlers for any high-tier actions.</li>
   <li>Public catalog browse + guest-checkout endpoints reusing the existing public payment path.</li>
@@ -364,9 +368,10 @@
 ├── Aonik.Commerce.csproj                 # refs: SharedKernel, Aonik.Ordering  (NOT Finance)
 ├── CommerceModule.cs                     # IModule registration
 ├── Entities/
-│   ├── Catalog/   Product, ProductVariant, ProductCategory, ProductMedia, ProductPrice
+│   ├── Catalog/   Product(+Kind), ProductVariant, ProductCategory, ProductMedia, ProductPrice,
+│   │              BundleSlot, BundleSlotOption        # composite / build-your-own-box
 │   ├── Inventory/ InventoryLevel, InventoryReservation
-│   └── Cart/      Cart, CartItem
+│   └── Cart/      Cart, CartItem, CartItemSelection   # chosen bundle contents
 ├── Services/
 │   ├── Catalog/   IProductService, IProductPricingService
 │   ├── Inventory/ IInventoryService            # reserve / commit / release
@@ -487,7 +492,89 @@ payment captured (Finance, high-tier / public path)
   and commits inventory + closes the cart.
 </p>
 
-<h2 id="write-contracts">12. Billing &amp; payment write contracts</h2>
+<h2 id="composite">12. Composite / build-your-own-box products</h2>
+<p>
+  A first-class requirement: a customer constructs a custom package from smaller component products
+  and buys it as one priced unit &mdash; e.g. a wellness food box where the buyer picks 6 items from a
+  curated set. The ecommerce names are <strong>build-your-own-box (BYOB)</strong>,
+  <strong>composite product</strong>, or a <strong>configurable bundle</strong>; operationally it is a
+  <strong>kit</strong> (one sellable unit that draws down the stock of its components). This sits
+  naturally on the architecture because the spine already treats the order as an immutable
+  <em>snapshot of what was sold</em> while Commerce owns the retail complexity &mdash; so a box&rsquo;s
+  &ldquo;made of other products&rdquo; nature lives entirely in <code>Aonik.Commerce</code>.
+</p>
+
+<h3>Catalog model</h3>
+<p>
+  A <code>Product.Kind</code> discriminator (<code>Simple</code> | <code>Variant</code> |
+  <code>Bundle</code>) marks a product as a bundle. A bundle defines one or more <strong>selection
+  slots</strong> (groups the buyer chooses from) with min/max counts and an allowed source (a
+  category, or an explicit option list), plus a pricing mode:
+</p>
+<pre><code>class BundleSlot       { Guid Id, TenantId, BundleProductId; string Name;
+                         int MinItems, MaxItems; Guid? FromCategoryId; bool AllowDuplicates; int SortOrder; }
+class BundleSlotOption { Guid Id, TenantId, BundleSlotId, ProductVariantId; decimal? PriceDelta; } // optional allow-list
+// Product gains:   string Kind = "Simple";              // Simple | Variant | Bundle
+// Bundle pricing:  string  BundlePricingMode;           // Fixed | SumOfComponents | SumPlusPremium
+//                  decimal? BundleFixedAmount, BundlePremium;  string? BundleCurrency;</code></pre>
+<p>
+  &ldquo;Pick any 6 from <em>Granola</em> for &#8358;12,000&rdquo; is one <code>BundleSlot</code>
+  (<code>Min=Max=6</code>, <code>FromCategoryId=Granola</code>) with <code>BundlePricingMode=Fixed</code>,
+  <code>BundleFixedAmount=12000</code>. &ldquo;Pick 3 mains + 2 snacks, pay the sum&rdquo; is two slots
+  with <code>SumOfComponents</code>.
+</p>
+
+<h3>Cart-time: the chosen contents</h3>
+<p>
+  When a bundle is added to the cart, the parent <code>CartItem</code> points at the bundle product and
+  carries the resolved bundle price; the buyer&rsquo;s concrete choices are child rows:
+</p>
+<pre><code>class CartItemSelection { Guid Id, TenantId, CartItemId, BundleSlotId, ProductVariantId;
+                          decimal Quantity, UnitPriceSnapshot; string Sku, NameSnapshot; }</code></pre>
+<p>
+  The cart service validates the selection against every slot&rsquo;s min/max and allowed source before
+  accepting it, and snapshots component prices (so a later catalog change never mutates an in-flight
+  box). <code>IProductPricingService.ResolveBundlePrice(bundle, selection, currency)</code> computes the
+  line price per the bundle&rsquo;s pricing mode.
+</p>
+
+<h3>Order-time: how the box is recorded &mdash; the one real decision</h3>
+<p>
+  The order line entity (<code>OrderItem</code>) is flat &mdash; <code>ItemIndex</code>, a per-line
+  <code>DetailsJson</code> payload, and the soft <code>ProductId</code>/<code>Sku</code> &mdash; with no
+  built-in parent/child link. Two clean options:
+</p>
+<ul>
+  <li><strong>Option A &mdash; one box line + Commerce-owned selection (recommended for v1).</strong> The
+      order records the box as a single <code>OrderItem</code> (<code>ProductId</code> = the bundle,
+      <code>AmountIn</code> = the bundle price), and the concrete contents live in a Commerce-owned
+      <code>OrderBundleSelection</code> (soft-linked by OrderId + item index). <strong>Zero spine
+      change</strong>; supported today; faithful to &ldquo;Order = snapshot, Commerce = retail
+      detail&rdquo;. Inventory commit reads the selection to draw down components.</li>
+  <li><strong>Option B &mdash; parent + child order lines.</strong> If components must be itemized on the
+      order itself (itemized receipts, per-component partial refunds), add one additive, soft (no-FK)
+      <code>ParentOrderItemId</code> column to <code>OrderItem</code>: the box is the parent line, each
+      component a child line grouped under it. A small additive spine change (one nullable column, one
+      tool-generated migration) &mdash; the kind of generalisation the unified spine was built to absorb
+      &mdash; not a redesign.</li>
+</ul>
+<p>
+  <strong>Recommendation:</strong> ship Option A first (it covers &ldquo;build a box and buy it&rdquo;
+  end-to-end with no spine change); adopt Option B only if itemized-line semantics become a real
+  requirement. They are not mutually exclusive &mdash; Option A data can be promoted to Option B lines
+  later without reworking the catalog.
+</p>
+
+<h3>Inventory &amp; fulfilment</h3>
+<p>
+  A bundle holds <em>no stock of its own</em>. Reservation and commit fan out over the selected
+  component variants (&sect;10): a bundle&rsquo;s availability is the feasibility of filling its slots
+  given component stock, and capture draws down each chosen component. Pick/pack reads the selection for
+  the packing list. This keeps a single source of inventory truth (the component variants) and makes
+  &ldquo;box&rdquo; purchases honest about what they consume.
+</p>
+
+<h2 id="write-contracts">13. Billing &amp; payment write contracts</h2>
 <p>
   Commerce must bill and initiate payment without referencing Finance. Two new
   <code>SharedKernel</code> write contracts — the write-side mirror of the ADR-006 read contracts —
@@ -519,7 +606,7 @@ public interface IPaymentInitiator
   heavy.
 </div>
 
-<h2 id="agent">13. Commerce agent &amp; tools</h2>
+<h2 id="agent">14. Commerce agent &amp; tools</h2>
 <p>
   A <code>commerce-agent</code> (<code>IDomainAgentDescriptor</code>) is registered and composed by
   the Master Orchestrator like the Finance agent. Its tools are classified by a
@@ -531,6 +618,8 @@ public interface IPaymentInitiator
   <tbody>
     <tr><td><code>commerce_search_products</code>, <code>commerce_get_product</code>, <code>commerce_view_cart</code>, <code>commerce_check_inventory</code></td><td><span class="tag read">read</span></td><td>Direct execution.</td></tr>
     <tr><td><code>commerce_add_to_cart</code>, <code>commerce_update_cart_item</code></td><td><span class="tag low">low</span></td><td>Reversible cart-state writes; in-band with audit.</td></tr>
+    <tr><td><code>commerce_get_bundle_options</code></td><td><span class="tag read">read</span></td><td>Lists a bundle&rsquo;s slots + eligible component variants for a build-your-own-box.</td></tr>
+    <tr><td><code>commerce_add_bundle_to_cart</code></td><td><span class="tag low">low</span></td><td>Validates a chosen box selection against the slots, then adds the bundle line.</td></tr>
     <tr><td><code>commerce_create_product</code>, <code>commerce_update_product</code>, <code>commerce_set_price</code>, <code>commerce_adjust_inventory</code></td><td><span class="tag medium">medium</span></td><td>Everyday domain writes; in-session confirmation, args-hash-bound.</td></tr>
     <tr><td><code>commerce_checkout</code></td><td><span class="tag medium">medium</span></td><td>Creates order + invoice + <em>draft</em> intent; no money moves yet (capture is separate).</td></tr>
     <tr><td><code>commerce_refund</code> (later)</td><td><span class="tag high">high</span></td><td>Money movement → durable Finance <code>Proposal</code>; never in-band.</td></tr>
@@ -542,7 +631,7 @@ public interface IPaymentInitiator
   <code>ToolApprovalRequest</code> / <code>Proposal</code>.
 </p>
 
-<h2 id="storefront">14. Storefront &amp; public API</h2>
+<h2 id="storefront">15. Storefront &amp; public API</h2>
 <ul>
   <li><strong>Public catalog</strong> — <code>GET /commerce/catalog/products</code>, <code>/products/{slug}</code> (anonymous, tenant-resolved by host/tenant key).</li>
   <li><strong>Cart</strong> — anonymous carts keyed by <code>AnonymousToken</code>; merge into the party cart on sign-in.</li>
@@ -550,7 +639,7 @@ public interface IPaymentInitiator
   <li><strong>Admin UI</strong> — a minimal catalog/inventory manager may land in <code>Aonik.AdminUi</code>; a full branded storefront is a separate app (out of scope), consuming these APIs.</li>
 </ul>
 
-<h2 id="dbcontext">15. CommerceDbContext &amp; migrations</h2>
+<h2 id="dbcontext">16. CommerceDbContext &amp; migrations</h2>
 <p>
   <code>CommerceDbContext : AonikDbContextBase</code> exposes the Commerce <code>DbSet</code>s, maps
   <code>Ank</code>-prefixed tables, applies its own configs, and declares <strong>no</strong>
@@ -559,12 +648,12 @@ public interface IPaymentInitiator
   expected — all are tenant-scoped). New tables (<code>AnkProducts</code>,
   <code>AnkProductVariants</code>, <code>AnkProductPrices</code>, <code>AnkInventoryLevels</code>,
   <code>AnkInventoryReservations</code>, <code>AnkCarts</code>, <code>AnkCartItems</code>,
-  <code>AnkProductCategories</code>, <code>AnkProductMedia</code>) are created by one EF-CLI
+  <code>AnkProductCategories</code>, <code>AnkProductMedia</code>, <code>AnkBundleSlots</code>, <code>AnkBundleSlotOptions</code>, <code>AnkCartItemSelections</code>, <code>AnkOrderBundleSelections</code>) are created by one EF-CLI
   migration against <code>AonikDbContext</code>:
 </p>
 <pre><code>dotnet ef migrations add CommerceCatalogAndCart --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
 
-<h2 id="phases">16. Phased rollout</h2>
+<h2 id="phases">17. Phased rollout</h2>
 
 <div class="phase-card">
   <h4>Phase 1 — Module skeleton + catalog + pricing</h4>
@@ -572,6 +661,7 @@ public interface IPaymentInitiator
   <ul>
     <li><code>Aonik.Commerce.csproj</code> (refs SharedKernel + Aonik.Ordering), <code>CommerceModule</code>, <code>CommerceDbContext</code>; register in composition root + FastEndpoints assemblies.</li>
     <li><code>Product</code>/<code>ProductVariant</code>/<code>ProductCategory</code>/<code>ProductMedia</code>/<code>ProductPrice</code> + services + admin/public catalog endpoints; one migration against <code>AonikDbContext</code>.</li>
+    <li>Composite-product catalog: <code>Product.Kind</code> + <code>BundleSlot</code>/<code>BundleSlotOption</code> definition + bundle pricing mode (the build-your-own-box model, &sect;12).</li>
   </ul>
 </div>
 <div class="phase-card">
@@ -587,6 +677,7 @@ public interface IPaymentInitiator
   <ul>
     <li><code>Cart</code>/<code>CartItem</code> + <code>ICheckoutService</code>: reserve → <code>IOrderService.CreateAsync(ProductPurchase)</code> → <code>IInvoiceWriter</code> → <code>IPaymentInitiator</code>.</li>
     <li>New <code>SharedKernel.Abstractions.Billing.IInvoiceWriter</code> + <code>Abstractions.Payments.IPaymentInitiator</code>, implemented in Finance.</li>
+    <li>Build-your-own-box checkout: validate the <code>CartItemSelection</code> against slots, price via <code>ResolveBundlePrice</code>, record one bundle order line + <code>OrderBundleSelection</code>, and fan out reservation/commit to components (Option A).</li>
     <li>React to <code>PaymentCompletedEvent</code>: commit inventory, close cart, transition order to Complete.</li>
   </ul>
 </div>
@@ -605,7 +696,7 @@ public interface IPaymentInitiator
   </ul>
 </div>
 
-<h2 id="requirements">17. Requirements</h2>
+<h2 id="requirements">18. Requirements</h2>
 <table>
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
@@ -619,15 +710,17 @@ public interface IPaymentInitiator
     <tr><td>R8</td><td>A <code>commerce-agent</code> is registered with tools classified low/medium/high; reads are direct, writes are approval-gated, every action records an <code>AiRun</code>.</td></tr>
     <tr><td>R9</td><td>Order/Payment/Ledger separation holds; Commerce posts no ledger entries and captures no money directly.</td></tr>
     <tr><td>R10</td><td>All schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> table prefix; no hand-authored migrations.</td></tr>
+    <tr><td>R11</td><td>Composite / build-your-own-box products are supported: a <code>Bundle</code> product with selection slots (min/max, allowed source) can be defined; a buyer&rsquo;s validated selection is priced (fixed / sum / sum+premium), checks out as a single <code>ProductPurchase</code> line plus a Commerce-owned selection record, and draws down component inventory.</td></tr>
   </tbody>
 </table>
 
-<h2 id="tasks">18. Tasks</h2>
+<h2 id="tasks">19. Tasks</h2>
 <ol>
   <li>Scaffold <code>Aonik.Commerce.csproj</code> (+ solution entry), <code>CommerceModule</code>, <code>CommerceDbContext</code>; register in <code>Program.cs</code> + FastEndpoints assemblies + <code>Aonik.Infrastructure</code> reference; add Commerce DbSets + configs to <code>AonikDbContext</code>.</li>
   <li>Catalog entities + <code>IProductService</code>/<code>IProductPricingService</code> + admin/public endpoints; migration <code>CommerceCatalogAndCart</code>.</li>
   <li>Inventory entities + <code>IInventoryService</code> (reserve/commit/release) + Quartz expiry sweep.</li>
   <li>Cart entities + <code>ICartService</code> + <code>ICheckoutService</code> orchestrating reserve → order → invoice → payment.</li>
+  <li>Composite products: <code>Product.Kind</code> + <code>BundleSlot</code>/<code>BundleSlotOption</code> + <code>CartItemSelection</code> + <code>OrderBundleSelection</code>; selection validation + <code>ResolveBundlePrice</code>; checkout fan-out to component reservation/commit (Option A; defer <code>ParentOrderItemId</code> spine change unless itemized lines are needed).</li>
   <li>Add <code>SharedKernel.Abstractions.Billing.IInvoiceWriter</code> + <code>Abstractions.Payments.IPaymentInitiator</code>; implement in Finance; register at composition root.</li>
   <li>Integration-event handler for <code>PaymentCompletedEvent</code> → commit inventory + close cart + complete order.</li>
   <li><code>CommerceAgentRegistration</code> + <code>CommerceToolApprovalManifest</code> + tools + proposal handlers; register the descriptor.</li>
@@ -635,7 +728,7 @@ public interface IPaymentInitiator
   <li>Tests: unit (services, reservation concurrency, checkout orchestration) + Api integration (browse → cart → checkout → simulated capture → order Complete + inventory committed) + an architecture test asserting no Commerce↔Finance reference.</li>
 </ol>
 
-<h2 id="verification">19. Verification</h2>
+<h2 id="verification">20. Verification</h2>
 <ul>
   <li><code>dotnet build Aonik.sln</code> green; an architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference (and vice-versa).</li>
   <li><strong>End-to-end:</strong> seed a product + price + stock; browse; add to cart; checkout → reservation held, <code>ProductPurchase</code> order created with correct line snapshots, invoice + draft intent returned; simulate capture → <code>PaymentCompletedEvent</code> → inventory committed, cart CheckedOut, order Complete.</li>
@@ -645,7 +738,7 @@ public interface IPaymentInitiator
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
 </ul>
 
-<h2 id="risks">20. Risk register</h2>
+<h2 id="risks">21. Risk register</h2>
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
@@ -654,11 +747,12 @@ public interface IPaymentInitiator
     <tr><td>Price drift between browse and pay</td><td>Medium</td><td>Snapshot resolved price onto cart line + order item; order is immutable on the price it captured.</td></tr>
     <tr><td>Orphaned reservations from abandoned checkouts</td><td>Medium</td><td>TTL on holds + Quartz expiry sweep releasing stock.</td></tr>
     <tr><td>Money moved outside Finance governance</td><td>High</td><td>Commerce never captures; capture stays a Finance high-tier action; refund tool is a durable proposal.</td></tr>
+    <tr><td>Bundle oversells or mis-prices via component fan-out</td><td>Medium</td><td>Reserve/commit fan out atomically over the component variants; selection validated against slots; bundle price snapshotted at add + checkout.</td></tr>
     <tr><td>Schema drift from many new tables</td><td>Low</td><td>Tool-generated migration against <code>AonikDbContext</code>; review diff; <code>Ank</code> prefix.</td></tr>
   </tbody>
 </table>
 
-<h2 id="decisions">21. Decisions baked in</h2>
+<h2 id="decisions">22. Decisions baked in</h2>
 <ul>
   <li><strong>New sibling module</strong> <code>Aonik.Commerce</code>, depending downward on <code>SharedKernel</code> + <code>Aonik.Ordering</code>, never on Finance.</li>
   <li><strong>Reuse the order spine</strong> — a purchase is a <code>ProductPurchase</code> order via <code>IOrderService</code> (Spec&nbsp;041), not a new order concept.</li>
@@ -668,7 +762,7 @@ public interface IPaymentInitiator
   <li><strong>Migrations stay with <code>AonikDbContext</code></strong>; <code>Ank</code> tables; no physical-DB-ownership change.</li>
 </ul>
 
-<h2 id="open">22. Open design decisions</h2>
+<h2 id="open">23. Open design decisions</h2>
 <div class="callout open">
   <span class="callout-label">Open</span>
   <strong>Synchronous contract billing vs event-driven billing</strong> at checkout (see &sect;12).
@@ -681,6 +775,13 @@ public interface IPaymentInitiator
 </div>
 <div class="callout open">
   <span class="callout-label">Open</span>
+  <strong>Composite order representation</strong> &mdash; one bundle line + a Commerce-owned
+  <code>OrderBundleSelection</code> (Option A, recommended, no spine change) vs parent/child order
+  lines via an additive <code>ParentOrderItemId</code> on the spine (Option B, enables per-component
+  refunds/itemized receipts). See &sect;12.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
   <strong>Catalog price model</strong> — flat per-variant <code>ProductPrice</code> (default) vs
   price lists / customer-tier pricing (reuse <code>Party.CustomerTierCode</code>) as a later add.
 </div>
@@ -690,7 +791,7 @@ public interface IPaymentInitiator
   app, or an Admin-UI-only manager first. Driven by the wellness-food project's launch needs.
 </div>
 
-<h2 id="refs">23. References</h2>
+<h2 id="refs">24. References</h2>
 <ul>
   <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine this module builds on.</li>
   <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (sibling-reference rule).</li>
