@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 042 · Aonik.Commerce — a retail commerce module on the unified Order spine</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-large { background: #efe6f6; color: #5a2784; }
+    .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 042</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-large">Size: Large</span>
+  <span class="meta-tag priority-p2">Priority: P2</span>
+  <span class="meta-tag">Domain: Commerce / Ordering / AI</span>
+  <h1>Aonik.Commerce — a retail commerce module on the unified Order spine</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Adds a first-class B2C commerce capability (the initial driver: a wellness-food storefront)
+    as a sibling module <code>Aonik.Commerce</code> that owns the genuinely new retail domain —
+    product catalog, product pricing, inventory, and cart/checkout — while <strong>reusing</strong>
+    the platform foundations a product purchase already has: the unified <code>Order</code> spine
+    (<a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> /
+    <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a>), <code>Invoice</code>
+    billing, <code>PaymentIntent</code> funding (incl. the public guest-checkout path), the
+    <code>Party</code> customer model, and the agentic / tiered-approval rails
+    (<a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> /
+    <a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a>). Commerce never references
+    Finance: it reaches orders, billing, and payments through <code>SharedKernel</code> contracts.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#layout">Target module layout</a></li>
+    <li><a href="#dep-graph">Dependency graph</a></li>
+    <li><a href="#domain-model">Domain model</a></li>
+    <li><a href="#pricing">Product pricing</a></li>
+    <li><a href="#inventory">Inventory &amp; reservation</a></li>
+    <li><a href="#checkout">Cart &amp; checkout flow</a></li>
+    <li><a href="#write-contracts">Billing &amp; payment write contracts</a></li>
+    <li><a href="#agent">Commerce agent &amp; tools</a></li>
+    <li><a href="#storefront">Storefront &amp; public API</a></li>
+    <li><a href="#dbcontext">CommerceDbContext &amp; migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK can already <em>order, bill, fund, and audit</em> a product purchase — that is what
+  <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> delivered by generalising
+  the <code>Order</code> spine, adding the <code>ProductPurchase</code> order type with retail line
+  columns, and relocating the spine into the shared <code>Aonik.Ordering</code> layer. What it
+  cannot yet do is the genuinely retail part: hold a <strong>catalog</strong> of products, price
+  them, track <strong>stock</strong>, and let a customer fill a <strong>cart</strong> and check
+  out. This spec adds that as a new sibling module, <code>Aonik.Commerce</code>.
+</p>
+
+<p>
+  The design principle is <strong>reuse the spine, own the retail</strong>:
+</p>
+<ul>
+  <li><strong>Own (new):</strong> <code>Product</code>, <code>ProductVariant</code>,
+      <code>ProductPrice</code>, <code>InventoryLevel</code>, <code>InventoryReservation</code>,
+      <code>Cart</code>, <code>CartItem</code>, plus catalog/cart services and a
+      <code>commerce-agent</code>.</li>
+  <li><strong>Reuse (existing):</strong> create the purchase as a <code>ProductPurchase</code>
+      order through <code>SharedKernel.Abstractions.Ordering.IOrderService</code>; bill it through
+      <code>Invoice</code>; fund it through <code>PaymentIntent</code> (incl. guest checkout);
+      identify the buyer through the <code>Party</code> model; govern every AI mutation through the
+      Spec&nbsp;032 approval gate and Spec&nbsp;030 proposals.</li>
+</ul>
+
+<p>
+  Critically, <code>Aonik.Commerce</code> holds <strong>no <code>ProjectReference</code> to
+  <code>Aonik.Finance</code></strong>. It depends downward on <code>SharedKernel</code> and
+  <code>Aonik.Ordering</code>, and reaches Finance-owned billing/payment through new
+  <code>SharedKernel</code> write contracts (the write-side mirror of the
+  <a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> read contracts),
+  implemented by Finance and injected at the composition root.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  A customer (or the <code>commerce-agent</code>) can browse a catalog, add items to a cart, and
+  check out; checkout reserves stock, creates a <code>ProductPurchase</code> order via
+  <code>IOrderService</code>, raises an <code>Invoice</code>, and funds it via a
+  <code>PaymentIntent</code> on the existing public payment path; capturing payment confirms the
+  order and decrements inventory. <code>dotnet build Aonik.sln</code> is green with
+  <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code> + <code>Aonik.Ordering</code>
+  and <strong>no</strong> reference to <code>Aonik.Finance</code>; <code>dotnet test Aonik.sln</code>
+  stays green.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  The concrete driver is a real B2C project — selling wellness-food products — that wants AONIK's
+  agentic infrastructure (a domain agent with audited, approval-gated tools), multi-tenancy, and
+  payment rails rather than re-building them. A
+  <a href="../../docs/specifications/" >prior study</a> of the codebase confirmed that the order /
+  payment / billing / party / agent foundations are reusable, but the retail concerns
+  (catalog, inventory, cart, storefront) do not exist and the existing "Catalog" in Finance is a
+  bill-payment biller directory, not a product catalog. Spec&nbsp;041 closed the order-spine gap;
+  this spec closes the remaining retail gap.
+</p>
+
+<h2 id="reuse-vs-build">3. Reuse vs. build</h2>
+
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Order (product purchase)</td><td><span class="tag reuse">reuse</span></td><td><code>IOrderService.CreateAsync</code> with <code>OrderType=ProductPurchase</code> + product line items (Spec&nbsp;041).</td></tr>
+    <tr><td>Billing</td><td><span class="tag reuse">reuse</span></td><td><code>Invoice</code> via a new <code>SharedKernel</code> invoicing write contract implemented by Finance.</td></tr>
+    <tr><td>Payment / checkout funding</td><td><span class="tag reuse">reuse</span></td><td><code>PaymentIntent</code> + the existing public guest-checkout endpoint; capture stays a Finance <strong>high</strong>-tier action.</td></tr>
+    <tr><td>Customer identity / addresses</td><td><span class="tag reuse">reuse</span></td><td><code>Party</code> + <code>PartyAddress</code> (shipping) via <code>IPartyReader</code>.</td></tr>
+    <tr><td>Agent + approval + audit</td><td><span class="tag reuse">reuse</span></td><td><code>IDomainAgentDescriptor</code>, <code>IToolApprovalManifest</code>, <code>IProposalHandler</code>, <code>AiRun</code>.</td></tr>
+    <tr><td>Product catalog</td><td><span class="tag new">build</span></td><td><code>Product</code>, <code>ProductVariant</code>, categories, media.</td></tr>
+    <tr><td>Product pricing</td><td><span class="tag new">build</span></td><td><code>ProductPrice</code> (per variant/currency); Finance "pricing" is FX-only and not reused.</td></tr>
+    <tr><td>Inventory</td><td><span class="tag new">build</span></td><td><code>InventoryLevel</code> + <code>InventoryReservation</code>.</td></tr>
+    <tr><td>Cart / checkout</td><td><span class="tag new">build</span></td><td><code>Cart</code>/<code>CartItem</code> + a checkout orchestrator.</td></tr>
+    <tr><td>Discounts, shipping, tax</td><td><span class="tag new">build (later)</span></td><td>Deferred to a later phase; <code>ShipmentId</code> fulfilment slot noted in Spec&nbsp;041.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+
+<h3>In scope</h3>
+<ul>
+  <li>Create the <code>Aonik.Commerce</code> module (csproj, module class, <code>CommerceDbContext</code>) referencing only <code>SharedKernel</code> + <code>Aonik.Ordering</code>; register in the composition root.</li>
+  <li>Catalog: <code>Product</code>, <code>ProductVariant</code>, <code>ProductCategory</code>, <code>ProductMedia</code>, <code>ProductPrice</code> + services + customer/admin endpoints.</li>
+  <li>Inventory: <code>InventoryLevel</code>, <code>InventoryReservation</code> + reserve/commit/release.</li>
+  <li>Cart: <code>Cart</code>, <code>CartItem</code> + a checkout orchestrator that creates a <code>ProductPurchase</code> order, invoice, and payment intent.</li>
+  <li>New <code>SharedKernel</code> write contracts for invoicing + payment initiation, implemented by Finance.</li>
+  <li><code>commerce-agent</code> (<code>IDomainAgentDescriptor</code>) + <code>CommerceToolApprovalManifest</code> + product/cart tools + proposal handlers for any high-tier actions.</li>
+  <li>Public catalog browse + guest-checkout endpoints reusing the existing public payment path.</li>
+</ul>
+
+<h3>Out of scope</h3>
+<ul>
+  <li>A production storefront UI (a separate app like <code>apps/Payabo</code>); this spec exposes the APIs it would consume and may ship a minimal Admin UI catalog manager.</li>
+  <li>Discounts / coupons / promotions engine, tax calculation, and carrier/shipping integration — noted as follow-ups behind interfaces.</li>
+  <li>Marketplace / multi-merchant payouts, subscriptions/recurring product boxes (a later extension that could reuse PersonalFinance subscriptions).</li>
+  <li>Any change to the <code>Order</code> spine itself (delivered by Spec&nbsp;041) or to migration ownership (stays with <code>AonikDbContext</code>).</li>
+</ul>
+
+<h2 id="guardrails">5. Constraints &amp; guardrails</h2>
+
+<ul>
+  <li><strong>No reference to Finance.</strong> <code>Aonik.Commerce</code> references only <code>SharedKernel</code> + <code>Aonik.Ordering</code>. Orders go through <code>IOrderService</code>; billing/payment through new <code>SharedKernel</code> write contracts; party data through <code>IPartyReader</code>. Finance and Commerce remain siblings that never reference each other (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
+  <li><strong>Order / Payment / Ledger never collapse.</strong> A purchase is a <code>ProductPurchase</code> order; funding is a <code>PaymentIntent</code>; truth is the ledger. Commerce orchestrates; it does not post ledger entries or move money directly.</li>
+  <li><strong>Single migration stream.</strong> All schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>CommerceDbContext</code> is runtime scoping with no migrations. Tables use the <code>Ank</code> prefix. Agents never hand-author migrations.</li>
+  <li><strong>Anemic entities.</strong> Commerce entities are <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> + <code>AuditableEntity</code> (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); logic lives in services returning DTOs.</li>
+  <li><strong>Product is a soft reference from the order.</strong> <code>OrderItem.ProductId</code> is a no-FK <code>Guid</code> (Spec&nbsp;041). Commerce validates product/variant existence at checkout before calling the spine; the Order layer never depends on the product table.</li>
+  <li><strong>Agents propose; systems execute.</strong> Catalog/cart reads are direct agent tools; product/price/inventory writes are <strong>medium</strong> (in-session confirmation); anything that captures payment stays <strong>high</strong> and runs only via a Finance proposal (Spec&nbsp;030/032). Every AI action records an <code>AiRun</code>.</li>
+  <li><strong>Inventory is never oversold.</strong> Reservation is atomic and tenant-scoped; checkout reserves before order creation and commits on payment capture, releasing on expiry/cancellation.</li>
+</ul>
+
+<h2 id="layout">6. Target module layout</h2>
+
+<div class="ascii-diagram">src/Aonik.Commerce/
+├── Aonik.Commerce.csproj                 # refs: SharedKernel, Aonik.Ordering  (NOT Finance)
+├── CommerceModule.cs                     # IModule registration
+├── Entities/
+│   ├── Catalog/   Product, ProductVariant, ProductCategory, ProductMedia, ProductPrice
+│   ├── Inventory/ InventoryLevel, InventoryReservation
+│   └── Cart/      Cart, CartItem
+├── Services/
+│   ├── Catalog/   IProductService, IProductPricingService
+│   ├── Inventory/ IInventoryService            # reserve / commit / release
+│   └── Checkout/  ICartService, ICheckoutService  # cart → order → invoice → payment
+├── Endpoints/
+│   ├── Admin/     product + price + inventory management
+│   └── Public/    catalog browse + cart + guest checkout
+├── Agents/
+│   ├── CommerceAgentRegistration.cs      # IDomainAgentDescriptor (commerce-agent)
+│   ├── CommerceToolApprovalManifest.cs   # IToolApprovalManifest
+│   └── Tools/     ProductTools, CartTools, InventoryTools
+├── Contracts/     Api + Models (request/response records)
+└── Persistence/
+    ├── CommerceDbContext.cs              # scoping context, NO migrations
+    └── Configurations/  (IEntityTypeConfiguration&lt;T&gt;)
+
+src/Aonik.SharedKernel/Abstractions/
+├── Billing/   IInvoiceWriter   (CreateInvoiceForOrder…)   [new — implemented by Finance]
+└── Payments/  IPaymentInitiator (CreateIntentForOrder…)   [new — implemented by Finance]</div>
+
+<h2 id="dep-graph">7. Dependency graph</h2>
+
+<div class="ascii-diagram">Aonik.SharedKernel
+  ├── Abstractions.Ordering   (IOrderService)            ◀── implemented by Aonik.Ordering
+  ├── Abstractions.Billing    (IInvoiceWriter)   [new]   ◀── implemented by Aonik.Finance
+  ├── Abstractions.Payments   (IPaymentInitiator)[new]   ◀── implemented by Aonik.Finance
+  └── Abstractions.Platform   (IPartyReader)             ◀── implemented by Aonik.Platform
+        ▲                 ▲
+        │ contracts       │
+  Aonik.Ordering     Aonik.Commerce ───────┐
+   (Order spine)      (catalog, inventory,  │ composes IOrderService + IInvoiceWriter
+        ▲              cart, checkout,       │        + IPaymentInitiator + IPartyReader
+        │              commerce-agent)       │
+  Aonik.Finance ─────────────────────────────┘  (Aonik.Commerce ⊥ Aonik.Finance — no ref)
+   (bill-pay / remittance; implements billing + payment write contracts)
+
+  Aonik.Infrastructure ──▶ Aonik.Commerce   (canonical migration stream; permanent)</div>
+
+<h2 id="domain-model">8. Domain model</h2>
+
+<p>All entities are anemic, <code>ITenantScoped</code>, inherit <code>AuditableEntity</code>.</p>
+
+<h3>Product / ProductVariant</h3>
+<pre><code>class Product       { Guid Id, TenantId; string Slug, Name, Description, Status; Guid? CategoryId;
+                      string TagsJson, AttributesJson; }
+class ProductVariant{ Guid Id, TenantId, ProductId; string Sku, Name; string OptionsJson; // size/flavour
+                      decimal? WeightGrams; bool IsActive; }
+class ProductCategory { Guid Id, TenantId; string Slug, Name; Guid? ParentCategoryId; }
+class ProductMedia  { Guid Id, TenantId, ProductId; string Url, Kind /*image|doc*/; int SortOrder; }</code></pre>
+<p>
+  <code>ProductVariant.Sku</code> is the value copied onto <code>OrderItem.Sku</code> at checkout;
+  <code>ProductVariant.Id</code> is copied onto <code>OrderItem.ProductId</code> (the soft
+  reference). The catalog is the source of truth for product detail; the order keeps an immutable
+  snapshot of what was bought.
+</p>
+
+<h3>ProductPrice</h3>
+<pre><code>class ProductPrice  { Guid Id, TenantId, ProductVariantId; string Currency; decimal Amount;
+                      DateTime? EffectiveFrom, EffectiveTo; bool IsActive; }</code></pre>
+<p>Per-variant, per-currency, optionally time-boxed. See &sect;9.</p>
+
+<h3>Inventory</h3>
+<pre><code>class InventoryLevel       { Guid Id, TenantId, ProductVariantId; string? Location;
+                             decimal OnHand, Reserved; }   // Available = OnHand - Reserved
+class InventoryReservation { Guid Id, TenantId, ProductVariantId, CartId; decimal Quantity;
+                             string Status /*Held|Committed|Released*/; DateTime ExpiresAt; }</code></pre>
+
+<h3>Cart / CartItem</h3>
+<pre><code>class Cart     { Guid Id, TenantId; Guid? BuyerPartyId; string? AnonymousToken;  // guest carts
+                 string Status /*Open|CheckedOut|Abandoned*/; string Currency; }
+class CartItem { Guid Id, TenantId, CartId, ProductVariantId; decimal Quantity, UnitPriceSnapshot;
+                 string Sku, NameSnapshot; }</code></pre>
+
+<h2 id="pricing">9. Product pricing</h2>
+<p>
+  Commerce owns product pricing; the Finance "Pricing" subsystem is FX/fee pricing and is not
+  reused. <code>IProductPricingService.ResolvePrice(variantId, currency, atUtc)</code> returns the
+  active <code>ProductPrice</code> for a variant. At <strong>cart add</strong> and again at
+  <strong>checkout</strong> the resolved unit price is snapshotted onto the cart line / order item
+  so a later catalog price change never silently alters an in-flight order. Multi-currency is
+  supported by storing one <code>ProductPrice</code> per currency; the cart's <code>Currency</code>
+  selects which.
+</p>
+
+<h2 id="inventory">10. Inventory &amp; reservation</h2>
+<p>Stock is decoupled from the order so checkout never oversells:</p>
+<div class="ascii-diagram">add-to-cart        → no stock change (availability is advisory at this point)
+checkout (begin)   → IInventoryService.ReserveAsync(variant, qty, cartId)
+                     atomic: Available = OnHand - Reserved ≥ qty  ⇒  Reserved += qty, Held row
+                     (fails fast if insufficient — checkout returns OutOfStock)
+payment captured   → CommitAsync: OnHand -= qty, Reserved -= qty, reservation Committed
+cancel / expiry    → ReleaseAsync: Reserved -= qty, reservation Released  (Quartz sweeps expiries)</div>
+<p>
+  Reservation hold has a TTL (default 30&nbsp;min) so abandoned checkouts free stock. Commit is
+  triggered by the payment-captured signal (see &sect;11/&sect;12). All operations are tenant-scoped
+  and use the row concurrency token to serialise concurrent reservations on the same variant.
+</p>
+
+<h2 id="checkout">11. Cart &amp; checkout flow</h2>
+<div class="ascii-diagram">POST /commerce/carts/{id}/checkout
+  1. validate cart: variants active, prices resolvable, currency consistent
+  2. resolve buyer Party (authenticated party, or create/guest via Party + AnonymousToken)
+  3. IInventoryService.ReserveAsync for each line              (fail ⇒ 409 OutOfStock)
+  4. IOrderService.CreateAsync(CreateOrderCommand{
+         OrderType = ProductPurchase, PayerPartyId = buyer,
+         Items = cart lines → OrderItemCommand{ Quantity, UnitPrice, ProductId, Sku, AmountIn } })
+  5. IInvoiceWriter.CreateForOrderAsync(orderId)               (Finance, via SharedKernel)
+  6. IPaymentInitiator.CreateIntentForOrderAsync(orderId, method)  → PaymentIntent (Draft)
+  7. return { orderId, invoiceId, paymentIntentId, clientSecret? }  → client confirms payment
+
+payment captured (Finance, high-tier / public path)
+  → OrderFulfilmentRef links the PaymentIntent; IOrderService.TransitionAsync(order, Complete)
+  → Commerce reacts (event): InventoryService.CommitAsync; cart → CheckedOut</div>
+<p>
+  The capture itself is a Finance concern (a Spec&nbsp;032 <strong>high</strong> action on the
+  existing public/admin payment path) — Commerce never captures money. Commerce learns of capture
+  via an integration event (e.g. <code>PaymentCompletedEvent</code> already defined in SharedKernel)
+  and commits inventory + closes the cart.
+</p>
+
+<h2 id="write-contracts">12. Billing &amp; payment write contracts</h2>
+<p>
+  Commerce must bill and initiate payment without referencing Finance. Two new
+  <code>SharedKernel</code> write contracts — the write-side mirror of the ADR-006 read contracts —
+  are implemented by Finance and injected at the composition root:
+</p>
+<pre><code>namespace Aonik.SharedKernel.Abstractions.Billing;
+public interface IInvoiceWriter
+{
+    Task&lt;InvoiceRef&gt; CreateForOrderAsync(CreateInvoiceForOrderCommand cmd, CancellationToken ct = default);
+}
+
+namespace Aonik.SharedKernel.Abstractions.Payments;
+public interface IPaymentInitiator
+{
+    Task&lt;PaymentIntentRef&gt; CreateIntentForOrderAsync(CreatePaymentIntentForOrderCommand cmd, CancellationToken ct = default);
+}</code></pre>
+<p>
+  These keep money mechanics in Finance (where the ledger, providers, and approval tiers live)
+  while letting Commerce orchestrate a checkout. Capture/settlement are <em>not</em> on these
+  contracts — they remain Finance-governed high-tier actions.
+</p>
+
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Contract-call vs event-driven billing.</strong> The flow above bills synchronously via
+  <code>IInvoiceWriter</code>/<code>IPaymentInitiator</code> for a tight checkout UX. The
+  alternative is to emit <code>OrderCreatedEvent</code> and have Finance create the invoice/intent
+  asynchronously. Synchronous is recommended for checkout responsiveness; revisit if billing grows
+  heavy.
+</div>
+
+<h2 id="agent">13. Commerce agent &amp; tools</h2>
+<p>
+  A <code>commerce-agent</code> (<code>IDomainAgentDescriptor</code>) is registered and composed by
+  the Master Orchestrator like the Finance agent. Its tools are classified by a
+  <code>CommerceToolApprovalManifest</code> (<code>IToolApprovalManifest</code>) and wrapped by the
+  existing gate — no change to the gate itself:
+</p>
+<table>
+  <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>commerce_search_products</code>, <code>commerce_get_product</code>, <code>commerce_view_cart</code>, <code>commerce_check_inventory</code></td><td><span class="tag read">read</span></td><td>Direct execution.</td></tr>
+    <tr><td><code>commerce_add_to_cart</code>, <code>commerce_update_cart_item</code></td><td><span class="tag low">low</span></td><td>Reversible cart-state writes; in-band with audit.</td></tr>
+    <tr><td><code>commerce_create_product</code>, <code>commerce_update_product</code>, <code>commerce_set_price</code>, <code>commerce_adjust_inventory</code></td><td><span class="tag medium">medium</span></td><td>Everyday domain writes; in-session confirmation, args-hash-bound.</td></tr>
+    <tr><td><code>commerce_checkout</code></td><td><span class="tag medium">medium</span></td><td>Creates order + invoice + <em>draft</em> intent; no money moves yet (capture is separate).</td></tr>
+    <tr><td><code>commerce_refund</code> (later)</td><td><span class="tag high">high</span></td><td>Money movement → durable Finance <code>Proposal</code>; never in-band.</td></tr>
+  </tbody>
+</table>
+<p>
+  Read tools resolve tenant/party scope from authenticated context, never from model input. Each
+  invocation records an <code>AiRun</code>; medium/high decisions persist a
+  <code>ToolApprovalRequest</code> / <code>Proposal</code>.
+</p>
+
+<h2 id="storefront">14. Storefront &amp; public API</h2>
+<ul>
+  <li><strong>Public catalog</strong> — <code>GET /commerce/catalog/products</code>, <code>/products/{slug}</code> (anonymous, tenant-resolved by host/tenant key).</li>
+  <li><strong>Cart</strong> — anonymous carts keyed by <code>AnonymousToken</code>; merge into the party cart on sign-in.</li>
+  <li><strong>Guest checkout</strong> — reuses the existing public <code>PaymentIntent</code> path (Spec&nbsp;006); a guest <code>Party</code> is created for the buyer + shipping address.</li>
+  <li><strong>Admin UI</strong> — a minimal catalog/inventory manager may land in <code>Aonik.AdminUi</code>; a full branded storefront is a separate app (out of scope), consuming these APIs.</li>
+</ul>
+
+<h2 id="dbcontext">15. CommerceDbContext &amp; migrations</h2>
+<p>
+  <code>CommerceDbContext : AonikDbContextBase</code> exposes the Commerce <code>DbSet</code>s, maps
+  <code>Ank</code>-prefixed tables, applies its own configs, and declares <strong>no</strong>
+  migrations. Every Commerce entity is also added to <code>AonikDbContext</code> (the canonical
+  migration stream) and registered in <code>IsGlobalEntity</code> only if system-scoped (none
+  expected — all are tenant-scoped). New tables (<code>AnkProducts</code>,
+  <code>AnkProductVariants</code>, <code>AnkProductPrices</code>, <code>AnkInventoryLevels</code>,
+  <code>AnkInventoryReservations</code>, <code>AnkCarts</code>, <code>AnkCartItems</code>,
+  <code>AnkProductCategories</code>, <code>AnkProductMedia</code>) are created by one EF-CLI
+  migration against <code>AonikDbContext</code>:
+</p>
+<pre><code>dotnet ef migrations add CommerceCatalogAndCart --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+
+<h2 id="phases">16. Phased rollout</h2>
+
+<div class="phase-card">
+  <h4>Phase 1 — Module skeleton + catalog + pricing</h4>
+  <div class="phase-summary">A browsable, priced catalog. Ships alone.</div>
+  <ul>
+    <li><code>Aonik.Commerce.csproj</code> (refs SharedKernel + Aonik.Ordering), <code>CommerceModule</code>, <code>CommerceDbContext</code>; register in composition root + FastEndpoints assemblies.</li>
+    <li><code>Product</code>/<code>ProductVariant</code>/<code>ProductCategory</code>/<code>ProductMedia</code>/<code>ProductPrice</code> + services + admin/public catalog endpoints; one migration against <code>AonikDbContext</code>.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Inventory</h4>
+  <div class="phase-summary">Stock that can be reserved.</div>
+  <ul>
+    <li><code>InventoryLevel</code>/<code>InventoryReservation</code> + reserve/commit/release with concurrency; Quartz expiry sweep.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Cart &amp; checkout (reuse the spine)</h4>
+  <div class="phase-summary">A product purchase, end to end.</div>
+  <ul>
+    <li><code>Cart</code>/<code>CartItem</code> + <code>ICheckoutService</code>: reserve → <code>IOrderService.CreateAsync(ProductPurchase)</code> → <code>IInvoiceWriter</code> → <code>IPaymentInitiator</code>.</li>
+    <li>New <code>SharedKernel.Abstractions.Billing.IInvoiceWriter</code> + <code>Abstractions.Payments.IPaymentInitiator</code>, implemented in Finance.</li>
+    <li>React to <code>PaymentCompletedEvent</code>: commit inventory, close cart, transition order to Complete.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 4 — Commerce agent</h4>
+  <div class="phase-summary">The agentic payoff.</div>
+  <ul>
+    <li><code>CommerceAgentRegistration</code> + <code>CommerceToolApprovalManifest</code> + product/cart/inventory tools + any high-tier proposal handlers.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 5 — Discounts, shipping, tax, storefront (later)</h4>
+  <div class="phase-summary">Retail polish.</div>
+  <ul>
+    <li>Discount/coupon engine; tax calculation interface; shipping carrier port + <code>ShipmentId</code> fulfilment; branded storefront app.</li>
+  </ul>
+</div>
+
+<h2 id="requirements">17. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td><code>Aonik.Commerce</code> exists, referencing only <code>SharedKernel</code> + <code>Aonik.Ordering</code>; it holds no <code>ProjectReference</code> to <code>Aonik.Finance</code>, and no module references <code>Aonik.Commerce</code> except <code>Aonik.Infrastructure</code>.</td></tr>
+    <tr><td>R2</td><td>A catalog of products/variants with per-currency prices can be created, listed, and browsed (admin + public).</td></tr>
+    <tr><td>R3</td><td>Inventory can be reserved atomically; checkout never oversells; reservations expire and release.</td></tr>
+    <tr><td>R4</td><td>Checkout creates a <code>ProductPurchase</code> order via <code>IOrderService</code> with product line items (Quantity/UnitPrice/ProductId/Sku) and snapshotted prices.</td></tr>
+    <tr><td>R5</td><td>Checkout bills via <code>IInvoiceWriter</code> and funds via <code>IPaymentInitiator</code> (both SharedKernel contracts implemented by Finance); capture stays a Finance high-tier action.</td></tr>
+    <tr><td>R6</td><td>On <code>PaymentCompletedEvent</code>, inventory commits, the cart closes, and the order transitions to Complete.</td></tr>
+    <tr><td>R7</td><td>Guest checkout works on the existing public payment path, creating a guest <code>Party</code> + shipping address.</td></tr>
+    <tr><td>R8</td><td>A <code>commerce-agent</code> is registered with tools classified low/medium/high; reads are direct, writes are approval-gated, every action records an <code>AiRun</code>.</td></tr>
+    <tr><td>R9</td><td>Order/Payment/Ledger separation holds; Commerce posts no ledger entries and captures no money directly.</td></tr>
+    <tr><td>R10</td><td>All schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> table prefix; no hand-authored migrations.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">18. Tasks</h2>
+<ol>
+  <li>Scaffold <code>Aonik.Commerce.csproj</code> (+ solution entry), <code>CommerceModule</code>, <code>CommerceDbContext</code>; register in <code>Program.cs</code> + FastEndpoints assemblies + <code>Aonik.Infrastructure</code> reference; add Commerce DbSets + configs to <code>AonikDbContext</code>.</li>
+  <li>Catalog entities + <code>IProductService</code>/<code>IProductPricingService</code> + admin/public endpoints; migration <code>CommerceCatalogAndCart</code>.</li>
+  <li>Inventory entities + <code>IInventoryService</code> (reserve/commit/release) + Quartz expiry sweep.</li>
+  <li>Cart entities + <code>ICartService</code> + <code>ICheckoutService</code> orchestrating reserve → order → invoice → payment.</li>
+  <li>Add <code>SharedKernel.Abstractions.Billing.IInvoiceWriter</code> + <code>Abstractions.Payments.IPaymentInitiator</code>; implement in Finance; register at composition root.</li>
+  <li>Integration-event handler for <code>PaymentCompletedEvent</code> → commit inventory + close cart + complete order.</li>
+  <li><code>CommerceAgentRegistration</code> + <code>CommerceToolApprovalManifest</code> + tools + proposal handlers; register the descriptor.</li>
+  <li>Public catalog/cart/guest-checkout endpoints; optional Admin UI catalog manager.</li>
+  <li>Tests: unit (services, reservation concurrency, checkout orchestration) + Api integration (browse → cart → checkout → simulated capture → order Complete + inventory committed) + an architecture test asserting no Commerce↔Finance reference.</li>
+</ol>
+
+<h2 id="verification">19. Verification</h2>
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; an architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference (and vice-versa).</li>
+  <li><strong>End-to-end:</strong> seed a product + price + stock; browse; add to cart; checkout → reservation held, <code>ProductPurchase</code> order created with correct line snapshots, invoice + draft intent returned; simulate capture → <code>PaymentCompletedEvent</code> → inventory committed, cart CheckedOut, order Complete.</li>
+  <li><strong>Oversell guard:</strong> concurrent checkouts on the last unit — exactly one succeeds, the other gets <code>OutOfStock</code>.</li>
+  <li><strong>Guest checkout:</strong> anonymous cart → guest Party + shipping address → payment via the public path.</li>
+  <li><strong>Agent:</strong> <code>commerce_set_price</code> surfaces a medium approval; a refund tool (when added) marshals a Finance proposal; reads execute directly; each records an <code>AiRun</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">20. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Inventory oversell under concurrency</td><td>High</td><td>Atomic reserve under the row concurrency token; reserve-before-order; commit only on capture; concurrency test gates merge.</td></tr>
+    <tr><td>Commerce reaching into Finance internals to bill/pay</td><td>Medium</td><td>Only via <code>SharedKernel</code> write contracts; architecture test forbids the project reference.</td></tr>
+    <tr><td>Price drift between browse and pay</td><td>Medium</td><td>Snapshot resolved price onto cart line + order item; order is immutable on the price it captured.</td></tr>
+    <tr><td>Orphaned reservations from abandoned checkouts</td><td>Medium</td><td>TTL on holds + Quartz expiry sweep releasing stock.</td></tr>
+    <tr><td>Money moved outside Finance governance</td><td>High</td><td>Commerce never captures; capture stays a Finance high-tier action; refund tool is a durable proposal.</td></tr>
+    <tr><td>Schema drift from many new tables</td><td>Low</td><td>Tool-generated migration against <code>AonikDbContext</code>; review diff; <code>Ank</code> prefix.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">21. Decisions baked in</h2>
+<ul>
+  <li><strong>New sibling module</strong> <code>Aonik.Commerce</code>, depending downward on <code>SharedKernel</code> + <code>Aonik.Ordering</code>, never on Finance.</li>
+  <li><strong>Reuse the order spine</strong> — a purchase is a <code>ProductPurchase</code> order via <code>IOrderService</code> (Spec&nbsp;041), not a new order concept.</li>
+  <li><strong>Commerce owns product pricing</strong>; Finance FX pricing is not reused.</li>
+  <li><strong>Bill/pay through SharedKernel write contracts</strong> implemented by Finance; capture stays Finance-governed and high-tier.</li>
+  <li><strong>Inventory decoupled from the order</strong>; reserve-before-order, commit-on-capture.</li>
+  <li><strong>Migrations stay with <code>AonikDbContext</code></strong>; <code>Ank</code> tables; no physical-DB-ownership change.</li>
+</ul>
+
+<h2 id="open">22. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Synchronous contract billing vs event-driven billing</strong> at checkout (see &sect;12).
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Reservation model</strong> — counter columns (<code>OnHand</code>/<code>Reserved</code>)
+  with a concurrency token (simple, default) vs an append-only ledger of stock movements (fuller
+  audit, heavier). Reversible.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Catalog price model</strong> — flat per-variant <code>ProductPrice</code> (default) vs
+  price lists / customer-tier pricing (reuse <code>Party.CustomerTierCode</code>) as a later add.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Storefront surface</strong> — extend <code>apps/Payabo</code>, a new dedicated storefront
+  app, or an Admin-UI-only manager first. Driven by the wellness-food project's launch needs.
+</div>
+
+<h2 id="refs">23. References</h2>
+<ul>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine this module builds on.</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (sibling-reference rule).</li>
+  <li><a href="../decisions/006-extract-personal-finance-module.md">ADR-006</a> / <a href="027.extract-personal-finance-module.html">Spec&nbsp;027</a> — SharedKernel contract pattern (read; this spec adds the write mirror).</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> — anemic entities.</li>
+  <li><a href="006.payments-intents.md">Spec&nbsp;006</a> — payment intents + public guest-checkout path.</li>
+  <li><a href="009.billing-bills.md">Spec&nbsp;009</a> — invoices (reused via <code>Invoice.OrderId</code>).</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> — agent mutation governance for commerce tools.</li>
+  <li><a href="035.extract-documents-module.html">Spec&nbsp;035</a> — recent module-extraction precedent (csproj, module class, scoping DbContext).</li>
+</ul>
+
+<footer>
+  Spec 042 &middot; Aonik.Commerce — a retail commerce module on the unified Order spine &middot;
+  Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>
