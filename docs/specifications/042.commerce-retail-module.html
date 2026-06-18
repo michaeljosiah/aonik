@@ -666,10 +666,11 @@ public interface IPaymentInitiator
   </ul>
 </div>
 <div class="phase-card">
-  <h4>Phase 2 — Inventory</h4>
+  <h4>Phase 2 ✅ — Inventory (landed)</h4>
   <div class="phase-summary">Stock that can be reserved.</div>
   <ul>
-    <li><code>InventoryLevel</code>/<code>InventoryReservation</code> + reserve/commit/release with concurrency; Quartz expiry sweep.</li>
+    <li><code>InventoryLevel</code>/<code>InventoryReservation</code> + <code>IInventoryService</code> (get-available, set-on-hand, all-or-nothing reserve, commit, release, release-expired) over the row concurrency token; admin set-stock + public availability endpoints; the <code>InventoryReservationSweepJob</code> Quartz sweep (every 5&nbsp;min, 30&nbsp;min TTL) wired in the Worker; the <code>CommerceInventory</code> migration.</li>
+    <li><em>Verified:</em> build green; Inventory 6/6 (incl. oversell guard + all-or-nothing fan-out + expiry sweep).</li>
   </ul>
 </div>
 <div class="phase-card">

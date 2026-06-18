@@ -1,4 +1,5 @@
 using Aonik.Commerce.Entities.Catalog;
+using Aonik.Commerce.Entities.Inventory;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -22,6 +23,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<ProductPrice> ProductPrices => Set<ProductPrice>();
     public DbSet<BundleSlot> BundleSlots => Set<BundleSlot>();
     public DbSet<BundleSlotOption> BundleSlotOptions => Set<BundleSlotOption>();
+    public DbSet<InventoryLevel> InventoryLevels => Set<InventoryLevel>();
+    public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
 
     public CommerceDbContext(
         DbContextOptions<CommerceDbContext> options,
@@ -54,6 +57,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<ProductPrice>(modelBuilder, "ProductPrices");
         MapTable<BundleSlot>(modelBuilder, "BundleSlots");
         MapTable<BundleSlotOption>(modelBuilder, "BundleSlotOptions");
+        MapTable<InventoryLevel>(modelBuilder, "InventoryLevels");
+        MapTable<InventoryReservation>(modelBuilder, "InventoryReservations");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

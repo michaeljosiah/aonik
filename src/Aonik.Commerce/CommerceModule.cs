@@ -1,5 +1,6 @@
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.Commerce.Services.Inventory;
 using Aonik.SharedKernel.Modules;
 
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,7 @@ public sealed class CommerceModule : IModule
 
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IProductPricingService, ProductPricingService>();
+        services.AddScoped<IInventoryService, InventoryService>();
 
         return services;
     }

@@ -5,6 +5,7 @@ using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Commerce.Entities.Catalog;
+using Aonik.Commerce.Entities.Inventory;
 using Aonik.Documents.Entities;
 using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
@@ -110,6 +111,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<ProductPrice> ProductPrices { get; set; } = null!;
     public virtual DbSet<BundleSlot> BundleSlots { get; set; } = null!;
     public virtual DbSet<BundleSlotOption> BundleSlotOptions { get; set; } = null!;
+    public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
+    public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -365,6 +368,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<ProductPrice>(modelBuilder, "ProductPrices");
         MapCommerceTable<BundleSlot>(modelBuilder, "BundleSlots");
         MapCommerceTable<BundleSlotOption>(modelBuilder, "BundleSlotOptions");
+        MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
+        MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

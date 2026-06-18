@@ -129,6 +129,13 @@ internal static class ScheduledJobDefinitions
                 "Fires due Spec 034 tasks (reminders, scheduled actions, agent jobs) across all tenants every minute.",
                 options.WorkItemDispatch.CronExpression,
                 options.WorkItemDispatch.Enabled),
+            new ScheduledJobDefinition<InventoryReservationSweepJob>(
+                InventoryReservationSweepJob.Key,
+                new TriggerKey("InventoryReservationSweepJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Inventory Reservation Sweep",
+                "Releases expired held inventory reservations so abandoned checkouts free stock (Spec 042).",
+                options.InventoryReservationSweep.CronExpression,
+                options.InventoryReservationSweep.Enabled),
         ];
     }
 }
