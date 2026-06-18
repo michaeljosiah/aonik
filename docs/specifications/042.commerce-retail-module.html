@@ -656,12 +656,13 @@ public interface IPaymentInitiator
 <h2 id="phases">17. Phased rollout</h2>
 
 <div class="phase-card">
-  <h4>Phase 1 — Module skeleton + catalog + pricing</h4>
+  <h4>Phase 1 ✅ — Module skeleton + catalog + pricing (landed)</h4>
   <div class="phase-summary">A browsable, priced catalog. Ships alone.</div>
   <ul>
-    <li><code>Aonik.Commerce.csproj</code> (refs SharedKernel + Aonik.Ordering), <code>CommerceModule</code>, <code>CommerceDbContext</code>; register in composition root + FastEndpoints assemblies.</li>
-    <li><code>Product</code>/<code>ProductVariant</code>/<code>ProductCategory</code>/<code>ProductMedia</code>/<code>ProductPrice</code> + services + admin/public catalog endpoints; one migration against <code>AonikDbContext</code>.</li>
-    <li>Composite-product catalog: <code>Product.Kind</code> + <code>BundleSlot</code>/<code>BundleSlotOption</code> definition + bundle pricing mode (the build-your-own-box model, &sect;12).</li>
+    <li><code>Aonik.Commerce.csproj</code> (refs SharedKernel + Aonik.Ordering, <strong>not</strong> Finance), <code>CommerceModule</code>, <code>CommerceDbContext</code>; registered in the composition root + FastEndpoints assemblies + <code>Aonik.Infrastructure</code>.</li>
+    <li><code>Product</code>/<code>ProductVariant</code>/<code>ProductCategory</code>/<code>ProductMedia</code>/<code>ProductPrice</code> + <code>IProductService</code>/<code>IProductPricingService</code> + admin/public catalog endpoints; the <code>CommerceCatalog</code> migration (7 <code>Ank</code> tables) against <code>AonikDbContext</code>.</li>
+    <li>Composite-product catalog: <code>Product.Kind</code> + <code>BundleSlot</code>/<code>BundleSlotOption</code> definition + bundle pricing modes (Fixed / SumOfComponents / SumPlusPremium) with selection validation — the build-your-own-box model (&sect;12).</li>
+    <li><em>Verified:</em> build green; Commerce 7/7 (incl. BYO-box pricing), Architecture 13/13, Application 1095, Api 242 pass.</li>
   </ul>
 </div>
 <div class="phase-card">

@@ -13,6 +13,9 @@
     <!-- Spec 041 / ADR-011: AonikDbContext owns the Order DbSets + applies the Order EF
          configs that now live in Aonik.Ordering (canonical migration stream). -->
     <ProjectReference Include="..\Aonik.Ordering\Aonik.Ordering.csproj" />
+    <!-- Spec 042: AonikDbContext owns the Commerce DbSets + applies the Commerce EF configs
+         (canonical migration stream). -->
+    <ProjectReference Include="..\Aonik.Commerce\Aonik.Commerce.csproj" />
     <!--
       Permanent (Spec 027 R8): PersonalFinance entity types now live in
       Aonik.PersonalFinance but AonikDbContext (this project) keeps owning
