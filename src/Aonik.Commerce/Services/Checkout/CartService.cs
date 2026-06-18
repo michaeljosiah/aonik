@@ -175,6 +175,12 @@ internal sealed class CartService : ICartService
         {
             throw new InvalidOperationException($"Cart '{cartId}' is {cart.Status}, not Open.");
         }
+        // A cart stays Open until payment completes, but once checkout has stamped an OrderId the
+        // order/reservation/payment amount are fixed — block further edits so the cart can't diverge.
+        if (cart.OrderId is not null)
+        {
+            throw new InvalidOperationException($"Cart '{cartId}' is checked out (pending payment) and can no longer be edited.");
+        }
         return cart;
     }
 

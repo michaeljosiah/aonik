@@ -345,6 +345,25 @@ public class CheckoutServiceTests
     }
 
     [Fact]
+    public async Task CartEdits_Should_BeRejected_AfterCheckoutStampsOrderId()
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m));
+        await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+
+        // Cart is still Open (payment pending) but OrderId is stamped — further edits must be rejected.
+        var addAfter = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m));
+        await addAfter.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
     public async Task Checkout_Should_RaiseInvoice_WhenCustomerAccountSupplied()
     {
         var h = new Harness();

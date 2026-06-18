@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Events.Integration;
 using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Payments;
@@ -193,6 +194,18 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             await _ledgerPoster.PostPaymentCaptureAsync(paymentIntent, cancellationToken);
 
             paymentIntent.Status = PaymentStatus.Captured.ToString();
+
+            // Publish payment completion in the same transaction as the status flip + ledger post
+            // (transactional outbox). Downstream modules react to this — e.g. Aonik.Commerce commits
+            // reserved stock, closes the cart, and completes the ProductPurchase order. Capture is the
+            // single point where an intent becomes Captured, so this is the one producer.
+            _dbContext.EnqueueIntegrationEvent(new PaymentCompletedEvent(
+                paymentIntent.TenantId,
+                paymentIntent.Id,
+                paymentIntent.OrderId,
+                paymentIntent.Amount,
+                paymentIntent.Currency));
+
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
