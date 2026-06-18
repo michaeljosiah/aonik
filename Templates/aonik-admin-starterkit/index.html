@@ -65,7 +65,7 @@
 <script type="text/babel" src="screens/customers-orders.jsx"></script>
 <script type="text/babel" src="screens/invoices-accounts.jsx"></script>
 <script type="text/babel" src="screens/journal-partners.jsx"></script>
-<script type="text/babel" src="screens/customer-detail.jsx?v=3"></script>
+<script type="text/babel" src="screens/customer-detail.jsx?v=4"></script>
 <script type="text/babel" src="screens/ai-pages.jsx"></script>
 <script type="text/babel" src="screens/ai-tasks-policies.jsx"></script>
 <script type="text/babel" src="screens/obs-overview-traces.jsx"></script>
@@ -74,7 +74,7 @@
 <script type="text/babel" src="screens/forms.jsx"></script>
 <script type="text/babel" src="screens/agents-page.jsx"></script>
 <script type="text/babel" src="screens/agent-detail.jsx"></script>
-<script type="text/babel" src="screens/agent-detail-page.jsx"></script>
+<script type="text/babel" src="screens/agent-detail-page.jsx?v=1"></script>
 <script type="text/babel" src="screens/workflows.jsx"></script>
 <script type="text/babel" src="screens/workflow-editor.jsx"></script>
 <script type="text/babel" src="screens/workflow-editor-chrome.jsx"></script>
@@ -87,15 +87,19 @@
 <script type="text/babel" src="screens/order-monitor.jsx"></script>
 <script type="text/babel" src="screens/ai-chat.jsx"></script>
 <script type="text/babel" src="screens/settings.jsx"></script>
-<script type="text/babel" src="screens/billers.jsx?v=2"></script>
+<script type="text/babel" src="screens/billers.jsx?v=3"></script>
+<script type="text/babel" src="screens/commerce-catalog.jsx?v=2"></script>
+<script type="text/babel" src="screens/commerce-inventory.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-orders.jsx?v=1"></script>
+<script type="text/babel" src="screens/commerce-overview.jsx?v=1"></script>
 <script type="text/babel" src="screens/remittances.jsx"></script>
 <script type="text/babel" src="screens/approvals.jsx"></script>
 <script type="text/babel" src="screens/tenant-signup.jsx"></script>
 <script type="text/babel" src="screens/account.jsx"></script>
 <script type="text/babel" src="screens/speech.jsx"></script>
-<script type="text/babel" src="screens/user-lifecycle.jsx"></script>
-<script type="text/babel" src="screens/partner-hub.jsx"></script>
-<script type="text/babel" src="screens/agent-extensions.jsx?v=2"></script>
+<script type="text/babel" src="screens/user-lifecycle.jsx?v=1"></script>
+<script type="text/babel" src="screens/partner-hub.jsx?v=1"></script>
+<script type="text/babel" src="screens/agent-extensions.jsx?v=3"></script>
 
 <!-- Background Workers (added) -->
 <script src="mock-data.js"></script>
@@ -592,6 +596,30 @@ function App() {
           </DCArtboard>
           <DCArtboard id="ulc-tombstones" label="Compliance · Deleted users · GDPR tombstones · 7-year retention" width={W} height={H}>
             {mkShell('compliance', ['Operations', 'Compliance', 'Deleted users'], ScreenComplianceTombstones)}
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="commerce" title="Commerce · Spec 042" subtitle="Aonik.Commerce retail module — catalog, build-your-own boxes, inventory, carts, orders, discounts">
+          <DCArtboard id="commerce-products" label="Commerce · Products · catalog (rail + KPIs + Kind/status filters + grid/list) + product editor drawer (variants · pricing · media · BYO-box builder)" width={W} height={H}>
+            {mkShell('commerce', ['Commerce', 'Catalog', 'Products'], ScreenCommerceProducts)}
+          </DCArtboard>
+          <DCArtboard id="commerce-categories" label="Commerce · Categories · parent/child product category tree" width={W} height={H}>
+            {mkShell('commerce', ['Commerce', 'Catalog', 'Categories'], ScreenCommerceCategories)}
+          </DCArtboard>
+          <DCArtboard id="commerce-inventory" label="Commerce · Inventory · stock by variant + location · set-on-hand · reservations/holds + TTL sweep · bundle buildability" width={W} height={H}>
+            {mkShell('commerce', ['Commerce', 'Inventory'], ScreenCommerceInventory)}
+          </DCArtboard>
+          <DCArtboard id="commerce-carts" label="Commerce · Carts · open/abandoned/guest carts + box selections + recovery" width={W} height={H}>
+            {mkShell('commerce', ['Commerce', 'Carts'], ScreenCommerceCarts)}
+          </DCArtboard>
+          <DCArtboard id="commerce-orders" label="Commerce · Orders · ProductPurchase orders + lifecycle stepper + charge summary (subtotal/discount/tax/total)" width={W} height={H}>
+            {mkShell('commerce', ['Commerce', 'Orders'], ScreenCommerceOrders)}
+          </DCArtboard>
+          <DCArtboard id="commerce-discounts" label="Commerce · Discounts · coupons (percentage/fixed, expiry, redemption limits) + tax-calculator seam" width={W} height={H}>
+            {mkShell('commerce', ['Commerce', 'Discounts'], ScreenCommerceDiscounts)}
+          </DCArtboard>
+          <DCArtboard id="commerce-overview" label="Commerce · Overview · KPIs + revenue trend + recent orders + top products + needs-attention" width={W} height={H}>
+            {mkShell('commerce', ['Commerce', 'Overview'], ScreenCommerceOverview)}
           </DCArtboard>
         </DCSection>
 
