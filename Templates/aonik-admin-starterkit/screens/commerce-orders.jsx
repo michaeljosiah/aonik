@@ -274,22 +274,24 @@ function ScreenCommerceOrders() {
 
 function CmOrderStepper({ o }) {
   const steps = ['Created', 'Invoiced', 'Funded', 'Paid', 'Fulfilled'];
-  let stage = o.pay === 'pending' ? 3 : o.fulfil === 'fulfilled' ? 5 : 4;
+  // completed-step count; the next index is the in-progress (current) step, not a checkmark.
+  // pending = invoiced, funding in progress (draft intent) — Funded is current, not done.
+  const completed = o.pay === 'pending' ? 2 : o.fulfil === 'fulfilled' ? 5 : 4;
   const halted = o.pay === 'cancelled' || o.pay === 'refunded';
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
         {steps.map((s, i) => {
-          const done = i < stage && !halted, cur = i === stage - 1 && !halted;
+          const isDone = i < completed && !halted, isCur = i === completed && !halted;
           return (
             <React.Fragment key={s}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flex: 'none' }}>
-                <span style={{ width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 700, background: done || cur ? 'var(--brand-primary)' : 'var(--surface-inset)', color: done || cur ? '#fff' : 'var(--text-tertiary)', border: done || cur ? 'none' : '1px solid var(--border-light)' }}>
-                  {done ? <Icon name="check" size={11} color="#fff" /> : i + 1}
+                <span style={{ width: 20, height: 20, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 700, background: isDone || isCur ? 'var(--brand-primary)' : 'var(--surface-inset)', color: isDone || isCur ? '#fff' : 'var(--text-tertiary)', border: isDone || isCur ? 'none' : '1px solid var(--border-light)' }}>
+                  {isDone ? <Icon name="check" size={11} color="#fff" /> : i + 1}
                 </span>
-                <span style={{ fontSize: 9.5, color: done || cur ? 'var(--text-primary)' : 'var(--text-tertiary)', fontWeight: cur ? 600 : 500 }}>{s}</span>
+                <span style={{ fontSize: 9.5, color: isDone || isCur ? 'var(--text-primary)' : 'var(--text-tertiary)', fontWeight: isCur ? 600 : 500 }}>{s}</span>
               </div>
-              {i < steps.length - 1 && <div style={{ flex: 1, height: 2, background: i < stage - 1 && !halted ? 'var(--brand-primary)' : 'var(--border-light)', margin: '0 2px', marginBottom: 16 }} />}
+              {i < steps.length - 1 && <div style={{ flex: 1, height: 2, background: i < completed && !halted ? 'var(--brand-primary)' : 'var(--border-light)', margin: '0 2px', marginBottom: 16 }} />}
             </React.Fragment>
           );
         })}

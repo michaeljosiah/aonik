@@ -42,11 +42,16 @@ const CM_RES_TONE = { held: 'warning', committed: 'success', released: 'muted' }
 
 // Bundle buildability — limited by the scarcest source category (§12 fan-out).
 function cmBuildable(rows) {
+  const availFor = cat => rows.filter(r => r.cat === cat && r.active).reduce((a, r) => a + Math.max(0, r.onHand - r.reserved), 0);
   return CM_PRODUCTS.filter(p => p.kind === 'bundle').map(p => {
     const need = p.bundle.slots.reduce((a, s) => a + s.min, 0);
     const sources = [...new Set(p.bundle.slots.map(s => s.from))];
-    const pool = rows.filter(r => sources.includes(r.cat) && r.active).reduce((a, r) => a + Math.max(0, r.onHand - r.reserved), 0);
-    return { p, need, sources, buildable: need ? Math.floor(pool / need) : 0 };
+    // a box is limited by its scarcest slot source: min over sources of floor(available / required-from-that-source),
+    // so a deep pool in one category can't mask a shortage in another
+    const needBySource = {};
+    p.bundle.slots.forEach(s => { needBySource[s.from] = (needBySource[s.from] || 0) + s.min; });
+    const buildable = Math.min(...sources.map(c => Math.floor(availFor(c) / needBySource[c])));
+    return { p, need, sources, buildable: isFinite(buildable) ? buildable : 0 };
   });
 }
 
