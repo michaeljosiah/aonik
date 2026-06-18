@@ -16,12 +16,14 @@ internal sealed class InventoryService : IInventoryService
 
     private readonly CommerceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly ITenantContext _tenantContext;
     private readonly IClock _clock;
 
-    public InventoryService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IClock clock)
+    public InventoryService(CommerceDbContext dbContext, ITenantProvider tenantProvider, ITenantContext tenantContext, IClock clock)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _tenantContext = tenantContext;
         _clock = clock;
     }
 
@@ -124,25 +126,48 @@ internal sealed class InventoryService : IInventoryService
     public async Task<int> ReleaseExpiredAsync(DateTime? asOfUtc = null, CancellationToken cancellationToken = default)
     {
         var at = asOfUtc ?? _clock.UtcNow;
-        // Global sweep across tenants — the Worker runs this without a tenant ambient.
+        // Global sweep — the Worker runs this without a tenant ambient. Read across tenants, then
+        // write per tenant: AonikDbContextBase.EnforceTenantOnWrites() requires a resolved tenant for
+        // any modified ITenantScoped row, so we set the tenant context for each group before saving.
         var expired = await _dbContext.InventoryReservations.AcrossTenants()
             .Where(r => r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at)
             .ToListAsync(cancellationToken);
-
-        foreach (var reservation in expired)
+        if (expired.Count == 0)
         {
-            var level = await _dbContext.InventoryLevels.AcrossTenants()
-                .FirstOrDefaultAsync(l => l.TenantId == reservation.TenantId
-                    && l.ProductVariantId == reservation.ProductVariantId
-                    && l.Location == null, cancellationToken);
-            if (level is not null)
-            {
-                level.Reserved -= reservation.Quantity;
-            }
-            reservation.Status = InventoryReservationStatuses.Released;
+            return 0;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var originalTenant = _tenantContext.TenantId;
+        var originalSource = _tenantContext.ResolutionSource;
+        try
+        {
+            foreach (var group in expired.GroupBy(r => r.TenantId))
+            {
+                _tenantContext.TenantId = group.Key;
+                _tenantContext.ResolutionSource = "inventory-sweep";
+
+                foreach (var reservation in group)
+                {
+                    var level = await _dbContext.InventoryLevels.AcrossTenants()
+                        .FirstOrDefaultAsync(l => l.TenantId == reservation.TenantId
+                            && l.ProductVariantId == reservation.ProductVariantId
+                            && l.Location == null, cancellationToken);
+                    if (level is not null)
+                    {
+                        level.Reserved -= reservation.Quantity;
+                    }
+                    reservation.Status = InventoryReservationStatuses.Released;
+                }
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            _tenantContext.TenantId = originalTenant;
+            _tenantContext.ResolutionSource = originalSource;
+        }
+
         return expired.Count;
     }
 

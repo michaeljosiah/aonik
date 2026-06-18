@@ -1,7 +1,11 @@
+using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.Infrastructure.Multitenancy;
+using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Tests.Commerce;
 
@@ -13,7 +17,7 @@ public class InventoryServiceTests
     {
         var clock = new CommerceTestHarness.TestClock();
         var ctx = CommerceTestHarness.CreateContext(options, tenantId);
-        var svc = new InventoryService(ctx, new TestTenantProvider(tenantId), clock);
+        var svc = new InventoryService(ctx, new TestTenantProvider(tenantId), new TenantContext { TenantId = tenantId }, clock);
         return (svc, clock, tenantId, ctx);
     }
 
@@ -125,5 +129,45 @@ public class InventoryServiceTests
         // Sweep after expiry — released, stock freed.
         (await svc.ReleaseExpiredAsync(clock.UtcNow.AddMinutes(31))).Should().Be(1);
         (await svc.GetAvailableAsync(variant)).Should().Be(10m);
+    }
+
+    [Fact]
+    public async Task ReleaseExpired_Should_SweepAcrossTenants_WithoutAmbientTenant()
+    {
+        // Mirrors the Worker: the sweep runs with no ambient tenant over a context-backed provider.
+        // ReleaseExpiredAsync must set the tenant per group so EnforceTenantOnWrites passes.
+        var dbName = $"co_sweep_{Guid.NewGuid()}";
+        var shared = new TenantContext();
+        var clock = new CommerceTestHarness.TestClock();
+        var provider = new HttpContextTenantProvider(shared);
+        CommerceDbContext Ctx() => new(
+            new DbContextOptionsBuilder<CommerceDbContext>().UseInMemoryDatabase(dbName).Options,
+            provider, new TestCurrentUserProvider());
+        InventoryService Svc() => new(Ctx(), provider, shared, clock);
+
+        var t1 = Guid.NewGuid();
+        var t2 = Guid.NewGuid();
+        var v1 = Guid.NewGuid();
+        var v2 = Guid.NewGuid();
+
+        shared.TenantId = t1;
+        await Svc().SetOnHandAsync(v1, 10m);
+        await Svc().ReserveAsync(Guid.NewGuid(), new[] { new InventoryReservationLine(v1, 4m) });
+
+        shared.TenantId = t2;
+        await Svc().SetOnHandAsync(v2, 10m);
+        await Svc().ReserveAsync(Guid.NewGuid(), new[] { new InventoryReservationLine(v2, 5m) });
+
+        // Worker sweep — no ambient tenant.
+        shared.TenantId = null;
+        var released = await Svc().ReleaseExpiredAsync(clock.UtcNow.AddMinutes(31));
+        released.Should().Be(2);
+
+        // Both tenants' stock is freed, and the ambient tenant is restored to null afterwards.
+        shared.IsResolved.Should().BeFalse();
+        shared.TenantId = t1;
+        (await Svc().GetAvailableAsync(v1)).Should().Be(10m);
+        shared.TenantId = t2;
+        (await Svc().GetAvailableAsync(v2)).Should().Be(10m);
     }
 }

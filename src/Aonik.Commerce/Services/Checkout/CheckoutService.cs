@@ -54,6 +54,21 @@ internal sealed class CheckoutService : ICheckoutService
             .FirstOrDefaultAsync(c => c.Id == command.CartId && c.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException($"Cart '{command.CartId}' was not found.");
 
+        // Idempotency: a cart stays Open until payment completes, so a retry / double-click re-enters
+        // here. If checkout already ran (OrderId stamped), replay the recorded result rather than
+        // reserving stock or creating the order/payment again.
+        if (cart.OrderId is { } existingOrderId)
+        {
+            var prior = await _dbContext.OrderChargeSummaries.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.OrderId == existingOrderId && s.TenantId == tenantId, cancellationToken);
+            if (prior is not null)
+            {
+                return new CheckoutResult(
+                    existingOrderId, prior.InvoiceId, prior.PaymentIntentId, prior.PaymentStatus,
+                    prior.Subtotal, prior.DiscountTotal, prior.TaxTotal, prior.Total, prior.Currency);
+            }
+        }
+
         if (cart.Status != CartStatuses.Open)
         {
             throw new InvalidOperationException($"Cart '{cart.Id}' is {cart.Status}, not Open.");
@@ -181,6 +196,9 @@ internal sealed class CheckoutService : ICheckoutService
             DiscountCode = discount.Code,
             TaxTotal = tax,
             Total = total,
+            PaymentIntentId = intent.PaymentIntentId,
+            InvoiceId = invoiceId,
+            PaymentStatus = intent.Status,
         });
         cart.OrderId = order.Id;
         await _dbContext.SaveChangesAsync(cancellationToken);

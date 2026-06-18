@@ -72,7 +72,7 @@ public class CheckoutServiceTests
 
         public ProductService Products() => new(Commerce(), _tenant);
         public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
-        public InventoryService Inventory() => new(Commerce(), _tenant, _clock);
+        public InventoryService Inventory() => new(Commerce(), _tenant, new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);
         public CartService Carts() => new(Commerce(), _tenant, Pricing());
         public DiscountService Discounts() => new(Commerce(), _tenant, _clock);
         public CheckoutService Checkout() => new(
@@ -235,6 +235,49 @@ public class CheckoutServiceTests
         var charge = await commerce.OrderChargeSummaries.FirstAsync(c => c.OrderId == result.OrderId);
         charge.Total.Should().Be(4_500m);
         charge.DiscountCode.Should().Be("SAVE10");
+    }
+
+    [Fact]
+    public async Task Checkout_Retry_Should_BeIdempotent_NotReReserveOrCreateSecondOrder()
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
+
+        var first = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id));
+        var retry = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id)); // double-click
+
+        // Same order + payment intent replayed; no second order; stock reserved exactly once.
+        retry.OrderId.Should().Be(first.OrderId);
+        retry.PaymentIntentId.Should().Be(first.PaymentIntentId);
+        retry.Total.Should().Be(first.Total);
+        (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m);
+
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AddItem_Should_RejectNonPositiveQuantity()
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+
+        var zero = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 0m));
+        var negative = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, -1m));
+
+        await zero.Should().ThrowAsync<ArgumentException>();
+        await negative.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]

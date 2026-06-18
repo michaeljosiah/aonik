@@ -18,4 +18,10 @@ public class OrderChargeSummary : AuditableEntity, ITenantScoped
     public string? DiscountCode { get; set; }
     public decimal TaxTotal { get; set; }
     public decimal Total { get; set; }
+
+    // Funding references — recorded so a checkout retry on an already-checked-out cart can replay the
+    // original result without re-reserving stock or re-creating the order/payment (Spec 042 §11).
+    public Guid PaymentIntentId { get; set; }
+    public Guid? InvoiceId { get; set; }
+    public string PaymentStatus { get; set; } = string.Empty;
 }

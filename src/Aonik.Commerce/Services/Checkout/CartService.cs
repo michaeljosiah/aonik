@@ -51,6 +51,11 @@ internal sealed class CartService : ICartService
 
     public async Task<CartDto> AddItemAsync(AddCartItemCommand command, CancellationToken cancellationToken = default)
     {
+        if (command.Quantity <= 0)
+        {
+            throw new ArgumentException("Quantity must be greater than zero.", nameof(command));
+        }
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var cart = await ValidateOpenCartAsync(command.CartId, tenantId, cancellationToken);
 
@@ -81,6 +86,15 @@ internal sealed class CartService : ICartService
 
     public async Task<CartDto> AddBundleAsync(AddBundleToCartCommand command, CancellationToken cancellationToken = default)
     {
+        if (command.Selection is null || command.Selection.Count == 0)
+        {
+            throw new ArgumentException("A bundle requires at least one selected component.", nameof(command));
+        }
+        if (command.Selection.Any(s => s.Quantity <= 0))
+        {
+            throw new ArgumentException("Selection quantities must be greater than zero.", nameof(command));
+        }
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var cart = await ValidateOpenCartAsync(command.CartId, tenantId, cancellationToken);
 
