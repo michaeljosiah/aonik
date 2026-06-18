@@ -66,16 +66,16 @@ const ADX_POLICIES = [
   { t: 'Dual-control payouts', d: 'Two approvers for any outbound payout',  enforced: true },
   { t: 'Amount ceiling',       d: 'Always require approval > £50,000',       enforced: true },
   { t: 'PII redaction',        d: 'Customer PII stripped from all prompts',  enforced: true },
-  { t: 'Auto-apply',           d: 'Confidence ≥ 0.95 · audit on apply',      enforced: true, soft: true },
+  { t: 'Auto-apply',           d: 'Confidence ≥ 0.95 — audit on apply',      enforced: true, soft: true },
 ];
 
 // Unified capability set — used by the gallery and as the source for the
 // constellation, so counts always line up across views.
 function adxCaps() {
   const caps = [
-    ...ADX_TOOLS.map(t => ({ id: 'tool-' + t.name, type: 'tool', name: t.name, desc: t.desc, stat: t.uses.toLocaleString(), statL: 'calls · 24h', on: t.enabled, mono: true })),
+    ...ADX_TOOLS.map(t => ({ id: 'tool-' + t.name, type: 'tool', name: t.name, desc: t.desc, stat: t.uses.toLocaleString(), statL: 'calls (24h)', on: t.enabled, mono: true })),
     ...ADX_SKILLS.map(s => ({ id: 'skill-' + s.name, type: 'skill', name: s.name, desc: s.desc, stat: String(s.last24h), statL: 'activations', on: true, mono: true, beta: s.status === 'beta' })),
-    ...ADX_SUBS.map(s => { const sub = AGENT_LIST.find(a => a.id === s.ref); return { id: 'sub-' + s.ref, type: 'agent', name: sub.name, desc: s.role, stat: String(s.calls), statL: 'calls · 24h', on: true }; }),
+    ...ADX_SUBS.map(s => { const sub = AGENT_LIST.find(a => a.id === s.ref); return { id: 'sub-' + s.ref, type: 'agent', name: sub.name, desc: s.role, stat: String(s.calls), statL: 'calls (24h)', on: true }; }),
     ...ADX_SERVERS.map(s => ({ id: 'srv-' + s.name, type: 'server', name: s.name, desc: s.url, stat: String(s.tools), statL: 'tools', on: s.status !== 'error', mono: true })),
   ];
   const counts = { all: caps.length, tool: ADX_TOOLS.length, skill: ADX_SKILLS.length, agent: ADX_SUBS.length, server: ADX_SERVERS.length };
@@ -122,7 +122,7 @@ function LpHeroBlock({ agent, onEdit }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
             <span style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700, color: agent.color, padding: '3px 9px', borderRadius: 5, background: agent.color + '16' }}>{agent.kind} agent</span>
             <Pill tone="success" dot size="sm">Running</Pill>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>v0.42.1 · 12d ago</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>v0.42.1 — 12d ago</span>
           </div>
           <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: 34, letterSpacing: '-0.02em', margin: 0, color: 'var(--text-primary)' }}>{agent.name}</h1>
           <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '8px 0 16px', maxWidth: 620 }}>{agent.description}</p>
@@ -139,7 +139,7 @@ function LpHeroBlock({ agent, onEdit }) {
           <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginTop: 3, letterSpacing: '0.04em' }}>confidence</div>
         </AdxRing>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <LpQuiet l="Runs · 24h" v={agent.runs.toLocaleString()} />
+          <LpQuiet l="Runs (24h)" v={agent.runs.toLocaleString()} />
           <LpQuiet l="p99 latency" v="892ms" />
           <LpQuiet l="Autonomy" v="Auto-apply" accent={agent.color} />
         </div>
@@ -237,7 +237,7 @@ function LpVitalsRail({ agent }) {
         </div>
       </LpCard>
 
-      <LpCard title="Recent activity" eyebrow="318 runs · 24h">
+      <LpCard title="Recent activity" eyebrow="318 runs (24h)">
         <div>
           {ADX_RUNS.slice(0, 5).map((r, i) => {
             const tc = r.status === 'ok' ? 'var(--success)' : r.status === 'held' ? 'var(--warning)' : 'var(--danger)';
@@ -246,7 +246,7 @@ function LpVitalsRail({ agent }) {
                 <span style={{ width: 7, height: 7, borderRadius: 9, background: tc }} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.op}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>{r.txn} · {r.dur}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>{r.txn} — {r.dur}</div>
                 </div>
                 <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{r.t}</span>
               </div>
@@ -413,7 +413,7 @@ function TopoInspector({ agent, sel, onClear, onEdit, onOpenDetails }) {
         </div>
         <div style={{ padding: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-            <TopoStat l="Runs · 24h" v={agent.runs.toLocaleString()} />
+            <TopoStat l="Runs (24h)" v={agent.runs.toLocaleString()} />
             <TopoStat l="Confidence" v={Math.round(agent.conf * 100) + '%'} tone="var(--success)" />
             <TopoStat l="Tools" v={ADX_TOOLS.length} />
             <TopoStat l="Sub-agents" v={ADX_SUBS.length} />
@@ -453,7 +453,7 @@ function TopoInspector({ agent, sel, onClear, onEdit, onOpenDetails }) {
       <div style={{ padding: 16 }}>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 14px' }}>{s.role}</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          <TopoStat l="Calls · 24h" v={s.calls} /><TopoStat l="Success" v={s.success + '%'} tone={s.success >= 98 ? 'var(--success)' : 'var(--warning)'} /><TopoStat l="Avg" v={s.avgMs + 'ms'} />
+          <TopoStat l="Calls (24h)" v={s.calls} /><TopoStat l="Success" v={s.success + '%'} tone={s.success >= 98 ? 'var(--success)' : 'var(--warning)'} /><TopoStat l="Avg" v={s.avgMs + 'ms'} />
         </div>
         <button className="btn btn-outline btn-sm" style={{ width: '100%', marginTop: 14 }} onClick={onOpenDetails ? () => onOpenDetails(sel) : undefined}>{onOpenDetails ? 'Open details' : 'Open agent'} <Icon name="arrowright" size={12} /></button>
       </div>
@@ -468,7 +468,7 @@ function TopoInspector({ agent, sel, onClear, onEdit, onOpenDetails }) {
         <div style={{ display: 'inline-flex', marginBottom: 12, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: cc, padding: '2px 8px', borderRadius: 4, background: cc + '18', fontFamily: 'var(--font-mono)' }}>{t.cat}</div>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, margin: '0 0 14px' }}>{t.desc}</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-          <TopoStat l="Uses · 24h" v={t.uses.toLocaleString()} /><TopoStat l="p99" v={t.p99} />
+          <TopoStat l="Uses (24h)" v={t.uses.toLocaleString()} /><TopoStat l="p99" v={t.p99} />
         </div>
         <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Recent calls</div>
         <div style={{ borderRadius: 10, border: '1px solid var(--border-light)', overflow: 'hidden' }}>
@@ -520,7 +520,7 @@ function TopoInspector({ agent, sel, onClear, onEdit, onOpenDetails }) {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 12, wordBreak: 'break-all' }}>{s.url}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14, fontSize: 12, fontWeight: 600, color: stc }}>
         <span style={{ width: 7, height: 7, borderRadius: 9, background: stc }} />{s.status}
-        {s.err && <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>· {s.err}</span>}
+        {s.err && <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>— {s.err}</span>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         <TopoStat l="Tools" v={s.tools} /><TopoStat l="Auth" v={s.auth} /><TopoStat l="Latency" v={s.latency} />
@@ -540,7 +540,7 @@ function TopoStat({ l, v, tone }) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// THE PAGE — "Profile + Map"  (gallery default · Gallery ⇄ Map toggle)
+// THE PAGE — "Profile + Map"  (gallery default — Gallery ⇄ Map toggle)
 // ═════════════════════════════════════════════════════════════════════════
 
 function ScreenAgentDetailBlend() {
@@ -625,8 +625,8 @@ function ScreenAgentDetailBlend() {
 
 // ─── Deep-detail drawer (per-capability full view) ───────────────────────
 // Wide right slide-over reached from the rail inspector's "Open details".
-// Tool → input/output schema + recent invocations · Skill → full SKILL.md +
-// bundle file tree · Sub-agent → role + delegations · Server → connection + sync.
+// Tool → input/output schema + recent invocations — Skill → full SKILL.md +
+// bundle file tree — Sub-agent → role + delegations — Server → connection + sync.
 function adxToolSchema(t) {
   const input = t.cat === 'read'
     ? `{\n  "query": "string",\n  "window": "string   // e.g. 72h",\n  "limit": "number   // default 50"\n}`
@@ -691,9 +691,9 @@ function BlendDetailDrawer({ node, agent, onClose }) {
   const ty = LP_TYPE[node.type];
   const d = node.data;
   const name = node.type === 'agent' ? d.sub.name : node.label;
-  const subtitle = node.type === 'tool' ? `${d.cat} tool · schema v2.1.0`
-    : node.type === 'skill' ? `${d.source} · v${d.version}`
-    : node.type === 'agent' ? `sub-agent · ${d.autonomy === 'auto' ? 'auto-apply' : d.autonomy}`
+  const subtitle = node.type === 'tool' ? `${d.cat} tool — schema v2.1.0`
+    : node.type === 'skill' ? `${d.source} — v${d.version}`
+    : node.type === 'agent' ? `sub-agent — ${d.autonomy === 'auto' ? 'auto-apply' : d.autonomy}`
     : d.url;
   const mono = node.type === 'tool' || node.type === 'skill';
   return (
@@ -746,7 +746,7 @@ function BlendToolBody({ t }) {
     <>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t.desc}</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-        <TopoStat l="Uses · 24h" v={t.uses.toLocaleString()} />
+        <TopoStat l="Uses (24h)" v={t.uses.toLocaleString()} />
         <TopoStat l="p99" v={t.p99} />
         <TopoStat l="Enabled" v={t.enabled ? 'Yes' : 'No'} tone={t.enabled ? 'var(--success)' : 'var(--text-tertiary)'} />
       </div>
@@ -774,11 +774,11 @@ function BlendSkillBody({ s }) {
     <>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{s.desc}</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-        <TopoStat l="Activations · 24h" v={s.last24h} />
+        <TopoStat l="Activations (24h)" v={s.last24h} />
         <TopoStat l="Source" v={s.source} />
         <TopoStat l="Status" v={s.status} tone={s.status === 'beta' ? '#b4741e' : 'var(--success)'} />
       </div>
-      <div><BlendField>SKILL.md · loaded on activation</BlendField><BlendMd md={adxSkillMd(s)} /></div>
+      <div><BlendField>SKILL.md — loaded on activation</BlendField><BlendMd md={adxSkillMd(s)} /></div>
       <div><BlendField>Bundle</BlendField><SkillFileTree tree={ADX_SKILL_TREE} accent="#055a60" /></div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', fontSize: 11, color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-light)', paddingTop: 12 }}>
         <span>version <b style={{ color: 'var(--text-secondary)' }}>v{s.version}</b></span>
@@ -807,7 +807,7 @@ function BlendAgentBody({ s }) {
         <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>Calls run under {s.sub.name}'s own policies.</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-        <TopoStat l="Calls · 24h" v={s.calls} />
+        <TopoStat l="Calls (24h)" v={s.calls} />
         <TopoStat l="Success" v={s.success + '%'} tone={s.success >= 98 ? 'var(--success)' : 'var(--warning)'} />
         <TopoStat l="Avg latency" v={s.avgMs + 'ms'} />
       </div>

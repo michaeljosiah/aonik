@@ -1,4 +1,4 @@
-// ─── Agent Extensions · Spec 033 ──────────────────────────────────
+// ─── Agent Extensions — Spec 033 ──────────────────────────────────
 // Direction 2 (Library + Drawer), built out as the real hub.
 //
 // One flat library of extensions; click any card → a right-side
@@ -77,7 +77,7 @@ const EXTENSIONS = [
     desc: 'Fetch a live mid-market FX quote for a currency pair from the treasury rate feed.',
     state: 'active', tier: 'readonly', owner: 'David Lynn', usage: 162, lastUsed: '5m ago',
     meta: { method: 'GET', url: 'https://rates.primrose.internal/fx/{base}/{quote}', auth: 'API key', authSet: true, params: 2, egressOk: true } },
-  { id: 'ext-10', type: 'http', name: 'CRM · create contact', slug: 'crm-create-contact',
+  { id: 'ext-10', type: 'http', name: 'CRM — create contact', slug: 'crm-create-contact',
     desc: 'Create a new contact record in the tenant CRM when a customer is onboarded.',
     state: 'review', tier: 'high', owner: 'Kiran Desai', usage: 0, lastUsed: 'never',
     meta: { method: 'POST', url: 'https://api.crm-vendor.com/v2/contacts', auth: 'OAuth2', authSet: true, params: 4, egressOk: true,
@@ -168,9 +168,9 @@ function ExtTierPill({ tier, size }) {
   );
 }
 function extFactLine(e) {
-  if (e.type === 'skill') return `${e.meta.allowedTools.length} allowed tools · ${e.meta.sizeKb} KB${e.meta.scripts ? ' · has scripts' : ''}`;
-  if (e.type === 'mcp') return `${e.meta.tools.length} tools · ${e.meta.auth}`;
-  return `${e.meta.method} · ${e.meta.params} params · ${e.meta.auth}`;
+  if (e.type === 'skill') return `${e.meta.allowedTools.length} allowed tools — ${e.meta.sizeKb} KB${e.meta.scripts ? ' — has scripts' : ''}`;
+  if (e.type === 'mcp') return `${e.meta.tools.length} tools — ${e.meta.auth}`;
+  return `${e.meta.method} — ${e.meta.params} params — ${e.meta.auth}`;
 }
 function ExtViewToggle({ view, setView }) {
   return (
@@ -240,9 +240,9 @@ function ExtHub({ initialLens = 'tenant', initialDrawer = 'detail', initialSel =
       <div style={{ height: '100%', overflow: 'auto', padding: '28px 36px', filter: drawer ? 'saturate(0.97)' : 'none' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1120 }}>
           <PageHeader
-            eyebrow="AI · Agents"
+            eyebrow="AI — Agents"
             title="Agent Extensions"
-            subtitle={`${EXTENSIONS.length} extensions · ${extCount(x => x.state === 'active')} active · ${reviewCount} in review · ${extCount(x => x.state === 'draft')} drafts`}
+            subtitle={`${EXTENSIONS.length} extensions — ${extCount(x => x.state === 'active')} active — ${reviewCount} in review — ${extCount(x => x.state === 'draft')} drafts`}
             actions={<>
               <RoleLens lens={lens} setLens={switchLens} reviewCount={reviewCount}/>
               <button className="btn btn-outline btn-sm" onClick={() => setDrawer('harness')}><Icon name="beaker" size={12}/> Test harness</button>
@@ -496,7 +496,7 @@ function ExtDetailDrawer({ e, review, onClose }) {
                 color: e.meta.method === 'GET' ? '#1f7a5e' : '#c44536' }}>{e.meta.method}</span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-secondary)', wordBreak: 'break-all' }}>{e.meta.url}</span>
             </div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 6 }}>{e.meta.params} declared parameters · the model can't smuggle extra fields</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 6 }}>{e.meta.params} declared parameters — the model can't smuggle extra fields</div>
           </DrawerSection>
         )}
 
@@ -627,7 +627,7 @@ function ExtAddDrawer({ onClose }) {
       </div>
 
       <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border-light)', background: 'var(--surface-inset)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', flex: 1 }}>Mutating tools default to High · a platform admin reviews before it goes live.</span>
+        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', flex: 1 }}>Mutating tools default to High — a platform admin reviews before it goes live.</span>
         <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary btn-sm"><Icon name="check" size={12}/> Save draft</button>
       </div>
@@ -680,7 +680,7 @@ function AddMcpForm() {
 function AddHttpForm() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <FormField label="Name"><input style={fieldStyle} placeholder="e.g. CRM · create contact"/></FormField>
+      <FormField label="Name"><input style={fieldStyle} placeholder="e.g. CRM — create contact"/></FormField>
       <FormField label="Request">
         <div style={{ display: 'flex', gap: 8 }}>
           <select style={{ ...fieldStyle, width: 100, fontFamily: 'var(--font-mono)', fontSize: 12 }}><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select>

@@ -52,9 +52,9 @@ function bzServices(b) {
   const code = (p, n) => p + (100 + ((b.name.charCodeAt(0) + n * 7) % 800));
   if (b.cat === 'telco') return [
     { name: 'Airtime top-up',        kind: 'Variable', amount: '—',      field: 'Mobile Number', code: code('AT', 1), active: true },
-    { name: b.sym + ' Data · 1.5GB', kind: 'Fixed',    amount: '₦1,200', field: 'Mobile Number', code: code('DT', 2), active: true },
-    { name: b.sym + ' Data · 6GB',   kind: 'Fixed',    amount: '₦2,500', field: 'Mobile Number', code: code('DT', 3), active: true },
-    { name: b.sym + ' Data · 11GB',  kind: 'Fixed',    amount: '₦4,000', field: 'Mobile Number', code: code('DT', 4), active: !b.inactive },
+    { name: b.sym + ' Data — 1.5GB', kind: 'Fixed',    amount: '₦1,200', field: 'Mobile Number', code: code('DT', 2), active: true },
+    { name: b.sym + ' Data — 6GB',   kind: 'Fixed',    amount: '₦2,500', field: 'Mobile Number', code: code('DT', 3), active: true },
+    { name: b.sym + ' Data — 11GB',  kind: 'Fixed',    amount: '₦4,000', field: 'Mobile Number', code: code('DT', 4), active: !b.inactive },
   ];
   if (b.cat === 'utilities') return [
     { name: 'Prepaid (token)', kind: 'Variable', amount: '—', field: 'Meter Number',   code: code('PRE', 1), active: true },
@@ -142,7 +142,7 @@ function ScreenBillers() {
             <div style={{ display:'flex', alignItems:'center', gap: 10, padding:'11px 14px', borderRadius: '0 10px 10px 0', background:'var(--success-tint, #1f7a5e12)', borderLeft:'3px solid var(--success)' }}>
               <span style={{ width: 22, height: 22, borderRadius: 999, background:'var(--success)', color:'#fff', display:'grid', placeItems:'center', flex:'none' }}><Icon name="check" size={13} color="#fff"/></span>
               <div style={{ fontSize: 12.5, color:'var(--text-primary)' }}>
-                Imported from <b>Flutterwave</b> — <b style={{ fontFamily:'var(--font-mono)' }}>{flash.created}</b> created · <b style={{ fontFamily:'var(--font-mono)' }}>{flash.updated}</b> updated · <b style={{ fontFamily:'var(--font-mono)' }}>{flash.deactivated}</b> deactivated.
+                Imported from <b>Flutterwave</b> — <b style={{ fontFamily:'var(--font-mono)' }}>{flash.created}</b> created — <b style={{ fontFamily:'var(--font-mono)' }}>{flash.updated}</b> updated — <b style={{ fontFamily:'var(--font-mono)' }}>{flash.deactivated}</b> deactivated.
               </div>
               <div style={{ flex: 1 }}/>
               <button onClick={() => setFlash(null)} style={{ border:'none', background:'transparent', cursor:'pointer', color:'var(--text-tertiary)' }}><Icon name="close" size={14}/></button>
@@ -152,10 +152,10 @@ function ScreenBillers() {
           {/* Stats strip */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap: 12 }}>
             {[
-              { label:'Active billers',   v:'138',     sub:'2 inactive · 4 in maintenance' },
+              { label:'Active billers',   v:'138',     sub:'2 inactive — 4 in maintenance' },
               { label:'Tx this month',    v:'24,810',  sub:'+12% vs last month' },
               { label:'Avg success rate', v:'99.1%',   sub:'across all billers' },
-              { label:'Avg time-to-receipt', v:'9.4s', sub:'p95 · 38s' },
+              { label:'Avg time-to-receipt', v:'9.4s', sub:'p95 — 38s' },
             ].map(s => (
               <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border-light)', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 11, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight: 600 }}>{s.label}</div>
@@ -209,7 +209,7 @@ function ScreenBillers() {
                         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{b.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', display:'flex', alignItems:'center', gap:6, marginTop: 1 }}>
                           <span>{BILLER_CATEGORIES.find(c => c.id === b.cat).label}</span>
-                          <span>·</span>
+                          <span>—</span>
                           <span>{b.country}</span>
                         </div>
                       </div>
@@ -244,8 +244,8 @@ function ScreenBillers() {
                     <Icon name={b.from === 'Manual' ? 'edit' : 'download'} size={11} color={BZ_FROM_TONE[b.from]}/>
                     {b.from === 'Manual'
                       ? <span>Manual entry</span>
-                      : <span>Imported · <b style={{ color: BZ_FROM_TONE[b.from] }}>{b.from}</b> · <span style={{ fontFamily:'var(--font-mono)' }}>{b.code}</span></span>}
-                    {b.inactive && <><span>·</span><span style={{ color:'var(--text-tertiary)' }}>{b.dropped}</span></>}
+                      : <span>Imported — <b style={{ color: BZ_FROM_TONE[b.from] }}>{b.from}</b> — <span style={{ fontFamily:'var(--font-mono)' }}>{b.code}</span></span>}
+                    {b.inactive && <><span>—</span><span style={{ color:'var(--text-tertiary)' }}>{b.dropped}</span></>}
                   </div>
                 </div>
               ))}
@@ -274,7 +274,7 @@ function ScreenBillers() {
                     <div style={{ width: 28, height: 28, borderRadius: 5, background: b.color, color: '#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-brand)', fontWeight: 800, fontSize: 10, flex: 'none', filter: b.inactive ? 'grayscale(1)' : 'none' }}>{b.sym}</div>
                     <div>
                       <div style={{ color:'var(--text-primary)', fontWeight: 500 }}>{b.name}</div>
-                      <div style={{ fontSize: 11, color:'var(--text-tertiary)' }}>{b.country} · <span style={{ fontFamily:'var(--font-mono)' }}>{b.code}</span></div>
+                      <div style={{ fontSize: 11, color:'var(--text-tertiary)' }}>{b.country} — <span style={{ fontFamily:'var(--font-mono)' }}>{b.code}</span></div>
                     </div>
                   </div>
                   <div style={{ color:'var(--text-secondary)' }}>{BILLER_CATEGORIES.find(c => c.id === b.cat).label}</div>
@@ -315,7 +315,7 @@ function BillerDetailDrawer({ biller: b, onClose }) {
               <Pill tone={b.statusTone} dot size="sm">{b.status}</Pill>
             </div>
             <div style={{ fontSize: 12, color:'var(--text-secondary)', marginTop: 3 }}>
-              {BILLER_CATEGORIES.find(c => c.id === b.cat).label} · {b.country}
+              {BILLER_CATEGORIES.find(c => c.id === b.cat).label} — {b.country}
             </div>
           </div>
           <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: 6, border:'1px solid var(--border-light)', background:'var(--surface)', cursor:'pointer', display:'grid', placeItems:'center' }}><Icon name="close" size={13} color="var(--text-secondary)"/></button>
@@ -359,13 +359,13 @@ function BillerDetailDrawer({ biller: b, onClose }) {
             </div>
             <div style={{ border:'1px solid var(--border-light)', borderRadius: 10, overflow:'hidden' }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 84px 30px', gap: 10, padding:'8px 12px', background:'var(--surface-inset)', borderBottom:'1px solid var(--border-light)', fontSize: 9.5, fontWeight: 600, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-tertiary)' }}>
-                <div>Service · field</div><div>Type</div><div style={{ textAlign:'right' }}>Amount</div><div/>
+                <div>Service — field</div><div>Type</div><div style={{ textAlign:'right' }}>Amount</div><div/>
               </div>
               {services.map((s, i) => (
                 <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 80px 84px 30px', gap: 10, padding:'10px 12px', alignItems:'center', borderTop: i ? '1px solid var(--border-light)' : 'none', opacity: s.active ? 1 : 0.5 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12.5, fontWeight: 500, color:'var(--text-primary)' }}>{s.name}</div>
-                    <div style={{ fontSize: 10.5, color:'var(--text-tertiary)', marginTop: 1 }}>{s.field} · <span style={{ fontFamily:'var(--font-mono)' }}>{s.code}</span></div>
+                    <div style={{ fontSize: 10.5, color:'var(--text-tertiary)', marginTop: 1 }}>{s.field} — <span style={{ fontFamily:'var(--font-mono)' }}>{s.code}</span></div>
                   </div>
                   <span style={{ justifySelf:'start', fontSize: 9.5, fontWeight: 700, letterSpacing:'0.04em', textTransform:'uppercase', padding:'2px 7px', borderRadius: 4, fontFamily:'var(--font-mono)',
                     color: s.kind === 'Fixed' ? '#0e7490' : '#b4741e', background: (s.kind === 'Fixed' ? '#0e7490' : '#b4741e') + '18' }}>{s.kind}</span>
@@ -388,9 +388,9 @@ function BillerDetailDrawer({ biller: b, onClose }) {
 
 // ═══ Import-from-partner wizard ═════════════════════════════════════════
 const BZ_CONNECTORS = [
-  { id:'flw',  name:'Flutterwave', sub:'NG · Bill payment · v3 Bills API', sym:'FW', color:'#f59e0b', status:'Connected', tone:'success', meta:'~340 billers available' },
-  { id:'pst',  name:'Paystack',    sub:'NG · Bill payment',                sym:'PS', color:'#0ea5e9', status:'Connected', tone:'success', meta:'~180 billers available' },
-  { id:'sim',  name:'Simulated',   sub:'Sandbox connector · fallback',     sym:'SIM',color:'#7b76b6', status:'Sandbox',   tone:'muted',   meta:'2 fake billers' },
+  { id:'flw',  name:'Flutterwave', sub:'NG — Bill payment — v3 Bills API', sym:'FW', color:'#f59e0b', status:'Connected', tone:'success', meta:'~340 billers available' },
+  { id:'pst',  name:'Paystack',    sub:'NG — Bill payment',                sym:'PS', color:'#0ea5e9', status:'Connected', tone:'success', meta:'~180 billers available' },
+  { id:'sim',  name:'Simulated',   sub:'Sandbox connector — fallback',     sym:'SIM',color:'#7b76b6', status:'Sandbox',   tone:'muted',   meta:'2 fake billers' },
 ];
 
 // The partner's live catalogue (what POST /import/preview returns), grouped by
@@ -502,7 +502,7 @@ function BillerImportWizard({ onClose, onImported }) {
         <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--border-light)', display:'flex', alignItems:'center', gap: 14 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color:'var(--text-primary)' }}>Import billers from a partner</div>
-            <div style={{ fontSize: 12, color:'var(--text-secondary)', marginTop: 2 }}>Pull a connector's live catalogue · idempotent upsert · no money moves</div>
+            <div style={{ fontSize: 12, color:'var(--text-secondary)', marginTop: 2 }}>Pull a connector's live catalogue — idempotent upsert — no money moves</div>
           </div>
           {!done && <BzStepDots step={step}/>}
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border:'1px solid var(--border-light)', background:'var(--surface)', cursor:'pointer', display:'grid', placeItems:'center', flex:'none' }}><Icon name="close" size={14} color="var(--text-secondary)"/></button>
@@ -512,7 +512,7 @@ function BillerImportWizard({ onClose, onImported }) {
         {step === 2 && !done && (
           <div style={{ padding:'10px 22px', borderBottom:'1px solid var(--border-light)', background:'var(--surface-inset)', display:'flex', alignItems:'center', gap: 10, flexWrap:'wrap' }}>
             <span style={{ display:'inline-flex', alignItems:'center', gap: 6, fontSize: 11.5, color:'var(--text-secondary)' }}>
-              <span style={{ width: 7, height: 7, borderRadius: 999, background:'var(--success)' }}/> Live · {conn.name}
+              <span style={{ width: 7, height: 7, borderRadius: 999, background:'var(--success)' }}/> Live — {conn.name}
             </span>
             <div style={{ display:'flex', gap: 4, flexWrap:'wrap' }}>
               {['all', ...FLW_CATALOGUE.map(g => g.cat)].map(c => (
@@ -574,7 +574,7 @@ function BillerImportWizard({ onClose, onImported }) {
                       <Icon name={opened ? 'chevdown' : 'chevron'} size={13} color="var(--text-tertiary)"/>
                       <span style={{ fontSize: 12.5, fontWeight: 700, color:'var(--text-primary)' }}>{g.cat}</span>
                       <span style={{ fontFamily:'var(--font-mono)', fontSize: 11, color:'var(--text-tertiary)' }}>{g.items.length}</span>
-                      {groupNew > 0 && <span style={{ fontSize: 10, color:'var(--brand-primary)', fontWeight: 600 }}>· {groupNew} new</span>}
+                      {groupNew > 0 && <span style={{ fontSize: 10, color:'var(--brand-primary)', fontWeight: 600 }}>— {groupNew} new</span>}
                     </div>
                     {opened && (
                       <div style={{ border:'1px solid var(--border-light)', borderRadius: 10, overflow:'hidden' }}>
@@ -595,8 +595,8 @@ function BillerImportWizard({ onClose, onImported }) {
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontSize: 13, fontWeight: 500, color:'var(--text-primary)' }}>{it.name}</div>
                                 <div style={{ fontSize: 10.5, color:'var(--text-tertiary)' }}>
-                                  <span style={{ fontFamily:'var(--font-mono)' }}>{it.code}</span> · {it.svc} service{it.svc > 1 ? 's' : ''}
-                                  {it.note && <span style={{ color:'#b4741e' }}> · {it.note}</span>}
+                                  <span style={{ fontFamily:'var(--font-mono)' }}>{it.code}</span> — {it.svc} service{it.svc > 1 ? 's' : ''}
+                                  {it.note && <span style={{ color:'#b4741e' }}> — {it.note}</span>}
                                 </div>
                               </div>
                               <BzChip status={it.status}/>
@@ -653,9 +653,9 @@ function BillerImportWizard({ onClose, onImported }) {
         <div style={{ flex:'none', padding:'14px 22px', borderTop:'1px solid var(--border-light)', background:'var(--surface-inset)', display:'flex', alignItems:'center', justifyContent:'space-between', gap: 12 }}>
           <div style={{ fontSize: 12, color:'var(--text-secondary)' }}>
             {done ? <span>Catalogue refreshed.</span>
-              : step === 1 ? <span>{conn.name} · {conn.status}</span>
-              : step === 2 ? <span><b style={{ fontFamily:'var(--font-mono)', color:'var(--text-primary)' }}>{selItems.length}</b> selected · {selNew.length} new · {selChanged.length} changed</span>
-              : <span>Catalog.Write · medium-risk reference-data write</span>}
+              : step === 1 ? <span>{conn.name} — {conn.status}</span>
+              : step === 2 ? <span><b style={{ fontFamily:'var(--font-mono)', color:'var(--text-primary)' }}>{selItems.length}</b> selected — {selNew.length} new — {selChanged.length} changed</span>
+              : <span>Catalog.Write — medium-risk reference-data write</span>}
           </div>
           <div style={{ display:'flex', gap: 8 }}>
             {done ? (

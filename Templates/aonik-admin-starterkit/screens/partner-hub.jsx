@@ -1,4 +1,4 @@
-// ─── Partner Network · Spec 031 ───────────────────────────────────
+// ─── Partner Network — Spec 031 ───────────────────────────────────
 // Operator-facing hub for managing the partner connections that move
 // money through Aonik: payouts, collections, bill payments, airtime.
 // Internal left sub-nav mirrors AccountShell / SpeechShell.
@@ -21,7 +21,7 @@ const PARTNER_HUB_TABS = [
   // Money movement
   // NOTE: Beneficiaries live on the Customer detail page (Spec 031's
   // ExternalPayoutAccount is tenant-scoped + party-linked) — see
-  // screens/customer-detail.jsx · Beneficiaries tab. Not a partner concern.
+  // screens/customer-detail.jsx — Beneficiaries tab. Not a partner concern.
   { id: 'routes',        label: 'Routing',      icon: 'route',    group: 'money',   subtitle: 'How is money routed by default?' },
   { id: 'activity',      label: 'Activity',     icon: 'activity', group: 'money',   subtitle: 'Show me money in motion.' },
   { id: 'updates',       label: 'Updates',      icon: 'inbox',    group: 'money',   subtitle: 'Latest from my partners.' },
@@ -101,13 +101,13 @@ const PARTNER_ACTIVITY = [
 ];
 
 const PARTNER_UPDATES = [
-  { id: 'wh-9821', partner: 'wise', kind: 'settled',           subject: 'Payout to Vodafone Business settled',                  when: '14m ago', verified: true,  details: 'AON-7421 · £4,820',                            action: 'review' },
-  { id: 'wh-9820', partner: 'flw',  kind: 'settled',           subject: 'Acme Corp collection cleared',                         when: '32m ago', verified: true,  details: 'AON-3812 · $24,500 USD → GBP',                action: null },
-  { id: 'wh-9819', partner: 'isw',  kind: 'completed',         subject: 'Ikeja Electric prepaid token issued',                  when: '1h ago',  verified: true,  details: 'AON-4220 · Token EKDC-1129-8842 (valid 30 days)', action: null },
-  { id: 'wh-9818', partner: 'flw',  kind: 'failed',            subject: 'GOtv bill payment failed',                             when: '3h ago',  verified: true,  details: 'AON-4219 · Customer ID not found',             action: 'retry' },
+  { id: 'wh-9821', partner: 'wise', kind: 'settled',           subject: 'Payout to Vodafone Business settled',                  when: '14m ago', verified: true,  details: 'AON-7421 — £4,820',                            action: 'review' },
+  { id: 'wh-9820', partner: 'flw',  kind: 'settled',           subject: 'Acme Corp collection cleared',                         when: '32m ago', verified: true,  details: 'AON-3812 — $24,500 USD → GBP',                action: null },
+  { id: 'wh-9819', partner: 'isw',  kind: 'completed',         subject: 'Ikeja Electric prepaid token issued',                  when: '1h ago',  verified: true,  details: 'AON-4220 — Token EKDC-1129-8842 (valid 30 days)', action: null },
+  { id: 'wh-9818', partner: 'flw',  kind: 'failed',            subject: 'GOtv bill payment failed',                             when: '3h ago',  verified: true,  details: 'AON-4219 — Customer ID not found',             action: 'retry' },
   { id: 'wh-9817', partner: 'mtn',  kind: 'duplicate',         subject: 'Duplicate MoMo callback ignored',                      when: '4h ago',  verified: true,  details: 'Same provider event seen 12 min earlier',      action: null },
-  { id: 'wh-9816', partner: 'flw',  kind: 'settled',           subject: 'Refund returned to payer',                             when: '5h ago',  verified: true,  details: 'AON-3742 refund · £820',                       action: null },
-  { id: 'wh-9815', partner: 'isw',  kind: 'signature_invalid', subject: 'Unverified callback signature · payload held',         when: '8h ago',  verified: false, details: 'Investigate before settling · log inspection', action: 'investigate' },
+  { id: 'wh-9816', partner: 'flw',  kind: 'settled',           subject: 'Refund returned to payer',                             when: '5h ago',  verified: true,  details: 'AON-3742 refund — £820',                       action: null },
+  { id: 'wh-9815', partner: 'isw',  kind: 'signature_invalid', subject: 'Unverified callback signature — payload held',         when: '8h ago',  verified: false, details: 'Investigate before settling — log inspection', action: 'investigate' },
 ];
 
 const COVERAGE_COUNTRIES = [
@@ -263,14 +263,14 @@ function ServiceChip({ name, dense = false }) {
   );
 }
 
-// ─── Tab · Overview ───────────────────────────────────────────────
+// ─── Tab — Overview ───────────────────────────────────────────────
 function PartnerOverview({ onJump }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <PageHeader
-        eyebrow="Finance · Network"
+        eyebrow="Finance — Network"
         title="Partner Network"
-        subtitle="6 partners moving money on your behalf · last 30 days"
+        subtitle="6 partners moving money on your behalf — last 30 days"
         actions={
           <>
             <button className="btn btn-outline btn-sm"><Icon name="refresh" size={12}/> Refresh status</button>
@@ -282,7 +282,7 @@ function PartnerOverview({ onJump }) {
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         {[
-          { l: 'Money moved · 30 days', v: '£4.2M',  d: '+12% vs prev',     tone: 'var(--success)' },
+          { l: 'Money moved — 30 days', v: '£4.2M',  d: '+12% vs prev',     tone: 'var(--success)' },
           { l: 'On-time settlement',    v: '98.7%',  d: '−0.3% vs prev',    tone: 'var(--warning)' },
           { l: 'Partners healthy',      v: '4 / 6',  d: '1 incident',       tone: 'var(--danger)' },
           { l: 'Needs your attention',  v: '3',      d: 'updates pending',  tone: 'var(--warning)' },
@@ -337,7 +337,7 @@ function PartnerHealthRow({ partner }) {
         <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{partner.name}</div>
         <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', gap: 8 }}>
           <span>{partner.volMonth} this month</span>
-          <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>—</span>
           <span>{partner.throughput} transactions</span>
         </div>
       </div>
@@ -368,7 +368,7 @@ function UpdateRowCompact({ update }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{update.subject}</div>
         <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2 }}>
-          {partner.name} · <span style={{ fontFamily: 'var(--font-mono)' }}>{update.details}</span>
+          {partner.name} — <span style={{ fontFamily: 'var(--font-mono)' }}>{update.details}</span>
         </div>
       </div>
       <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{update.when}</span>
@@ -376,16 +376,16 @@ function UpdateRowCompact({ update }) {
   );
 }
 
-// ─── Tab · Partners (list) ────────────────────────────────────────
+// ─── Tab — Partners (list) ────────────────────────────────────────
 function PartnerListBody() {
   const [view, setView] = React.useState('grid');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Finance · Network"
+        eyebrow="Finance — Network"
         title="Partners"
-        subtitle="6 partners · 4 operational · 1 slow today · 1 incident"
+        subtitle="6 partners — 4 operational — 1 slow today — 1 incident"
         actions={
           <>
             <button className="btn btn-outline btn-sm"><Icon name="refresh" size={12}/> Re-sync</button>
@@ -413,7 +413,7 @@ function PartnerListBody() {
           }}>
             <Icon name="plus" size={20}/>
             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Connect a new partner</div>
-            <div style={{ fontSize: 11, padding: '0 24px', textAlign: 'center' }}>Flutterwave · Paystack · Wise · or add your own</div>
+            <div style={{ fontSize: 11, padding: '0 24px', textAlign: 'center' }}>Flutterwave — Paystack — Wise — or add your own</div>
           </div>
         </div>
       )}
@@ -459,7 +459,7 @@ function PartnerCard({ partner }) {
       {/* Footer */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-          heartbeat · {partner.last}
+          heartbeat — {partner.last}
         </span>
         <button className="btn btn-ghost btn-sm" style={{ height: 24, padding: '0 9px' }}>Open →</button>
       </div>
@@ -521,7 +521,7 @@ function PartnerListTable() {
   );
 }
 
-// ─── Tab · Coverage (matrix) ──────────────────────────────────────
+// ─── Tab — Coverage (matrix) ──────────────────────────────────────
 function PartnerCoverageBody() {
   const [view, setView] = React.useState('grid'); // 'grid' = matrix; 'list' = flat table
   const [service, setService] = React.useState('All');
@@ -531,7 +531,7 @@ function PartnerCoverageBody() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Finance · Network"
+        eyebrow="Finance — Network"
         title="Coverage"
         subtitle="Where each partner can send money, and what they can do"
         actions={<button className="btn btn-outline btn-sm"><Icon name="download" size={12}/> Export</button>}
@@ -607,13 +607,13 @@ function CoverageMatrix({ service }) {
             if (!cell) {
               return (
                 <div key={c.code} style={{ textAlign: 'center' }}>
-                  <span style={{ color: 'var(--border)', fontSize: 16 }}>·</span>
+                  <span style={{ color: 'var(--border)', fontSize: 16 }}>—</span>
                 </div>
               );
             }
             return (
               <div key={c.code} style={{ display: 'flex', justifyContent: 'center' }}>
-                <div title={cell.join(' · ')} style={{
+                <div title={cell.join(' — ')} style={{
                   width: 30, height: 30, borderRadius: 8,
                   background: 'var(--brand-primary-10)', color: 'var(--brand-primary)',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -667,7 +667,7 @@ function CoverageList({ service }) {
           <span><span style={{ fontSize: 16, marginRight: 6 }}>{r.country.flag}</span>{r.country.name}</span>
           <ServiceChip name={r.service} dense/>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{r.currency}</span>
-          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.partner.rails.join(' · ')}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.partner.rails.join(' — ')}</span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--success)' }}>● live</span>
         </div>
       ))}
@@ -675,16 +675,16 @@ function CoverageList({ service }) {
   );
 }
 
-// ─── Tab · Routing ────────────────────────────────────────────────
+// ─── Tab — Routing ────────────────────────────────────────────────
 function PartnerRoutesBody() {
   const [view, setView] = React.useState('grid');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Finance · Money movement"
+        eyebrow="Finance — Money movement"
         title="Routing"
-        subtitle="How money moves by default · which partner gets each route"
+        subtitle="How money moves by default — which partner gets each route"
         actions={
           <>
             <button className="btn btn-outline btn-sm"><Icon name="sliders" size={12}/> Routing settings</button>
@@ -699,7 +699,7 @@ function PartnerRoutesBody() {
         borderRadius: 10, padding: '10px 14px',
       }}>
         <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-          <b style={{ color: 'var(--text-primary)' }}>{ROUTES.length}</b> active rules · 1 needs attention
+          <b style={{ color: 'var(--text-primary)' }}>{ROUTES.length}</b> active rules — 1 needs attention
         </div>
         <ViewToggle view={view} setView={setView}/>
       </div>
@@ -761,7 +761,7 @@ function RouteCard({ route }) {
           <PartnerAvatar partner={primary} size={26}/>
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 600 }}>{primary.name}</div>
-            <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>Primary · {route.share}% of volume</div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>Primary — {route.share}% of volume</div>
           </div>
           <span style={{
             fontFamily: 'var(--font-mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em',
@@ -778,7 +778,7 @@ function RouteCard({ route }) {
           <PartnerAvatar partner={backup} size={26}/>
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 600 }}>{backup.name}</div>
-            <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>Fallback · steps in if primary fails</div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>Fallback — steps in if primary fails</div>
           </div>
           <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>Backup</span>
         </div>
@@ -834,7 +834,7 @@ function RouteList() {
   );
 }
 
-// ─── Tab · Activity ───────────────────────────────────────────────
+// ─── Tab — Activity ───────────────────────────────────────────────
 function PartnerActivityBody() {
   const [view, setView] = React.useState('list');
   const [kind, setKind] = React.useState('All');
@@ -845,9 +845,9 @@ function PartnerActivityBody() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Finance · Money movement"
+        eyebrow="Finance — Money movement"
         title="Activity"
-        subtitle="Every transaction that moved through a partner · last 24 h"
+        subtitle="Every transaction that moved through a partner — last 24 h"
         actions={<button className="btn btn-outline btn-sm"><Icon name="download" size={12}/> Export</button>}
       />
 
@@ -927,7 +927,7 @@ function ActivityCard({ a }) {
           <PartnerAvatar partner={p} size={22}/>
           <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>via {p.name}</span>
         </div>
-        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{a.ref} · {a.when}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{a.ref} — {a.when}</span>
       </div>
     </div>
   );
@@ -979,16 +979,16 @@ function ActivityList({ rows }) {
   );
 }
 
-// ─── Tab · Updates ────────────────────────────────────────────────
+// ─── Tab — Updates ────────────────────────────────────────────────
 function PartnerUpdatesBody() {
   const [view, setView] = React.useState('list');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Finance · Money movement"
+        eyebrow="Finance — Money movement"
         title="Updates"
-        subtitle="Settlement notifications from your partners · 2 need a quick look"
+        subtitle="Settlement notifications from your partners — 2 need a quick look"
         actions={<button className="btn btn-outline btn-sm"><Icon name="refresh" size={12}/> Refresh</button>}
       />
 
@@ -1113,20 +1113,20 @@ function UpdateList() {
   );
 }
 
-// ─── Standalone · Partner detail (Flutterwave) ────────────────────
+// ─── Standalone — Partner detail (Flutterwave) ────────────────────
 function ScreenPartnerDetail() {
   const p = partnerById('flw');
   return (
     <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 22 }}>
       <PageHeader
-        eyebrow="Finance · Network · Partners"
+        eyebrow="Finance — Network — Partners"
         title={p.name}
         subtitle={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{p.code}</span>
-            <span style={{ color: 'var(--border)' }}>·</span>
+            <span style={{ color: 'var(--border)' }}>—</span>
             <Pill tone={p.tone} dot size="sm">{p.statusLabel}</Pill>
-            <span style={{ color: 'var(--border)' }}>·</span>
+            <span style={{ color: 'var(--border)' }}>—</span>
             <span style={{ color: 'var(--text-tertiary)' }}>last heartbeat {p.last}</span>
           </span>
         }
@@ -1226,10 +1226,10 @@ function ScreenPartnerDetail() {
         <Card title="Connected billers" subtitle="Bills and airtime Flutterwave can pay" action={<button className="btn btn-ghost btn-sm">Manage</button>}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '12px 6px 4px' }}>
             {[
-              { sym: 'MT', name: 'MTN Nigeria',     cat: 'Telco · airtime/data', color: '#e6b800' },
-              { sym: 'IE', name: 'Ikeja Electric',  cat: 'Utilities · electric', color: '#1e4d8c' },
+              { sym: 'MT', name: 'MTN Nigeria',     cat: 'Telco — airtime/data', color: '#e6b800' },
+              { sym: 'IE', name: 'Ikeja Electric',  cat: 'Utilities — electric', color: '#1e4d8c' },
               { sym: 'DS', name: 'DSTV',            cat: 'TV & media',           color: '#003087' },
-              { sym: 'AT', name: 'Airtel',          cat: 'Telco · airtime/data', color: '#cc0000' },
+              { sym: 'AT', name: 'Airtel',          cat: 'Telco — airtime/data', color: '#cc0000' },
               { sym: 'LR', name: 'LIRS Lagos Tax',  cat: 'Tax & government',     color: '#1b6e3f' },
             ].map((b, i) => (
               <div key={i} style={{
@@ -1272,7 +1272,7 @@ function ScreenPartnerDetail() {
                 <Icon name={b.code === 'MPS' ? 'mobile' : 'landmark'} size={16} color="var(--text-secondary)"/>
                 <div>
                   <div style={{ fontSize: 12.5, fontWeight: 600 }}>{b.name}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Provider code · {b.code}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Provider code — {b.code}</div>
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{b.country}</span>
                 <Pill tone="success" dot size="sm">Verified</Pill>
@@ -1294,7 +1294,7 @@ function ScreenPartnerDetail() {
                 <Icon name={serviceIcon[a.service] || 'package'} size={14} color="var(--text-secondary)"/>
                 <div>
                   <div style={{ fontSize: 12.5, fontWeight: 600 }}>{a.name}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{a.ref} · {a.when}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{a.ref} — {a.when}</div>
                 </div>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600 }}>{a.amount}</span>
                 <Pill tone={a.tone} dot size="sm">{a.status}</Pill>

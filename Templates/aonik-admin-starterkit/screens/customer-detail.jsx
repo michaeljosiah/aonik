@@ -1,20 +1,20 @@
 // Customer Detail screen — mirrors src/pages/customers/CustomerDetailPage.tsx
-// Tabs: Overview · Finance · Insights · Documents · Orders · Beneficiaries · Activity
+// Tabs: Overview — Finance — Insights — Documents — Orders — Beneficiaries — Activity
 
-// Beneficiaries scoped to this customer (Spec 031 · ExternalPayoutAccount).
+// Beneficiaries scoped to this customer (Spec 031 — ExternalPayoutAccount).
 // Tenant-scoped + Party-linked: each row is a destination Primrose pays
 // through Aonik partners. Not a global registry — the customer owns them.
 const PRIMROSE_BENEFICIARIES = [
-  { id: 'pba_3f9c2a', name: 'Hassan Aliyu',       role: 'Driver · Lagos route',    partner: 'Flutterwave', partnerColor: '#f5a623', type: 'mobile', destination: 'OPay · +234 8•• ••• 218', country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦184,200 · 2d ago', payments: 14 },
-  { id: 'pba_7d40b1', name: 'Total Energies UK',  role: 'Fuel supplier',           partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Lloyds · ••• 1042',       country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£12,480 · 5h ago', payments: 38 },
-  { id: 'pba_9c2d1e', name: 'Tunde Adebayo',      role: 'Contractor · mechanic',   partner: 'Flutterwave', partnerColor: '#f5a623', type: 'mobile', destination: 'MTN MoMo · +234 8•• ••• 884', country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦92,400 · 1w ago', payments: 22 },
-  { id: 'pba_2b88f0', name: 'Northstar Freight',  role: 'Shipping partner',        partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'GTBank · ••• 7741',       country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦18.2M · 3d ago', payments: 7 },
-  { id: 'pba_e4d219', name: 'Maersk UK Ltd',      role: 'Container shipping',      partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Barclays · ••• 0241',     country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£8,420 · 12d ago',payments: 11 },
-  { id: 'pba_18f9aa', name: 'LIRS · Lagos Tax',   role: 'Tax authority',           partner: 'Interswitch', partnerColor: '#ed1c24', type: 'bank',   destination: 'Direct · LIRS-9821',      country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦284,000 · 1m ago', payments: 4 },
-  { id: 'pba_44a8cc', name: 'Chioma Okeke',       role: 'Accountant · contractor', partner: 'Paystack',    partnerColor: '#1a73e8', type: 'bank',   destination: 'Access Bank · ••• 5092',  country: 'NG', currency: 'NGN', verified: false, lastPaid: 'never',           payments: 0 },
+  { id: 'pba_3f9c2a', name: 'Hassan Aliyu',       role: 'Driver — Lagos route',    partner: 'Flutterwave', partnerColor: '#f5a623', type: 'mobile', destination: 'OPay — +234 8•• ••• 218', country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦184,200 — 2d ago', payments: 14 },
+  { id: 'pba_7d40b1', name: 'Total Energies UK',  role: 'Fuel supplier',           partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Lloyds — ••• 1042',       country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£12,480 — 5h ago', payments: 38 },
+  { id: 'pba_9c2d1e', name: 'Tunde Adebayo',      role: 'Contractor — mechanic',   partner: 'Flutterwave', partnerColor: '#f5a623', type: 'mobile', destination: 'MTN MoMo — +234 8•• ••• 884', country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦92,400 — 1w ago', payments: 22 },
+  { id: 'pba_2b88f0', name: 'Northstar Freight',  role: 'Shipping partner',        partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'GTBank — ••• 7741',       country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦18.2M — 3d ago', payments: 7 },
+  { id: 'pba_e4d219', name: 'Maersk UK Ltd',      role: 'Container shipping',      partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Barclays — ••• 0241',     country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£8,420 — 12d ago',payments: 11 },
+  { id: 'pba_18f9aa', name: 'LIRS — Lagos Tax',   role: 'Tax authority',           partner: 'Interswitch', partnerColor: '#ed1c24', type: 'bank',   destination: 'Direct — LIRS-9821',      country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦284,000 — 1m ago', payments: 4 },
+  { id: 'pba_44a8cc', name: 'Chioma Okeke',       role: 'Accountant — contractor', partner: 'Paystack',    partnerColor: '#1a73e8', type: 'bank',   destination: 'Access Bank — ••• 5092',  country: 'NG', currency: 'NGN', verified: false, lastPaid: 'never',           payments: 0 },
 ];
 
-// ─── Individual customer · Payabo user (Adaeze Nwosu) ─────────────
+// ─── Individual customer — Payabo user (Adaeze Nwosu) ─────────────
 // Household applies here because the customer is an individual.
 // Some household members are also beneficiaries (Tobi, Ada, Nkechi)
 // — they're linked via householdLink to show the overlap clearly.
@@ -23,32 +23,32 @@ const ADAEZE_CUSTOMER = {
   legalName: 'Adaeze Chioma Nwosu',
   type: 'Individual',
   status: 'Active',
-  country: 'United Kingdom · Nigeria',
+  country: 'United Kingdom — Nigeria',
   customerId: 'PAY-9821',
   since: 'Apr 2, 2024',
-  tier: 'Premium · Payabo',
+  tier: 'Premium — Payabo',
   email: 'adaeze@example.com',
   phone: '+44 7700 900142',
   address: '24 Hampstead Road, London NW1 7DZ',
-  occupation: 'Senior Nurse · NHS',
+  occupation: 'Senior Nurse — NHS',
 };
 
 const HOUSEHOLD_MEMBERS = [
-  { id: 'hm-1', name: 'Adaeze Nwosu',   role: 'You',     relationship: 'Lead',         age: 34, account: 'Primary current · GBP',   perms: 'Full',      color: '#055a60', tag: 'YOU' },
-  { id: 'hm-2', name: 'Chinedu Nwosu',  role: 'Spouse',  relationship: 'Co-signer',    age: 36, account: 'Joint savings · GBP',     perms: 'Full',      color: '#e8a838', monthlyContribution: '£840' },
-  { id: 'hm-3', name: 'Tobi Nwosu',     role: 'Son',     relationship: 'Dependent',    age: 12, account: 'Allowance · GBP',         perms: 'View-only', color: '#3ab795', allowance: '£25/wk' },
-  { id: 'hm-4', name: 'Ada Nwosu',      role: 'Daughter',relationship: 'Dependent',    age:  8, account: 'Allowance · GBP',         perms: 'View-only', color: '#7b76b6', allowance: '£15/wk' },
-  { id: 'hm-5', name: 'Nkechi Nwosu',   role: 'Mother',  relationship: 'Supported',    age: 64, account: 'Recipient · Lagos, NGN',  perms: 'External',  color: '#eb5c37', monthlyTransfer: '₦580,000', extLocation: 'Lagos, NG' },
+  { id: 'hm-1', name: 'Adaeze Nwosu',   role: 'You',     relationship: 'Lead',         age: 34, account: 'Primary current — GBP',   perms: 'Full',      color: '#055a60', tag: 'YOU' },
+  { id: 'hm-2', name: 'Chinedu Nwosu',  role: 'Spouse',  relationship: 'Co-signer',    age: 36, account: 'Joint savings — GBP',     perms: 'Full',      color: '#e8a838', monthlyContribution: '£840' },
+  { id: 'hm-3', name: 'Tobi Nwosu',     role: 'Son',     relationship: 'Dependent',    age: 12, account: 'Allowance — GBP',         perms: 'View-only', color: '#3ab795', allowance: '£25/wk' },
+  { id: 'hm-4', name: 'Ada Nwosu',      role: 'Daughter',relationship: 'Dependent',    age:  8, account: 'Allowance — GBP',         perms: 'View-only', color: '#7b76b6', allowance: '£15/wk' },
+  { id: 'hm-5', name: 'Nkechi Nwosu',   role: 'Mother',  relationship: 'Supported',    age: 64, account: 'Recipient — Lagos, NGN',  perms: 'External',  color: '#eb5c37', monthlyTransfer: '₦580,000', extLocation: 'Lagos, NG' },
 ];
 
 const ADAEZE_BENEFICIARIES = [
-  { id: 'pba_aa1', name: 'Nkechi Nwosu',           role: 'Mother · Lagos',                  partner: 'Flutterwave', partnerColor: '#f5a623', type: 'bank',   destination: 'GTBank · ••• 8821',   country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦580,000 · 3d ago', payments: 28, householdLink: 'hm-5' },
-  { id: 'pba_aa2', name: 'Tobi Nwosu',             role: 'Son · weekly allowance',          partner: 'Aonik',       partnerColor: '#055a60', type: 'bank',   destination: 'Aonik · TBN-09812',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£25 · 2d ago',      payments: 18, householdLink: 'hm-3' },
-  { id: 'pba_aa3', name: 'Ada Nwosu',              role: 'Daughter · weekly allowance',     partner: 'Aonik',       partnerColor: '#055a60', type: 'bank',   destination: 'Aonik · ADN-09813',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£15 · 2d ago',      payments: 18, householdLink: 'hm-4' },
-  { id: 'pba_aa4', name: 'Foxtons Properties',     role: 'Landlord · monthly rent',         partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Lloyds · ••• 4421',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£1,840 · 4d ago',   payments: 14 },
-  { id: 'pba_aa5', name: 'Kingdom Heights Primary',role: 'School · termly fees',            partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'NatWest · ••• 9282',  country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£3,400 · 2mo ago',  payments: 4 },
-  { id: 'pba_aa6', name: 'Lagos Pharmacy',         role: "Healthcare · for Mum's meds",     partner: 'Flutterwave', partnerColor: '#f5a623', type: 'bank',   destination: 'Direct · LP-2812',    country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦42,000 · 1mo ago', payments: 6 },
-  { id: 'pba_aa7', name: 'British Gas',            role: 'Utility · monthly',               partner: 'Direct',      partnerColor: '#999999', type: 'bank',   destination: 'Direct biller',       country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£180 · 1w ago',     payments: 12 },
+  { id: 'pba_aa1', name: 'Nkechi Nwosu',           role: 'Mother — Lagos',                  partner: 'Flutterwave', partnerColor: '#f5a623', type: 'bank',   destination: 'GTBank — ••• 8821',   country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦580,000 — 3d ago', payments: 28, householdLink: 'hm-5' },
+  { id: 'pba_aa2', name: 'Tobi Nwosu',             role: 'Son — weekly allowance',          partner: 'Aonik',       partnerColor: '#055a60', type: 'bank',   destination: 'Aonik — TBN-09812',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£25 — 2d ago',      payments: 18, householdLink: 'hm-3' },
+  { id: 'pba_aa3', name: 'Ada Nwosu',              role: 'Daughter — weekly allowance',     partner: 'Aonik',       partnerColor: '#055a60', type: 'bank',   destination: 'Aonik — ADN-09813',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£15 — 2d ago',      payments: 18, householdLink: 'hm-4' },
+  { id: 'pba_aa4', name: 'Foxtons Properties',     role: 'Landlord — monthly rent',         partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'Lloyds — ••• 4421',   country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£1,840 — 4d ago',   payments: 14 },
+  { id: 'pba_aa5', name: 'Kingdom Heights Primary',role: 'School — termly fees',            partner: 'Wise',        partnerColor: '#9fe870', type: 'bank',   destination: 'NatWest — ••• 9282',  country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£3,400 — 2mo ago',  payments: 4 },
+  { id: 'pba_aa6', name: 'Lagos Pharmacy',         role: "Healthcare — for Mum's meds",     partner: 'Flutterwave', partnerColor: '#f5a623', type: 'bank',   destination: 'Direct — LP-2812',    country: 'NG', currency: 'NGN', verified: true,  lastPaid: '₦42,000 — 1mo ago', payments: 6 },
+  { id: 'pba_aa7', name: 'British Gas',            role: 'Utility — monthly',               partner: 'Direct',      partnerColor: '#999999', type: 'bank',   destination: 'Direct biller',       country: 'GB', currency: 'GBP', verified: true,  lastPaid: '£180 — 1w ago',     payments: 12 },
 ];
 
 function ScreenCustomerDetail() {
@@ -60,7 +60,7 @@ function ScreenCustomerDetail() {
     legalName: 'Primrose Logistics Limited',
     type: 'Corporate',
     status: 'Active',
-    country: 'Nigeria · United Kingdom',
+    country: 'Nigeria — United Kingdom',
     rc: 'RC-1842991',
     since: 'Jan 12, 2025',
     tier: 'Enterprise',
@@ -76,9 +76,9 @@ function ScreenCustomerDetail() {
   };
 
   const accounts = [
-    { name: 'Operating · GBP', inst: 'Barclays',    bal: 128_420.14, cur: 'GBP', last: '14m ago' },
-    { name: 'Payroll · GBP',   inst: 'Barclays',    bal:  42_108.00, cur: 'GBP', last: '2h ago' },
-    { name: 'FX Buffer · USD', inst: 'Wise',        bal:  86_410.22, cur: 'USD', last: '38m ago' },
+    { name: 'Operating — GBP', inst: 'Barclays',    bal: 128_420.14, cur: 'GBP', last: '14m ago' },
+    { name: 'Payroll — GBP',   inst: 'Barclays',    bal:  42_108.00, cur: 'GBP', last: '2h ago' },
+    { name: 'FX Buffer — USD', inst: 'Wise',        bal:  86_410.22, cur: 'USD', last: '38m ago' },
     { name: 'NGN Settlement',  inst: 'Zenith Bank', bal:  41_820_000, cur: 'NGN', last: '1h ago' },
   ];
 
@@ -102,9 +102,9 @@ function ScreenCustomerDetail() {
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--surface-inset)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border-light)' }}>{c.rc}</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <span><Icon name="building" size={11}/> {c.type} · {c.tier}</span>
+            <span><Icon name="building" size={11}/> {c.type} — {c.tier}</span>
             <span><Icon name="globe" size={11}/> {c.country}</span>
-            <span style={{ fontFamily: 'var(--font-mono)' }}>customer since · {c.since}</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>customer since — {c.since}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -117,7 +117,7 @@ function ScreenCustomerDetail() {
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
         {[
-          { l: 'ARR',        v: c.arr,       sub: 'NGN·GBP·USD', tone: 'var(--brand-primary)' },
+          { l: 'ARR',        v: c.arr,       sub: 'NGN—GBP—USD', tone: 'var(--brand-primary)' },
           { l: 'MRR',        v: '£4,200',    sub: '+£340 this mo', tone: 'var(--success)' },
           { l: 'LTV',        v: '£52.4K',    sub: '16 mo tenure',  tone: 'var(--accent-violet)' },
           { l: 'Runway',     v: '186 days',  sub: 'at current burn', tone: 'var(--warning)' },
@@ -155,7 +155,7 @@ function ScreenCustomerDetail() {
           <Card title="Details">
             {[
               ['Legal name', c.legalName],
-              ['Type', c.type + ' · ' + c.tier],
+              ['Type', c.type + ' — ' + c.tier],
               ['Registration', c.rc],
               ['Primary contact', c.accountMgr],
               ['Email', c.email],
@@ -169,7 +169,7 @@ function ScreenCustomerDetail() {
             ))}
           </Card>
 
-          <Card title="Compliance" subtitle="KYB · sanctions · docs"
+          <Card title="Compliance" subtitle="KYB — sanctions — docs"
             action={<Pill tone="success" dot>Verified</Pill>}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
               {[
@@ -193,10 +193,10 @@ function ScreenCustomerDetail() {
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {[
                 { ic: 'sparkles', t: 'Billing Agent drafted journal entry for INV-2041', w: '2m ago', c: 'var(--brand-primary)' },
-                { ic: 'invoice',  t: 'Invoice INV-2041 marked paid · £12,480', w: '14m ago', c: 'var(--success)' },
-                { ic: 'payout',   t: 'Payout PO-0871 settled · £8,400 → Wise', w: '2h ago', c: 'var(--text-secondary)' },
-                { ic: 'shield',   t: 'Annual KYB re-screen scheduled · June 1', w: '3h ago', c: 'var(--warning)' },
-                { ic: 'invoice',  t: 'Order ORD-1284 created · £4,220',        w: 'yesterday', c: 'var(--text-secondary)' },
+                { ic: 'invoice',  t: 'Invoice INV-2041 marked paid — £12,480', w: '14m ago', c: 'var(--success)' },
+                { ic: 'payout',   t: 'Payout PO-0871 settled — £8,400 → Wise', w: '2h ago', c: 'var(--text-secondary)' },
+                { ic: 'shield',   t: 'Annual KYB re-screen scheduled — June 1', w: '3h ago', c: 'var(--warning)' },
+                { ic: 'invoice',  t: 'Order ORD-1284 created — £4,220',        w: 'yesterday', c: 'var(--text-secondary)' },
               ].map((a, i, arr) => (
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: 10,
@@ -244,7 +244,7 @@ function ScreenCustomerDetail() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{a.inst} · synced {a.last}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{a.inst} — synced {a.last}</div>
                     </div>
                     <Pill tone="success" dot size="sm">live</Pill>
                   </div>
@@ -263,11 +263,11 @@ function ScreenCustomerDetail() {
               totalSpent={42180}
               currency="GBP"
               categories={[
-                { name: 'Fuel · fleet',    budgeted: 18000, spent: 19200, status: 'over' },
+                { name: 'Fuel — fleet',    budgeted: 18000, spent: 19200, status: 'over' },
                 { name: 'Contractors',     budgeted: 14000, spent:  8420, status: 'under' },
                 { name: 'Warehousing',     budgeted: 12000, spent: 10100, status: 'on_track' },
                 { name: 'Insurance',       budgeted:  8000, spent:  3960, status: 'under' },
-                { name: 'Software · SaaS', budgeted:  4000, spent:   500, status: 'under' },
+                { name: 'Software — SaaS', budgeted:  4000, spent:   500, status: 'under' },
                 { name: 'Admin',           budgeted:  4000, spent:     0, status: 'under' },
               ]}
             />
@@ -286,12 +286,12 @@ function ScreenCustomerDetail() {
                 </thead>
                 <tbody>
                   {[
-                    { d: '22 Apr', t: 'Wise · USD inbound · INV-2041',    a: 'FX Buffer',  amt: '+$16,120.00', pos: true },
-                    { d: '21 Apr', t: 'Shell · fuel purchase',             a: 'Operating',  amt: '−£2,480.00', pos: false },
-                    { d: '20 Apr', t: 'Payroll · April batch',             a: 'Payroll',    amt: '−£38,400.00',pos: false },
-                    { d: '18 Apr', t: 'Northstar Freight · settlement',    a: 'NGN Settle', amt: '+₦18.2M',    pos: true },
-                    { d: '17 Apr', t: 'AWS · infrastructure',              a: 'Operating',  amt: '−£820.00',   pos: false },
-                    { d: '15 Apr', t: 'Barclays · interest',               a: 'Operating',  amt: '+£128.42',   pos: true },
+                    { d: '22 Apr', t: 'Wise — USD inbound — INV-2041',    a: 'FX Buffer',  amt: '+$16,120.00', pos: true },
+                    { d: '21 Apr', t: 'Shell — fuel purchase',             a: 'Operating',  amt: '−£2,480.00', pos: false },
+                    { d: '20 Apr', t: 'Payroll — April batch',             a: 'Payroll',    amt: '−£38,400.00',pos: false },
+                    { d: '18 Apr', t: 'Northstar Freight — settlement',    a: 'NGN Settle', amt: '+₦18.2M',    pos: true },
+                    { d: '17 Apr', t: 'AWS — infrastructure',              a: 'Operating',  amt: '−£820.00',   pos: false },
+                    { d: '15 Apr', t: 'Barclays — interest',               a: 'Operating',  amt: '+£128.42',   pos: true },
                   ].map((r, i) => (
                     <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
                       <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{r.d}</td>
@@ -308,18 +308,18 @@ function ScreenCustomerDetail() {
           {fin === 'Commitments' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
               {[
-                { t: 'Rent · Dock Road',      due: 'May 1',  amt: '£4,800',  freq: 'monthly' },
-                { t: 'Fleet lease · 6 units', due: 'May 5',  amt: '£8,200',  freq: 'monthly' },
-                { t: 'Insurance · liability', due: 'Jun 15', amt: '£3,960',  freq: 'quarterly' },
-                { t: 'Payroll · April',       due: 'May 28', amt: '£38,400', freq: 'monthly' },
-                { t: 'Software · Xero + AWS', due: 'May 10', amt: '£1,420',  freq: 'monthly' },
+                { t: 'Rent — Dock Road',      due: 'May 1',  amt: '£4,800',  freq: 'monthly' },
+                { t: 'Fleet lease — 6 units', due: 'May 5',  amt: '£8,200',  freq: 'monthly' },
+                { t: 'Insurance — liability', due: 'Jun 15', amt: '£3,960',  freq: 'quarterly' },
+                { t: 'Payroll — April',       due: 'May 28', amt: '£38,400', freq: 'monthly' },
+                { t: 'Software — Xero + AWS', due: 'May 10', amt: '£1,420',  freq: 'monthly' },
                 { t: 'Loan servicing',        due: 'May 20', amt: '£2,180',  freq: 'monthly' },
               ].map((c, i) => (
                 <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: 14 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.t}</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', marginTop: 6 }}>{c.amt}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: 'var(--text-tertiary)' }}>
-                    <span>due · {c.due}</span>
+                    <span>due — {c.due}</span>
                     <span>{c.freq}</span>
                   </div>
                 </div>
@@ -328,7 +328,7 @@ function ScreenCustomerDetail() {
           )}
 
           {fin === 'Graph' && (
-            <Card title="Financial graph" subtitle="Cash in · cash out · net · last 90 days">
+            <Card title="Financial graph" subtitle="Cash in — cash out — net — last 90 days">
               <svg viewBox="0 0 600 180" style={{ width: '100%', height: 200 }}>
                 {[0, 45, 90, 135, 180].map(y => <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="var(--border-light)" strokeDasharray="2 4"/>)}
                 <polyline points="0,110 50,95 100,100 150,80 200,70 250,85 300,60 350,55 400,65 450,50 500,40 550,35 600,30" stroke="var(--success)" strokeWidth="2" fill="none"/>
@@ -347,7 +347,7 @@ function ScreenCustomerDetail() {
 
       {tab === 'Insights' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18 }}>
-          <Card title="AI summary" subtitle="Generated 14m ago · Insights Agent · conf 0.92"
+          <Card title="AI summary" subtitle="Generated 14m ago — Insights Agent — conf 0.92"
             action={<Pill tone="tint" dot>fresh</Pill>}>
             <div style={{ marginTop: 4 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
@@ -392,11 +392,11 @@ function ScreenCustomerDetail() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <ToolCardPie
-              title="Spending · April 2026"
+              title="Spending — April 2026"
               totalSpent={42180}
               currency="GBP"
               categories={[
-                { name: 'Fuel · fleet',    amount: 19200, percentage: 46 },
+                { name: 'Fuel — fleet',    amount: 19200, percentage: 46 },
                 { name: 'Warehousing',     amount: 10100, percentage: 24 },
                 { name: 'Contractors',     amount:  8420, percentage: 20 },
                 { name: 'Insurance',       amount:  3960, percentage:  9 },
@@ -423,9 +423,9 @@ function ScreenCustomerDetail() {
             {[
               { n: 'Certificate of incorporation', t: 'KYB', s: 'Verified', tone: 'success', u: '14 Apr', x: '2028-03-14' },
               { n: 'Beneficial ownership',          t: 'KYB', s: 'Verified', tone: 'success', u: '14 Apr', x: '—' },
-              { n: 'Proof of address · utility',   t: 'KYB', s: 'Verified', tone: 'success', u: '11 Apr', x: '2026-10-11' },
+              { n: 'Proof of address — utility',   t: 'KYB', s: 'Verified', tone: 'success', u: '11 Apr', x: '2026-10-11' },
               { n: 'Tax certificate',               t: 'Tax', s: 'Rejected', tone: 'danger',  u: '19 Apr', x: '—' },
-              { n: 'Director IDs · 2 files',        t: 'KYC', s: 'Verified', tone: 'success', u: '15 Apr', x: '2030-02-15' },
+              { n: 'Director IDs — 2 files',        t: 'KYC', s: 'Verified', tone: 'success', u: '15 Apr', x: '2030-02-15' },
             ].map((d, i, arr) => (
               <div key={i} style={{
                 display: 'grid', gridTemplateColumns: 'auto 1fr auto auto auto auto',
@@ -461,11 +461,11 @@ function ScreenCustomerDetail() {
             </thead>
             <tbody>
               {[
-                { id: 'ORD-1291', d: '22 Apr', s: 'Freight · LHR→LAG', st: 'In transit', tone: 'tint',    amt: '£4,220' },
+                { id: 'ORD-1291', d: '22 Apr', s: 'Freight — LHR→LAG', st: 'In transit', tone: 'tint',    amt: '£4,220' },
                 { id: 'ORD-1288', d: '21 Apr', s: 'Bill payment',      st: 'Paid',       tone: 'success', amt: '£820' },
-                { id: 'ORD-1284', d: '20 Apr', s: 'Freight · LHR→LAG', st: 'Settled',    tone: 'success', amt: '£12,480' },
-                { id: 'ORD-1280', d: '18 Apr', s: 'FX · GBP→USD',      st: 'Settled',    tone: 'success', amt: '$16,120' },
-                { id: 'ORD-1276', d: '15 Apr', s: 'Freight · MAN→ABJ', st: 'Awaiting',   tone: 'warning', amt: '£6,840' },
+                { id: 'ORD-1284', d: '20 Apr', s: 'Freight — LHR→LAG', st: 'Settled',    tone: 'success', amt: '£12,480' },
+                { id: 'ORD-1280', d: '18 Apr', s: 'FX — GBP→USD',      st: 'Settled',    tone: 'success', amt: '$16,120' },
+                { id: 'ORD-1276', d: '15 Apr', s: 'Freight — MAN→ABJ', st: 'Awaiting',   tone: 'warning', amt: '£6,840' },
               ].map((r, i) => (
                 <tr key={i} style={{ borderTop: '1px solid var(--border-light)' }}>
                   <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--brand-primary)' }}>{r.id}</td>
@@ -484,7 +484,7 @@ function ScreenCustomerDetail() {
 
       {tab === 'Activity' && (
         <Card>
-          <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Full audit trail · 842 events · exportable.</div>
+          <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Full audit trail — 842 events — exportable.</div>
         </Card>
       )}
     </div>
@@ -514,8 +514,8 @@ function CustomerBeneficiaries({ customer, beneficiaries }) {
         <span style={{ flex: 1 }}>
           Saved destinations {customer.name} pays through Aonik partners.
           {' '}<b style={{ color: 'var(--brand-primary)' }}>{beneficiaries.length}</b> beneficiaries
-          {' · '}<b>{verifiedCount}</b> verified
-          {' · '}<b>{totalPayments}</b> total payments to date.
+          {' — '}<b>{verifiedCount}</b> verified
+          {' — '}<b>{totalPayments}</b> total payments to date.
         </span>
         <button className="btn btn-primary btn-sm"><Icon name="userplus" size={12}/> Add beneficiary</button>
       </div>
@@ -562,7 +562,7 @@ function CustomerBeneficiaries({ customer, beneficiaries }) {
           }}>
             <Icon name="userplus" size={20}/>
             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Add a beneficiary</div>
-            <div style={{ fontSize: 11, padding: '0 24px', textAlign: 'center' }}>Bank account · Mobile wallet · Direct biller</div>
+            <div style={{ fontSize: 11, padding: '0 24px', textAlign: 'center' }}>Bank account — Mobile wallet — Direct biller</div>
           </div>
         </div>
       )}
@@ -600,7 +600,7 @@ function CustomerBeneficiaryCard({ ben }) {
           <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{ben.destination}</div>
           <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginTop: 2, display: 'flex', gap: 6 }}>
             <span style={{ fontFamily: 'var(--font-mono)' }}>{ben.currency}</span>
-            <span>·</span>
+            <span>—</span>
             <span>{ben.country}</span>
           </div>
         </div>
@@ -656,7 +656,7 @@ function CustomerBeneficiaryList({ beneficiaries }) {
             <Icon name={b.type === 'mobile' ? 'mobile' : 'landmark'} size={13} color="var(--text-tertiary)"/>
             <div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{b.destination}</div>
-              <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{b.currency} · {b.country}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{b.currency} — {b.country}</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -682,7 +682,7 @@ function CustomerBeneficiaryList({ beneficiaries }) {
   );
 }
 
-// ─── Individual Customer Detail · Payabo user ─────────────────────
+// ─── Individual Customer Detail — Payabo user ─────────────────────
 // Adaeze Nwosu, a senior NHS nurse in London with family in Lagos.
 // Tabs adapted for an individual: Household (instead of Compliance) +
 // Beneficiaries (some of which are household members). KPIs reflect
@@ -707,10 +707,10 @@ function ScreenCustomerIndividual() {
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--surface-inset)', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border-light)' }}>{c.customerId}</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <span><Icon name="user" size={11}/> {c.type} · {c.tier}</span>
+            <span><Icon name="user" size={11}/> {c.type} — {c.tier}</span>
             <span><Icon name="globe" size={11}/> {c.country}</span>
             <span><Icon name="badge" size={11}/> {c.occupation}</span>
-            <span style={{ fontFamily: 'var(--font-mono)' }}>customer since · {c.since}</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>customer since — {c.since}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -726,8 +726,8 @@ function ScreenCustomerIndividual() {
           { l: 'Monthly inflow',  v: '£4,840',  sub: 'salary + side income',  tone: 'var(--success)' },
           { l: 'Monthly spend',   v: '£3,210',  sub: '−£1,630 vs inflow',     tone: 'var(--brand-primary)' },
           { l: 'Savings rate',    v: '34%',     sub: '£12,420 total',         tone: 'var(--accent-violet)' },
-          { l: 'Send to family',  v: '₦580K/mo',sub: 'to Lagos · ~£420',      tone: 'var(--warning)' },
-          { l: 'Household',       v: '5',       sub: '2 adults · 2 kids · 1 supported', tone: 'var(--brand-secondary)' },
+          { l: 'Send to family',  v: '₦580K/mo',sub: 'to Lagos — ~£420',      tone: 'var(--warning)' },
+          { l: 'Household',       v: '5',       sub: '2 adults — 2 kids — 1 supported', tone: 'var(--brand-secondary)' },
         ].map((k, i) => (
           <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: 14 }}>
             <div style={{ fontSize: 10, letterSpacing: '0.06em', color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -761,7 +761,7 @@ function ScreenCustomerIndividual() {
           <Card title="Details">
             {[
               ['Legal name', c.legalName],
-              ['Type', c.type + ' · ' + c.tier],
+              ['Type', c.type + ' — ' + c.tier],
               ['Customer ID', c.customerId],
               ['Email', c.email],
               ['Phone', c.phone],
@@ -775,13 +775,13 @@ function ScreenCustomerIndividual() {
             ))}
           </Card>
 
-          <Card title="Identity verification" subtitle="KYC · sanctions · proof of address"
+          <Card title="Identity verification" subtitle="KYC — sanctions — proof of address"
             action={<Pill tone="success" dot>Verified</Pill>}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
               {[
-                { label: 'Passport · UK',               status: 'Verified', tone: 'success', when: '2 Apr 24' },
-                { label: 'Proof of address · utility',  status: 'Verified', tone: 'success', when: '2 Apr 24' },
-                { label: 'NIN · Nigerian ID',           status: 'Verified', tone: 'success', when: '2 Apr 24' },
+                { label: 'Passport — UK',               status: 'Verified', tone: 'success', when: '2 Apr 24' },
+                { label: 'Proof of address — utility',  status: 'Verified', tone: 'success', when: '2 Apr 24' },
+                { label: 'NIN — Nigerian ID',           status: 'Verified', tone: 'success', when: '2 Apr 24' },
                 { label: 'Source-of-funds declaration', status: 'Verified', tone: 'success', when: '8 May 25' },
                 { label: 'Annual re-screen',            status: 'Due Apr 2',tone: 'warning', when: '320 days' },
               ].map((d, i) => (
@@ -799,10 +799,10 @@ function ScreenCustomerIndividual() {
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {[
                 { ic: 'sparkles', t: 'Insights Agent: you saved £214 vs last April — strongest month yet', w: '5m ago',   c: 'var(--brand-primary)' },
-                { ic: 'send',     t: 'Sent ₦580,000 to Mum · settled via Flutterwave',                       w: '3d ago',   c: 'var(--success)' },
-                { ic: 'send',     t: "Tobi's weekly allowance · £25",                                         w: '2d ago',   c: 'var(--text-secondary)' },
-                { ic: 'creditcard', t: 'Rent paid · Foxtons £1,840',                                          w: '4d ago',   c: 'var(--text-secondary)' },
-                { ic: 'shield',   t: 'Annual KYC re-screen reminder · due Apr 2',                             w: '1w ago',   c: 'var(--warning)' },
+                { ic: 'send',     t: 'Sent ₦580,000 to Mum — settled via Flutterwave',                       w: '3d ago',   c: 'var(--success)' },
+                { ic: 'send',     t: "Tobi's weekly allowance — £25",                                         w: '2d ago',   c: 'var(--text-secondary)' },
+                { ic: 'creditcard', t: 'Rent paid — Foxtons £1,840',                                          w: '4d ago',   c: 'var(--text-secondary)' },
+                { ic: 'shield',   t: 'Annual KYC re-screen reminder — due Apr 2',                             w: '1w ago',   c: 'var(--warning)' },
               ].map((a, i, arr) => (
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: 10,
@@ -823,10 +823,10 @@ function ScreenCustomerIndividual() {
       {tab === 'Finance' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
           {[
-            { name: 'Primary current · GBP',     inst: 'Aonik', bal: 4_840.18, cur: 'GBP', last: '12m ago' },
-            { name: 'Joint savings · GBP',       inst: 'Aonik', bal: 12_420.00,cur: 'GBP', last: '1h ago'  },
-            { name: "Tobi's allowance · GBP",    inst: 'Aonik', bal:    142.50,cur: 'GBP', last: '2d ago'  },
-            { name: "Ada's allowance · GBP",     inst: 'Aonik', bal:     78.00,cur: 'GBP', last: '2d ago'  },
+            { name: 'Primary current — GBP',     inst: 'Aonik', bal: 4_840.18, cur: 'GBP', last: '12m ago' },
+            { name: 'Joint savings — GBP',       inst: 'Aonik', bal: 12_420.00,cur: 'GBP', last: '1h ago'  },
+            { name: "Tobi's allowance — GBP",    inst: 'Aonik', bal:    142.50,cur: 'GBP', last: '2d ago'  },
+            { name: "Ada's allowance — GBP",     inst: 'Aonik', bal:     78.00,cur: 'GBP', last: '2d ago'  },
           ].map((a, i) => (
             <div key={i} style={{
               background: 'var(--surface)', border: '1px solid var(--border-light)',
@@ -838,7 +838,7 @@ function ScreenCustomerIndividual() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{a.inst} · synced {a.last}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{a.inst} — synced {a.last}</div>
                 </div>
                 <Pill tone="success" dot size="sm">live</Pill>
               </div>
@@ -851,7 +851,7 @@ function ScreenCustomerIndividual() {
       )}
 
       {tab === 'Insights' && (
-        <Card title="AI summary" subtitle="Generated 5m ago · Insights Agent · conf 0.94"
+        <Card title="AI summary" subtitle="Generated 5m ago — Insights Agent — conf 0.94"
           action={<Pill tone="tint" dot>fresh</Pill>}>
           <div style={{ marginTop: 4 }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 }}>
@@ -867,7 +867,7 @@ function ScreenCustomerIndividual() {
 
       {tab === 'Activity' && (
         <Card>
-          <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Full personal-finance audit trail · 384 events · exportable.</div>
+          <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>Full personal-finance audit trail — 384 events — exportable.</div>
         </Card>
       )}
     </div>
@@ -912,15 +912,15 @@ function HouseholdTab({ customer, members }) {
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 3 }}>
             <b style={{ color: 'var(--text-primary)' }}>{members.length}</b> members
-            {' · '}<b>{adults.length}</b> adults
-            {' · '}<b>{children.length}</b> children
-            {supported.length > 0 && <>{' · '}<b>{supported.length}</b> supported relative{supported.length > 1 ? 's' : ''}</>}
+            {' — '}<b>{adults.length}</b> adults
+            {' — '}<b>{children.length}</b> children
+            {supported.length > 0 && <>{' — '}<b>{supported.length}</b> supported relative{supported.length > 1 ? 's' : ''}</>}
           </div>
         </div>
         <button className="btn btn-primary btn-sm"><Icon name="userplus" size={12}/> Add household member</button>
       </div>
 
-      {/* Section · Your household */}
+      {/* Section — Your household */}
       <div>
         <SectionHeader label="In your household" hint="People who share your day-to-day finances"/>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginTop: 12 }}>
@@ -928,7 +928,7 @@ function HouseholdTab({ customer, members }) {
         </div>
       </div>
 
-      {/* Section · Supported relatives (different vibe — they're family but not in the home) */}
+      {/* Section — Supported relatives (different vibe — they're family but not in the home) */}
       {supported.length > 0 && (
         <div>
           <SectionHeader label="Supported relatives" hint="Family abroad you send money to regularly"/>
@@ -938,7 +938,7 @@ function HouseholdTab({ customer, members }) {
         </div>
       )}
 
-      {/* Helper card · explaining the relationship */}
+      {/* Helper card — explaining the relationship */}
       <div style={{
         padding: '12px 14px', background: 'var(--surface-inset)',
         border: '1px dashed var(--border-light)', borderRadius: 10,
@@ -988,7 +988,7 @@ function HouseholdMemberCard({ m, external = false }) {
             }}>YOU</span>}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-            {m.role}{m.age ? ` · ${m.age} years old` : ''}
+            {m.role}{m.age ? ` — ${m.age} years old` : ''}
           </div>
         </div>
         <Pill tone={m.perms === 'Full' ? 'success' : m.perms === 'View-only' ? 'tint' : 'warning'} dot size="sm">
@@ -1010,7 +1010,7 @@ function HouseholdMemberCard({ m, external = false }) {
         </div>
       </div>
 
-      {/* Footer · allowance, contribution, or transfer */}
+      {/* Footer — allowance, contribution, or transfer */}
       {(m.allowance || m.monthlyTransfer || m.monthlyContribution) && (
         <div style={{
           paddingTop: 10, borderTop: '1px solid var(--border-light)',

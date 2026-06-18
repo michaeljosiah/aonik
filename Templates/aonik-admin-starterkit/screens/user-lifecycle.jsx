@@ -1,17 +1,17 @@
-// ─── User Lifecycle Closure · Spec 026 ─────────────────────────────
+// ─── User Lifecycle Closure — Spec 026 ─────────────────────────────
 // Five Admin-UI surfaces that close the gap from "invite a user" to
 // "delete a user" entirely in-product:
 //
 //   ScreenUsersLifecycle       — user list with Invited / Sessions-revoked
 //                                status badges + per-row action menu
 //   ScreenUserDetail           — user profile + Sessions tab + three actions
-//                                (Resend invite · Revoke sessions · Delete)
+//                                (Resend invite — Revoke sessions — Delete)
 //   ScreenUserInviteSent       — post-send confirmation dialog
 //   ScreenUserDeleteDialog     — destructive type-email-to-confirm dialog
 //   ScreenComplianceTombstones — deletion audit page for compliance review
 //
-// All screens follow the Aonik DNA: PageHeader · Card · Pill · DataTable
-// · Icon, with DM Sans for body and JetBrains Mono for IDs, dates, JWT
+// All screens follow the Aonik DNA: PageHeader — Card — Pill — DataTable
+// — Icon, with DM Sans for body and JetBrains Mono for IDs, dates, JWT
 // claims and ledger refs.
 
 // ─── Shared data ──────────────────────────────────────────────────
@@ -30,19 +30,19 @@ const LIFECYCLE_USERS = [
 
 // Mock active sessions for the Sessions tab
 const MARIA_SESSIONS = [
-  { id: 'sess-9821', device: 'monitor', label: 'Chrome 134 · macOS Sonoma',  loc: 'London, UK',   ip: '82.41.218.144', iat: '12 May 13:48 UTC', lastSeen: '14 minutes ago', current: true  },
-  { id: 'sess-9803', device: 'laptop',  label: 'Safari 17 · macOS Sonoma',   loc: 'London, UK',   ip: '82.41.218.144', iat: '11 May 09:02 UTC', lastSeen: '1 day ago',      current: false },
-  { id: 'sess-9774', device: 'mobile',  label: 'Aonik iOS · iPhone 15 Pro',  loc: 'Reading, UK',  ip: '91.140.62.18',  iat: '08 May 22:10 UTC', lastSeen: '4 days ago',     current: false },
+  { id: 'sess-9821', device: 'monitor', label: 'Chrome 134 — macOS Sonoma',  loc: 'London, UK',   ip: '82.41.218.144', iat: '12 May 13:48 UTC', lastSeen: '14 minutes ago', current: true  },
+  { id: 'sess-9803', device: 'laptop',  label: 'Safari 17 — macOS Sonoma',   loc: 'London, UK',   ip: '82.41.218.144', iat: '11 May 09:02 UTC', lastSeen: '1 day ago',      current: false },
+  { id: 'sess-9774', device: 'mobile',  label: 'Aonik iOS — iPhone 15 Pro',  loc: 'Reading, UK',  ip: '91.140.62.18',  iat: '08 May 22:10 UTC', lastSeen: '4 days ago',     current: false },
 ];
 
 // Mock tombstones for the compliance page
 const TOMBSTONES = [
-  { id: 'tomb-7b21', original: 'Henry Walsh',      emailRedacted: 'h***@primrose.co',     role: 'Analyst',           deletedBy: 'Oliver Chen',  at: '08 May 2026 · 16:42', reason: 'Employment ended · contractor offboard' },
-  { id: 'tomb-7b20', original: 'Priya Shah',       emailRedacted: 'p***@primrose.co',     role: 'Operations',        deletedBy: 'Oliver Chen',  at: '02 May 2026 · 11:08', reason: 'GDPR right-to-be-forgotten request' },
-  { id: 'tomb-7b1f', original: 'Marcus Reed',      emailRedacted: 'm***@primrose.co',     role: 'Read-only',         deletedBy: 'Maria Gomez',  at: '28 Apr 2026 · 09:24', reason: 'Created in error · duplicate of existing user' },
-  { id: 'tomb-7b1e', original: 'Sofia Mendes',     emailRedacted: 's***@primrose.co',     role: 'Compliance Officer',deletedBy: 'Oliver Chen',  at: '14 Apr 2026 · 14:17', reason: 'Employment ended' },
-  { id: 'tomb-7b1d', original: 'Daniel Brooks',    emailRedacted: 'd***@primrose.co',     role: 'Analyst',           deletedBy: 'Oliver Chen',  at: '02 Apr 2026 · 10:55', reason: 'GDPR erasure request from data subject' },
-  { id: 'tomb-7b1c', original: 'Aisha Bello',      emailRedacted: 'a***@primrose.co',     role: 'Operations',        deletedBy: 'Maria Gomez',  at: '21 Mar 2026 · 17:31', reason: 'Contractor end-of-engagement' },
+  { id: 'tomb-7b21', original: 'Henry Walsh',      emailRedacted: 'h***@primrose.co',     role: 'Analyst',           deletedBy: 'Oliver Chen',  at: '08 May 2026 — 16:42', reason: 'Employment ended — contractor offboard' },
+  { id: 'tomb-7b20', original: 'Priya Shah',       emailRedacted: 'p***@primrose.co',     role: 'Operations',        deletedBy: 'Oliver Chen',  at: '02 May 2026 — 11:08', reason: 'GDPR right-to-be-forgotten request' },
+  { id: 'tomb-7b1f', original: 'Marcus Reed',      emailRedacted: 'm***@primrose.co',     role: 'Read-only',         deletedBy: 'Maria Gomez',  at: '28 Apr 2026 — 09:24', reason: 'Created in error — duplicate of existing user' },
+  { id: 'tomb-7b1e', original: 'Sofia Mendes',     emailRedacted: 's***@primrose.co',     role: 'Compliance Officer',deletedBy: 'Oliver Chen',  at: '14 Apr 2026 — 14:17', reason: 'Employment ended' },
+  { id: 'tomb-7b1d', original: 'Daniel Brooks',    emailRedacted: 'd***@primrose.co',     role: 'Analyst',           deletedBy: 'Oliver Chen',  at: '02 Apr 2026 — 10:55', reason: 'GDPR erasure request from data subject' },
+  { id: 'tomb-7b1c', original: 'Aisha Bello',      emailRedacted: 'a***@primrose.co',     role: 'Operations',        deletedBy: 'Maria Gomez',  at: '21 Mar 2026 — 17:31', reason: 'Contractor end-of-engagement' },
 ];
 
 // Local filter bar — sidesteps the workers.jsx FilterBar override that
@@ -111,7 +111,7 @@ function lifecycleStatusProps(status) {
   }
 }
 
-// ─── 1 · ScreenUsersLifecycle ──────────────────────────────────────
+// ─── 1 — ScreenUsersLifecycle ──────────────────────────────────────
 // Updated user list with per-row action menu. Hover any row to reveal
 // the kebab; for an Invited user the "Resend invite" item is the
 // primary action.
@@ -189,12 +189,12 @@ function ScreenUsersLifecycle() {
     counts.invited && `${counts.invited} pending invite`,
     counts['sessions-revoked'] && `${counts['sessions-revoked']} sessions revoked`,
     counts.suspended && `${counts.suspended} suspended`,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' — ');
 
   return (
     <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Finance · Access"
+        eyebrow="Finance — Access"
         title="Users"
         subtitle={subtitle}
         actions={<>
@@ -329,7 +329,7 @@ function UserRowMenu({ user, onClose }) {
   );
 }
 
-// ─── 2 · ScreenUserDetail ──────────────────────────────────────────
+// ─── 2 — ScreenUserDetail ──────────────────────────────────────────
 // User detail page. Sessions tab is shown by default — it's the
 // most novel surface introduced by spec 026.
 function ScreenUserDetail() {
@@ -347,11 +347,11 @@ function ScreenUserDetail() {
     <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header — full bleed identity block */}
       <PageHeader
-        eyebrow="Finance · Access · Users"
+        eyebrow="Finance — Access — Users"
         title={u.name}
         subtitle={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{u.email}</span>
-          <span style={{ color: 'var(--border)' }}>·</span>
+          <span style={{ color: 'var(--border)' }}>—</span>
           <Pill tone="tint" size="sm">{u.role}</Pill>
           <Pill {...lifecycleStatusProps(u.status)} size="sm">{lifecycleStatusProps(u.status).label}</Pill>
           {u.mfa && <Pill tone="success" dot size="sm">MFA</Pill>}
@@ -431,7 +431,7 @@ function UserDetailSessions({ sessions }) {
     <div style={{ marginTop: 18 }}>
       <Card
         title="Active sessions"
-        subtitle="Bearer tokens currently valid · pulled from recent iat claims"
+        subtitle="Bearer tokens currently valid — pulled from recent iat claims"
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <SessionsInfoPopover open={showInfo} onToggle={() => setShowInfo(v => !v)} onClose={() => setShowInfo(false)}/>
@@ -473,11 +473,11 @@ function UserDetailSessions({ sessions }) {
                     <Icon name="mappin" size={10} color="var(--text-tertiary)"/>{s.loc}
                   </span>
                   <span>{s.ip}</span>
-                  <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>—</span>
                   <span>iat {s.iat}</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 5 }}>
-                  Last seen {s.lastSeen} · token id <span style={{ fontFamily: 'var(--font-mono)' }}>{s.id}</span>
+                  Last seen {s.lastSeen} — token id <span style={{ fontFamily: 'var(--font-mono)' }}>{s.id}</span>
                 </div>
               </div>
               <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }}>
@@ -578,7 +578,7 @@ function UserDetailProfile({ user }) {
           <UlcField label="Display name"  value={user.name}/>
           <UlcField label="Email"          value={user.email} mono/>
           <UlcField label="Phone"          value="+44 7700 900218" mono/>
-          <UlcField label="Locale"         value="en-GB · GMT"/>
+          <UlcField label="Locale"         value="en-GB — GMT"/>
           <UlcField label="Department"     value="Treasury"/>
           <UlcField label="Reports to"     value="Oliver Chen"/>
         </div>
@@ -632,7 +632,7 @@ function UserDetailRoles() {
     { name: 'Treasury Approver', scope: 'workspace', perms: 8,  granted: '02 Mar 2025', by: 'Maria Gomez' },
   ];
   return (
-    <Card title="Roles & permissions" subtitle={`${roles.length} roles · 50 effective permissions`} action={<button className="btn btn-outline btn-sm"><Icon name="plus" size={12}/> Assign role</button>}>
+    <Card title="Roles & permissions" subtitle={`${roles.length} roles — 50 effective permissions`} action={<button className="btn btn-outline btn-sm"><Icon name="plus" size={12}/> Assign role</button>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
         {roles.map(r => (
           <div key={r.name} style={{
@@ -642,10 +642,10 @@ function UserDetailRoles() {
           }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{r.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>scope · {r.scope}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>scope — {r.scope}</div>
             </div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-secondary)' }}>{r.perms} perms</span>
-            <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>by {r.by} · {r.granted}</span>
+            <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>by {r.by} — {r.granted}</span>
             <button className="btn btn-ghost btn-sm"><Icon name="trash" size={12}/></button>
           </div>
         ))}
@@ -656,15 +656,15 @@ function UserDetailRoles() {
 
 function UserDetailAudit() {
   const entries = [
-    { t: '12 May 13:48', a: 'user.signed-in',        d: 'IdP claim verified · iat 1715520480'  },
-    { t: '11 May 09:02', a: 'user.signed-in',        d: 'Safari 17 · macOS'                    },
-    { t: '08 May 22:10', a: 'user.signed-in',        d: 'Aonik iOS · iPhone 15 Pro'            },
+    { t: '12 May 13:48', a: 'user.signed-in',        d: 'IdP claim verified — iat 1715520480'  },
+    { t: '11 May 09:02', a: 'user.signed-in',        d: 'Safari 17 — macOS'                    },
+    { t: '08 May 22:10', a: 'user.signed-in',        d: 'Aonik iOS — iPhone 15 Pro'            },
     { t: '02 May 16:30', a: 'role.assigned',         d: 'Treasury Approver granted by O. Chen' },
-    { t: '14 Apr 11:08', a: 'profile.updated',       d: 'Phone changed · +44 7700 900218'      },
+    { t: '14 Apr 11:08', a: 'profile.updated',       d: 'Phone changed — +44 7700 900218'      },
     { t: '14 Jan 09:14', a: 'user.invite-accepted',  d: 'Joined via invite from O. Chen'       },
   ];
   return (
-    <Card title="Audit trail" subtitle="Last 90 days · scoped to this user">
+    <Card title="Audit trail" subtitle="Last 90 days — scoped to this user">
       <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
         {entries.map((e, i, arr) => (
           <div key={i} style={{
@@ -683,7 +683,7 @@ function UserDetailAudit() {
   );
 }
 
-// ─── 3 · ScreenUserInviteSent ──────────────────────────────────────
+// ─── 3 — ScreenUserInviteSent ──────────────────────────────────────
 // Post-send confirmation dialog. The backdrop is the user list, dimmed.
 function ScreenUserInviteSent() {
   return (
@@ -735,11 +735,11 @@ function ScreenUserInviteSent() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
             <DialogDetailRow label="Role granted"     value={<Pill tone="tint" size="sm">Analyst</Pill>}/>
             <DialogDetailRow label="Invited by"       value="Oliver Chen"/>
-            <DialogDetailRow label="Sent at"          value="12 May 2026 · 09:14 UTC" mono/>
+            <DialogDetailRow label="Sent at"          value="12 May 2026 — 09:14 UTC" mono/>
             <DialogDetailRow label="Link expires"     value={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Icon name="clock" size={11} color="var(--warning)"/>
               <span style={{ fontFamily: 'var(--font-mono)' }}>15 May 09:14 UTC</span>
-              <span style={{ color: 'var(--text-tertiary)' }}>· in 72 h</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>— in 72 h</span>
             </span>}/>
           </div>
 
@@ -788,9 +788,9 @@ function UsersListBackdrop() {
   return (
     <div style={{ padding: '24px 32px', opacity: 0.5, pointerEvents: 'none' }}>
       <PageHeader
-        eyebrow="Finance · Access"
+        eyebrow="Finance — Access"
         title="Users"
-        subtitle="10 team members · 5 active · 2 pending invite · 1 sessions revoked"
+        subtitle="10 team members — 5 active — 2 pending invite — 1 sessions revoked"
         actions={<>
           <button className="btn btn-outline btn-sm"><Icon name="shield" size={12}/> Roles</button>
           <button className="btn btn-primary btn-sm"><Icon name="userplus" size={12}/> Invite user</button>
@@ -823,7 +823,7 @@ function UsersListBackdrop() {
   );
 }
 
-// ─── 4 · ScreenUserDeleteDialog ────────────────────────────────────
+// ─── 4 — ScreenUserDeleteDialog ────────────────────────────────────
 // Destructive type-email-to-confirm dialog. Backdrop is the user
 // detail page, dimmed.
 function ScreenUserDeleteDialog() {
@@ -870,9 +870,9 @@ function ScreenUserDeleteDialog() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {[
-              { icon: 'userx',     text: 'User record removed from AnkUsers · cannot be reactivated' },
+              { icon: 'userx',     text: 'User record removed from AnkUsers — cannot be reactivated' },
               { icon: 'ban',       text: 'All 3 active sessions revoked instantly (FusionCache invalidated)' },
-              { icon: 'globe',     text: 'IdP user deleted via Auth0 management API · email freed for reuse' },
+              { icon: 'globe',     text: 'IdP user deleted via Auth0 management API — email freed for reuse' },
               { icon: 'tombstone', text: 'Audit-log PII redacted to a tombstone for compliance integrity' },
             ].map((row, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-secondary)' }}>
@@ -916,11 +916,11 @@ function ScreenUserDeleteDialog() {
 
           <div>
             <div style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 6 }}>
-              Reason <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--text-tertiary)' }}>· will be recorded on the tombstone</span>
+              Reason <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--text-tertiary)' }}>— will be recorded on the tombstone</span>
             </div>
             <textarea
               rows={3}
-              defaultValue="Contractor end-of-engagement · 12 May 2026. Approved by CFO."
+              defaultValue="Contractor end-of-engagement — 12 May 2026. Approved by CFO."
               style={{
                 width: '100%', padding: '10px 12px',
                 border: '1px solid var(--border-light)',
@@ -930,7 +930,7 @@ function ScreenUserDeleteDialog() {
                 outline: 'none', resize: 'vertical',
               }}
             />
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 5 }}>62 / 500 characters · minimum 10</div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 5 }}>62 / 500 characters — minimum 10</div>
           </div>
         </div>
 
@@ -944,7 +944,7 @@ function ScreenUserDeleteDialog() {
         }}>
           <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Icon name="alertc" size={12} color="var(--warning)"/>
-            GDPR Article 17 · audit log will retain only a tombstone ref
+            GDPR Article 17 — audit log will retain only a tombstone ref
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-ghost btn-sm">Cancel</button>
@@ -964,7 +964,7 @@ function UserDetailBackdrop() {
   return (
     <div style={{ padding: '24px 32px', opacity: 0.45, pointerEvents: 'none' }}>
       <PageHeader
-        eyebrow="Finance · Access · Users"
+        eyebrow="Finance — Access — Users"
         title={u.name}
         subtitle={u.email}
         actions={<>
@@ -991,14 +991,14 @@ function UserDetailBackdrop() {
   );
 }
 
-// ─── 5 · ScreenComplianceTombstones ────────────────────────────────
+// ─── 5 — ScreenComplianceTombstones ────────────────────────────────
 // Compliance review of historical deletions. PII is already redacted,
 // only operator/reason/date remain.
 function ScreenComplianceTombstones() {
   const cols = [
     { key: 'id', label: 'Tombstone', w: '130px',
       render: r => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--brand-primary)', fontWeight: 600 }}>{r.id}</span> },
-    { key: 'original', label: 'Original user · redacted', w: '1.4fr',
+    { key: 'original', label: 'Original user — redacted', w: '1.4fr',
       render: r => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
@@ -1031,9 +1031,9 @@ function ScreenComplianceTombstones() {
   return (
     <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PageHeader
-        eyebrow="Operations · Compliance"
+        eyebrow="Operations — Compliance"
         title="Deleted users"
-        subtitle="Tombstones for GDPR Article 17 erasures · retained 7 years · PII redacted on creation"
+        subtitle="Tombstones for GDPR Article 17 erasures — retained 7 years — PII redacted on creation"
         actions={<>
           <button className="btn btn-outline btn-sm"><Icon name="download" size={12}/> Export CSV</button>
           <button className="btn btn-outline btn-sm"><Icon name="activity" size={12}/> Audit log</button>
@@ -1043,7 +1043,7 @@ function ScreenComplianceTombstones() {
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         {[
-          { l: 'Tombstones · all time', v: '218',  tone: 'var(--brand-primary)' },
+          { l: 'Tombstones — all time', v: '218',  tone: 'var(--brand-primary)' },
           { l: 'Last 30 days',          v: '6',    tone: 'var(--success)' },
           { l: 'GDPR erasure requests', v: '4',    tone: 'var(--warning)' },
           { l: 'Avg time to delete',    v: '1.8h', tone: 'var(--brand-secondary)' },
