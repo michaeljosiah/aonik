@@ -685,10 +685,12 @@ public interface IPaymentInitiator
   </ul>
 </div>
 <div class="phase-card">
-  <h4>Phase 4 — Commerce agent</h4>
+  <h4>Phase 4 ✅ — Commerce agent (landed)</h4>
   <div class="phase-summary">The agentic payoff.</div>
   <ul>
-    <li><code>CommerceAgentRegistration</code> + <code>CommerceToolApprovalManifest</code> + product/cart/inventory tools + any high-tier proposal handlers.</li>
+    <li><code>CommerceAgentDescriptor</code> (<code>commerce-agent</code>, an <code>IDomainAgentDescriptor</code> composed by the orchestrator) + <code>CommerceAgentTools</code> (search/get/view/check reads; create-cart/add-to-cart/add-bundle low; create-product/set-price/adjust-inventory/checkout medium).</li>
+    <li><code>CommerceToolApprovalManifest</code> (<code>IToolApprovalManifest</code>) classifies every mutating tool; all tools routed through the central <code>IToolApprovalGate.GateAll</code> (Spec 032) — fails closed. Nothing is High (Commerce never captures money; a future <code>commerce_refund</code> would marshal a Finance proposal).</li>
+    <li><em>Verified:</em> build green; Commerce 31/31 (incl. manifest tier classification + read-passthrough); Architecture 13/13, Api 242 pass (app boots with the agent + manifest discovered by the gate).</li>
   </ul>
 </div>
 <div class="phase-card">

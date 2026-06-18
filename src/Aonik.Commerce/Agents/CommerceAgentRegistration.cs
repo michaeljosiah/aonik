@@ -1,0 +1,111 @@
+using Aonik.Commerce.Agents.Tools;
+using Aonik.SharedKernel.Abstractions.Agents;
+
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Aonik.Commerce.Agents;
+
+/// <summary>
+/// Commerce domain agent descriptor (Spec 042 §13). Builds the <c>commerce-agent</c>
+/// <see cref="ChatClientAgent"/> with catalog, inventory, cart, and checkout tools. Mutating tools
+/// are wrapped by the server-side <see cref="IToolApprovalGate"/> (Spec 032) so they cannot run
+/// ungated — low cart writes run in-band, medium catalog/price/inventory/checkout writes surface a
+/// requires-approval result. The agent never captures money. Composed as a tool by the master
+/// orchestrator.
+/// </summary>
+public sealed class CommerceAgentDescriptor : IDomainAgentDescriptor
+{
+    public string Name => "commerce-agent";
+
+    public string Description =>
+        "Manages a retail catalog and shopping for the current tenant: searches products, builds " +
+        "carts (including build-your-own-box bundles), checks stock, and checks out. Can create " +
+        "products, set prices, and adjust inventory. Never captures money — checkout creates an " +
+        "order and a draft payment only.";
+
+    string? IDomainAgentDescriptor.Instructions => InstructionsText;
+
+    internal const string InstructionsText =
+        """
+        <role>
+        You are the AONIK Commerce Agent, a sub-agent responsible for retail catalog and shopping operations within the AONIK platform.
+        </role>
+
+        <task>
+        Help users browse and manage a product catalog and complete purchases. You search products; create products, set prices, and adjust stock; build carts (including custom build-your-own-box bundles); check availability; and check out a cart.
+        </task>
+
+        <context>
+        Tool categories:
+        - Catalog (read): search products, get a product's full detail (variants, prices, bundle slots).
+        - Catalog (write): create a product, set a variant's price, adjust a variant's stock.
+        - Cart: create a cart, add a simple product line, add a build-your-own-box bundle (a selection of component variants per slot).
+        - Inventory (read): check available units for a variant.
+        - Checkout: reserve stock, create the product-purchase order, and initiate a DRAFT payment. Checkout never captures money.
+        </context>
+
+        <constraints>
+        - Checkout and money: checkout only creates an order and a draft payment intent. You never capture, settle, or move money — that is handled elsewhere with separate human approval. Make this clear when a user expects payment to be taken.
+        - Before a build-your-own-box, fetch the bundle product's slots (get a product) so you supply a valid selection (right slot ids, min/max counts, allowed components). Do not guess ids.
+        - Present all monetary amounts with their currency code (e.g. "₦12,000 NGN", "$25.00 USD").
+        - Reference entities by their ids (product id, variant id, cart id, order id) when reporting results.
+        - If stock is insufficient at checkout, explain it plainly and suggest reducing quantity or choosing another item.
+        - If an operation fails, explain the error in plain language and suggest a fix. Never expose stack traces or raw exception text.
+        </constraints>
+
+        <output_contract>
+        - For queries: a concise summary with entity ids, names, prices (with currency), and availability.
+        - For mutations: confirm what was done, include the entity id, and state the new state.
+        - Keep responses concise — 1-2 short paragraphs.
+        </output_contract>
+
+        <definition_of_done>
+        A response is complete only when:
+        - The user's request is fulfilled or a clear reason is given why it cannot be.
+        - Monetary amounts include currency codes; entity ids are included for traceability.
+        - For checkout, it is clear that an order + draft payment were created and money was not captured.
+        </definition_of_done>
+        """;
+
+    public AIAgent Build(IChatClient chatClient, IServiceProvider serviceProvider)
+        => BuildAgent(chatClient, serviceProvider, InstructionsText, allowedToolNames: null);
+
+    public AIAgent Build(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string? instructionsOverride,
+        IReadOnlySet<string>? allowedToolNames)
+        => BuildAgent(chatClient, serviceProvider, instructionsOverride ?? InstructionsText, allowedToolNames);
+
+    public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)
+    {
+        var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
+        return gate.GateAll(CommerceAgentTools.CreateAll(serviceProvider), serviceProvider)
+            .Select(t => t.Name)
+            .ToList();
+    }
+
+    private static AIAgent BuildAgent(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string instructions,
+        IReadOnlySet<string>? allowedToolNames)
+    {
+        // Fail-closed approval seam (Spec 032): every mutating tool is wrapped so it cannot run
+        // ungated, and an unclassified mutating-looking tool throws here at build.
+        var gate = serviceProvider.GetRequiredService<IToolApprovalGate>();
+
+        var composed = CommerceAgentTools.CreateAll(serviceProvider)
+            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name));
+
+        var tools = gate.GateAll(composed, serviceProvider).ToList();
+
+        return new ChatClientAgent(
+            chatClient,
+            name: "commerce-agent",
+            instructions: instructions,
+            tools: tools);
+    }
+}

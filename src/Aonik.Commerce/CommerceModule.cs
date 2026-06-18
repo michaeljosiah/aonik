@@ -1,7 +1,9 @@
+using Aonik.Commerce.Agents;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Modules;
 
@@ -51,6 +53,12 @@ public sealed class CommerceModule : IModule
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
         services.AddEventHandlersFromAssembly(typeof(CommerceModule).Assembly);
+
+        // Spec 042 §13 — the commerce-agent + its tool-approval classification. The orchestrator
+        // discovers IDomainAgentDescriptor via DI; the central IToolApprovalGate discovers the
+        // manifest and gates every classified mutating tool (Spec 032).
+        services.AddSingleton<IDomainAgentDescriptor, CommerceAgentDescriptor>();
+        services.AddSingleton<IToolApprovalManifest, CommerceToolApprovalManifest>();
 
         return services;
     }
