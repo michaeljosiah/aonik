@@ -41,7 +41,10 @@ public record AddBundleToCartCommand(Guid CartId, Guid BundleProductId, IReadOnl
 
 public record CheckoutCommand(
     Guid CartId,
-    string? PaymentMethodType = null,
+    string Provider,
+    string PaymentMethodType,
+    string? ReturnUrl = null,
+    string? CancelUrl = null,
     Guid? CustomerAccountId = null,
     string? DiscountCode = null);
 
@@ -54,4 +57,6 @@ public record CheckoutResult(
     decimal DiscountTotal,
     decimal TaxTotal,
     decimal Total,
-    string Currency);
+    string Currency,
+    string? ClientSecret = null,
+    string? CheckoutUrl = null);

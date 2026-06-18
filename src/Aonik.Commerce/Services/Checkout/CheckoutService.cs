@@ -77,6 +77,14 @@ internal sealed class CheckoutService : ICheckoutService
         {
             throw new InvalidOperationException("Cannot check out an empty cart.");
         }
+        if (string.IsNullOrWhiteSpace(command.Provider))
+        {
+            throw new ArgumentException("A payment provider is required to check out.", nameof(command));
+        }
+        if (string.IsNullOrWhiteSpace(command.PaymentMethodType))
+        {
+            throw new ArgumentException("A payment method type is required to check out.", nameof(command));
+        }
 
         // 1. Reserve stock — fan out bundle lines to their component variants (all-or-nothing).
         var reservationLines = new List<InventoryReservationLine>();
@@ -172,14 +180,16 @@ internal sealed class CheckoutService : ICheckoutService
             invoiceId = invoice.InvoiceId;
         }
 
-        // 6. Initiate funding for the payable total and link it to the order.
-        var intent = await _payments.CreateIntentForOrderAsync(new CreatePaymentIntentForOrderCommand(
+        // 6. Initiate funding for the payable total via the permission-free guest path, and link it
+        //    to the order. Capture stays a Finance high-tier action.
+        var intent = await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(
             OrderId: order.Id,
             Amount: total,
             Currency: cart.Currency,
-            InvoiceId: invoiceId,
-            Reference: $"cart:{cart.Id:N}",
-            PaymentMethodType: command.PaymentMethodType), cancellationToken);
+            Provider: command.Provider,
+            PaymentMethodType: command.PaymentMethodType,
+            ReturnUrl: command.ReturnUrl,
+            CancelUrl: command.CancelUrl), cancellationToken);
 
         await _orders.LinkFundingAsync(order.Id, intent.PaymentIntentId, cancellationToken);
 
@@ -207,7 +217,7 @@ internal sealed class CheckoutService : ICheckoutService
 
         return new CheckoutResult(
             order.Id, invoiceId, intent.PaymentIntentId, intent.Status,
-            subtotal, discount.Amount, tax, total, cart.Currency);
+            subtotal, discount.Amount, tax, total, cart.Currency, intent.ClientSecret, intent.CheckoutUrl);
     }
 
     public async Task ConfirmPaymentAsync(Guid orderId, CancellationToken cancellationToken = default)

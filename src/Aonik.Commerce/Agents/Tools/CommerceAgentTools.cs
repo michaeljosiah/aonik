@@ -123,12 +123,13 @@ internal sealed class CommerceAgentTools
         return $"Variant {productVariantId} on-hand set to {onHand}; {available} now available.";
     }
 
-    [Description("Checks out a cart: reserves stock, creates the product-purchase order, and initiates a draft payment. Does NOT capture money.")]
+    [Description("Checks out a cart: reserves stock, creates the product-purchase order, and initiates a draft guest payment. Does NOT capture money.")]
     public Task<CheckoutResult> Checkout(
         [Description("The cart id (GUID)")] Guid cartId,
-        [Description("Optional payment method type (e.g. Card, BankTransfer)")] string? paymentMethodType = null,
+        [Description("The payment provider code (e.g. Stripe, Paystack)")] string provider,
+        [Description("The payment method type (e.g. Card, BankTransfer)")] string paymentMethodType,
         CancellationToken cancellationToken = default)
-        => _checkout.CheckoutAsync(new CheckoutCommand(cartId, paymentMethodType), cancellationToken);
+        => _checkout.CheckoutAsync(new CheckoutCommand(cartId, provider, paymentMethodType), cancellationToken);
 
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {

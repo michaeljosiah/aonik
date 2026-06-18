@@ -32,11 +32,13 @@ public class CheckoutServiceTests
     {
         public Guid LastOrderId { get; private set; }
         public decimal LastAmount { get; private set; }
-        public Task<PaymentIntentRef> CreateIntentForOrderAsync(CreatePaymentIntentForOrderCommand command, CancellationToken ct = default)
+        public string? LastProvider { get; private set; }
+        public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
         {
             LastOrderId = command.OrderId;
             LastAmount = command.Amount;
-            return Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "Pending"));
+            LastProvider = command.Provider;
+            return Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "Pending", null, "https://pay.example/checkout"));
         }
     }
 
@@ -94,7 +96,7 @@ public class CheckoutServiceTests
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
 
         result.Total.Should().Be(5_000m);
         result.PaymentIntentId.Should().NotBeEmpty();
@@ -145,7 +147,7 @@ public class CheckoutServiceTests
         var cartDto = await h.Carts().AddBundleAsync(new AddBundleToCartCommand(cart.Id, box.Id, selection));
         cartDto.Total.Should().Be(12_000m);
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
         result.Total.Should().Be(12_000m);
 
         await using var ordering = h.Ordering();
@@ -176,7 +178,7 @@ public class CheckoutServiceTests
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
 
-        var act = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id));
+        var act = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
 
         await act.Should().ThrowAsync<InsufficientStockException>();
 
@@ -196,7 +198,7 @@ public class CheckoutServiceTests
 
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
 
         await h.Checkout().ConfirmPaymentAsync(result.OrderId);
 
@@ -222,7 +224,7 @@ public class CheckoutServiceTests
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m)); // subtotal 5000
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, DiscountCode: "SAVE10"));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: "SAVE10"));
 
         result.Subtotal.Should().Be(5_000m);
         result.DiscountTotal.Should().Be(500m);
@@ -250,8 +252,8 @@ public class CheckoutServiceTests
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
 
-        var first = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id));
-        var retry = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id)); // double-click
+        var first = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        var retry = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card")); // double-click
 
         // Same order + payment intent replayed; no second order; stock reserved exactly once.
         retry.OrderId.Should().Be(first.OrderId);
@@ -293,7 +295,7 @@ public class CheckoutServiceTests
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m));
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, CustomerAccountId: Guid.NewGuid()));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", CustomerAccountId: Guid.NewGuid()));
 
         h.Invoices.Calls.Should().Be(1);
         result.InvoiceId.Should().NotBeNull();

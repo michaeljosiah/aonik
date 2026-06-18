@@ -7,27 +7,29 @@ namespace Aonik.Finance.Services.Integration;
 /// <summary>
 /// Finance's implementation of the SharedKernel <see cref="IPaymentInitiator"/> write contract
 /// (Spec 042 §12). Lets modules that may not reference Finance (e.g. <c>Aonik.Commerce</c>) initiate
-/// funding of an order. A thin adapter over <see cref="IPaymentService"/> that creates a
-/// <c>PaymentIntent</c> only — capture/settlement remain Finance-governed high-tier actions.
+/// funding of an order through the permission-free <see cref="IPublicPaymentService"/> guest path, so
+/// anonymous storefront checkout works. Creates a <c>PaymentIntent</c> only — capture/settlement
+/// remain Finance-governed high-tier actions.
 /// </summary>
 internal sealed class PaymentInitiator : IPaymentInitiator
 {
-    private readonly IPaymentService _payments;
+    private readonly IPublicPaymentService _publicPayments;
 
-    public PaymentInitiator(IPaymentService payments) => _payments = payments;
+    public PaymentInitiator(IPublicPaymentService publicPayments) => _publicPayments = publicPayments;
 
-    public async Task<PaymentIntentRef> CreateIntentForOrderAsync(CreatePaymentIntentForOrderCommand command, CancellationToken cancellationToken = default)
+    public async Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken cancellationToken = default)
     {
-        var request = new CreatePaymentIntentRequest(
-            Amount: command.Amount,
-            Currency: command.Currency,
-            Reference: command.Reference ?? $"order:{command.OrderId:N}",
-            OrderId: command.OrderId,
-            InvoiceId: command.InvoiceId,
-            PayerPartyId: null,
-            PaymentMethodType: command.PaymentMethodType);
+        var response = await _publicPayments.CreateCommerceGuestPaymentIntentAsync(
+            new CreateCommerceGuestPaymentIntentRequest(
+                OrderId: command.OrderId,
+                Amount: command.Amount,
+                Currency: command.Currency,
+                Provider: command.Provider,
+                PaymentMethodType: command.PaymentMethodType,
+                ReturnUrl: command.ReturnUrl,
+                CancelUrl: command.CancelUrl),
+            cancellationToken);
 
-        var response = await _payments.CreatePaymentIntentAsync(request, cancellationToken);
-        return new PaymentIntentRef(response.Id, response.Status.ToString());
+        return new PaymentIntentRef(response.PaymentIntentId, response.Status, response.ClientSecret, response.CheckoutUrl);
     }
 }
