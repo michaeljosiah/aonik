@@ -174,4 +174,37 @@ public class CoreOrderServiceTests
         second.Id.Should().Be(first.Id);
         (await context.Orders.CountAsync()).Should().Be(1);
     }
+
+    [Fact]
+    public async Task CreateAsync_Should_NormalizeIdempotencyKey_SoPaddedRetryHitsExistingOrder()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        // A retry whose key differs only by surrounding whitespace must resolve to the same order,
+        // and the stored key is trimmed.
+        var first = await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "order-123" });
+        var retry = await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "  order-123  " });
+
+        retry.Id.Should().Be(first.Id);
+        (await context.Orders.CountAsync()).Should().Be(1);
+        (await context.Orders.SingleAsync()).IdempotencyKey.Should().Be("order-123");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_StoreNullIdempotencyKey_ForBlankInput()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        // A blank key must be stored as NULL (exempt from the filtered unique index), so two blank-key
+        // creates produce two distinct orders rather than colliding.
+        await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "   " });
+        await service.CreateAsync(ProductPurchaseCommand() with { IdempotencyKey = "" });
+
+        (await context.Orders.CountAsync()).Should().Be(2);
+        (await context.Orders.CountAsync(o => o.IdempotencyKey == null)).Should().Be(2);
+    }
 }

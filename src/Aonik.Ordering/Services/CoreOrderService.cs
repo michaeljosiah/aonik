@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 using Aonik.Finance.Entities.Orders;
 using Aonik.Ordering.Persistence;
@@ -6,6 +7,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Events.Integration;
+using Aonik.SharedKernel.Events.Outbox;
 
 namespace Aonik.Ordering.Services;
 
@@ -46,12 +48,19 @@ internal sealed class CoreOrderService : IOrderService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        if (!string.IsNullOrWhiteSpace(command.IdempotencyKey))
+        // Normalize once and use the same value for both the lookup and the insert: a blank key is
+        // stored as NULL (exempt from the filtered unique index), and trimming makes a
+        // whitespace-padded retry hit the existing order instead of creating a duplicate.
+        var idempotencyKey = string.IsNullOrWhiteSpace(command.IdempotencyKey)
+            ? null
+            : command.IdempotencyKey.Trim();
+
+        if (idempotencyKey is not null)
         {
             var existing = await _dbContext.Orders
                 .Include(o => o.Items)
                 .FirstOrDefaultAsync(
-                    o => o.OrderType == command.OrderType && o.IdempotencyKey == command.IdempotencyKey,
+                    o => o.OrderType == command.OrderType && o.IdempotencyKey == idempotencyKey,
                     cancellationToken);
             if (existing is not null)
             {
@@ -66,7 +75,7 @@ internal sealed class CoreOrderService : IOrderService
             TenantId = tenantId,
             OrderType = command.OrderType,
             Status = OrderStatuses.Draft,
-            IdempotencyKey = command.IdempotencyKey,
+            IdempotencyKey = idempotencyKey,
             PayerPartyId = command.PayerPartyId,
             CurrencyIn = command.CurrencyIn,
             AmountIn = command.AmountIn ?? command.Items.Sum(i => i.AmountIn),
@@ -122,12 +131,72 @@ internal sealed class CoreOrderService : IOrderService
         order.HistoryEvents.Add(BuildHistoryEvent(tenantId, orderId, "Created", string.Empty));
 
         _dbContext.Orders.Add(order);
+
+        // Capture the outbox row we enqueue so it can be detached on a race loss — IIntegrationEvent
+        // .EventId regenerates per access, so it can't be matched after the fact.
+        var outboxBefore = _dbContext.ChangeTracker.Entries<OutboxMessage>().Select(e => e.Entity).ToHashSet();
         _dbContext.EnqueueIntegrationEvent(new OrderCreatedEvent(
             tenantId, orderId, order.OrderType, order.PayerPartyId, order.AmountIn, order.CurrencyIn));
+        var enqueuedOutbox = _dbContext.ChangeTracker.Entries<OutboxMessage>()
+            .Where(e => !outboxBefore.Contains(e.Entity))
+            .ToList();
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (idempotencyKey is not null)
+        {
+            // Lost an idempotency race: a concurrent create with the same
+            // (TenantId, OrderType, IdempotencyKey) committed first and tripped the filtered unique
+            // index. Detach our rejected graph (and its orphaned outbox event) and return the winner,
+            // so concurrent idempotent requests still receive a single coherent order.
+            DetachOrderGraph(order, enqueuedOutbox);
+
+            var winner = await _dbContext.Orders
+                .Include(o => o.Items)
+                .FirstOrDefaultAsync(
+                    o => o.OrderType == command.OrderType && o.IdempotencyKey == idempotencyKey,
+                    cancellationToken);
+            if (winner is null)
+            {
+                throw;
+            }
+
+            return MapToDto(winner);
+        }
 
         return MapToDto(order);
+    }
+
+    private void DetachOrderGraph(Order order, IEnumerable<EntityEntry<OutboxMessage>> enqueuedOutbox)
+    {
+        // The whole graph was cascade-tracked as Added by _dbContext.Orders.Add. After a failed
+        // insert we detach every node so the rejected order can't be replayed by a later
+        // SaveChanges on this scoped context.
+        foreach (var historyEvent in order.HistoryEvents)
+        {
+            _dbContext.Entry(historyEvent).State = EntityState.Detached;
+        }
+
+        foreach (var partyRole in order.PartyRoles)
+        {
+            _dbContext.Entry(partyRole).State = EntityState.Detached;
+        }
+
+        foreach (var item in order.Items)
+        {
+            _dbContext.Entry(item).State = EntityState.Detached;
+        }
+
+        _dbContext.Entry(order).State = EntityState.Detached;
+
+        // Detach the orphaned outbox event so OrderCreatedEvent is never dispatched for the rejected
+        // order (the winning create enqueued its own).
+        foreach (var outbox in enqueuedOutbox)
+        {
+            outbox.State = EntityState.Detached;
+        }
     }
 
     public async Task<OrderDto?> GetAsync(Guid orderId, CancellationToken cancellationToken = default)
