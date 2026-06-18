@@ -1,3 +1,4 @@
+using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.SharedKernel.Abstractions;
@@ -25,6 +26,10 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<BundleSlotOption> BundleSlotOptions => Set<BundleSlotOption>();
     public DbSet<InventoryLevel> InventoryLevels => Set<InventoryLevel>();
     public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
+    public DbSet<Entities.Cart.Cart> Carts => Set<Entities.Cart.Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<CartItemSelection> CartItemSelections => Set<CartItemSelection>();
+    public DbSet<OrderBundleSelection> OrderBundleSelections => Set<OrderBundleSelection>();
 
     public CommerceDbContext(
         DbContextOptions<CommerceDbContext> options,
@@ -59,6 +64,10 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<BundleSlotOption>(modelBuilder, "BundleSlotOptions");
         MapTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapTable<InventoryReservation>(modelBuilder, "InventoryReservations");
+        MapTable<Entities.Cart.Cart>(modelBuilder, "Carts");
+        MapTable<CartItem>(modelBuilder, "CartItems");
+        MapTable<CartItemSelection>(modelBuilder, "CartItemSelections");
+        MapTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

@@ -1,6 +1,8 @@
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Modules;
 
 using Microsoft.EntityFrameworkCore;
@@ -43,6 +45,12 @@ public sealed class CommerceModule : IModule
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IProductPricingService, ProductPricingService>();
         services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<ICartService, CartService>();
+        services.AddScoped<ICheckoutService, CheckoutService>();
+
+        // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
+        // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
+        services.AddEventHandlersFromAssembly(typeof(CommerceModule).Assembly);
 
         return services;
     }

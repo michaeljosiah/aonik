@@ -674,13 +674,14 @@ public interface IPaymentInitiator
   </ul>
 </div>
 <div class="phase-card">
-  <h4>Phase 3 — Cart &amp; checkout (reuse the spine)</h4>
+  <h4>Phase 3 ✅ — Cart &amp; checkout (landed)</h4>
   <div class="phase-summary">A product purchase, end to end.</div>
   <ul>
-    <li><code>Cart</code>/<code>CartItem</code> + <code>ICheckoutService</code>: reserve → <code>IOrderService.CreateAsync(ProductPurchase)</code> → <code>IInvoiceWriter</code> → <code>IPaymentInitiator</code>.</li>
-    <li>New <code>SharedKernel.Abstractions.Billing.IInvoiceWriter</code> + <code>Abstractions.Payments.IPaymentInitiator</code>, implemented in Finance.</li>
-    <li>Build-your-own-box checkout: validate the <code>CartItemSelection</code> against slots, price via <code>ResolveBundlePrice</code>, record one bundle order line + <code>OrderBundleSelection</code>, and fan out reservation/commit to components (Option A).</li>
-    <li>React to <code>PaymentCompletedEvent</code>: commit inventory, close cart, transition order to Complete.</li>
+    <li><code>Cart</code>/<code>CartItem</code>/<code>CartItemSelection</code> + <code>ICartService</code>; <code>ICheckoutService</code> orchestrates reserve (all-or-nothing fan-out) → <code>IOrderService.CreateAsync(ProductPurchase)</code> → optional <code>IInvoiceWriter</code> → <code>IPaymentInitiator</code> → <code>LinkFundingAsync</code>; the <code>CommerceCartAndCheckout</code> migration (4 tables).</li>
+    <li>New <code>SharedKernel.Abstractions.Billing.IInvoiceWriter</code> + <code>Abstractions.Payments.IPaymentInitiator</code>, implemented in Finance over <code>IBillingService</code>/<code>IPaymentService</code>. Invoice issuance runs only when a Finance <code>CustomerAccountId</code> is supplied (keeping the anonymous path clean); funding via <code>PaymentIntent</code> is always created. Capture stays a Finance high-tier action.</li>
+    <li>Build-your-own-box checkout (Option A): the box is one <code>ProductPurchase</code> line; contents recorded as <code>OrderBundleSelection</code> rows; reservation fans out to component variants.</li>
+    <li><code>CommercePaymentCompletedHandler</code> reacts to <code>PaymentCompletedEvent</code> → commit inventory, close cart, transition order to Complete (idempotent; runs in the Worker with tenant restored).</li>
+    <li><em>Verified:</em> build green; Commerce 18/18 (incl. full checkout, BYO-box fan-out, oversell guard, payment-completed confirm); Architecture 13/13, Application 1106, Api 242 pass.</li>
   </ul>
 </div>
 <div class="phase-card">

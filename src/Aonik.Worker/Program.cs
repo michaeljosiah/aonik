@@ -5,6 +5,7 @@ using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Commerce;
+using Aonik.Ordering;
 using Aonik.Documents;
 using Aonik.PersonalFinance;
 using Aonik.Ai;
@@ -28,6 +29,7 @@ builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
 builder.Services.AddDocumentsModule(builder.Configuration);
+builder.Services.AddOrderingModule(builder.Configuration);
 builder.Services.AddCommerceModule(builder.Configuration);
 
 // Drain the transactional outbox here only — a single drainer in the Worker host

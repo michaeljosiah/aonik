@@ -77,6 +77,11 @@ public sealed class FinanceModule : IModule
         // Billing
         services.AddScoped<Contracts.Services.Billing.IBillingService, Services.Billing.BillingService>();
 
+        // Spec 042 — SharedKernel write contracts (the write mirror of the ADR-006 read contracts)
+        // so modules that cannot reference Finance (e.g. Aonik.Commerce) can bill and fund an order.
+        services.AddScoped<SharedKernel.Abstractions.Billing.IInvoiceWriter, Services.Integration.InvoiceWriter>();
+        services.AddScoped<SharedKernel.Abstractions.Payments.IPaymentInitiator, Services.Integration.PaymentInitiator>();
+
         // Insights
         services.AddScoped<Contracts.Services.Insights.IMySpaceSummaryService, Services.Insights.MySpaceSummaryService>();
 

@@ -4,6 +4,7 @@ using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
+using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.Documents.Entities;
@@ -113,6 +114,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<BundleSlotOption> BundleSlotOptions { get; set; } = null!;
     public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
     public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
+    public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
+    public virtual DbSet<CartItem> CartItems { get; set; } = null!;
+    public virtual DbSet<CartItemSelection> CartItemSelections { get; set; } = null!;
+    public virtual DbSet<OrderBundleSelection> OrderBundleSelections { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -370,6 +375,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<BundleSlotOption>(modelBuilder, "BundleSlotOptions");
         MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
+        MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");
+        MapCommerceTable<CartItem>(modelBuilder, "CartItems");
+        MapCommerceTable<CartItemSelection>(modelBuilder, "CartItemSelections");
+        MapCommerceTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
