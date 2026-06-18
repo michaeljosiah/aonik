@@ -694,10 +694,14 @@ public interface IPaymentInitiator
   </ul>
 </div>
 <div class="phase-card">
-  <h4>Phase 5 — Discounts, shipping, tax, storefront (later)</h4>
+  <h4>Phase 5 ✅ — Discounts &amp; tax at checkout (landed; shipping + storefront deferred)</h4>
   <div class="phase-summary">Retail polish.</div>
   <ul>
-    <li>Discount/coupon engine; tax calculation interface; shipping carrier port + <code>ShipmentId</code> fulfilment; branded storefront app.</li>
+    <li><strong>Discounts:</strong> <code>Discount</code> coupon entity (Percentage / FixedAmount, expiry, redemption limit) + <code>IDiscountService</code> (create, validate-and-compute, redeem) + admin endpoint; applied at checkout via <code>CheckoutCommand.DiscountCode</code>.</li>
+    <li><strong>Tax:</strong> <code>ITaxCalculator</code> seam with a default <code>ZeroRateTaxCalculator</code> (deployments register a jurisdiction-aware calculator at the composition root).</li>
+    <li><strong>Charge breakdown:</strong> checkout computes subtotal → discount → tax → payable total, funds the <strong>discounted total</strong> via the <code>PaymentIntent</code>, and records a durable <code>OrderChargeSummary</code> (order lines stay the goods — Order/Payment/Ledger remain distinct). <code>CheckoutResult</code> returns the full breakdown. Migration <code>CommercePromotions</code> (2 tables).</li>
+    <li><em>Verified:</em> build green; Commerce 39/39 (incl. percentage/fixed coupons, expiry/limit guards, discounted-total funding); Architecture 13/13, Application 1127, Api 242 pass.</li>
+    <li><em>Deferred (own follow-up):</em> shipping-carrier integration + <code>ShipmentId</code> fulfilment linkage, and a branded storefront app (the spec lists the storefront UI as out-of-scope — these APIs are what it would consume).</li>
   </ul>
 </div>
 

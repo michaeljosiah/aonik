@@ -1,6 +1,7 @@
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -30,6 +31,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<CartItemSelection> CartItemSelections => Set<CartItemSelection>();
     public DbSet<OrderBundleSelection> OrderBundleSelections => Set<OrderBundleSelection>();
+    public DbSet<Discount> Discounts => Set<Discount>();
+    public DbSet<OrderChargeSummary> OrderChargeSummaries => Set<OrderChargeSummary>();
 
     public CommerceDbContext(
         DbContextOptions<CommerceDbContext> options,
@@ -68,6 +71,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<CartItem>(modelBuilder, "CartItems");
         MapTable<CartItemSelection>(modelBuilder, "CartItemSelections");
         MapTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
+        MapTable<Discount>(modelBuilder, "Discounts");
+        MapTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

@@ -7,6 +7,7 @@ using Aonik.Platform.Entities.Compliance;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.Documents.Entities;
 using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
@@ -118,6 +119,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<CartItem> CartItems { get; set; } = null!;
     public virtual DbSet<CartItemSelection> CartItemSelections { get; set; } = null!;
     public virtual DbSet<OrderBundleSelection> OrderBundleSelections { get; set; } = null!;
+    public virtual DbSet<Discount> Discounts { get; set; } = null!;
+    public virtual DbSet<OrderChargeSummary> OrderChargeSummaries { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -379,6 +382,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<CartItem>(modelBuilder, "CartItems");
         MapCommerceTable<CartItemSelection>(modelBuilder, "CartItemSelections");
         MapCommerceTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
+        MapCommerceTable<Discount>(modelBuilder, "Discounts");
+        MapCommerceTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

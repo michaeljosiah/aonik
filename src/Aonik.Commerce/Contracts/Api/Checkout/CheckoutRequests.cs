@@ -8,4 +8,4 @@ public record AddCartItemRequest(Guid ProductVariantId, decimal Quantity);
 
 public record AddBundleToCartRequest(Guid BundleProductId, IReadOnlyCollection<BundleSelectionLine> Selection);
 
-public record CheckoutRequest(string? PaymentMethodType, Guid? CustomerAccountId);
+public record CheckoutRequest(string? PaymentMethodType, Guid? CustomerAccountId, string? DiscountCode);

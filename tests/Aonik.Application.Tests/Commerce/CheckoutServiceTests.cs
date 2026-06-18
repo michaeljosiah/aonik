@@ -5,6 +5,7 @@ using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.Commerce.Services.Promotions;
 using Aonik.Ordering.Persistence;
 using Aonik.Ordering.Services;
 using Aonik.SharedKernel.Abstractions.Billing;
@@ -73,8 +74,10 @@ public class CheckoutServiceTests
         public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, _clock);
         public CartService Carts() => new(Commerce(), _tenant, Pricing());
+        public DiscountService Discounts() => new(Commerce(), _tenant, _clock);
         public CheckoutService Checkout() => new(
-            Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user), Payments, Invoices, _tenant);
+            Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user),
+            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant);
     }
 
     [Fact]
@@ -202,6 +205,36 @@ public class CheckoutServiceTests
 
         await using var ordering = h.Ordering();
         (await ordering.Orders.FirstAsync(o => o.Id == result.OrderId)).Status.Should().Be("Complete");
+    }
+
+    [Fact]
+    public async Task Checkout_Should_ApplyDiscount_AndFundTheDiscountedTotal()
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+        await h.Discounts().CreateAsync(new Aonik.Commerce.Services.Promotions.CreateDiscountCommand(
+            "SAVE10", Aonik.Commerce.Entities.Promotions.DiscountKinds.Percentage, 10m));
+
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m)); // subtotal 5000
+
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, DiscountCode: "SAVE10"));
+
+        result.Subtotal.Should().Be(5_000m);
+        result.DiscountTotal.Should().Be(500m);
+        result.TaxTotal.Should().Be(0m);
+        result.Total.Should().Be(4_500m);
+        // Funding is for the discounted total, not the goods subtotal.
+        h.Payments.LastAmount.Should().Be(4_500m);
+
+        await using var commerce = h.Commerce();
+        var charge = await commerce.OrderChargeSummaries.FirstAsync(c => c.OrderId == result.OrderId);
+        charge.Total.Should().Be(4_500m);
+        charge.DiscountCode.Should().Be("SAVE10");
     }
 
     [Fact]

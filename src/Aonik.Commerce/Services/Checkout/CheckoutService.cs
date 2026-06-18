@@ -1,7 +1,9 @@
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
@@ -19,6 +21,8 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly IOrderService _orders;
     private readonly IPaymentInitiator _payments;
     private readonly IInvoiceWriter _invoices;
+    private readonly IDiscountService _discounts;
+    private readonly ITaxCalculator _tax;
     private readonly ITenantProvider _tenantProvider;
 
     public CheckoutService(
@@ -27,6 +31,8 @@ internal sealed class CheckoutService : ICheckoutService
         IOrderService orders,
         IPaymentInitiator payments,
         IInvoiceWriter invoices,
+        IDiscountService discounts,
+        ITaxCalculator tax,
         ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
@@ -34,6 +40,8 @@ internal sealed class CheckoutService : ICheckoutService
         _orders = orders;
         _payments = payments;
         _invoices = invoices;
+        _discounts = discounts;
+        _tax = tax;
         _tenantProvider = tenantProvider;
     }
 
@@ -121,22 +129,38 @@ internal sealed class CheckoutService : ICheckoutService
             }
         }
 
-        // 4. Optionally raise an invoice (when a Finance customer account is supplied).
+        // 4. Compute the charge breakdown. The order lines stay the goods (subtotal); discount + tax
+        //    are payment-side, so Order / Payment / Ledger stay distinct.
+        var subtotal = order.AmountIn;
+        var discount = await _discounts.ComputeAsync(command.DiscountCode, subtotal, cart.Currency, cancellationToken);
+        var taxable = subtotal - discount.Amount;
+        var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
+        var total = taxable + tax;
+
+        // 5. Optionally raise an invoice (when a Finance customer account is supplied).
         Guid? invoiceId = null;
         if (command.CustomerAccountId is { } customerAccountId)
         {
             var lines = cart.Items
                 .Select(i => new InvoiceLineSpec(i.NameSnapshot, i.Quantity, i.UnitPriceSnapshot))
                 .ToList();
+            if (discount.Amount > 0)
+            {
+                lines.Add(new InvoiceLineSpec($"Discount ({discount.Code})", 1m, -discount.Amount));
+            }
+            if (tax > 0)
+            {
+                lines.Add(new InvoiceLineSpec("Tax", 1m, tax));
+            }
             var invoice = await _invoices.CreateForOrderAsync(
                 new CreateInvoiceForOrderCommand(order.Id, customerAccountId, cart.Currency, lines), cancellationToken);
             invoiceId = invoice.InvoiceId;
         }
 
-        // 5. Initiate funding (a draft PaymentIntent) and link it to the order.
+        // 6. Initiate funding for the payable total and link it to the order.
         var intent = await _payments.CreateIntentForOrderAsync(new CreatePaymentIntentForOrderCommand(
             OrderId: order.Id,
-            Amount: order.AmountIn,
+            Amount: total,
             Currency: cart.Currency,
             InvoiceId: invoiceId,
             Reference: $"cart:{cart.Id:N}",
@@ -144,11 +168,28 @@ internal sealed class CheckoutService : ICheckoutService
 
         await _orders.LinkFundingAsync(order.Id, intent.PaymentIntentId, cancellationToken);
 
-        // 6. Record the order on the cart; the cart closes when payment completes (ConfirmPaymentAsync).
+        // 7. Record the durable charge breakdown + the order on the cart; the cart closes when
+        //    payment completes (ConfirmPaymentAsync).
+        _dbContext.OrderChargeSummaries.Add(new OrderChargeSummary
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            OrderId = order.Id,
+            Currency = cart.Currency,
+            Subtotal = subtotal,
+            DiscountTotal = discount.Amount,
+            DiscountCode = discount.Code,
+            TaxTotal = tax,
+            Total = total,
+        });
         cart.OrderId = order.Id;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new CheckoutResult(order.Id, invoiceId, intent.PaymentIntentId, intent.Status, order.AmountIn, cart.Currency);
+        await _discounts.MarkRedeemedAsync(discount.DiscountId, cancellationToken);
+
+        return new CheckoutResult(
+            order.Id, invoiceId, intent.PaymentIntentId, intent.Status,
+            subtotal, discount.Amount, tax, total, cart.Currency);
     }
 
     public async Task ConfirmPaymentAsync(Guid orderId, CancellationToken cancellationToken = default)

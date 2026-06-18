@@ -39,12 +39,19 @@ public record AddCartItemCommand(Guid CartId, Guid ProductVariantId, decimal Qua
 
 public record AddBundleToCartCommand(Guid CartId, Guid BundleProductId, IReadOnlyCollection<BundleSelectionLine> Selection);
 
-public record CheckoutCommand(Guid CartId, string? PaymentMethodType = null, Guid? CustomerAccountId = null);
+public record CheckoutCommand(
+    Guid CartId,
+    string? PaymentMethodType = null,
+    Guid? CustomerAccountId = null,
+    string? DiscountCode = null);
 
 public record CheckoutResult(
     Guid OrderId,
     Guid? InvoiceId,
     Guid PaymentIntentId,
     string PaymentStatus,
+    decimal Subtotal,
+    decimal DiscountTotal,
+    decimal TaxTotal,
     decimal Total,
     string Currency);

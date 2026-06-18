@@ -21,7 +21,7 @@ public class CheckoutEndpoint : Endpoint<CheckoutRequest, CheckoutResult>
     public override async Task HandleAsync(CheckoutRequest req, CancellationToken ct)
     {
         var result = await _checkout.CheckoutAsync(
-            new CheckoutCommand(Route<Guid>("cartId"), req.PaymentMethodType, req.CustomerAccountId), ct);
+            new CheckoutCommand(Route<Guid>("cartId"), req.PaymentMethodType, req.CustomerAccountId, req.DiscountCode), ct);
         await Send.OkAsync(result, ct);
     }
 }
