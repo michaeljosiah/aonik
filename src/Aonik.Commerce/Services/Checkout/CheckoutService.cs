@@ -65,7 +65,8 @@ internal sealed class CheckoutService : ICheckoutService
             {
                 return new CheckoutResult(
                     existingOrderId, prior.InvoiceId, prior.PaymentIntentId, prior.PaymentStatus,
-                    prior.Subtotal, prior.DiscountTotal, prior.TaxTotal, prior.Total, prior.Currency);
+                    prior.Subtotal, prior.DiscountTotal, prior.TaxTotal, prior.Total, prior.Currency,
+                    prior.PaymentClientSecret, prior.PaymentCheckoutUrl);
             }
         }
 
@@ -87,6 +88,10 @@ internal sealed class CheckoutService : ICheckoutService
         }
 
         // 1. Reserve stock — fan out bundle lines to their component variants (all-or-nothing).
+        // First release any held reservations left by a prior attempt that aborted before stamping
+        // cart.OrderId, so a retry can't accumulate duplicate holds for the same cart.
+        await _inventory.ReleaseAsync(cart.Id, cancellationToken);
+
         var reservationLines = new List<InventoryReservationLine>();
         foreach (var item in cart.Items)
         {
@@ -209,6 +214,8 @@ internal sealed class CheckoutService : ICheckoutService
             PaymentIntentId = intent.PaymentIntentId,
             InvoiceId = invoiceId,
             PaymentStatus = intent.Status,
+            PaymentClientSecret = intent.ClientSecret,
+            PaymentCheckoutUrl = intent.CheckoutUrl,
         });
         cart.OrderId = order.Id;
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -225,15 +232,23 @@ internal sealed class CheckoutService : ICheckoutService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var cart = await _dbContext.Carts
             .FirstOrDefaultAsync(c => c.OrderId == orderId && c.TenantId == tenantId, cancellationToken);
-        if (cart is null || cart.Status == CartStatuses.CheckedOut)
+        if (cart is null)
         {
-            return; // not a Commerce checkout order, or already confirmed — idempotent.
+            return; // not a Commerce checkout order.
         }
 
-        await _inventory.CommitAsync(cart.Id, cancellationToken);
-        cart.Status = CartStatuses.CheckedOut;
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // Commit inventory + close the cart exactly once; guarded by cart status so an outbox retry
+        // doesn't double-commit stock.
+        if (cart.Status != CartStatuses.CheckedOut)
+        {
+            await _inventory.CommitAsync(cart.Id, cancellationToken);
+            cart.Status = CartStatuses.CheckedOut;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
 
+        // Always ensure the order reaches Complete — TransitionAsync is a no-op when already there,
+        // so an outbox retry after a transition failure (cart already CheckedOut) still completes it
+        // rather than leaving the order stuck in PendingFunding.
         await _orders.TransitionAsync(orderId, "Complete", "Payment completed", cancellationToken);
     }
 }

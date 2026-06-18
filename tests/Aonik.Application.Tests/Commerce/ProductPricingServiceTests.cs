@@ -42,6 +42,41 @@ public class ProductPricingServiceTests
     }
 
     [Fact]
+    public async Task ResolveBundlePrice_Should_RejectVariantOutsideSlotCategory()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        await using var ctx = CommerceTestHarness.CreateContext(options, tenantId);
+        var products = Products(ctx, tenantId);
+        var pricing = Pricing(ctx, tenantId);
+
+        var granola = await products.CreateCategoryAsync(new CreateCategoryCommand("granola", "Granola"));
+        var snacks = await products.CreateCategoryAsync(new CreateCategoryCommand("snacks", "Snacks"));
+
+        var inCategory = (await products.CreateProductAsync(new CreateProductCommand(
+            "g1", "Granola 1", ProductKinds.Simple, CategoryId: granola.Id,
+            Variants: new[] { new CreateVariantLine("G1", "g1") }))).Variants.Single().Id;
+        var outsideCategory = (await products.CreateProductAsync(new CreateProductCommand(
+            "s1", "Snack 1", ProductKinds.Simple, CategoryId: snacks.Id,
+            Variants: new[] { new CreateVariantLine("S1", "s1") }))).Variants.Single().Id;
+
+        var box = await products.CreateProductAsync(new CreateProductCommand(
+            "box", "Box", ProductKinds.Bundle,
+            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 5_000m, BundleCurrency: "NGN"));
+        var slot = await products.AddBundleSlotAsync(new AddBundleSlotCommand(
+            box.Id, "Pick 2 granolas", MinItems: 2, MaxItems: 2, FromCategoryId: granola.Id));
+
+        // Two items satisfy the count, but one is from the wrong category.
+        var selection = new[]
+        {
+            new BundleSelectionLine(slot.Id, inCategory),
+            new BundleSelectionLine(slot.Id, outsideCategory),
+        };
+
+        var act = async () => await pricing.ResolveBundlePriceAsync(box.Id, selection, "NGN");
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
     public async Task ResolveBundlePrice_Fixed_Should_ReturnBoxPrice_ForValidSelection()
     {
         // "Build your own box: pick any 6 items for ₦12,000."

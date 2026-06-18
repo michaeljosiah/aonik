@@ -24,4 +24,10 @@ public class OrderChargeSummary : AuditableEntity, ITenantScoped
     public Guid PaymentIntentId { get; set; }
     public Guid? InvoiceId { get; set; }
     public string PaymentStatus { get; set; } = string.Empty;
+
+    // Provider launch handles, persisted so an idempotent checkout retry can still hand the client
+    // what it needs to complete the draft payment (the guest flow is redirect-based; ClientSecret is
+    // a client-facing token, not a server secret).
+    public string? PaymentClientSecret { get; set; }
+    public string? PaymentCheckoutUrl { get; set; }
 }

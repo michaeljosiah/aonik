@@ -105,6 +105,7 @@ internal sealed class ProductPricingService : IProductPricingService
             .ToListAsync(cancellationToken);
 
         ValidateSelection(slots, selection);
+        await ValidateCategoryEligibilityAsync(tenantId, slots, selection, cancellationToken);
 
         var mode = product.BundlePricingMode ?? BundlePricingModes.SumOfComponents;
 
@@ -140,6 +141,51 @@ internal sealed class ProductPricingService : IProductPricingService
         }
 
         return sum;
+    }
+
+    /// <summary>
+    /// For a slot sourced from a category (<c>FromCategoryId</c>, no explicit options), every chosen
+    /// variant must belong to a product in that category (Spec 042 §12). Slots with explicit options
+    /// are already constrained by <see cref="ValidateSelection"/>.
+    /// </summary>
+    private async Task ValidateCategoryEligibilityAsync(
+        Guid tenantId,
+        IReadOnlyList<BundleSlot> slots,
+        IReadOnlyCollection<BundleSelectionLine> selection,
+        CancellationToken cancellationToken)
+    {
+        var categorySlots = slots.Where(s => s.FromCategoryId is not null && s.Options.Count == 0).ToList();
+        if (categorySlots.Count == 0)
+        {
+            return;
+        }
+
+        var categoryIds = categorySlots.Select(s => s.FromCategoryId!.Value).Distinct().ToList();
+        var eligible = await (
+            from v in _dbContext.ProductVariants.AsNoTracking()
+            join p in _dbContext.Products.AsNoTracking() on v.ProductId equals p.Id
+            where v.TenantId == tenantId && p.CategoryId != null && categoryIds.Contains(p.CategoryId.Value)
+            select new { VariantId = v.Id, CategoryId = p.CategoryId!.Value })
+            .ToListAsync(cancellationToken);
+
+        var allowedByCategory = eligible
+            .GroupBy(x => x.CategoryId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.VariantId).ToHashSet());
+
+        foreach (var slot in categorySlots)
+        {
+            var allowed = allowedByCategory.TryGetValue(slot.FromCategoryId!.Value, out var set)
+                ? set
+                : new HashSet<Guid>();
+            var bad = selection
+                .Where(l => l.BundleSlotId == slot.Id)
+                .FirstOrDefault(l => !allowed.Contains(l.ProductVariantId));
+            if (bad is not null)
+            {
+                throw new ArgumentException(
+                    $"Variant '{bad.ProductVariantId}' is not in the category for slot '{slot.Name}'.");
+            }
+        }
     }
 
     private static void ValidateSelection(IReadOnlyList<BundleSlot> slots, IReadOnlyCollection<BundleSelectionLine> selection)

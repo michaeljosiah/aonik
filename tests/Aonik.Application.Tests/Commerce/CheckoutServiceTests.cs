@@ -33,12 +33,18 @@ public class CheckoutServiceTests
         public Guid LastOrderId { get; private set; }
         public decimal LastAmount { get; private set; }
         public string? LastProvider { get; private set; }
+        public int FailTimes { get; set; }
         public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
         {
+            if (FailTimes > 0)
+            {
+                FailTimes--;
+                throw new InvalidOperationException("Simulated payment provider failure.");
+            }
             LastOrderId = command.OrderId;
             LastAmount = command.Amount;
             LastProvider = command.Provider;
-            return Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "Pending", null, "https://pay.example/checkout"));
+            return Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "Pending", "secret_123", "https://pay.example/checkout"));
         }
     }
 
@@ -259,10 +265,66 @@ public class CheckoutServiceTests
         retry.OrderId.Should().Be(first.OrderId);
         retry.PaymentIntentId.Should().Be(first.PaymentIntentId);
         retry.Total.Should().Be(first.Total);
+        // Provider launch handles survive the replay (persisted on the charge summary).
+        retry.CheckoutUrl.Should().Be(first.CheckoutUrl).And.NotBeNull();
+        retry.ClientSecret.Should().Be(first.ClientSecret).And.NotBeNull();
         (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m);
 
         await using var ordering = h.Ordering();
         (await ordering.Orders.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Checkout_Abort_Then_Retry_Should_NotDuplicateReservations()
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
+
+        // First attempt aborts at the payment step, after stock was reserved; cart stays Open.
+        h.Payments.FailTimes = 1;
+        var firstAttempt = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        await firstAttempt.Should().ThrowAsync<InvalidOperationException>();
+
+        // Retry succeeds and must not stack a second hold — release-before-reserve frees the orphan.
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+        result.Total.Should().Be(5_000m);
+        (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m); // 10 - 2, not 10 - 4
+    }
+
+    [Fact]
+    public async Task ConfirmPayment_Should_CompleteOrder_EvenWhenCartAlreadyCheckedOut()
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"));
+
+        // Simulate the failure window: the cart was saved CheckedOut but the order transition never
+        // ran, leaving the order short of Complete.
+        await using (var ctx = h.Commerce())
+        {
+            var c = await ctx.Carts.FirstAsync(x => x.Id == cart.Id);
+            c.Status = "CheckedOut";
+            await ctx.SaveChangesAsync();
+        }
+
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId);
+
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.FirstAsync(o => o.Id == result.OrderId)).Status.Should().Be("Complete");
     }
 
     [Fact]
