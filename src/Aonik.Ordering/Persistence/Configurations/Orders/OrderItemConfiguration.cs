@@ -38,9 +38,20 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.Property(x => x.DetailsJson)
             .HasColumnType("nvarchar(max)");
 
+        // Spec 041 / ADR-011 - retail line columns (nullable; populated for ProductPurchase only).
+        builder.Property(x => x.Quantity)
+            .HasPrecision(19, 4);
+
+        builder.Property(x => x.UnitPrice)
+            .HasPrecision(19, 4);
+
+        builder.Property(x => x.Sku)
+            .HasMaxLength(100);
+
         builder.HasIndex(x => x.OrderId);
         builder.HasIndex(x => x.ReceiverPartyId);
         builder.HasIndex(x => x.PricingQuoteId);
+        builder.HasIndex(x => x.ProductId);
         builder.HasIndex(x => new { x.OrderId, x.ItemIndex });
     }
 }

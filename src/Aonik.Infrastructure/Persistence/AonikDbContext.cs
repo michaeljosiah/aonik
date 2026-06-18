@@ -4,6 +4,10 @@ using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
+using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Catalog;
+using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.Documents.Entities;
 using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
@@ -100,6 +104,23 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<DocumentIngestion> DocumentIngestions { get; set; } = null!;
     public virtual DbSet<DocumentExtraction> DocumentExtractions { get; set; } = null!;
     public virtual DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
+
+    // Commerce (Spec 042) — catalog + bundle entities; canonical migration stream stays here.
+    public virtual DbSet<Product> Products { get; set; } = null!;
+    public virtual DbSet<ProductVariant> ProductVariants { get; set; } = null!;
+    public virtual DbSet<ProductCategory> ProductCategories { get; set; } = null!;
+    public virtual DbSet<ProductMedia> ProductMedia { get; set; } = null!;
+    public virtual DbSet<ProductPrice> ProductPrices { get; set; } = null!;
+    public virtual DbSet<BundleSlot> BundleSlots { get; set; } = null!;
+    public virtual DbSet<BundleSlotOption> BundleSlotOptions { get; set; } = null!;
+    public virtual DbSet<InventoryLevel> InventoryLevels { get; set; } = null!;
+    public virtual DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
+    public virtual DbSet<Aonik.Commerce.Entities.Cart.Cart> Carts { get; set; } = null!;
+    public virtual DbSet<CartItem> CartItems { get; set; } = null!;
+    public virtual DbSet<CartItemSelection> CartItemSelections { get; set; } = null!;
+    public virtual DbSet<OrderBundleSelection> OrderBundleSelections { get; set; } = null!;
+    public virtual DbSet<Discount> Discounts { get; set; } = null!;
+    public virtual DbSet<OrderChargeSummary> OrderChargeSummaries { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -213,6 +234,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Apply Finance configurations from Finance assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LedgerEntity).Assembly);
 
+        // Spec 041 / ADR-011: the Order EF configurations relocated to Aonik.Ordering (namespace
+        // preserved). Apply them here so AonikDbContext — the canonical migration stream — keeps
+        // the identical Order model (table names come from the MapTable calls below).
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Order).Assembly);
+
         // Apply PersonalFinance configurations from Aonik.PersonalFinance assembly.
         // Spec 027 Phase 2: PF entity types + EF configs now live in their own
         // assembly. The canonical migration stream stays in AonikDbContext, so
@@ -232,6 +258,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // The canonical migration stream stays in AonikDbContext; this scan keeps the
         // model in sync with the module's EF configs.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Documents.DocumentsModule).Assembly);
+
+        // Apply Commerce configurations from Aonik.Commerce assembly (Spec 042).
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Commerce.CommerceModule).Assembly);
 
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);
@@ -338,6 +367,23 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<DocumentIngestion>(modelBuilder, "DocumentIngestions");
         MapPlatformTable<DocumentExtraction>(modelBuilder, "DocumentExtractions");
         MapPlatformTable<DocumentLink>(modelBuilder, "DocumentLinks");
+
+        // Commerce (Spec 042)
+        MapCommerceTable<Product>(modelBuilder, "Products");
+        MapCommerceTable<ProductVariant>(modelBuilder, "ProductVariants");
+        MapCommerceTable<ProductCategory>(modelBuilder, "ProductCategories");
+        MapCommerceTable<ProductMedia>(modelBuilder, "ProductMedia");
+        MapCommerceTable<ProductPrice>(modelBuilder, "ProductPrices");
+        MapCommerceTable<BundleSlot>(modelBuilder, "BundleSlots");
+        MapCommerceTable<BundleSlotOption>(modelBuilder, "BundleSlotOptions");
+        MapCommerceTable<InventoryLevel>(modelBuilder, "InventoryLevels");
+        MapCommerceTable<InventoryReservation>(modelBuilder, "InventoryReservations");
+        MapCommerceTable<Aonik.Commerce.Entities.Cart.Cart>(modelBuilder, "Carts");
+        MapCommerceTable<CartItem>(modelBuilder, "CartItems");
+        MapCommerceTable<CartItemSelection>(modelBuilder, "CartItemSelections");
+        MapCommerceTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
+        MapCommerceTable<Discount>(modelBuilder, "Discounts");
+        MapCommerceTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
@@ -490,6 +536,13 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     {
         modelBuilder.Entity<TEntity>()
             .ToTable($"{ModuleTablePrefixes.Finance}{tableName}", SchemaNames.Default);
+    }
+
+    private static void MapCommerceTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Commerce}{tableName}", SchemaNames.Default);
     }
 
     private static void MapAiTable<TEntity>(ModelBuilder modelBuilder, string tableName)

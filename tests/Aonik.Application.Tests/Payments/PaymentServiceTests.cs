@@ -247,6 +247,13 @@ public class PaymentServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Status.Should().Be(PaymentStatus.Captured);
+
+        // Capture publishes PaymentCompletedEvent via the transactional outbox so downstream modules
+        // (e.g. Aonik.Commerce) can complete checkout. It is the single producer of that event.
+        var completedEvents = await context.Set<Aonik.SharedKernel.Events.Outbox.OutboxMessage>()
+            .Where(m => m.EventType.EndsWith("PaymentCompletedEvent"))
+            .ToListAsync();
+        completedEvents.Should().ContainSingle();
     }
 
     [Fact]

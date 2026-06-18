@@ -109,7 +109,85 @@ internal class PublicPaymentService : IPublicPaymentService
             paymentIntent.CreatedAt);
     }
 
+    public async Task<GuestPaymentIntentResponse> CreateCommerceGuestPaymentIntentAsync(
+        CreateCommerceGuestPaymentIntentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _dbContext.Orders
+            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId, cancellationToken)
+            ?? throw new NotFoundException($"Order {request.OrderId} not found.");
 
+        if (!string.Equals(order.OrderType, "ProductPurchase", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidStateException("This payment path is only for product-purchase orders.");
+        }
+
+        if (!string.Equals(order.Status, "Draft", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(order.Status, "PendingFunding", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidStateException("Only draft or pending funding orders can create payment intents.");
+        }
+
+        if (request.Amount <= 0)
+        {
+            throw new InvalidStateException("Payment amount must be greater than zero.");
+        }
+
+        // Fund the explicit checkout total (after discount/tax), not the order's goods subtotal —
+        // Order, Payment and Ledger stay distinct (Spec 042 §5/§11).
+        var provider = ResolveProvider(request.Provider);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var reference = $"ORD-{order.Id:N}";
+        var providerResult = await provider.CreateIntentAsync(
+            new PaymentProviderIntentRequest(
+                order.Id,
+                request.Amount,
+                request.Currency,
+                request.PaymentMethodType,
+                request.ReturnUrl,
+                request.CancelUrl,
+                reference),
+            cancellationToken);
+
+        var paymentIntent = new PaymentIntent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Amount = request.Amount,
+            Currency = request.Currency,
+            PayerPartyId = order.PayerPartyId,
+            PayeePartyId = null,
+            OrderId = order.Id,
+            InvoiceId = null,
+            PurposeType = "Order",
+            PurposeId = order.Id,
+            PaymentMethodType = request.PaymentMethodType,
+            PaymentMethodRef = providerResult.ProviderReference,
+            Status = providerResult.Status
+        };
+
+        _dbContext.PaymentIntents.Add(paymentIntent);
+
+        if (string.Equals(order.Status, "Draft", StringComparison.OrdinalIgnoreCase))
+        {
+            order.Status = "PendingFunding";
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new GuestPaymentIntentResponse(
+            paymentIntent.Id,
+            paymentIntent.OrderId,
+            paymentIntent.Amount,
+            paymentIntent.Currency,
+            paymentIntent.Status,
+            providerResult.Provider,
+            providerResult.ProviderReference,
+            providerResult.ClientSecret,
+            providerResult.CheckoutUrl,
+            paymentIntent.CreatedAt);
+    }
 
     public async Task<GuestPaymentIntentStatusResponse?> GetGuestPaymentIntentStatusAsync(
         GetGuestPaymentIntentStatusRequest request,

@@ -134,16 +134,20 @@ AONIK supports **three operator-choice IdP providers**: Auth0, Azure AD (Entra I
 
 ## Orders
 
-An Order is the canonical record of a customer's intent to use an AONIK-powered financial service. It captures the requested service, the parties involved, the amounts and currencies, and the lifecycle from funding through fulfilment. Orders capture the requested financial service and why money should move.
+An Order is the canonical record of a customer's intent to **transact** — to use an AONIK-powered financial service *or* to purchase goods. It captures what was requested, the parties involved, the amounts and currencies, and the lifecycle from funding through fulfilment. The `OrderType` determines the nature of the order and what its line items capture; the base order fields stay the same across types (see [ADR-011](docs/decisions/011-unify-order-spine-into-ordering-layer.md) / [Spec 041](docs/specifications/041.unified-order-spine-ordering-layer.html)).
 
-An Order records: what service was requested, who the relevant parties are, what amounts/currencies are involved, how the request is funded, and how it is fulfilled.
+An Order records: what was requested, who the relevant parties are, what amounts/currencies are involved, how the request is funded, and how it is fulfilled.
 
-**Order vs Payment vs Ledger:**
-- **Order** = the requested financial service (bill payment, money transfer, bill collection, payout, remittance)
-- **Payment** = how the order is funded or executed
+**Order vs Payment vs Ledger** (never collapsed, regardless of order type):
+- **Order** = the requested transaction (bill payment, money transfer, bill collection, payout, remittance, **product purchase**)
+- **Payment** = how the order is funded or executed (a `PaymentIntent`, for every type)
 - **Ledger** = the financial truth proving what happened
 
-**Not Orders:** a standalone imported bank transaction, a manual categorisation, or a ledger correction (unless it exists to fulfil a service request).
+**Order types & line shape:** `OrderType` is an open string (the enum is a known-values helper, so new types are additive). A `ProductPurchase` line carries the retail shape on `OrderItem` — `Quantity`, `UnitPrice`, `ProductId` (a soft reference; no FK), `Sku` — with the existing `AmountIn` holding the line total (`Quantity × UnitPrice`); the FX/remittance fields (`AmountOut`, `CurrencyOut`, `FxQuoteId`, …) are simply left unused. Billing still flows through `Invoice` (`Invoice.OrderId`) and funding through a `PaymentIntent`, exactly as the financial types do.
+
+> **Ownership (per [ADR-011](docs/decisions/011-unify-order-spine-into-ordering-layer.md), in progress):** Order is a *core* concept, not Finance-private. The contract is being promoted to `SharedKernel.Abstractions.Ordering` and the generic order machinery to a middle-layer `Aonik.Ordering` module that Finance and a future `Aonik.Commerce` both build on. Today the Order entities still physically live under `src/Aonik.Finance/Entities/Orders/` (Phase 1 generalised them in place); the relocation is Phases 2–3.
+
+**Not Orders:** a standalone imported bank transaction, a manual categorisation, or a ledger correction (unless it exists to fulfil a transaction request).
 
 ## Code Patterns
 

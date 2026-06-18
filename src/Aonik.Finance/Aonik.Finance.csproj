@@ -23,6 +23,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
+    <!-- Spec 041 / ADR-011: the Order spine lives in the Aonik.Ordering middle layer.
+         Finance depends downward on it for the Order entities + the core IOrderService it
+         composes for bill-payment / remittance creation. -->
+    <ProjectReference Include="..\Aonik.Ordering\Aonik.Ordering.csproj" />
     <!--
       TRANSITIONAL (Spec 027): Several Finance-side files still reach into
       PersonalFinance — agent tools (Agents/Tools/PersonalFinance*, FLG*),

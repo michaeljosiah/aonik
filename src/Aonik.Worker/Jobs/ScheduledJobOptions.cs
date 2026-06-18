@@ -13,6 +13,18 @@ public sealed class ScheduledJobOptions
     public AiCostGuardJobOptions AiCostGuard { get; set; } = new();
     public DocumentIngestionBackfillJobOptions DocumentIngestionBackfill { get; set; } = new();
     public WorkItemDispatchJobOptions WorkItemDispatch { get; set; } = new();
+    public InventoryReservationSweepJobOptions InventoryReservationSweep { get; set; } = new();
+}
+
+public sealed class InventoryReservationSweepJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: every 5 minutes — frequent enough to
+    /// free stock from abandoned checkouts soon after the 30-minute reservation TTL lapses (Spec 042 §10).
+    /// </summary>
+    public string CronExpression { get; set; } = "0 0/5 * * * ?";
 }
 
 public sealed class WorkItemDispatchJobOptions

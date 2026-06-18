@@ -28,6 +28,8 @@
     <ProjectReference Include="..\..\src\Aonik.Application\Aonik.Application.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Cli\Aonik.Cli.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Finance\Aonik.Finance.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Ordering\Aonik.Ordering.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Commerce\Aonik.Commerce.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Platform\Aonik.Platform.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Worker\Aonik.Worker.csproj" />

@@ -171,6 +171,11 @@ internal class FinanceDbContext : AonikDbContextBase
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FinanceDbContext).Assembly);
 
+        // Spec 041 / ADR-011: Order EF configs relocated to Aonik.Ordering (namespace preserved).
+        // FinanceDbContext still maps the Order DbSets for the type-specific OrderService, so it
+        // applies the Order configs from the Ordering assembly too.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Order).Assembly);
+
         // Apply PersonalFinance configurations from the sibling assembly.
         // Spec 027 Phase 2: PF entity types and their configs moved out, but
         // FinanceDbContext still owns PF DbSets (transitionally) so PF services
