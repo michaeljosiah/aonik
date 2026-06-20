@@ -66,6 +66,18 @@ public record CircleSharedEntityResult(
     CircleSharedEntityView? Full,
     CircleSharedDocsView? DocsOnly);
 
+/// <summary>
+/// A member's paged view of one shared entity's expenses — the full list behind the entity
+/// view's recent-log preview (Spec 048). Each row carries the expense's corroboration status.
+/// Only ever returned to a member with amount access (scope=all|entities, NoAmounts=false);
+/// a docsOnly / no-amounts member gets 404, never this projection, so the no-amounts property holds.
+/// </summary>
+public record CircleSharedPaymentLogsResult(
+    IReadOnlyList<CareEntityPaymentLogSummary> Items,
+    int Page,
+    int PageSize,
+    bool HasMore);
+
 // ── Support Statement (Spec 048 §9) ─────────────────────────────────
 
 public record CareEntityRef(Guid Id, string Name, string Kind, string CountryCode);

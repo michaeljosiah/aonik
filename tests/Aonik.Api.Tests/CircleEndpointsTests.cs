@@ -37,6 +37,14 @@ public class CircleEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         return created!.Id;
     }
 
+    private static async Task PostExpenseAsync(HttpClient client, Guid entityId, decimal amount, string currency, DateTime date)
+    {
+        var response = await client.PostAsJsonAsync(
+            "/personal-finance/payment-logs",
+            new CreatePaymentLogRequest(entityId, null, null, amount, currency, null, date, "bank", "manual", null, null));
+        response.EnsureSuccessStatusCode();
+    }
+
     [Fact]
     public async Task DocsOnlyMember_SeesNoAmounts_TheSecurityAssertion()
     {
@@ -157,6 +165,49 @@ public class CircleEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         statement!.Entity.Id.Should().Be(entityId);
         statement.PreparedFor.Should().Be("HMRC");
         statement.VerificationCode.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task EntityScopeMember_ListsSharedExpenses_PagedWithStatus()
+    {
+        var tenant = Guid.NewGuid();
+        var (ownerClient, ownerId) = await CreateUserAsync(tenant);
+        var (memberClient, memberId) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        await PostExpenseAsync(ownerClient, entityId, 120m, "GBP", new DateTime(2026, 3, 1));
+        await PostExpenseAsync(ownerClient, entityId, 340m, "NGN", new DateTime(2026, 4, 1));
+
+        await ownerClient.PostAsJsonAsync(
+            "/personal-finance/circle/grants",
+            new CreateCircleGrantRequest(memberId, "entities", new[] { entityId }, false));
+
+        var response = await memberClient.GetAsync(
+            $"/personal-finance/circle/shared/{ownerId}/care-entities/{entityId}/payment-logs?page=1&pageSize=20");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await response.Content.ReadFromJsonAsync<CircleSharedPaymentLogsResult>();
+        result!.Items.Should().HaveCount(2);                                 // the full list, not the recent-10 preview
+        result.HasMore.Should().BeFalse();
+        result.Items.Should().OnlyContain(i => i.CorroborationStatus == "none"); // status surfaced per expense
+    }
+
+    [Fact]
+    public async Task DocsOnlyMember_SharedExpenses_Returns404_TheNoAmountsAssertion()
+    {
+        var tenant = Guid.NewGuid();
+        var (ownerClient, ownerId) = await CreateUserAsync(tenant);
+        var (memberClient, memberId) = await CreateUserAsync(tenant);
+        var entityId = await CreateEntityAsync(ownerClient);
+        await PostExpenseAsync(ownerClient, entityId, 120m, "GBP", new DateTime(2026, 3, 1));
+
+        await ownerClient.PostAsJsonAsync(
+            "/personal-finance/circle/grants",
+            new CreateCircleGrantRequest(memberId, "docsOnly", new[] { entityId }, true));
+
+        // A docsOnly member can open the entity view but must never reach its expense lines.
+        var response = await memberClient.GetAsync(
+            $"/personal-finance/circle/shared/{ownerId}/care-entities/{entityId}/payment-logs");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]

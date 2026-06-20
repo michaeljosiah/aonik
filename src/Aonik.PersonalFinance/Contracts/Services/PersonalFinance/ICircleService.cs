@@ -40,6 +40,16 @@ public interface ICircleService
     /// scope=docsOnly. Null if no grant, the entity is out of scope, or not found.
     /// </summary>
     Task<CircleSharedEntityResult?> GetSharedEntityAsync(Guid ownerUserId, Guid careEntityId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The current member's paged list of an owner's expenses for one shared entity — the full
+    /// list behind <see cref="GetSharedEntityAsync"/>'s recent-log preview, newest first, each row
+    /// carrying its corroboration status. Null (→ 404) when no grant covers the entity, the entity
+    /// is not found, or amounts are not permitted (docsOnly / NoAmounts) — fail-closed, the
+    /// no-amounts property is preserved and the existence of spend is not revealed.
+    /// </summary>
+    Task<CircleSharedPaymentLogsResult?> GetSharedPaymentLogsAsync(
+        Guid ownerUserId, Guid careEntityId, int page, int pageSize, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

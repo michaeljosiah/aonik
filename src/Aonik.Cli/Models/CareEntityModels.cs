@@ -51,7 +51,9 @@ public sealed record CareEntityPaymentLogSummary(
     decimal Amount,
     string Currency,
     DateTime Date,
-    string? Channel);
+    string? Channel,
+    // Reconciliation state of the expense — none | matched | confirmed (Spec 045 §6).
+    string CorroborationStatus);
 
 public sealed record CareEntityDocumentRef(
     Guid DocumentId,

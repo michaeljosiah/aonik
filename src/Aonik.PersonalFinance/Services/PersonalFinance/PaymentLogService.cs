@@ -332,7 +332,7 @@ internal sealed class PaymentLogService : IPaymentLogService
             .ToListAsync(cancellationToken);
 
         return rows
-            .Select(p => new CareEntityPaymentLogSummary(p.Id, p.Amount, p.Currency, p.Date, p.Channel))
+            .Select(p => new CareEntityPaymentLogSummary(p.Id, p.Amount, p.Currency, p.Date, p.Channel, p.CorroborationStatus))
             .ToList();
     }
 
