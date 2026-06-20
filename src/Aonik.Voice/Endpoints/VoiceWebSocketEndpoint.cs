@@ -119,10 +119,13 @@ internal static class VoiceWebSocketEndpoint
             var agentContext = await contextualizer.ResolveAsync(hello.AgentId, cancellationToken);
             var domainResolution = await domainResolver.ResolveAsync(hello.AgentId!, cancellationToken);
 
-            // Phase 1.5: build the read-only voice variant of the resolved agent.
-            // Original agent (used by AGUI) is unchanged.
+            // Spec 032 §7.7: build the voice variant. When the agent's mutating tools are classified
+            // by the approval manifest, this is the FULL gated agent — every mutating tool wrapped by
+            // the server-side approval gate, so Medium/High calls are enforced server-side and surface
+            // a confirmAction toolCall envelope (see AonikVoiceAgent). Agents with unclassified mutating
+            // tools fall back to the read-only variant. Original agent (used by AGUI) is unchanged.
             var voiceBuilder = services.GetRequiredService<IVoiceAgentBuilder>();
-            var voiceAgentResult = voiceBuilder.BuildReadOnlyVariant(domainResolution.Descriptor, services);
+            var voiceAgentResult = voiceBuilder.BuildVariant(domainResolution.Descriptor, services);
 
             // Build run options. Same call shape as AguiStreamPipeline:74.
             var runOptionsBuilder = services.GetRequiredService<IAguiRunOptionsBuilder>();

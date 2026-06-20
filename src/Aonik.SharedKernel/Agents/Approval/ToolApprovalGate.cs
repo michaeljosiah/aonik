@@ -65,7 +65,7 @@ public sealed class ToolApprovalGate : IToolApprovalGate
         return new ApprovalGatedAIFunction(function, classification.Options!, _auditSink, serviceProvider);
     }
 
-    private ToolClassification? Classify(string toolName)
+    public ToolClassification? Classify(string toolName)
     {
         foreach (var manifest in _manifests)
         {

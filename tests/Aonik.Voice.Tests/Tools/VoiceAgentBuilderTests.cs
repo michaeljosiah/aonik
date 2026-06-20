@@ -9,6 +9,10 @@ namespace Aonik.Voice.Tests.Tools;
 
 public class VoiceAgentBuilderTests
 {
+    /// <summary>A gate with no classifications — every read-only variant test behaves as before.</summary>
+    private static VoiceAgentBuilder NewBuilder() =>
+        new(new NamingPrefixVoiceToolSafetyInspector(), new FakeToolApprovalGate());
+
     [Fact]
     public void BuildReadOnlyVariant_Should_Produce_Result_That_Excludes_Mutating_Tools()
     {
@@ -30,7 +34,7 @@ public class VoiceAgentBuilderTests
             });
 
         var services = BuildServiceProvider();
-        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector());
+        var builder = NewBuilder();
 
         // Act
         var result = builder.BuildReadOnlyVariant(descriptor, services);
@@ -58,7 +62,7 @@ public class VoiceAgentBuilderTests
             toolNames: new[] { "pf_get_x", "pf_list_y", "pf_describe_z" });
 
         var services = BuildServiceProvider();
-        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector());
+        var builder = NewBuilder();
 
         var result = builder.BuildReadOnlyVariant(descriptor, services);
 
@@ -74,7 +78,7 @@ public class VoiceAgentBuilderTests
             toolNames: new[] { "pf_create_x", "pf_delete_y", "pf_apply_z" });
 
         var services = BuildServiceProvider();
-        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector());
+        var builder = NewBuilder();
 
         var result = builder.BuildReadOnlyVariant(descriptor, services);
 
@@ -90,7 +94,7 @@ public class VoiceAgentBuilderTests
             toolNames: Array.Empty<string>());
 
         var services = BuildServiceProvider();
-        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector());
+        var builder = NewBuilder();
 
         var result = builder.BuildReadOnlyVariant(descriptor, services);
 
@@ -101,11 +105,72 @@ public class VoiceAgentBuilderTests
     [Fact]
     public void BuildReadOnlyVariant_Should_Throw_On_Null_Descriptor()
     {
-        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector());
+        var builder = NewBuilder();
 
         var act = () => builder.BuildReadOnlyVariant(null!, BuildServiceProvider());
 
         act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void BuildVariant_With_Classified_Mutating_Tools_Builds_Full_Gated_Agent()
+    {
+        // Spec 032 — when the agent's mutating tools are classified, voice exposes the FULL toolset
+        // (the descriptor's gate wraps the mutations) so Medium/High can be approved over voice.
+        var descriptor = new FakeDomainAgentDescriptor(
+            name: "finance-agent",
+            toolNames: new[] { "finance_get_invoice", "finance_create_invoice", "finance_capture_payment" });
+
+        var gate = new FakeToolApprovalGate()
+            .WithReadOnly("finance_get_invoice")
+            .WithMutating("finance_create_invoice", ToolApprovalTier.Medium)
+            .WithMutating("finance_capture_payment", ToolApprovalTier.High);
+
+        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector(), gate);
+
+        var result = builder.BuildVariant(descriptor, BuildServiceProvider());
+
+        result.ToolMode.Should().Be(VoiceAgentToolMode.Gated);
+        result.AllowedToolNames.Should().BeEquivalentTo(
+            "finance_get_invoice", "finance_create_invoice", "finance_capture_payment");
+        result.RemovedToolNames.Should().BeEmpty();
+        // The full (unfiltered) Build overload is used — no allow-list applied.
+        descriptor.LastBuildAllowedToolNames.Should().BeNull();
+    }
+
+    [Fact]
+    public void BuildVariant_With_Unclassified_Mutating_Tool_Falls_Back_To_ReadOnly()
+    {
+        // An unclassified mutating-looking tool would make the gate fail closed on the full toolset,
+        // so the builder falls back to the read-only subset rather than exposing it.
+        var descriptor = new FakeDomainAgentDescriptor(
+            name: "mixed-agent",
+            toolNames: new[] { "pf_get_accounts", "pf_create_invoice" });
+
+        // Gate classifies nothing → pf_create_invoice is an unclassified mutation.
+        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector(), new FakeToolApprovalGate());
+
+        var result = builder.BuildVariant(descriptor, BuildServiceProvider());
+
+        result.ToolMode.Should().Be(VoiceAgentToolMode.ReadOnly);
+        result.AllowedToolNames.Should().BeEquivalentTo("pf_get_accounts");
+        result.RemovedToolNames.Should().Contain("pf_create_invoice");
+    }
+
+    [Fact]
+    public void BuildVariant_With_Only_ReadOnly_Tools_Falls_Back_To_ReadOnly()
+    {
+        // No classified mutation → nothing to gate → read-only variant (which keeps every read tool).
+        var descriptor = new FakeDomainAgentDescriptor(
+            name: "read-only-agent",
+            toolNames: new[] { "pf_get_x", "pf_list_y" });
+
+        var builder = new VoiceAgentBuilder(new NamingPrefixVoiceToolSafetyInspector(), new FakeToolApprovalGate());
+
+        var result = builder.BuildVariant(descriptor, BuildServiceProvider());
+
+        result.ToolMode.Should().Be(VoiceAgentToolMode.ReadOnly);
+        result.AllowedToolNames.Should().BeEquivalentTo("pf_get_x", "pf_list_y");
     }
 
     private static IServiceProvider BuildServiceProvider()
@@ -167,5 +232,34 @@ public class VoiceAgentBuilderTests
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
         public void Dispose() { }
+    }
+
+    /// <summary>
+    /// Gate double whose only meaningful behaviour is <see cref="Classify"/> — that is all
+    /// <see cref="VoiceAgentBuilder.BuildVariant"/> consults. Gate/GateAll pass tools through, since
+    /// the test descriptor's Build doesn't actually wrap anything.
+    /// </summary>
+    private sealed class FakeToolApprovalGate : IToolApprovalGate
+    {
+        private readonly Dictionary<string, ToolClassification> _map = new(StringComparer.OrdinalIgnoreCase);
+
+        public FakeToolApprovalGate WithReadOnly(string name)
+        {
+            _map[name] = ToolClassification.ReadOnly;
+            return this;
+        }
+
+        public FakeToolApprovalGate WithMutating(string name, ToolApprovalTier tier)
+        {
+            _map[name] = ToolClassification.Mutating(new ToolApprovalOptions(tier, ActionKind: name));
+            return this;
+        }
+
+        public AITool Gate(AITool tool, IServiceProvider? serviceProvider = null) => tool;
+
+        public IEnumerable<AITool> GateAll(IEnumerable<AITool> tools, IServiceProvider? serviceProvider = null) => tools;
+
+        public ToolClassification? Classify(string toolName) =>
+            _map.TryGetValue(toolName, out var classification) ? classification : null;
     }
 }

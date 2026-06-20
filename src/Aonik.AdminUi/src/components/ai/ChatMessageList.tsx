@@ -26,6 +26,7 @@ import {
   AiFollowUpSuggestionsCard,
   AiOptionSelectionCard,
   parseFollowUpSuggestions,
+  ServerApprovalCard,
   tryParseJsonRecord,
 } from '@/components/ai/chatSupport';
 import type { ChatMessage, ChatToolCall, PendingApproval, ServerApprovalChatMessage } from '@/hooks/useAguiChat';
@@ -164,8 +165,16 @@ export function ChatMessageList({
             return null;
 
           // Spec 032 — server-owned approval card for a gated Medium/High mutation.
+          // The shared card decides via the durable approvalRequestId; we close over the
+          // concrete message so the typed onDecideApproval callback gets the right value.
           case 'approval':
-            return <ServerApprovalCard key={m.id} approval={m} onDecide={onDecideApproval} />;
+            return (
+              <ServerApprovalCard
+                key={m.id}
+                approval={m}
+                onDecide={onDecideApproval ? (_, decision) => onDecideApproval(m, decision) : undefined}
+              />
+            );
 
           case 'step':
             return (
@@ -563,119 +572,6 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── Server Approval Card (Spec 032) ──────────────────────────────────────────
-// Renders a backend-gated mutation awaiting the user's decision. Unlike ApprovalCard
-// (the legacy `confirmAction` frontend-tool flow), the decision is routed to the
-// server — the durable ToolApprovalRequest (Medium) or Proposal (High) is the
-// authority; this card only presents and collects.
-
-interface ServerApprovalCardProps {
-  approval: ServerApprovalChatMessage;
-  onDecide?: (approval: ServerApprovalChatMessage, decision: 'Approve' | 'Reject') => void;
-}
-
-function ServerApprovalCard({ approval, onDecide }: ServerApprovalCardProps) {
-  const severity: 'low' | 'medium' | 'high' =
-    approval.tier.toLowerCase() === 'high'
-      ? 'high'
-      : approval.tier.toLowerCase() === 'low'
-        ? 'low'
-        : 'medium';
-  const config = severityConfig[severity];
-
-  // Resolved states — a compact summary line.
-  if (approval.status === 'approved' || approval.status === 'rejected') {
-    const approved = approval.status === 'approved';
-    return (
-      <div
-        className={`flex items-start gap-3 rounded-lg border ${
-          approved
-            ? 'border-[color-mix(in_srgb,var(--color-success)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]'
-            : 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)]'
-        } px-4 py-3 text-sm`}
-      >
-        {approved ? (
-          <ShieldCheck className="h-5 w-5 text-[var(--color-success)] mt-0.5 shrink-0" />
-        ) : (
-          <ShieldX className="h-5 w-5 text-[var(--color-danger)] mt-0.5 shrink-0" />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-[var(--color-text-primary)]">
-            {approval.actionKind} — {approved ? 'Approved' : 'Rejected'}
-          </div>
-          {approval.message && (
-            <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{approval.message}</div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const isDeciding = approval.status === 'deciding';
-  const canDecide = !!onDecide && (approval.status === 'pending' || approval.status === 'error');
-
-  return (
-    <div className={`rounded-lg border-2 ${config.border} bg-[var(--color-surface)] overflow-hidden`}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)]">
-        {config.icon}
-        <span className="font-semibold text-sm text-[var(--color-text-primary)]">
-          {approval.kind === 'high' ? 'Approval Required — Money Movement' : 'Approval Required'}
-        </span>
-        <span
-          className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${config.badge}`}
-        >
-          {config.label}
-        </span>
-      </div>
-
-      {/* Body */}
-      <div className="px-4 py-3">
-        <div className="font-medium text-sm text-[var(--color-text-primary)]">{approval.actionKind}</div>
-        <div className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-          {approval.kind === 'high'
-            ? 'This action moves money and runs only after you approve it. It is queued as a durable proposal.'
-            : 'This action needs your explicit approval before it runs.'}
-        </div>
-        {approval.status === 'error' && approval.message && (
-          <div className="mt-2 text-xs text-[var(--color-danger)]">{approval.message}</div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
-        {isDeciding ? (
-          <span className="inline-flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Recording your decision…
-          </span>
-        ) : (
-          <>
-            <button
-              type="button"
-              disabled={!canDecide}
-              onClick={() => onDecide?.(approval, 'Approve')}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Approve
-            </button>
-            <button
-              type="button"
-              disabled={!canDecide}
-              onClick={() => onDecide?.(approval, 'Reject')}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-surface)] border border-[color-mix(in_srgb,var(--color-danger)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] shadow-sm hover:bg-[color-mix(in_srgb,var(--color-danger)_6%,transparent)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-              Reject
-            </button>
-          </>
-        )}
-      </div>
     </div>
   );
 }

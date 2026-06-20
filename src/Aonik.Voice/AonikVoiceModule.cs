@@ -33,13 +33,14 @@ public sealed class AonikVoiceModule : IModule
         IServiceCollection services,
         IConfiguration configuration)
     {
-        // Backend tool safety — classifies known pf_* tools as read-only or
-        // mutating by naming prefix. Phase 1.5: voice runs against a read-only
-        // variant of the resolved agent; mutating tools are filtered out.
+        // Backend tool safety (FALLBACK) — classifies known pf_* tools as read-only or mutating by
+        // naming prefix. Since Spec 032 voice's default is the FULL gated agent (mutating tools
+        // enforced server-side by IToolApprovalGate); this prefix filter only kicks in for agents
+        // with unclassified mutating tools, where the builder falls back to the read-only subset.
         services.AddSingleton<IVoiceToolSafetyInspector, NamingPrefixVoiceToolSafetyInspector>();
 
-        // Read-only agent variant builder — wraps AgentContextResolution.Agent and
-        // produces a ChatClientAgent with the filtered tool set for voice connections.
+        // Voice agent variant builder — produces either the full gated ChatClientAgent (Spec 032,
+        // mutating tools wrapped by the approval gate) or, as a fallback, the read-only variant.
         services.AddScoped<IVoiceAgentBuilder, VoiceAgentBuilder>();
 
         // Frontend tool catalog — server-owned allowlist of tool names the voice
