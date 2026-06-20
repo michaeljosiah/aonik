@@ -41,13 +41,17 @@ internal sealed class DecisionPatternService : IDecisionPatternService
             return [];
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var type = decisionType.Trim();
         var seg = Normalize(segment);
         limit = Math.Clamp(limit, 1, 25);
 
+        // Explicit tenant scoping (defence-in-depth) mirrors the ReinforceAsync write path: decision
+        // patterns carry tenant-private learned rationale that feeds agents, so the read pins TenantId
+        // directly rather than relying on the global query filter alone.
         var query = _dbContext.DecisionPatterns
             .AsNoTracking()
-            .Where(p => p.DecisionType == type && p.SupersededAtUtc == null);
+            .Where(p => p.TenantId == tenantId && p.DecisionType == type && p.SupersededAtUtc == null);
 
         // A requested segment matches its own patterns plus tenant-wide (null-segment) fallbacks.
         query = seg is null
