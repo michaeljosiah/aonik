@@ -34,7 +34,7 @@ internal sealed class UserMemorySaveProvider : IUserMemorySaveProvider
             request.Key, entryType, source, request.Confidence, request.UserId);
 
         var existing = await _memoryService.GetCurrentEntriesAsync(
-            request.UserId, entryType, cancellationToken);
+            request.UserId, entryType, cancellationToken: cancellationToken);
         var hadExisting = existing.Any(e => e.Key == request.Key);
 
         var result = await _memoryService.SetEntryAsync(

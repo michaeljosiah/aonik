@@ -52,6 +52,9 @@ internal sealed class UserMemoryService : IUserMemoryService
             Confidence = request.Confidence,
             Source = request.Source,
             AiRunId = request.AiRunId,
+            DecisionType = request.DecisionType,
+            ConditionsJson = request.ConditionsJson,
+            StaleWhen = request.StaleWhen,
             CreatedAt = now,
             LastConfirmedAt = now
         };
@@ -72,6 +75,7 @@ internal sealed class UserMemoryService : IUserMemoryService
     public async Task<IReadOnlyList<UserMemoryEntryResponse>> GetCurrentEntriesAsync(
         Guid userId,
         UserMemoryEntryType? entryType = null,
+        string? decisionType = null,
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
@@ -85,6 +89,12 @@ internal sealed class UserMemoryService : IUserMemoryService
         if (entryType.HasValue)
         {
             query = query.Where(e => e.EntryType == entryType.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(decisionType))
+        {
+            // Spec 041 — seek on the indexed DecisionType column instead of fetching every rationale.
+            query = query.Where(e => e.DecisionType == decisionType);
         }
 
         var entries = await query
@@ -152,7 +162,10 @@ internal sealed class UserMemoryService : IUserMemoryService
             entry.AiRunId,
             entry.SupersededById,
             entry.CreatedAt,
-            entry.LastConfirmedAt);
+            entry.LastConfirmedAt,
+            entry.DecisionType,
+            entry.ConditionsJson,
+            entry.StaleWhen);
     }
 
     /// <summary>

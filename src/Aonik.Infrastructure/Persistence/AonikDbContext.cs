@@ -503,6 +503,13 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAiTable<CustomerInsightAiSummary>(modelBuilder, "CustomerInsightAiSummaries");
         MapAiTable<Insight>(modelBuilder, "Insights");
         MapAiTable<Signal>(modelBuilder, "Signals");
+        // Spec 041 follow-up — reconcile the canonical snapshot to the live table name. The runtime
+        // AiDbContext already maps this to AnkUserMemoryEntries (and a raw-SQL sp_rename migration
+        // renamed the physical table), but AonikDbContext never mapped it, so its model snapshot had
+        // drifted to "UserMemoryEntry". Mapping it here corrects the snapshot; the paired reconcile
+        // migration's Up() is a deliberate no-op because the rename already happened out-of-band.
+        MapAiTable<UserMemoryEntry>(modelBuilder, "UserMemoryEntries");
+        MapAiTable<DecisionPattern>(modelBuilder, "DecisionPatterns");
 
         MapAgentsTable<Agent>(modelBuilder, "Agents");
         MapAgentsTable<AgentRun>(modelBuilder, "AgentRuns");

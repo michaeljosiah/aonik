@@ -235,6 +235,18 @@ public sealed class AiModule : IModule
         // DependencyInjection.cs since it needs access to QdrantUserMemoryService.
         services.AddScoped<UserMemoryService>();
 
+        // Decision-aware learning (Spec 041): tenant pattern store + user rationale recall + the
+        // outcome-extraction service the resolution events feed.
+        services.AddScoped<Contracts.Services.IDecisionPatternService, DecisionPatternService>();
+        services.AddScoped<Contracts.Services.IDecisionRationaleService, DecisionRationaleService>();
+        services.AddScoped<Contracts.Services.IDecisionOutcomeExtractor, DecisionOutcomeExtractionService>();
+        // The outbox handler that drives extraction whenever a DecisionResolvedEvent is dispatched.
+        // The InProcessEventBus resolves handlers by IEventHandler<TEvent> from DI, so an explicit
+        // registration is enough — no per-assembly AddEventBus scan is needed in the Ai module.
+        services.AddScoped<
+            Aonik.SharedKernel.Events.IEventHandler<Aonik.SharedKernel.Events.Integration.DecisionResolvedEvent>,
+            IntegrationEvents.DecisionResolvedEventHandler>();
+
         // Cross-module data provider for the UserBriefProjector (Agents module)
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IUserBriefAiDataProvider, UserBriefAiDataProvider>();
 

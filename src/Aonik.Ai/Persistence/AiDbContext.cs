@@ -48,6 +48,9 @@ internal class AiDbContext : AonikDbContextBase
     // ── User Memory ────────────────────────────────────────────────
     public DbSet<UserMemoryEntry> UserMemoryEntries { get; set; } = null!;
 
+    // ── Decision-aware learning (Spec 041) ─────────────────────────
+    public DbSet<DecisionPattern> DecisionPatterns { get; set; } = null!;
+
     public AiDbContext(
         DbContextOptions<AiDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -103,6 +106,7 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<Insight>(modelBuilder, "Insights");
         MapTable<Signal>(modelBuilder, "Signals");
         MapTable<UserMemoryEntry>(modelBuilder, "UserMemoryEntries");
+        MapTable<DecisionPattern>(modelBuilder, "DecisionPatterns");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

@@ -122,9 +122,13 @@ internal sealed class QdrantUserMemoryService : IUserMemoryService
     public async Task<IReadOnlyList<UserMemoryEntryResponse>> GetCurrentEntriesAsync(
         Guid userId,
         UserMemoryEntryType? entryType = null,
+        string? decisionType = null,
         CancellationToken cancellationToken = default)
     {
         var now = _clock.UtcNow;
+        // decisionType is not a Qdrant payload filter in V1 — rationale callers narrow by the dot-key
+        // prefix, so this backend accepts the parameter and relies on that (the SQL backend seeks the
+        // indexed DecisionType column instead).
         var filter = BuildUserFilter(userId, currentOnly: true, entryType: entryType);
 
         var points = await _vectorStore.ScrollAsync(

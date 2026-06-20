@@ -48,4 +48,16 @@ public class UserMemoryEntry : Entity, ITenantScoped
     /// Updated when the user re-confirms. Used for staleness/confidence decay checks.
     /// </summary>
     public DateTime LastConfirmedAt { get; set; }
+
+    // ── Decision-aware learning (Spec 041) ──────────────────────────────
+    // Null for the existing entry types; required by validation for Rationale entries.
+
+    /// <summary>Decision family a Rationale entry belongs to, e.g. "remittance-routing", "dunning".</summary>
+    public string? DecisionType { get; set; }
+
+    /// <summary>JSON of the salient conditions the choice depended on (drives condition-relevance recall).</summary>
+    public string? ConditionsJson { get; set; }
+
+    /// <summary>Human-readable note describing what invalidates the rationale.</summary>
+    public string? StaleWhen { get; set; }
 }

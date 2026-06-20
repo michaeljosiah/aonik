@@ -23,6 +23,7 @@ public interface IUserMemoryService
     Task<IReadOnlyList<UserMemoryEntryResponse>> GetCurrentEntriesAsync(
         Guid userId,
         UserMemoryEntryType? entryType = null,
+        string? decisionType = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -61,7 +62,11 @@ public record SetUserMemoryEntryRequest(
     string ValueJson,
     decimal Confidence,
     UserMemorySource Source,
-    Guid? AiRunId = null);
+    Guid? AiRunId = null,
+    // Spec 041 — populated only for Rationale entries.
+    string? DecisionType = null,
+    string? ConditionsJson = null,
+    string? StaleWhen = null);
 
 public record UserMemoryEntryResponse(
     Guid Id,
@@ -75,7 +80,11 @@ public record UserMemoryEntryResponse(
     Guid? AiRunId,
     Guid? SupersededById,
     DateTime CreatedAt,
-    DateTime LastConfirmedAt);
+    DateTime LastConfirmedAt,
+    // Spec 041 — null for non-Rationale entries.
+    string? DecisionType = null,
+    string? ConditionsJson = null,
+    string? StaleWhen = null);
 
 public record SemanticMemorySearchResult(
     UserMemoryEntryResponse Entry,
