@@ -163,7 +163,9 @@ internal sealed class DecisionRationaleService : IDecisionRationaleService
             return RationaleRelevance.Match;
         }
 
-        if (conflicting >= (stored.Count + 1) / 2)
+        // A STRICT majority of conditions must conflict before the rationale is withheld; an even
+        // split (e.g. 1 of 2) stays a caveated Partial rather than a hidden Mismatch.
+        if (conflicting * 2 > stored.Count)
         {
             return RationaleRelevance.Mismatch;
         }

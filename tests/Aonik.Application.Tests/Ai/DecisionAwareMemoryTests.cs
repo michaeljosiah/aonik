@@ -236,6 +236,26 @@ public class DecisionAwareMemoryTests
         applicable.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetApplicableRationalesAsync_Should_Caveat_When_EvenConditionSplit()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var service = Rationales(db, tenantId);
+        await service.SaveRationaleAsync(new SaveRationaleRequest(
+            userId, "remittance-routing", "payee.123", "cheaper-slower-corridor",
+            Conditions(("payeeVerified", "true"), ("urgency", "low")), "inputs change"));
+
+        // 1 of 2 conditions conflicts — an even split is NOT a majority, so the prior is surfaced
+        // with a caveat (Partial), not withheld (Mismatch).
+        var applicable = await service.GetApplicableRationalesAsync(
+            userId, "remittance-routing", Conditions(("payeeVerified", "true"), ("urgency", "high")));
+
+        applicable.Should().ContainSingle();
+        applicable[0].Relevance.Should().Be(RationaleRelevance.Partial);
+    }
+
     // ── Outcome extraction (RQ5) ────────────────────────────────────────
 
     [Fact]
