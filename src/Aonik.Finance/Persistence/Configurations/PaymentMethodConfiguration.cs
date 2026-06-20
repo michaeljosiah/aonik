@@ -50,5 +50,12 @@ public class PaymentMethodConfiguration : IEntityTypeConfiguration<PaymentMethod
         builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId, x.Provider, x.ProviderToken })
             .IsUnique()
             .HasFilter("[IsDeleted] = 0");
+
+        // At most one default per customer — the single-default contract holds even under concurrent
+        // inserts (two racing new cards can't both win the default). Filtered to default, non-deleted rows.
+        builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId })
+            .IsUnique()
+            .HasFilter("[IsDefault] = 1 AND [IsDeleted] = 0")
+            .HasDatabaseName("UX_PaymentMethods_OneDefaultPerCustomer");
     }
 }

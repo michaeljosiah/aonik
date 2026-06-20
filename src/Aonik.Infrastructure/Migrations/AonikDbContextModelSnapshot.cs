@@ -7411,7 +7411,10 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "CustomerPartyId");
+                    b.HasIndex("TenantId", "CustomerPartyId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PaymentMethods_OneDefaultPerCustomer")
+                        .HasFilter("[IsDefault] = 1 AND [IsDeleted] = 0");
 
                     b.HasIndex("TenantId", "CustomerPartyId", "Provider", "ProviderToken")
                         .IsUnique()

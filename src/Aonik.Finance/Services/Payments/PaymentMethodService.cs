@@ -153,7 +153,33 @@ internal sealed class PaymentMethodService : IPaymentMethodService
             method.IsDefault = true;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (isNew)
+        {
+            // A concurrent request won the race on the unique (provider, token) or the single-default
+            // index. Converge on the persisted state rather than surfacing a 500 — SaveAsync stays
+            // idempotent on (provider, token), and the customer keeps exactly one default.
+            _dbContext.ChangeTracker.Clear();
+
+            var existing = await _dbContext.PaymentMethods
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    m => m.CustomerPartyId == customerPartyId && m.Provider == provider && m.ProviderToken == token,
+                    cancellationToken);
+            if (existing is not null)
+            {
+                return Map(existing); // same token already vaulted by the winner
+            }
+
+            // Otherwise a different card claimed the single default first — re-insert ours as non-default.
+            method.IsDefault = false;
+            _dbContext.PaymentMethods.Add(method);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         return Map(method);
     }
 

@@ -44,18 +44,20 @@ namespace Aonik.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AnkPaymentMethods_TenantId_CustomerPartyId",
-                schema: "dbo",
-                table: "AnkPaymentMethods",
-                columns: new[] { "TenantId", "CustomerPartyId" });
-
-            migrationBuilder.CreateIndex(
                 name: "IX_AnkPaymentMethods_TenantId_CustomerPartyId_Provider_ProviderToken",
                 schema: "dbo",
                 table: "AnkPaymentMethods",
                 columns: new[] { "TenantId", "CustomerPartyId", "Provider", "ProviderToken" },
                 unique: true,
                 filter: "[IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_PaymentMethods_OneDefaultPerCustomer",
+                schema: "dbo",
+                table: "AnkPaymentMethods",
+                columns: new[] { "TenantId", "CustomerPartyId" },
+                unique: true,
+                filter: "[IsDefault] = 1 AND [IsDeleted] = 0");
         }
 
         /// <inheritdoc />
