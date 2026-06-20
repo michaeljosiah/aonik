@@ -411,6 +411,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<Payout>(modelBuilder, "Payouts");
         MapFinanceTable<Refund>(modelBuilder, "Refunds");
         MapFinanceTable<Chargeback>(modelBuilder, "Chargebacks");
+        MapFinanceTable<PaymentMethod>(modelBuilder, "PaymentMethods");
 
         MapFinanceTable<Invoice>(modelBuilder, "Invoices");
         MapFinanceTable<InvoiceLine>(modelBuilder, "InvoiceLines");

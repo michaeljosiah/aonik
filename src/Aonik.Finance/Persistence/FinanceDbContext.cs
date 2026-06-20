@@ -40,6 +40,9 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Refund> Refunds { get; set; } = null!;
     public DbSet<Chargeback> Chargebacks { get; set; } = null!;
 
+    /// <summary>Spec 007 — tokenised customer card vault (no PCI data stored).</summary>
+    public DbSet<PaymentMethod> PaymentMethods { get; set; } = null!;
+
     // Partner integration abstraction (spec 031): payout / collection / bill-payment execution records.
     public DbSet<ExternalPayoutAccount> ExternalPayoutAccounts { get; set; } = null!;
     public DbSet<PayoutReversal> PayoutReversals { get; set; } = null!;
@@ -204,6 +207,7 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<Payout>(modelBuilder, "Payouts");
         MapTable<Refund>(modelBuilder, "Refunds");
         MapTable<Chargeback>(modelBuilder, "Chargebacks");
+        MapTable<PaymentMethod>(modelBuilder, "PaymentMethods");
         MapTable<ExternalPayoutAccount>(modelBuilder, "ExternalPayoutAccounts");
         MapTable<PayoutReversal>(modelBuilder, "PayoutReversals");
         MapTable<BillValidation>(modelBuilder, "BillValidations");
