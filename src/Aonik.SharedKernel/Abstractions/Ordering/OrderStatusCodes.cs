@@ -1,4 +1,4 @@
-namespace Aonik.SharedKernel.Abstractions.Finance;
+namespace Aonik.SharedKernel.Abstractions.Ordering;
 
 /// <summary>
 /// Order status code constants, mirrored from <c>Aonik.Finance.Entities.Orders.OrderStatuses</c>

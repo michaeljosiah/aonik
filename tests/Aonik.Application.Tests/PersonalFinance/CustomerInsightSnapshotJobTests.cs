@@ -293,19 +293,19 @@ public class CustomerInsightSnapshotJobTests
         snapshots[0].Status.Should().Be(CustomerInsightSnapshotContract.StatusCurrent);
     }
 
-    private sealed class EmptyOrderHistoryReader : Aonik.SharedKernel.Abstractions.Finance.ICustomerOrderHistoryReader
+    private sealed class EmptyOrderHistoryReader : Aonik.SharedKernel.Abstractions.Ordering.ICustomerOrderHistoryReader
     {
-        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>> GetForPartyAsync(
+        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Ordering.OrderHistoryItem>> GetForPartyAsync(
             Guid tenantId, Guid partyId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>>([]);
+            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Ordering.OrderHistoryItem>>([]);
 
-        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>> GetByIdsAsync(
+        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Ordering.OrderHistoryItem>> GetByIdsAsync(
             Guid tenantId, IReadOnlyCollection<Guid> orderIds, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderHistoryItem>>([]);
+            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Ordering.OrderHistoryItem>>([]);
 
-        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderWithPartyRolesItem>> GetRecentForPayerAsync(
+        public Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Ordering.OrderWithPartyRolesItem>> GetRecentForPayerAsync(
             Guid tenantId, Guid payerPartyId, int take, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Finance.OrderWithPartyRolesItem>>([]);
+            => Task.FromResult<IReadOnlyList<Aonik.SharedKernel.Abstractions.Ordering.OrderWithPartyRolesItem>>([]);
 
         public Task<bool> ExistsAsync(Guid tenantId, Guid orderId, CancellationToken ct = default)
             => Task.FromResult(false);

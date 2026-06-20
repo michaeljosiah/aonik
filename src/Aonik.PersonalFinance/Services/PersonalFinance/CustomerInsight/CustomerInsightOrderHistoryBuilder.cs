@@ -1,5 +1,5 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
-using Aonik.SharedKernel.Abstractions.Finance;
+using Aonik.SharedKernel.Abstractions.Ordering;
 
 namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;
 

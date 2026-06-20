@@ -99,7 +99,7 @@ public sealed class FinanceModule : IModule
         // read Order / Invoice / Payment data without taking a project
         // reference on Aonik.Finance.Entities.*. They are the load-bearing
         // contract that lets the PF extraction land cleanly.
-        services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerOrderHistoryReader, Services.Finance.Readers.CustomerOrderHistoryReader>();
+        services.AddScoped<SharedKernel.Abstractions.Ordering.ICustomerOrderHistoryReader, Services.Finance.Readers.CustomerOrderHistoryReader>();
         services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerInvoiceHistoryReader, Services.Finance.Readers.CustomerInvoiceHistoryReader>();
         services.AddScoped<SharedKernel.Abstractions.Finance.ICustomerPaymentHistoryReader, Services.Finance.Readers.CustomerPaymentHistoryReader>();
         services.AddScoped<SharedKernel.Abstractions.Finance.IFxQuoteReader, Services.Finance.Readers.FxQuoteReader>();

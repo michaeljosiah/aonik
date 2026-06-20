@@ -7,7 +7,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.Finance.Services.PersonalFinance.CustomerInsight;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.SharedKernel.Abstractions.Finance;
+using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Finance.Services.PersonalFinance;

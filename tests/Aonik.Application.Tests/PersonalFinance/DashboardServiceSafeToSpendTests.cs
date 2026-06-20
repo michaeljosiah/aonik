@@ -2,7 +2,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.SharedKernel.Abstractions.Finance;
+using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using FluentAssertions;

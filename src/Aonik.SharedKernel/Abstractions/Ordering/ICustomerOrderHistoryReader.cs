@@ -1,4 +1,4 @@
-namespace Aonik.SharedKernel.Abstractions.Finance;
+namespace Aonik.SharedKernel.Abstractions.Ordering;
 
 /// <summary>
 /// Reads order history for cross-module consumers (notably PersonalFinance).
