@@ -143,6 +143,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<PersonalRecurringBill> PersonalRecurringBills { get; set; } = null!;
     public DbSet<DebtRepayment> DebtRepayments { get; set; } = null!;
     public DbSet<Goal> Goals { get; set; } = null!;
+    public DbSet<CompassPlan> CompassPlans { get; set; } = null!;
     public DbSet<Budget> Budgets { get; set; } = null!;
     public DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
     public DbSet<StatementImport> StatementImports { get; set; } = null!;
@@ -265,6 +266,7 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<PersonalRecurringBill>(modelBuilder, "PersonalRecurringBills");
         MapTable<DebtRepayment>(modelBuilder, "DebtRepayments");
         MapTable<Goal>(modelBuilder, "Goals");
+        MapTable<CompassPlan>(modelBuilder, "CompassPlans");
         MapTable<Budget>(modelBuilder, "Budgets");
         MapTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
         MapTable<StatementImport>(modelBuilder, "StatementImports");

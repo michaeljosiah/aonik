@@ -162,6 +162,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<PersonalRecurringBill> PersonalRecurringBills { get; set; } = null!;
     public virtual DbSet<DebtRepayment> DebtRepayments { get; set; } = null!;
     public virtual DbSet<Goal> Goals { get; set; } = null!;
+    public virtual DbSet<CompassPlan> CompassPlans { get; set; } = null!;
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
     public virtual DbSet<CareEntity> CareEntities { get; set; } = null!;
     public virtual DbSet<PaymentLog> PaymentLogs { get; set; } = null!;
@@ -474,6 +475,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<PersonalRecurringBill>(modelBuilder, "PersonalRecurringBills");
         MapFinanceTable<DebtRepayment>(modelBuilder, "DebtRepayments");
         MapFinanceTable<Goal>(modelBuilder, "Goals");
+        MapFinanceTable<CompassPlan>(modelBuilder, "CompassPlans");
         MapFinanceTable<Budget>(modelBuilder, "Budgets");
         MapFinanceTable<CareEntity>(modelBuilder, "CareEntities");
         MapFinanceTable<PaymentLog>(modelBuilder, "PaymentLogs");

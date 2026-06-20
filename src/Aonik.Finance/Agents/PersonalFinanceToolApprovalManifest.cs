@@ -49,6 +49,12 @@ internal sealed class PersonalFinanceToolApprovalManifest : IToolApprovalManifes
             ["pf_refresh_linked_account"] = Medium("Refresh a linked account"),
             ["pf_sync_linked_account_transactions"] = Medium("Sync linked-account transactions"),
             ["pf_disconnect_linked_account"] = Medium("Disconnect a linked account"),
+
+            // ── AONIK Compass (Spec 021) — guidance writes, no money movement ──
+            ["pf_create_goal_programme"] = Medium("Create a goal programme"),
+            ["pf_update_goal_programme"] = Medium("Update a goal programme"),
+            ["pf_generate_goal_plan"] = Medium("Generate a Compass plan"),
+            ["pf_create_compass_proposal"] = Medium("Create a Compass recommendation"),
         };
 
     public ToolClassification? Classify(string toolName) =>
