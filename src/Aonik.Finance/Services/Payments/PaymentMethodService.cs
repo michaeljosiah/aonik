@@ -100,9 +100,9 @@ internal sealed class PaymentMethodService : IPaymentMethodService
         var last4 = NormalizeLast4(request.Last4);
         var (expiryMonth, expiryYear) = NormalizeExpiry(request.ExpiryMonth, request.ExpiryYear);
 
-        var provider = string.IsNullOrWhiteSpace(request.Provider)
-            ? PrimaryGateway().ProviderCode
-            : request.Provider.Trim();
+        // Canonicalise to a registered gateway's exact ProviderCode (case-insensitive) so the
+        // idempotency read and the unique index aren't fooled by "Stripe" vs "stripe".
+        var provider = ResolveProviderCode(request.Provider);
 
         var type = string.IsNullOrWhiteSpace(request.Type) ? "card" : request.Type.Trim().ToLowerInvariant();
         var brand = Clean(request.Brand)?.ToLowerInvariant();
@@ -144,24 +144,37 @@ internal sealed class PaymentMethodService : IPaymentMethodService
         }
 
         // The first saved card is the default; an explicit MakeDefault promotes this one and demotes the rest.
-        var hasOtherDefault = await QueryOwned(customerPartyId)
-            .AnyAsync(m => m.IsDefault && m.Id != method.Id, cancellationToken);
-
-        if (request.MakeDefault || !hasOtherDefault)
-        {
-            await DemoteOtherDefaultsAsync(customerPartyId, method.Id, cancellationToken);
-            method.IsDefault = true;
-        }
+        var shouldBeDefault = request.MakeDefault
+            || !await QueryOwned(customerPartyId).AnyAsync(m => m.IsDefault && m.Id != method.Id, cancellationToken);
 
         try
         {
+            if (shouldBeDefault)
+            {
+                // Demote any current default and persist that FIRST (also inserting this card as
+                // non-default when new), then promote this card in a second save. Splitting the writes
+                // avoids two IsDefault=1 rows in one batch, which the single-default unique index would
+                // reject non-deterministically (EF does not order writes by unique constraints —
+                // dotnet/efcore#7193).
+                var currentDefaults = await QueryOwned(customerPartyId)
+                    .Where(m => m.IsDefault && m.Id != method.Id)
+                    .ToListAsync(cancellationToken);
+                foreach (var other in currentDefaults)
+                {
+                    other.IsDefault = false;
+                }
+
+                method.IsDefault = false;
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                method.IsDefault = true;
+            }
+
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException) when (isNew)
         {
-            // A concurrent request won the race on the unique (provider, token) or the single-default
-            // index. Converge on the persisted state rather than surfacing a 500 — SaveAsync stays
-            // idempotent on (provider, token), and the customer keeps exactly one default.
+            // A concurrent request won the race on the unique (provider, token) index. Converge on the
+            // persisted state rather than surfacing a 500 — SaveAsync stays idempotent on (provider, token).
             _dbContext.ChangeTracker.Clear();
 
             var existing = await _dbContext.PaymentMethods
@@ -256,22 +269,24 @@ internal sealed class PaymentMethodService : IPaymentMethodService
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
-    private async Task DemoteOtherDefaultsAsync(Guid customerPartyId, Guid keepId, CancellationToken cancellationToken)
-    {
-        var others = await QueryOwned(customerPartyId)
-            .Where(m => m.IsDefault && m.Id != keepId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var other in others)
-        {
-            other.IsDefault = false;
-        }
-    }
-
     private IPaymentProviderGateway PrimaryGateway()
         => _gateways.Count > 0
             ? _gateways[0]
             : throw new InvalidOperationException("No payment provider gateway is configured.");
+
+    /// <summary>Canonicalises a requested provider to a registered gateway's exact ProviderCode (case-insensitive), or the primary gateway when unspecified.</summary>
+    private string ResolveProviderCode(string? requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            return PrimaryGateway().ProviderCode;
+        }
+
+        var trimmed = requested.Trim();
+        var match = _gateways.FirstOrDefault(
+            g => string.Equals(g.ProviderCode, trimmed, StringComparison.OrdinalIgnoreCase));
+        return match?.ProviderCode ?? trimmed;
+    }
 
     private Guid GetCurrentUserId()
         => _currentUserProvider.TryGetCurrentUserId(out var userId)
@@ -293,7 +308,9 @@ internal sealed class PaymentMethodService : IPaymentMethodService
 
     private async Task<Guid> RequireCustomerPartyIdAsync(CancellationToken cancellationToken)
         => await ResolveCustomerPartyIdAsync(cancellationToken)
-            ?? throw new InvalidOperationException("No customer party is linked to the current user.");
+            // A 4xx (mapped) rather than a 500: an authenticated user without a linked customer party is
+            // a client-state condition, not a server fault.
+            ?? throw new InvalidStateException("No customer party is linked to the current user.");
 
     private static PaymentMethodResponse Map(PaymentMethod m)
         => new(m.Id, m.Provider, m.Type, m.Brand, m.Last4, m.ExpiryMonth, m.ExpiryYear, m.Label, m.IsDefault, m.CreatedAt);
@@ -332,10 +349,11 @@ internal sealed class PaymentMethodService : IPaymentMethodService
         return (month, year);
     }
 
-    // A run of 13–19 digits (optionally grouped by single spaces or hyphens) anywhere in a value —
-    // standalone OR embedded in surrounding text — is almost certainly a raw PAN.
+    // A run of 12–19 digits (optionally grouped by single spaces, hyphens, dots, or slashes) anywhere
+    // in a value — standalone OR embedded in surrounding text — is treated as a raw PAN (12 covers the
+    // shorter Maestro/local schemes; the separators cover the common card groupings).
     private static readonly Regex PanLikePattern =
-        new(@"[0-9](?:[ -]?[0-9]){12,18}", RegexOptions.Compiled);
+        new(@"[0-9](?:[ .\-/]?[0-9]){11,18}", RegexOptions.Compiled);
 
     private static void RejectRawPan(string? value, string field)
     {

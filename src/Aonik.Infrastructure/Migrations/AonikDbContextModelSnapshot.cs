@@ -7411,14 +7411,15 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "CustomerPartyId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_PaymentMethods_OneDefaultPerCustomer")
-                        .HasFilter("[IsDefault] = 1 AND [IsDeleted] = 0");
-
                     b.HasIndex("TenantId", "CustomerPartyId", "Provider", "ProviderToken")
                         .IsUnique()
                         .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex(new[] { "TenantId", "CustomerPartyId" }, "IX_PaymentMethods_TenantId_CustomerPartyId");
+
+                    b.HasIndex(new[] { "TenantId", "CustomerPartyId" }, "UX_PaymentMethods_OneDefaultPerCustomer")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1 AND [IsDeleted] = 0");
 
                     b.ToTable("AnkPaymentMethods", "dbo");
                 });

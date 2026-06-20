@@ -52,6 +52,12 @@ namespace Aonik.Infrastructure.Migrations
                 filter: "[IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PaymentMethods_TenantId_CustomerPartyId",
+                schema: "dbo",
+                table: "AnkPaymentMethods",
+                columns: new[] { "TenantId", "CustomerPartyId" });
+
+            migrationBuilder.CreateIndex(
                 name: "UX_PaymentMethods_OneDefaultPerCustomer",
                 schema: "dbo",
                 table: "AnkPaymentMethods",

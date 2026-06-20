@@ -238,10 +238,10 @@ public sealed class SavePaymentMethodRequestValidator : Validator<SavePaymentMet
             .WithMessage("Expiry year is out of range.");
     }
 
-    // A run of 13–19 digits (optionally grouped by single spaces or hyphens) anywhere in the value —
-    // standalone OR embedded in surrounding text — is treated as a raw PAN.
+    // A run of 12–19 digits (optionally grouped by single spaces, hyphens, dots, or slashes) anywhere
+    // in the value — standalone OR embedded in surrounding text — is treated as a raw PAN.
     private static readonly Regex PanLikePattern =
-        new(@"[0-9](?:[ -]?[0-9]){12,18}", RegexOptions.Compiled);
+        new(@"[0-9](?:[ .\-/]?[0-9]){11,18}", RegexOptions.Compiled);
 
     private static bool NotLookLikeRawPan(string? value)
         => string.IsNullOrWhiteSpace(value) || !PanLikePattern.IsMatch(value);

@@ -41,7 +41,11 @@ public class PaymentMethodConfiguration : IEntityTypeConfiguration<PaymentMethod
         builder.Property(x => x.Label)
             .HasMaxLength(100);
 
-        builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId });
+        // Plain browse index for every owner-scoped read (List/Get/Save/Delete all filter on
+        // CustomerPartyId). Named explicitly because the single-default unique index below shares the
+        // same property set — EF Core keys indexes by property set, so without distinct names the second
+        // HasIndex would mutate (and silently drop) this one.
+        builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId }, "IX_PaymentMethods_TenantId_CustomerPartyId");
 
         // Idempotency guard: a given provider token is vaulted at most once per customer. The unique
         // index is the authority under concurrency (the read-before-insert in the service is only the
@@ -53,9 +57,8 @@ public class PaymentMethodConfiguration : IEntityTypeConfiguration<PaymentMethod
 
         // At most one default per customer — the single-default contract holds even under concurrent
         // inserts (two racing new cards can't both win the default). Filtered to default, non-deleted rows.
-        builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId })
+        builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId }, "UX_PaymentMethods_OneDefaultPerCustomer")
             .IsUnique()
-            .HasFilter("[IsDefault] = 1 AND [IsDeleted] = 0")
-            .HasDatabaseName("UX_PaymentMethods_OneDefaultPerCustomer");
+            .HasFilter("[IsDefault] = 1 AND [IsDeleted] = 0");
     }
 }

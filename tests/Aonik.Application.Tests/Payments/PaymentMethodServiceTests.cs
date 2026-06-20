@@ -4,6 +4,7 @@ using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Payments;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -328,5 +329,64 @@ public class PaymentMethodServiceTests
         using var contextB = CreateDbContext(tenantB, userId, sharedDb);
         var list = await CreateService(contextB, tenantB, userId).ListAsync();
         list.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SaveAsync_Should_MoveDefaultToExistingCard_When_MakeDefaultReSave()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId, userId);
+        SeedCustomer(context, tenantId, userId);
+        var service = CreateService(context, tenantId, userId);
+
+        var first = await service.SaveAsync(CardRequest(token: "pm_1"));   // becomes default
+        await service.SaveAsync(CardRequest(token: "pm_2"));               // not default
+
+        // Re-save the FIRST (existing) card asking to make it default. This is the demote-then-promote
+        // path that previously risked a single-default unique-index violation on a relational DB.
+        var promoted = await service.SaveAsync(CardRequest(token: "pm_1", makeDefault: true));
+
+        promoted.Id.Should().Be(first.Id, "re-saving the same token updates in place");
+        promoted.IsDefault.Should().BeTrue();
+        (await service.ListAsync()).Count(m => m.IsDefault).Should().Be(1, "exactly one default survives");
+    }
+
+    [Fact]
+    public async Task SaveAsync_Should_Throw_When_NoCustomerPartyLinked()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId, userId);
+        // No SeedCustomer — the authenticated user has no linked customer party.
+        var service = CreateService(context, tenantId, userId);
+
+        var save = () => service.SaveAsync(CardRequest());
+        var setup = () => service.CreateSetupIntentAsync();
+
+        // A mapped 4xx domain exception, not a raw 500.
+        await save.Should().ThrowAsync<InvalidStateException>();
+        await setup.Should().ThrowAsync<InvalidStateException>();
+        (await context.PaymentMethods.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SaveAsync_Should_AllowResave_After_TokenSoftDeleted()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId, userId);
+        SeedCustomer(context, tenantId, userId);
+        var service = CreateService(context, tenantId, userId);
+
+        var first = await service.SaveAsync(CardRequest(token: "pm_reuse"));
+        (await service.DeleteAsync(first.Id)).Should().BeTrue();
+
+        // The same token can be vaulted again once the prior row is soft-deleted (the unique token index
+        // is filtered on IsDeleted=0). A fresh row is created; the vault shows exactly one.
+        var second = await service.SaveAsync(CardRequest(token: "pm_reuse"));
+
+        second.Id.Should().NotBe(first.Id);
+        (await service.ListAsync()).Should().ContainSingle();
     }
 }
