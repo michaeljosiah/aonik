@@ -1,12 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   streamPlaygroundRun,
   type PlaygroundRunMetrics,
   type PlaygroundMessage,
+  type ServerApprovalEventPayload,
 } from '@/lib/playground-client';
 import { upsertTrailingTextPart } from '@/hooks/playgroundOutputParts';
 import { createPlaygroundFrontendTools } from '@/pages/ai/playground/frontendTools';
+import type { ServerApprovalState } from '@/components/ai/chatSupport';
 import type { PlaygroundRunRecord } from '@/types/ai';
+import { api } from '@/lib/api';
 import { useAuth } from '@/auth';
 
 export interface PlaygroundConfig {
@@ -83,7 +86,10 @@ export interface PlaygroundSpeechChunk {
 export type PlaygroundOutputPart =
   | { type: 'text'; content: string }
   | { type: 'tool-call'; toolCall: PlaygroundToolCall }
-  | { type: 'reasoning'; content: string };
+  | { type: 'reasoning'; content: string }
+  // Spec 032 — a server-owned approval card for a gated Medium/High mutation. The decision
+  // routes to the backend (POST /ai/tool-approvals/{id}/decide); the card only presents and collects.
+  | { type: 'approval'; approval: ServerApprovalState };
 
 // ─── Chat message (compare mode) ────────────────────────────────────────────
 
@@ -134,6 +140,18 @@ export function usePlaygroundChat() {
   const toolCallMapRef = useRef(new Map<string, PlaygroundToolCall>());
   const pendingResolversRef = useRef(new Map<string, (result: string) => void>());
 
+  // Spec 032 — server-owned approval cards keyed by approvalRequestId, so decideServerApproval
+  // can flip their status in place after the user clicks Approve/Reject.
+  const approvalPartsRef = useRef(new Map<string, ServerApprovalState>());
+  // The single-mode message set that produced the current run. A Medium approval re-runs the
+  // agent by appending a nudge to this set so the gate consumes the approval and runs the tool.
+  const lastSubmittedMessagesRef = useRef<PlaygroundMessage[] | null>(null);
+  // Like useAguiChat: a Medium card can be approved while the run is still streaming, but
+  // submitMessages drops calls mid-stream, so stash the retry and flush it once idle.
+  const pendingApprovalRetryRef = useRef<string | null>(null);
+  const isStreamingRef = useRef(isStreaming);
+  isStreamingRef.current = isStreaming;
+
   const updateConfig = useCallback(
     (updates: Partial<PlaygroundConfig>) => {
       setConfig((prev) => ({ ...prev, ...updates }));
@@ -165,6 +183,12 @@ export function usePlaygroundChat() {
 
   const frontendTools = useMemo(() => {
     return createPlaygroundFrontendTools({
+      // Spec 032: mutating tools are now gated server-side and the gate surfaces its own
+      // ServerApprovalCard via the tool.approval.* CUSTOM events (handled in submitMessages /
+      // sendMessage below). The legacy confirmAction frontend tool is therefore redundant for the
+      // Medium/High path, so we do not declare it to the model — mirroring useAguiChat. The
+      // confirmAction handler is still passed (harmless) but the tool itself is excluded.
+      includeConfirmAction: false,
       confirmAction: (toolCallId, args) => {
         return new Promise<string>((resolve) => {
           pendingResolversRef.current.set(toolCallId, resolve);
@@ -232,6 +256,44 @@ export function usePlaygroundChat() {
     }
   }, [syncParts]);
 
+  // ── Server-owned approval cards (Spec 032) ─────────────────────────────────
+
+  /** Append a server approval card part for a gated mutation (idempotent on approvalRequestId). */
+  const appendApprovalPart = useCallback(
+    (payload: ServerApprovalEventPayload) => {
+      const id = `approval-${payload.approvalRequestId}`;
+      if (approvalPartsRef.current.has(id)) return;
+
+      const approval: ServerApprovalState = {
+        id,
+        kind: payload.kind,
+        approvalRequestId: payload.approvalRequestId,
+        proposalId: payload.proposalId,
+        toolCallId: payload.toolCallId,
+        tool: payload.tool,
+        tier: payload.tier,
+        actionKind: payload.actionKind,
+        status: 'pending',
+      };
+      approvalPartsRef.current.set(id, approval);
+      partsRef.current.push({ type: 'approval', approval });
+      syncParts();
+    },
+    [syncParts],
+  );
+
+  /** Mutate a tracked approval card's status in place and re-render. */
+  const setApprovalStatus = useCallback(
+    (id: string, status: ServerApprovalState['status'], message?: string) => {
+      const approval = approvalPartsRef.current.get(id);
+      if (!approval) return;
+      approval.status = status;
+      if (message !== undefined) approval.message = message;
+      syncParts();
+    },
+    [syncParts],
+  );
+
   // ── Submit messages (single-mode: message block editor) ────────────────────
 
   const submitMessages = useCallback(
@@ -249,6 +311,10 @@ export function usePlaygroundChat() {
       currentTextRef.current = '';
       currentReasoningRef.current = '';
       toolCallMapRef.current.clear();
+      approvalPartsRef.current.clear();
+      // Remember the messages that drove this run so a Medium approval can re-run the agent by
+      // appending a nudge (the gate consumes the args-hash-bound approval and runs the tool once).
+      lastSubmittedMessagesRef.current = msgs;
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -298,6 +364,12 @@ export function usePlaygroundChat() {
 
             onSpeechRender: (payload) => {
               setSpeechRender(payload);
+            },
+
+            onServerApproval: (payload) => {
+              // Flush any pending text so the approval card lands in order, then render it.
+              flushText();
+              appendApprovalPart(payload);
             },
 
             onReasoningDelta: (delta) => {
@@ -401,7 +473,81 @@ export function usePlaygroundChat() {
         abortRef.current = null;
       }
     },
-    [config, isStreaming, getAccessToken, frontendTools, flushText, flushReasoning, syncParts],
+    [config, isStreaming, getAccessToken, frontendTools, flushText, flushReasoning, syncParts, appendApprovalPart],
+  );
+
+  // Re-run the agent for an approved Medium card — but only when idle, since submitMessages drops
+  // calls while a run is in flight. Called both directly (on approve) and from the effect below
+  // when the stream ends, so the retry fires whether the card was approved mid-stream or after.
+  const flushPendingApprovalRetry = useCallback(() => {
+    if (
+      pendingApprovalRetryRef.current
+      && !isStreamingRef.current
+      && lastSubmittedMessagesRef.current
+    ) {
+      const nudge = pendingApprovalRetryRef.current;
+      pendingApprovalRetryRef.current = null;
+      const next: PlaygroundMessage[] = [
+        ...lastSubmittedMessagesRef.current,
+        { role: 'user', content: nudge },
+      ];
+      void submitMessages(next);
+    }
+  }, [submitMessages]);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      flushPendingApprovalRetry();
+    }
+  }, [isStreaming, flushPendingApprovalRetry]);
+
+  // Spec 032 — record a decision for a server-owned approval card. Medium routes through the
+  // tool-approvals decide endpoint and, on approval, nudges the agent to re-invoke the gated tool
+  // (the gate consumes the args-hash-bound approval and runs it once). High routes through the same
+  // proposal path the approvals queue uses, so an in-session approval takes the identical
+  // authorization + dispatch path. The server is the decision authority; this only presents and collects.
+  const decideServerApproval = useCallback(
+    async (approval: ServerApprovalState, decision: 'Approve' | 'Reject') => {
+      // Both tiers decide through the same server authority — POST /ai/tool-approvals/{id}/decide —
+      // which validates identity / tenant / expiry / single-use and resolves the request. For High it
+      // internally routes the linked proposal through the policy-checked approve/dismiss path.
+      if (!approval.approvalRequestId) {
+        setApprovalStatus(approval.id, 'error', 'This approval is missing its request reference.');
+        return;
+      }
+
+      setApprovalStatus(approval.id, 'deciding');
+
+      try {
+        const result = await api.post<{ message?: string }>(
+          `/ai/tool-approvals/${encodeURIComponent(approval.approvalRequestId)}/decide`,
+          { decision },
+        );
+
+        if (decision === 'Approve') {
+          setApprovalStatus(approval.id, 'approved', result?.message ?? `${approval.actionKind} was approved.`);
+          // Medium runs inline when the agent re-invokes the gated tool, so nudge it to proceed. High
+          // already executed synchronously inside the decide call — no retry needed.
+          if (approval.kind === 'medium') {
+            pendingApprovalRetryRef.current =
+              `I approved "${approval.actionKind}". Please go ahead and complete that action now.`;
+            flushPendingApprovalRetry();
+          }
+        } else {
+          setApprovalStatus(
+            approval.id,
+            'rejected',
+            result?.message ?? `${approval.actionKind} was rejected. Nothing was changed.`,
+          );
+        }
+      } catch (error) {
+        const message =
+          (error as { userMessage?: string })?.userMessage
+          ?? (error instanceof Error ? error.message : 'The decision could not be recorded.');
+        setApprovalStatus(approval.id, 'error', message);
+      }
+    },
+    [setApprovalStatus, flushPendingApprovalRetry],
   );
 
   // ── Send message (compare-mode: chat-style) ───────────────────────────────
@@ -539,6 +685,9 @@ export function usePlaygroundChat() {
     currentReasoningRef.current = '';
     toolCallMapRef.current.clear();
     pendingResolversRef.current.clear();
+    approvalPartsRef.current.clear();
+    pendingApprovalRetryRef.current = null;
+    lastSubmittedMessagesRef.current = null;
   }, []);
 
   const addRunRecord = useCallback((record: PlaygroundRunRecord) => {
@@ -570,6 +719,7 @@ export function usePlaygroundChat() {
     approveToolCall,
     rejectToolCall,
     selectToolCallOptions,
+    decideServerApproval,
     runFollowUpSuggestion,
   };
 }

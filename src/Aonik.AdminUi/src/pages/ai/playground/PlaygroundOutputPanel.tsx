@@ -38,7 +38,12 @@ import {
 import type { PlaygroundRunMetrics } from '@/lib/playground-client';
 import type { PlaygroundOutputPart, PlaygroundToolCall } from '@/hooks/usePlaygroundChat';
 import type { PlaygroundReviewResult } from '@/types/ai';
-import { AiFollowUpSuggestionsCard, parseFollowUpSuggestions } from '@/components/ai/chatSupport';
+import {
+  AiFollowUpSuggestionsCard,
+  parseFollowUpSuggestions,
+  ServerApprovalCard,
+  type ServerApprovalState,
+} from '@/components/ai/chatSupport';
 
 interface PlaygroundOutputPanelProps {
   output: string;
@@ -69,6 +74,8 @@ interface PlaygroundOutputPanelProps {
   onRejectToolCall?: (toolCallId: string) => void;
   onSelectToolCallOptions?: (toolCallId: string, selected: string[]) => void;
   onSelectFollowUpSuggestion?: (prompt: string) => void;
+  /** Spec 032 — record a decision for a server-owned approval card (Medium/High gated mutation). */
+  onDecideApproval?: (approval: ServerApprovalState, decision: 'Approve' | 'Reject') => void;
   /** When true, renders as a full-height side panel (no drag handle, fills parent). */
   side?: boolean;
 }
@@ -99,6 +106,7 @@ export function PlaygroundOutputPanel({
   onRejectToolCall,
   onSelectToolCallOptions,
   onSelectFollowUpSuggestion,
+  onDecideApproval,
   side = false,
 }: PlaygroundOutputPanelProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -292,6 +300,14 @@ export function PlaygroundOutputPanel({
                         <div key={`t-${i}`} className="text-sm leading-relaxed text-[var(--color-text-primary)]">
                           <Markdown text={part.content} />
                         </div>
+                      );
+                    case 'approval':
+                      return (
+                        <ServerApprovalCard
+                          key={part.approval.id}
+                          approval={part.approval}
+                          onDecide={onDecideApproval}
+                        />
                       );
                     default:
                       return null;

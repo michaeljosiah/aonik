@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.Voice.Frames;
@@ -201,6 +202,10 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             threadManager: request.RequestServices.GetRequiredService<IChatThreadManager>(),
             converter: request.RequestServices.GetRequiredService<IAguiMessageConverter>(),
             postStreamCoordinator: request.RequestServices.GetRequiredService<IPostStreamPersistenceCoordinator>(),
+            // Spec 032 — the approval gate records gated mutations on the request-scoped notifier;
+            // AonikVoiceAgent drains it after each turn and routes the user's decision through the service.
+            approvalService: request.RequestServices.GetRequiredService<IToolApprovalService>(),
+            approvalNotifier: request.RequestServices.GetRequiredService<IToolApprovalStreamNotifier>(),
             initialChatThreadId: request.InitialChatThreadId,
             agentId: request.AgentId,
             tenantId: request.TenantId,

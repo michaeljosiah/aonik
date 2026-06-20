@@ -28,4 +28,14 @@ public interface IToolApprovalGate
 
     /// <summary>Gate every tool in the sequence. See <see cref="Gate"/>.</summary>
     IEnumerable<AITool> GateAll(IEnumerable<AITool> tools, IServiceProvider? serviceProvider = null);
+
+    /// <summary>
+    /// Returns the aggregated classification for a tool name, or <see langword="null"/> when no
+    /// registered manifest claims it. Lets a transport introspect whether an agent's tools are
+    /// classified (and whether any is mutating) <em>without</em> building the agent — e.g. the voice
+    /// endpoint uses it to decide whether to expose the full gated toolset (Spec 032 §7.7) or fall
+    /// back to a read-only variant. A <see langword="null"/> result whose name
+    /// <see cref="MutatingToolNameHeuristic.LooksMutating"/> is what would make <see cref="Gate"/> throw.
+    /// </summary>
+    ToolClassification? Classify(string toolName);
 }

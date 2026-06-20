@@ -84,6 +84,21 @@ export interface PlaygroundRunMetrics {
   modelId?: string;
 }
 
+/**
+ * Decoded `tool.approval.required` / `tool.approval.queued` CUSTOM event (Spec 032).
+ * `kind` distinguishes a Medium in-session confirm from a High durable money proposal;
+ * `approvalRequestId` is the actionable id the decision routes to for both tiers.
+ */
+export interface ServerApprovalEventPayload {
+  kind: 'medium' | 'high';
+  approvalRequestId: string;
+  proposalId?: string;
+  toolCallId?: string;
+  tool: string;
+  tier: string;
+  actionKind: string;
+}
+
 export interface PlaygroundStreamCallbacks {
   onRunStarted?: (runId: string) => void;
   onRerun?: () => void;
@@ -100,6 +115,14 @@ export interface PlaygroundStreamCallbacks {
     requiresVisualAttention: boolean;
     requiresApproval: boolean;
   }) => void;
+  /**
+   * Spec 032 — a backend-gated mutation was NOT executed in-band and needs the user's
+   * decision. Emitted from the `tool.approval.required` (Medium, carries `approvalRequestId`)
+   * and `tool.approval.queued` (High, carries `proposalId` + `approvalRequestId`) CUSTOM
+   * events. The decision routes to `POST /ai/tool-approvals/{id}/decide` — not resolved
+   * client-side. Mirrors the AG-UI handler in `useAguiChat`.
+   */
+  onServerApproval?: (payload: ServerApprovalEventPayload) => void;
   onToolCallStart?: (toolCallId: string, toolName: string) => void;
   onToolCallArgs?: (toolCallId: string, argsDelta: string) => void;
   onToolCallEnd?: (toolCallId: string) => void;
@@ -625,6 +648,37 @@ function dispatchEvent(
     case 'CUSTOM': {
       const value = event.value as Record<string, unknown> | undefined;
       const messageId = typeof value?.messageId === 'string' ? value.messageId : '';
+
+      // Spec 032 — the backend approval gate surfaces a gated-but-not-executed mutation as a
+      // CUSTOM event carrying the durable id the user's decision routes to. Decode and hand it
+      // to the hook, which renders an approval card and POSTs the decision to the decide
+      // endpoint. Mirrors useAguiChat.handleCustomEvent.
+      if (event.name === 'tool.approval.required' || event.name === 'tool.approval.queued') {
+        if (!value) break;
+
+        const approvalRequestId =
+          typeof value.approvalRequestId === 'string' ? value.approvalRequestId : undefined;
+        // Both tiers decide via the approvalRequestId. High also carries the proposalId for
+        // reference, but the request id is the actionable one — without it there is nothing the
+        // user could safely act on, so skip silently (the agent's prose already says it's pending).
+        if (!approvalRequestId) break;
+
+        const kind: 'medium' | 'high' = event.name === 'tool.approval.queued' ? 'high' : 'medium';
+        const tool = typeof value.tool === 'string' ? value.tool : '';
+        callbacks.onServerApproval?.({
+          kind,
+          approvalRequestId,
+          proposalId: typeof value.proposalId === 'string' ? value.proposalId : undefined,
+          toolCallId: typeof value.toolCallId === 'string' ? value.toolCallId : undefined,
+          tool,
+          tier: typeof value.tier === 'string' ? value.tier : kind === 'high' ? 'High' : 'Medium',
+          actionKind:
+            typeof value.actionKind === 'string' && value.actionKind.trim().length > 0
+              ? value.actionKind
+              : tool || 'this action',
+        });
+        break;
+      }
 
       if (event.name === 'speech.chunk') {
         const speechText = typeof value?.speechText === 'string' ? value.speechText : '';

@@ -185,6 +185,7 @@ export function AiPlaygroundPage() {
     approveToolCall,
     rejectToolCall,
     selectToolCallOptions,
+    decideServerApproval,
     runFollowUpSuggestion,
   } = usePlaygroundChat();
 
@@ -1028,6 +1029,7 @@ export function AiPlaygroundPage() {
             onRejectToolCall={rejectToolCall}
             onSelectToolCallOptions={selectToolCallOptions}
             onSelectFollowUpSuggestion={runFollowUpSuggestion}
+            onDecideApproval={decideServerApproval}
             side
           />
         </div>

@@ -5,14 +5,28 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Aonik.Voice.Tools;
 
 /// <summary>
-/// Naming-prefix classifier — the v1 simple option per Phase 1.5 of the spec.
-/// AONIK doesn't have a server-side approval/policy wrapper for backend tools,
-/// so v1 enforces "agents propose, systems execute" by filtering mutating tools
-/// out of the agent's tool list before any voice connection.
+/// Naming-prefix classifier — now a <strong>fallback</strong> for the read-only voice variant,
+/// not the primary enforcement path.
 ///
 /// <para>
-/// Configurable: callers can supply additional read-only/mutating prefixes via
-/// the constructor for tools that don't follow the <c>pf_*</c> convention.
+/// Originally (voice Phase 1.5) this was the only safety net: AONIK had no server-side approval
+/// wrapper for backend tools, so voice enforced "agents propose, systems execute" by filtering
+/// mutating tools out of the agent's tool list before any connection. That is no longer the whole
+/// story — Spec 032 added a real server-side approval gate (<c>IToolApprovalGate</c> /
+/// <c>IToolApprovalService</c>) that wraps every classified mutating tool and fails closed. Voice's
+/// default is now the FULL gated agent (<see cref="IVoiceAgentBuilder.BuildVariant"/>), which exposes
+/// Medium/High tools and enforces them server-side via that gate.
+/// </para>
+///
+/// <para>
+/// This inspector remains the safe fallback for agents whose mutating tools are <em>unclassified</em>
+/// (where the gate would fail closed on the full toolset): the builder filters such an agent down to
+/// its read-only subset by prefix so no ungated mutation is ever exposed over voice.
+/// </para>
+///
+/// <para>
+/// Configurable: callers can supply additional read-only/mutating prefixes via the constructor for
+/// tools that don't follow the <c>pf_*</c> convention.
 /// </para>
 /// </summary>
 internal sealed class NamingPrefixVoiceToolSafetyInspector : IVoiceToolSafetyInspector

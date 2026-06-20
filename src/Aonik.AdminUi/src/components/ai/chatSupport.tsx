@@ -2,15 +2,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  ArrowUpDown,
   BarChart3,
   Bot,
   Check,
+  CheckCircle2,
+  Loader2,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
   TrendingDown,
   TrendingUp,
-  ArrowUpDown,
+  XCircle,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -528,6 +531,169 @@ export function tryParseJsonRecord(value: string): Record<string, unknown> | nul
   } catch {
     return null;
   }
+}
+
+// ─── Server Approval Card (Spec 032) ──────────────────────────────────────────
+// A backend-gated mutation awaiting the user's decision, shared by every agent
+// surface (AG-UI chat, admin playground). Unlike the legacy `confirmAction`
+// frontend-tool flow, the decision is routed to the server — the durable
+// ToolApprovalRequest (Medium) or Proposal (High) is the authority; this card
+// only presents and collects. Driven by the `tool.approval.required` /
+// `tool.approval.queued` CUSTOM events the gate emits, decided via
+// `POST /ai/tool-approvals/{id}/decide`.
+
+/** Lifecycle of a server-owned approval card from the user's point of view. */
+export type ServerApprovalStatus = 'pending' | 'deciding' | 'approved' | 'rejected' | 'error';
+
+/**
+ * Presentation state for a server-owned tool-approval card. Carried as a chat
+ * message (AG-UI) or an output part (playground); the same shape feeds the same
+ * {@link ServerApprovalCard} on both surfaces so the two stay pixel-identical.
+ */
+export interface ServerApprovalState {
+  id: string;
+  /** Medium (in-session confirm) vs High (durable money proposal). */
+  kind: 'medium' | 'high';
+  /** Set for both tiers — the durable ToolApprovalRequest the decision routes to. */
+  approvalRequestId?: string;
+  /** Set for High — the durable Proposal that executes on approval. Reference only. */
+  proposalId?: string;
+  toolCallId?: string;
+  tool: string;
+  /** Risk-tier label as emitted by the server ("Medium" / "High"). */
+  tier: string;
+  actionKind: string;
+  status: ServerApprovalStatus;
+  message?: string;
+}
+
+const serverApprovalSeverityConfig = {
+  low: {
+    badge: 'bg-[var(--color-info-10)] text-[var(--color-info)] border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--color-info)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-info)]" />,
+    label: 'Low Risk',
+  },
+  medium: {
+    badge: 'bg-[var(--color-warning-10)] text-[var(--color-warning)] border-[color-mix(in_srgb,var(--color-warning)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--color-warning)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-warning)]" />,
+    label: 'Medium Risk',
+  },
+  high: {
+    badge: 'bg-[var(--color-danger-10)] text-[var(--color-danger)] border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)]',
+    icon: <ShieldAlert className="h-4 w-4 text-[var(--color-danger)]" />,
+    label: 'High Risk',
+  },
+} as const;
+
+export function ServerApprovalCard({
+  approval,
+  onDecide,
+}: {
+  approval: ServerApprovalState;
+  onDecide?: (approval: ServerApprovalState, decision: 'Approve' | 'Reject') => void;
+}) {
+  const severity: 'low' | 'medium' | 'high' =
+    approval.tier.toLowerCase() === 'high'
+      ? 'high'
+      : approval.tier.toLowerCase() === 'low'
+        ? 'low'
+        : 'medium';
+  const config = serverApprovalSeverityConfig[severity];
+
+  // Resolved states — a compact summary line.
+  if (approval.status === 'approved' || approval.status === 'rejected') {
+    const approved = approval.status === 'approved';
+    return (
+      <div
+        className={`flex items-start gap-3 rounded-lg border ${
+          approved
+            ? 'border-[color-mix(in_srgb,var(--color-success)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]'
+            : 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)]'
+        } px-4 py-3 text-sm`}
+      >
+        {approved ? (
+          <ShieldCheck className="h-5 w-5 text-[var(--color-success)] mt-0.5 shrink-0" />
+        ) : (
+          <ShieldX className="h-5 w-5 text-[var(--color-danger)] mt-0.5 shrink-0" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-[var(--color-text-primary)]">
+            {approval.actionKind} — {approved ? 'Approved' : 'Rejected'}
+          </div>
+          {approval.message && (
+            <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{approval.message}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const isDeciding = approval.status === 'deciding';
+  const canDecide = !!onDecide && (approval.status === 'pending' || approval.status === 'error');
+
+  return (
+    <div className={`rounded-lg border-2 ${config.border} bg-[var(--color-surface)] overflow-hidden`}>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)]">
+        {config.icon}
+        <span className="font-semibold text-sm text-[var(--color-text-primary)]">
+          {approval.kind === 'high' ? 'Approval Required — Money Movement' : 'Approval Required'}
+        </span>
+        <span
+          className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${config.badge}`}
+        >
+          {config.label}
+        </span>
+      </div>
+
+      {/* Body */}
+      <div className="px-4 py-3">
+        <div className="font-medium text-sm text-[var(--color-text-primary)]">{approval.actionKind}</div>
+        <div className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+          {approval.kind === 'high'
+            ? 'This action moves money and runs only after you approve it. It is queued as a durable proposal.'
+            : 'This action needs your explicit approval before it runs.'}
+        </div>
+        {approval.status === 'error' && approval.message && (
+          <div className="mt-2 text-xs text-[var(--color-danger)]">{approval.message}</div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+        {isDeciding ? (
+          <span className="inline-flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Recording your decision…
+          </span>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={!canDecide}
+              onClick={() => onDecide?.(approval, 'Approve')}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-success)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:brightness-110 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Approve
+            </button>
+            <button
+              type="button"
+              disabled={!canDecide}
+              onClick={() => onDecide?.(approval, 'Reject')}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-surface)] border border-[color-mix(in_srgb,var(--color-danger)_40%,transparent)] px-3 py-1.5 text-xs font-medium text-[var(--color-danger)] shadow-sm hover:bg-[color-mix(in_srgb,var(--color-danger)_6%,transparent)] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Reject
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function AiDisplayToolCard({ toolName, args }: { toolName: string; args: Record<string, unknown> }) {
