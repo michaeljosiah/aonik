@@ -59,7 +59,14 @@ internal sealed class DecisionRationaleService : IDecisionRationaleService
                 JsonSerializer.Serialize(payload, Json),
                 Math.Clamp(request.Confidence, 0m, 1m),
                 UserMemorySource.AiInferred,
-                request.AiRunId),
+                request.AiRunId,
+                // Spec 041 — promoted to first-class columns: DecisionType drives the indexed recall
+                // filter; ConditionsJson/StaleWhen are the queryable home for the future deterministic
+                // matcher. ValueJson still carries the full payload (the V1 relevance reads it, and it is
+                // the source of truth for backends without the columns, e.g. Qdrant).
+                DecisionType: decisionType,
+                ConditionsJson: JsonSerializer.Serialize(payload.Conditions, Json),
+                StaleWhen: payload.StaleWhen),
             cancellationToken);
     }
 
@@ -77,9 +84,11 @@ internal sealed class DecisionRationaleService : IDecisionRationaleService
         var prefix = $"decision.{decisionType.Trim()}.";
         var current = currentConditions ?? new Dictionary<string, string>();
 
-        // GetCurrentEntriesAsync already filters to current (non-superseded) entries and applies the
-        // confidence floor (decayed/inferred entries below the floor are excluded) — RQ2 confidence rule.
-        var entries = await _memory.GetCurrentEntriesAsync(userId, UserMemoryEntryType.Rationale, cancellationToken);
+        // GetCurrentEntriesAsync filters to current (non-superseded) entries and applies the confidence
+        // floor (RQ2). Passing decisionType lets the SQL backend seek the indexed DecisionType column;
+        // the dot-key prefix check below remains the cross-backend narrowing (and a safety net).
+        var entries = await _memory.GetCurrentEntriesAsync(
+            userId, UserMemoryEntryType.Rationale, decisionType.Trim(), cancellationToken);
 
         var results = new List<ApplicableRationale>();
         foreach (var entry in entries)

@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    partial class AonikDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260620063309_ReconcileUserMemoryEntryMapping")]
+    partial class ReconcileUserMemoryEntryMapping
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2626,19 +2629,12 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("AiRunId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("ConditionsJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<decimal>("Confidence")
                         .HasPrecision(3, 2)
                         .HasColumnType("decimal(3,2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("DecisionType")
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("EntryType")
                         .IsRequired()
@@ -2657,10 +2653,6 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("StaleWhen")
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
 
                     b.Property<Guid?>("SupersededById")
                         .HasColumnType("uniqueidentifier");
@@ -2683,9 +2675,6 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("SupersededById")
                         .HasDatabaseName("IX_UserMemoryEntry_SupersededById");
-
-                    b.HasIndex("TenantId", "UserId", "DecisionType")
-                        .HasDatabaseName("IX_UserMemoryEntries_TenantUser_DecisionType");
 
                     b.HasIndex("TenantId", "UserId", "EntryType")
                         .HasDatabaseName("IX_UserMemoryEntries_TenantUser_EntryType");

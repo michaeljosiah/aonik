@@ -185,6 +185,25 @@ public class DecisionAwareMemoryTests
     }
 
     [Fact]
+    public async Task SaveRationaleAsync_Should_PromoteDecisionFieldsToColumns()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var service = Rationales(db, tenantId);
+
+        await service.SaveRationaleAsync(new SaveRationaleRequest(
+            userId, "remittance-routing", "payee.123", "cheaper-slower-corridor",
+            Conditions(("payeeVerified", "true")), "payee or corridor changes"));
+
+        // The rationale fields are now first-class, queryable/indexable columns — not just JSON payload.
+        var entry = await db.UserMemoryEntries.SingleAsync();
+        entry.DecisionType.Should().Be("remittance-routing");
+        entry.StaleWhen.Should().Be("payee or corridor changes");
+        entry.ConditionsJson.Should().Contain("payeeVerified");
+    }
+
+    [Fact]
     public async Task GetApplicableRationalesAsync_Should_Caveat_When_PartialMatch()
     {
         var tenantId = Guid.NewGuid();
