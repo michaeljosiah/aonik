@@ -74,7 +74,7 @@ public class CircleServiceTests
         return id;
     }
 
-    private async Task SeedLogAsync(PersonalFinanceDbContext ctx, Guid ownerUserId, Guid entityId, decimal amount, string currency, DateTime date)
+    private async Task SeedLogAsync(PersonalFinanceDbContext ctx, Guid ownerUserId, Guid entityId, decimal amount, string currency, DateTime date, string corroborationStatus = "none")
     {
         ctx.PaymentLogs.Add(new PaymentLog
         {
@@ -87,7 +87,7 @@ public class CircleServiceTests
             Date = date,
             Channel = "bank",
             Origin = "manual",
-            CorroborationStatus = "none",
+            CorroborationStatus = corroborationStatus,
         });
         await ctx.SaveChangesAsync();
     }
@@ -334,5 +334,95 @@ public class CircleServiceTests
         var statement = await Statement(ctx, stranger).ComposeAsync(entityId, new DateTime(2026, 1, 1), new DateTime(2026, 12, 31), null);
 
         statement.Should().BeNull();
+    }
+
+    // ── Shared expenses: the full paged list + per-expense status ───────
+
+    [Fact]
+    public async Task GetSharedEntity_RecentLogs_CarryCorroborationStatus()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        await SeedLogAsync(ctx, owner, entityId, 200m, "GBP", new DateTime(2026, 5, 28), "confirmed");
+
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "entities", new[] { entityId }, false));
+
+        var result = await Circle(ctx, member).GetSharedEntityAsync(owner, entityId);
+
+        result!.Full!.RecentLogs.Should().ContainSingle()
+            .Which.CorroborationStatus.Should().Be("confirmed");
+    }
+
+    [Fact]
+    public async Task GetSharedPaymentLogs_EntityScope_PagesAllExpenses_NewestFirst_WithStatus()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        await SeedLogAsync(ctx, owner, entityId, 10m, "GBP", new DateTime(2026, 1, 10));
+        await SeedLogAsync(ctx, owner, entityId, 20m, "GBP", new DateTime(2026, 2, 10));
+        await SeedLogAsync(ctx, owner, entityId, 30m, "GBP", new DateTime(2026, 3, 10), "confirmed");
+
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "entities", new[] { entityId }, false));
+
+        // Page 1 of 2 — newest first, more to come.
+        var page1 = await Circle(ctx, member).GetSharedPaymentLogsAsync(owner, entityId, page: 1, pageSize: 2);
+        page1.Should().NotBeNull();
+        page1!.Items.Should().HaveCount(2);
+        page1.HasMore.Should().BeTrue();
+        page1.Items[0].Date.Should().Be(new DateTime(2026, 3, 10));
+        page1.Items[0].CorroborationStatus.Should().Be("confirmed"); // status surfaced, not just the amount
+
+        // Page 2 — the tail, no more.
+        var page2 = await Circle(ctx, member).GetSharedPaymentLogsAsync(owner, entityId, page: 2, pageSize: 2);
+        page2!.Items.Should().HaveCount(1);
+        page2.HasMore.Should().BeFalse();
+        page2.Items[0].Amount.Should().Be(10m);
+    }
+
+    [Fact]
+    public async Task GetSharedPaymentLogs_DocsOnly_ReturnsNull_NoAmountLeak()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        await SeedLogAsync(ctx, owner, entityId, 200m, "GBP", new DateTime(2026, 5, 28));
+
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "docsOnly", new[] { entityId }, true));
+
+        (await Circle(ctx, member).GetSharedPaymentLogsAsync(owner, entityId, 1, 20)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSharedPaymentLogs_EntitiesGrant_WithNoAmounts_ReturnsNull()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var entityId = await SeedEntityAsync(ctx, owner);
+        await SeedLogAsync(ctx, owner, entityId, 200m, "GBP", new DateTime(2026, 5, 28));
+
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "entities", new[] { entityId }, true));
+
+        (await Circle(ctx, member).GetSharedPaymentLogsAsync(owner, entityId, 1, 20)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSharedPaymentLogs_OutOfScope_OrNoGrant_ReturnsNull()
+    {
+        using var ctx = CreateContext();
+        var owner = Guid.NewGuid();
+        var member = Guid.NewGuid();
+        var stranger = Guid.NewGuid();
+        var shared = await SeedEntityAsync(ctx, owner, "Shared flat");
+        var privateEntity = await SeedEntityAsync(ctx, owner, "Private car");
+        await Circle(ctx, owner).CreateGrantAsync(new CreateCircleGrantRequest(member, "entities", new[] { shared }, false));
+
+        (await Circle(ctx, member).GetSharedPaymentLogsAsync(owner, privateEntity, 1, 20)).Should().BeNull(); // out of scope
+        (await Circle(ctx, stranger).GetSharedPaymentLogsAsync(owner, shared, 1, 20)).Should().BeNull();       // no grant
     }
 }

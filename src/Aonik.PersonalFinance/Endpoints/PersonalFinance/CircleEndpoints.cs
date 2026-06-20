@@ -277,6 +277,44 @@ internal sealed class GetSharedEntityEndpoint : EndpointWithoutRequest<CircleSha
     }
 }
 
+internal sealed class GetSharedPaymentLogsEndpoint : EndpointWithoutRequest<CircleSharedPaymentLogsResult>
+{
+    private readonly ICircleService _service;
+    public GetSharedPaymentLogsEndpoint(ICircleService service) => _service = service;
+
+    public override void Configure()
+    {
+        Get("/personal-finance/circle/shared/{ownerUserId}/care-entities/{careEntityId}/payment-logs");
+        Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List a shared entity's expenses (paged)";
+            s.Description = "The full expense list behind the entity view's recent-log preview — newest first, "
+                + "each row carrying its corroboration status. 404 for a docsOnly / no-amounts member, so the "
+                + "no-amounts property holds.";
+            s.Response(200, "Expenses returned");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "No grant, out of scope, amounts not permitted, or not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var page = Query<int?>("page", isRequired: false) ?? 1;
+        var pageSize = Query<int?>("pageSize", isRequired: false) ?? 20;
+        var result = await _service.GetSharedPaymentLogsAsync(
+            Route<Guid>("ownerUserId"), Route<Guid>("careEntityId"), page, pageSize, ct);
+        if (result is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
+
+        await Send.OkAsync(result, ct);
+    }
+}
+
 // ── Support Statement ───────────────────────────────────────────────
 
 internal sealed class GetSupportStatementEndpoint : EndpointWithoutRequest<StatementData>

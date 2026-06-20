@@ -15,6 +15,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
 {
     private const int InviteExpiryDays = 7; // matches Spec 020 household invites
     private const int RecentLogCount = 10;
+    private const int MaxPageSize = 100; // matches the owner-side payment-log read cap
 
     private static readonly HashSet<string> Scopes =
         new(StringComparer.OrdinalIgnoreCase) { "all", "entities", "docsOnly" };
@@ -286,7 +287,7 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             recentLogs = logs
                 .OrderByDescending(p => p.Date).ThenByDescending(p => p.CreatedAt)
                 .Take(RecentLogCount)
-                .Select(p => new CareEntityPaymentLogSummary(p.Id, p.Amount, p.Currency, p.Date, p.Channel))
+                .Select(p => new CareEntityPaymentLogSummary(p.Id, p.Amount, p.Currency, p.Date, p.Channel, p.CorroborationStatus))
                 .ToList();
         }
 
@@ -295,6 +296,60 @@ internal sealed class CircleService : ICircleService, ICircleVisibility
             effectiveScope,
             Full: new CircleSharedEntityView(MapEntity(entity), yearTotals, recentLogs, documents),
             DocsOnly: null);
+    }
+
+    public async Task<CircleSharedPaymentLogsResult?> GetSharedPaymentLogsAsync(
+        Guid ownerUserId, Guid careEntityId, int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        // Same per-entity authorisation as GetSharedEntityAsync — find every active grant covering
+        // this entity. No covering grant → not found (existence not revealed).
+        var grants = await GetActiveGrantsAsync(ownerUserId, cancellationToken);
+        var covering = grants.Where(g => g.Scope == "all" || g.EntityIds.Contains(careEntityId)).ToList();
+        if (covering.Count == 0)
+        {
+            return null;
+        }
+
+        // Expense lines are money: shown only when a covering grant carries full scope AND permits
+        // amounts. A docsOnly / NoAmounts member gets 404 here — the same gate as the entity view's
+        // amountsAllowed branch, so the no-amounts property holds and spend is never revealed.
+        var amountsAllowed = covering.Any(g => g.Scope == "all" || g.Scope == "entities")
+            && covering.Any(g => !g.NoAmounts);
+        if (!amountsAllowed)
+        {
+            return null;
+        }
+
+        var (tenantId, _) = GetContext();
+
+        // The entity must still belong to the owner and be live — mirrors the entity view's check.
+        var entityExists = await _dbContext.CareEntities.AsNoTracking().AnyAsync(
+            e => e.Id == careEntityId && e.TenantId == tenantId && e.UserId == ownerUserId && !e.Archived,
+            cancellationToken);
+        if (!entityExists)
+        {
+            return null;
+        }
+
+        var size = Math.Clamp(pageSize, 1, MaxPageSize);
+        var pageNumber = Math.Max(page, 1);
+
+        // Same ordering as the recent-log preview (newest first). Fetch one extra row to derive
+        // HasMore without a second COUNT round-trip.
+        var rows = await _dbContext.PaymentLogs.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.UserId == ownerUserId && p.CareEntityId == careEntityId)
+            .OrderByDescending(p => p.Date).ThenByDescending(p => p.CreatedAt)
+            .Skip((pageNumber - 1) * size)
+            .Take(size + 1)
+            .ToListAsync(cancellationToken);
+
+        var hasMore = rows.Count > size;
+        var items = rows
+            .Take(size)
+            .Select(p => new CareEntityPaymentLogSummary(p.Id, p.Amount, p.Currency, p.Date, p.Channel, p.CorroborationStatus))
+            .ToList();
+
+        return new CircleSharedPaymentLogsResult(items, pageNumber, size, hasMore);
     }
 
     /// <summary>

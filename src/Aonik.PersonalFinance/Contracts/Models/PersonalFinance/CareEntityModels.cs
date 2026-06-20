@@ -69,7 +69,10 @@ public record CareEntityPaymentLogSummary(
     decimal Amount,
     string Currency,
     DateTime Date,
-    string? Channel);
+    string? Channel,
+    // Reconciliation state of the expense — none | matched | confirmed (Spec 045 §6). Surfaced so a
+    // care-entity profile and a circle member see each expense's status, not only its amount.
+    string CorroborationStatus);
 
 public record CareEntityDocumentRef(
     Guid DocumentId,
