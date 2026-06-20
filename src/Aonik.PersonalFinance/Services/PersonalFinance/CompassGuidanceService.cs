@@ -112,7 +112,7 @@ internal sealed class CompassGuidanceService : ICompassGuidanceService
             .ToList();
 
         var obligations = await LoadProtectedObligationsAsync(tenantId, userId, asOfDate, cancellationToken);
-        var planCommitments = await LoadActivePlanCommitmentsAsync(tenantId, userId, cancellationToken);
+        var planCommitments = await LoadActivePlanCommitmentsAsync(tenantId, userId, asOfDate, cancellationToken);
 
         // Mixed-currency detection (DEC8): if the relevant liquid balances or
         // obligations or plan commitments are not all in one operating currency,
@@ -221,7 +221,8 @@ internal sealed class CompassGuidanceService : ICompassGuidanceService
             ActionType: request.ActionType.Trim(),
             Amount: request.Amount,
             Currency: currency,
-            Rationale: request.Rationale ?? string.Empty);
+            Rationale: request.Rationale ?? string.Empty,
+            RiskTier: riskTier);
 
         var payloadJson = JsonSerializer.Serialize(payload, PayloadSerializerOptions);
 
@@ -280,7 +281,7 @@ internal sealed class CompassGuidanceService : ICompassGuidanceService
                 ActionType: payload.ActionType,
                 Amount: payload.Amount,
                 Currency: payload.Currency,
-                RiskTier: "low",
+                RiskTier: payload.RiskTier,
                 Status: detail.Status,
                 Rationale: payload.Rationale));
         }
@@ -351,8 +352,10 @@ internal sealed class CompassGuidanceService : ICompassGuidanceService
     /// dashboard figure).
     /// </summary>
     private async Task<List<SafeToSpendFactor>> LoadActivePlanCommitmentsAsync(
-        Guid tenantId, Guid userId, CancellationToken cancellationToken)
+        Guid tenantId, Guid userId, DateTime asOf, CancellationToken cancellationToken)
     {
+        var cutoff = asOf.Date.AddDays(LookaheadDays);
+
         var activePlans = await _dbContext.CompassPlans
             .AsNoTracking()
             .Where(p => p.TenantId == tenantId && p.UserId == userId && p.Status == CompassPlanStatus.Active)
@@ -369,11 +372,23 @@ internal sealed class CompassGuidanceService : ICompassGuidanceService
 
             foreach (var step in planResult.Steps)
             {
-                if (step.SuggestedAmount is > 0 && !string.IsNullOrWhiteSpace(step.Currency))
+                if (step.SuggestedAmount is not (> 0) || string.IsNullOrWhiteSpace(step.Currency))
                 {
-                    factors.Add(new SafeToSpendFactor(
-                        "PlanCommitment", plan.GoalId, step.Title, step.SuggestedAmount.Value, step.Currency!, step.TargetDate));
+                    continue;
                 }
+
+                // Horizon window: only commitments due within the same lookahead as obligations are
+                // protected from THIS safe-to-spend. Obligations are 30-day windowed, so commitments
+                // must be too — otherwise a multi-month plan's full total is wrongly subtracted from
+                // today's figure (the two would be summed on mismatched time bases). Undated steps are
+                // treated as current intent and kept.
+                if (step.TargetDate is { } due && (due.Date < asOf.Date || due.Date > cutoff))
+                {
+                    continue;
+                }
+
+                factors.Add(new SafeToSpendFactor(
+                    "PlanCommitment", plan.GoalId, step.Title, step.SuggestedAmount.Value, step.Currency!, step.TargetDate));
             }
         }
 
@@ -414,8 +429,11 @@ internal sealed class CompassGuidanceService : ICompassGuidanceService
 
         return new SafeToSpendResponse(
             LiquidAssets: 0m,
-            ProtectedObligations: obligations?.Sum(f => f.Amount) ?? 0m,
-            PlanCommitments: planCommitments?.Sum(f => f.Amount) ?? 0m,
+            // Blended cross-currency sums are meaningless on the partial path, so the headline
+            // sub-totals stay 0 (the per-currency breakdown lives in Factors). Showing a blended
+            // figure here would contradict the very warning that triggered this path.
+            ProtectedObligations: 0m,
+            PlanCommitments: 0m,
             SafeToSpend: 0m,
             Currency: currency,
             AsOfUtc: asOf,
@@ -482,5 +500,6 @@ internal sealed class CompassGuidanceService : ICompassGuidanceService
         string ActionType,
         decimal Amount,
         string Currency,
-        string Rationale);
+        string Rationale,
+        string RiskTier = "medium");
 }
