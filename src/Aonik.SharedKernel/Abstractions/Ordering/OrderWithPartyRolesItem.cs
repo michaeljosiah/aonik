@@ -1,4 +1,4 @@
-namespace Aonik.SharedKernel.Abstractions.Finance;
+namespace Aonik.SharedKernel.Abstractions.Ordering;
 
 /// <summary>
 /// Cross-module projection that pairs an <see cref="OrderHistoryItem"/> with the

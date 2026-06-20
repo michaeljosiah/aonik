@@ -1,6 +1,6 @@
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.PersonalFinance.Persistence;
-using Aonik.SharedKernel.Abstractions.Finance;
+using Aonik.SharedKernel.Abstractions.Ordering;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Finance.Services.PersonalFinance.CustomerInsight;

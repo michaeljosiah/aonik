@@ -1,4 +1,4 @@
-namespace Aonik.SharedKernel.Abstractions.Finance;
+namespace Aonik.SharedKernel.Abstractions.Ordering;
 
 /// <summary>
 /// Cross-module projection of an order. Carries only what PersonalFinance and other

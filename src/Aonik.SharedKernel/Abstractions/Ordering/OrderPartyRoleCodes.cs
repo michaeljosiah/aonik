@@ -1,4 +1,4 @@
-namespace Aonik.SharedKernel.Abstractions.Finance;
+namespace Aonik.SharedKernel.Abstractions.Ordering;
 
 /// <summary>
 /// Order party-role code constants, mirrored from
