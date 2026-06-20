@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
 using FastEndpoints;
@@ -212,11 +213,10 @@ public sealed class SavePaymentMethodRequestValidator : Validator<SavePaymentMet
             .Must(NotLookLikeRawPan)
             .WithMessage("A raw card number must not be sent; provide a gateway vault token.");
 
-        RuleFor(x => x.Provider).MaximumLength(50);
-
         // No PCI data in any persisted free-form field — mirror the token guard so a PAN can't be
         // smuggled through display metadata. Defence in depth with the service-layer RejectRawPan.
         const string rawPan = "A raw card number must not be sent; provide tokenised data only.";
+        RuleFor(x => x.Provider).MaximumLength(50).Must(NotLookLikeRawPan).WithMessage(rawPan);
         RuleFor(x => x.Type).MaximumLength(30).Must(NotLookLikeRawPan).WithMessage(rawPan);
         RuleFor(x => x.Brand).MaximumLength(30).Must(NotLookLikeRawPan).WithMessage(rawPan);
         RuleFor(x => x.Label).MaximumLength(100).Must(NotLookLikeRawPan).WithMessage(rawPan);
@@ -238,15 +238,11 @@ public sealed class SavePaymentMethodRequestValidator : Validator<SavePaymentMet
             .WithMessage("Expiry year is out of range.");
     }
 
-    private static bool NotLookLikeRawPan(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return true;
-        }
+    // A run of 13–19 digits (optionally grouped by single spaces or hyphens) anywhere in the value —
+    // standalone OR embedded in surrounding text — is treated as a raw PAN.
+    private static readonly Regex PanLikePattern =
+        new(@"[0-9](?:[ -]?[0-9]){12,18}", RegexOptions.Compiled);
 
-        var stripped = token.Where(c => c is not (' ' or '-')).ToArray();
-        var looksLikePan = stripped.Length is >= 13 and <= 19 && stripped.All(char.IsDigit);
-        return !looksLikePan;
-    }
+    private static bool NotLookLikeRawPan(string? value)
+        => string.IsNullOrWhiteSpace(value) || !PanLikePattern.IsMatch(value);
 }

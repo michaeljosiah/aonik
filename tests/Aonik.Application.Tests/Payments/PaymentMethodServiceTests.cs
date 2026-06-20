@@ -152,8 +152,12 @@ public class PaymentMethodServiceTests
         (await context.PaymentMethods.CountAsync()).Should().Be(0, "a rejected PAN must write nothing");
     }
 
-    [Fact]
-    public async Task SaveAsync_Should_RejectAndPersistNothing_When_PanSmuggledInFreeFormField()
+    [Theory]
+    [InlineData("4111 1111 1111 1111", null)]                  // standalone PAN in Label
+    [InlineData("my card 4242424242424242 spare", null)]       // PAN embedded in free-form Label text
+    [InlineData(null, "4111-1111-1111-1111")]                  // PAN in the Provider field
+    public async Task SaveAsync_Should_RejectAndPersistNothing_When_PanInFreeFormOrProviderField(
+        string? label, string? provider)
     {
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -161,8 +165,12 @@ public class PaymentMethodServiceTests
         SeedCustomer(context, tenantId, userId);
         var service = CreateService(context, tenantId, userId);
 
-        // A valid token, but a PAN hidden in the free-form Label — must still be rejected (no PCI in any field).
-        var act = () => service.SaveAsync(CardRequest() with { Label = "4111 1111 1111 1111" });
+        // A valid token, but a PAN hidden in a display/provider field — must still be rejected (no PCI in ANY field).
+        var request = CardRequest();
+        if (label is not null) request = request with { Label = label };
+        if (provider is not null) request = request with { Provider = provider };
+
+        var act = () => service.SaveAsync(request);
 
         await act.Should().ThrowAsync<ArgumentException>();
         (await context.PaymentMethods.CountAsync()).Should().Be(0);

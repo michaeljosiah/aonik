@@ -3,6 +3,7 @@ using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using System.Text.RegularExpressions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -109,7 +110,8 @@ internal sealed class PaymentMethodService : IPaymentMethodService
         var providerCustomerRef = Clean(request.ProviderCustomerRef);
 
         // Token-only vault: no PCI data may be smuggled through ANY persisted free-form field, not
-        // just the token (a PAN in Label/Brand/Type/CustomerRef is rejected just the same).
+        // just the token (a PAN in Provider/Label/Brand/Type/CustomerRef is rejected just the same).
+        RejectRawPan(provider, nameof(request.Provider));
         RejectRawPan(type, nameof(request.Type));
         RejectRawPan(brand, nameof(request.Brand));
         RejectRawPan(label, nameof(request.Label));
@@ -304,6 +306,11 @@ internal sealed class PaymentMethodService : IPaymentMethodService
         return (month, year);
     }
 
+    // A run of 13–19 digits (optionally grouped by single spaces or hyphens) anywhere in a value —
+    // standalone OR embedded in surrounding text — is almost certainly a raw PAN.
+    private static readonly Regex PanLikePattern =
+        new(@"[0-9](?:[ -]?[0-9]){12,18}", RegexOptions.Compiled);
+
     private static void RejectRawPan(string? value, string field)
     {
         if (string.IsNullOrEmpty(value))
@@ -311,10 +318,8 @@ internal sealed class PaymentMethodService : IPaymentMethodService
             return;
         }
 
-        // A vault token or display field is opaque text. A 13–19 digit numeric string (optionally
-        // grouped by spaces or hyphens) is almost certainly a raw PAN — fail closed, never persist it.
-        var stripped = value.Where(c => c is not (' ' or '-')).ToArray();
-        if (stripped.Length is >= 13 and <= 19 && stripped.All(char.IsDigit))
+        // Fail closed: never persist a field that contains a PAN-like run (Spec 007 token-only vault).
+        if (PanLikePattern.IsMatch(value))
         {
             throw new ArgumentException(
                 $"A raw card number must not be sent in '{field}'; provide tokenised data only.",
