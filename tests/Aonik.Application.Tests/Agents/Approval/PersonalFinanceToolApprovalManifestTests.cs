@@ -45,6 +45,11 @@ public class PersonalFinanceToolApprovalManifestTests
         new object[] { "pf_refresh_linked_account" },
         new object[] { "pf_sync_linked_account_transactions" },
         new object[] { "pf_disconnect_linked_account" },
+        // Spec 021 (AONIK Compass) — guidance writes, no money movement.
+        new object[] { "pf_create_goal_programme" },
+        new object[] { "pf_update_goal_programme" },
+        new object[] { "pf_generate_goal_plan" },
+        new object[] { "pf_create_compass_proposal" },
     };
 
     public static IEnumerable<object[]> ReadTools() => new[]
@@ -56,6 +61,12 @@ public class PersonalFinanceToolApprovalManifestTests
         new object[] { "pf_run_insights" },
         new object[] { "pf_compare_snapshots" },
         new object[] { "user_memory_recall" },
+        // Spec 021 (AONIK Compass) — read/guidance tools must pass through ungated.
+        new object[] { "pf_list_goals" },
+        new object[] { "pf_get_goal" },
+        new object[] { "pf_get_goal_plan" },
+        new object[] { "pf_get_safe_to_spend" },
+        new object[] { "pf_run_compass_planner" },
     };
 
     [Fact]

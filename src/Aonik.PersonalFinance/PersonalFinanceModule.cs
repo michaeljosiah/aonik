@@ -121,6 +121,15 @@ public sealed class PersonalFinanceModule : IModule
         // — keeps Ai free of a back-pointing reference on PersonalFinance.
         services.AddScoped<SharedKernel.Abstractions.PersonalFinance.ICustomerInsightSnapshotForAi, CustomerInsightSnapshotForAiAdapter>();
 
+        // ── AONIK Compass (Spec 021) — goal programmes, plan lifecycle,
+        //    deterministic safe-to-spend guidance, and Compass proposals.
+        //    The CompassPlannerAgentDescriptor sub-agent itself is registered
+        //    in FinanceModule alongside the other IDomainAgentDescriptors.
+        services.AddScoped<IGoalService, GoalService>();
+        services.AddScoped<ICompassPlanService, CompassPlanService>();
+        services.AddScoped<ICompassGuidanceService, CompassGuidanceService>();
+        services.AddScoped<ICompassPlanGenerator, CompassPlanGenerator>();
+
         // ── Cross-module adapter implementations (relocated) ────────
         services.AddScoped<IPersonalProfileProvisioner, PersonalProfileProvisioner>();
         services.AddScoped<IUserBriefDataProvider, UserBriefDataProvider>();

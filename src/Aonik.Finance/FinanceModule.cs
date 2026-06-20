@@ -314,6 +314,11 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<IDomainAgentDescriptor, PfForecastAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PfClassifyAgentDescriptor>();
 
+        // Spec 021 — AONIK Compass planning specialist. Structured-output
+        // sub-agent Simi invokes via pf_run_compass_planner and the Compass
+        // plan service drives during pf_generate_goal_plan. Never user-facing.
+        services.AddSingleton<IDomainAgentDescriptor, CompassPlannerAgentDescriptor>();
+
         // CodeAct sandbox providers and selector relocated to PersonalFinanceModule
         // (Spec 027 Phase 5) along with the CodeAct/* file tree.
 

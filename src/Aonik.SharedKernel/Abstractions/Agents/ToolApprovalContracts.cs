@@ -415,6 +415,8 @@ public static class MutatingToolNameHeuristic
         // PersonalFinance mutation verbs (Spec 032 — keep the fail-closed default in step with the
         // PersonalFinanceToolApprovalManifest so these mutations throw if ever left unclassified).
         "_save_", "_confirm_", "_reject_", "_refresh_", "_disconnect_",
+        // Spec 021 (AONIK Compass) — pf_generate_goal_plan persists a plan + records an AiRun.
+        "_generate_",
     };
 
     /// <summary>

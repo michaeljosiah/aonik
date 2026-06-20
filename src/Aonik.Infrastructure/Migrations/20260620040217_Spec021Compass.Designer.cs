@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    partial class AonikDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260620040217_Spec021Compass")]
+    partial class Spec021Compass
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2164,83 +2167,6 @@ namespace Aonik.Infrastructure.Migrations
                     b.ToTable("AnkCustomerInsightAiSummaries", "dbo");
                 });
 
-            modelBuilder.Entity("Aonik.Ai.Entities.DecisionPattern", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Confidence")
-                        .HasPrecision(3, 2)
-                        .HasColumnType("decimal(3,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DecisionType")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastReinforcedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("ObservationCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PayloadJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<string>("Segment")
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("Statement")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("nvarchar(1024)");
-
-                    b.Property<DateTime?>("SupersededAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "DecisionType", "Confidence")
-                        .HasDatabaseName("IX_DecisionPatterns_Tenant_Type_Confidence");
-
-                    b.HasIndex("TenantId", "DecisionType", "Segment", "SupersededAtUtc")
-                        .HasDatabaseName("IX_DecisionPatterns_Tenant_Type_Segment_Current");
-
-                    b.ToTable("AnkDecisionPatterns", "dbo");
-                });
-
             modelBuilder.Entity("Aonik.Ai.Entities.EvalRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2626,19 +2552,12 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("AiRunId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("ConditionsJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<decimal>("Confidence")
                         .HasPrecision(3, 2)
                         .HasColumnType("decimal(3,2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("DecisionType")
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("EntryType")
                         .IsRequired()
@@ -2658,10 +2577,6 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("StaleWhen")
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
                     b.Property<Guid?>("SupersededById")
                         .HasColumnType("uniqueidentifier");
 
@@ -2675,17 +2590,11 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id")
-                        .HasName("PK_UserMemoryEntry");
+                    b.HasKey("Id");
 
-                    b.HasIndex("AiRunId")
-                        .HasDatabaseName("IX_UserMemoryEntry_AiRunId");
+                    b.HasIndex("AiRunId");
 
-                    b.HasIndex("SupersededById")
-                        .HasDatabaseName("IX_UserMemoryEntry_SupersededById");
-
-                    b.HasIndex("TenantId", "UserId", "DecisionType")
-                        .HasDatabaseName("IX_UserMemoryEntries_TenantUser_DecisionType");
+                    b.HasIndex("SupersededById");
 
                     b.HasIndex("TenantId", "UserId", "EntryType")
                         .HasDatabaseName("IX_UserMemoryEntries_TenantUser_EntryType");
@@ -2697,7 +2606,7 @@ namespace Aonik.Infrastructure.Migrations
                         .HasDatabaseName("IX_UserMemoryEntries_TenantUser_Current")
                         .HasFilter("[SupersededById] IS NULL");
 
-                    b.ToTable("AnkUserMemoryEntries", "dbo");
+                    b.ToTable("UserMemoryEntry", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Commerce.Entities.Cart.Cart", b =>
@@ -7422,100 +7331,6 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("TenantId", "ProviderReference");
 
                     b.ToTable("AnkPaymentIntents", "dbo");
-                });
-
-            modelBuilder.Entity("Aonik.Finance.Entities.Payments.PaymentMethod", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Brand")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CustomerPartyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("ExpiryMonth")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ExpiryYear")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Label")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Last4")
-                        .HasMaxLength(4)
-                        .HasColumnType("nvarchar(4)");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("ProviderCustomerRef")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ProviderToken")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "CustomerPartyId", "Provider", "ProviderToken")
-                        .IsUnique()
-                        .HasFilter("[IsDeleted] = 0");
-
-                    b.HasIndex(new[] { "TenantId", "CustomerPartyId" }, "IX_PaymentMethods_TenantId_CustomerPartyId");
-
-                    b.HasIndex(new[] { "TenantId", "CustomerPartyId" }, "UX_PaymentMethods_OneDefaultPerCustomer")
-                        .IsUnique()
-                        .HasFilter("[IsDefault] = 1 AND [IsDeleted] = 0");
-
-                    b.ToTable("AnkPaymentMethods", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Finance.Entities.Payments.Payout", b =>
@@ -22862,14 +22677,12 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasOne("Aonik.Ai.Entities.AiRun", null)
                         .WithMany()
                         .HasForeignKey("AiRunId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("FK_UserMemoryEntry_AnkAiRuns_AiRunId");
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Aonik.Ai.Entities.UserMemoryEntry", null)
                         .WithMany()
                         .HasForeignKey("SupersededById")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("FK_UserMemoryEntry_UserMemoryEntry_SupersededById");
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Aonik.Commerce.Entities.Cart.CartItem", b =>
