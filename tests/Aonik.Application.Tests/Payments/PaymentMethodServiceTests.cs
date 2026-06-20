@@ -153,6 +153,22 @@ public class PaymentMethodServiceTests
     }
 
     [Fact]
+    public async Task SaveAsync_Should_RejectAndPersistNothing_When_PanSmuggledInFreeFormField()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId, userId);
+        SeedCustomer(context, tenantId, userId);
+        var service = CreateService(context, tenantId, userId);
+
+        // A valid token, but a PAN hidden in the free-form Label — must still be rejected (no PCI in any field).
+        var act = () => service.SaveAsync(CardRequest() with { Label = "4111 1111 1111 1111" });
+
+        await act.Should().ThrowAsync<ArgumentException>();
+        (await context.PaymentMethods.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task SaveAsync_Should_UpdateInPlace_When_SameProviderTokenResaved()
     {
         var tenantId = Guid.NewGuid();

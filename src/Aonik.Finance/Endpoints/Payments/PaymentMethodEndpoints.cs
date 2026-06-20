@@ -213,10 +213,14 @@ public sealed class SavePaymentMethodRequestValidator : Validator<SavePaymentMet
             .WithMessage("A raw card number must not be sent; provide a gateway vault token.");
 
         RuleFor(x => x.Provider).MaximumLength(50);
-        RuleFor(x => x.Type).MaximumLength(30);
-        RuleFor(x => x.Brand).MaximumLength(30);
-        RuleFor(x => x.Label).MaximumLength(100);
-        RuleFor(x => x.ProviderCustomerRef).MaximumLength(200);
+
+        // No PCI data in any persisted free-form field — mirror the token guard so a PAN can't be
+        // smuggled through display metadata. Defence in depth with the service-layer RejectRawPan.
+        const string rawPan = "A raw card number must not be sent; provide tokenised data only.";
+        RuleFor(x => x.Type).MaximumLength(30).Must(NotLookLikeRawPan).WithMessage(rawPan);
+        RuleFor(x => x.Brand).MaximumLength(30).Must(NotLookLikeRawPan).WithMessage(rawPan);
+        RuleFor(x => x.Label).MaximumLength(100).Must(NotLookLikeRawPan).WithMessage(rawPan);
+        RuleFor(x => x.ProviderCustomerRef).MaximumLength(200).Must(NotLookLikeRawPan).WithMessage(rawPan);
 
         RuleFor(x => x.Last4!)
             .Matches("^[0-9]{4}$")

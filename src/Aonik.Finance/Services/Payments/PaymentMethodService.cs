@@ -95,13 +95,25 @@ internal sealed class PaymentMethodService : IPaymentMethodService
             throw new ArgumentException("A provider token is required.", nameof(request));
         }
 
-        GuardAgainstRawPan(token);
+        RejectRawPan(token, nameof(request.ProviderToken));
         var last4 = NormalizeLast4(request.Last4);
         var (expiryMonth, expiryYear) = NormalizeExpiry(request.ExpiryMonth, request.ExpiryYear);
 
         var provider = string.IsNullOrWhiteSpace(request.Provider)
             ? PrimaryGateway().ProviderCode
             : request.Provider.Trim();
+
+        var type = string.IsNullOrWhiteSpace(request.Type) ? "card" : request.Type.Trim().ToLowerInvariant();
+        var brand = Clean(request.Brand)?.ToLowerInvariant();
+        var label = Clean(request.Label);
+        var providerCustomerRef = Clean(request.ProviderCustomerRef);
+
+        // Token-only vault: no PCI data may be smuggled through ANY persisted free-form field, not
+        // just the token (a PAN in Label/Brand/Type/CustomerRef is rejected just the same).
+        RejectRawPan(type, nameof(request.Type));
+        RejectRawPan(brand, nameof(request.Brand));
+        RejectRawPan(label, nameof(request.Label));
+        RejectRawPan(providerCustomerRef, nameof(request.ProviderCustomerRef));
 
         // Idempotent re-save: a token already vaulted for this customer updates its metadata in place.
         var method = await QueryOwned(customerPartyId)
@@ -116,13 +128,13 @@ internal sealed class PaymentMethodService : IPaymentMethodService
             ProviderToken = token,
         };
 
-        method.Type = string.IsNullOrWhiteSpace(request.Type) ? "card" : request.Type.Trim().ToLowerInvariant();
-        method.Brand = Clean(request.Brand)?.ToLowerInvariant();
+        method.Type = type;
+        method.Brand = brand;
         method.Last4 = last4;
         method.ExpiryMonth = expiryMonth;
         method.ExpiryYear = expiryYear;
-        method.Label = Clean(request.Label);
-        method.ProviderCustomerRef = Clean(request.ProviderCustomerRef) ?? method.ProviderCustomerRef;
+        method.Label = label;
+        method.ProviderCustomerRef = providerCustomerRef ?? method.ProviderCustomerRef;
 
         if (isNew)
         {
@@ -292,16 +304,21 @@ internal sealed class PaymentMethodService : IPaymentMethodService
         return (month, year);
     }
 
-    private static void GuardAgainstRawPan(string token)
+    private static void RejectRawPan(string? value, string field)
     {
-        // A vault token is opaque (e.g. "pm_…", "tok_…"). A 13–19 digit numeric string is almost
-        // certainly a raw PAN that must never be persisted — fail closed rather than vault it.
-        var stripped = token.Where(c => c is not (' ' or '-')).ToArray();
+        if (string.IsNullOrEmpty(value))
+        {
+            return;
+        }
+
+        // A vault token or display field is opaque text. A 13–19 digit numeric string (optionally
+        // grouped by spaces or hyphens) is almost certainly a raw PAN — fail closed, never persist it.
+        var stripped = value.Where(c => c is not (' ' or '-')).ToArray();
         if (stripped.Length is >= 13 and <= 19 && stripped.All(char.IsDigit))
         {
             throw new ArgumentException(
-                "A raw card number must not be sent; provide a gateway vault token.",
-                nameof(token));
+                $"A raw card number must not be sent in '{field}'; provide tokenised data only.",
+                field);
         }
     }
 }

@@ -7413,7 +7413,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "CustomerPartyId");
 
-                    b.HasIndex("TenantId", "Provider", "ProviderToken");
+                    b.HasIndex("TenantId", "CustomerPartyId", "Provider", "ProviderToken")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("AnkPaymentMethods", "dbo");
                 });

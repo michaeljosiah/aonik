@@ -50,10 +50,12 @@ namespace Aonik.Infrastructure.Migrations
                 columns: new[] { "TenantId", "CustomerPartyId" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AnkPaymentMethods_TenantId_Provider_ProviderToken",
+                name: "IX_AnkPaymentMethods_TenantId_CustomerPartyId_Provider_ProviderToken",
                 schema: "dbo",
                 table: "AnkPaymentMethods",
-                columns: new[] { "TenantId", "Provider", "ProviderToken" });
+                columns: new[] { "TenantId", "CustomerPartyId", "Provider", "ProviderToken" },
+                unique: true,
+                filter: "[IsDeleted] = 0");
         }
 
         /// <inheritdoc />

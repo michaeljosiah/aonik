@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260620025241_AddPaymentMethodVault")]
+    [Migration("20260620030532_AddPaymentMethodVault")]
     partial class AddPaymentMethodVault
     {
         /// <inheritdoc />
@@ -7416,7 +7416,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "CustomerPartyId");
 
-                    b.HasIndex("TenantId", "Provider", "ProviderToken");
+                    b.HasIndex("TenantId", "CustomerPartyId", "Provider", "ProviderToken")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("AnkPaymentMethods", "dbo");
                 });

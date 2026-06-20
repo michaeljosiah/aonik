@@ -42,6 +42,13 @@ public class PaymentMethodConfiguration : IEntityTypeConfiguration<PaymentMethod
             .HasMaxLength(100);
 
         builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId });
-        builder.HasIndex(x => new { x.TenantId, x.Provider, x.ProviderToken });
+
+        // Idempotency guard: a given provider token is vaulted at most once per customer. The unique
+        // index is the authority under concurrency (the read-before-insert in the service is only the
+        // happy path). Filtered on IsDeleted so a soft-deleted row never blocks re-saving the same
+        // token (AonikDbContextBase turns Remove into a soft-delete).
+        builder.HasIndex(x => new { x.TenantId, x.CustomerPartyId, x.Provider, x.ProviderToken })
+            .IsUnique()
+            .HasFilter("[IsDeleted] = 0");
     }
 }
