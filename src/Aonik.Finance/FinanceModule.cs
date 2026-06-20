@@ -70,6 +70,8 @@ public sealed class FinanceModule : IModule
         // Spec 008 — customer-facing recipient surface (CRUD + photo) projected over the
         // payout-beneficiary party graph. A façade: no recipient table of its own.
         services.AddScoped<Contracts.Services.Payments.IRecipientService, Services.Payments.RecipientService>();
+        // Spec 007 — customer card vault. Token-only (gateway token + masked metadata); no PCI data stored.
+        services.AddScoped<Contracts.Services.Payments.IPaymentMethodService, Services.Payments.PaymentMethodService>();
 
         // Pay Activity (mobile BFF)
         services.AddScoped<Contracts.Services.PayActivity.IPayActivityService, Services.PayActivity.PayActivityService>();
