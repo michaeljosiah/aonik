@@ -6,6 +6,7 @@ using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Events.Integration;
 
 namespace Aonik.Agents.Services;
 
@@ -158,6 +159,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         {
             // Execution confirmed: Approved → Applied (terminal success).
             proposal.Status = ProposalStatus.Applied;
+            EnqueueDecisionResolved(proposal, "Applied"); // Spec 041 — learn from the resolved decision
             await _dbContext.SaveChangesAsync(ct);
         }
 
@@ -211,8 +213,27 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         // who authorised the attempt. CancellationToken.None for the same reason
         // as RevertToProposedAsync: we must persist the terminal state regardless.
         proposal.Status = ProposalStatus.Failed;
+        EnqueueDecisionResolved(proposal, "Failed"); // Spec 041 — a failed decision is signal too
         await _dbContext.SaveChangesAsync(CancellationToken.None);
     }
+
+    /// <summary>
+    /// Spec 041 (Addition C) — stages a <see cref="DecisionResolvedEvent"/> on the outbox so the Worker
+    /// learns from this terminal proposal outcome off-band. Memory never affects the proposal's risk
+    /// tier or execution (RQ7): the event rides the same commit and is processed only after it lands,
+    /// touching just the memory/pattern stores. ContextJson is omitted to keep PII out of the outbox.
+    /// </summary>
+    private void EnqueueDecisionResolved(Proposal proposal, string outcome)
+        => _dbContext.EnqueueIntegrationEvent(new DecisionResolvedEvent(
+            proposal.TenantId,
+            proposal.ProposalType,
+            "Proposal",
+            proposal.Id,
+            proposal.ApprovedByUserId,
+            proposal.AiRunId == Guid.Empty ? null : proposal.AiRunId,
+            outcome,
+            Segment: null,
+            ContextJson: null));
 
     private static AgentProposalDetail ToDetail(Proposal proposal) =>
         new(

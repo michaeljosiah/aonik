@@ -502,6 +502,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAiTable<CustomerInsightAiSummary>(modelBuilder, "CustomerInsightAiSummaries");
         MapAiTable<Insight>(modelBuilder, "Insights");
         MapAiTable<Signal>(modelBuilder, "Signals");
+        MapAiTable<DecisionPattern>(modelBuilder, "DecisionPatterns");
 
         MapAgentsTable<Agent>(modelBuilder, "Agents");
         MapAgentsTable<AgentRun>(modelBuilder, "AgentRuns");
