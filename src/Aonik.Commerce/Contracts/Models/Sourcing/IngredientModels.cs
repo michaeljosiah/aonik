@@ -9,7 +9,9 @@ public record CreateIngredientCommand(
     string? Category = null,
     string? Notes = null);
 
-/// <summary>Updates an ingredient's master data (Spec 050 §8/R1).</summary>
+/// <summary>Updates an ingredient's master data (Spec 050 §8/R1). A null <paramref name="IsActive"/>
+/// preserves the stored active state — an update that says nothing about the flag never silently
+/// reactivates (or deactivates) an ingredient.</summary>
 public record UpdateIngredientCommand(
     Guid IngredientId,
     string Name,
@@ -17,7 +19,7 @@ public record UpdateIngredientCommand(
     string? Sku = null,
     string? Category = null,
     string? Notes = null,
-    bool IsActive = true);
+    bool? IsActive = null);
 
 public record IngredientDto(
     Guid Id,

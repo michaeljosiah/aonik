@@ -14,4 +14,4 @@ public record UpdateIngredientRequest(
     string? Sku,
     string? Category,
     string? Notes,
-    bool IsActive = true);
+    bool? IsActive = null);

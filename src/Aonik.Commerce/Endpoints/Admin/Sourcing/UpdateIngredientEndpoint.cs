@@ -16,7 +16,7 @@ public class UpdateIngredientEndpoint : Endpoint<UpdateIngredientRequest, Ingred
     {
         Put("/commerce/admin/ingredients/{ingredientId:guid}");
         Policies("AdminUserWritePolicy");
-        Summary(s => s.Summary = "Update an ingredient's master data (name, base unit, sku, category, notes, active flag).");
+        Summary(s => s.Summary = "Update an ingredient's master data (name, base unit, sku, category, notes, active flag). Omit isActive to leave the stored active state unchanged.");
     }
 
     public override async Task HandleAsync(UpdateIngredientRequest req, CancellationToken ct)

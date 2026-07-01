@@ -13,12 +13,16 @@ public interface IIngredientService
     /// <summary>Creates an ingredient. Name — and SKU, where set — must be unique per tenant.</summary>
     Task<IngredientDto> CreateAsync(CreateIngredientCommand command, CancellationToken cancellationToken = default);
 
-    /// <summary>Updates an ingredient's master data (name, base unit, sku, category, notes, active flag).</summary>
+    /// <summary>Updates an ingredient's master data (name, base unit, sku, category, notes, active
+    /// flag). A null <c>IsActive</c> preserves the stored state. Rejected while an active recipe
+    /// references the ingredient if it would change the base unit (no unit conversion in v1, §10)
+    /// or deactivate the ingredient.</summary>
     Task<IngredientDto> UpdateAsync(UpdateIngredientCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>Lists the tenant's ingredients ordered by name; active only unless <paramref name="includeInactive"/>.</summary>
     Task<IReadOnlyList<IngredientDto>> ListAsync(bool includeInactive = false, CancellationToken cancellationToken = default);
 
-    /// <summary>Deactivates an ingredient so new recipes cannot reference it (R1).</summary>
+    /// <summary>Deactivates an ingredient so new recipes cannot reference it (R1). Rejected while
+    /// any active recipe still references the ingredient — the error names those recipes.</summary>
     Task DeactivateAsync(Guid ingredientId, CancellationToken cancellationToken = default);
 }
