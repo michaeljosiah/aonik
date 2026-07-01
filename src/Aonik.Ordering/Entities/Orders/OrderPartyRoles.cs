@@ -25,4 +25,10 @@ public static class OrderPartyRoles
     /// The party to whom payment is being made
     /// </summary>
     public const string Payee = "Payee";
+
+    /// <summary>
+    /// The counterparty we buy from on a purchase order (Spec 053) — the payee of the outward
+    /// money. Kept in lockstep with <c>SharedKernel.Abstractions.Ordering.OrderPartyRoleCodes</c>.
+    /// </summary>
+    public const string Supplier = "Supplier";
 }

@@ -8,9 +8,11 @@ namespace Aonik.Commerce.Agents;
 /// them before they reach the model. Read tools (<c>commerce_search_products</c>, <c>_get_product</c>,
 /// <c>_view_cart</c>, <c>_check_inventory</c>, <c>_list_ingredients</c>, <c>_get_recipe</c>,
 /// <c>_explode_recipe</c>, <c>_get_product_cost</c>, <c>_check_ingredient_stock</c>,
-/// <c>_list_low_stock</c>) are omitted — the gate passes unclassified, read-looking
-/// tools through. Commerce never captures money, so no tool is High here (capture stays a Finance
-/// high-tier action; a future <c>commerce_refund</c> would be High via a Finance proposal).
+/// <c>_list_low_stock</c>, <c>_list_suppliers</c>) are omitted — the gate passes unclassified,
+/// read-looking tools through. Commerce never captures money, so no tool is High here (capture
+/// stays a Finance high-tier action; a future <c>commerce_refund</c> would be High via a Finance
+/// proposal, and PAYING a purchase-order supplier — <c>commerce_pay_purchase_order</c> — is the
+/// deferred Spec 053 high-tier follow-up, deliberately not registered).
 /// </summary>
 internal sealed class CommerceToolApprovalManifest : IToolApprovalManifest
 {
@@ -40,6 +42,12 @@ internal sealed class CommerceToolApprovalManifest : IToolApprovalManifest
             // ── Medium — maker-ops raw-material stock writes (Spec 052 §11) ──
             ["commerce_set_ingredient_stock"] = Medium("Set ingredient stock"),
             ["commerce_set_reorder_point"] = Medium("Set an ingredient reorder point"),
+
+            // ── Medium — maker-ops sourcing writes (Spec 053 §14): records intent + lifecycle
+            // only; never moves money (paying the supplier is the deferred High follow-up) ──
+            ["commerce_create_supplier"] = Medium("Create a supplier"),
+            ["commerce_create_purchase_order"] = Medium("Create a purchase order"),
+            ["commerce_submit_purchase_order"] = Medium("Submit a purchase order to the supplier"),
         };
 
     public ToolClassification? Classify(string toolName) =>

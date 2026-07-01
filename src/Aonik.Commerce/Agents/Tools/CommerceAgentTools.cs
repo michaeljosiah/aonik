@@ -11,6 +11,7 @@ using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Commerce.Services.Production;
 using Aonik.Commerce.Services.Sourcing;
+using Aonik.SharedKernel.Abstractions.Ordering;
 
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +37,8 @@ internal sealed class CommerceAgentTools
     private readonly IIngredientCostService _ingredientCosts;
     private readonly IProductCostingService _costing;
     private readonly ILowStockAlertService _lowStockAlerts;
+    private readonly ISupplierService _suppliers;
+    private readonly IPurchaseOrderService _purchaseOrders;
 
     private CommerceAgentTools(
         IProductService products,
@@ -47,7 +50,9 @@ internal sealed class CommerceAgentTools
         IRecipeService recipes,
         IIngredientCostService ingredientCosts,
         IProductCostingService costing,
-        ILowStockAlertService lowStockAlerts)
+        ILowStockAlertService lowStockAlerts,
+        ISupplierService suppliers,
+        IPurchaseOrderService purchaseOrders)
     {
         _products = products;
         _pricing = pricing;
@@ -59,6 +64,8 @@ internal sealed class CommerceAgentTools
         _ingredientCosts = ingredientCosts;
         _costing = costing;
         _lowStockAlerts = lowStockAlerts;
+        _suppliers = suppliers;
+        _purchaseOrders = purchaseOrders;
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────────────────────
@@ -130,6 +137,12 @@ internal sealed class CommerceAgentTools
             .Where(a => a.Status is LowStockAlertStatuses.Open or LowStockAlertStatuses.Acknowledged)
             .ToList();
     }
+
+    [Description("Lists the tenant's suppliers (counterparties we buy raw materials from), with currency, lead time, and payment terms.")]
+    public Task<IReadOnlyList<SupplierDto>> ListSuppliers(
+        [Description("Include deactivated suppliers (default false)")] bool includeInactive = false,
+        CancellationToken cancellationToken = default)
+        => _suppliers.ListAsync(includeInactive, cancellationToken);
 
     // ── Low — reversible cart writes ────────────────────────────────────────────────────────────
 
@@ -234,6 +247,30 @@ internal sealed class CommerceAgentTools
         return $"Ingredient {ingredientId} on-hand set to {onHand}; {level.Available} now available.";
     }
 
+    [Description("Registers a supplier — a counterparty we buy raw materials from. Currency is the ISO 4217 code we buy in.")]
+    public Task<SupplierDto> CreateSupplier(
+        [Description("Supplier name (unique per tenant)")] string name,
+        [Description("ISO 4217 currency code we buy from this supplier in (e.g. NGN, GBP)")] string currency,
+        [Description("Optional default lead time in days")] int? leadTimeDays = null,
+        [Description("Optional free-text payment terms, e.g. 'Net 30'")] string? paymentTerms = null,
+        CancellationToken cancellationToken = default)
+        => _suppliers.CreateAsync(new CreateSupplierCommand(name, currency, PartyId: null, leadTimeDays, paymentTerms), cancellationToken);
+
+    [Description("Creates a Draft purchase order to a supplier for raw materials — an Order on the shared spine (we pay; the supplier is the payee). Line quantities are in each ingredient's base unit; omit a line's unit price to default from the supplier's catalog (pack price / pack size). Does NOT submit the order and never moves money.")]
+    public Task<OrderDto> CreatePurchaseOrder(
+        [Description("The supplier id (GUID)")] Guid supplierId,
+        [Description("The lines: each item is an ingredient id, a quantity in that ingredient's base unit, and an optional explicit unit price")] List<PurchaseOrderLineCommand> lines,
+        [Description("Optional ISO 4217 currency; omit for the supplier's currency")] string? currency = null,
+        [Description("Optional free-text note for the order")] string? notes = null,
+        CancellationToken cancellationToken = default)
+        => _purchaseOrders.CreateAsync(new CreatePurchaseOrderCommand(supplierId, lines, currency, notes), cancellationToken);
+
+    [Description("Submits a Draft purchase order to the supplier (Draft -> Pending). Records the placement only; paying the supplier is a separate, deferred action.")]
+    public Task<OrderDto> SubmitPurchaseOrder(
+        [Description("The purchase order id (GUID)")] Guid orderId,
+        CancellationToken cancellationToken = default)
+        => _purchaseOrders.SubmitAsync(orderId, cancellationToken);
+
     [Description("Sets an ingredient's reorder point — the available quantity at or below which a low-stock alert is raised — and an optional suggested reorder quantity. Pass no reorder point to clear alerting for the ingredient.")]
     public async Task<string> SetReorderPoint(
         [Description("The ingredient id (GUID)")] Guid ingredientId,
@@ -261,7 +298,9 @@ internal sealed class CommerceAgentTools
             serviceProvider.GetRequiredService<IRecipeService>(),
             serviceProvider.GetRequiredService<IIngredientCostService>(),
             serviceProvider.GetRequiredService<IProductCostingService>(),
-            serviceProvider.GetRequiredService<ILowStockAlertService>());
+            serviceProvider.GetRequiredService<ILowStockAlertService>(),
+            serviceProvider.GetRequiredService<ISupplierService>(),
+            serviceProvider.GetRequiredService<IPurchaseOrderService>());
 
         // Read — direct execution.
         yield return AIFunctionFactory.Create(tools.SearchProducts, name: "commerce_search_products");
@@ -274,6 +313,7 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.GetProductCost, name: "commerce_get_product_cost");
         yield return AIFunctionFactory.Create(tools.CheckIngredientStock, name: "commerce_check_ingredient_stock");
         yield return AIFunctionFactory.Create(tools.ListLowStock, name: "commerce_list_low_stock");
+        yield return AIFunctionFactory.Create(tools.ListSuppliers, name: "commerce_list_suppliers");
 
         // Low — reversible cart writes.
         yield return AIFunctionFactory.Create(tools.CreateCart, name: "commerce_create_cart");
@@ -290,5 +330,8 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.UpdateIngredientCost, name: "commerce_update_ingredient_cost");
         yield return AIFunctionFactory.Create(tools.SetIngredientStock, name: "commerce_set_ingredient_stock");
         yield return AIFunctionFactory.Create(tools.SetReorderPoint, name: "commerce_set_reorder_point");
+        yield return AIFunctionFactory.Create(tools.CreateSupplier, name: "commerce_create_supplier");
+        yield return AIFunctionFactory.Create(tools.CreatePurchaseOrder, name: "commerce_create_purchase_order");
+        yield return AIFunctionFactory.Create(tools.SubmitPurchaseOrder, name: "commerce_submit_purchase_order");
     }
 }

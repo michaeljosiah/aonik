@@ -17,5 +17,12 @@ public enum OrderType
     // service. A product purchase is just another order type: the retail line shape lives on
     // OrderItem (Quantity / UnitPrice / ProductId / Sku); funding still flows through a
     // PaymentIntent and billing through an Invoice, exactly as the financial types do.
-    ProductPurchase
+    ProductPurchase,
+
+    // Spec 053 - a purchase order to a supplier for raw materials: the inverse direction of
+    // money to ProductPurchase (we pay; the supplier is the payee). Lines reuse the retail
+    // shape with ProductId soft-referencing an ingredient. Kept in lockstep with
+    // SharedKernel.Abstractions.Ordering.OrderTypeCodes (Order.OrderType is an open string;
+    // this enum is only the known-values helper).
+    PurchaseOrder
 }

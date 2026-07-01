@@ -193,6 +193,55 @@ public class CoreOrderServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_Should_MaterializeSuppliedPartyRoles_AndDedupeAgainstAutoRoles()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        // Spec 053 §10 — the additive PartyRoles hook: a supplied Supplier role is persisted
+        // alongside the auto-materialized Payer role; an entry duplicating the Payer (same party,
+        // same role) and a duplicate of a supplied entry are deduped, not double-inserted.
+        var payerPartyId = Guid.NewGuid();
+        var supplierPartyId = Guid.NewGuid();
+
+        var created = await service.CreateAsync(ProductPurchaseCommand(payerPartyId) with
+        {
+            PartyRoles = new[]
+            {
+                new OrderPartyRoleCommand(supplierPartyId, OrderPartyRoleCodes.Supplier),
+                new OrderPartyRoleCommand(supplierPartyId, OrderPartyRoleCodes.Supplier), // duplicate supplied entry
+                new OrderPartyRoleCommand(payerPartyId, OrderPartyRoleCodes.Payer),       // duplicates the auto Payer
+            },
+        });
+
+        var roles = await context.OrderPartyRoles.Where(r => r.OrderId == created.Id).ToListAsync();
+        roles.Should().HaveCount(2);
+        roles.Should().ContainSingle(r => r.PartyId == payerPartyId && r.Role == OrderPartyRoles.Payer);
+        roles.Should().ContainSingle(r => r.PartyId == supplierPartyId && r.Role == OrderPartyRoles.Supplier);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_RejectSuppliedPartyRole_WithEmptyPartyOrBlankRole()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+
+        var emptyParty = async () => await service.CreateAsync(ProductPurchaseCommand() with
+        {
+            PartyRoles = new[] { new OrderPartyRoleCommand(Guid.Empty, OrderPartyRoleCodes.Supplier) },
+        });
+        await emptyParty.Should().ThrowAsync<ArgumentException>().WithMessage("*PartyId*");
+
+        var blankRole = async () => await service.CreateAsync(ProductPurchaseCommand() with
+        {
+            PartyRoles = new[] { new OrderPartyRoleCommand(Guid.NewGuid(), "  ") },
+        });
+        await blankRole.Should().ThrowAsync<ArgumentException>().WithMessage("*Role*");
+    }
+
+    [Fact]
     public async Task CreateAsync_Should_StoreNullIdempotencyKey_ForBlankInput()
     {
         var (options, tenantId) = NewDb();

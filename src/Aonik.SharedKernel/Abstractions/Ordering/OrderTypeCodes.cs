@@ -19,4 +19,9 @@ public static class OrderTypeCodes
 
     /// <summary>A purchase of goods. The retail line shape lives on <c>OrderItem</c>.</summary>
     public const string ProductPurchase = "ProductPurchase";
+
+    /// <summary>A purchase order to a supplier for raw materials (Spec 053 §10) — the inverse
+    /// direction of money to <see cref="ProductPurchase"/>: we pay, the supplier is the payee.
+    /// Lines reuse the retail shape with <c>ProductId</c> soft-referencing an ingredient.</summary>
+    public const string PurchaseOrder = "PurchaseOrder";
 }

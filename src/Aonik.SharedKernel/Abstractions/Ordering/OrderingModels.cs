@@ -21,8 +21,16 @@ public sealed record OrderItemCommand(
     string? Sku = null,
     string? DetailsJson = null);
 
+/// <summary>An explicit party role to persist on the order (Spec 053 §10/§11) — e.g. the
+/// <c>Supplier</c> counterparty on a purchase order. <see cref="Role"/> uses the
+/// <see cref="OrderPartyRoleCodes"/> known values (an open string, so new roles are additive).</summary>
+public sealed record OrderPartyRoleCommand(Guid PartyId, string Role);
+
 /// <summary>Create any order type. <see cref="AmountIn"/> defaults to the sum of the line
-/// <c>AmountIn</c> values when null.</summary>
+/// <c>AmountIn</c> values when null. <see cref="PartyRoles"/> optionally supplies additional
+/// party roles to materialize alongside the auto-materialized Payer (from
+/// <see cref="PayerPartyId"/>) and per-line Receiver roles; entries duplicating those (same
+/// party + role) are deduped (Spec 053 §10 — additive, existing callers unaffected).</summary>
 public sealed record CreateOrderCommand(
     string OrderType,
     Guid? PayerPartyId,
@@ -30,7 +38,8 @@ public sealed record CreateOrderCommand(
     IReadOnlyList<OrderItemCommand> Items,
     string? IdempotencyKey = null,
     string? ProvenanceJson = null,
-    decimal? AmountIn = null);
+    decimal? AmountIn = null,
+    IReadOnlyList<OrderPartyRoleCommand>? PartyRoles = null);
 
 public sealed record OrderItemDto(
     Guid Id,

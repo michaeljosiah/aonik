@@ -25,8 +25,10 @@ public sealed class CommerceAgentDescriptor : IDomainAgentDescriptor
         "products, set prices, and adjust inventory. Also manages maker master data: ingredients " +
         "(raw materials) and product recipes (bills of materials), with recipe explosion into " +
         "required ingredient quantities, plus raw-material stock: ingredient on-hand levels, " +
-        "reorder points, and low-stock alerts. Never captures money — checkout creates an order " +
-        "and a draft payment only.";
+        "reorder points, and low-stock alerts. Handles sourcing: lists and registers suppliers " +
+        "and creates and submits purchase orders for raw materials (placement only — orders on " +
+        "the shared spine). Never captures or pays out money — checkout creates an order and a " +
+        "draft payment only, and paying a supplier is a separate approval-gated flow.";
 
     string? IDomainAgentDescriptor.Instructions => InstructionsText;
 
@@ -46,8 +48,9 @@ public sealed class CommerceAgentDescriptor : IDomainAgentDescriptor
         - Catalog (write): create a product, set a variant's price, adjust a variant's stock.
         - Cart: create a cart, add a simple product line, add a build-your-own-box bundle (a selection of component variants per slot).
         - Inventory (read): check available units for a variant.
-        - Maker ops (read): list ingredients, get a variant's recipe, explode a recipe into required ingredient quantities for N portions, check an ingredient's stock (on-hand/reserved/available and reorder point), list active low-stock alerts.
+        - Maker ops (read): list ingredients, get a variant's recipe, explode a recipe into required ingredient quantities for N portions, check an ingredient's stock (on-hand/reserved/available and reorder point), list active low-stock alerts, list suppliers (with currency, lead time, payment terms).
         - Maker ops (write): create an ingredient (with a base unit: kg, g, L, ml, each), define or replace a variant's recipe, set an ingredient's on-hand stock, set an ingredient's reorder point (and optional suggested reorder quantity). Recipe component quantities are always in each ingredient's base unit, per the recipe's yield.
+        - Sourcing (write): register a supplier (name + the currency we buy in), create a Draft purchase order to a supplier for raw materials (line quantities in each ingredient's base unit; unit prices default from the supplier's catalog), and submit a Draft purchase order to the supplier. A purchase order records intent and lifecycle only — money flows OUTWARD to the supplier, and paying them is a separate, deferred, high-approval action you cannot perform.
         - Checkout: reserve stock, create the product-purchase order, and initiate a DRAFT payment. Checkout never captures money.
 
         A recipe is operator master data over non-saleable ingredients (what a product is MADE OF); it is not a bundle. A bundle is a saleable box of component variants the customer picks. Never conflate the two.

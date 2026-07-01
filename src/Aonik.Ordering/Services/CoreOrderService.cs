@@ -128,6 +128,41 @@ internal sealed class CoreOrderService : IOrderService
             });
         }
 
+        // Spec 053 §10 — explicitly supplied party roles (e.g. the Supplier counterparty on a
+        // purchase order), materialized alongside the auto-materialized Payer/Receiver roles.
+        // Entries duplicating an already-added (party, role) pair — auto-materialized or an
+        // earlier supplied entry — are deduped so one role never lands twice on the same order.
+        if (command.PartyRoles is { Count: > 0 })
+        {
+            foreach (var partyRole in command.PartyRoles)
+            {
+                if (partyRole.PartyId == Guid.Empty)
+                {
+                    throw new ArgumentException("A supplied party role requires a non-empty PartyId.", nameof(command));
+                }
+                if (string.IsNullOrWhiteSpace(partyRole.Role))
+                {
+                    throw new ArgumentException("A supplied party role requires a non-empty Role.", nameof(command));
+                }
+
+                var role = partyRole.Role.Trim();
+                if (order.PartyRoles.Any(r =>
+                        r.PartyId == partyRole.PartyId && string.Equals(r.Role, role, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                order.PartyRoles.Add(new OrderPartyRole
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    OrderId = orderId,
+                    PartyId = partyRole.PartyId,
+                    Role = role
+                });
+            }
+        }
+
         order.HistoryEvents.Add(BuildHistoryEvent(tenantId, orderId, "Created", string.Empty));
 
         _dbContext.Orders.Add(order);
