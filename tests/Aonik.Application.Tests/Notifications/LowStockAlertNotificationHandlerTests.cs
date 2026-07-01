@@ -134,6 +134,44 @@ public sealed class LowStockAlertNotificationHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_Should_NotNotify_WhenAdminRoleAssignmentIsSoftDeleted()
+    {
+        // The recipient join reads AcrossTenants(), which drops the soft-delete filter too —
+        // a revoked TenantAdmin assignment is a soft-deleted UserRole and must not be notified.
+        await using var context = CreateContext();
+        var revoked = await SeedUserWithRoleAsync(context, _tenantId, "TenantAdmin");
+        var assignment = await context.UserRoles.SingleAsync(ur => ur.UserId == revoked);
+        context.UserRoles.Remove(assignment); // soft delete (IsDeleted = true on save)
+        await context.SaveChangesAsync();
+        var service = CreateNotificationService();
+        var handler = new LowStockAlertNotificationHandler(
+            context, service.Object, NullLogger<LowStockAlertNotificationHandler>.Instance);
+
+        await handler.HandleAsync(NewEvent());
+
+        service.Verify(s => s.CreateForUserAsync(
+            It.IsAny<CreateNotificationRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Should_NotNotify_WhenAdminUserIsSoftDeleted()
+    {
+        await using var context = CreateContext();
+        var deleted = await SeedUserWithRoleAsync(context, _tenantId, "TenantAdmin");
+        var user = await context.Users.SingleAsync(u => u.Id == deleted);
+        context.Users.Remove(user); // soft delete (IsDeleted = true on save)
+        await context.SaveChangesAsync();
+        var service = CreateNotificationService();
+        var handler = new LowStockAlertNotificationHandler(
+            context, service.Object, NullLogger<LowStockAlertNotificationHandler>.Instance);
+
+        await handler.HandleAsync(NewEvent());
+
+        service.Verify(s => s.CreateForUserAsync(
+            It.IsAny<CreateNotificationRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task HandleAsync_Should_NoOp_WhenTenantHasNoAdmins()
     {
         await using var context = CreateContext();

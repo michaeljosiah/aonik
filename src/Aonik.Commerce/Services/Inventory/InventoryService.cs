@@ -177,8 +177,9 @@ internal sealed class InventoryService : IInventoryService
         // Global sweep — the Worker runs this without a tenant ambient. Read across tenants, then
         // write per tenant: AonikDbContextBase.EnforceTenantOnWrites() requires a resolved tenant for
         // any modified ITenantScoped row, so we set the tenant context for each group before saving.
+        // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — exclude deleted rows explicitly.
         var expired = await _dbContext.InventoryReservations.AcrossTenants()
-            .Where(r => r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at)
+            .Where(r => !r.IsDeleted && r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at)
             .ToListAsync(cancellationToken);
         if (expired.Count == 0)
         {

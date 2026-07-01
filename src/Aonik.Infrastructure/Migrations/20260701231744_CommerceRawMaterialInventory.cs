@@ -132,6 +132,14 @@ namespace Aonik.Infrastructure.Migrations
                 sql: "([ProductVariantId] IS NOT NULL AND [IngredientId] IS NULL AND [StockItemKind] = N'ProductVariant') OR ([ProductVariantId] IS NULL AND [IngredientId] IS NOT NULL AND [StockItemKind] = N'Ingredient')");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AnkInventoryLevels_TenantId_IngredientId",
+                schema: "dbo",
+                table: "AnkInventoryLevels",
+                columns: new[] { "TenantId", "IngredientId" },
+                unique: true,
+                filter: "[IngredientId] IS NOT NULL AND [Location] IS NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AnkInventoryLevels_TenantId_IngredientId_Location",
                 schema: "dbo",
                 table: "AnkInventoryLevels",
@@ -184,6 +192,11 @@ namespace Aonik.Infrastructure.Migrations
                 name: "CK_InventoryReservations_ExactlyOneStockItem",
                 schema: "dbo",
                 table: "AnkInventoryReservations");
+
+            migrationBuilder.DropIndex(
+                name: "IX_AnkInventoryLevels_TenantId_IngredientId",
+                schema: "dbo",
+                table: "AnkInventoryLevels");
 
             migrationBuilder.DropIndex(
                 name: "IX_AnkInventoryLevels_TenantId_IngredientId_Location",

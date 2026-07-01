@@ -42,15 +42,18 @@ internal sealed class LowStockAlertNotificationHandler : IEventHandler<LowStockA
     {
         // Recipients: the alert tenant's active TenantAdmin users — the same role-join shape as
         // PlatformAdminAlertAudienceResolver, scoped to the tenant instead of the platform.
+        // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — every
+        // hop excludes deleted rows explicitly (a revoked assignment is a soft-deleted UserRole).
         var recipients = await _dbContext.UserRoles
             .AcrossTenants()
+            .Where(userRole => !userRole.IsDeleted)
             .Join(
-                _dbContext.Roles.AcrossTenants(),
+                _dbContext.Roles.AcrossTenants().Where(role => !role.IsDeleted),
                 userRole => userRole.RoleId,
                 role => role.Id,
                 (userRole, role) => new { userRole.UserId, RoleName = role.Name, RoleTenantId = role.TenantId })
             .Join(
-                _dbContext.Users.AcrossTenants(),
+                _dbContext.Users.AcrossTenants().Where(user => !user.IsDeleted),
                 item => item.UserId,
                 user => user.Id,
                 (item, user) => new { item.UserId, item.RoleName, item.RoleTenantId, user.Status, UserTenantId = user.TenantId })

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260701224937_CommerceRawMaterialInventory")]
+    [Migration("20260701231744_CommerceRawMaterialInventory")]
     partial class CommerceRawMaterialInventory
     {
         /// <inheritdoc />
@@ -3526,6 +3526,10 @@ namespace Aonik.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "IngredientId")
+                        .IsUnique()
+                        .HasFilter("[IngredientId] IS NOT NULL AND [Location] IS NULL");
 
                     b.HasIndex("TenantId", "IngredientId", "Location")
                         .IsUnique()

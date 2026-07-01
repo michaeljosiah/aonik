@@ -33,12 +33,14 @@ internal sealed class LowStockAlertService : ILowStockAlertService
         // reservation sweep): read across tenants, then write per tenant so
         // AonikDbContextBase.EnforceTenantOnWrites() sees a resolved tenant, and the outbox rows
         // enqueued alongside each raise carry the originating tenant.
+        // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — exclude deleted rows explicitly.
         var breaching = await _dbContext.InventoryLevels.AcrossTenants()
-            .Where(l => l.StockItemKind == StockItemKinds.Ingredient
+            .Where(l => !l.IsDeleted
+                && l.StockItemKind == StockItemKinds.Ingredient
                 && l.ReorderPoint != null
                 && l.OnHand - l.Reserved <= l.ReorderPoint)
             .Join(
-                _dbContext.Ingredients.AcrossTenants(),
+                _dbContext.Ingredients.AcrossTenants().Where(i => !i.IsDeleted),
                 level => new { level.TenantId, Id = level.IngredientId!.Value },
                 ingredient => new { ingredient.TenantId, ingredient.Id },
                 (level, ingredient) => new
@@ -73,8 +75,10 @@ internal sealed class LowStockAlertService : ILowStockAlertService
                 // up-front and kept current so a second breaching location for the same ingredient
                 // in this pass refreshes the just-raised alert instead of double-raising.
                 var ingredientIds = group.Select(x => x.IngredientId).Distinct().ToList();
+                // AcrossTenants() also drops the soft-delete filter — a deleted alert must not be refreshed.
                 var activeAlerts = await _dbContext.LowStockAlerts.AcrossTenants()
-                    .Where(a => a.TenantId == group.Key
+                    .Where(a => !a.IsDeleted
+                        && a.TenantId == group.Key
                         && ingredientIds.Contains(a.IngredientId)
                         && (a.Status == LowStockAlertStatuses.Open || a.Status == LowStockAlertStatuses.Acknowledged))
                     .ToListAsync(cancellationToken);

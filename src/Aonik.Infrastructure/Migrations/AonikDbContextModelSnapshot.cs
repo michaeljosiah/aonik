@@ -3524,6 +3524,10 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "IngredientId")
+                        .IsUnique()
+                        .HasFilter("[IngredientId] IS NOT NULL AND [Location] IS NULL");
+
                     b.HasIndex("TenantId", "IngredientId", "Location")
                         .IsUnique()
                         .HasFilter("[IngredientId] IS NOT NULL AND [Location] IS NOT NULL");

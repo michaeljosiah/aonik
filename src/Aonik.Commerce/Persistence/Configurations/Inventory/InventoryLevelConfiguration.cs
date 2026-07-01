@@ -33,14 +33,22 @@ public class InventoryLevelConfiguration : IEntityTypeConfiguration<InventoryLev
         builder.Property(x => x.ReorderQuantity).HasPrecision(19, 4);
 
         // One level row per (tenant, stock item, location), unique within each kind (Spec 052 §8).
-        // Location NULL = the default location; it stays outside the DB uniqueness scope exactly as
-        // before Spec 052 (the pre-052 unique index carried the EF SQL Server convention filter
-        // [Location] IS NOT NULL) — the service's get-or-create guards the default location.
+        // Location NULL = the default location; for variants it stays outside the DB uniqueness
+        // scope exactly as before Spec 052 (the pre-052 unique index carried the EF SQL Server
+        // convention filter [Location] IS NOT NULL) — the service's get-or-create guards it.
         builder.HasIndex(x => new { x.TenantId, x.ProductVariantId, x.Location })
             .IsUnique()
             .HasFilter("[ProductVariantId] IS NOT NULL AND [Location] IS NOT NULL");
         builder.HasIndex(x => new { x.TenantId, x.IngredientId, x.Location })
             .IsUnique()
             .HasFilter("[IngredientId] IS NOT NULL AND [Location] IS NOT NULL");
+
+        // Backstop for the ingredient DEFAULT location (Spec 052 §8): every ingredient admin path
+        // addresses the Location == NULL row, so two concurrent GetOrCreateDefaultLevelAsync misses
+        // must not be able to seed duplicate default rows. SQL-only — InMemory cannot enforce it;
+        // the service's get-or-create remains the single-row-by-construction path.
+        builder.HasIndex(x => new { x.TenantId, x.IngredientId })
+            .IsUnique()
+            .HasFilter("[IngredientId] IS NOT NULL AND [Location] IS NULL");
     }
 }

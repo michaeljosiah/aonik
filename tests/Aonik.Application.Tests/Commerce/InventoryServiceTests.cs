@@ -3,6 +3,7 @@ using Aonik.Commerce.Entities.Sourcing;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.Infrastructure.Multitenancy;
+using Aonik.SharedKernel.Persistence;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -134,6 +135,20 @@ public class InventoryServiceTests
         // Sweep after expiry — released, stock freed.
         (await svc.ReleaseExpiredAsync(clock.UtcNow.AddMinutes(31))).Should().Be(1);
         (await svc.GetAvailableAsync(variant)).Should().Be(10m);
+
+        // A soft-deleted expired hold is invisible to the sweep — the sweep reads AcrossTenants(),
+        // which drops the soft-delete filter too, so the service must exclude deleted rows.
+        var deletedCart = Guid.NewGuid();
+        await svc.ReserveAsync(deletedCart, new[] { new InventoryReservationLine(variant, 2m) });
+        var deletedHold = await ctx.InventoryReservations.SingleAsync(r => r.HoldRef == deletedCart);
+        ctx.InventoryReservations.Remove(deletedHold); // soft delete (IsDeleted = true on save)
+        await ctx.SaveChangesAsync();
+
+        (await svc.ReleaseExpiredAsync(clock.UtcNow.AddMinutes(31))).Should().Be(0);
+        (await svc.GetAvailableAsync(variant)).Should().Be(8m); // its Reserved stays untouched
+        var untouched = await ctx.InventoryReservations.IncludeSoftDeleted()
+            .SingleAsync(r => r.HoldRef == deletedCart);
+        untouched.Status.Should().Be(InventoryReservationStatuses.Held); // not flipped to Released
     }
 
     [Fact]

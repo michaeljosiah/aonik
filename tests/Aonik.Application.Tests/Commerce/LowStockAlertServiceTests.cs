@@ -155,6 +155,53 @@ public class LowStockAlertServiceTests
     }
 
     [Fact]
+    public async Task Scan_Should_NotAlert_WhenLevelIsSoftDeleted()
+    {
+        // The scan reads AcrossTenants(), which drops the soft-delete filter too — the service
+        // must exclude deleted levels explicitly or a removed level keeps alerting admins.
+        var (alerts, inventory, _, tenantId, ctx) = Build(CommerceTestHarness.NewDb().Options, Guid.NewGuid());
+        await using var _ctx = ctx;
+
+        var rice = StockItemRef.Ingredient(await SeedIngredientAsync(ctx, tenantId));
+        await inventory.SetOnHandAsync(rice, 2m);
+        await inventory.SetReorderPointAsync(rice, 5m);
+        var level = await ctx.InventoryLevels.SingleAsync(l => l.IngredientId == rice.Id);
+        ctx.InventoryLevels.Remove(level); // soft delete (IsDeleted = true on save)
+        await ctx.SaveChangesAsync();
+
+        var result = await alerts.ScanAndRaiseAsync();
+
+        result.Raised.Should().Be(0);
+        result.Refreshed.Should().Be(0);
+        (await ctx.LowStockAlerts.AnyAsync()).Should().BeFalse();
+        (await RaisedEventsAsync(ctx)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Scan_Should_NotAlert_WhenIngredientIsSoftDeleted()
+    {
+        // Same bug class on the joined side: a soft-deleted ingredient with a still-breaching
+        // live level must not raise or refresh anything.
+        var (alerts, inventory, _, tenantId, ctx) = Build(CommerceTestHarness.NewDb().Options, Guid.NewGuid());
+        await using var _ctx = ctx;
+
+        var riceId = await SeedIngredientAsync(ctx, tenantId);
+        var rice = StockItemRef.Ingredient(riceId);
+        await inventory.SetOnHandAsync(rice, 2m);
+        await inventory.SetReorderPointAsync(rice, 5m);
+        var ingredient = await ctx.Ingredients.SingleAsync(i => i.Id == riceId);
+        ctx.Ingredients.Remove(ingredient); // soft delete (IsDeleted = true on save)
+        await ctx.SaveChangesAsync();
+
+        var result = await alerts.ScanAndRaiseAsync();
+
+        result.Raised.Should().Be(0);
+        result.Refreshed.Should().Be(0);
+        (await ctx.LowStockAlerts.AnyAsync()).Should().BeFalse();
+        (await RaisedEventsAsync(ctx)).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Scan_Should_NotAutoResolve_WhenStockClimbsBackAboveThreshold()
     {
         var (alerts, inventory, _, tenantId, ctx) = Build(CommerceTestHarness.NewDb().Options, Guid.NewGuid());
