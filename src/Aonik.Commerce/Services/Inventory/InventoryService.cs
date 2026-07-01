@@ -1,3 +1,4 @@
+using Aonik.Commerce.Contracts.Models.Inventory;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Abstractions;
@@ -8,7 +9,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Commerce.Services.Inventory;
 
-/// <summary>Stock + reservation over <see cref="CommerceDbContext"/> (Spec 042 §10).</summary>
+/// <summary>
+/// Stock + reservation over <see cref="CommerceDbContext"/> (Spec 042 §10), keyed by stock item —
+/// variant or ingredient — per Spec 052 §8. One reservation engine for both kinds.
+/// </summary>
 internal sealed class InventoryService : IInventoryService
 {
     /// <summary>How long a checkout hold survives before the expiry sweep frees it.</summary>
@@ -27,58 +31,102 @@ internal sealed class InventoryService : IInventoryService
         _clock = clock;
     }
 
-    public async Task<decimal> GetAvailableAsync(Guid productVariantId, CancellationToken cancellationToken = default)
+    // ── Stock-item-keyed core (Spec 052 §8) ────────────────────────────────────────────────────
+
+    public async Task<decimal> GetAvailableAsync(StockItemRef item, CancellationToken cancellationToken = default)
     {
+        ValidateKind(item);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var level = await _dbContext.InventoryLevels.AsNoTracking()
-            .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.ProductVariantId == productVariantId && l.Location == null, cancellationToken);
+        var level = await FindDefaultLevelQuery(tenantId, item).AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
         return level is null ? 0m : level.OnHand - level.Reserved;
     }
 
-    public async Task SetOnHandAsync(Guid productVariantId, decimal onHand, CancellationToken cancellationToken = default)
+    public async Task<StockLevelDto> GetStockLevelAsync(StockItemRef item, CancellationToken cancellationToken = default)
     {
+        ValidateKind(item);
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        var level = await GetOrCreateDefaultLevelAsync(tenantId, productVariantId, cancellationToken);
+        var level = await FindDefaultLevelQuery(tenantId, item).AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
+        return level is null
+            ? new StockLevelDto(item.Kind, item.Id, 0m, 0m, 0m, null, null)
+            : new StockLevelDto(item.Kind, item.Id, level.OnHand, level.Reserved, level.OnHand - level.Reserved, level.ReorderPoint, level.ReorderQuantity);
+    }
+
+    public async Task SetOnHandAsync(StockItemRef item, decimal onHand, CancellationToken cancellationToken = default)
+    {
+        ValidateKind(item);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        await EnsureIngredientExistsAsync(tenantId, item, cancellationToken);
+        var level = await GetOrCreateDefaultLevelAsync(tenantId, item, cancellationToken);
         level.OnHand = onHand;
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task ReserveAsync(Guid cartId, IReadOnlyCollection<InventoryReservationLine> lines, CancellationToken cancellationToken = default)
+    public async Task<StockLevelDto> SetReorderPointAsync(StockItemRef item, decimal? reorderPoint, decimal? reorderQuantity = null, CancellationToken cancellationToken = default)
+    {
+        ValidateKind(item);
+        if (reorderPoint is < 0m)
+        {
+            throw new ArgumentException("Reorder point cannot be negative.", nameof(reorderPoint));
+        }
+        if (reorderQuantity is <= 0m)
+        {
+            throw new ArgumentException("Reorder quantity must be positive when set.", nameof(reorderQuantity));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        await EnsureIngredientExistsAsync(tenantId, item, cancellationToken);
+        var level = await GetOrCreateDefaultLevelAsync(tenantId, item, cancellationToken);
+        level.ReorderPoint = reorderPoint;
+        level.ReorderQuantity = reorderQuantity;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new StockLevelDto(item.Kind, item.Id, level.OnHand, level.Reserved, level.OnHand - level.Reserved, level.ReorderPoint, level.ReorderQuantity);
+    }
+
+    public async Task ReserveAsync(Guid holdRef, IReadOnlyCollection<InventoryReservationLine> lines, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        // Aggregate by variant so the same component chosen twice is checked as a single demand.
+        // Aggregate by stock item so the same item requested twice is checked as a single demand.
         var demand = lines
-            .GroupBy(l => l.ProductVariantId)
-            .Select(g => (VariantId: g.Key, Quantity: g.Sum(x => x.Quantity)))
+            .GroupBy(l => l.Item)
+            .Select(g => (Item: g.Key, Quantity: g.Sum(x => x.Quantity)))
             .ToList();
+        foreach (var (item, _) in demand)
+        {
+            ValidateKind(item);
+        }
 
         var now = _clock.UtcNow;
         var expiresAt = now.Add(ReservationTtl);
 
         // First pass — validate every line can be satisfied (all-or-nothing).
-        var levels = new Dictionary<Guid, InventoryLevel>();
-        foreach (var (variantId, quantity) in demand)
+        var levels = new Dictionary<StockItemRef, InventoryLevel>();
+        foreach (var (item, quantity) in demand)
         {
-            var level = await GetOrCreateDefaultLevelAsync(tenantId, variantId, cancellationToken);
+            var level = await GetOrCreateDefaultLevelAsync(tenantId, item, cancellationToken);
             var available = level.OnHand - level.Reserved;
             if (available < quantity)
             {
-                throw new InsufficientStockException(variantId, quantity, available);
+                throw new InsufficientStockException(item, quantity, available);
             }
-            levels[variantId] = level;
+            levels[item] = level;
         }
 
         // Second pass — apply. Nothing was persisted above (SaveChanges is here).
-        foreach (var (variantId, quantity) in demand)
+        foreach (var (item, quantity) in demand)
         {
-            levels[variantId].Reserved += quantity;
+            levels[item].Reserved += quantity;
             _dbContext.InventoryReservations.Add(new InventoryReservation
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                ProductVariantId = variantId,
-                CartId = cartId,
+                ProductVariantId = item.IsIngredient ? null : item.Id,
+                IngredientId = item.IsIngredient ? item.Id : null,
+                StockItemKind = item.Kind,
+                HoldRef = holdRef,
                 Quantity = quantity,
                 Status = InventoryReservationStatuses.Held,
                 ExpiresAt = expiresAt,
@@ -88,16 +136,16 @@ internal sealed class InventoryService : IInventoryService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task CommitAsync(Guid cartId, CancellationToken cancellationToken = default)
+    public async Task CommitAsync(Guid holdRef, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var held = await _dbContext.InventoryReservations
-            .Where(r => r.TenantId == tenantId && r.CartId == cartId && r.Status == InventoryReservationStatuses.Held)
+            .Where(r => r.TenantId == tenantId && r.HoldRef == holdRef && r.Status == InventoryReservationStatuses.Held)
             .ToListAsync(cancellationToken);
 
         foreach (var reservation in held)
         {
-            var level = await GetOrCreateDefaultLevelAsync(tenantId, reservation.ProductVariantId, cancellationToken);
+            var level = await GetOrCreateDefaultLevelAsync(tenantId, ToStockItemRef(reservation), cancellationToken);
             level.OnHand -= reservation.Quantity;
             level.Reserved -= reservation.Quantity;
             reservation.Status = InventoryReservationStatuses.Committed;
@@ -106,16 +154,16 @@ internal sealed class InventoryService : IInventoryService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task ReleaseAsync(Guid cartId, CancellationToken cancellationToken = default)
+    public async Task ReleaseAsync(Guid holdRef, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var held = await _dbContext.InventoryReservations
-            .Where(r => r.TenantId == tenantId && r.CartId == cartId && r.Status == InventoryReservationStatuses.Held)
+            .Where(r => r.TenantId == tenantId && r.HoldRef == holdRef && r.Status == InventoryReservationStatuses.Held)
             .ToListAsync(cancellationToken);
 
         foreach (var reservation in held)
         {
-            var level = await GetOrCreateDefaultLevelAsync(tenantId, reservation.ProductVariantId, cancellationToken);
+            var level = await GetOrCreateDefaultLevelAsync(tenantId, ToStockItemRef(reservation), cancellationToken);
             level.Reserved -= reservation.Quantity;
             reservation.Status = InventoryReservationStatuses.Released;
         }
@@ -148,9 +196,12 @@ internal sealed class InventoryService : IInventoryService
 
                 foreach (var reservation in group)
                 {
+                    // Match the level on whichever id the hold carries (Spec 052 §8).
+                    var variantId = reservation.ProductVariantId;
+                    var ingredientId = reservation.IngredientId;
                     var level = await _dbContext.InventoryLevels.AcrossTenants()
                         .FirstOrDefaultAsync(l => l.TenantId == reservation.TenantId
-                            && l.ProductVariantId == reservation.ProductVariantId
+                            && (variantId != null ? l.ProductVariantId == variantId : l.IngredientId == ingredientId)
                             && l.Location == null, cancellationToken);
                     if (level is not null)
                     {
@@ -171,17 +222,66 @@ internal sealed class InventoryService : IInventoryService
         return expired.Count;
     }
 
-    private async Task<InventoryLevel> GetOrCreateDefaultLevelAsync(Guid tenantId, Guid productVariantId, CancellationToken cancellationToken)
+    // ── Variant-keyed wrappers (the original Spec 042 surface) ─────────────────────────────────
+
+    public Task<decimal> GetAvailableAsync(Guid productVariantId, CancellationToken cancellationToken = default)
+        => GetAvailableAsync(StockItemRef.Variant(productVariantId), cancellationToken);
+
+    public Task SetOnHandAsync(Guid productVariantId, decimal onHand, CancellationToken cancellationToken = default)
+        => SetOnHandAsync(StockItemRef.Variant(productVariantId), onHand, cancellationToken);
+
+    // ── Internals ───────────────────────────────────────────────────────────────────────────────
+
+    private static void ValidateKind(StockItemRef item)
     {
-        var level = await _dbContext.InventoryLevels
-            .FirstOrDefaultAsync(l => l.TenantId == tenantId && l.ProductVariantId == productVariantId && l.Location == null, cancellationToken);
+        if (item.Kind is not (StockItemKinds.ProductVariant or StockItemKinds.Ingredient))
+        {
+            throw new ArgumentException($"Unknown stock item kind '{item.Kind}'.");
+        }
+    }
+
+    /// <summary>
+    /// Raw-material stock addresses master data: an ingredient must exist before it can be stocked
+    /// or given a reorder point (mirroring the Spec 051 costing guard). Variant levels keep the
+    /// Spec 042 behaviour (no existence check) so the checkout path is unchanged.
+    /// </summary>
+    private async Task EnsureIngredientExistsAsync(Guid tenantId, StockItemRef item, CancellationToken cancellationToken)
+    {
+        if (!item.IsIngredient)
+        {
+            return;
+        }
+        var exists = await _dbContext.Ingredients.AsNoTracking()
+            .AnyAsync(i => i.Id == item.Id && i.TenantId == tenantId, cancellationToken);
+        if (!exists)
+        {
+            throw new InvalidOperationException($"Ingredient '{item.Id}' was not found.");
+        }
+    }
+
+    private static StockItemRef ToStockItemRef(InventoryReservation reservation)
+        => reservation.ProductVariantId is { } variantId
+            ? StockItemRef.Variant(variantId)
+            : StockItemRef.Ingredient(reservation.IngredientId
+                ?? throw new InvalidOperationException($"Reservation '{reservation.Id}' carries no stock item id."));
+
+    private IQueryable<InventoryLevel> FindDefaultLevelQuery(Guid tenantId, StockItemRef item)
+        => item.IsIngredient
+            ? _dbContext.InventoryLevels.Where(l => l.TenantId == tenantId && l.IngredientId == item.Id && l.Location == null)
+            : _dbContext.InventoryLevels.Where(l => l.TenantId == tenantId && l.ProductVariantId == item.Id && l.Location == null);
+
+    private async Task<InventoryLevel> GetOrCreateDefaultLevelAsync(Guid tenantId, StockItemRef item, CancellationToken cancellationToken)
+    {
+        var level = await FindDefaultLevelQuery(tenantId, item).FirstOrDefaultAsync(cancellationToken);
         if (level is null)
         {
             level = new InventoryLevel
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                ProductVariantId = productVariantId,
+                ProductVariantId = item.IsIngredient ? null : item.Id,
+                IngredientId = item.IsIngredient ? item.Id : null,
+                StockItemKind = item.Kind,
                 Location = null,
                 OnHand = 0m,
                 Reserved = 0m,

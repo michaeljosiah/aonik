@@ -7,9 +7,10 @@ namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>
 /// The commerce agent's tool-approval classification (Spec 042 §13 / Spec 032 / Spec 050 §12 /
-/// Spec 051 §11). Read tools pass through unclassified; cart writes are Low; catalog/price/
-/// inventory/checkout and maker-ops master-data + costing (ingredient/recipe/ingredient-cost)
-/// writes are Medium; nothing is High (Commerce never captures money).
+/// Spec 051 §11 / Spec 052 §11). Read tools pass through unclassified; cart writes are Low;
+/// catalog/price/inventory/checkout and maker-ops master-data + costing + raw-material stock
+/// (ingredient/recipe/ingredient-cost/ingredient-stock/reorder-point) writes are Medium; nothing
+/// is High (Commerce never captures money).
 /// </summary>
 public class CommerceToolApprovalManifestTests
 {
@@ -38,6 +39,8 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_create_ingredient")]
     [InlineData("commerce_set_recipe")]
     [InlineData("commerce_update_ingredient_cost")]
+    [InlineData("commerce_set_ingredient_stock")]
+    [InlineData("commerce_set_reorder_point")]
     public void DomainWritesAndCheckout_Should_BeMedium(string tool)
     {
         var classification = _manifest.Classify(tool);
@@ -54,6 +57,8 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_get_recipe")]
     [InlineData("commerce_explode_recipe")]
     [InlineData("commerce_get_product_cost")]
+    [InlineData("commerce_check_ingredient_stock")]
+    [InlineData("commerce_list_low_stock")]
     public void ReadTools_Should_BeUnclassified(string tool)
         => _manifest.Classify(tool).Should().BeNull();
 
@@ -65,6 +70,7 @@ public class CommerceToolApprovalManifestTests
             "commerce_create_cart", "commerce_add_to_cart", "commerce_add_bundle_to_cart",
             "commerce_create_product", "commerce_set_price", "commerce_adjust_inventory", "commerce_checkout",
             "commerce_create_ingredient", "commerce_set_recipe", "commerce_update_ingredient_cost",
+            "commerce_set_ingredient_stock", "commerce_set_reorder_point",
         ];
         foreach (var tool in all)
         {

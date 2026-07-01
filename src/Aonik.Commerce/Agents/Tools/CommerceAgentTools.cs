@@ -2,8 +2,10 @@ using System.ComponentModel;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Inventory;
 using Aonik.Commerce.Contracts.Models.Production;
 using Aonik.Commerce.Contracts.Models.Sourcing;
+using Aonik.Commerce.Entities.Sourcing;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
@@ -33,6 +35,7 @@ internal sealed class CommerceAgentTools
     private readonly IRecipeService _recipes;
     private readonly IIngredientCostService _ingredientCosts;
     private readonly IProductCostingService _costing;
+    private readonly ILowStockAlertService _lowStockAlerts;
 
     private CommerceAgentTools(
         IProductService products,
@@ -43,7 +46,8 @@ internal sealed class CommerceAgentTools
         IIngredientService ingredients,
         IRecipeService recipes,
         IIngredientCostService ingredientCosts,
-        IProductCostingService costing)
+        IProductCostingService costing,
+        ILowStockAlertService lowStockAlerts)
     {
         _products = products;
         _pricing = pricing;
@@ -54,6 +58,7 @@ internal sealed class CommerceAgentTools
         _recipes = recipes;
         _ingredientCosts = ingredientCosts;
         _costing = costing;
+        _lowStockAlerts = lowStockAlerts;
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────────────────────
@@ -109,6 +114,22 @@ internal sealed class CommerceAgentTools
         [Description("ISO 4217 currency code (e.g. NGN, GBP)")] string currency,
         CancellationToken cancellationToken = default)
         => _costing.RollupStandardCostAsync(productVariantId, currency, null, cancellationToken);
+
+    [Description("Checks an ingredient's (raw material's) stock: on-hand, reserved, available, and the reorder point/quantity if set. Quantities are in the ingredient's base unit.")]
+    public Task<StockLevelDto> CheckIngredientStock(
+        [Description("The ingredient id (GUID)")] Guid ingredientId,
+        CancellationToken cancellationToken = default)
+        => _inventory.GetStockLevelAsync(StockItemRef.Ingredient(ingredientId), cancellationToken);
+
+    [Description("Lists the tenant's active (Open or Acknowledged) low-stock alerts — ingredients whose available stock is at or below their reorder point.")]
+    public async Task<IReadOnlyList<LowStockAlertDto>> ListLowStock(
+        CancellationToken cancellationToken = default)
+    {
+        var alerts = await _lowStockAlerts.ListAsync(status: null, cancellationToken);
+        return alerts
+            .Where(a => a.Status is LowStockAlertStatuses.Open or LowStockAlertStatuses.Acknowledged)
+            .ToList();
+    }
 
     // ── Low — reversible cart writes ────────────────────────────────────────────────────────────
 
@@ -201,6 +222,33 @@ internal sealed class CommerceAgentTools
         CancellationToken cancellationToken = default)
         => _ingredientCosts.SetCostAsync(new SetIngredientCostCommand(ingredientId, currency, unitCost, effectiveFrom), cancellationToken);
 
+    [Description("Sets an ingredient's (raw material's) on-hand stock quantity, in its base unit (admin stock adjustment).")]
+    public async Task<string> SetIngredientStock(
+        [Description("The ingredient id (GUID)")] Guid ingredientId,
+        [Description("New on-hand quantity, in the ingredient's base unit")] decimal onHand,
+        CancellationToken cancellationToken = default)
+    {
+        var item = StockItemRef.Ingredient(ingredientId);
+        await _inventory.SetOnHandAsync(item, onHand, cancellationToken);
+        var level = await _inventory.GetStockLevelAsync(item, cancellationToken);
+        return $"Ingredient {ingredientId} on-hand set to {onHand}; {level.Available} now available.";
+    }
+
+    [Description("Sets an ingredient's reorder point — the available quantity at or below which a low-stock alert is raised — and an optional suggested reorder quantity. Pass no reorder point to clear alerting for the ingredient.")]
+    public async Task<string> SetReorderPoint(
+        [Description("The ingredient id (GUID)")] Guid ingredientId,
+        [Description("Alert when available stock is at or below this quantity (base unit); omit to clear alerting")] decimal? reorderPoint = null,
+        [Description("Optional suggested top-up quantity for the eventual purchase order")] decimal? reorderQuantity = null,
+        CancellationToken cancellationToken = default)
+    {
+        var level = await _inventory.SetReorderPointAsync(StockItemRef.Ingredient(ingredientId), reorderPoint, reorderQuantity, cancellationToken);
+        return level.ReorderPoint is null
+            ? $"Ingredient {ingredientId} reorder point cleared; no low-stock alerting."
+            : $"Ingredient {ingredientId} reorder point set to {level.ReorderPoint}"
+              + (level.ReorderQuantity is null ? "" : $" (suggested reorder quantity {level.ReorderQuantity})")
+              + $"; {level.Available} currently available.";
+    }
+
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
         var tools = new CommerceAgentTools(
@@ -212,7 +260,8 @@ internal sealed class CommerceAgentTools
             serviceProvider.GetRequiredService<IIngredientService>(),
             serviceProvider.GetRequiredService<IRecipeService>(),
             serviceProvider.GetRequiredService<IIngredientCostService>(),
-            serviceProvider.GetRequiredService<IProductCostingService>());
+            serviceProvider.GetRequiredService<IProductCostingService>(),
+            serviceProvider.GetRequiredService<ILowStockAlertService>());
 
         // Read — direct execution.
         yield return AIFunctionFactory.Create(tools.SearchProducts, name: "commerce_search_products");
@@ -223,6 +272,8 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.GetRecipe, name: "commerce_get_recipe");
         yield return AIFunctionFactory.Create(tools.ExplodeRecipe, name: "commerce_explode_recipe");
         yield return AIFunctionFactory.Create(tools.GetProductCost, name: "commerce_get_product_cost");
+        yield return AIFunctionFactory.Create(tools.CheckIngredientStock, name: "commerce_check_ingredient_stock");
+        yield return AIFunctionFactory.Create(tools.ListLowStock, name: "commerce_list_low_stock");
 
         // Low — reversible cart writes.
         yield return AIFunctionFactory.Create(tools.CreateCart, name: "commerce_create_cart");
@@ -237,5 +288,7 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.CreateIngredient, name: "commerce_create_ingredient");
         yield return AIFunctionFactory.Create(tools.SetRecipe, name: "commerce_set_recipe");
         yield return AIFunctionFactory.Create(tools.UpdateIngredientCost, name: "commerce_update_ingredient_cost");
+        yield return AIFunctionFactory.Create(tools.SetIngredientStock, name: "commerce_set_ingredient_stock");
+        yield return AIFunctionFactory.Create(tools.SetReorderPoint, name: "commerce_set_reorder_point");
     }
 }
