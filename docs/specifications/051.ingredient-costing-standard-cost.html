@@ -438,11 +438,17 @@
 </p>
 <div class="ascii-diagram">IIngredientCostService.SetCostAsync(SetIngredientCostCommand(ingredientId, currency, unitCost, effectiveFrom?))
   → let from = effectiveFrom ?? now
-  → find the open/current row for (ingredientId, currency)   // EffectiveTo IS NULL
-  → reject a 'from' earlier than that row's EffectiveFrom     // would invert its window and rewrite history
-  → if present: set its EffectiveTo = from, IsActive = false   // close prior (soft-delete flag)
-  → insert a new open row: EffectiveFrom = from, EffectiveTo = null, IsActive = true   // open new
-  → (both writes in one transaction; the audit trail records who repriced and when)
+  → find the open (tail) row for (ingredientId, currency)   // EffectiveTo IS NULL
+  → if none: insert a new open row (EffectiveFrom = from, EffectiveTo = null, IsActive = true)
+  → if from &gt;= tail.EffectiveFrom: set tail.EffectiveTo = from, IsActive = false   // close prior
+      and insert a new open row (EffectiveFrom = from, EffectiveTo = null, IsActive = true)   // open new
+  → if from &lt; tail.EffectiveFrom (a scheduled row starts after 'from'): SPLIT the containing window —
+      reject if no window contains 'from', or if the containing window has already fully elapsed
+        (a 'from' earlier than the start of the window effective at now — that history already priced the past)
+      set containing.EffectiveTo = from, IsActive = false, and insert the new row CLOSED at the
+        successor's EffectiveFrom (the earliest row starting after 'from' — at minimum the tail),
+        so the scheduled row is preserved and stays the single open row
+  → (all writes in one transaction; the audit trail records who repriced and when)
   → a future 'from' is stored as a SCHEDULED row: it does not become "current" until its date arrives
       (the prior row is closed AT the future date, so date-aware reads keep returning it until then)
 
@@ -461,7 +467,13 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
   <code>EffectiveFrom</code> descending), <em>not</em> the row where <code>IsActive=true</code>. A cost set
   with a <em>future</em> <code>effectiveFrom</code> is therefore stored as a <strong>scheduled</strong> row: it
   is persisted immediately but does <strong>not</strong> supersede the current cost (and does not price today's
-  rollups) until its date arrives. <code>IsActive</code> is a convenience/soft-delete flag, kept in sync for
+  rollups) until its date arrives. Scheduling a future cost does <strong>not</strong> lock out corrections: an
+  <code>effectiveFrom</code> landing <em>before</em> the scheduled row's start <strong>splits</strong> the window
+  containing it — the containing row is closed at <code>effectiveFrom</code> and the new row is inserted already
+  closed at the successor's <code>EffectiveFrom</code>, so the scheduled row is preserved and stays the single
+  open row. Only fully-elapsed windows are immutable: an <code>effectiveFrom</code> earlier than the start of the
+  window effective at "now" (history that already priced the past) is rejected as a history rewrite; correcting
+  the currently-effective window or any future window is allowed. <code>IsActive</code> is a convenience/soft-delete flag, kept in sync for
   cheap "the newest open row" reads, but the effective dates are the source of truth for "current".
   <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> (goods receipt) reuses this exact entry
   point — when a PO line records an actual received unit cost, it simply calls <code>SetCostAsync</code>,
@@ -626,7 +638,7 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
     <tr><td>R1</td><td>An <code>IngredientCost</code> (ingredient, currency, unit cost per <code>BaseUnit</code>) can be set, read (current), and listed as history (admin + agent), tenant-scoped.</td></tr>
-    <tr><td>R2</td><td><code>SetCost</code> closes the prior open row (<code>EffectiveTo</code> set, <code>IsActive=false</code>) and inserts a new open row in one transaction; a past cost's value is never overwritten — repricing is a first-class, audited action with recoverable history.</td></tr>
+    <tr><td>R2</td><td><code>SetCost</code> closes the prior open row (<code>EffectiveTo</code> set, <code>IsActive=false</code>) and inserts a new open row in one transaction; an <code>effectiveFrom</code> before a scheduled row's start instead <em>splits</em> the containing window (new row inserted closed at the successor's start, the scheduled row staying the single open row), and an <code>effectiveFrom</code> inside a fully-elapsed window is rejected — a past cost's value is never overwritten; repricing is a first-class, audited action with recoverable history.</td></tr>
     <tr><td>R3</td><td>At most one <em>open/current</em> <code>IngredientCost</code> (the <code>EffectiveTo IS NULL</code> row) exists per <code>(TenantId, IngredientId, Currency)</code>, enforced by a DB-level filtered unique index (not the service alone). <code>GetCurrentCost(…, atUtc)</code> resolves the row where <code>EffectiveFrom &lt;= atUtc AND (EffectiveTo IS NULL OR atUtc &lt; EffectiveTo)</code>, ordered by <code>EffectiveFrom</code> desc, or a "no active cost" result — <code>IsActive</code> is a convenience/soft-delete flag, not the selector.</td></tr>
     <tr><td>R4</td><td>A cost set with a future <code>effectiveFrom</code> is stored as a <em>scheduled</em> row: it does not become current (and does not price rollups) until its date arrives; <code>GetCurrentCost</code>/<code>RollupStandardCost</code> at "now" ignore it and keep returning the prior cost.</td></tr>
     <tr><td>R5</td><td><code>RollupStandardCostAsync(variant, currency, atUtc)</code> reuses Spec&nbsp;050's <code>ExplodeAsync</code> and returns <code>Σ(RecipeComponent.Quantity × IngredientCost.UnitCost effective at atUtc)</code> over the variant's active recipe as a per-component breakdown plus a total unit cost (cost per portion / yield-unit).</td></tr>
@@ -666,6 +678,7 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
     <tr><td>Two active cost rows for one ingredient/currency skew the rollup</td><td>Medium</td><td>Single-current invariant enforced <strong>at the DB</strong> by a filtered unique index on <code>(TenantId, IngredientId, Currency)</code> WHERE <code>EffectiveTo IS NULL</code>, plus the service close-prior/open-new; a unit test asserts a second <code>SetCost</code> closes the first.</td></tr>
     <tr><td>Concurrent reprices race and both insert a "current" row</td><td>Medium</td><td>Service-only enforcement is race-prone; the DB-level filtered unique index (<code>EffectiveTo IS NULL</code>) makes a second concurrent current row a constraint violation, so at most one open row survives; the loser retries/reads.</td></tr>
     <tr><td>Future-dated cost prices today's rollup before it takes effect</td><td>Medium</td><td>Current-cost resolution is date-aware (<code>EffectiveFrom &lt;= atUtc &lt; EffectiveTo</code>, newest first) — <code>IsActive</code> is not the selector; a future <code>effectiveFrom</code> is stored as a scheduled row and ignored until its date; a unit test asserts a future-dated cost leaves today's rollup on the prior cost.</td></tr>
+    <tr><td>Changing an ingredient's base unit silently reprices its recorded costs</td><td>Medium</td><td>Costs are amounts per the ingredient's <em>current</em> <code>BaseUnit</code> with no v1 conversion (₦1,200/kg would silently become ₦1,200/g at rollup); <code>IngredientService.UpdateAsync</code> rejects a base-unit change while live cost rows exist (alongside the Spec&nbsp;050 active-recipe guard) — the guard <em>is</em> the v1 answer (no unit snapshot on cost rows); the advised path is deactivate + create a new ingredient.</td></tr>
     <tr><td>Cross-currency mixing silently mis-values a rollup</td><td>Medium</td><td>One currency per rollup call; a component priced only in another currency is flagged, not converted; costing holds no FX and does not reference Finance.</td></tr>
     <tr><td>Rollup ignores yield and mis-scales cost per portion</td><td>Medium</td><td>Rollup explodes one yield-unit (<code>portions: 1</code>) via Spec&nbsp;050, so the total is directly cost-per-portion; a unit test covers a &gt;1-yield recipe.</td></tr>
     <tr><td>Schema drift from the new table</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review the 1-table diff; <code>Ank</code> prefix.</td></tr>

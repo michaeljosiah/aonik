@@ -4,7 +4,9 @@ namespace Aonik.Commerce.Contracts.Models.Sourcing;
 /// ingredient's base unit, in one currency. A null <paramref name="EffectiveFrom"/> means "now";
 /// a future date stores a <em>scheduled</em> row that does not price rollups until the date
 /// arrives (R4). The prior open row is closed at <paramref name="EffectiveFrom"/> in the same
-/// transaction — repricing is a historied action, never an overwrite (R2).</summary>
+/// transaction; an <paramref name="EffectiveFrom"/> before a scheduled row's start instead splits
+/// the window containing it, inserting the new row closed at the successor's start (§8) —
+/// repricing is a historied action, never an overwrite (R2).</summary>
 public record SetIngredientCostCommand(
     Guid IngredientId,
     string Currency,

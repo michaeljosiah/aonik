@@ -11,10 +11,12 @@ namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>
 /// Effective-dated ingredient costs (Spec 051 §8, R1–R4): set/get-current roundtrip, the
-/// close-prior/open-new repricing transition with preserved history, DATE-AWARE current-cost
-/// resolution (a future-dated cost is a scheduled row that does not price "now"), and the
-/// single-open-row invariant. InMemory cannot enforce the filtered unique index — these tests
-/// prove the service transition; the index is the SQL Server concurrency backstop.
+/// close-prior/open-new repricing transition with preserved history, the WINDOW-SPLIT transition
+/// (a cost landing before a scheduled row splits the containing window instead of being locked
+/// out — only fully-elapsed windows are immutable), DATE-AWARE current-cost resolution (a
+/// future-dated cost is a scheduled row that does not price "now"), and the single-open-row
+/// invariant. InMemory cannot enforce the filtered unique index — these tests prove the service
+/// transition; the index is the SQL Server concurrency backstop.
 /// </summary>
 public class IngredientCostServiceTests
 {
@@ -252,7 +254,7 @@ public class IngredientCostServiceTests
     }
 
     [Fact]
-    public async Task SetCost_Should_Throw_WhenBackdatedBeforeOpenRowStart()
+    public async Task SetCost_Should_Throw_WhenBackdatedBeforeAllRecordedHistory()
     {
         var (options, tenantId) = CommerceTestHarness.NewDb();
         var (svc, ctx, clock) = Build(options, tenantId);
@@ -261,10 +263,116 @@ public class IngredientCostServiceTests
         var rice = await SeedIngredientAsync(ctx, tenantId);
         await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_000m));
 
-        // Backdating before the open row's start would invert its window and rewrite resolved
-        // history (§8) — rejected.
+        // No window contains a date before the first row — there is nothing to split, and pricing
+        // time before the recorded history would rewrite it (§8) — rejected.
         var act = async () => await svc.SetCostAsync(
             new SetIngredientCostCommand(rice.Id, "NGN", 900m, clock.UtcNow.AddDays(-1)));
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*already takes effect*");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no cost window*contains that date*");
+    }
+
+    [Fact]
+    public async Task SetCost_Should_SplitCurrentWindow_WhenRepricingTodayWhileFutureCostIsScheduled()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        var (svc, ctx, clock) = Build(options, tenantId);
+        await using var _ctx = ctx;
+
+        var rice = await SeedIngredientAsync(ctx, tenantId);
+
+        var initialAt = clock.UtcNow;
+        await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_200m));
+
+        // Schedule a reprice for tomorrow — the scheduled row becomes the single open row (R4).
+        var tomorrow = initialAt.AddDays(1);
+        await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_350m, tomorrow));
+
+        // Two hours later the maker corrects TODAY's cost. The scheduled row must not lock this
+        // out: the currently-effective window is split at the correction date (§8), and the
+        // correction is inserted CLOSED at the scheduled boundary.
+        clock.UtcNow = initialAt.AddHours(2);
+        var correctionAt = clock.UtcNow;
+        var correction = await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_250m));
+        correction.EffectiveFrom.Should().Be(correctionAt);
+        correction.EffectiveTo.Should().Be(tomorrow);
+
+        // Date-aware resolution: the correction prices "now"; the scheduled cost still takes over
+        // at the boundary.
+        (await svc.GetCurrentCostAsync(rice.Id, "NGN"))!.UnitCost.Should().Be(1_250m);
+        (await svc.GetCurrentCostAsync(rice.Id, "NGN", tomorrow))!.UnitCost.Should().Be(1_350m);
+
+        // Exactly one open row remains — the scheduled one — and the windows are contiguous.
+        await using var verify = CommerceTestHarness.CreateContext(options, tenantId);
+        var rows = await verify.IngredientCosts
+            .Where(c => c.IngredientId == rice.Id && c.Currency == "NGN")
+            .OrderBy(c => c.EffectiveFrom)
+            .ToListAsync();
+        rows.Should().HaveCount(3);
+        rows.Where(c => c.EffectiveTo == null).Should().ContainSingle().Which.UnitCost.Should().Be(1_350m);
+        rows[0].EffectiveTo.Should().Be(rows[1].EffectiveFrom);
+        rows[1].EffectiveTo.Should().Be(rows[2].EffectiveFrom);
+    }
+
+    [Fact]
+    public async Task SetCost_Should_SplitScheduledWindow_WhenInsertedBetweenTwoScheduledCosts()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        var (svc, ctx, clock) = Build(options, tenantId);
+        await using var _ctx = ctx;
+
+        var rice = await SeedIngredientAsync(ctx, tenantId);
+
+        var day0 = clock.UtcNow;
+        var day7 = day0.AddDays(7);
+        var day10 = day0.AddDays(10);
+        var day14 = day0.AddDays(14);
+
+        await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_000m));
+        await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_100m, day7));
+        await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_200m, day14));
+
+        // Insert between the two scheduled costs: the [day7, day14) window is split at day10; the
+        // day14 row is preserved and stays the single open row.
+        var inserted = await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_150m, day10));
+        inserted.EffectiveTo.Should().Be(day14);
+
+        // Correct resolution at each boundary.
+        (await svc.GetCurrentCostAsync(rice.Id, "NGN", day0))!.UnitCost.Should().Be(1_000m);
+        (await svc.GetCurrentCostAsync(rice.Id, "NGN", day7))!.UnitCost.Should().Be(1_100m);
+        (await svc.GetCurrentCostAsync(rice.Id, "NGN", day10))!.UnitCost.Should().Be(1_150m);
+        (await svc.GetCurrentCostAsync(rice.Id, "NGN", day14))!.UnitCost.Should().Be(1_200m);
+
+        // Windows stay contiguous with exactly one open row (the last scheduled cost).
+        await using var verify = CommerceTestHarness.CreateContext(options, tenantId);
+        var rows = await verify.IngredientCosts
+            .Where(c => c.IngredientId == rice.Id && c.Currency == "NGN")
+            .OrderBy(c => c.EffectiveFrom)
+            .ToListAsync();
+        rows.Should().HaveCount(4);
+        for (var i = 0; i < rows.Count - 1; i++)
+        {
+            rows[i].EffectiveTo.Should().Be(rows[i + 1].EffectiveFrom);
+        }
+        rows[^1].EffectiveTo.Should().BeNull();
+        rows[^1].UnitCost.Should().Be(1_200m);
+    }
+
+    [Fact]
+    public async Task SetCost_Should_Throw_WhenEffectiveFromFallsInFullyElapsedWindow()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        var (svc, ctx, clock) = Build(options, tenantId);
+        await using var _ctx = ctx;
+
+        var rice = await SeedIngredientAsync(ctx, tenantId);
+        await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_000m));
+
+        clock.UtcNow = clock.UtcNow.AddDays(7);
+        await svc.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_100m));
+
+        // The first window has fully elapsed — it already priced the past. An effectiveFrom before
+        // the currently-effective window's start stays forbidden (§8): history is immutable.
+        var act = async () => await svc.SetCostAsync(
+            new SetIngredientCostCommand(rice.Id, "NGN", 900m, clock.UtcNow.AddDays(-1)));
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*already priced the past*");
     }
 }

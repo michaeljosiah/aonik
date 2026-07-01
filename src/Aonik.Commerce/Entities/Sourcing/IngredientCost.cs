@@ -6,7 +6,9 @@ namespace Aonik.Commerce.Entities.Sourcing;
 /// An effective-dated, audited unit cost for an <see cref="Ingredient"/> (Spec 051 §7/§8),
 /// mirroring the retail <c>ProductPrice</c> shape and its close-prior/open-new write semantics.
 /// <see cref="UnitCost"/> is quoted per the ingredient's <c>BaseUnit</c> (e.g. ₦/kg). Setting a
-/// new cost closes the prior open row and inserts a new one, so "a supplier repriced" is a
+/// new cost closes the prior open row and inserts a new one — or, when it lands before a
+/// scheduled row, splits the window containing it and inserts the new row already closed at the
+/// successor's start (the scheduled row stays the single open row) — so "a supplier repriced" is a
 /// historied action, never an in-place overwrite. Which row is <em>current</em> on a date is
 /// resolved by the <see cref="EffectiveFrom"/>/<see cref="EffectiveTo"/> window (date-aware, §8)
 /// — <see cref="IsActive"/> is a convenience/soft-delete flag, NOT the current-selector. Anemic.

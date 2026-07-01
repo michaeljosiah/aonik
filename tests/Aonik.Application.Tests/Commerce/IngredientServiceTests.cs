@@ -191,6 +191,48 @@ public class IngredientServiceTests
     }
 
     [Fact]
+    public async Task Update_Should_RejectBaseUnitChange_WhenCostRowsExist_EvenWithoutRecipes()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        var (svc, ctx) = Build(options, tenantId);
+        await using var _ctx = ctx;
+
+        var rice = await svc.CreateAsync(new CreateIngredientCommand("Rice", "kg"));
+        var costs = new IngredientCostService(ctx, new TestTenantProvider(tenantId), new CommerceTestHarness.TestClock());
+        await costs.SetCostAsync(new SetIngredientCostCommand(rice.Id, "NGN", 1_200m));
+
+        // Recorded costs (Spec 051) are amounts per the CURRENT base unit and v1 has no unit
+        // conversion: with no recipes at all, kg→g would still silently turn ₦1,200/kg into
+        // ₦1,200/g at rollup — rejected, with the deactivate-and-recreate path advised.
+        var act = async () => await svc.UpdateAsync(new UpdateIngredientCommand(rice.Id, "Rice", "g"));
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*base unit*'kg' to 'g'*recorded costs*no unit conversion*Deactivate*");
+
+        // The stored master data is untouched.
+        (await svc.ListAsync()).Single(i => i.Id == rice.Id).BaseUnit.Should().Be("kg");
+    }
+
+    [Fact]
+    public async Task Update_Should_AllowBaseUnitChange_WhenNeitherRecipesNorCostsReferenceIngredient()
+    {
+        var (options, tenantId) = CommerceTestHarness.NewDb();
+        var (svc, ctx) = Build(options, tenantId);
+        await using var _ctx = ctx;
+
+        var rice = await svc.CreateAsync(new CreateIngredientCommand("Rice", "kg"));
+        var tomato = await svc.CreateAsync(new CreateIngredientCommand("Tomato", "kg"));
+
+        // A cost on ANOTHER ingredient must not pin rice's unit — the guard is per-ingredient.
+        var costs = new IngredientCostService(ctx, new TestTenantProvider(tenantId), new CommerceTestHarness.TestClock());
+        await costs.SetCostAsync(new SetIngredientCostCommand(tomato.Id, "NGN", 800m));
+
+        var updated = await svc.UpdateAsync(new UpdateIngredientCommand(rice.Id, "Rice", "g"));
+
+        updated.BaseUnit.Should().Be("g");
+    }
+
+    [Fact]
     public async Task Create_Should_TreatBlankSkuAsUnset()
     {
         var (options, tenantId) = CommerceTestHarness.NewDb();

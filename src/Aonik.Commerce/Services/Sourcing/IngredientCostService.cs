@@ -44,7 +44,8 @@ internal sealed class IngredientCostService : IIngredientCostService
 
         var effectiveFrom = command.EffectiveFrom ?? _clock.UtcNow;
 
-        var open = await _dbContext.IngredientCosts
+        // The tail = the single open row (EffectiveTo == null) for (tenant, ingredient, currency).
+        var tail = await _dbContext.IngredientCosts
             .FirstOrDefaultAsync(
                 c => c.TenantId == tenantId
                     && c.IngredientId == command.IngredientId
@@ -52,23 +53,74 @@ internal sealed class IngredientCostService : IIngredientCostService
                     && c.EffectiveTo == null,
                 cancellationToken);
 
-        if (open is not null)
+        // Windows are contiguous half-open [EffectiveFrom, EffectiveTo). The new row opens unless
+        // effectiveFrom lands before a scheduled row — then the containing window is SPLIT and the
+        // new row is inserted already closed at the successor's start (§8).
+        DateTime? effectiveTo = null;
+
+        if (tail is not null && effectiveFrom >= tail.EffectiveFrom)
         {
-            // Backdating before the open row's start would invert its [EffectiveFrom, EffectiveTo)
-            // window and silently rewrite resolved history (§8). An equal EffectiveFrom is allowed:
-            // it zero-widths the row — a same-instant correction that keeps the row on record.
-            if (effectiveFrom < open.EffectiveFrom)
+            // On/after the tail's start: close the tail AT the new cost's effective date (§8/R2).
+            // For an immediate reprice that is "now"; for a future-dated (scheduled) cost the tail
+            // keeps pricing until the boundary — date-aware GetCurrentCost still returns it (R4).
+            // An equal EffectiveFrom is allowed: it zero-widths the tail — a same-instant
+            // correction that keeps the row on record.
+            tail.EffectiveTo = effectiveFrom;
+            tail.IsActive = false;
+        }
+        else if (tail is not null)
+        {
+            // effectiveFrom lands BEFORE the tail's start, i.e. at least one scheduled row starts
+            // after it. Scheduling a future cost must not lock out correcting the window that is
+            // pricing today (§8), so split the window containing effectiveFrom, leaving the tail —
+            // and every other later row — untouched.
+            var containing = await _dbContext.IngredientCosts
+                .Where(c => c.TenantId == tenantId
+                    && c.IngredientId == command.IngredientId
+                    && c.Currency == currency
+                    && c.EffectiveFrom <= effectiveFrom)
+                .OrderByDescending(c => c.EffectiveFrom)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            // The earliest row starting after effectiveFrom — at minimum the tail. It bounds the
+            // new (closed) window and is preserved as-is, so the tail remains the single open row
+            // and the filtered unique index invariant (§12) is never in play.
+            var successor = await _dbContext.IngredientCosts
+                .AsNoTracking()
+                .Where(c => c.TenantId == tenantId
+                    && c.IngredientId == command.IngredientId
+                    && c.Currency == currency
+                    && c.EffectiveFrom > effectiveFrom)
+                .OrderBy(c => c.EffectiveFrom)
+                .FirstAsync(cancellationToken);
+
+            // HISTORY-REWRITE GUARD (§8): a window that already finished pricing the past is
+            // immutable — only the currently-effective window (the one date-effective at "now")
+            // or a future window may be corrected. Because windows are contiguous, a fully
+            // elapsed containing window is exactly an effectiveFrom earlier than the start of
+            // the currently-effective window. Before all recorded history there is no window
+            // to split at all.
+            if (containing is null)
             {
                 throw new InvalidOperationException(
-                    $"Cannot set a cost effective {effectiveFrom:u} — a cost for '{ingredient.Name}' in {currency} " +
-                    $"already takes effect at {open.EffectiveFrom:u}. Use an effective date on or after it.");
+                    $"Cannot set a cost effective {effectiveFrom:u} — no cost window for '{ingredient.Name}' in {currency} " +
+                    $"contains that date; recorded history starts at {successor.EffectiveFrom:u}. " +
+                    "Use an effective date inside the currently-effective window or later.");
+            }
+            if (containing.EffectiveTo is not null && containing.EffectiveTo <= _clock.UtcNow)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot set a cost effective {effectiveFrom:u} for '{ingredient.Name}' in {currency} — that window " +
+                    $"closed at {containing.EffectiveTo:u} and has already priced the past. Only the currently-effective " +
+                    "window or a future window can be corrected.");
             }
 
-            // Close the prior open row AT the new cost's effective date (§8/R2). For an immediate
-            // reprice that is "now"; for a future-dated (scheduled) cost the prior row keeps
-            // pricing until the boundary — date-aware GetCurrentCost still returns it (R4).
-            open.EffectiveTo = effectiveFrom;
-            open.IsActive = false;
+            // Split: the containing row now ends where the correction begins, and the correction
+            // runs up to the untouched successor. Same-instant convention as the tail path: an
+            // equal EffectiveFrom zero-widths the containing row.
+            containing.EffectiveTo = effectiveFrom;
+            containing.IsActive = false;
+            effectiveTo = successor.EffectiveFrom;
         }
 
         var cost = new IngredientCost
@@ -79,12 +131,12 @@ internal sealed class IngredientCostService : IIngredientCostService
             Currency = currency,
             UnitCost = command.UnitCost,
             EffectiveFrom = effectiveFrom,
-            EffectiveTo = null,
-            IsActive = true,
+            EffectiveTo = effectiveTo,
+            IsActive = effectiveTo is null,
         };
         _dbContext.IngredientCosts.Add(cost);
 
-        // Close-prior + open-new in one transaction; the DB filtered unique index on
+        // Close-or-split-prior + insert in one transaction; the DB filtered unique index on
         // (TenantId, IngredientId, Currency) WHERE EffectiveTo IS NULL is the concurrency
         // backstop (§8/§12 — SQL Server only; InMemory tests cover the service invariant).
         await _dbContext.SaveChangesAsync(cancellationToken);
