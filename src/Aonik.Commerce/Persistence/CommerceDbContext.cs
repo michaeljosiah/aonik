@@ -36,6 +36,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<Discount> Discounts => Set<Discount>();
     public DbSet<OrderChargeSummary> OrderChargeSummaries => Set<OrderChargeSummary>();
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
+    public DbSet<IngredientCost> IngredientCosts => Set<IngredientCost>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
     public DbSet<RecipeComponent> RecipeComponents => Set<RecipeComponent>();
 
@@ -79,6 +80,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<Discount>(modelBuilder, "Discounts");
         MapTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
         MapTable<Ingredient>(modelBuilder, "Ingredients");
+        MapTable<IngredientCost>(modelBuilder, "IngredientCosts");
         MapTable<Recipe>(modelBuilder, "Recipes");
         MapTable<RecipeComponent>(modelBuilder, "RecipeComponents");
     }

@@ -31,6 +31,8 @@ internal sealed class CommerceAgentTools
     private readonly ICheckoutService _checkout;
     private readonly IIngredientService _ingredients;
     private readonly IRecipeService _recipes;
+    private readonly IIngredientCostService _ingredientCosts;
+    private readonly IProductCostingService _costing;
 
     private CommerceAgentTools(
         IProductService products,
@@ -39,7 +41,9 @@ internal sealed class CommerceAgentTools
         ICartService carts,
         ICheckoutService checkout,
         IIngredientService ingredients,
-        IRecipeService recipes)
+        IRecipeService recipes,
+        IIngredientCostService ingredientCosts,
+        IProductCostingService costing)
     {
         _products = products;
         _pricing = pricing;
@@ -48,6 +52,8 @@ internal sealed class CommerceAgentTools
         _checkout = checkout;
         _ingredients = ingredients;
         _recipes = recipes;
+        _ingredientCosts = ingredientCosts;
+        _costing = costing;
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────────────────────
@@ -96,6 +102,13 @@ internal sealed class CommerceAgentTools
         [Description("The number of portions (yield-units) to produce")] decimal portions,
         CancellationToken cancellationToken = default)
         => _recipes.ExplodeAsync(productVariantId, portions, cancellationToken);
+
+    [Description("Rolls up a product variant's standard cost (food cost per portion) in a currency: the active recipe valued at each ingredient's current cost. When the variant has no recipe, or any component lacks a cost in that currency, the result is flagged and UnitCost is null — never a silent zero.")]
+    public Task<StandardCostDto> GetProductCost(
+        [Description("The product variant id (GUID)")] Guid productVariantId,
+        [Description("ISO 4217 currency code (e.g. NGN, GBP)")] string currency,
+        CancellationToken cancellationToken = default)
+        => _costing.RollupStandardCostAsync(productVariantId, currency, null, cancellationToken);
 
     // ── Low — reversible cart writes ────────────────────────────────────────────────────────────
 
@@ -179,6 +192,15 @@ internal sealed class CommerceAgentTools
         CancellationToken cancellationToken = default)
         => _recipes.SetRecipeAsync(new SetRecipeCommand(productVariantId, name, yieldQuantity, yieldUnit, components), cancellationToken);
 
+    [Description("Sets a new unit cost for an ingredient (per its base unit) in a currency — 'a supplier repriced'. The prior cost is closed and preserved as history, never overwritten. An optional future effectiveFrom schedules the cost to take effect on that date.")]
+    public Task<IngredientCostDto> UpdateIngredientCost(
+        [Description("The ingredient id (GUID)")] Guid ingredientId,
+        [Description("ISO 4217 currency code (e.g. NGN, GBP)")] string currency,
+        [Description("The new unit cost, per the ingredient's base unit (e.g. cost per kg)")] decimal unitCost,
+        [Description("Optional UTC date the cost takes effect; omit for now. A future date stores a scheduled cost that does not apply until then.")] DateTime? effectiveFrom = null,
+        CancellationToken cancellationToken = default)
+        => _ingredientCosts.SetCostAsync(new SetIngredientCostCommand(ingredientId, currency, unitCost, effectiveFrom), cancellationToken);
+
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
         var tools = new CommerceAgentTools(
@@ -188,7 +210,9 @@ internal sealed class CommerceAgentTools
             serviceProvider.GetRequiredService<ICartService>(),
             serviceProvider.GetRequiredService<ICheckoutService>(),
             serviceProvider.GetRequiredService<IIngredientService>(),
-            serviceProvider.GetRequiredService<IRecipeService>());
+            serviceProvider.GetRequiredService<IRecipeService>(),
+            serviceProvider.GetRequiredService<IIngredientCostService>(),
+            serviceProvider.GetRequiredService<IProductCostingService>());
 
         // Read — direct execution.
         yield return AIFunctionFactory.Create(tools.SearchProducts, name: "commerce_search_products");
@@ -198,6 +222,7 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.ListIngredients, name: "commerce_list_ingredients");
         yield return AIFunctionFactory.Create(tools.GetRecipe, name: "commerce_get_recipe");
         yield return AIFunctionFactory.Create(tools.ExplodeRecipe, name: "commerce_explode_recipe");
+        yield return AIFunctionFactory.Create(tools.GetProductCost, name: "commerce_get_product_cost");
 
         // Low — reversible cart writes.
         yield return AIFunctionFactory.Create(tools.CreateCart, name: "commerce_create_cart");
@@ -211,5 +236,6 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.Checkout, name: "commerce_checkout");
         yield return AIFunctionFactory.Create(tools.CreateIngredient, name: "commerce_create_ingredient");
         yield return AIFunctionFactory.Create(tools.SetRecipe, name: "commerce_set_recipe");
+        yield return AIFunctionFactory.Create(tools.UpdateIngredientCost, name: "commerce_update_ingredient_cost");
     }
 }

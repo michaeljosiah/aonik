@@ -15,3 +15,10 @@ public record UpdateIngredientRequest(
     string? Category,
     string? Notes,
     bool? IsActive = null);
+
+/// <summary>Sets a new effective-dated unit cost for an ingredient (Spec 051 §8). Omit
+/// <paramref name="EffectiveFrom"/> for "now"; a future date schedules the cost (R4).</summary>
+public record SetIngredientCostRequest(
+    string Currency,
+    decimal UnitCost,
+    DateTime? EffectiveFrom = null);
