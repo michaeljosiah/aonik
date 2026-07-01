@@ -417,7 +417,7 @@
 <pre><code>class IngredientCost { Guid Id, TenantId, IngredientId;
                        string   Currency;      // ISO-4217, e.g. "GBP"
                        decimal  UnitCost;      // cost per the ingredient's BaseUnit (e.g. £/kg)
-                       DateTime? EffectiveFrom; // when this cost took effect (null = always/open-started)
+                       DateTime EffectiveFrom;  // when this cost takes effect (required — SetCost defaults it to now)
                        DateTime? EffectiveTo;   // when superseded (null = still the open/current cost)
                        bool     IsActive; }     // convenience/soft-delete flag — NOT the "current" selector</code></pre>
 <p>
@@ -436,18 +436,20 @@
   <code>IngredientCost</code> reuses, verbatim, the effective-dated pattern Spec&nbsp;042 already ships for
   retail prices. <code>IIngredientCostService</code> owns the transition:
 </p>
-<div class="ascii-diagram">IIngredientCostService.SetCostAsync(ingredientId, currency, unitCost, effectiveFrom?)
+<div class="ascii-diagram">IIngredientCostService.SetCostAsync(SetIngredientCostCommand(ingredientId, currency, unitCost, effectiveFrom?))
   → let from = effectiveFrom ?? now
   → find the open/current row for (ingredientId, currency)   // EffectiveTo IS NULL
+  → reject a 'from' earlier than that row's EffectiveFrom     // would invert its window and rewrite history
   → if present: set its EffectiveTo = from, IsActive = false   // close prior (soft-delete flag)
   → insert a new open row: EffectiveFrom = from, EffectiveTo = null, IsActive = true   // open new
   → (both writes in one transaction; the audit trail records who repriced and when)
   → a future 'from' is stored as a SCHEDULED row: it does not become "current" until its date arrives
+      (the prior row is closed AT the future date, so date-aware reads keep returning it until then)
 
 IIngredientCostService.GetCurrentCostAsync(ingredientId, currency, atUtc? = now)
   → the row where EffectiveFrom &lt;= atUtc AND (EffectiveTo IS NULL OR atUtc &lt; EffectiveTo),
       ordered by EffectiveFrom DESC   // DATE-AWARE — IsActive is NOT the selector
-  → or a "no active cost" result if none is effective at atUtc
+  → or null ("no active cost") if none is effective at atUtc
 
 IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
   → all rows newest-first: the full reprice timeline ("£1.10 → £1.20 on 2026-06-01")</div>
@@ -467,9 +469,9 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
 </p>
 <div class="callout">
   <span class="callout-label">Note</span>
-  "At most one <em>open/current</em> row per <code>(IngredientId, Currency)</code>" (the row with
+  "At most one <em>open/current</em> row per <code>(TenantId, IngredientId, Currency)</code>" (the row with
   <code>EffectiveTo IS NULL</code>) is enforced <strong>at the database</strong> by a filtered unique index —
-  <code>(IngredientId, Currency)</code> filtered to <code>EffectiveTo IS NULL</code> (§12) — not by the service
+  <code>(TenantId, IngredientId, Currency)</code> filtered to <code>EffectiveTo IS NULL</code> (§12) — not by the service
   alone, so two concurrent reprices cannot both insert a current row. The service still closes the prior row in
   the same transaction; the DB index is the backstop. v1 expects a single currency per ingredient in practice;
   the <code>Currency</code> discriminator on the uniqueness key leaves room for a future multi-currency cost
@@ -485,29 +487,32 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
 <div class="ascii-diagram">IProductCostingService.RollupStandardCostAsync(productVariantId, currency, atUtc)
   → explode ONE yield-unit of the variant's active recipe via
         IRecipeService.ExplodeAsync(productVariantId, portions: 1)        // REUSE Spec 050
-  → if no active recipe → return { HasRecipe = false, diagnostic: "no active recipe" }
-  → for each exploded component { IngredientId, RequiredQuantity, BaseUnit }:
+  → if no active recipe → return { HasActiveRecipe = false, CostComplete = false, UnitCost = null }
+  → for each exploded line { IngredientId, IngredientName, BaseUnit, RequiredQuantity }:
         cost = GetCurrentCostAsync(IngredientId, currency, atUtc)   // DATE-AWARE; ignores scheduled rows
         if no cost effective at atUtc → flag the line { HasCost = false }, LineCost = null   // NOT zero
         else               → LineCost = RequiredQuantity × cost.UnitCost
-  → TotalUnitCost = Σ LineCost over lines that HaveCost
-  → return {
-        ProductVariantId, Currency,
-        HasRecipe, AnyMissingCost,          // AnyMissingCost = true ⇒ TotalUnitCost is partial
-        Lines: [ { IngredientId, Name, BaseUnit, RequiredQuantity, UnitCost?, LineCost?, HasCost } ],
-        TotalUnitCost                        // cost per portion / per yield-unit
-      }</code></div>
+  → CostComplete = every line HasCost
+  → UnitCost     = CostComplete ? Σ LineCost : null   // withheld when incomplete — never partial/zero
+  → return StandardCostDto {
+        ProductVariantId, Currency, AsOfUtc,          // AsOfUtc = the resolved atUtc (?? now)
+        HasActiveRecipe, CostComplete,
+        Lines: [ ComponentCostDto { IngredientId, IngredientName, BaseUnit,
+                                    QuantityPerYieldUnit, UnitCost?, LineCost?, HasCost } ],
+        UnitCost                                      // cost per portion / per yield-unit
+      }</div>
 <p>
   The result is a <strong>per-component breakdown plus a total unit cost</strong>. Because explosion is done
   for one yield-unit, <code>TotalUnitCost</code> is directly the <em>cost per portion</em> — the number
   Spec&nbsp;057 multiplies by quantity sold to get COGS. Two diagnostics are surfaced, never swallowed:
 </p>
 <ul>
-  <li><strong>No active recipe</strong> ⇒ <code>HasRecipe = false</code>; the caller shows "no recipe
-      defined for this product" instead of a £0 cost.</li>
+  <li><strong>No active recipe</strong> ⇒ <code>HasActiveRecipe = false</code> and <code>UnitCost = null</code>;
+      the caller shows "no recipe defined for this product" instead of a £0 cost.</li>
   <li><strong>A component ingredient with no active cost</strong> ⇒ that line's <code>HasCost = false</code>
-      and <code>LineCost = null</code>, and the result's <code>AnyMissingCost = true</code>. The total is the
-      sum of the priced lines only, explicitly marked partial — so a report never presents an
+      and <code>LineCost = null</code>, and the result's <code>CostComplete = false</code> with
+      <code>UnitCost = null</code>. The total is <em>withheld</em> rather than presented as a partial number,
+      while the priced lines keep their per-line <code>LineCost</code> — so a report never presents an
       artificially-cheap product as complete.</li>
 </ul>
 <p>
@@ -568,12 +573,12 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
   (runtime scoping) and <code>AonikDbContext</code> (canonical stream); it is tenant-scoped (not global). The
   configuration lives in <code>Persistence/Configurations/Sourcing</code> as an
   <code>IEntityTypeConfiguration&lt;IngredientCost&gt;</code>. It declares a <strong>filtered unique index</strong>
-  on <code>(IngredientId, Currency)</code> filtered to <code>EffectiveTo IS NULL</code>
+  on <code>(TenantId, IngredientId, Currency)</code> filtered to <code>EffectiveTo IS NULL</code>
   (<code>HasFilter("[EffectiveTo] IS NULL")</code>), so the database — not the service alone — guarantees at
   most one open/current cost per ingredient/currency and two concurrent reprices cannot both create a current
-  row. A second (non-unique) index on <code>(IngredientId, Currency, EffectiveFrom)</code> keeps the date-aware
+  row. A second (non-unique) index on <code>(TenantId, IngredientId, Currency, EffectiveFrom)</code> keeps the date-aware
   "current cost at <code>atUtc</code>" lookup (hit on every rollup component) cheap, and <code>UnitCost</code>
-  precision is <code>decimal(18,4)</code> to match money columns elsewhere. The filtered unique index is still
+  precision is <code>decimal(19,4)</code> to match money columns elsewhere. The filtered unique index is still
   authored in the config and emitted by the one tool-generated migration against <code>AonikDbContext</code> —
   never hand-written. No additional migration is needed for the rollup services — they are pure compute over
   existing tables.
@@ -622,10 +627,10 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
   <tbody>
     <tr><td>R1</td><td>An <code>IngredientCost</code> (ingredient, currency, unit cost per <code>BaseUnit</code>) can be set, read (current), and listed as history (admin + agent), tenant-scoped.</td></tr>
     <tr><td>R2</td><td><code>SetCost</code> closes the prior open row (<code>EffectiveTo</code> set, <code>IsActive=false</code>) and inserts a new open row in one transaction; a past cost's value is never overwritten — repricing is a first-class, audited action with recoverable history.</td></tr>
-    <tr><td>R3</td><td>At most one <em>open/current</em> <code>IngredientCost</code> (the <code>EffectiveTo IS NULL</code> row) exists per <code>(IngredientId, Currency)</code>, enforced by a DB-level filtered unique index (not the service alone). <code>GetCurrentCost(…, atUtc)</code> resolves the row where <code>EffectiveFrom &lt;= atUtc AND (EffectiveTo IS NULL OR atUtc &lt; EffectiveTo)</code>, ordered by <code>EffectiveFrom</code> desc, or a "no active cost" result — <code>IsActive</code> is a convenience/soft-delete flag, not the selector.</td></tr>
+    <tr><td>R3</td><td>At most one <em>open/current</em> <code>IngredientCost</code> (the <code>EffectiveTo IS NULL</code> row) exists per <code>(TenantId, IngredientId, Currency)</code>, enforced by a DB-level filtered unique index (not the service alone). <code>GetCurrentCost(…, atUtc)</code> resolves the row where <code>EffectiveFrom &lt;= atUtc AND (EffectiveTo IS NULL OR atUtc &lt; EffectiveTo)</code>, ordered by <code>EffectiveFrom</code> desc, or a "no active cost" result — <code>IsActive</code> is a convenience/soft-delete flag, not the selector.</td></tr>
     <tr><td>R4</td><td>A cost set with a future <code>effectiveFrom</code> is stored as a <em>scheduled</em> row: it does not become current (and does not price rollups) until its date arrives; <code>GetCurrentCost</code>/<code>RollupStandardCost</code> at "now" ignore it and keep returning the prior cost.</td></tr>
     <tr><td>R5</td><td><code>RollupStandardCostAsync(variant, currency, atUtc)</code> reuses Spec&nbsp;050's <code>ExplodeAsync</code> and returns <code>Σ(RecipeComponent.Quantity × IngredientCost.UnitCost effective at atUtc)</code> over the variant's active recipe as a per-component breakdown plus a total unit cost (cost per portion / yield-unit).</td></tr>
-    <tr><td>R6</td><td>A variant with no active recipe yields a "no recipe" diagnostic (<code>HasRecipe=false</code>); a component whose ingredient has no active cost is flagged on its line (<code>HasCost=false</code>, <code>LineCost=null</code>) and marks the result partial — <strong>never a silent zero</strong>.</td></tr>
+    <tr><td>R6</td><td>A variant with no active recipe yields a "no recipe" diagnostic (<code>HasActiveRecipe=false</code>, <code>UnitCost=null</code>); a component whose ingredient has no active cost is flagged on its line (<code>HasCost=false</code>, <code>LineCost=null</code>) and marks the result incomplete (<code>CostComplete=false</code>, <code>UnitCost=null</code>) — <strong>never a silent zero or partial total</strong>.</td></tr>
     <tr><td>R7</td><td>A rollup is computed in exactly one currency; a component priced only in a different currency is flagged (no on-the-fly FX conversion).</td></tr>
     <tr><td>R8</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
     <tr><td>R9</td><td>Agent tools are classified (<code>commerce_get_product_cost</code> direct; <code>commerce_update_ingredient_cost</code> medium, args-hash-bound); every invocation records an <code>AiRun</code>.</td></tr>
@@ -634,11 +639,11 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
 
 <h2 id="tasks">15. Tasks</h2>
 <ol>
-  <li><code>IngredientCost</code> entity + <code>IEntityTypeConfiguration</code> (filtered unique index on <code>(IngredientId, Currency)</code> WHERE <code>EffectiveTo IS NULL</code>, the <code>(IngredientId, Currency, EffectiveFrom)</code> lookup index, decimal precision) + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>IIngredientCostService</code> (<code>SetCost</code>/<code>GetCurrentCost</code> date-aware/<code>ListHistory</code>) + DTOs + admin endpoints.</li>
+  <li><code>IngredientCost</code> entity + <code>IEntityTypeConfiguration</code> (filtered unique index on <code>(TenantId, IngredientId, Currency)</code> WHERE <code>EffectiveTo IS NULL</code>, the <code>(TenantId, IngredientId, Currency, EffectiveFrom)</code> lookup index, decimal precision) + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>IIngredientCostService</code> (<code>SetCost</code>/<code>GetCurrentCost</code> date-aware/<code>ListHistory</code>) + DTOs + admin endpoints.</li>
   <li>The <code>CommerceIngredientCosts</code> migration against <code>AonikDbContext</code>; review the diff (1 table only).</li>
   <li><code>IProductCostingService.RollupStandardCostAsync</code> reusing <code>IRecipeService.ExplodeAsync</code>; per-component breakdown DTO + total; no-recipe and missing-cost diagnostics; admin read endpoint.</li>
   <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with <code>commerce_get_product_cost</code> (read) + <code>commerce_update_ingredient_cost</code> (medium); route through the gate.</li>
-  <li>Tests: unit (repricing close-prior/open-new + single open/current-row invariant, date-aware <code>GetCurrentCost</code> incl. a future-dated/scheduled cost not pricing "now", <code>ListHistory</code> ordering, rollup arithmetic + yield-unit basis, no-recipe diagnostic, missing-cost flag &amp; partial total, currency-mismatch flag) + an architecture test still asserting no Commerce↔Finance reference.</li>
+  <li>Tests: unit (repricing close-prior/open-new + single open/current-row invariant, date-aware <code>GetCurrentCost</code> incl. a future-dated/scheduled cost not pricing "now", <code>ListHistory</code> ordering, rollup arithmetic + yield-unit basis, no-recipe diagnostic, missing-cost flag &amp; withheld total, currency-mismatch flag) + an architecture test still asserting no Commerce↔Finance reference.</li>
 </ol>
 
 <h2 id="verification">16. Verification</h2>
@@ -647,7 +652,7 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
   <li><strong>Repricing:</strong> <code>SetCost(rice, GBP, 1.10)</code> then <code>SetCost(rice, GBP, 1.20)</code> ⇒ <code>GetCurrentCost</code> returns 1.20, and <code>ListHistory</code> shows two rows (the 1.10 row closed with an <code>EffectiveTo</code>), with exactly one open (<code>EffectiveTo IS NULL</code>) row.</li>
   <li><strong>Scheduled cost:</strong> with rice&nbsp;@&nbsp;£1.20 current, <code>SetCost(rice, GBP, 1.35, effectiveFrom: next month)</code> ⇒ <code>GetCurrentCost</code> at "now" still returns 1.20, the rollup still prices rice at £1.20, and the same call with <code>atUtc</code> = next month returns 1.35.</li>
   <li><strong>Rollup:</strong> define a jollof recipe (1 portion ⇒ 0.25&nbsp;kg rice, 0.12&nbsp;kg tomato) with rice&nbsp;@&nbsp;£1.20/kg and tomato&nbsp;@&nbsp;£0.90/kg; <code>RollupStandardCostAsync(jollof, GBP)</code> returns per-line costs (£0.30 rice, £0.108 tomato) and a total unit cost of £0.408/portion.</li>
-  <li><strong>Diagnostics:</strong> a variant with no active recipe returns <code>HasRecipe=false</code>; a recipe whose tomato has no active GBP cost returns that line flagged <code>HasCost=false</code>, <code>AnyMissingCost=true</code>, and a total that sums only the priced lines — never a silent zero.</li>
+  <li><strong>Diagnostics:</strong> a variant with no active recipe returns <code>HasActiveRecipe=false</code>; a recipe whose tomato has no active GBP cost returns that line flagged <code>HasCost=false</code>, <code>CostComplete=false</code>, and <code>UnitCost=null</code> (the priced lines keep their <code>LineCost</code>) — never a silent zero or partial total.</li>
   <li><strong>Agent:</strong> <code>commerce_update_ingredient_cost</code> surfaces a medium approval and, once approved, writes a new effective-dated row; <code>commerce_get_product_cost</code> executes directly; each records an <code>AiRun</code>.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
 </ul>
@@ -656,9 +661,9 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
-    <tr><td>Missing ingredient cost silently produces a too-cheap product cost</td><td>High</td><td>Missing cost flags the line (<code>HasCost=false</code>, <code>LineCost=null</code>) and marks the total partial (<code>AnyMissingCost=true</code>); a unit test asserts the total excludes the unpriced line and the diagnostic is set — never a silent zero.</td></tr>
+    <tr><td>Missing ingredient cost silently produces a too-cheap product cost</td><td>High</td><td>Missing cost flags the line (<code>HasCost=false</code>, <code>LineCost=null</code>) and withholds the total (<code>CostComplete=false</code>, <code>UnitCost=null</code>); a unit test asserts the total is null while priced lines keep their <code>LineCost</code> — never a silent zero or partial.</td></tr>
     <tr><td>Repricing overwrites history, breaking historical valuation</td><td>Medium</td><td>Close-prior/open-new in one transaction (mirrors <code>ProductPrice</code>); a past row's <code>UnitCost</code> is never mutated; <code>ListHistory</code> test proves the old row survives with an <code>EffectiveTo</code>.</td></tr>
-    <tr><td>Two active cost rows for one ingredient/currency skew the rollup</td><td>Medium</td><td>Single-current invariant enforced <strong>at the DB</strong> by a filtered unique index on <code>(IngredientId, Currency)</code> WHERE <code>EffectiveTo IS NULL</code>, plus the service close-prior/open-new; a unit test asserts a second <code>SetCost</code> closes the first.</td></tr>
+    <tr><td>Two active cost rows for one ingredient/currency skew the rollup</td><td>Medium</td><td>Single-current invariant enforced <strong>at the DB</strong> by a filtered unique index on <code>(TenantId, IngredientId, Currency)</code> WHERE <code>EffectiveTo IS NULL</code>, plus the service close-prior/open-new; a unit test asserts a second <code>SetCost</code> closes the first.</td></tr>
     <tr><td>Concurrent reprices race and both insert a "current" row</td><td>Medium</td><td>Service-only enforcement is race-prone; the DB-level filtered unique index (<code>EffectiveTo IS NULL</code>) makes a second concurrent current row a constraint violation, so at most one open row survives; the loser retries/reads.</td></tr>
     <tr><td>Future-dated cost prices today's rollup before it takes effect</td><td>Medium</td><td>Current-cost resolution is date-aware (<code>EffectiveFrom &lt;= atUtc &lt; EffectiveTo</code>, newest first) — <code>IsActive</code> is not the selector; a future <code>effectiveFrom</code> is stored as a scheduled row and ignored until its date; a unit test asserts a future-dated cost leaves today's rollup on the prior cost.</td></tr>
     <tr><td>Cross-currency mixing silently mis-values a rollup</td><td>Medium</td><td>One currency per rollup call; a component priced only in another currency is flagged, not converted; costing holds no FX and does not reference Finance.</td></tr>
