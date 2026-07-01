@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 051 · Ingredient costing &amp; product standard-cost rollup</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p3 { background: #efe6f6; color: #5a2784; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 051</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p3">Priority: P3</span>
+  <span class="meta-tag">Domain: Commerce / Production / Costing</span>
+  <h1>Ingredient costing &amp; product standard-cost rollup</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Gives each <code>Ingredient</code> an <strong>effective-dated unit cost</strong> and rolls a
+    <strong>Recipe</strong> — the bill of materials the keystone spec
+    <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> defined — up into a product's
+    <strong>standard cost</strong> (food cost / COGS). This is the second spec of the maker-operations
+    family (<a href="050.ingredient-recipe-bom.html#family">050–057</a>): it turns "what a product is made
+    of" into "what it costs to make", enabling the operations manager's <em>"update ingredient costs when
+    suppliers reprice"</em> and <em>"profit report"</em> moments. Everything lives in
+    <code>Aonik.Commerce</code> and references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
+    — never <code>Aonik.Finance</code>.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#layout">Target module layout</a></li>
+    <li><a href="#domain-model">Domain model</a></li>
+    <li><a href="#effective-dated">Effective-dated cost (mirrors ProductPrice)</a></li>
+    <li><a href="#rollup">Standard-cost rollup</a></li>
+    <li><a href="#currency">Currency handling</a></li>
+    <li><a href="#agent">Agent &amp; tools</a></li>
+    <li><a href="#dbcontext">CommerceDbContext &amp; migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> gave AONIK the ability to describe how a
+  finished product is <em>made</em> — an <code>Ingredient</code> master and a <code>Recipe</code> (bill of
+  materials) that says which ingredients, and how much of each, one yield-unit of a
+  <code>ProductVariant</code> consumes. What it deliberately left out is <strong>cost</strong>: a recipe
+  with quantities but no prices cannot answer "what does a portion of jollof cost to make?" or "am I hitting
+  my target margin?". This spec adds that missing dimension.
+</p>
+
+<p>
+  It introduces one new anemic entity and two services in <code>Aonik.Commerce</code>:
+</p>
+<ul>
+  <li><strong><code>IngredientCost</code></strong> — an <em>effective-dated, audited</em> unit cost for an
+      ingredient (per its <code>BaseUnit</code>), modelled exactly like the retail
+      <a href="042.commerce-retail-module.html"><code>ProductPrice</code></a> from Spec&nbsp;042. Setting a
+      new cost closes the prior open row and inserts a new one (with a future <code>effectiveFrom</code> kept
+      as a scheduled row that does not price today), so <strong>"a supplier repriced"</strong>
+      is a first-class, historied action — not an in-place overwrite.</li>
+  <li><strong><code>IProductCostingService.RollupStandardCostAsync</code></strong> — values a variant's
+      active recipe at current ingredient cost by <em>reusing</em> Spec&nbsp;050's
+      <code>IRecipeService.ExplodeAsync</code>: the standard unit cost is
+      <code>Σ(RecipeComponent.Quantity × active IngredientCost.UnitCost)</code>, returned as a
+      per-component breakdown plus a total cost per portion (per yield-unit).</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  An operator (or the <code>commerce-agent</code>) can set an ingredient's cost, reprice it later and see the
+  prior cost preserved in history, and read back a product variant's standard cost as a line-by-line
+  breakdown ("jollof portion = 0.25&nbsp;kg rice&nbsp;@&nbsp;£1.20 + 0.12&nbsp;kg tomato&nbsp;@&nbsp;£0.90 +
+  … = £X/portion"). A component whose ingredient has <em>no</em> active cost is <strong>flagged</strong>,
+  never silently zeroed. <code>dotnet build Aonik.sln</code> stays green with <code>Aonik.Commerce</code>
+  referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>;
+  <code>dotnet test Aonik.sln</code> stays green with new unit tests covering repricing history, rollup
+  arithmetic, and the no-cost / no-recipe diagnostics.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  Two artefacts in the food-production operations manager's day-in-the-life (see
+  <a href="050.ingredient-recipe-bom.html#context">Spec&nbsp;050 §2</a>) are pure cost projections and
+  cannot exist without this spec:
+</p>
+<ul>
+  <li><strong>"Update ingredient costs when suppliers reprice."</strong> Rice went from £1.10/kg to £1.20/kg
+      — the operator records the new cost, and every product that uses rice reflects it going forward, while
+      last month's cost stays on the record for historical reporting.</li>
+  <li><strong>"Review a profit report (actual food cost vs. target margin)."</strong> The margin report
+      (<a href="057.margin-and-profit-report.html">Spec&nbsp;057</a>) is <em>revenue − COGS</em>; COGS is
+      exactly the standard-cost rollup this spec computes, multiplied by quantity sold.</li>
+</ul>
+<p>
+  Both reduce to one primitive: <strong>a recipe valued at ingredient cost</strong>. Spec&nbsp;050 already
+  owns the reusable explosion that turns a recipe into per-ingredient quantities; this spec decorates that
+  explosion's output with cost. That is the deliberate seam — costing does not re-implement BOM traversal,
+  it <em>values</em> it. Keeping the two specs separate keeps each small and independently shippable, and
+  means a future change to how recipes explode (e.g. multi-level BOMs) automatically flows into costing.
+</p>
+<p>
+  Scope discipline mirrors the family: build the thin costing slice this persona needs — a single
+  <em>standard</em> (latest-effective) cost per ingredient and a straight recipe rollup — <strong>not</strong>
+  a full cost-accounting engine with moving-average valuation layers, labour and overhead absorption, or
+  multi-currency FX. Those are noted as open extensions, not built.
+</p>
+
+<h2 id="reuse-vs-build">3. Reuse vs. build</h2>
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Recipe &amp; explosion</td><td><span class="tag reuse">reuse</span></td><td>Rollup calls Spec&nbsp;050's <code>IRecipeService.ExplodeAsync(variantId, portions)</code>; costing never traverses the BOM itself.</td></tr>
+    <tr><td>Effective-dated row pattern</td><td><span class="tag reuse">reuse</span></td><td><code>IngredientCost</code> mirrors Spec&nbsp;042's <code>ProductPrice</code> shape and "close prior / open new" write semantics.</td></tr>
+    <tr><td>Ingredient master</td><td><span class="tag reuse">reuse</span></td><td>Cost attaches to an existing Spec&nbsp;050 <code>Ingredient</code> via <code>IngredientId</code>; the <code>BaseUnit</code> defines the cost's unit.</td></tr>
+    <tr><td>Anemic entity + tenancy + audit</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code> (ADR-002); soft-delete, audit, tenant filter inherited.</td></tr>
+    <tr><td>Migration stream</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>Ank</code> table; <code>CommerceDbContext</code> gets the DbSet, no migrations.</td></tr>
+    <tr><td>Agent + approval + audit rails</td><td><span class="tag reuse">reuse</span></td><td><code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
+    <tr><td>Ingredient cost entity + repricing</td><td><span class="tag new">build</span></td><td><code>IngredientCost</code> + <code>IIngredientCostService</code> (set / get-current / list-history).</td></tr>
+    <tr><td>Standard-cost rollup</td><td><span class="tag new">build</span></td><td><code>IProductCostingService.RollupStandardCostAsync</code> → per-component breakdown + total unit cost.</td></tr>
+    <tr><td>Stock, procurement, goods receipt, margin</td><td><span class="tag existing">later</span></td><td>Specs 052–057; receipt writes actual cost (054) and the margin report consumes this rollup (057).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+<h3>In scope</h3>
+<ul>
+  <li><code>IngredientCost</code> entity + <code>IIngredientCostService</code> (<code>SetCost</code>,
+      <code>GetCurrentCost</code>, <code>ListHistory</code>) + admin endpoints.</li>
+  <li>Effective-dated write semantics: <code>SetCost</code> closes the prior open row
+      (<code>EffectiveTo</code> set, <code>IsActive=false</code>) and inserts a new open row — repricing is
+      an audited, historied action. Current-cost resolution is <strong>date-aware</strong> (a future
+      <code>effectiveFrom</code> is a scheduled row that does not price today), and the single open/current row
+      is enforced by a DB-level filtered unique index.</li>
+  <li><code>IProductCostingService.RollupStandardCostAsync(productVariantId, currency, atUtc)</code>:
+      explode the variant's active recipe (Spec&nbsp;050) and value each component at its active
+      <code>IngredientCost.UnitCost</code>; return a per-component breakdown and a total unit cost
+      (cost per portion / per yield-unit).</li>
+  <li>Diagnostics: a variant with no active recipe returns a "no recipe" diagnostic; a component whose
+      ingredient has no active cost is flagged on its line — <strong>never a silent zero</strong>.</li>
+  <li>New Commerce DbSet on <code>CommerceDbContext</code> + <code>AonikDbContext</code>; one tool-generated
+      migration (<code>CommerceIngredientCosts</code>, one table <code>AnkIngredientCosts</code>).</li>
+  <li>Commerce-agent read tool for product cost + a medium-gated write tool for updating ingredient cost.</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+  <li><strong>Actual / moving-average cost.</strong> v1 uses a single <em>standard</em> (latest-effective)
+      cost. Goods receipt writing an <em>actual</em> received cost is
+      <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> — which simply calls
+      <code>SetCost</code> here; the valuation method stays standard.</li>
+  <li><strong>Multi-currency ingredient cost + FX conversion.</strong> Each rollup call is single-currency
+      (§9); an ingredient cost carries the currency it was recorded in, and a mismatch is a diagnostic, not
+      an on-the-fly FX conversion. Noted under <a href="#open">Open</a>.</li>
+  <li><strong>Labour, overhead, packaging in product cost.</strong> v1 is <em>food cost</em> (ingredient
+      cost) only. Absorbed labour/overhead is under <a href="#open">Open</a>, not built.</li>
+  <li><strong>The margin / profit report itself</strong> — <a href="057.margin-and-profit-report.html">Spec&nbsp;057</a>
+      consumes this rollup; it is not built here.</li>
+  <li><strong>Cost snapshot at sale time</strong> for historical-margin stability — noted under
+      <a href="#open">Open</a> and linked to Spec&nbsp;057; not built here.</li>
+</ul>
+
+<h2 id="guardrails">5. Constraints &amp; guardrails</h2>
+<ul>
+  <li><strong>No reference to Finance.</strong> <code>Aonik.Commerce</code> still references only
+      <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>. Cost is a Commerce concern; it never
+      posts to the ledger and adds no cross-module coupling
+      (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
+  <li><strong>Anemic entity.</strong> <code>IngredientCost</code> is a <code>{ get; set; }</code> data
+      container implementing <code>ITenantScoped</code> + <code>AuditableEntity</code>
+      (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); all logic — including the
+      close-prior/open-new repricing transition — lives in <code>IIngredientCostService</code>, returning
+      DTOs.</li>
+  <li><strong>Single migration stream.</strong> EF-CLI-generated against <code>AonikDbContext</code>;
+      <code>Ank</code>-prefixed table; <code>CommerceDbContext</code> is runtime scoping with no migrations;
+      agents never hand-author migrations.</li>
+  <li><strong>History is append-only in effect.</strong> Repricing never mutates a past cost row's value; it
+      closes it and inserts a new one, so any point-in-time cost is recoverable. This is the same discipline
+      as <code>ProductPrice</code>.</li>
+  <li><strong>Never silently zero a cost.</strong> A missing ingredient cost or a missing recipe is a
+      surfaced diagnostic on the rollup result, so callers (Spec&nbsp;057) never report a falsely-cheap
+      product.</li>
+  <li><strong>Agents propose; systems execute.</strong> Cost reads are direct agent tools;
+      <code>commerce_update_ingredient_cost</code> is <strong>medium</strong> (in-session confirmation,
+      args-hash-bound); every AI action records an <code>AiRun</code>.</li>
+  <li><strong>One currency per rollup call.</strong> Costing is not an FX engine; a rollup that would mix
+      currencies flags the offending line rather than converting (§9).</li>
+</ul>
+
+<h2 id="layout">6. Target module layout</h2>
+<div class="ascii-diagram">src/Aonik.Commerce/
+├── Entities/
+│   └── Sourcing/     IngredientCost                       # NEW (effective-dated unit cost)
+├── Services/
+│   ├── Sourcing/     IIngredientCostService               # NEW (set / get-current / list-history)
+│   └── Production/   IProductCostingService               # NEW (recipe rollup → standard cost)
+├── Endpoints/Admin/
+│   ├── Sourcing/     IngredientCost set / history         # NEW
+│   └── Production/   Product standard-cost read           # NEW
+├── Agents/Tools/     CommerceAgentTools (+ cost tools)     # EXTEND
+├── Contracts/        Models + Api records                  # EXTEND
+└── Persistence/
+    ├── CommerceDbContext.cs           (+ IngredientCost DbSet, no migrations)
+    └── Configurations/Sourcing/       (IngredientCostConfiguration : IEntityTypeConfiguration&lt;T&gt;)   # NEW</div>
+
+<h2 id="domain-model">7. Domain model</h2>
+<p>
+  One new anemic entity, <code>ITenantScoped</code>, inheriting <code>AuditableEntity</code>. It mirrors the
+  Spec&nbsp;042 <code>ProductPrice</code> shape one-for-one — the only differences are it attaches to an
+  <code>Ingredient</code> (not a <code>ProductVariant</code>) and its <code>UnitCost</code> is denominated
+  per the ingredient's <code>BaseUnit</code>.
+</p>
+<pre><code>class IngredientCost { Guid Id, TenantId, IngredientId;
+                       string   Currency;      // ISO-4217, e.g. "GBP"
+                       decimal  UnitCost;      // cost per the ingredient's BaseUnit (e.g. £/kg)
+                       DateTime? EffectiveFrom; // when this cost took effect (null = always/open-started)
+                       DateTime? EffectiveTo;   // when superseded (null = still the open/current cost)
+                       bool     IsActive; }     // convenience/soft-delete flag — NOT the "current" selector</code></pre>
+<p>
+  <code>IngredientCost.IngredientId</code> is an intra-module reference to the Spec&nbsp;050
+  <code>Ingredient</code>; the ingredient's <code>BaseUnit</code> is the unit <code>UnitCost</code> is quoted
+  in (so a <code>kg</code>-based ingredient has a £/kg cost). The
+  <code>EffectiveFrom</code>/<code>EffectiveTo</code> pair is what makes a supplier reprice a historied event
+  rather than a destructive edit — identical to how <code>ProductPrice</code> models a retail price change,
+  and it is the effective dates (not <code>IsActive</code>) that resolve which row is <em>current</em> on any
+  given date (§8). <code>IsActive</code> is a convenience/soft-delete flag only. The rollup services (§8) hold no persisted state of their own; a product's
+  standard cost is always <em>computed</em> from the current recipe and current costs, never stored.
+</p>
+
+<h2 id="effective-dated">8. Effective-dated cost (mirrors ProductPrice)</h2>
+<p>
+  <code>IngredientCost</code> reuses, verbatim, the effective-dated pattern Spec&nbsp;042 already ships for
+  retail prices. <code>IIngredientCostService</code> owns the transition:
+</p>
+<div class="ascii-diagram">IIngredientCostService.SetCostAsync(ingredientId, currency, unitCost, effectiveFrom?)
+  → let from = effectiveFrom ?? now
+  → find the open/current row for (ingredientId, currency)   // EffectiveTo IS NULL
+  → if present: set its EffectiveTo = from, IsActive = false   // close prior (soft-delete flag)
+  → insert a new open row: EffectiveFrom = from, EffectiveTo = null, IsActive = true   // open new
+  → (both writes in one transaction; the audit trail records who repriced and when)
+  → a future 'from' is stored as a SCHEDULED row: it does not become "current" until its date arrives
+
+IIngredientCostService.GetCurrentCostAsync(ingredientId, currency, atUtc? = now)
+  → the row where EffectiveFrom &lt;= atUtc AND (EffectiveTo IS NULL OR atUtc &lt; EffectiveTo),
+      ordered by EffectiveFrom DESC   // DATE-AWARE — IsActive is NOT the selector
+  → or a "no active cost" result if none is effective at atUtc
+
+IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
+  → all rows newest-first: the full reprice timeline ("£1.10 → £1.20 on 2026-06-01")</div>
+<p>
+  This makes <strong>"a supplier repriced"</strong> a first-class, audited action: the old cost is never
+  overwritten, so a report can ask "what did rice cost on 1&nbsp;May?" and get the row that was effective then.
+  <strong>Current-cost resolution is date-aware</strong> — <code>GetCurrentCostAsync</code> selects the row
+  whose <code>[EffectiveFrom, EffectiveTo)</code> window contains <code>atUtc</code> (ordered by
+  <code>EffectiveFrom</code> descending), <em>not</em> the row where <code>IsActive=true</code>. A cost set
+  with a <em>future</em> <code>effectiveFrom</code> is therefore stored as a <strong>scheduled</strong> row: it
+  is persisted immediately but does <strong>not</strong> supersede the current cost (and does not price today's
+  rollups) until its date arrives. <code>IsActive</code> is a convenience/soft-delete flag, kept in sync for
+  cheap "the newest open row" reads, but the effective dates are the source of truth for "current".
+  <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> (goods receipt) reuses this exact entry
+  point — when a PO line records an actual received unit cost, it simply calls <code>SetCostAsync</code>,
+  producing a new effective-dated row with no special-casing.
+</p>
+<div class="callout">
+  <span class="callout-label">Note</span>
+  "At most one <em>open/current</em> row per <code>(IngredientId, Currency)</code>" (the row with
+  <code>EffectiveTo IS NULL</code>) is enforced <strong>at the database</strong> by a filtered unique index —
+  <code>(IngredientId, Currency)</code> filtered to <code>EffectiveTo IS NULL</code> (§12) — not by the service
+  alone, so two concurrent reprices cannot both insert a current row. The service still closes the prior row in
+  the same transaction; the DB index is the backstop. v1 expects a single currency per ingredient in practice;
+  the <code>Currency</code> discriminator on the uniqueness key leaves room for a future multi-currency cost
+  without a schema change (see <a href="#open">Open</a>).
+</div>
+
+<h2 id="rollup">9. Standard-cost rollup</h2>
+<p>
+  The one piece of logic this spec owns beyond the effective-dated CRUD is the <strong>rollup</strong> — the
+  reusable primitive the margin report (<a href="057.margin-and-profit-report.html">Spec&nbsp;057</a>)
+  calls. It <em>reuses</em> Spec&nbsp;050's explosion and only adds valuation:
+</p>
+<div class="ascii-diagram">IProductCostingService.RollupStandardCostAsync(productVariantId, currency, atUtc)
+  → explode ONE yield-unit of the variant's active recipe via
+        IRecipeService.ExplodeAsync(productVariantId, portions: 1)        // REUSE Spec 050
+  → if no active recipe → return { HasRecipe = false, diagnostic: "no active recipe" }
+  → for each exploded component { IngredientId, RequiredQuantity, BaseUnit }:
+        cost = GetCurrentCostAsync(IngredientId, currency, atUtc)   // DATE-AWARE; ignores scheduled rows
+        if no cost effective at atUtc → flag the line { HasCost = false }, LineCost = null   // NOT zero
+        else               → LineCost = RequiredQuantity × cost.UnitCost
+  → TotalUnitCost = Σ LineCost over lines that HaveCost
+  → return {
+        ProductVariantId, Currency,
+        HasRecipe, AnyMissingCost,          // AnyMissingCost = true ⇒ TotalUnitCost is partial
+        Lines: [ { IngredientId, Name, BaseUnit, RequiredQuantity, UnitCost?, LineCost?, HasCost } ],
+        TotalUnitCost                        // cost per portion / per yield-unit
+      }</code></div>
+<p>
+  The result is a <strong>per-component breakdown plus a total unit cost</strong>. Because explosion is done
+  for one yield-unit, <code>TotalUnitCost</code> is directly the <em>cost per portion</em> — the number
+  Spec&nbsp;057 multiplies by quantity sold to get COGS. Two diagnostics are surfaced, never swallowed:
+</p>
+<ul>
+  <li><strong>No active recipe</strong> ⇒ <code>HasRecipe = false</code>; the caller shows "no recipe
+      defined for this product" instead of a £0 cost.</li>
+  <li><strong>A component ingredient with no active cost</strong> ⇒ that line's <code>HasCost = false</code>
+      and <code>LineCost = null</code>, and the result's <code>AnyMissingCost = true</code>. The total is the
+      sum of the priced lines only, explicitly marked partial — so a report never presents an
+      artificially-cheap product as complete.</li>
+</ul>
+<p>
+  The rollup is pure and read-only: it stores nothing and touches no stock. <code>atUtc</code> is threaded
+  straight into the date-aware <code>GetCurrentCostAsync</code>, so the rollup already values the recipe at the
+  costs effective on <code>atUtc</code> (defaulting to now) and a future-dated (scheduled) cost never leaks
+  into today's total — a point-in-time rollup at a past date is the same call with a different
+  <code>atUtc</code> (see <a href="#open">Open</a> on point-in-time and sale-time snapshots).
+</p>
+
+<h2 id="currency">10. Currency handling</h2>
+<p>
+  A rollup is computed in <strong>exactly one currency</strong>, passed by the caller. Costing is not an FX
+  engine (that lives in Finance, which Commerce does not reference), so:
+</p>
+<ul>
+  <li>Each component is valued at its active <code>IngredientCost</code> <em>in the requested currency</em>.</li>
+  <li>If an ingredient has an active cost only in a <em>different</em> currency, the line is flagged
+      <code>HasCost = false</code> (a "no cost in {currency}" diagnostic) — the rollup does
+      <strong>not</strong> convert on the fly. This is a conscious v1 boundary: one currency in, one currency
+      out, no silent cross-rate.</li>
+  <li>The uniqueness key <code>(IngredientId, Currency)</code> means a tenant <em>could</em> record the same
+      ingredient's cost in two currencies, but v1 tooling and the day-in-the-life assume a single operating
+      currency per tenant. Multi-currency cost with FX conversion is an explicit <a href="#open">Open</a>
+      decision, deferred to keep this spec ≤&nbsp;~8 points.</li>
+</ul>
+<div class="callout">
+  <span class="callout-label">Note</span>
+  For a UK→NG maker, the practical shape is: record costs in the tenant's operating currency (e.g. GBP),
+  roll up in that currency, and let any customer-facing FX happen at the <em>selling</em> layer, not the
+  costing layer. Costing answers "what did this cost me, in my books' currency?".
+</div>
+
+<h2 id="agent">11. Agent &amp; tools</h2>
+<p>
+  The existing <code>commerce-agent</code> gains costing tools, classified by
+  <code>CommerceToolApprovalManifest</code> and wrapped by the Spec&nbsp;032 gate — no change to the gate:
+</p>
+<table>
+  <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>commerce_get_product_cost</code></td><td><span class="tag read">read</span></td><td>Returns a variant's standard-cost breakdown + total unit cost in a given currency; surfaces the no-recipe / missing-cost diagnostics. Direct execution; tenant scope from context.</td></tr>
+    <tr><td><code>commerce_update_ingredient_cost</code></td><td><span class="tag medium">medium</span></td><td>Sets a new effective-dated cost for an ingredient (closes prior, opens new). Everyday cost write; in-session confirmation, args-hash-bound; records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+<p>
+  This is the agentic surface for the two moments: <code>commerce_update_ingredient_cost</code> is
+  <em>"update ingredient costs when suppliers reprice"</em>, and <code>commerce_get_product_cost</code> feeds
+  the profit-report conversation (with the full report itself arriving in Spec&nbsp;057). There is no
+  <em>high</em>-tier tool here — costing never moves money, so nothing marshals into a Finance
+  <code>Proposal</code>.
+</p>
+
+<h2 id="dbcontext">12. CommerceDbContext &amp; migrations</h2>
+<p>
+  One new <code>Ank</code>-prefixed table — <code>AnkIngredientCosts</code> — is created by one EF-CLI
+  migration against <code>AonikDbContext</code>. The entity is added to both <code>CommerceDbContext</code>
+  (runtime scoping) and <code>AonikDbContext</code> (canonical stream); it is tenant-scoped (not global). The
+  configuration lives in <code>Persistence/Configurations/Sourcing</code> as an
+  <code>IEntityTypeConfiguration&lt;IngredientCost&gt;</code>. It declares a <strong>filtered unique index</strong>
+  on <code>(IngredientId, Currency)</code> filtered to <code>EffectiveTo IS NULL</code>
+  (<code>HasFilter("[EffectiveTo] IS NULL")</code>), so the database — not the service alone — guarantees at
+  most one open/current cost per ingredient/currency and two concurrent reprices cannot both create a current
+  row. A second (non-unique) index on <code>(IngredientId, Currency, EffectiveFrom)</code> keeps the date-aware
+  "current cost at <code>atUtc</code>" lookup (hit on every rollup component) cheap, and <code>UnitCost</code>
+  precision is <code>decimal(18,4)</code> to match money columns elsewhere. The filtered unique index is still
+  authored in the config and emitted by the one tool-generated migration against <code>AonikDbContext</code> —
+  never hand-written. No additional migration is needed for the rollup services — they are pure compute over
+  existing tables.
+</p>
+<pre><code>dotnet ef migrations add CommerceIngredientCosts --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+
+<h2 id="phases">13. Phased rollout</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Effective-dated ingredient cost</h4>
+  <div class="phase-summary">Give each ingredient a historied unit cost; make repricing a first-class action.</div>
+  <ul>
+    <li><code>IngredientCost</code> entity + <code>IngredientCostConfiguration</code> + DbSets on
+        <code>CommerceDbContext</code> and <code>AonikDbContext</code>; the
+        <code>CommerceIngredientCosts</code> migration (creates <code>AnkIngredientCosts</code>);
+        <code>IIngredientCostService</code> (<code>SetCost</code> close-prior/open-new,
+        <code>GetCurrentCost</code> date-aware, <code>ListHistory</code>) returning DTOs; the filtered unique
+        index (<code>EffectiveTo IS NULL</code>) in the config; admin endpoints; unit tests for the repricing
+        transition, the single open/current-row invariant, and a future-dated (scheduled) cost not superseding
+        the current one.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Standard-cost rollup</h4>
+  <div class="phase-summary">Value a recipe at cost; return a per-portion breakdown.</div>
+  <ul>
+    <li><code>IProductCostingService.RollupStandardCostAsync(variantId, currency, atUtc)</code> reusing
+        <code>IRecipeService.ExplodeAsync</code>; per-component breakdown + total unit cost; the no-recipe
+        and missing-cost diagnostics; admin read endpoint; unit tests for rollup arithmetic, the yield-unit
+        basis, and both diagnostics (never a silent zero).</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Commerce-agent tools</h4>
+  <div class="phase-summary">The agentic surface.</div>
+  <ul>
+    <li><code>commerce_get_product_cost</code> (read) + medium-gated <code>commerce_update_ingredient_cost</code>
+        added to <code>CommerceAgentTools</code> and classified in <code>CommerceToolApprovalManifest</code>;
+        routed through <code>IToolApprovalGate.GateAll</code> (fails closed); each records an
+        <code>AiRun</code>.</li>
+  </ul>
+</div>
+
+<h2 id="requirements">14. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>An <code>IngredientCost</code> (ingredient, currency, unit cost per <code>BaseUnit</code>) can be set, read (current), and listed as history (admin + agent), tenant-scoped.</td></tr>
+    <tr><td>R2</td><td><code>SetCost</code> closes the prior open row (<code>EffectiveTo</code> set, <code>IsActive=false</code>) and inserts a new open row in one transaction; a past cost's value is never overwritten — repricing is a first-class, audited action with recoverable history.</td></tr>
+    <tr><td>R3</td><td>At most one <em>open/current</em> <code>IngredientCost</code> (the <code>EffectiveTo IS NULL</code> row) exists per <code>(IngredientId, Currency)</code>, enforced by a DB-level filtered unique index (not the service alone). <code>GetCurrentCost(…, atUtc)</code> resolves the row where <code>EffectiveFrom &lt;= atUtc AND (EffectiveTo IS NULL OR atUtc &lt; EffectiveTo)</code>, ordered by <code>EffectiveFrom</code> desc, or a "no active cost" result — <code>IsActive</code> is a convenience/soft-delete flag, not the selector.</td></tr>
+    <tr><td>R4</td><td>A cost set with a future <code>effectiveFrom</code> is stored as a <em>scheduled</em> row: it does not become current (and does not price rollups) until its date arrives; <code>GetCurrentCost</code>/<code>RollupStandardCost</code> at "now" ignore it and keep returning the prior cost.</td></tr>
+    <tr><td>R5</td><td><code>RollupStandardCostAsync(variant, currency, atUtc)</code> reuses Spec&nbsp;050's <code>ExplodeAsync</code> and returns <code>Σ(RecipeComponent.Quantity × IngredientCost.UnitCost effective at atUtc)</code> over the variant's active recipe as a per-component breakdown plus a total unit cost (cost per portion / yield-unit).</td></tr>
+    <tr><td>R6</td><td>A variant with no active recipe yields a "no recipe" diagnostic (<code>HasRecipe=false</code>); a component whose ingredient has no active cost is flagged on its line (<code>HasCost=false</code>, <code>LineCost=null</code>) and marks the result partial — <strong>never a silent zero</strong>.</td></tr>
+    <tr><td>R7</td><td>A rollup is computed in exactly one currency; a component priced only in a different currency is flagged (no on-the-fly FX conversion).</td></tr>
+    <tr><td>R8</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
+    <tr><td>R9</td><td>Agent tools are classified (<code>commerce_get_product_cost</code> direct; <code>commerce_update_ingredient_cost</code> medium, args-hash-bound); every invocation records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">15. Tasks</h2>
+<ol>
+  <li><code>IngredientCost</code> entity + <code>IEntityTypeConfiguration</code> (filtered unique index on <code>(IngredientId, Currency)</code> WHERE <code>EffectiveTo IS NULL</code>, the <code>(IngredientId, Currency, EffectiveFrom)</code> lookup index, decimal precision) + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>IIngredientCostService</code> (<code>SetCost</code>/<code>GetCurrentCost</code> date-aware/<code>ListHistory</code>) + DTOs + admin endpoints.</li>
+  <li>The <code>CommerceIngredientCosts</code> migration against <code>AonikDbContext</code>; review the diff (1 table only).</li>
+  <li><code>IProductCostingService.RollupStandardCostAsync</code> reusing <code>IRecipeService.ExplodeAsync</code>; per-component breakdown DTO + total; no-recipe and missing-cost diagnostics; admin read endpoint.</li>
+  <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with <code>commerce_get_product_cost</code> (read) + <code>commerce_update_ingredient_cost</code> (medium); route through the gate.</li>
+  <li>Tests: unit (repricing close-prior/open-new + single open/current-row invariant, date-aware <code>GetCurrentCost</code> incl. a future-dated/scheduled cost not pricing "now", <code>ListHistory</code> ordering, rollup arithmetic + yield-unit basis, no-recipe diagnostic, missing-cost flag &amp; partial total, currency-mismatch flag) + an architecture test still asserting no Commerce↔Finance reference.</li>
+</ol>
+
+<h2 id="verification">16. Verification</h2>
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
+  <li><strong>Repricing:</strong> <code>SetCost(rice, GBP, 1.10)</code> then <code>SetCost(rice, GBP, 1.20)</code> ⇒ <code>GetCurrentCost</code> returns 1.20, and <code>ListHistory</code> shows two rows (the 1.10 row closed with an <code>EffectiveTo</code>), with exactly one open (<code>EffectiveTo IS NULL</code>) row.</li>
+  <li><strong>Scheduled cost:</strong> with rice&nbsp;@&nbsp;£1.20 current, <code>SetCost(rice, GBP, 1.35, effectiveFrom: next month)</code> ⇒ <code>GetCurrentCost</code> at "now" still returns 1.20, the rollup still prices rice at £1.20, and the same call with <code>atUtc</code> = next month returns 1.35.</li>
+  <li><strong>Rollup:</strong> define a jollof recipe (1 portion ⇒ 0.25&nbsp;kg rice, 0.12&nbsp;kg tomato) with rice&nbsp;@&nbsp;£1.20/kg and tomato&nbsp;@&nbsp;£0.90/kg; <code>RollupStandardCostAsync(jollof, GBP)</code> returns per-line costs (£0.30 rice, £0.108 tomato) and a total unit cost of £0.408/portion.</li>
+  <li><strong>Diagnostics:</strong> a variant with no active recipe returns <code>HasRecipe=false</code>; a recipe whose tomato has no active GBP cost returns that line flagged <code>HasCost=false</code>, <code>AnyMissingCost=true</code>, and a total that sums only the priced lines — never a silent zero.</li>
+  <li><strong>Agent:</strong> <code>commerce_update_ingredient_cost</code> surfaces a medium approval and, once approved, writes a new effective-dated row; <code>commerce_get_product_cost</code> executes directly; each records an <code>AiRun</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">17. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Missing ingredient cost silently produces a too-cheap product cost</td><td>High</td><td>Missing cost flags the line (<code>HasCost=false</code>, <code>LineCost=null</code>) and marks the total partial (<code>AnyMissingCost=true</code>); a unit test asserts the total excludes the unpriced line and the diagnostic is set — never a silent zero.</td></tr>
+    <tr><td>Repricing overwrites history, breaking historical valuation</td><td>Medium</td><td>Close-prior/open-new in one transaction (mirrors <code>ProductPrice</code>); a past row's <code>UnitCost</code> is never mutated; <code>ListHistory</code> test proves the old row survives with an <code>EffectiveTo</code>.</td></tr>
+    <tr><td>Two active cost rows for one ingredient/currency skew the rollup</td><td>Medium</td><td>Single-current invariant enforced <strong>at the DB</strong> by a filtered unique index on <code>(IngredientId, Currency)</code> WHERE <code>EffectiveTo IS NULL</code>, plus the service close-prior/open-new; a unit test asserts a second <code>SetCost</code> closes the first.</td></tr>
+    <tr><td>Concurrent reprices race and both insert a "current" row</td><td>Medium</td><td>Service-only enforcement is race-prone; the DB-level filtered unique index (<code>EffectiveTo IS NULL</code>) makes a second concurrent current row a constraint violation, so at most one open row survives; the loser retries/reads.</td></tr>
+    <tr><td>Future-dated cost prices today's rollup before it takes effect</td><td>Medium</td><td>Current-cost resolution is date-aware (<code>EffectiveFrom &lt;= atUtc &lt; EffectiveTo</code>, newest first) — <code>IsActive</code> is not the selector; a future <code>effectiveFrom</code> is stored as a scheduled row and ignored until its date; a unit test asserts a future-dated cost leaves today's rollup on the prior cost.</td></tr>
+    <tr><td>Cross-currency mixing silently mis-values a rollup</td><td>Medium</td><td>One currency per rollup call; a component priced only in another currency is flagged, not converted; costing holds no FX and does not reference Finance.</td></tr>
+    <tr><td>Rollup ignores yield and mis-scales cost per portion</td><td>Medium</td><td>Rollup explodes one yield-unit (<code>portions: 1</code>) via Spec&nbsp;050, so the total is directly cost-per-portion; a unit test covers a &gt;1-yield recipe.</td></tr>
+    <tr><td>Schema drift from the new table</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review the 1-table diff; <code>Ank</code> prefix.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">18. Decisions baked in</h2>
+<ul>
+  <li><strong>Ingredient cost is effective-dated and audited</strong>, mirroring <code>ProductPrice</code>: setting a new cost closes the prior open row and opens a new one, so repricing is a first-class historied action.</li>
+  <li><strong>"Current" is resolved by effective dates, date-aware, not by <code>IsActive</code></strong> — <code>GetCurrentCost</code> picks the row whose <code>[EffectiveFrom, EffectiveTo)</code> window contains <code>atUtc</code>; a future-dated cost is a scheduled row that does not price today's rollups. The single open/current row is guaranteed <strong>at the database</strong> by a filtered unique index (<code>EffectiveTo IS NULL</code>), so concurrent reprices cannot create two current rows.</li>
+  <li><strong>Standard cost is computed, not stored</strong> — a product's cost is always <code>Σ(recipe component × current ingredient cost)</code>, freshly rolled up from the current recipe and costs.</li>
+  <li><strong>Rollup reuses Spec&nbsp;050 explosion</strong> and only adds valuation; it never re-traverses the BOM, so multi-level BOMs (a future Spec&nbsp;050 extension) flow through automatically.</li>
+  <li><strong>Never a silent zero</strong> — a missing recipe or a missing ingredient cost is a surfaced diagnostic on the result, so downstream margin reporting cannot present a falsely-cheap product.</li>
+  <li><strong>One currency per rollup call</strong>; costing performs no FX conversion and holds no Finance reference.</li>
+  <li><strong>v1 is standard (latest-effective) cost, food-cost only</strong> — no moving-average, no labour/overhead; extensions are Open.</li>
+  <li><strong>Grow in place in <code>Aonik.Commerce</code></strong> (no new module); migrations stay with <code>AonikDbContext</code>.</li>
+</ul>
+
+<h2 id="open">19. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Standard vs. moving-average / actual cost.</strong> v1 values products at the latest-effective
+  <em>standard</em> cost. A future option is a moving-average (or FIFO) valuation that blends actual received
+  costs from goods receipts (<a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a>) into the
+  cost used for the rollup. Deferred; Spec&nbsp;054 still records the actual received unit cost via
+  <code>SetCost</code>, so the data to compute a moving average later already accrues.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Multi-currency ingredient cost + FX conversion.</strong> Allowing an ingredient to hold costs in
+  several currencies and having the rollup convert to the requested currency via an FX rate. v1 is single
+  currency per rollup call and flags a currency mismatch rather than converting — the
+  <code>(IngredientId, Currency)</code> key already leaves room, but the conversion (and where the rate comes
+  from without referencing Finance) is out of scope.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Labour &amp; overhead in product cost.</strong> A per-recipe or per-portion labour/overhead
+  absorption on top of food cost, to give a fully-loaded cost. v1 is food cost (ingredient cost) only; a
+  loaded-cost model would decorate the rollup result with additional cost components.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Cost snapshot at sale time for historical-margin stability.</strong> Capturing the standard cost
+  onto an order line at the moment of sale, so a historical margin report is stable even after ingredients
+  later reprice. This links directly to <a href="057.margin-and-profit-report.html">Spec&nbsp;057</a>: v1
+  Spec&nbsp;057 can either re-roll cost at report time (using the effective-dated history and the
+  <code>atUtc</code> parameter this rollup already threads) or read a captured snapshot. The snapshot entity
+  is deferred to Spec&nbsp;057's design.
+</div>
+
+<h2 id="refs">20. References</h2>
+<ul>
+  <li><a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> — the maker-operations <strong>keystone</strong>: the <code>Ingredient</code> master and the <code>Recipe</code>/BOM this spec values; source of <code>IRecipeService.ExplodeAsync</code>, which the rollup reuses.</li>
+  <li><a href="042.commerce-retail-module.html">Spec&nbsp;042</a> — the retail commerce module; source of the <code>ProductPrice</code> effective-dated pattern that <code>IngredientCost</code> mirrors, and of the <code>ProductVariant</code> a recipe (and its cost) attaches to.</li>
+  <li><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> — goods receipt writes an actual received cost by calling this spec's <code>SetCost</code>, producing a new effective-dated row.</li>
+  <li><a href="057.margin-and-profit-report.html">Spec&nbsp;057</a> — margin &amp; profit report; COGS is this spec's standard-cost rollup × quantity sold.</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (grow-in-place, sibling-reference rule; no Finance dependency).</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> — anemic entities.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> — agent mutation governance for the medium-gated cost tool.</li>
+  <li>Maker-operations family: <a href="050.ingredient-recipe-bom.html">050</a>, <a href="052.raw-material-inventory-reorder-alerts.html">052</a>, <a href="053.suppliers-and-purchase-orders.html">053</a>, <a href="054.goods-receipt-stock-and-cost.html">054</a>, <a href="055.production-planning-sheet-prep-list.html">055</a>, <a href="056.production-orders-kitchen-sheet.html">056</a>, <a href="057.margin-and-profit-report.html">057</a>.</li>
+</ul>
+
+<footer>
+  Spec 051 &middot; Ingredient costing &amp; product standard-cost rollup &middot;
+  Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>

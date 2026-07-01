@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 055 · Production planning — the production sheet &amp; ingredient prep list</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p3 { background: #efe6f6; color: #5a2784; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 055</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p3">Priority: P3</span>
+  <span class="meta-tag">Domain: Commerce / Production / Planning</span>
+  <h1>Production planning — the production sheet &amp; ingredient prep list</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    The two artefacts a food-production operations manager opens each morning: the <strong>aggregated
+    production sheet</strong> ("this week: 40 portions jollof, 30 portions steak") and the <strong>ingredient
+    prep list</strong> ("10&nbsp;kg rice, 5&nbsp;kg tomato…"). This is a pure <strong>read /
+    aggregation</strong> spec — it adds <em>no new persisted entity</em> in v1. The production sheet
+    aggregates <code>ProductPurchase</code> order demand by variant over a window; the prep list is that
+    sheet exploded through the recipes defined in the keystone
+    <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> via its
+    <code>IRecipeService.ExplodeManyAsync</code>. Everything lives in <code>Aonik.Commerce</code> and reads
+    orders through the <code>SharedKernel</code> Ordering contract — never <code>Aonik.Finance</code>.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#family">Place in the family</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#layout">Target module layout</a></li>
+    <li><a href="#domain-model">Domain model (contracts, no entity)</a></li>
+    <li><a href="#demand">Demand aggregation (the production sheet)</a></li>
+    <li><a href="#explosion">BOM explosion (the prep list)</a></li>
+    <li><a href="#netting">Netting against stock — the shortfall</a></li>
+    <li><a href="#window">Defining a window</a></li>
+    <li><a href="#agent">Agent &amp; tools</a></li>
+    <li><a href="#dbcontext">CommerceDbContext &amp; migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  The keystone <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> made a finished product describable
+  as a bill of materials, and named <em>this</em> spec — 055 — as the primary consumer of its
+  <code>ExplodeManyAsync</code> primitive (050 §11). Spec&nbsp;050's day-in-the-life opens with the operations
+  manager reviewing incoming orders, reading an <strong>aggregated production sheet</strong> (40 portions
+  jollof, 30 portions steak), then consulting an <strong>ingredient prep list</strong> (10&nbsp;kg rice,
+  5&nbsp;kg tomato…). This spec delivers exactly those two views — and nothing else.
+</p>
+
+<p>
+  Both are <strong>projections computed on read</strong>, not stored records:
+</p>
+<ul>
+  <li><strong>Production sheet</strong> — for a date window, per-<code>ProductVariant</code> demand in portion
+      counts, aggregated from <code>ProductPurchase</code> orders read through the
+      <code>SharedKernel.Abstractions.Ordering</code> read contract (Commerce reads the orders <em>it</em>
+      created via the spine — never through a Finance reference).</li>
+  <li><strong>Prep list</strong> — the production sheet fed into
+      <code>IRecipeService.ExplodeManyAsync</code>, yielding per-<code>Ingredient</code> required quantity in
+      each ingredient's base unit; <em>optionally</em> netted against <em>available</em> stock
+      (<code>OnHand&nbsp;−&nbsp;Reserved</code>) from
+      <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> to add a shortfall column and
+      a suggested reorder quantity.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  An operator (or the <code>commerce-agent</code>) asks for this week's production and gets back
+  "40&nbsp;jollof, 30&nbsp;steak", and the prep list "10&nbsp;kg rice, 5&nbsp;kg tomato, …" — the exact
+  numbers from Spec&nbsp;050's verification, now driven by real in-window orders. A variant with no active
+  recipe shows up as a <em>diagnostic line</em>, not a silent under-count. <code>dotnet build Aonik.sln</code>
+  stays green with <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
+  and <strong>no new migration</strong>; <code>dotnet test Aonik.sln</code> stays green with aggregation +
+  explosion + netting unit tests.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  Spec&nbsp;050 framed every operations-manager artefact as a projection of one primitive — a finished good is
+  made of raw materials in known quantities — and called out the ordering of those projections: <em>the
+  production sheet is order demand aggregated by product; the prep list is that demand exploded through
+  recipes.</em> Those two sentences <em>are</em> this spec. 050 built the recipe and the explosion algorithm
+  deliberately ahead of their consumers so this planning slice could be a thin read layer over data that
+  already exists.
+</p>
+<p>
+  Nothing new is persisted because nothing needs to be: the demand already lives in the
+  <code>ProductPurchase</code> orders the storefront created on the
+  <a href="041.unified-order-spine-ordering-layer.html">Order spine</a> (Spec&nbsp;042 / Spec&nbsp;041), and the
+  translation from portions to ingredients already lives in <code>IRecipeService</code>. Planning is the act of
+  reading those two together over a chosen window. Persisting a <em>snapshot</em> of that read (for
+  reproducibility, or to freeze a plan a buyer acted on) is a real want, but it is a follow-up
+  (<a href="#open">Open</a>) — v1 recomputes on demand.
+</p>
+<p>
+  Scope discipline, per the family brief: build the thin planning view this persona needs — a production sheet
+  and a prep list for a date range — not a forecasting engine, an MRP time-phased plan, or a scheduling
+  board. Forecast demand (vs. actual-order demand), named/rolling windows, and excluding demand already made
+  are noted as open extensions, not built.
+</p>
+
+<h2 id="family">3. Place in the family</h2>
+<p>
+  This is the sixth spec of the eight-spec maker-operations family, each sized at roughly one
+  Spec&nbsp;042 phase-card (≤&nbsp;~8 story points). Spec&nbsp;050 is the keystone every spec references; 055
+  is the primary consumer of its explosion primitive and the direct input to production orders in 056.
+</p>
+<table>
+  <thead><tr><th>#</th><th>Spec</th><th>Delivers</th><th>Relation to 055</th></tr></thead>
+  <tbody>
+    <tr><td><strong>050</strong></td><td><a href="050.ingredient-recipe-bom.html">Ingredient master + Recipe/BOM</a></td><td>What a product is made of; <code>ExplodeManyAsync</code>.</td><td><strong>Depends on</strong> — the prep list <em>is</em> its explosion.</td></tr>
+    <tr><td>052</td><td><a href="052.raw-material-inventory-reorder-alerts.html">Raw-material inventory + reorder</a></td><td>On-hand raw material; reorder points.</td><td><strong>Depends on (optional)</strong> — supplies the shortfall column.</td></tr>
+    <tr><td><strong>055</strong></td><td><strong>Production planning: sheet + prep list</strong> (this spec)</td><td>Aggregated demand → exploded ingredient requirements.</td><td>—</td></tr>
+    <tr><td>056</td><td><a href="056.production-orders-kitchen-sheet.html">Production/work orders + kitchen sheet</a></td><td>A production run that consumes ingredient stock.</td><td><strong>Referenced by</strong> — a production order is built from a sheet.</td></tr>
+  </tbody>
+</table>
+<p>
+  The full family: <a href="050.ingredient-recipe-bom.html">050</a>,
+  <a href="051.ingredient-costing-standard-cost.html">051</a>,
+  <a href="052.raw-material-inventory-reorder-alerts.html">052</a>,
+  <a href="053.suppliers-and-purchase-orders.html">053</a>,
+  <a href="054.goods-receipt-stock-and-cost.html">054</a>, 055,
+  <a href="056.production-orders-kitchen-sheet.html">056</a>,
+  <a href="057.margin-and-profit-report.html">057</a>.
+</p>
+
+<h2 id="reuse-vs-build">4. Reuse vs. build</h2>
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Order demand</td><td><span class="tag reuse">reuse</span></td><td>Read <code>ProductPurchase</code> orders through <code>SharedKernel.Abstractions.Ordering</code> read contracts / order projections — the spine Commerce already writes to (Spec&nbsp;041); no Finance reference.</td></tr>
+    <tr><td>Portions → ingredients</td><td><span class="tag reuse">reuse</span></td><td><code>IRecipeService.ExplodeManyAsync</code> from <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> §11 — the prep list is a caller of this, unchanged.</td></tr>
+    <tr><td>On-hand stock &amp; reorder point</td><td><span class="tag reuse">reuse</span></td><td><code>IInventoryService</code> / <code>InventoryLevel</code> from <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> (optional netting); if 052 is absent, the shortfall column is simply omitted.</td></tr>
+    <tr><td>No-recipe diagnostic</td><td><span class="tag reuse">reuse</span></td><td>Explosion already flags variants with no active recipe (050 §11 / R5); 055 surfaces the flag rather than under-counting.</td></tr>
+    <tr><td>Agent + approval + audit rails</td><td><span class="tag reuse">reuse</span></td><td><code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
+    <tr><td>Production planning service</td><td><span class="tag new">build</span></td><td><code>IProductionPlanningService</code> — <code>GetProductionSheetAsync(window)</code> + <code>GetPrepListAsync(window)</code>, returning DTOs.</td></tr>
+    <tr><td>Planning read endpoints + tools</td><td><span class="tag new">build</span></td><td>Two admin GET endpoints; two direct commerce-agent read tools.</td></tr>
+    <tr><td>Persisted plan snapshot; forecast; window entity</td><td><span class="tag existing">later</span></td><td>Deliberately out of this spec — see <a href="#open">Open</a>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">5. Scope (in / out)</h2>
+<h3>In scope</h3>
+<ul>
+  <li><code>IProductionPlanningService</code> in <code>Services/Planning/</code> with two read methods —
+      <code>GetProductionSheetAsync(window)</code> and <code>GetPrepListAsync(window)</code> — returning DTOs.</li>
+  <li><strong>Production sheet:</strong> per-<code>ProductVariant</code> portion demand aggregated from
+      <code>ProductPurchase</code> orders in the window, read through the Ordering read contract.</li>
+  <li><strong>Prep list:</strong> the sheet fed through <code>IRecipeService.ExplodeManyAsync</code> →
+      per-<code>Ingredient</code> required quantity in base unit; the no-recipe diagnostic surfaced.</li>
+  <li><strong>Optional netting</strong> against Spec&nbsp;052 on-hand → a <em>shortfall</em> column and a
+      <em>suggested reorder quantity</em>; degrades gracefully to "requirement only" when 052 is not present.</li>
+  <li>An <strong>explicit, documented order-inclusion filter</strong> (which order statuses, which date field)
+      — see §9.</li>
+  <li>Two admin read endpoints (get production sheet, get prep list — each for a window) + two direct
+      commerce-agent read tools, each recording an <code>AiRun</code>.</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+  <li><strong>Any new persisted entity or migration.</strong> This is a pure read/aggregation spec; a
+      persisted plan snapshot is <a href="#open">Open</a>.</li>
+  <li><strong>Forecast demand.</strong> v1 plans from <em>actual</em> in-window orders only; predictive demand
+      is <a href="#open">Open</a>.</li>
+  <li><strong>Named / rolling production windows.</strong> v1 takes a date range; a
+      <code>ProductionWindow</code> entity is <a href="#open">Open</a>.</li>
+  <li><strong>Excluding demand already produced.</strong> v1 counts <em>all</em> in-window demand; netting
+      against completed production orders to avoid double-making is <a href="056.production-orders-kitchen-sheet.html">Spec&nbsp;056</a> / <a href="#open">Open</a>.</li>
+  <li>Raising reorder alerts or placing purchase orders — the prep list only <em>surfaces</em> a suggested
+      reorder; alerting is <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>,
+      procurement is <a href="053.suppliers-and-purchase-orders.html">Spec&nbsp;053</a>.</li>
+</ul>
+
+<h2 id="guardrails">6. Constraints &amp; guardrails</h2>
+<ul>
+  <li><strong>No reference to Finance.</strong> Orders are read through the
+      <code>SharedKernel.Abstractions.Ordering</code> read contract / order projections — Commerce reads the
+      orders it created on the shared spine, <em>not</em> via any <code>Aonik.Finance</code> reference.
+      <code>Aonik.Commerce</code> still references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
+      (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
+  <li><strong>No new schema.</strong> No entity, no <code>DbSet</code>, no migration. Both artefacts are
+      computed on read from existing data (order projections + recipes + optional inventory).</li>
+  <li><strong>Explicit inclusion filter.</strong> Which order statuses count and which date field defines
+      "in the window" is documented and centralised (§9), never left implicit — this is the spec's chief
+      correctness risk.</li>
+  <li><strong>Explosion is reused, not reimplemented.</strong> The prep list calls
+      <code>IRecipeService.ExplodeManyAsync</code> (050 §11); 055 owns aggregation and presentation, not BOM
+      math.</li>
+  <li><strong>Netting is optional and non-blocking.</strong> 055 must ship <em>before or without</em>
+      Spec&nbsp;052: absent an on-hand source, the prep list returns pure requirements with no shortfall
+      column.</li>
+  <li><strong>Agents propose; systems execute.</strong> Both planning tools are <strong>reads</strong> —
+      direct execution, no mutation, no approval gate — and every invocation records an <code>AiRun</code>.</li>
+</ul>
+
+<h2 id="layout">7. Target module layout</h2>
+<div class="ascii-diagram">src/Aonik.Commerce/
+├── Services/
+│   └── Planning/    IProductionPlanningService                # NEW (sheet + prep list; read-only)
+├── Endpoints/Admin/
+│   └── Planning/    GetProductionSheet, GetPrepList           # NEW (two GET endpoints, windowed)
+├── Agents/Tools/    CommerceAgentTools (+ production-sheet / prep-list read tools)   # EXTEND
+└── Contracts/       ProductionSheet, ProductionSheetLine,     # EXTEND (DTOs only — no entity)
+                     PrepList, PrepListLine, ProductionWindow(range)
+
+# No Entities/*, no Persistence/Configurations/*, no DbSet, no migration — pure read/aggregation.</div>
+
+<h2 id="domain-model">8. Domain model (contracts, no entity)</h2>
+<p>
+  <strong>There is no new persisted entity in v1</strong> — the only additions are read-model DTOs. A
+  <code>window</code> is a plain date range (a named/rolling <code>ProductionWindow</code> entity is
+  <a href="#open">Open</a>).
+</p>
+<pre><code>// No entity, no DbSet, no migration. Read-model DTOs only.
+
+record ProductionWindow  ( DateOnly FromDate, DateOnly ToDate );   // v1 = a date range, not persisted
+
+record ProductionSheet   ( ProductionWindow Window,
+                           IReadOnlyList&lt;ProductionSheetLine&gt; Lines );
+record ProductionSheetLine( Guid ProductVariantId, string VariantName,
+                           decimal PortionsDemanded, int OrderCount );
+
+record PrepList          ( ProductionWindow Window,
+                           IReadOnlyList&lt;PrepListLine&gt; Lines,
+                           IReadOnlyList&lt;Guid&gt; VariantsWithoutRecipe );   // no-recipe diagnostic (050 §11)
+record PrepListLine      ( Guid IngredientId, string IngredientName, string BaseUnit,
+                           decimal RequiredQuantity,
+                           decimal? Available,       // Spec 052 Available = OnHand − Reserved; null unless 052 present
+                           decimal? Shortfall,       // max(Required − Available, 0), null if Available null
+                           decimal? SuggestedReorderQuantity );  // from 052 reorder policy, else null</code></pre>
+<pre><code>interface IProductionPlanningService {
+  Task&lt;ProductionSheet&gt; GetProductionSheetAsync(ProductionWindow window, CancellationToken ct = default);
+  Task&lt;PrepList&gt;        GetPrepListAsync(ProductionWindow window, CancellationToken ct = default);
+}</code></pre>
+<p>
+  <code>GetPrepListAsync</code> is defined as <code>GetProductionSheetAsync</code> composed with
+  <code>ExplodeManyAsync</code> composed with optional netting — it never re-queries orders differently or
+  re-implements explosion. When Spec&nbsp;052 is unavailable, <code>Available</code>/<code>Shortfall</code>/<code>SuggestedReorderQuantity</code>
+  are left <code>null</code> and the prep list is a pure requirements list.
+</p>
+
+<h2 id="demand">9. Demand aggregation (the production sheet)</h2>
+<p>
+  The production sheet answers "what must the kitchen make this window, and how many portions of each?". It is
+  built entirely from orders read via the Ordering read contract — Commerce reads the
+  <code>ProductPurchase</code> orders <em>it itself</em> created on the shared spine (Spec&nbsp;041), with
+  <strong>no <code>Aonik.Finance</code> reference</strong>.
+</p>
+<div class="ascii-diagram">GetProductionSheetAsync(window)
+  → read ProductPurchase orders via SharedKernel.Abstractions.Ordering read contract
+      WHERE order-inclusion filter holds for `window`      (see the explicit filter below)
+  → for each order line: portions = OrderItem.Quantity, variant = soft-ref ProductId
+  → group by ProductVariantId, sum portions, count distinct orders
+  → return ProductionSheet { window, [ {variant, portionsDemanded, orderCount} ] }</div>
+<p>
+  The single most important design decision here is the <strong>order-inclusion filter</strong> — which
+  orders count, and by which date. It is made <strong>explicit and centralised</strong> so it can be reasoned
+  about and tested, and so §11 and Spec&nbsp;056 share one definition:
+</p>
+<table>
+  <thead><tr><th>Filter dimension</th><th>v1 rule</th><th>Rationale</th></tr></thead>
+  <tbody>
+    <tr><td>Order type</td><td><code>OrderType == "ProductPurchase"</code> only</td><td>Only sell-side product demand drives production; purchase orders (Spec&nbsp;053) and other order types are excluded.</td></tr>
+    <tr><td>Status</td><td>Orders that are <strong>funded/confirmed and not cancelled</strong> (paid or committed-to-fulfil) — <em>not</em> abandoned carts or drafts</td><td>Plan against real committed demand, not speculative baskets. The exact status set is read from the Ordering status vocabulary and documented in one place.</td></tr>
+    <tr><td>Date field</td><td>The order <strong>creation date</strong> (<code>Order.CreatedAt</code>) must fall in <code>[FromDate, ToDate]</code></td><td>The Order spine exposes no product fulfilment/needed-by date on <code>Order</code> or <code>OrderFulfilmentRef</code>, and this spec adds no schema; v1 filters on <code>CreatedAt</code>, which is the only demand-date field available. A requested needed-by date is an additive spine field — see <a href="#open">Open</a>.</td></tr>
+    <tr><td>Quantity</td><td><code>OrderItem.Quantity</code> = portions for that variant line</td><td>A <code>ProductPurchase</code> line already carries retail quantity (Spec&nbsp;041 line shape); one unit sold = one portion demanded.</td></tr>
+  </tbody>
+</table>
+<p>
+  This filter is the answer to the "which orders count" risk (§18): it is documented, lives in one method, and
+  is covered by tests that assert a cancelled order, a draft cart, and an out-of-window order are all excluded.
+</p>
+
+<h2 id="explosion">10. BOM explosion (the prep list)</h2>
+<p>
+  The prep list is the production sheet run through the Spec&nbsp;050 explosion primitive — this spec is the
+  motivating consumer 050 §11 was written for. It does not re-derive anything; it hands the sheet's
+  <code>{variantId, portions}</code> pairs straight to <code>ExplodeManyAsync</code>:
+</p>
+<div class="ascii-diagram">GetPrepListAsync(window)
+  → sheet = GetProductionSheetAsync(window)                              // §9
+  → bom = IRecipeService.ExplodeManyAsync(                               // Spec 050 §11
+             sheet.Lines.Select(l =&gt; (l.ProductVariantId, l.PortionsDemanded)) )
+       // ExplodeManyAsync: explode each variant's active Recipe, scale by portions / YieldQuantity,
+       //                   then SUM RequiredQuantity per IngredientId  → the merged bill of materials
+  → (optional) net each ingredient line vs Available (OnHand − Reserved) from Spec 052   // §11
+  → return PrepList {
+        window,
+        Lines = bom lines → { ingredient, baseUnit, requiredQuantity, available?, shortfall?, reorder? },
+        VariantsWithoutRecipe = bom.diagnostics    // variants 050 flagged as having no active recipe
+    }</div>
+<p>
+  Because <code>ExplodeManyAsync</code> already sums per <code>IngredientId</code> across variants (050 §11),
+  "40 jollof + 30 steak" collapses to a single merged prep list where rice from jollof and rice from steak add
+  into one <code>10&nbsp;kg</code> line. The <strong>no-recipe diagnostic</strong> from 050 (R5 — a variant with
+  no active recipe explodes to an empty bill with a flag) is surfaced verbatim as
+  <code>VariantsWithoutRecipe</code>, so the operator sees "steak has no recipe defined" rather than a prep
+  list that quietly under-counts.
+</p>
+
+<h2 id="netting">11. Netting against stock — the shortfall (Spec 052)</h2>
+<p>
+  A prep list of pure requirements ("you need 10&nbsp;kg rice") is useful; a prep list that also says "you
+  have 2&nbsp;kg <em>available</em>, so you're <em>short</em> 8&nbsp;kg — reorder a 25&nbsp;kg sack" is what the
+  operations manager actually acts on. That netting is <strong>optional</strong> and layered on top of the
+  requirement, drawing <strong>available</strong> stock (not raw on-hand) from
+  <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>:
+</p>
+<pre><code>foreach ingredient line in the exploded prep list:
+    Available = Spec 052 Available = OnHand − Reserved              // NEVER raw OnHand; null if 052 absent
+    Shortfall = Available is null ? null : max(RequiredQuantity − Available, 0)
+    SuggestedReorderQuantity =
+        (Shortfall &gt; 0 &amp;&amp; ReorderQuantity set)                       // 052 reorder policy
+            ? round-up(Shortfall to a ReorderQuantity multiple)
+            : Shortfall                                              // else just cover the gap</code></pre>
+<p>
+  The shortfall nets against Spec&nbsp;052's <strong><code>Available</code> (= <code>OnHand&nbsp;−&nbsp;Reserved</code>)</strong>,
+  never raw <code>OnHand</code>, so the prep list never promises stock already held for another flow (production
+  holds and the like). Concretely: 10&nbsp;kg on hand, 8&nbsp;kg reserved, 5&nbsp;kg required nets against
+  2&nbsp;kg available and reports a 3&nbsp;kg shortfall — not a false "in stock" that netting raw on-hand would
+  give.
+</p>
+<p>
+  Netting is deliberately kept behind a capability check so <strong>055 can ship before Spec&nbsp;052</strong>:
+  when no on-hand source is registered, <code>OnHand</code>, <code>Shortfall</code>, and
+  <code>SuggestedReorderQuantity</code> stay <code>null</code> and the prep list is a plain requirements list.
+  The suggested reorder is only a <em>suggestion</em> surfaced on a read — 055 raises no alert and places no
+  purchase order; that is Spec&nbsp;052 (alerts) and Spec&nbsp;053 (procurement).
+</p>
+
+<h2 id="window">12. Defining a window</h2>
+<p>
+  For v1 a <code>window</code> is simply a <code>ProductionWindow(FromDate, ToDate)</code> — a closed date
+  range passed on the request. There is no persisted, named, or rolling window; the caller supplies "this
+  week", "tomorrow", or any explicit range, and the service applies the §9 inclusion filter against it. The
+  same window flows unchanged into both the production sheet and the prep list so the two are always
+  consistent for a given call.
+</p>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Named / rolling windows.</strong> A persisted <code>ProductionWindow</code> entity ("Mon–Fri
+  kitchen week", a rolling next-7-days) with its own identity, so a plan can be referenced and re-opened.
+  v1 takes an ad-hoc date range; the DTO is shaped so a persisted window can supply the same
+  <code>FromDate</code>/<code>ToDate</code> later without changing callers.
+</div>
+
+<h2 id="agent">13. Agent &amp; tools</h2>
+<p>
+  The existing <code>commerce-agent</code> gains two <strong>read</strong> tools, classified by
+  <code>CommerceToolApprovalManifest</code> and wrapped by the Spec&nbsp;032 gate. Both execute directly (no
+  approval), tenant-scoped from context, and each records an <code>AiRun</code>:
+</p>
+<table>
+  <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>commerce_get_production_sheet</code></td><td><span class="tag read">read</span></td><td>Returns the aggregated per-variant portion demand for a window ("40 jollof, 30 steak").</td></tr>
+    <tr><td><code>commerce_get_prep_list</code></td><td><span class="tag read">read</span></td><td>Returns the exploded per-ingredient requirement for a window, with the shortfall column when Spec&nbsp;052 is present and the no-recipe diagnostic always.</td></tr>
+  </tbody>
+</table>
+<p>
+  These join the family's read set (<code>commerce_list_ingredients</code>, <code>commerce_get_recipe</code>,
+  <code>commerce_check_ingredient_stock</code>, <code>commerce_list_low_stock</code>, …). No new
+  <strong>medium</strong> or <strong>high</strong> tool is introduced — planning is read-only; the mutations it
+  <em>informs</em> (reorder, create purchase order, create production order) live in Specs&nbsp;052/053/056.
+</p>
+
+<h2 id="dbcontext">14. CommerceDbContext &amp; migrations</h2>
+<div class="callout">
+  <span class="callout-label">No migration</span>
+  <strong>This spec adds no schema.</strong> It defines no entity and no <code>DbSet</code>, so there is
+  <strong>no EF-CLI migration</strong> against <code>AonikDbContext</code> and no change to
+  <code>CommerceDbContext</code>. Both artefacts are computed on read from existing data — order projections
+  (via the Ordering read contract), recipes (Spec&nbsp;050), and optional inventory (Spec&nbsp;052). A
+  persisted plan snapshot — which <em>would</em> introduce a table and a migration — is a follow-up under
+  <a href="#open">Open</a>.
+</div>
+<p>
+  The only performance-relevant note: the production-sheet query is <strong>period-bounded</strong> (it filters
+  orders to the window and to <code>ProductPurchase</code>), and relies on the Ordering spine's existing
+  indexes on the order date field and type — see the aggregation-performance risk (§18). No index is added by
+  this spec; if one is needed it belongs to the Ordering/Order-spine schema, not to Commerce.
+</p>
+
+<h2 id="phases">15. Phased rollout</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Production sheet (demand aggregation)</h4>
+  <div class="phase-summary">Per-variant portion demand over a window.</div>
+  <ul>
+    <li><code>IProductionPlanningService.GetProductionSheetAsync(window)</code> reading
+        <code>ProductPurchase</code> orders through the <code>SharedKernel.Abstractions.Ordering</code> read
+        contract, applying the explicit §9 inclusion filter (type/status/date-field), grouping by
+        <code>ProductVariantId</code>; <code>ProductionSheet</code>/<code>Line</code> DTOs; a
+        <code>GET</code> admin endpoint; unit tests for the filter (cancelled/draft/out-of-window excluded).</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Prep list (BOM explosion)</h4>
+  <div class="phase-summary">Explode the sheet through recipes; surface the no-recipe diagnostic.</div>
+  <ul>
+    <li><code>GetPrepListAsync(window)</code> = sheet → <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050
+        §11) → merged per-<code>Ingredient</code> requirement; <code>PrepList</code>/<code>Line</code> DTOs
+        including <code>VariantsWithoutRecipe</code>; a <code>GET</code> admin endpoint; unit tests for
+        multi-variant merge and the no-recipe diagnostic.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Optional netting + agent tools</h4>
+  <div class="phase-summary">Shortfall against available stock; the agentic surface.</div>
+  <ul>
+    <li>Optional netting against Spec&nbsp;052 on-hand → <code>Shortfall</code> +
+        <code>SuggestedReorderQuantity</code> (null when 052 absent); the two direct read tools
+        (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>) added to
+        <code>CommerceAgentTools</code>, classified in <code>CommerceToolApprovalManifest</code>, routed through
+        <code>IToolApprovalGate.GateAll</code>; each records an <code>AiRun</code>.</li>
+  </ul>
+</div>
+
+<h2 id="requirements">16. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td><code>GetProductionSheetAsync(window)</code> returns per-<code>ProductVariant</code> portion demand aggregated from <code>ProductPurchase</code> orders in the window, read through the <code>SharedKernel.Abstractions.Ordering</code> read contract (no <code>Aonik.Finance</code> reference), tenant-scoped.</td></tr>
+    <tr><td>R2</td><td>The order-inclusion filter (order type = <code>ProductPurchase</code>; funded/confirmed &amp; not cancelled; order creation date <code>Order.CreatedAt</code> within <code>[FromDate, ToDate]</code> — the spine exposes no needed-by date and this spec adds no schema) is explicit, centralised in one place, and documented (§9).</td></tr>
+    <tr><td>R3</td><td><code>GetPrepListAsync(window)</code> explodes the production sheet through active recipes via <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050 §11), returning per-<code>Ingredient</code> required quantity in base unit, merged across variants.</td></tr>
+    <tr><td>R4</td><td>Variants with no active recipe are surfaced as a diagnostic (<code>VariantsWithoutRecipe</code>, from 050), never silently under-counted.</td></tr>
+    <tr><td>R5</td><td>Optional netting computes <code>Shortfall</code> against Spec&nbsp;052's <code>Available</code> (<code>OnHand&nbsp;−&nbsp;Reserved</code>), never raw <code>OnHand</code>, and adds a <code>SuggestedReorderQuantity</code> per ingredient; when no stock source is present those fields are <code>null</code> and the prep list is a pure requirements list (055 ships before/without 052).</td></tr>
+    <tr><td>R6</td><td>No new persisted entity, <code>DbSet</code>, or migration is introduced; both artefacts are computed on read.</td></tr>
+    <tr><td>R7</td><td><code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference; it references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>.</td></tr>
+    <tr><td>R8</td><td>Two agent read tools (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>) execute directly (no approval) and each records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">17. Tasks</h2>
+<ol>
+  <li>Add <code>IProductionPlanningService</code> + implementation in <code>Services/Planning/</code>; define
+      <code>ProductionWindow</code>, <code>ProductionSheet(Line)</code>, <code>PrepList(Line)</code> DTOs in
+      <code>Contracts/</code> (no entity).</li>
+  <li>Implement <code>GetProductionSheetAsync</code>: read <code>ProductPurchase</code> orders via the
+      Ordering read contract, apply the §9 inclusion filter in one centralised predicate, group + sum by
+      variant.</li>
+  <li>Implement <code>GetPrepListAsync</code>: compose the sheet with
+      <code>IRecipeService.ExplodeManyAsync</code>; carry through <code>VariantsWithoutRecipe</code>; layer
+      optional Spec&nbsp;052 netting behind a capability check.</li>
+  <li>Add two admin <code>GET</code> endpoints (get production sheet, get prep list — each windowed) using
+      FastEndpoints; wire two direct read tools into <code>CommerceAgentTools</code> +
+      <code>CommerceToolApprovalManifest</code>, routed through the gate.</li>
+  <li>Tests: unit (inclusion-filter exclusions, multi-variant merge equals Spec&nbsp;050's 10&nbsp;kg
+      rice / 5&nbsp;kg tomato, no-recipe diagnostic, netting shortfall with and without a 052 on-hand source)
+      + an architecture test still asserting no Commerce↔Finance reference. No migration to review.</li>
+</ol>
+
+<h2 id="verification">18. Verification</h2>
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no
+      <code>Aonik.Finance</code> reference; <code>dotnet ef migrations list</code> shows <strong>no new
+      migration</strong> from this spec.</li>
+  <li><strong>Production sheet:</strong> seed <code>ProductPurchase</code> orders for 40 portions jollof + 30
+      portions steak within the window (plus a cancelled order, a draft cart, and an out-of-window order that
+      must <em>not</em> count); <code>GetProductionSheetAsync</code> returns exactly 40 jollof / 30 steak.</li>
+  <li><strong>Prep list:</strong> with the Spec&nbsp;050 recipes (jollof yield 4 ⇒ 1&nbsp;kg rice, 0.5&nbsp;kg
+      tomato; a steak recipe), <code>GetPrepListAsync</code> returns 10&nbsp;kg rice, 5&nbsp;kg tomato plus the
+      steak components — matching Spec&nbsp;050's day-in-the-life prep list.</li>
+  <li><strong>No-recipe diagnostic:</strong> a variant in the sheet with no active recipe appears in
+      <code>VariantsWithoutRecipe</code> and does not silently zero the prep list.</li>
+  <li><strong>Netting:</strong> with Spec&nbsp;052 reporting 10&nbsp;kg rice on hand but 8&nbsp;kg reserved
+      (<code>Available = 2&nbsp;kg</code>) against a 5&nbsp;kg requirement, the rice line shows
+      <code>Shortfall = 3&nbsp;kg</code> and a suggested reorder — not the false "in stock" that netting raw
+      on-hand would give; with no stock source registered, the same call returns <code>Shortfall = null</code>
+      (pure requirements).</li>
+  <li><strong>Agent:</strong> <code>commerce_get_production_sheet</code> and <code>commerce_get_prep_list</code>
+      execute directly (no approval prompt) and each records an <code>AiRun</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user
+      providers).</li>
+</ul>
+
+<h2 id="risks">19. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Ambiguity over <em>which orders count</em> (status / date field / window boundaries) mis-states demand</td><td>Medium</td><td>The inclusion filter is <strong>explicit, centralised, and documented</strong> (§9): one predicate for order type, status set, and date-field-with-fallback; tests assert cancelled / draft / out-of-window orders are excluded.</td></tr>
+    <tr><td>Aggregation performance over many orders</td><td>Medium</td><td>The query is <strong>period-bounded</strong> (filtered to the window and to <code>ProductPurchase</code>) and rides the Order-spine's existing date/type indexes; no unbounded scan. Heavy windows are a reporting-store concern noted as future, not solved here.</td></tr>
+    <tr><td>Double-counting demand that has already been produced</td><td>Medium</td><td>v1 deliberately counts <strong>all in-window demand</strong> and documents this; excluding demand already covered by completed production orders is <a href="056.production-orders-kitchen-sheet.html">Spec&nbsp;056</a> / <a href="#open">Open</a>, not silently assumed.</td></tr>
+    <tr><td>Silent under-count when a sold variant has no recipe</td><td>Medium</td><td>The Spec&nbsp;050 no-recipe diagnostic is surfaced as <code>VariantsWithoutRecipe</code>; the operator sees the gap explicitly.</td></tr>
+    <tr><td>Netting coupled too tightly to Spec&nbsp;052, blocking 055's release</td><td>Low</td><td>Netting sits behind a capability check; with no on-hand source the prep list returns pure requirements — 055 ships before/without 052.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">20. Decisions baked in</h2>
+<ul>
+  <li><strong>055 is a read/aggregation spec</strong> — no new entity, no <code>DbSet</code>, no migration; both artefacts are computed on read.</li>
+  <li><strong>The production sheet aggregates <code>ProductPurchase</code> demand by variant</strong> over a date-range window, read through the Ordering read contract — never via a Finance reference.</li>
+  <li><strong>The prep list <em>is</em> the exploded sheet</strong> — it calls Spec&nbsp;050's <code>ExplodeManyAsync</code> (055 is that primitive's primary consumer) and never re-implements BOM math.</li>
+  <li><strong>Netting against available stock is optional</strong> — a shortfall (vs Spec&nbsp;052's <code>Available = OnHand − Reserved</code>, never raw on-hand) + suggested reorder when Spec&nbsp;052 is present, pure requirements otherwise.</li>
+  <li><strong>The no-recipe diagnostic is surfaced, not swallowed</strong> — variants without a recipe are reported, never under-counted.</li>
+  <li><strong>A window is a plain date range in v1</strong>; named/rolling windows, forecast demand, and a persisted snapshot are Open.</li>
+</ul>
+
+<h2 id="open">21. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Persisted plan snapshot.</strong> Storing a computed production sheet / prep list (with a table and a
+  migration) so a plan is reproducible and can be referenced after the underlying orders change. v1 recomputes
+  on read; the DTOs are the natural shape a snapshot would persist.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Named / rolling production windows.</strong> A <code>ProductionWindow</code> entity with its own
+  identity (a saved "kitchen week", a rolling next-N-days) rather than an ad-hoc date range on the request.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Requested / needed-by fulfilment date.</strong> v1 filters the window on order creation date
+  (<code>Order.CreatedAt</code>) because the Order spine carries no product fulfilment/needed-by date on
+  <code>Order</code> or <code>OrderFulfilmentRef</code>. Planning by <em>when a thing is needed</em> — so an
+  order placed today but due tomorrow lands in tomorrow's sheet — requires an <strong>additive field on the
+  Order spine</strong> (a small <code>OrderFulfilmentRef</code>/<code>Order</code> column). That is a
+  follow-up, and adopting it would change this spec's <em>no schema change</em> claim; the §9 filter is
+  centralised so only its date predicate would move.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Forecast demand vs. actual-order demand.</strong> Planning from predicted demand (history / seasonality)
+  in addition to confirmed in-window orders. v1 plans strictly from actual <code>ProductPurchase</code> orders.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Excluding demand already produced.</strong> Netting the production sheet against completed
+  <a href="056.production-orders-kitchen-sheet.html">Spec&nbsp;056</a> production orders so already-made portions
+  are not re-planned. v1 counts all in-window demand; this requires the production-order link that 056 introduces.
+</div>
+
+<h2 id="refs">22. References</h2>
+<ul>
+  <li><a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> — the maker-operations keystone; source of <code>Recipe</code>, <code>Ingredient</code>, and the <code>IRecipeService.ExplodeManyAsync</code> primitive (§11) this spec is the primary consumer of.</li>
+  <li><a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> — raw-material inventory + reorder points; supplies the optional on-hand / shortfall netting.</li>
+  <li><a href="056.production-orders-kitchen-sheet.html">Spec&nbsp;056</a> — production/work orders + kitchen sheet; a production order is built from a production sheet, and its completion is how "already-produced" demand is later excluded.</li>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine and its <code>ProductPurchase</code> line shape; orders are read here through the <code>SharedKernel.Abstractions.Ordering</code> read contract.</li>
+  <li><a href="042.commerce-retail-module.html">Spec&nbsp;042</a> — the retail storefront whose <code>ProductPurchase</code> orders and <code>ProductVariant</code> catalog supply the demand aggregated here.</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (grow-in-place, sibling-reference rule; no Finance reference).</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> — anemic entities (here, DTO-only read models).</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> — agent mutation governance; the planning tools are reads, gated for classification and audited via <code>AiRun</code>.</li>
+  <li>Maker-operations family: <a href="050.ingredient-recipe-bom.html">050</a>, <a href="051.ingredient-costing-standard-cost.html">051</a>, <a href="052.raw-material-inventory-reorder-alerts.html">052</a>, <a href="053.suppliers-and-purchase-orders.html">053</a>, <a href="054.goods-receipt-stock-and-cost.html">054</a>, 055, <a href="056.production-orders-kitchen-sheet.html">056</a>, <a href="057.margin-and-profit-report.html">057</a>.</li>
+</ul>
+
+<footer>
+  Spec 055 &middot; Production planning — the production sheet &amp; ingredient prep list &middot;
+  Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>
