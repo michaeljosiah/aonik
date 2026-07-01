@@ -265,7 +265,8 @@
       created via the spine — never through a Finance reference).</li>
   <li><strong>Prep list</strong> — the production sheet fed into
       <code>IRecipeService.ExplodeManyAsync</code>, yielding per-<code>Ingredient</code> required quantity in
-      each ingredient's base unit; <em>optionally</em> netted against on-hand stock from
+      each ingredient's base unit; <em>optionally</em> netted against <em>available</em> stock
+      (<code>OnHand&nbsp;−&nbsp;Reserved</code>) from
       <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> to add a shortfall column and
       a suggested reorder quantity.</li>
 </ul>
@@ -432,8 +433,8 @@ record PrepList          ( ProductionWindow Window,
                            IReadOnlyList&lt;Guid&gt; VariantsWithoutRecipe );   // no-recipe diagnostic (050 §11)
 record PrepListLine      ( Guid IngredientId, string IngredientName, string BaseUnit,
                            decimal RequiredQuantity,
-                           decimal? OnHand,          // null unless Spec 052 present
-                           decimal? Shortfall,       // max(Required − OnHand, 0), null if OnHand null
+                           decimal? Available,       // Spec 052 Available = OnHand − Reserved; null unless 052 present
+                           decimal? Shortfall,       // max(Required − Available, 0), null if Available null
                            decimal? SuggestedReorderQuantity );  // from 052 reorder policy, else null</code></pre>
 <pre><code>interface IProductionPlanningService {
   Task&lt;ProductionSheet&gt; GetProductionSheetAsync(ProductionWindow window, CancellationToken ct = default);
@@ -442,7 +443,7 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
 <p>
   <code>GetPrepListAsync</code> is defined as <code>GetProductionSheetAsync</code> composed with
   <code>ExplodeManyAsync</code> composed with optional netting — it never re-queries orders differently or
-  re-implements explosion. When Spec&nbsp;052 is unavailable, <code>OnHand</code>/<code>Shortfall</code>/<code>SuggestedReorderQuantity</code>
+  re-implements explosion. When Spec&nbsp;052 is unavailable, <code>Available</code>/<code>Shortfall</code>/<code>SuggestedReorderQuantity</code>
   are left <code>null</code> and the prep list is a pure requirements list.
 </p>
 
@@ -469,7 +470,7 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <tbody>
     <tr><td>Order type</td><td><code>OrderType == "ProductPurchase"</code> only</td><td>Only sell-side product demand drives production; purchase orders (Spec&nbsp;053) and other order types are excluded.</td></tr>
     <tr><td>Status</td><td>Orders that are <strong>funded/confirmed and not cancelled</strong> (paid or committed-to-fulfil) — <em>not</em> abandoned carts or drafts</td><td>Plan against real committed demand, not speculative baskets. The exact status set is read from the Ordering status vocabulary and documented in one place.</td></tr>
-    <tr><td>Date field</td><td>The <strong>fulfilment date</strong> when set, else the <strong>creation date</strong>, must fall in <code>[FromDate, ToDate]</code></td><td>The kitchen plans by <em>when a thing is needed</em>; fulfilment date is the demand date, with order creation as the fallback when no fulfilment date exists.</td></tr>
+    <tr><td>Date field</td><td>The order <strong>creation date</strong> (<code>Order.CreatedAt</code>) must fall in <code>[FromDate, ToDate]</code></td><td>The Order spine exposes no product fulfilment/needed-by date on <code>Order</code> or <code>OrderFulfilmentRef</code>, and this spec adds no schema; v1 filters on <code>CreatedAt</code>, which is the only demand-date field available. A requested needed-by date is an additive spine field — see <a href="#open">Open</a>.</td></tr>
     <tr><td>Quantity</td><td><code>OrderItem.Quantity</code> = portions for that variant line</td><td>A <code>ProductPurchase</code> line already carries retail quantity (Spec&nbsp;041 line shape); one unit sold = one portion demanded.</td></tr>
   </tbody>
 </table>
@@ -490,10 +491,10 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
              sheet.Lines.Select(l =&gt; (l.ProductVariantId, l.PortionsDemanded)) )
        // ExplodeManyAsync: explode each variant's active Recipe, scale by portions / YieldQuantity,
        //                   then SUM RequiredQuantity per IngredientId  → the merged bill of materials
-  → (optional) net each ingredient line vs on-hand from Spec 052        // §11
+  → (optional) net each ingredient line vs Available (OnHand − Reserved) from Spec 052   // §11
   → return PrepList {
         window,
-        Lines = bom lines → { ingredient, baseUnit, requiredQuantity, onHand?, shortfall?, reorder? },
+        Lines = bom lines → { ingredient, baseUnit, requiredQuantity, available?, shortfall?, reorder? },
         VariantsWithoutRecipe = bom.diagnostics    // variants 050 flagged as having no active recipe
     }</div>
 <p>
@@ -508,17 +509,25 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
 <h2 id="netting">11. Netting against stock — the shortfall (Spec 052)</h2>
 <p>
   A prep list of pure requirements ("you need 10&nbsp;kg rice") is useful; a prep list that also says "you
-  <em>have</em> 3&nbsp;kg, so you're <em>short</em> 7&nbsp;kg — reorder a 25&nbsp;kg sack" is what the operations
-  manager actually acts on. That netting is <strong>optional</strong> and layered on top of the requirement,
-  drawing on-hand from <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>:
+  have 2&nbsp;kg <em>available</em>, so you're <em>short</em> 8&nbsp;kg — reorder a 25&nbsp;kg sack" is what the
+  operations manager actually acts on. That netting is <strong>optional</strong> and layered on top of the
+  requirement, drawing <strong>available</strong> stock (not raw on-hand) from
+  <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>:
 </p>
 <pre><code>foreach ingredient line in the exploded prep list:
-    OnHand    = InventoryLevel.OnHand for that IngredientId          // from Spec 052; null if 052 absent
-    Shortfall = OnHand is null ? null : max(RequiredQuantity − OnHand, 0)
+    Available = Spec 052 Available = OnHand − Reserved              // NEVER raw OnHand; null if 052 absent
+    Shortfall = Available is null ? null : max(RequiredQuantity − Available, 0)
     SuggestedReorderQuantity =
         (Shortfall &gt; 0 &amp;&amp; ReorderQuantity set)                       // 052 reorder policy
             ? round-up(Shortfall to a ReorderQuantity multiple)
             : Shortfall                                              // else just cover the gap</code></pre>
+<p>
+  The shortfall nets against Spec&nbsp;052's <strong><code>Available</code> (= <code>OnHand&nbsp;−&nbsp;Reserved</code>)</strong>,
+  never raw <code>OnHand</code>, so the prep list never promises stock already held for another flow (production
+  holds and the like). Concretely: 10&nbsp;kg on hand, 8&nbsp;kg reserved, 5&nbsp;kg required nets against
+  2&nbsp;kg available and reports a 3&nbsp;kg shortfall — not a false "in stock" that netting raw on-hand would
+  give.
+</p>
 <p>
   Netting is deliberately kept behind a capability check so <strong>055 can ship before Spec&nbsp;052</strong>:
   when no on-hand source is registered, <code>OnHand</code>, <code>Shortfall</code>, and
@@ -604,7 +613,7 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
 </div>
 <div class="phase-card">
   <h4>Phase 3 — Optional netting + agent tools</h4>
-  <div class="phase-summary">Shortfall against on-hand; the agentic surface.</div>
+  <div class="phase-summary">Shortfall against available stock; the agentic surface.</div>
   <ul>
     <li>Optional netting against Spec&nbsp;052 on-hand → <code>Shortfall</code> +
         <code>SuggestedReorderQuantity</code> (null when 052 absent); the two direct read tools
@@ -619,10 +628,10 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
     <tr><td>R1</td><td><code>GetProductionSheetAsync(window)</code> returns per-<code>ProductVariant</code> portion demand aggregated from <code>ProductPurchase</code> orders in the window, read through the <code>SharedKernel.Abstractions.Ordering</code> read contract (no <code>Aonik.Finance</code> reference), tenant-scoped.</td></tr>
-    <tr><td>R2</td><td>The order-inclusion filter (order type = <code>ProductPurchase</code>; funded/confirmed &amp; not cancelled; fulfilment-date-else-creation-date within <code>[FromDate, ToDate]</code>) is explicit, centralised in one place, and documented (§9).</td></tr>
+    <tr><td>R2</td><td>The order-inclusion filter (order type = <code>ProductPurchase</code>; funded/confirmed &amp; not cancelled; order creation date <code>Order.CreatedAt</code> within <code>[FromDate, ToDate]</code> — the spine exposes no needed-by date and this spec adds no schema) is explicit, centralised in one place, and documented (§9).</td></tr>
     <tr><td>R3</td><td><code>GetPrepListAsync(window)</code> explodes the production sheet through active recipes via <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050 §11), returning per-<code>Ingredient</code> required quantity in base unit, merged across variants.</td></tr>
     <tr><td>R4</td><td>Variants with no active recipe are surfaced as a diagnostic (<code>VariantsWithoutRecipe</code>, from 050), never silently under-counted.</td></tr>
-    <tr><td>R5</td><td>Optional netting against Spec&nbsp;052 on-hand adds a <code>Shortfall</code> and a <code>SuggestedReorderQuantity</code> per ingredient; when no on-hand source is present those fields are <code>null</code> and the prep list is a pure requirements list (055 ships before/without 052).</td></tr>
+    <tr><td>R5</td><td>Optional netting computes <code>Shortfall</code> against Spec&nbsp;052's <code>Available</code> (<code>OnHand&nbsp;−&nbsp;Reserved</code>), never raw <code>OnHand</code>, and adds a <code>SuggestedReorderQuantity</code> per ingredient; when no stock source is present those fields are <code>null</code> and the prep list is a pure requirements list (055 ships before/without 052).</td></tr>
     <tr><td>R6</td><td>No new persisted entity, <code>DbSet</code>, or migration is introduced; both artefacts are computed on read.</td></tr>
     <tr><td>R7</td><td><code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference; it references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>.</td></tr>
     <tr><td>R8</td><td>Two agent read tools (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>) execute directly (no approval) and each records an <code>AiRun</code>.</td></tr>
@@ -661,9 +670,11 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
       steak components — matching Spec&nbsp;050's day-in-the-life prep list.</li>
   <li><strong>No-recipe diagnostic:</strong> a variant in the sheet with no active recipe appears in
       <code>VariantsWithoutRecipe</code> and does not silently zero the prep list.</li>
-  <li><strong>Netting:</strong> with a Spec&nbsp;052 on-hand of 3&nbsp;kg rice, the rice line shows
-      <code>Shortfall = 7&nbsp;kg</code> and a suggested reorder; with no on-hand source registered, the same
-      call returns <code>Shortfall = null</code> (pure requirements).</li>
+  <li><strong>Netting:</strong> with Spec&nbsp;052 reporting 10&nbsp;kg rice on hand but 8&nbsp;kg reserved
+      (<code>Available = 2&nbsp;kg</code>) against a 5&nbsp;kg requirement, the rice line shows
+      <code>Shortfall = 3&nbsp;kg</code> and a suggested reorder — not the false "in stock" that netting raw
+      on-hand would give; with no stock source registered, the same call returns <code>Shortfall = null</code>
+      (pure requirements).</li>
   <li><strong>Agent:</strong> <code>commerce_get_production_sheet</code> and <code>commerce_get_prep_list</code>
       execute directly (no approval prompt) and each records an <code>AiRun</code>.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user
@@ -687,7 +698,7 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <li><strong>055 is a read/aggregation spec</strong> — no new entity, no <code>DbSet</code>, no migration; both artefacts are computed on read.</li>
   <li><strong>The production sheet aggregates <code>ProductPurchase</code> demand by variant</strong> over a date-range window, read through the Ordering read contract — never via a Finance reference.</li>
   <li><strong>The prep list <em>is</em> the exploded sheet</strong> — it calls Spec&nbsp;050's <code>ExplodeManyAsync</code> (055 is that primitive's primary consumer) and never re-implements BOM math.</li>
-  <li><strong>Netting against on-hand is optional</strong> — a shortfall + suggested reorder when Spec&nbsp;052 is present, pure requirements otherwise.</li>
+  <li><strong>Netting against available stock is optional</strong> — a shortfall (vs Spec&nbsp;052's <code>Available = OnHand − Reserved</code>, never raw on-hand) + suggested reorder when Spec&nbsp;052 is present, pure requirements otherwise.</li>
   <li><strong>The no-recipe diagnostic is surfaced, not swallowed</strong> — variants without a recipe are reported, never under-counted.</li>
   <li><strong>A window is a plain date range in v1</strong>; named/rolling windows, forecast demand, and a persisted snapshot are Open.</li>
 </ul>
@@ -703,6 +714,16 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <span class="callout-label">Open</span>
   <strong>Named / rolling production windows.</strong> A <code>ProductionWindow</code> entity with its own
   identity (a saved "kitchen week", a rolling next-N-days) rather than an ad-hoc date range on the request.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Requested / needed-by fulfilment date.</strong> v1 filters the window on order creation date
+  (<code>Order.CreatedAt</code>) because the Order spine carries no product fulfilment/needed-by date on
+  <code>Order</code> or <code>OrderFulfilmentRef</code>. Planning by <em>when a thing is needed</em> — so an
+  order placed today but due tomorrow lands in tomorrow's sheet — requires an <strong>additive field on the
+  Order spine</strong> (a small <code>OrderFulfilmentRef</code>/<code>Order</code> column). That is a
+  follow-up, and adopting it would change this spec's <em>no schema change</em> claim; the §9 filter is
+  centralised so only its date predicate would move.
 </div>
 <div class="callout open">
   <span class="callout-label">Open</span>

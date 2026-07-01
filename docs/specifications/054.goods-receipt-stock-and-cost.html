@@ -298,7 +298,7 @@
     <tr><td>Purchase order to receive against</td><td><span class="tag reuse">reuse</span></td><td>The Spec&nbsp;053 <code>PurchaseOrder</code> (an <code>OrderType</code> on the Spec&nbsp;041 spine); its lines soft-reference <code>IngredientId</code>.</td></tr>
     <tr><td>Ingredient stock increment</td><td><span class="tag reuse">reuse</span></td><td>Spec&nbsp;052 <code>InventoryService</code> receive / set-on-hand raises <code>InventoryLevel.OnHand</code>.</td></tr>
     <tr><td>Cost refresh</td><td><span class="tag reuse">reuse</span></td><td>Spec&nbsp;051 effective-dated <code>IngredientCost</code> write — a new row supersedes the prior one cleanly.</td></tr>
-    <tr><td>Alert resolution</td><td><span class="tag reuse">reuse</span></td><td>Spec&nbsp;052 <code>LowStockAlert.Status</code> → <code>Resolved</code>.</td></tr>
+    <tr><td>Alert resolution</td><td><span class="tag reuse">reuse</span></td><td>Spec&nbsp;052 <code>LowStockAlert.Status</code> → <code>Resolved</code> — only once recomputed available is back above the reorder point (a short receipt leaves it active).</td></tr>
     <tr><td>PO lifecycle transition</td><td><span class="tag reuse">reuse</span></td><td>Spec&nbsp;041 <code>IOrderService.TransitionAsync</code> → <code>Received</code> (or left partially received).</td></tr>
     <tr><td>Anemic entity + tenancy + audit + migration + agent rails</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code>; EF-CLI migration on <code>AonikDbContext</code>; <code>CommerceAgentRegistration</code> + <code>CommerceToolApprovalManifest</code> + the Spec&nbsp;032 gate + <code>AiRun</code>.</td></tr>
     <tr><td>Goods receipt record</td><td><span class="tag new">build</span></td><td><code>GoodsReceipt</code> + <code>GoodsReceiptLine</code> — the delivery event, per-ingredient received quantity + optional actual cost.</td></tr>
@@ -311,9 +311,9 @@
 <h3>In scope</h3>
 <ul>
   <li><code>GoodsReceipt</code> + <code>GoodsReceiptLine</code> entities + configs + DbSets.</li>
-  <li><code>IGoodsReceiptService.ReceiveAsync(purchaseOrderId, lines, ct)</code>: increment on-hand (052), optional cost refresh (051), resolve alert(s) (052), transition PO (041).</li>
+  <li><code>IGoodsReceiptService.ReceiveAsync(purchaseOrderId, idempotencyKey, lines, ct)</code>: increment on-hand (052), optional cost refresh (051), resolve alert(s) only when recomputed available clears the reorder point (052), transition PO (041).</li>
   <li><strong>Partial receipts</strong>: receive less than ordered; the PO stays open (partially received) and can be received again until fully satisfied.</li>
-  <li><strong>Idempotency guard</strong>: a re-submitted / duplicate receipt does not double-count stock (receipt status + guard key).</li>
+  <li><strong>Idempotency guard</strong>: a client-supplied <code>IdempotencyKey</code> under a DB <code>UNIQUE</code> constraint (resolved before any mutation) plus the receipt status keeps a re-submitted / duplicate receipt from double-counting stock.</li>
   <li>Admin endpoint to receive goods against a PO; commerce-agent medium-gated <code>commerce_receive_goods</code> tool.</li>
   <li>One tool-generated migration (<code>CommerceGoodsReceipts</code>) creating <code>AnkGoodsReceipts</code> + <code>AnkGoodsReceiptLines</code>.</li>
 </ul>
@@ -331,7 +331,7 @@
   <li><strong>No reference to Finance.</strong> <code>Aonik.Commerce</code> references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>; the PO transition rides the Ordering spine, not a Finance call (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
   <li><strong>Anemic entities.</strong> <code>GoodsReceipt</code>/<code>GoodsReceiptLine</code> are <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> + <code>AuditableEntity</code> (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); all logic lives in <code>GoodsReceiptService</code> returning DTOs.</li>
   <li><strong>Single migration stream.</strong> EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code>-prefixed tables; <code>CommerceDbContext</code> is runtime scoping with no migrations; agents never hand-author migrations.</li>
-  <li><strong>Idempotent by construction.</strong> <code>ReceiveAsync</code> runs in one transaction, guarded so a duplicate submit is a no-op — stock is incremented exactly once per receipt (§8).</li>
+  <li><strong>Idempotent by construction.</strong> <code>ReceiveAsync</code> runs in one transaction keyed on a client-supplied <code>IdempotencyKey</code> (DB <code>UNIQUE</code>, resolved before any mutation), so a duplicate submit — including a post-commit retry — returns the existing receipt and stock is incremented exactly once (§8).</li>
   <li><strong>Cost is superseded, not mutated.</strong> An actual cost writes a <em>new</em> effective-dated <code>IngredientCost</code> row; the prior row (including a manually set standard cost) is retained for history (§10).</li>
   <li><strong>Agents propose; systems execute.</strong> Receiving is a <strong>medium</strong> tool — in-session confirmation, args-hash-bound — and records an <code>AiRun</code>.</li>
 </ul>
@@ -353,6 +353,7 @@
 <h2 id="domain-model">7. Domain model</h2>
 <p>All entities are anemic, <code>ITenantScoped</code>, inherit <code>AuditableEntity</code>.</p>
 <pre><code>class GoodsReceipt     { Guid Id, TenantId, PurchaseOrderId;
+                        string   IdempotencyKey;   // client-supplied; UNIQUE index (per tenant)
                         DateTime ReceivedAt;
                         string   Status;   // e.g. Draft | Posted
                         List&lt;GoodsReceiptLine&gt; Lines; }
@@ -367,8 +368,11 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
   (<code>OrderItem.ProductId</code> = <code>IngredientId</code>, per the Spec&nbsp;053 line shape).
   <code>QuantityReceived</code> is always in the ingredient's <code>BaseUnit</code> (Spec&nbsp;050);
   <code>UnitCostActual</code>, when present, is per that base unit and drives the cost refresh (§10).
-  <code>Status</code> is the idempotency lever: a receipt only applies its stock/cost/alert/PO effects when
-  it transitions to <code>Posted</code>, and the guard makes a second post a no-op.
+  <code>IdempotencyKey</code> is the idempotency lever: it is client-supplied and carries a DB <code>UNIQUE</code>
+  index, so a retried receive resolves back to the already-posted receipt (§8) rather than opening a fresh
+  one — mirroring the Order spine's <code>CreateOrderCommand.IdempotencyKey</code>. <code>Status</code> is the
+  secondary guard: a receipt only applies its stock/cost/alert/PO effects when it transitions to
+  <code>Posted</code>, and it stops the <em>same</em> persisted receipt being posted twice.
 </p>
 
 <h2 id="flow">8. The receiving flow (stock up → cost refresh → alert resolve → PO transition)</h2>
@@ -376,14 +380,18 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
   <code>ReceiveAsync</code> is the whole spec. It runs the four downstream effects in one guarded transaction,
   in this order, then posts the receipt exactly once:
 </p>
-<div class="ascii-diagram">IGoodsReceiptService.ReceiveAsync(purchaseOrderId, lines[], ct)
-  0. GUARD    load the PO (053); reject if not Submitted/PartiallyReceived; open a receipt (Draft)
-              if this receipt is already Posted → return the prior result (NO double-count)   ── idempotency
+<div class="ascii-diagram">IGoodsReceiptService.ReceiveAsync(purchaseOrderId, idempotencyKey, lines[], ct)
+  0. GUARD    load the PO (053); reject if not Submitted/PartiallyReceived
+              resolve-or-create the receipt by IdempotencyKey under a DB UNIQUE constraint    ── idempotency
+              if a receipt for this key already exists (already applied) → return it, NO re-post
+              otherwise open a fresh receipt (Draft) and continue
   1. STOCK ▲  for each line → InventoryService.Receive(IngredientId, QuantityReceived)         (052)
               raises the ingredient's InventoryLevel.OnHand
   2. COST  ↻  for each line with UnitCostActual set → write a new effective-dated IngredientCost (051)
               (EffectiveFrom = ReceivedAt); the prior cost row is superseded, not mutated
-  3. ALERT ✓  for each received ingredient → flip its Open LowStockAlert(s) → Resolved            (052)
+  3. ALERT ✓  for each received ingredient → recompute available (OnHand − Reserved) vs reorder point (052)
+                 back above threshold → flip its Open LowStockAlert(s) → Resolved
+                 still at/below (short receipt) → leave the alert active (Ordered/Open)
   4. PO    →  compute received-vs-ordered across all receipts for this PO:
                  fully satisfied  → IOrderService.TransitionAsync(po, Received)                   (041)
                  short            → leave PO PartiallyReceived (open for the next receipt)
@@ -391,9 +399,12 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
   → return { receiptId, perIngredientOnHandAfter, costRowsWritten, alertsResolved, poStatus }</div>
 <p>
   Steps 1–5 commit together: a failure in any step rolls the receipt back to <code>Draft</code> with no
-  partial stock movement. The guard at step&nbsp;0 makes the whole thing idempotent — the client can safely
-  retry, and the agent's args-hash binding (§11) plus the receipt <code>Status</code> together ensure one
-  logical receipt lands once.
+  partial stock movement. The guard at step&nbsp;0 makes the whole thing idempotent — the client-supplied
+  <code>IdempotencyKey</code> is resolved-or-created under a unique constraint <em>before</em> any stock/cost
+  mutation, so a client or agent that times out after commit and retries gets the existing receipt back rather
+  than a second application. This mirrors the Order spine, whose <code>CreateOrderCommand</code> already carries
+  an <code>IdempotencyKey</code>. The receipt <code>Status</code> guard still protects reposting the same
+  persisted receipt, and the agent's args-hash binding (§11) reinforces it.
 </p>
 
 <h2 id="partial">9. Partial receipts</h2>
@@ -453,7 +464,9 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
   <code>AnkGoodsReceiptLines</code> — are created by one EF-CLI migration against <code>AonikDbContext</code>.
   Each entity is added to both <code>CommerceDbContext</code> (runtime scoping) and <code>AonikDbContext</code>
   (canonical stream); both are tenant-scoped (none global). Configurations live in
-  <code>Persistence/Configurations/Sourcing</code> as <code>IEntityTypeConfiguration&lt;T&gt;</code> classes.
+  <code>Persistence/Configurations/Sourcing</code> as <code>IEntityTypeConfiguration&lt;T&gt;</code> classes, and
+  <code>AnkGoodsReceipts</code> carries a <code>UNIQUE</code> index on <code>IdempotencyKey</code> (per tenant)
+  backing the §8 guard.
 </p>
 <pre><code>dotnet ef migrations add CommerceGoodsReceipts --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
 
@@ -480,10 +493,10 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
     <tr><td>R1</td><td>A <code>GoodsReceipt</code> with per-ingredient <code>GoodsReceiptLine</code>s can be recorded against a Spec&nbsp;053 <code>PurchaseOrder</code>, tenant-scoped; a PO may have many receipts.</td></tr>
     <tr><td>R2</td><td><code>ReceiveAsync</code> increments each line's ingredient <code>InventoryLevel.OnHand</code> via the Spec&nbsp;052 <code>InventoryService</code>.</td></tr>
     <tr><td>R3</td><td>A line with <code>UnitCostActual</code> set writes a new effective-dated <code>IngredientCost</code> (Spec&nbsp;051, <code>EffectiveFrom = ReceivedAt</code>), superseding the prior row without mutating it; a null cost refreshes stock only.</td></tr>
-    <tr><td>R4</td><td>Receiving flips the source Spec&nbsp;052 <code>LowStockAlert</code>(s) for the received ingredients to <code>Resolved</code>.</td></tr>
+    <tr><td>R4</td><td>After applying received stock, <code>ReceiveAsync</code> recomputes available (<code>OnHand − Reserved</code>) vs the reorder point for each received ingredient and flips the source Spec&nbsp;052 <code>LowStockAlert</code>(s) to <code>Resolved</code> <strong>only</strong> when available is back above threshold; a short receipt that still leaves the ingredient at/below the reorder point leaves the alert active.</td></tr>
     <tr><td>R5</td><td>Receiving transitions the PO via <code>IOrderService.TransitionAsync</code> to <code>Received</code> when every line is fully satisfied across all receipts, else leaves it <code>PartiallyReceived</code>.</td></tr>
     <tr><td>R6</td><td>Partial receipts are supported: receiving less than ordered keeps the PO open; received-vs-ordered is tracked explicitly by summing receipt lines; an explicit <code>Close</code> action ends a PO that will not be completed.</td></tr>
-    <tr><td>R7</td><td><code>ReceiveAsync</code> is idempotent: a duplicate / re-submitted receipt (same posted receipt) does not double-count stock — the four effects apply exactly once per receipt, in one transaction.</td></tr>
+    <tr><td>R7</td><td><code>ReceiveAsync</code> takes a client-supplied <code>IdempotencyKey</code> with a DB <code>UNIQUE</code> constraint, resolved-or-created <em>before</em> any inventory/cost mutation: a duplicate key returns the existing receipt instead of re-applying, so a client/agent that times out after commit and retries does not double-count. The receipt <code>Status</code> guard additionally stops the same persisted receipt reposting; together the four effects apply exactly once per receipt, in one transaction.</td></tr>
     <tr><td>R8</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
     <tr><td>R9</td><td>The <code>commerce_receive_goods</code> agent tool is classified <strong>medium</strong> (in-session confirmation, args-hash-bound) and records an <code>AiRun</code>.</td></tr>
   </tbody>
@@ -503,8 +516,8 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
   <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
   <li><strong>Full receipt:</strong> a Submitted PO for 25&nbsp;kg rice with an open low-stock alert; <code>ReceiveAsync</code> with 25&nbsp;kg raises on-hand by 25&nbsp;kg, resolves the alert, and moves the PO to <code>Received</code>.</li>
   <li><strong>Cost refresh:</strong> the same receipt line with <code>UnitCostActual</code> writes a new effective-dated <code>IngredientCost</code>; the prior standard-cost row is retained (closed <code>EffectiveTo</code>), and a rollup at <code>ReceivedAt</code> uses the new cost.</li>
-  <li><strong>Partial receipt:</strong> receiving 10&nbsp;kg of a 25&nbsp;kg line raises on-hand by 10&nbsp;kg and leaves the PO <code>PartiallyReceived</code>; a second receipt of 15&nbsp;kg completes it to <code>Received</code>.</li>
-  <li><strong>Idempotency:</strong> re-posting an already-posted receipt leaves on-hand, cost rows, and PO status unchanged (no double-count).</li>
+  <li><strong>Partial receipt:</strong> receiving 10&nbsp;kg of a 25&nbsp;kg line raises on-hand by 10&nbsp;kg and leaves the PO <code>PartiallyReceived</code>; when the recomputed available is still at/below the reorder point the low-stock alert stays active; a second receipt of 15&nbsp;kg completes it to <code>Received</code> and (now above threshold) resolves the alert.</li>
+  <li><strong>Idempotency:</strong> a second <code>ReceiveAsync</code> with the same <code>IdempotencyKey</code> (simulating a post-commit retry) returns the existing receipt and leaves on-hand, cost rows, and PO status unchanged (no double-count); re-posting an already-posted receipt is likewise a no-op.</li>
   <li><strong>Agent:</strong> <code>commerce_receive_goods</code> surfaces a medium approval and records an <code>AiRun</code>; re-invoking with the same args does not double-count.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
 </ul>
@@ -513,7 +526,8 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
 <table>
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
-    <tr><td>Double receipt double-counts stock</td><td>High</td><td>Receipt <code>Status</code> guard / idempotency key: effects apply once per receipt in one transaction; a re-post returns the prior result; agent args-hash binding reinforces it.</td></tr>
+    <tr><td>Double receipt double-counts stock (client/agent retries after commit)</td><td>High</td><td>Client-supplied <code>IdempotencyKey</code> with a DB <code>UNIQUE</code> constraint, resolved-or-created before any inventory/cost mutation — a duplicate key returns the existing receipt, so a post-commit retry never re-applies. The receipt <code>Status</code> guard additionally blocks reposting the same persisted receipt, and the agent args-hash binding reinforces both. Effects apply once per receipt in one transaction.</td></tr>
+    <tr><td>Short receipt prematurely resolves a low-stock alert</td><td>Medium</td><td>After applying stock, recompute available (<code>OnHand − Reserved</code>) vs the reorder point; only flip the alert to <code>Resolved</code> when back above threshold — a partial receipt still at/below the reorder point leaves the alert active, so the operator is not told a still-short shortage is fixed.</td></tr>
     <tr><td>Partial receipt leaves a PO indefinitely half-open</td><td>Medium</td><td>Explicit received-vs-ordered tracking (summed receipt lines vs PO lines) plus an operator <code>Close</code> action to end an un-completable PO.</td></tr>
     <tr><td>Actual cost overwrites a manually set standard cost</td><td>Medium</td><td>Cost refresh writes a new effective-dated <code>IngredientCost</code> row that supersedes cleanly; the prior row is retained with a closed <code>EffectiveTo</code>, so history is intact.</td></tr>
     <tr><td>Partial step failure leaves stock up but PO/alert unmoved</td><td>Medium</td><td>All four effects + the post commit in one transaction; any failure rolls the receipt back to <code>Draft</code> with no partial stock movement.</td></tr>
@@ -526,7 +540,7 @@ class GoodsReceiptLine { Guid Id, TenantId, GoodsReceiptId, IngredientId;
   <li><strong>Goods receipt is the convergence point</strong> of stock (052), cost (051), alert (052), and PO lifecycle (041) — one guarded write reconciles all four.</li>
   <li><strong>A PO can have many receipts</strong>; partial deliveries are first-class, received-vs-ordered is tracked explicitly, and full completion is computed across receipts.</li>
   <li><strong>Actual cost supersedes, never mutates</strong> — a new effective-dated <code>IngredientCost</code> row; prior rows retained for historical valuation stability.</li>
-  <li><strong>Idempotent by receipt status</strong> — one logical receipt applies its effects exactly once; retries are safe.</li>
+  <li><strong>Idempotent by client-supplied key</strong> — a <code>UNIQUE</code> <code>IdempotencyKey</code> (resolved before any mutation, mirroring the Order spine's <code>CreateOrderCommand</code>), backed by the receipt <code>Status</code> guard, so one logical receipt applies its effects exactly once and post-commit retries are safe.</li>
   <li><strong>Receiving is medium, not high</strong> — it moves stock and cost, not money; supplier payment stays a separate High follow-up (053).</li>
   <li><strong>Grow in place in <code>Aonik.Commerce</code></strong>; no Finance reference; migrations stay with <code>AonikDbContext</code>.</li>
 </ul>

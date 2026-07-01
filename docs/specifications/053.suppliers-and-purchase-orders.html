@@ -348,7 +348,7 @@
   <tbody>
     <tr><td>Purchase-order record + lifecycle</td><td><span class="tag reuse">reuse</span></td><td>The <a href="041.unified-order-spine-ordering-layer.html">Order spine</a>: a new <code>OrderType</code> <code>"PurchaseOrder"</code>; created via <code>IOrderService.CreateAsync</code>, transitioned via <code>IOrderService.TransitionAsync</code>. No new order concept (§10).</td></tr>
     <tr><td>PO line shape</td><td><span class="tag reuse">reuse</span></td><td><code>OrderItem</code> — <code>Quantity</code>/<code>UnitPrice</code>/<code>ProductId</code>/<code>Sku</code>/<code>AmountIn</code>/<code>DetailsJson</code>, with <code>ProductId</code> holding the ingredient soft-ref (§10).</td></tr>
-    <tr><td>Party roles</td><td><span class="tag reuse">reuse</span></td><td><code>OrderPartyRole</code> rows; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; we take the existing <code>Payer</code> role (§11).</td></tr>
+    <tr><td>Party roles</td><td><span class="tag reuse">reuse</span></td><td><code>OrderPartyRole</code> rows; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; the <code>Payer</code> role rides the existing header <code>PayerPartyId</code>. The <code>Supplier</code> role needs the additive <code>CreateOrderCommand.PartyRoles</code> hook — today's command materializes only Payer/Receiver (§10, §11).</td></tr>
     <tr><td>Ingredient identity</td><td><span class="tag reuse">reuse</span></td><td>The Spec&nbsp;050 <code>Ingredient</code> a PO line orders; its <code>BaseUnit</code> is the stock unit the pack converts into.</td></tr>
     <tr><td>Default cost / pack when seeding</td><td><span class="tag reuse">reuse</span></td><td><code>SupplierIngredient.PackPrice</code>/<code>PackSize</code> for the buy price; Spec&nbsp;051 <code>IngredientCost</code> as the fallback default (§12).</td></tr>
     <tr><td>Anemic entity + tenancy + audit</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code> (ADR-002); soft-delete, audit, tenant filter inherited.</td></tr>
@@ -366,6 +366,7 @@
   <li><code>Supplier</code> entity + <code>ISupplierService</code> (create / update / list / deactivate) + admin endpoints.</li>
   <li><code>SupplierIngredient</code> entity + upsert (per supplier × ingredient) + admin endpoint — the supplier price list.</li>
   <li>A <strong>purchase order created as a new <code>OrderType</code></strong> (<code>"PurchaseOrder"</code>) on the Order spine, with a <code>Supplier</code> party role and <code>OrderItem</code> lines whose <code>ProductId</code> soft-refs an ingredient; created via <code>IOrderService.CreateAsync</code>.</li>
+  <li>A <strong>minor, additive extension to the shared create contract</strong> in <code>Aonik.Ordering</code>: an optional <code>IReadOnlyList&lt;OrderPartyRoleCommand&gt;? PartyRoles = null</code> on <code>CreateOrderCommand</code>, materialized by <code>CoreOrderService.CreateAsync</code> alongside the existing Payer/Receiver roles — the hook that lets a PO persist its <code>Supplier</code> role (§10, §11). Same class of expansion the order-spine work already flagged for Finance-specific fields; not a redesign.</li>
   <li><code>IPurchaseOrderService</code>: create from explicit lines <strong>or</strong> seeded from a Spec&nbsp;052 <code>LowStockAlert</code> shortfall (default pack/price from <code>SupplierIngredient</code>, default cost from Spec&nbsp;051); submit; lifecycle Draft&nbsp;→&nbsp;Submitted&nbsp;→&nbsp;Received&nbsp;→&nbsp;Closed/Cancelled via <code>IOrderService.TransitionAsync</code>.</li>
   <li>Admin endpoints: create supplier, upsert supplier-ingredient, create PO, submit PO, list POs.</li>
   <li>The two new Commerce DbSets on <code>CommerceDbContext</code> + <code>AonikDbContext</code>; one tool-generated migration (<code>CommerceSuppliersAndPurchaseOrders</code>).</li>
@@ -492,11 +493,21 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 </div>
 <p>
   The PO is created by calling the spine directly — <code>IOrderService.CreateAsync</code> with
-  <code>OrderType = "PurchaseOrder"</code>, the <code>Supplier</code> and <code>Payer</code> party roles, and
-  the ingredient lines above. There is no second "order" concept in Commerce to keep in sync. Billing (if the
-  supplier invoices) still flows through <code>Invoice</code> (<code>Invoice.OrderId</code>) and funding through
-  a <code>PaymentIntent</code>, exactly as the financial order types do — but both of those are the deferred
-  funding follow-up, not part of this spec.
+  <code>OrderType = "PurchaseOrder"</code>, the tenant as <code>PayerPartyId</code> on the command header, the
+  <code>Supplier</code> as a party role, and the ingredient lines above. One honest gap: today
+  <code>CreateOrderCommand</code> has <strong>no party-roles collection</strong> — its only party inputs are the
+  header <code>PayerPartyId</code> and per-line <code>OrderItemCommand.ReceiverPartyId</code>, and
+  <code>CoreOrderService.CreateAsync</code> materializes only a <code>Payer</code> role and per-line
+  <code>Receiver</code> roles. So while adding the <code>"Supplier"</code> role <em>value</em> is a free open-string
+  additive, <em>persisting</em> it on a PO needs a small <strong>additive extension to the shared create
+  contract</strong>: an optional <code>IReadOnlyList&lt;OrderPartyRoleCommand&gt;? PartyRoles = null</code> on
+  <code>CreateOrderCommand</code> that <code>CoreOrderService.CreateAsync</code> materializes alongside
+  Payer/Receiver (§11, §5). This is a minor, additive Ordering-layer change — the same class of expansion the
+  order-spine work already flagged for Finance-specific fields — not a redesign; the PO still rides the spine.
+  (The command already carries <code>IdempotencyKey</code>, so a reused seed can stay idempotent for free.) There
+  is no second "order" concept in Commerce to keep in sync. Billing (if the supplier invoices) still flows through
+  <code>Invoice</code> (<code>Invoice.OrderId</code>) and funding through a <code>PaymentIntent</code>, exactly as
+  the financial order types do — but both of those are the deferred funding follow-up, not part of this spec.
 </p>
 <div class="callout">
   <span class="callout-label">Why not a standalone entity</span>
@@ -524,9 +535,13 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 </table>
 <p>
   So a PO carries a <code>Payer</code> role for the tenant and a new <code>"Supplier"</code>
-  <code>OrderPartyRole</code> for the counterparty. Getting this direction right is what makes the eventual
+  <code>OrderPartyRole</code> for the counterparty. The <code>Payer</code> role rides the existing header
+  <code>PayerPartyId</code>, but the <code>Supplier</code> role has nowhere to enter today: <code>CreateOrderCommand</code>
+  materializes only Payer and per-line Receiver roles, so persisting <code>Supplier</code> depends on the additive
+  <code>PartyRoles</code> command hook described in §10. Getting this direction right is what makes the eventual
   funding leg (a <code>PaymentIntent</code> paying the supplier) unambiguous — and mismodelling it (treating a
-  PO like an inbound sale) is the risk the explicit <code>Supplier</code> role is there to prevent (§18). The
+  PO like an inbound sale, or dropping the <code>Supplier</code> role because the command couldn't carry it) is
+  the risk the explicit <code>Supplier</code> role is there to prevent (§18). The
   outward payment itself is the deferred high-tier follow-up (§21); this spec only records <em>the intent and
   the direction</em>, never moves money.
 </p>
@@ -632,7 +647,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   <h4>Phase 2 — Purchase order on the spine</h4>
   <div class="phase-summary">Place and submit a PO as a new OrderType.</div>
   <ul>
-    <li><code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code>; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; <code>IPurchaseOrderService</code> (create from explicit lines or shortfall-seed, submit) built over <code>IOrderService.CreateAsync</code>/<code>TransitionAsync</code>; ingredient soft-ref line mapping (§10) with <code>DetailsJson</code> discriminator; admin endpoints (create / submit / list POs); unit tests for line mapping, direction-of-money party roles, and the shortfall seed.</li>
+    <li><code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code>; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; the additive <code>CreateOrderCommand.PartyRoles</code> hook + <code>CoreOrderService.CreateAsync</code> materialization (§10) so the <code>Supplier</code> role persists; <code>IPurchaseOrderService</code> (create from explicit lines or shortfall-seed, submit) built over <code>IOrderService.CreateAsync</code>/<code>TransitionAsync</code>; ingredient soft-ref line mapping (§10) with <code>DetailsJson</code> discriminator; admin endpoints (create / submit / list POs); unit tests for line mapping, direction-of-money party roles, and the shortfall seed.</li>
   </ul>
 </div>
 <div class="phase-card">
@@ -650,12 +665,13 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
     <tr><td>R1</td><td>A <code>Supplier</code> (name, currency, optional lead time / payment terms / soft <code>PartyId</code>) can be created, updated, listed, and deactivated (admin + agent), tenant-scoped.</td></tr>
     <tr><td>R2</td><td>A <code>SupplierIngredient</code> price-list row (supplier × ingredient, <code>Sku</code>, <code>PackSize</code> in base unit, <code>PackPrice</code>, currency) can be upserted; <code>PackSize</code> carries the buy-side pack→base-unit conversion.</td></tr>
     <tr><td>R3</td><td>A purchase order is created as an <code>Order</code> with <code>OrderType = "PurchaseOrder"</code> via <code>IOrderService.CreateAsync</code> — <strong>no standalone PurchaseOrder entity</strong>; lines reuse <code>OrderItem</code> with <code>ProductId</code> = <code>IngredientId</code> (opaque soft-ref), <code>AmountIn</code> = line total, and a <code>DetailsJson</code> discriminator.</td></tr>
-    <tr><td>R4</td><td>Direction of money is explicit: the PO carries a <code>Payer</code> role for the tenant and a <code>"Supplier"</code> <code>OrderPartyRole</code> for the counterparty — the inverse of a customer <code>ProductPurchase</code>.</td></tr>
+    <tr><td>R4</td><td>Direction of money is explicit: the PO carries a <code>Payer</code> role for the tenant (header <code>PayerPartyId</code>) and a <code>"Supplier"</code> <code>OrderPartyRole</code> for the counterparty, persisted via the additive <code>CreateOrderCommand.PartyRoles</code> hook (§10) — the inverse of a customer <code>ProductPurchase</code>. The <code>Supplier</code> role must actually land on the order, not be dropped.</td></tr>
     <tr><td>R5</td><td>A PO can be seeded from a Spec&nbsp;052 <code>LowStockAlert</code> shortfall, defaulting price/pack from <code>SupplierIngredient</code> and cost from the Spec&nbsp;051 <code>IngredientCost</code> when no catalog row exists; or created from explicit lines.</td></tr>
     <tr><td>R6</td><td>PO lifecycle Draft&nbsp;→&nbsp;Submitted&nbsp;→&nbsp;Received&nbsp;→&nbsp;Closed/Cancelled runs via <code>IOrderService.TransitionAsync</code>; this spec drives Draft→Submitted (and Cancel); Received/Closed are effected by Spec&nbsp;054.</td></tr>
     <tr><td>R7</td><td>Funding is deferred: no <code>PaymentIntent</code> and no Finance dependency in this spec; paying the supplier is a documented high-tier follow-up.</td></tr>
     <tr><td>R8</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code> (<code>Ank</code> prefix); only <code>AnkSuppliers</code>/<code>AnkSupplierIngredients</code> are new — the Order tables are unchanged since <code>OrderType</code> is an open string; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
     <tr><td>R9</td><td>Agent tools are classified (list suppliers direct; create-supplier / create-PO / submit-PO medium); every invocation records an <code>AiRun</code>.</td></tr>
+    <tr><td>R10</td><td><code>CreateOrderCommand</code> gains an optional <code>PartyRoles</code> list that <code>CoreOrderService.CreateAsync</code> materializes alongside Payer/Receiver — a minor additive Ordering-layer change (existing callers pass <code>null</code> and are unaffected), providing the mechanism R4 relies on.</td></tr>
   </tbody>
 </table>
 
@@ -663,6 +679,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 <ol>
   <li><code>Supplier</code> + <code>SupplierIngredient</code> entities + <code>IEntityTypeConfiguration</code>s + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>ISupplierService</code> (supplier CRUD + supplier-ingredient upsert) + DTOs + admin endpoints.</li>
   <li>Add <code>"PurchaseOrder"</code> to <code>OrderTypeCodes</code> and <code>"Supplier"</code> to <code>OrderPartyRoles</code> in <code>Aonik.Ordering</code> (additive; open-string values).</li>
+  <li>Extend the shared create contract in <code>Aonik.Ordering</code>: add the optional <code>IReadOnlyList&lt;OrderPartyRoleCommand&gt;? PartyRoles = null</code> to <code>CreateOrderCommand</code> and have <code>CoreOrderService.CreateAsync</code> materialize those roles alongside the existing Payer/per-line Receiver roles (additive; existing callers unaffected). This is the hook a PO uses to persist its <code>Supplier</code> role (§10, §11).</li>
   <li><code>IPurchaseOrderService</code>: build the <code>OrderItem</code> line mapping (§10) with the <code>DetailsJson</code> discriminator; create via <code>IOrderService.CreateAsync</code> (explicit lines and <code>CreateFromShortfallAsync</code>); <code>SubmitAsync</code> + cancel via <code>TransitionAsync</code>; admin endpoints (create / submit / list POs).</li>
   <li>The <code>CommerceSuppliersAndPurchaseOrders</code> migration against <code>AonikDbContext</code>; review the diff (2 supplier tables only — no Order-table change).</li>
   <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the list-suppliers read tool + the three medium write tools; route through the gate.</li>
@@ -685,6 +702,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
   <tbody>
     <tr><td>Overloading <code>OrderItem</code> retail columns for ingredient purchase lines</td><td>Medium</td><td>Document the column mapping (§10) explicitly; a <code>DetailsJson</code> discriminator (<code>kind:"purchase-order-line"</code>) marks the line kind; unused FX/remittance fields left unset; a unit test asserts the mapping.</td></tr>
     <tr><td>Direction of money (payer = us) mis-modelled as an inbound sale</td><td>Medium</td><td>An explicit <code>"Supplier"</code> <code>OrderPartyRole</code> + a <code>Payer</code> role for the tenant (§11); a test asserts both roles; the outward-payment leg is deferred so nothing moves money on a mismodel.</td></tr>
+    <tr><td>Counterparty mis-modelled because the <code>Supplier</code> role is silently dropped (today's <code>CreateOrderCommand</code> can't carry it — only Payer/Receiver)</td><td>Medium</td><td>Land the additive <code>CreateOrderCommand.PartyRoles</code> hook so <code>CoreOrderService.CreateAsync</code> actually persists the role (§10, R10); a test asserts the <code>Supplier</code> role is present on the created PO, not merely intended.</td></tr>
     <tr><td>Reusing <code>ProductId</code> soft-ref to carry <code>IngredientId</code></td><td>Low</td><td><code>ProductId</code> is an opaque <code>Guid?</code> with no FK — semantically fine to hold any soft-ref; the <code>DetailsJson</code> discriminator + <code>ingredientId</code> make the reuse self-describing and documented.</td></tr>
     <tr><td>PO drifting from a parallel Commerce order concept</td><td>Low</td><td>There is no parallel concept — the PO <em>is</em> an <code>Order</code>; Commerce holds only supplier master data, and rides <code>IOrderService</code> for the order.</td></tr>
     <tr><td>Accidental Finance coupling via funding</td><td>Low</td><td>Supplier payment is deferred out of scope; the architecture test keeps <code>Aonik.Commerce</code> free of <code>Aonik.Finance</code>.</td></tr>
@@ -696,6 +714,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 <ul>
   <li><strong>PurchaseOrder is an <code>OrderType</code> on the shared spine</strong> (per <a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>), not a standalone Commerce entity — reuse the spine's parties, lines, amounts, and lifecycle; add no new order concept.</li>
   <li><strong>Additive by open string.</strong> <code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code> and <code>OrderPartyRoles</code> gains <code>"Supplier"</code> as string values — no Order-table schema change.</li>
+  <li><strong>Additive create-contract hook, not a redesign.</strong> Persisting the <code>Supplier</code> role needs one small additive change in <code>Aonik.Ordering</code> — an optional <code>PartyRoles</code> list on <code>CreateOrderCommand</code> that <code>CoreOrderService.CreateAsync</code> materializes alongside Payer/Receiver — because today's command carries no party-roles collection (only header <code>PayerPartyId</code> + per-line <code>ReceiverPartyId</code>). Same class of expansion the order-spine work already anticipated for Finance-specific fields; the PO still rides the spine, and existing callers are unaffected.</li>
   <li><strong>Line reuse.</strong> PO lines reuse <code>OrderItem</code>; <code>ProductId</code> (opaque soft-ref) carries <code>IngredientId</code>; <code>AmountIn</code> holds the line total; a <code>DetailsJson</code> discriminator marks the kind.</li>
   <li><strong>Supplier is a soft <code>PartyId</code></strong>, not a standalone party — a light sourcing-side counterparty; link to a platform <code>Party</code> when one exists, stand alone otherwise (no Platform ProjectReference).</li>
   <li><strong>Direction of money is explicit:</strong> we are the <code>Payer</code>, the supplier is the payee — the inverse of a customer <code>ProductPurchase</code>.</li>

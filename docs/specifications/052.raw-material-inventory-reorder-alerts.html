@@ -227,7 +227,7 @@
     <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
     <li><a href="#layout">Target module layout</a></li>
     <li><a href="#domain-model">Domain model</a></li>
-    <li><a href="#generalize">Generalizing InventoryLevel to stock items</a></li>
+    <li><a href="#generalize">Generalizing InventoryLevel + InventoryReservation to stock items</a></li>
     <li><a href="#reorder">Reorder points &amp; the low-stock scan</a></li>
     <li><a href="#lifecycle">Alert lifecycle &amp; the admin inbox</a></li>
     <li><a href="#agent">Agent &amp; tools</a></li>
@@ -259,10 +259,11 @@
   <code>InventoryLevel</code> (<code>OnHand</code>, <code>Reserved</code>, keyed by <code>ProductVariantId</code>)
   — plus an <code>InventoryService</code> that reserves, commits, and releases, and an
   <code>InventoryReservationSweepJob</code> that frees expired holds. Rather than clone all of that for
-  ingredients, this spec widens the <em>key</em> of a level so one row can stock <em>either</em> a finished
-  variant <em>or</em> a raw ingredient, and reuses the existing service and sweep unchanged in behaviour.
-  Two things are genuinely new: the <code>LowStockAlert</code> entity and a Quartz
-  <code>LowStockScanJob</code> that raises it idempotently.
+  ingredients, this spec widens the <em>key</em> of both the level <em>and</em> the reservation so one row can
+  stock — or hold — <em>either</em> a finished variant <em>or</em> a raw ingredient, re-keys the service
+  contract by stock item, and reuses the reservation flow and the sweep job unchanged in behaviour. Two things
+  are genuinely new: the <code>LowStockAlert</code> entity and a Quartz <code>LowStockScanJob</code> that
+  raises it idempotently.
 </p>
 
 <div class="callout ok">
@@ -271,7 +272,8 @@
   point, and when consumption drives available stock at or below that point, a single <code>LowStockAlert</code>
   appears in the existing <a href="016.admin-notifications-realtime-inbox.md">admin realtime inbox</a> —
   "Rice: 2&nbsp;kg on hand, reorder at 5&nbsp;kg". Re-running the scan does <em>not</em> pile up duplicate
-  alerts (at most one <code>Open</code> per ingredient). Existing finished-goods stock keeps working exactly
+  alerts (at most one <em>active</em> — <code>Open</code> or <code>Acknowledged</code> — alert per ingredient),
+  and acknowledging a still-low alert does not spawn a fresh one. Existing finished-goods stock keeps working exactly
   as before. <code>dotnet build Aonik.sln</code> stays green with <code>Aonik.Commerce</code> referencing only
   <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>; <code>dotnet test Aonik.sln</code> stays
   green with new tests over the generalized level, the scan, and alert idempotency.
@@ -309,7 +311,7 @@
   <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
   <tbody>
     <tr><td>Stock level row</td><td><span class="tag reuse">generalize</span></td><td>Existing <code>InventoryLevel</code> (<code>OnHand</code>/<code>Reserved</code>/<code>Location</code>) gains a nullable <code>IngredientId</code>, a <code>StockItemKind</code> discriminator, and a DB CHECK — one table now stocks variants <em>or</em> ingredients (§8).</td></tr>
-    <tr><td>Reserve / commit / release</td><td><span class="tag reuse">reuse</span></td><td>The existing <code>InventoryService</code> and its <code>InventoryReservation</code>s are re-keyed by <em>stock item</em>; ingredients ride the same reserve-before / commit-on-capture / release-on-expiry flow. No parallel reservation system (§8).</td></tr>
+    <tr><td>Reserve / commit / release</td><td><span class="tag reuse">generalize</span></td><td>The existing <code>InventoryService</code> keeps its reserve-before / commit-on-capture / release-on-expiry <em>flow</em>, but <code>InventoryReservation</code> is generalized like the level (nullable <code>IngredientId</code> + <code>StockItemKind</code> + exactly-one CHECK; <code>CartId</code> → nullable <code>HoldRef</code>) and the <code>IInventoryService</code> contract is re-keyed by <em>stock item</em> so ingredient holds commit and release. No parallel reservation system (§8).</td></tr>
     <tr><td>Expiry sweep</td><td><span class="tag reuse">reuse</span></td><td>The Spec&nbsp;042 Phase&nbsp;2 <code>InventoryReservationSweepJob</code> already releases expired holds regardless of stock-item kind — unchanged.</td></tr>
     <tr><td>Anemic entity + tenancy + audit</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code> (ADR-002); soft-delete, audit, tenant filter inherited by the new entity and columns.</td></tr>
     <tr><td>Migration stream</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>Ank</code> tables; <code>CommerceDbContext</code> gets the new DbSet, no migrations.</td></tr>
@@ -317,7 +319,7 @@
     <tr><td>Agent + approval + audit rails</td><td><span class="tag reuse">reuse</span></td><td><code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
     <tr><td>Reorder point + reorder quantity</td><td><span class="tag new">build</span></td><td>Nullable <code>ReorderPoint</code> + optional <code>ReorderQuantity</code> on the level (§9).</td></tr>
     <tr><td>Low-stock alert</td><td><span class="tag new">build</span></td><td><code>LowStockAlert</code> entity + lifecycle (§7, §10).</td></tr>
-    <tr><td>Low-stock scan</td><td><span class="tag new">build</span></td><td>Quartz <code>LowStockScanJob</code> — idempotent, one <code>Open</code> alert per ingredient (§9).</td></tr>
+    <tr><td>Low-stock scan</td><td><span class="tag new">build</span></td><td>Quartz <code>LowStockScanJob</code> — idempotent, one <em>active</em> (<code>Open</code>/<code>Acknowledged</code>) alert per ingredient (§9).</td></tr>
     <tr><td>Auto-raising a PO from an alert</td><td><span class="tag existing">later</span></td><td>An alert is a <em>signal</em>; converting it to a purchase order is <a href="053.suppliers-and-purchase-orders.html">Spec&nbsp;053</a>.</td></tr>
   </tbody>
 </table>
@@ -327,9 +329,9 @@
 <ul>
   <li>Generalize <code>InventoryLevel</code>: make <code>ProductVariantId</code> nullable, add nullable <code>IngredientId</code>, add a <code>StockItemKind</code> discriminator, and enforce <em>exactly one of</em> <code>{ProductVariantId, IngredientId}</code> via a DB CHECK (§8). Additive, tool-generated, safe backfill of existing rows to <code>StockItemKind = "ProductVariant"</code>.</li>
   <li>Add nullable <code>ReorderPoint</code> and optional <code>ReorderQuantity</code> to the level (§9).</li>
-  <li>Extend <code>IInventoryService</code> so reserve / commit / release / set-on-hand address a <em>stock item</em> (variant <em>or</em> ingredient), reusing the same reservation rows and sweep job (§8).</li>
+  <li>Generalize <code>InventoryReservation</code> the same way (nullable <code>ProductVariantId</code>, add <code>IngredientId</code> + <code>StockItemKind</code> + the exactly-one CHECK; <code>CartId</code> → nullable <code>HoldRef</code>) and extend <code>IInventoryService</code> so reserve / commit / release / release-expired / set-on-hand address a <em>stock item</em> (variant <em>or</em> ingredient), reusing the same reservation flow and sweep job (§8).</li>
   <li><code>LowStockAlert</code> entity + <code>ILowStockAlertService</code> (raise-or-update, acknowledge, list) returning DTOs.</li>
-  <li>Quartz <code>LowStockScanJob</code>: scan levels where available (=&nbsp;<code>OnHand</code>&nbsp;−&nbsp;<code>Reserved</code>) ≤ <code>ReorderPoint</code>; raise or update one <code>Open</code> alert per ingredient (idempotent) (§9).</li>
+  <li>Quartz <code>LowStockScanJob</code>: scan levels where available (=&nbsp;<code>OnHand</code>&nbsp;−&nbsp;<code>Reserved</code>) ≤ <code>ReorderPoint</code>; raise or refresh the one <em>active</em> (<code>Open</code>/<code>Acknowledged</code>) alert per ingredient (idempotent — never re-open an acknowledged alert) (§9).</li>
   <li>Alerts surface through the existing <a href="016.admin-notifications-realtime-inbox.md">Spec&nbsp;016</a> admin realtime inbox (§10).</li>
   <li>Admin endpoints: set ingredient on-hand, set reorder point, list low-stock alerts, acknowledge alert.</li>
   <li>Commerce-agent read tools (check stock, list low-stock) + medium-gated write tools (set stock, set reorder point).</li>
@@ -350,16 +352,16 @@
   <li><strong>Anemic entities.</strong> The generalized <code>InventoryLevel</code> and the new <code>LowStockAlert</code> stay <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> + <code>AuditableEntity</code> (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); the scan and raise/acknowledge logic lives in services.</li>
   <li><strong>Exactly one stock item per level.</strong> A level row stocks <em>either</em> a <code>ProductVariant</code> <em>or</em> an <code>Ingredient</code>, never both and never neither — enforced by a DB CHECK, not just app code (§8).</li>
   <li><strong>One source of truth per concept.</strong> Ingredient stock and variant stock are different rows in one table discriminated by <code>StockItemKind</code>; they never collapse. A <code>Recipe</code> draws down ingredient stock, a <code>Bundle</code> draws down variant stock (<a href="050.ingredient-recipe-bom.html">Spec&nbsp;050&nbsp;§9</a>).</li>
-  <li><strong>Reuse, don't fork, the reservation engine.</strong> Ingredients use the existing <code>InventoryService</code> reserve/commit/release and the existing <code>InventoryReservationSweepJob</code>. No second reservation system.</li>
+  <li><strong>Reuse, don't fork, the reservation engine.</strong> Ingredients use the existing <code>InventoryService</code> reserve/commit/release and the existing <code>InventoryReservationSweepJob</code> — the <em>same</em> reservation row generalized by stock item (under the same exactly-one CHECK), not a second hold table or a second sweep.</li>
   <li><strong>Single migration stream.</strong> EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code>-prefixed tables; the level change is <strong>additive</strong> (nullable columns + CHECK) so existing finished-goods rows are untouched apart from a discriminator backfill; agents never hand-author migrations.</li>
-  <li><strong>Idempotent alerting.</strong> The scan raises <em>at most one</em> <code>Open</code> alert per ingredient; re-running it updates the existing open alert's snapshot rather than creating another. Agents propose; every AI write records an <code>AiRun</code>.</li>
+  <li><strong>Idempotent alerting.</strong> The scan keeps <em>at most one active</em> alert per ingredient, where active is <code>Open</code> <em>or</em> <code>Acknowledged</code>; re-running it refreshes the existing active alert's snapshot rather than creating another — acknowledging a still-low alert does not let the next scan open a second one. Agents propose; every AI write records an <code>AiRun</code>.</li>
 </ul>
 
 <h2 id="layout">6. Target module layout</h2>
 <div class="ascii-diagram">src/Aonik.Commerce/
 ├── Entities/
 │   ├── Inventory/    InventoryLevel        # GENERALIZE (+IngredientId, +StockItemKind, +ReorderPoint/Qty)
-│   │                 InventoryReservation  # REUSE (now keyed by stock item)
+│   │                 InventoryReservation  # GENERALIZE (+IngredientId, +StockItemKind; CartId → HoldRef)
 │   └── Sourcing/     LowStockAlert         # NEW
 ├── Services/
 │   ├── Inventory/    IInventoryService     # EXTEND (reserve/commit/release by stock item)
@@ -372,8 +374,9 @@
 └── Persistence/
     ├── CommerceDbContext.cs           (+ LowStockAlert DbSet; no migrations)
     └── Configurations/
-        ├── Inventory/InventoryLevelConfiguration.cs  (+ columns, +CHECK, revised unique index)  # EXTEND
-        └── Sourcing/LowStockAlertConfiguration.cs                                                # NEW
+        ├── Inventory/InventoryLevelConfiguration.cs        (+ columns, +CHECK, revised unique index)  # EXTEND
+        ├── Inventory/InventoryReservationConfiguration.cs  (+ columns, +CHECK)                        # EXTEND
+        └── Sourcing/LowStockAlertConfiguration.cs                                                     # NEW
 
 src/Aonik.Worker/Jobs/
 ├── InventoryReservationSweepJob.cs   # REUSE (unchanged)
@@ -395,6 +398,17 @@ src/Aonik.Worker/Jobs/
                         decimal? ReorderQuantity;  // NEW (optional): suggested top-up qty (feeds Spec 053)
                         // DB CHECK: exactly one of {ProductVariantId, IngredientId} is non-null }
 
+class InventoryReservation { Guid Id, TenantId;
+                        Guid?  ProductVariantId;   // CHANGED: was non-null; now nullable
+                        Guid?  IngredientId;       // NEW: set iff this hold is on a raw material
+                        string StockItemKind;      // NEW: "ProductVariant" | "Ingredient" (discriminator)
+                        Guid?  HoldRef;            // CHANGED: was CartId (non-null); now a nullable holder ref
+                                                   //          (a production hold has no cart)
+                        decimal Quantity;
+                        string  Status;            // Held | Committed | Released
+                        DateTime ExpiresAt;
+                        // DB CHECK: exactly one of {ProductVariantId, IngredientId} is non-null }
+
 class LowStockAlert   { Guid Id, TenantId, IngredientId;
                         decimal AvailableAtRaise;  // snapshot of Available when first raised / last refreshed
                         decimal ReorderPoint;      // snapshot of the threshold that fired
@@ -403,13 +417,16 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
 <p>
   <code>StockItemKind</code> is a free string with a known-values helper (<code>"ProductVariant"</code>,
   <code>"Ingredient"</code>) — additive, mirroring how <code>OrderType</code> and other discriminators are
-  modelled across the platform. <code>LowStockAlert.Status</code> is likewise a known-values string
+  modelled across the platform, and it carries the same shape on <code>InventoryReservation</code> so a hold
+  records <em>which</em> stock item it holds (a variant <em>or</em> an ingredient) under the same exactly-one
+  CHECK; <code>CartId</code> generalizes to a nullable <code>HoldRef</code> because a production hold has no
+  cart. <code>LowStockAlert.Status</code> is likewise a known-values string
   (<code>Open</code> → <code>Acknowledged</code> → <code>Ordered</code> → <code>Resolved</code>, §10).
   <code>AvailableAtRaise</code> and <code>ReorderPoint</code> are <em>snapshots</em> so the alert reads
   meaningfully in the inbox even after stock later moves; the live figure is always the level itself.
 </p>
 
-<h2 id="generalize">8. Generalizing InventoryLevel to stock items (with the exactly-one CHECK)</h2>
+<h2 id="generalize">8. Generalizing InventoryLevel and InventoryReservation to stock items (with the exactly-one CHECK)</h2>
 <p>
   Today <code>InventoryLevel</code> is keyed by a non-null <code>ProductVariantId</code>, with a unique index
   on <code>(TenantId, ProductVariantId, Location)</code>. To stock ingredients too, we widen the key rather
@@ -441,14 +458,22 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
 </div>
 <h3>Reusing the reservation engine by stock item</h3>
 <p>
-  With levels generalized, the existing <code>InventoryService</code> is extended so its methods address a
-  <em>stock item</em> (a variant <em>or</em> an ingredient) instead of only a variant. The
-  reserve-before-order / commit-on-capture / release-on-cancel-or-expiry contract, the
-  <code>InventoryReservation</code> rows, and the <code>InventoryReservationSweepJob</code> are
-  <strong>unchanged in behaviour</strong> — a reservation simply records <em>which</em> stock item it holds.
-  This is the crux of the spec: <strong>ingredients get reservations for free.</strong> Spec&nbsp;056 will
-  fan a production run's recipe explosion out over ingredient reservations exactly as Spec&nbsp;042 fans a
-  bundle checkout out over component-variant reservations — one engine, two callers.
+  A generalized level is only half the story: today <code>InventoryReservation</code> is keyed by a non-null
+  <code>ProductVariantId</code> alone, and <code>InventoryService</code> resolves the level to draw down on
+  commit / release / release-expired by matching <em>that</em> field — so an ingredient hold has no identity
+  and could be neither committed nor released. The reservation is therefore generalized the <strong>same
+  way</strong> as the level: <code>ProductVariantId</code> becomes nullable, a nullable <code>IngredientId</code>
+  and the <code>StockItemKind</code> discriminator are added under the identical <em>exactly-one</em> CHECK,
+  and <code>CartId</code> generalizes to a nullable <code>HoldRef</code> (a production hold has no cart). The
+  <code>IInventoryService</code> reserve / commit / release / release-expired contract — and its
+  <code>InventoryReservationLine</code> — are re-keyed by <em>stock item</em> (variant <em>or</em> ingredient)
+  rather than <code>ProductVariantId</code> alone, and the level lookup on commit/release matches on whichever
+  id the hold carries. The reserve-before-order / commit-on-capture / release-on-cancel-or-expiry
+  <em>semantics</em>, and the <code>InventoryReservationSweepJob</code>, are <strong>unchanged</strong> — a
+  reservation simply now records <em>which</em> stock item it holds. This is the crux of the spec:
+  <strong>ingredients get reservations for free.</strong> Spec&nbsp;056 will fan a production run's recipe
+  explosion out over ingredient reservations exactly as Spec&nbsp;042 fans a bundle checkout out over
+  component-variant reservations — one engine, two callers.
 </p>
 <div class="callout">
   <span class="callout-label">Do not build a parallel reservation system</span>
@@ -468,8 +493,8 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
 <p>
   A new Quartz job, <code>LowStockScanJob</code>, is the raiser. It sweeps across tenants under a system
   context (like the reservation sweep) and, for every <code>Ingredient</code> level with a non-null
-  <code>ReorderPoint</code> whose <strong>available</strong> quantity has fallen to or below it, raises or
-  refreshes exactly one <code>Open</code> alert:
+  <code>ReorderPoint</code> whose <strong>available</strong> quantity has fallen to or below it, raises a new
+  <code>Open</code> alert or refreshes the one already-active (<code>Open</code>/<code>Acknowledged</code>) alert:
 </p>
 <div class="ascii-diagram">LowStockScanJob.Execute()                         // Quartz, [DisallowConcurrentExecution], per interval
   for each tenant:
@@ -478,16 +503,21 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
                and ReorderPoint is not null
                and (OnHand - Reserved) &lt;= ReorderPoint          // Available at/below threshold
     for each level:
-        existing ← LowStockAlert where IngredientId = level.IngredientId and Status = "Open"
-        if existing is null:  raise new LowStockAlert(Open, AvailableAtRaise=Available, ReorderPoint) → notify (Spec 016)
-        else:                 refresh existing.AvailableAtRaise = Available          // IDEMPOTENT: no duplicate
+        active ← LowStockAlert where IngredientId = level.IngredientId
+                 and Status in ("Open", "Acknowledged")                  // ACTIVE = not yet Ordered/Resolved
+        if active is null:  raise new LowStockAlert(Open, AvailableAtRaise=Available, ReorderPoint) → notify (Spec 016)
+        else:               refresh active.AvailableAtRaise = Available   // IDEMPOTENT: refresh, never re-open an ack'd alert
     // items back above their reorder point are NOT auto-resolved here — see §10</div>
 <p>
-  <strong>Idempotency is the load-bearing property.</strong> The invariant "at most one <code>Open</code>
-  alert per ingredient" is enforced two ways: the scan checks for an existing open alert before inserting,
-  and a filtered unique index on <code>(TenantId, IngredientId)</code> where <code>Status = "Open"</code>
-  makes a duplicate impossible even under a concurrent or double-fired scan. A newly-raised alert is pushed
-  to the admin inbox once (§10); a refresh updates the snapshot silently.
+  <strong>Idempotency is the load-bearing property.</strong> The invariant is "at most one <em>active</em>
+  alert per ingredient", where <strong>active means <code>Open</code> <em>or</em> <code>Acknowledged</code></strong> —
+  an acknowledged alert is still the live signal, so the scan must refresh it, never insert a second
+  <code>Open</code> beside it. It is enforced two ways: the scan checks for an existing active alert
+  (<code>Status IN ('Open','Acknowledged')</code>) before inserting, and a filtered unique index on
+  <code>(TenantId, IngredientId)</code> where <code>Status IN ('Open','Acknowledged')</code> makes a duplicate
+  impossible even under a concurrent or double-fired scan. Only once the alert leaves the active set — moving
+  to <code>Ordered</code> or <code>Resolved</code> by the procurement specs — may a fresh cycle open a new
+  alert. A newly-raised alert is pushed to the admin inbox once (§10); a refresh updates the snapshot silently.
 </p>
 <p>
   The scan is <em>set-based and read-mostly</em>: one indexed query per tenant over ingredient levels, then
@@ -502,13 +532,12 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
   across this spec and the procurement specs that follow:
 </p>
 <div class="ascii-diagram">Open ──acknowledge──▶ Acknowledged ──PO raised (Spec 053)──▶ Ordered ──goods received (Spec 054)──▶ Resolved
-  ▲                        │
-  └────────────────────────┘   (an operator may re-open / it stays Open until acted on)</div>
+└──────── ACTIVE ────────┘   (the scan refreshes the active alert; it never opens a second one until Ordered/Resolved)</div>
 <table>
   <thead><tr><th>Status</th><th>Meaning</th><th>Set by</th></tr></thead>
   <tbody>
     <tr><td><code>Open</code></td><td>Available is at/below the reorder point and nothing has been done yet.</td><td><code>LowStockScanJob</code> (raise).</td></tr>
-    <tr><td><code>Acknowledged</code></td><td>An operator has seen it and is handling it; suppresses re-notification noise.</td><td>Admin endpoint / <code>commerce_list_low_stock</code> follow-up.</td></tr>
+    <tr><td><code>Acknowledged</code></td><td>An operator has seen it and is handling it; still <strong>active</strong>, so the scan refreshes it rather than raising a second <code>Open</code> — suppresses re-notification noise.</td><td>Admin endpoint / <code>commerce_list_low_stock</code> follow-up.</td></tr>
     <tr><td><code>Ordered</code></td><td>A purchase order for the ingredient has been raised.</td><td><a href="053.suppliers-and-purchase-orders.html">Spec&nbsp;053</a> (PO create references the alert).</td></tr>
     <tr><td><code>Resolved</code></td><td>Stock has been received and is back above the reorder point.</td><td><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> (goods receipt flips it).</td></tr>
   </tbody>
@@ -516,9 +545,14 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
 <p>
   This spec owns <code>Open</code> and <code>Acknowledged</code> only; <code>Ordered</code> and
   <code>Resolved</code> are written by the later specs (documented here so the state machine reads whole).
-  Deliberately, the scan does <strong>not</strong> auto-resolve an alert when stock happens to climb back
-  above the reorder point on its own — resolution is a procurement event, not a stock wobble — which keeps
-  the loop auditable (whether auto-close-on-restock should also be allowed is <a href="#open">Open</a>).
+  <code>Open</code> and <code>Acknowledged</code> together form the <strong>active</strong> set the scan and
+  the one-active-alert uniqueness treat as a single live alert: acknowledging an alert that is still below its
+  reorder point must <em>not</em> hand the next scan a reason to insert a fresh <code>Open</code> beside it —
+  the scan refreshes the acknowledged one instead, and only <code>Ordered</code>/<code>Resolved</code> ends the
+  cycle so a later dip can open a genuinely new alert. Deliberately, the scan also does <strong>not</strong>
+  auto-resolve an alert when stock happens to climb back above the reorder point on its own — resolution is a
+  procurement event, not a stock wobble — which keeps the loop auditable (whether auto-close-on-restock should
+  also be allowed is <a href="#open">Open</a>).
 </p>
 <h3>Surfacing through the existing inbox</h3>
 <p>
@@ -555,22 +589,26 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
 <h2 id="dbcontext">12. CommerceDbContext &amp; migrations</h2>
 <p>
   One new <code>Ank</code>-prefixed table — <code>AnkLowStockAlerts</code> — is created, and the existing
-  <code>AnkInventoryLevels</code> table gains columns, a CHECK, and revised indexes, by a single EF-CLI
+  <code>AnkInventoryLevels</code> and <code>AnkInventoryReservations</code> tables each gain columns and a
+  CHECK (and the levels table gains revised indexes), by a single EF-CLI
   migration against <code>AonikDbContext</code>. <code>LowStockAlert</code> is added to both
   <code>CommerceDbContext</code> (runtime scoping) and <code>AonikDbContext</code> (canonical stream); it is
   tenant-scoped (not global). The <code>InventoryLevelConfiguration</code> is extended with the new columns,
   the CHECK, and the two filtered unique indexes; a new <code>LowStockAlertConfiguration</code> adds the
-  filtered unique index on one <code>Open</code> alert per ingredient.
+  filtered unique index enforcing one <em>active</em> alert per ingredient (<code>Status IN ('Open','Acknowledged')</code>).
 </p>
 <pre><code>dotnet ef migrations add CommerceRawMaterialInventory --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
 <div class="callout">
   <span class="callout-label">Review the diff</span>
-  Because this migration alters an existing, populated table, the reviewer verifies it contains only:
-  <code>AddColumn</code> for <code>IngredientId</code> (nullable), <code>StockItemKind</code>,
-  <code>ReorderPoint</code> (nullable), <code>ReorderQuantity</code> (nullable); <code>AlterColumn</code>
-  making <code>ProductVariantId</code> nullable; the backfill <code>UPDATE</code>; the CHECK constraint; the
-  index swap; and the <code>CreateTable</code> for <code>AnkLowStockAlerts</code> — nothing else. If EF emits
-  anything unexpected, fix the model, <code>migrations remove</code>, and regenerate — never hand-edit.
+  Because this migration alters two existing, populated tables, the reviewer verifies it contains only:
+  on <code>AnkInventoryLevels</code> — <code>AddColumn</code> for <code>IngredientId</code> (nullable),
+  <code>StockItemKind</code>, <code>ReorderPoint</code> (nullable), <code>ReorderQuantity</code> (nullable),
+  <code>AlterColumn</code> making <code>ProductVariantId</code> nullable, the backfill <code>UPDATE</code>,
+  the CHECK constraint, and the index swap; on <code>AnkInventoryReservations</code> — <code>AddColumn</code>
+  for <code>IngredientId</code> (nullable) and <code>StockItemKind</code>, <code>AlterColumn</code> making
+  <code>ProductVariantId</code> nullable (and <code>CartId</code> → nullable <code>HoldRef</code>), the same
+  backfill and CHECK; and the <code>CreateTable</code> for <code>AnkLowStockAlerts</code> — nothing else. If
+  EF emits anything unexpected, fix the model, <code>migrations remove</code>, and regenerate — never hand-edit.
 </div>
 
 <h2 id="phases">13. Phased rollout</h2>
@@ -578,14 +616,14 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
   <h4>Phase 1 — Generalize the level + reuse the reservation engine</h4>
   <div class="phase-summary">One stock table stocks variants or ingredients; ingredients get reservations for free.</div>
   <ul>
-    <li><code>InventoryLevel</code> gains nullable <code>IngredientId</code>, <code>StockItemKind</code>, <code>ReorderPoint</code>, <code>ReorderQuantity</code>; config gains the CHECK + filtered unique indexes; extend <code>IInventoryService</code> to address a stock item; the <code>CommerceRawMaterialInventory</code> migration (columns + backfill + CHECK + <code>AnkLowStockAlerts</code>). Verify existing finished-goods reserve/commit/release and the sweep job still pass.</li>
+    <li><code>InventoryLevel</code> gains nullable <code>IngredientId</code>, <code>StockItemKind</code>, <code>ReorderPoint</code>, <code>ReorderQuantity</code>; <code>InventoryReservation</code> gains nullable <code>IngredientId</code> + <code>StockItemKind</code> (<code>CartId</code> → nullable <code>HoldRef</code>); both configs gain the exactly-one CHECK (levels also the filtered unique indexes); extend <code>IInventoryService</code>/<code>InventoryReservationLine</code> to address a stock item on reserve/commit/release/release-expired; the <code>CommerceRawMaterialInventory</code> migration (level + reservation columns + backfill + CHECKs + <code>AnkLowStockAlerts</code>). Verify existing finished-goods reserve/commit/release and the sweep job still pass.</li>
   </ul>
 </div>
 <div class="phase-card">
   <h4>Phase 2 — Reorder points, alerts &amp; the scan</h4>
   <div class="phase-summary">Threshold breaches raise an idempotent alert into the admin inbox.</div>
   <ul>
-    <li><code>LowStockAlert</code> + config; <code>ILowStockAlertService</code> (raise-or-update / acknowledge / list); the Quartz <code>LowStockScanJob</code> (idempotent, one <code>Open</code> per ingredient) wired into <code>ScheduledJobOptions</code>; notification emitted through the Spec&nbsp;016 inbox; admin endpoints (set on-hand, set reorder point, list alerts, acknowledge); unit tests for the scan, idempotency, and lifecycle.</li>
+    <li><code>LowStockAlert</code> + config; <code>ILowStockAlertService</code> (raise-or-update / acknowledge / list); the Quartz <code>LowStockScanJob</code> (idempotent, one <em>active</em> — <code>Open</code>/<code>Acknowledged</code> — alert per ingredient) wired into <code>ScheduledJobOptions</code>; notification emitted through the Spec&nbsp;016 inbox; admin endpoints (set on-hand, set reorder point, list alerts, acknowledge); unit tests for the scan, idempotency (including no re-open after acknowledge), and lifecycle.</li>
   </ul>
 </div>
 <div class="phase-card">
@@ -602,10 +640,10 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
   <tbody>
     <tr><td>R1</td><td><code>InventoryLevel</code> can stock <em>either</em> a <code>ProductVariant</code> <em>or</em> an <code>Ingredient</code>, discriminated by <code>StockItemKind</code>; a DB CHECK enforces exactly one of <code>{ProductVariantId, IngredientId}</code> is set.</td></tr>
     <tr><td>R2</td><td>The migration is additive and tool-generated: new nullable columns + CHECK + revised indexes + a one-time <code>StockItemKind = "ProductVariant"</code> backfill; existing finished-goods rows are otherwise untouched.</td></tr>
-    <tr><td>R3</td><td>Ingredients reuse the existing <code>InventoryService</code> reserve / commit / release and the existing <code>InventoryReservationSweepJob</code> — no parallel reservation system; reservations record which stock item they hold.</td></tr>
+    <tr><td>R3</td><td><code>InventoryReservation</code> is generalized like the level (nullable <code>ProductVariantId</code>, add <code>IngredientId</code> + <code>StockItemKind</code> + the exactly-one CHECK; <code>CartId</code> → nullable <code>HoldRef</code>) and the <code>IInventoryService</code> reserve / commit / release / release-expired contract is keyed by stock item, so ingredient holds commit and release through the existing service and <code>InventoryReservationSweepJob</code> — no parallel reservation system.</td></tr>
     <tr><td>R4</td><td>A level carries a nullable <code>ReorderPoint</code> and optional <code>ReorderQuantity</code>; a null reorder point means the item is never scanned/alerted.</td></tr>
-    <tr><td>R5</td><td><code>LowStockScanJob</code> raises a <code>LowStockAlert</code> for each ingredient level whose available (=&nbsp;<code>OnHand</code>&nbsp;−&nbsp;<code>Reserved</code>) ≤ <code>ReorderPoint</code>, and is <strong>idempotent</strong>: at most one <code>Open</code> alert per ingredient (enforced by check + filtered unique index).</td></tr>
-    <tr><td>R6</td><td>A newly-raised alert surfaces in the existing <a href="016.admin-notifications-realtime-inbox.md">Spec&nbsp;016</a> admin realtime inbox; a refresh of an existing open alert updates its snapshot without re-notifying.</td></tr>
+    <tr><td>R5</td><td><code>LowStockScanJob</code> raises a <code>LowStockAlert</code> for each ingredient level whose available (=&nbsp;<code>OnHand</code>&nbsp;−&nbsp;<code>Reserved</code>) ≤ <code>ReorderPoint</code>, and is <strong>idempotent</strong>: at most one <em>active</em> alert per ingredient — where active is <code>Open</code> <em>or</em> <code>Acknowledged</code> — enforced by the scan's active-alert check + a filtered unique index on <code>Status IN ('Open','Acknowledged')</code>. Acknowledging a still-low alert does <strong>not</strong> cause the next scan to open a second one; a new alert opens only after the prior one reaches <code>Ordered</code>/<code>Resolved</code>.</td></tr>
+    <tr><td>R6</td><td>A newly-raised alert surfaces in the existing <a href="016.admin-notifications-realtime-inbox.md">Spec&nbsp;016</a> admin realtime inbox; a refresh of an existing <em>active</em> (<code>Open</code> or <code>Acknowledged</code>) alert updates its snapshot without re-notifying.</td></tr>
     <tr><td>R7</td><td>An alert follows <code>Open → Acknowledged → Ordered → Resolved</code>; this spec owns raise + acknowledge, later specs own ordered/resolved; the scan does not auto-resolve on incidental restock.</td></tr>
     <tr><td>R8</td><td>Admin endpoints exist to set ingredient on-hand, set reorder point, list low-stock alerts, and acknowledge an alert, all tenant-scoped.</td></tr>
     <tr><td>R9</td><td>Agent tools are classified (check-stock / list-low-stock read; set-stock / set-reorder-point medium with in-session confirmation); every medium invocation records an <code>AiRun</code>.</td></tr>
@@ -615,22 +653,22 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
 
 <h2 id="tasks">15. Tasks</h2>
 <ol>
-  <li>Generalize <code>InventoryLevel</code> (+<code>IngredientId</code>, +<code>StockItemKind</code>, +<code>ReorderPoint</code>, +<code>ReorderQuantity</code>; <code>ProductVariantId</code> nullable) and its <code>IEntityTypeConfiguration</code> (CHECK + two filtered unique indexes); extend <code>IInventoryService</code>/<code>InventoryService</code> to key by stock item.</li>
-  <li><code>LowStockAlert</code> entity + <code>IEntityTypeConfiguration</code> (filtered unique index: one <code>Open</code> per ingredient) + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>ILowStockAlertService</code> (raise-or-update / acknowledge / list) + DTOs.</li>
-  <li><code>LowStockScanJob</code> (Quartz, <code>[DisallowConcurrentExecution]</code>, idempotent) wired into <code>ScheduledJobOptions</code>; emit the Spec&nbsp;016 notification on raise.</li>
+  <li>Generalize <code>InventoryLevel</code> (+<code>IngredientId</code>, +<code>StockItemKind</code>, +<code>ReorderPoint</code>, +<code>ReorderQuantity</code>; <code>ProductVariantId</code> nullable) and its <code>IEntityTypeConfiguration</code> (CHECK + two filtered unique indexes); generalize <code>InventoryReservation</code> the same way (+<code>IngredientId</code>, +<code>StockItemKind</code>; <code>ProductVariantId</code> nullable; <code>CartId</code> → nullable <code>HoldRef</code>) and its <code>IEntityTypeConfiguration</code> (exactly-one CHECK); extend <code>IInventoryService</code>/<code>InventoryService</code> (and <code>InventoryReservationLine</code>) to key reserve/commit/release/release-expired by stock item.</li>
+  <li><code>LowStockAlert</code> entity + <code>IEntityTypeConfiguration</code> (filtered unique index: one <em>active</em> alert per ingredient, <code>Status IN ('Open','Acknowledged')</code>) + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>ILowStockAlertService</code> (raise-or-update / acknowledge / list) + DTOs.</li>
+  <li><code>LowStockScanJob</code> (Quartz, <code>[DisallowConcurrentExecution]</code>, idempotent over the active set — refreshes an existing <code>Open</code>/<code>Acknowledged</code> alert, never inserts a second) wired into <code>ScheduledJobOptions</code>; emit the Spec&nbsp;016 notification on raise only.</li>
   <li>Admin endpoints: set ingredient on-hand, set reorder point, list low-stock alerts, acknowledge alert.</li>
-  <li>The <code>CommerceRawMaterialInventory</code> migration against <code>AonikDbContext</code>; review the diff (columns + backfill + CHECK + index swap + one new table only); apply locally to confirm it upgrades a populated table cleanly.</li>
+  <li>The <code>CommerceRawMaterialInventory</code> migration against <code>AonikDbContext</code>; review the diff (level + reservation columns + backfills + CHECKs + index swap + one new table only); apply locally to confirm it upgrades the two populated tables cleanly.</li>
   <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the read + medium stock tools; route through the gate.</li>
-  <li>Tests: unit (CHECK rejects both/neither set, backfill correctness, reservation over ingredient stock, scan raises at threshold, idempotent no-duplicate on re-scan, acknowledge transition, no auto-resolve on restock) + an architecture test still asserting no Commerce↔Finance reference.</li>
+  <li>Tests: unit (CHECK rejects both/neither set on <em>both</em> level and reservation, backfill correctness, reserve→commit→release an ingredient hold through the existing service, sweep releases an expired ingredient hold, scan raises at threshold, idempotent no-duplicate on re-scan, active-alert refresh does not re-open after acknowledge, acknowledge transition, no auto-resolve on restock) + an architecture test still asserting no Commerce↔Finance reference.</li>
 </ol>
 
 <h2 id="verification">16. Verification</h2>
 <ul>
   <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
   <li><strong>Generalized level:</strong> insert an ingredient level and a variant level in the same table; attempting a row with both <code>ProductVariantId</code> and <code>IngredientId</code> set (or neither) is rejected by the CHECK; existing finished-goods rows read back with <code>StockItemKind = "ProductVariant"</code>.</li>
-  <li><strong>Reservation reuse:</strong> reserve, commit, and release ingredient stock through the existing <code>InventoryService</code>; the existing sweep job releases an expired ingredient hold — no new reservation table.</li>
+  <li><strong>Reservation reuse:</strong> reserve, commit, and release ingredient stock through the existing <code>InventoryService</code> (the hold carries <code>IngredientId</code> + <code>StockItemKind = "Ingredient"</code>); a hold with both ids set (or neither) is rejected by the reservation CHECK; the existing sweep job releases an expired ingredient hold — no new reservation table.</li>
   <li><strong>Scan &amp; alert:</strong> set rice on-hand 2&nbsp;kg, reorder point 5&nbsp;kg; run <code>LowStockScanJob</code> → one <code>Open</code> <code>LowStockAlert</code> raised and one Spec&nbsp;016 notification emitted ("Rice: 2&nbsp;kg available, reorder at 5&nbsp;kg"). Run the scan again → still exactly one <code>Open</code> alert (idempotent), snapshot refreshed, no second notification.</li>
-  <li><strong>Lifecycle:</strong> acknowledge the alert → <code>Acknowledged</code>; the scan does not resurrect a duplicate <code>Open</code>; incidental restock above the reorder point does not auto-resolve it.</li>
+  <li><strong>Lifecycle:</strong> acknowledge the alert → <code>Acknowledged</code>; re-run the scan while the ingredient is <em>still below</em> its reorder point → the acknowledged alert is refreshed, <strong>no</strong> second <code>Open</code> is inserted (it stays the single active alert); incidental restock above the reorder point does not auto-resolve it.</li>
   <li><strong>Agent:</strong> <code>commerce_set_reorder_point</code> surfaces a medium approval; <code>commerce_list_low_stock</code> executes directly; each write records an <code>AiRun</code>.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
 </ul>
@@ -641,19 +679,20 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
   <tbody>
     <tr><td>Changing <code>InventoryLevel</code>'s key shape touches existing, populated finished-goods rows</td><td>High</td><td>Additive only: new columns are nullable, <code>ProductVariantId</code> is <em>relaxed</em> to nullable (never dropped), and the sole row-touch is a deterministic <code>StockItemKind = "ProductVariant"</code> backfill run before the CHECK is enforced. Migration is tool-generated; reviewer diffs it against the expected column/CHECK/index set and applies it to a populated DB locally before merge.</td></tr>
     <tr><td>A level ends up stocking both a variant and an ingredient (or neither)</td><td>Medium</td><td>DB CHECK enforces exactly-one at the database, not just in the service; unit tests assert both the "both set" and "neither set" rows are rejected; <code>StockItemKind</code> must agree with which id is non-null.</td></tr>
-    <tr><td>The scan raises duplicate alerts (double-fire, concurrency, or re-run)</td><td>Medium</td><td>Idempotent by construction: scan checks for an existing <code>Open</code> alert before insert <em>and</em> a filtered unique index on <code>(TenantId, IngredientId)</code> where <code>Status = "Open"</code> makes a duplicate impossible; job is <code>[DisallowConcurrentExecution]</code>.</td></tr>
+    <tr><td><code>InventoryReservation</code> left keyed by variant only, so ingredient holds can't be committed or released</td><td>Medium</td><td>The reservation is generalized in lockstep with the level (nullable <code>IngredientId</code> + <code>StockItemKind</code> + the same exactly-one CHECK; <code>CartId</code> → nullable <code>HoldRef</code>) and the <code>IInventoryService</code> commit/release/release-expired lookup matches on whichever id the hold carries; a behaviour test reserves, commits, and releases an <em>ingredient</em> hold end-to-end through the same service.</td></tr>
+    <tr><td>The scan raises duplicate alerts (double-fire, concurrency, re-run, or a still-low alert that was acknowledged)</td><td>Medium</td><td>Idempotent by construction: the active set is <code>Open</code> <em>or</em> <code>Acknowledged</code>, so the scan checks for an existing <em>active</em> alert before insert (never re-opening an acknowledged one) <em>and</em> a filtered unique index on <code>(TenantId, IngredientId)</code> where <code>Status IN ('Open','Acknowledged')</code> makes a duplicate impossible; a new alert opens only after the prior reaches <code>Ordered</code>/<code>Resolved</code>; job is <code>[DisallowConcurrentExecution]</code>.</td></tr>
     <tr><td>Scan performance degrades as ingredient count grows</td><td>Low</td><td>Set-based, indexed query per tenant filtered to <code>StockItemKind = "Ingredient"</code> with a non-null reorder point; writes only for breaching items; cadence configurable/disable-able via <code>ScheduledJobOptions</code>; scan never reads variant levels.</td></tr>
     <tr><td>Forking a second reservation system for ingredients</td><td>Medium</td><td>Explicitly prohibited (§8): reserve/commit/release and the sweep are reused, re-keyed by stock item; an architecture/behaviour test exercises an ingredient reservation through the <em>same</em> service.</td></tr>
-    <tr><td>Alert noise overwhelms the inbox</td><td>Low</td><td>One <code>Open</code> alert per ingredient (not per scan); a refresh updates silently without re-notifying; <code>Acknowledged</code> suppresses repeat surfacing until the loop is closed.</td></tr>
+    <tr><td>Alert noise overwhelms the inbox</td><td>Low</td><td>One <em>active</em> alert per ingredient (not per scan); a refresh of the active alert updates silently without re-notifying; because <code>Acknowledged</code> is still active, the scan refreshes it rather than re-raising, suppressing repeat surfacing until the loop is closed.</td></tr>
   </tbody>
 </table>
 
 <h2 id="decisions">18. Decisions baked in</h2>
 <ul>
   <li><strong>Generalize, don't clone.</strong> One <code>InventoryLevel</code> table stocks both variants and ingredients, discriminated by <code>StockItemKind</code> with an exactly-one CHECK — not two parallel tables.</li>
-  <li><strong>One reservation engine.</strong> Ingredients reuse <code>InventoryService</code> reserve/commit/release and the existing sweep job, re-keyed by stock item; no parallel hold system.</li>
+  <li><strong>One reservation engine.</strong> <code>InventoryReservation</code> is generalized by stock item like the level (same exactly-one CHECK; <code>CartId</code> → nullable <code>HoldRef</code>) and ingredients reuse <code>InventoryService</code> reserve/commit/release and the existing sweep job; no parallel hold table.</li>
   <li><strong>Reorder point is a scalar threshold on the level</strong>; a null point means no alerting; <code>ReorderQuantity</code> is stored for Spec&nbsp;053 but not acted on here.</li>
-  <li><strong>Alerting is idempotent</strong> — at most one <code>Open</code> alert per ingredient, enforced by check + filtered unique index.</li>
+  <li><strong>Alerting is idempotent</strong> — at most one <em>active</em> alert (<code>Open</code> or <code>Acknowledged</code>) per ingredient, enforced by the scan's active-alert check + a filtered unique index; acknowledging a still-low alert never spawns a second <code>Open</code>.</li>
   <li><strong>Alerts reuse the Spec&nbsp;016 admin inbox</strong>; no bespoke realtime transport or siloed screen.</li>
   <li><strong>Resolution is a procurement event</strong> (Spec&nbsp;054 goods receipt), not an incidental-restock side effect; the scan owns raise, not close.</li>
   <li><strong>Quantities only, no money</strong> — costing stays in Spec&nbsp;051; <code>Aonik.Commerce</code> keeps no Finance reference; migrations stay with <code>AonikDbContext</code>.</li>

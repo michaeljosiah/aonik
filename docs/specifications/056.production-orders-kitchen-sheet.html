@@ -258,13 +258,13 @@
 <p>The two state changes that carry weight:</p>
 <ul>
   <li><strong>Release</strong> — the moment the kitchen is told to start. Releasing the order
-      <strong>consumes ingredient stock</strong>: each line is exploded through its variant's active
-      <a href="050.ingredient-recipe-bom.html">recipe</a> (Spec&nbsp;050 <code>ExplodeManyAsync</code>) into a merged
-      bill of materials, and each ingredient's stock is drawn down through the Spec&nbsp;042
-      <code>InventoryService</code> <strong>commit</strong> path — the exact machinery bundle checkout already
-      uses to fan a box out over its component variants, only here it fans a production run out over its recipe
-      components. Release is <strong>all-or-nothing</strong>: if any ingredient is short, the whole release fails
-      and nothing is consumed.</li>
+      <strong>consumes ingredient stock</strong>: each line's <a href="050.ingredient-recipe-bom.html">recipe</a>
+      is exploded into a merged bill of materials <em>once</em>, frozen onto the line as a snapshot (§7), and each
+      ingredient's stock is drawn down through the Spec&nbsp;042 <code>InventoryService</code> <strong>commit</strong>
+      path — the exact machinery bundle checkout already uses to fan a box out over its component variants, only
+      here it fans a production run out over its recipe components. Release is <strong>all-or-nothing in a single
+      transaction</strong> over the Spec&nbsp;042 oversell guard: a shortfall or a concurrent-release conflict rolls
+      the whole run back, so either every ingredient is consumed or none is.</li>
   <li><strong>Complete</strong> — the run is done. Optionally it <strong>yields finished-good stock</strong>:
       the produced <code>ProductVariant</code>'s <code>InventoryLevel.OnHand</code> is incremented by the
       <code>ProducedQuantity</code>, closing the make-to-stock loop (finished goods that Spec&nbsp;042 checkout can
@@ -285,7 +285,8 @@
   is a no-op — stock is never double-consumed. <code>dotnet build Aonik.sln</code> stays green with
   <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>;
   <code>dotnet test Aonik.sln</code> stays green with new unit tests over release consumption, all-or-nothing
-  shortfall, idempotent re-release, and completion yield.
+  shortfall, concurrent-release atomicity, snapshot invariance under a mid-flight recipe edit, idempotent
+  re-release, and completion yield.
 </div>
 
 <h2 id="context">2. Context &amp; motivation</h2>
@@ -324,8 +325,9 @@
     <tr><td>Migration stream</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>Ank</code> tables; <code>CommerceDbContext</code> gets DbSets, no migrations.</td></tr>
     <tr><td>Agent + approval + audit rails</td><td><span class="tag reuse">reuse</span></td><td><code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
     <tr><td>Production / work order</td><td><span class="tag new">build</span></td><td><code>ProductionOrder</code> + <code>ProductionOrderLine</code> with a guarded lifecycle.</td></tr>
-    <tr><td>Release consumption</td><td><span class="tag new">build</span></td><td>Wire release → explode lines → all-or-nothing commit fan-out over ingredients; status guard against double-consume.</td></tr>
-    <tr><td>Kitchen sheet</td><td><span class="tag new">build</span></td><td>A read projection of the order + per-dish recipe-component prep detail; a read endpoint returning it.</td></tr>
+    <tr><td>Release consumption</td><td><span class="tag new">build</span></td><td>Wire release → read the per-line recipe snapshot → single-transaction, all-or-nothing commit fan-out over ingredients on the Spec&nbsp;042 oversell guard (rollback/retry on conflict); status guard against double-consume.</td></tr>
+    <tr><td>Recipe snapshot on the line</td><td><span class="tag new">build</span></td><td><code>RecipeSnapshotJson</code> frozen at first-explode; read by both the kitchen sheet and release so a mid-flight recipe edit cannot split them (stands in for Spec&nbsp;050 recipe versioning).</td></tr>
+    <tr><td>Kitchen sheet</td><td><span class="tag new">build</span></td><td>A read projection of the order + per-dish recipe-component prep detail (from the snapshot); a read endpoint returning it.</td></tr>
   </tbody>
 </table>
 
@@ -333,7 +335,7 @@
 <h3>In scope</h3>
 <ul>
   <li><code>ProductionOrder</code> + <code>ProductionOrderLine</code> entities + <code>IProductionOrderService</code> (create — optionally seeded from a Spec&nbsp;055 production sheet for a window — release, complete, cancel) + admin endpoints.</li>
-  <li><strong>Release consumes ingredient stock:</strong> explode all lines via <code>ExplodeManyAsync</code>, draw each ingredient down through the Spec&nbsp;042 <code>InventoryService</code> commit fan-out; <strong>all-or-nothing</strong> — fail fast if any ingredient's available stock is insufficient.</li>
+  <li><strong>Release consumes ingredient stock:</strong> read each line's frozen recipe snapshot, draw every ingredient down through the Spec&nbsp;042 <code>InventoryService</code> commit fan-out in <strong>one transaction</strong> on the oversell guard; <strong>transactionally all-or-nothing</strong> — fail fast on a shortfall, roll back and retry on a concurrency conflict.</li>
   <li><strong>Complete optionally yields finished goods:</strong> increment the produced variant's <code>InventoryLevel.OnHand</code> by <code>ProducedQuantity</code> (make-to-stock; optional).</li>
   <li>Guarded, idempotent state transitions: consume only on the <code>Planned&nbsp;→&nbsp;Released</code> edge; re-release never double-consumes.</li>
   <li>The <strong>kitchen sheet</strong>: a printable/exportable projection of a production order + its per-dish recipe-component prep detail, via a read endpoint.</li>
@@ -385,15 +387,22 @@
 
 class ProductionOrderLine { Guid Id, TenantId, ProductionOrderId, ProductVariantId;
                             decimal  PlannedQuantity;   // portions to produce
-                            decimal? ProducedQuantity;  // actual portions made (set at/before Complete) }</code></pre>
+                            decimal? ProducedQuantity;  // actual portions made (set at/before Complete)
+                            string?  RecipeSnapshotJson; } // exploded components frozen at first-explode (§9/§11)</code></pre>
 <p>
   <code>ProductVariantId</code> is a real intra-module reference to the Spec&nbsp;042 finished
   <code>ProductVariant</code> being produced — the same variant a Spec&nbsp;050 <code>Recipe</code> is attached to,
   which is exactly why a line can be exploded into ingredients. <code>PlannedQuantity</code> is what to make;
   <code>ProducedQuantity</code> is nullable so the record can be created and released before the actual yield is
   known, then reconciled at completion (planned ≠ produced is the normal case — see <a href="#risks">Risk
-  register</a>). <code>Status</code> is a free string with a known-values helper (mirroring the platform's
-  open-enum convention), driven only through the service's guarded transitions (§8).
+  register</a>). <code>RecipeSnapshotJson</code> holds the line's <em>exploded</em> recipe components, frozen the
+  first time the line is exploded (at create, or when the kitchen sheet is first generated); both the kitchen
+  sheet (§11) and release consumption (§9) read this snapshot rather than re-exploding the live Spec&nbsp;050
+  recipe, so an edit to that recipe between print and release cannot make the two diverge. It is the per-line
+  materialisation of Spec&nbsp;050's <a href="050.ingredient-recipe-bom.html">recipe-versioning</a> open decision:
+  until that lands, this run captures its own component bill.
+  <code>Status</code> is a free string with a known-values helper (mirroring the platform's open-enum convention),
+  driven only through the service's guarded transitions (§8).
 </p>
 
 <h2 id="lifecycle">8. Production-order lifecycle</h2>
@@ -460,24 +469,31 @@ one box line                                 one ProductionOrder (its lines)
 
 ReleaseAsync(productionOrderId):
   0. guard: Status == Planned                                  (else 409; Released ⇒ no-op)
-  1. bill = IRecipeService.ExplodeManyAsync(                   // Spec 050 — merged BOM
-         lines.Select(l => (l.ProductVariantId, l.PlannedQuantity)))
+  1. bill = merge(lines.Select(l => l.RecipeSnapshotJson))     // the FROZEN snapshot (§7), NOT a live re-explode
      → [ { IngredientId, RequiredQuantity (BaseUnit) }, … summed across dishes ]
-     → any line whose variant has no active recipe ⇒ fail (no silent under-consume)
-  2. pre-check availability for EVERY ingredient in one pass   // all-or-nothing
+     → snapshot is written at first-explode; a line with no recipe froze empty ⇒ fail (no silent under-consume)
+  ── begin ONE transaction (all-or-nothing across every component line) ──
+  2. pre-check availability for EVERY ingredient in one pass   // inside the txn
      → if any Available &lt; RequiredQuantity ⇒ throw InsufficientStock, consume NOTHING
-  3. foreach ingredient in bill:                               // the fan-out
+  3. foreach ingredient in bill:                               // the fan-out, same txn
          InventoryService.CommitAsync(ingredientId, requiredQuantity, productionOrderId)
-         (OnHand -= required; Spec 052 ingredient level; row concurrency token serialises)
-  4. Status = Released                                         // single audited transition</div>
+         (OnHand -= required; Spec 052 ingredient level; row concurrency token, Spec 042 oversell guard)
+  4. Status = Released                                         // in the same commit
+  ── SaveChanges once → commit; on DbUpdateConcurrencyException: rollback ALL, retry from step 2 ──</div>
 <p>
-  <strong>All-or-nothing</strong> is enforced by pre-checking availability for the whole merged bill
-  <em>before</em> committing any line (step&nbsp;2), so a shortfall on the last ingredient never leaves the first
-  ingredients half-consumed. Whether an insufficient ingredient should hard-fail (v1 default) or be permitted to
-  drive stock negative (a backorder/"cook anyway" posture) is gated behind a flag and called out under
-  <a href="#open">Open</a>. Because consumption is bound to the single <code>Planned&nbsp;→&nbsp;Released</code>
-  edge and guarded by status (step&nbsp;0), a re-release is a no-op and stock is never double-consumed — the
-  central correctness property this spec must hold.
+  <strong>All-or-nothing is transactional, not per-line best-effort.</strong> The whole-bill pre-check
+  (step&nbsp;2) and the entire commit fan-out (step&nbsp;3) run inside <strong>one</strong> transaction, and each
+  ingredient row is committed through the Spec&nbsp;042 oversell guard on its row concurrency token. A pre-check
+  alone is not enough: two concurrent releases could both pass it against the same on-hand and then over-consume.
+  Binding the commits to a single transaction closes that window — if any row hits a
+  <code>DbUpdateConcurrencyException</code> mid-fan-out, the whole run rolls back and retries the pre-check on
+  refreshed stock, so either every component line commits or none does. Whether an insufficient ingredient should
+  hard-fail (v1 default) or be permitted to drive stock negative (a backorder/"cook anyway" posture) is gated
+  behind a flag and called out under <a href="#open">Open</a>. The bill itself is read from each line's frozen
+  <code>RecipeSnapshotJson</code> (§7), not a fresh explosion, so what release consumes is exactly what the printed
+  kitchen sheet showed. Because consumption is bound to the single <code>Planned&nbsp;→&nbsp;Released</code> edge and
+  guarded by status (step&nbsp;0), a re-release is a no-op and stock is never double-consumed — the central
+  correctness property this spec must hold.
 </p>
 <div class="callout">
   <span class="callout-label">Note</span>
@@ -527,14 +543,19 @@ ReleaseAsync(productionOrderId):
                components: [ { ingredientId, ingredientName, baseUnit,
                               requiredQuantity }  // = component.Quantity × (planned / recipe.YieldQuantity)
                             … ] }                  // per-dish, via Spec 050 ExplodeAsync(variant, plannedQty)
-  totals:  merged bill of materials across all dishes  // via ExplodeManyAsync — the shopping/prep summary</div>
+  totals:  merged bill of materials across all dishes  // sum of the per-line snapshots — the shopping/prep summary
+  (first call explodes each line once and freezes it into RecipeSnapshotJson (§7); later calls replay the snapshot)</div>
 <p>
-  The projection is assembled by explosion, so it stays consistent with what <strong>release</strong> actually
-  consumes: the per-dish detail uses <code>ExplodeAsync</code> line by line, and the <code>totals</code> block is
-  the same <code>ExplodeManyAsync</code> merge the release path uses (§9) — the sheet and the stock movement can
-  never disagree. Rendering to PDF/print is a frontend concern; the endpoint returns the structured
-  <code>KitchenSheet</code> DTO. A line whose variant has no active recipe is surfaced with the same "no recipe"
-  diagnostic Spec&nbsp;050 explosion emits, so the chef sees the gap rather than a silently empty dish.
+  The projection is assembled from the <em>same</em> per-line <code>RecipeSnapshotJson</code> (§7) that release
+  consumes, so it stays consistent with what <strong>release</strong> actually draws down: the first kitchen-sheet
+  call explodes each line once (<code>ExplodeAsync</code> per dish) and freezes the result onto the line; the
+  <code>totals</code> block is the merge of those same snapshots. Reading the snapshot rather than re-exploding is
+  what makes the guarantee hold: if the Spec&nbsp;050 recipe is edited after the sheet is printed but before release,
+  both still replay the frozen components, so the sheet the kitchen worked from and the bill release consumes cannot
+  diverge. Rendering to PDF/print is a frontend concern; the endpoint returns the structured
+  <code>KitchenSheet</code> DTO. A line whose variant has no active recipe at first-explode is surfaced with the
+  same "no recipe" diagnostic Spec&nbsp;050 explosion emits (and freezes an empty component set), so the chef sees
+  the gap rather than a silently empty dish.
 </p>
 
 <h2 id="agent">12. Agent &amp; tools</h2>
@@ -581,7 +602,7 @@ ReleaseAsync(productionOrderId):
   <h4>Phase 2 — Release consumption + completion yield</h4>
   <div class="phase-summary">Wire the stock-moving edges.</div>
   <ul>
-    <li>Release → <code>ExplodeManyAsync</code> → all-or-nothing availability pre-check → <code>InventoryService.CommitAsync</code> fan-out over ingredients (§9); complete → optional finished-good <code>OnHand</code> yield (§10); unit tests for consumption, shortfall fail-fast, idempotent re-release, and yield.</li>
+    <li>Freeze each line's <code>RecipeSnapshotJson</code> at first-explode; release → read snapshot → single-transaction, all-or-nothing pre-check + <code>InventoryService.CommitAsync</code> fan-out over ingredients on the Spec&nbsp;042 oversell guard, rollback/retry on <code>DbUpdateConcurrencyException</code> (§9); complete → optional finished-good <code>OnHand</code> yield (§10); unit tests for consumption, shortfall fail-fast, concurrent-release atomicity, snapshot invariance, idempotent re-release, and yield.</li>
   </ul>
 </div>
 <div class="phase-card">
@@ -598,10 +619,11 @@ ReleaseAsync(productionOrderId):
   <tbody>
     <tr><td>R1</td><td>A <code>ProductionOrder</code> (planned-for date, status, optional notes) with one or more <code>ProductionOrderLine</code>s (variant + planned portions) can be created — optionally seeded from a <a href="055.production-planning-sheet-prep-list.html">Spec&nbsp;055</a> production sheet for a window — listed, and cancelled; tenant-scoped.</td></tr>
     <tr><td>R2</td><td><strong>Release</strong> consumes ingredient stock: all lines are exploded via <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> <code>ExplodeManyAsync</code> into a merged bill of materials, and each ingredient is drawn down through the <a href="042.commerce-retail-module.html">Spec&nbsp;042</a> <code>InventoryService</code> commit fan-out over <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> ingredient stock — the same fan-out bundle checkout uses over component variants.</td></tr>
-    <tr><td>R3</td><td>Release is <strong>all-or-nothing</strong>: availability is pre-checked for the whole merged bill; if any ingredient is short the release fails and no stock is consumed. Allowing negative stock at release is behind a flag (default off).</td></tr>
+    <tr><td>R3</td><td>Release is <strong>transactionally all-or-nothing across every component line</strong>: the whole-bill availability pre-check and the entire commit fan-out run in one transaction over the <a href="042.commerce-retail-module.html">Spec&nbsp;042</a> oversell guard (row concurrency token); a shortfall or a mid-fan-out concurrency conflict rolls the whole run back (retry on refreshed stock) so either all ingredients are consumed or none are — concurrent releases can never over-consume shared stock. Allowing negative stock at release is behind a flag (default off).</td></tr>
     <tr><td>R4</td><td>State transitions are guarded and idempotent: consumption fires exactly once on <code>Planned&nbsp;→&nbsp;Released</code>; re-releasing an already-released order is a no-op that never double-consumes; cancel from <code>Planned</code> consumes nothing.</td></tr>
     <tr><td>R5</td><td><strong>Complete</strong> optionally yields finished-good stock: each line increments the produced variant's <code>InventoryLevel.OnHand</code> by <code>ProducedQuantity</code> (fallback <code>PlannedQuantity</code>); the yield is toggleable for make-to-order tenants.</td></tr>
-    <tr><td>R6</td><td>A <strong>kitchen-sheet</strong> read endpoint returns a projection of the order + per-dish exploded recipe-component prep detail + a merged totals bill, assembled via explosion so it agrees with what release consumes; a variant lacking an active recipe carries the "no recipe" diagnostic.</td></tr>
+    <tr><td>R6</td><td>A <strong>kitchen-sheet</strong> read endpoint returns a projection of the order + per-dish recipe-component prep detail + a merged totals bill, assembled from each line's frozen <code>RecipeSnapshotJson</code> (R9) so it is byte-for-byte what release consumes even if the live recipe is edited between print and release; a variant lacking a recipe at first-explode carries the "no recipe" diagnostic.</td></tr>
+    <tr><td>R9</td><td>Each <code>ProductionOrderLine</code> stores a <strong>recipe snapshot</strong> (<code>RecipeSnapshotJson</code>) — the exploded components frozen the first time the line is exploded (at create or first kitchen-sheet generation); both the kitchen sheet and release read this snapshot, never a live re-explosion. This is the per-line stand-in for the <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> recipe-versioning open decision.</td></tr>
     <tr><td>R7</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix (<code>AnkProductionOrders</code>, <code>AnkProductionOrderLines</code>); <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
     <tr><td>R8</td><td>Agent tools are classified (<code>commerce_get_kitchen_sheet</code> read; <code>commerce_create_production_order</code> / <code>commerce_release_production_order</code> medium); every medium-gated invocation records an <code>AiRun</code>.</td></tr>
   </tbody>
@@ -610,12 +632,12 @@ ReleaseAsync(productionOrderId):
 <h2 id="tasks">16. Tasks</h2>
 <ol>
   <li><code>ProductionOrder</code>/<code>ProductionOrderLine</code> entities + <code>IEntityTypeConfiguration</code> + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>IProductionOrderService</code> create/cancel + guarded transition skeleton + DTOs + admin endpoints.</li>
-  <li>Wire <strong>release</strong>: <code>ExplodeManyAsync</code> → all-or-nothing availability pre-check → <code>InventoryService.CommitAsync</code> fan-out over ingredients; status guard so consumption is single-shot on <code>Planned&nbsp;→&nbsp;Released</code>.</li>
+  <li>Freeze the per-line <code>RecipeSnapshotJson</code> at first-explode; wire <strong>release</strong>: read snapshot → single-transaction, all-or-nothing pre-check + <code>InventoryService.CommitAsync</code> fan-out over ingredients on the Spec&nbsp;042 oversell guard (rollback/retry on <code>DbUpdateConcurrencyException</code>); status guard so consumption is single-shot on <code>Planned&nbsp;→&nbsp;Released</code>.</li>
   <li>Wire <strong>complete</strong>: optional finished-good <code>OnHand</code> yield gated by <code>yieldToStock</code>.</li>
-  <li><code>KitchenSheet</code> DTO + read endpoint assembled from <code>ExplodeAsync</code> (per dish) and <code>ExplodeManyAsync</code> (totals).</li>
+  <li><code>KitchenSheet</code> DTO + read endpoint assembled from each line's frozen <code>RecipeSnapshotJson</code> (first call explodes per dish and freezes it; totals = merged snapshots).</li>
   <li>The <code>CommerceProductionOrders</code> migration against <code>AonikDbContext</code>; review the diff (2 tables only).</li>
   <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the kitchen-sheet read + create/release medium tools; route through the gate.</li>
-  <li>Tests: unit (guarded transitions, release consumption + fan-out, all-or-nothing shortfall, idempotent re-release, completion yield, kitchen-sheet projection incl. no-recipe diagnostic) + an architecture test still asserting no Commerce↔Finance reference.</li>
+  <li>Tests: unit (guarded transitions, release consumption + fan-out, all-or-nothing shortfall, concurrent-release atomicity on the oversell guard, snapshot invariance under a mid-flight recipe edit, idempotent re-release, completion yield, kitchen-sheet projection incl. no-recipe diagnostic) + an architecture test still asserting no Commerce↔Finance reference.</li>
 </ol>
 
 <h2 id="verification">17. Verification</h2>
@@ -623,9 +645,11 @@ ReleaseAsync(productionOrderId):
   <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
   <li><strong>Release consumes:</strong> with rice/tomato stock on hand and a jollof recipe (yield 4 ⇒ 1&nbsp;kg rice, 0.5&nbsp;kg tomato), create a run of 40 portions and release it ⇒ ingredient <code>OnHand</code> drops by 10&nbsp;kg rice / 5&nbsp;kg tomato via the commit fan-out; order → <code>Released</code>.</li>
   <li><strong>All-or-nothing:</strong> set rice short of the requirement; release throws <code>InsufficientStock</code> and <em>no</em> ingredient (including tomato) is drawn down; order stays <code>Planned</code>.</li>
+  <li><strong>Concurrent releases:</strong> two releases racing on the same ingredient stock (enough for one run only) — exactly one commits the full bill, the other rolls back with a concurrency/insufficient-stock error; on-hand never goes below zero (mirrors the Spec&nbsp;042 oversell-guard test).</li>
+  <li><strong>Snapshot invariance:</strong> generate the kitchen sheet, edit the Spec&nbsp;050 recipe (change a component quantity), then release ⇒ consumption matches the <em>printed</em> sheet, not the edited recipe.</li>
   <li><strong>Idempotent re-release:</strong> releasing an already-<code>Released</code> order is a no-op; stock is unchanged (not double-consumed).</li>
   <li><strong>Completion yield:</strong> complete the run with <code>ProducedQuantity=38</code> and <code>yieldToStock=true</code> ⇒ the variant's <code>OnHand</code> rises by 38; with the flag off, finished stock is unchanged.</li>
-  <li><strong>Kitchen sheet:</strong> <code>GET …/kitchen-sheet</code> returns per-dish prep detail matching each line's explosion and a totals block equal to <code>ExplodeManyAsync</code>; a no-recipe line carries the diagnostic.</li>
+  <li><strong>Kitchen sheet:</strong> <code>GET …/kitchen-sheet</code> returns per-dish prep detail matching each line's frozen snapshot and a totals block equal to the merged snapshots; the first call populates <code>RecipeSnapshotJson</code>; a no-recipe line carries the diagnostic.</li>
   <li><strong>Agent:</strong> <code>commerce_release_production_order</code> surfaces a medium approval; <code>commerce_get_kitchen_sheet</code> executes directly; each records an <code>AiRun</code>.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
 </ul>
@@ -635,7 +659,9 @@ ReleaseAsync(productionOrderId):
   <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
   <tbody>
     <tr><td>Double-consumption on re-release (stock drawn twice)</td><td>High</td><td>Consumption is bound to the single <code>Planned&nbsp;→&nbsp;Released</code> edge and status-guarded; re-release from <code>Released</code> is a no-op; unit test asserts stock unchanged on a second release.</td></tr>
-    <tr><td>Ingredient shortfall at release leaves a partial draw-down</td><td>High</td><td>Availability is pre-checked for the whole merged bill before any commit (all-or-nothing); a shortfall throws before the first line is consumed. Fail-fast vs. backorder/"cook anyway" is an <a href="#open">Open</a> decision (flagged).</td></tr>
+    <tr><td>Ingredient shortfall at release leaves a partial draw-down</td><td>High</td><td>The whole-bill pre-check and the commit fan-out run in one transaction; a shortfall throws before commit and nothing persists. Fail-fast vs. backorder/"cook anyway" is an <a href="#open">Open</a> decision (flagged).</td></tr>
+    <tr><td>Concurrent releases over-consume shared ingredient stock (both pass the pre-check, then double-draw)</td><td>High</td><td>The fan-out over all components runs in a single transaction over the <a href="042.commerce-retail-module.html">Spec&nbsp;042</a> oversell guard (row concurrency token); a mid-loop <code>DbUpdateConcurrencyException</code> rolls the whole run back and retries the pre-check on refreshed stock — the pre-check alone is deliberately <em>not</em> the guarantee. Concurrency test asserts two simultaneous releases on the same stock never over-consume.</td></tr>
+    <tr><td>Recipe (Spec&nbsp;050) edited between printing the kitchen sheet and releasing ⇒ sheet and consumption disagree</td><td>Medium</td><td>The exploded components are frozen into <code>RecipeSnapshotJson</code> at first-explode; both the sheet and release replay that snapshot, never a live re-explosion, so a mid-flight recipe edit affects neither. Stands in for Spec&nbsp;050 recipe versioning until it lands.</td></tr>
     <tr><td>Produced ≠ planned (partial production / variance)</td><td>Medium</td><td><code>ProducedQuantity</code> is a distinct nullable field reconciled at completion; yield uses produced (not planned); the release consumed against <em>planned</em>, so under/over-production is a known, reportable variance (valuation is <a href="057.margin-and-profit-report.html">Spec&nbsp;057</a>).</td></tr>
     <tr><td>Make-to-stock yield inflates sellable stock for a make-to-order tenant</td><td>Medium</td><td><code>yieldToStock</code> flag defaults on for the make-to-stock persona but is off-able; make-to-order linkage to customer orders is an <a href="#open">Open</a> decision, not silently assumed.</td></tr>
     <tr><td>Post-release cancel strands consumed stock</td><td>Low</td><td>v1 does not auto-restore on post-release cancel; reconciliation is an explicit Spec&nbsp;052 stock adjustment. Auto-reversal is <a href="#open">Open</a>.</td></tr>
@@ -647,9 +673,9 @@ ReleaseAsync(productionOrderId):
 <ul>
   <li><strong>Release is the consume edge; complete is the yield edge.</strong> Raw materials leave stock on <code>Planned&nbsp;→&nbsp;Released</code>; finished goods (optionally) enter stock on completion.</li>
   <li><strong>Consumption reuses the Spec&nbsp;042 commit fan-out</strong>, over <code>RecipeComponent</code>→<code>Ingredient</code> instead of bundle component variants — no new inventory primitive.</li>
-  <li><strong>All-or-nothing at release</strong> via a whole-bill availability pre-check; a shortfall consumes nothing.</li>
+  <li><strong>All-or-nothing at release is transactional</strong> — the whole-bill pre-check and the commit fan-out share one transaction over the Spec&nbsp;042 oversell guard, rolling back on a concurrency conflict; concurrent releases cannot over-consume.</li>
   <li><strong>Transitions are guarded and idempotent</strong>; stock is consumed exactly once — no double-consume on re-release.</li>
-  <li><strong>The kitchen sheet is a pure read projection</strong> assembled by explosion, so it always agrees with what release consumes.</li>
+  <li><strong>The kitchen sheet is a pure read projection</strong> assembled from a per-line recipe snapshot frozen at first-explode, so it and release always consume the same bill even if the recipe is later edited.</li>
   <li><strong>Grow in place in <code>Aonik.Commerce</code></strong>; no Finance reference (inventory, not money); migrations stay with <code>AonikDbContext</code>.</li>
   <li><strong>Release/create are medium agent tools</strong> (they move inventory); the kitchen sheet is a direct read.</li>
 </ul>
