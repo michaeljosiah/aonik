@@ -3,7 +3,9 @@ using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.Commerce.Services.Production;
 using Aonik.Commerce.Services.Promotions;
+using Aonik.Commerce.Services.Sourcing;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Modules;
@@ -54,6 +56,11 @@ public sealed class CommerceModule : IModule
         // Default tax seam — charges no tax. Replace with a jurisdiction-aware calculator at the
         // composition root when VAT/sales tax is required (Spec 042 §5 follow-up).
         services.AddScoped<ITaxCalculator, ZeroRateTaxCalculator>();
+
+        // Spec 050 — maker-operations master data: the ingredient (raw-material) master and the
+        // recipe / bill-of-materials with portion explosion.
+        services.AddScoped<IIngredientService, IngredientService>();
+        services.AddScoped<IRecipeService, RecipeService>();
 
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.

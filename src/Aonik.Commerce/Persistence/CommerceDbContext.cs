@@ -1,7 +1,9 @@
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Production;
 using Aonik.Commerce.Entities.Promotions;
+using Aonik.Commerce.Entities.Sourcing;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -33,6 +35,9 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<OrderBundleSelection> OrderBundleSelections => Set<OrderBundleSelection>();
     public DbSet<Discount> Discounts => Set<Discount>();
     public DbSet<OrderChargeSummary> OrderChargeSummaries => Set<OrderChargeSummary>();
+    public DbSet<Ingredient> Ingredients => Set<Ingredient>();
+    public DbSet<Recipe> Recipes => Set<Recipe>();
+    public DbSet<RecipeComponent> RecipeComponents => Set<RecipeComponent>();
 
     public CommerceDbContext(
         DbContextOptions<CommerceDbContext> options,
@@ -73,6 +78,9 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
         MapTable<Discount>(modelBuilder, "Discounts");
         MapTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
+        MapTable<Ingredient>(modelBuilder, "Ingredients");
+        MapTable<Recipe>(modelBuilder, "Recipes");
+        MapTable<RecipeComponent>(modelBuilder, "RecipeComponents");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

@@ -6,7 +6,8 @@ namespace Aonik.Commerce.Agents;
 /// Commerce module's tool-approval classification (Spec 042 §13 / Spec 032). Declares which commerce
 /// agent tools are mutating and at what tier, so the central <see cref="IToolApprovalGate"/> wraps
 /// them before they reach the model. Read tools (<c>commerce_search_products</c>, <c>_get_product</c>,
-/// <c>_view_cart</c>, <c>_check_inventory</c>) are omitted — the gate passes unclassified, read-looking
+/// <c>_view_cart</c>, <c>_check_inventory</c>, <c>_list_ingredients</c>, <c>_get_recipe</c>,
+/// <c>_explode_recipe</c>) are omitted — the gate passes unclassified, read-looking
 /// tools through. Commerce never captures money, so no tool is High here (capture stays a Finance
 /// high-tier action; a future <c>commerce_refund</c> would be High via a Finance proposal).
 /// </summary>
@@ -27,6 +28,10 @@ internal sealed class CommerceToolApprovalManifest : IToolApprovalManifest
             ["commerce_set_price"] = Medium("Set a product price"),
             ["commerce_adjust_inventory"] = Medium("Adjust product stock"),
             ["commerce_checkout"] = Medium("Check out a cart (creates an order + draft payment; no capture)"),
+
+            // ── Medium — maker-ops master-data writes (Spec 050 §12) ──
+            ["commerce_create_ingredient"] = Medium("Create an ingredient"),
+            ["commerce_set_recipe"] = Medium("Define a product recipe"),
         };
 
     public ToolClassification? Classify(string toolName) =>

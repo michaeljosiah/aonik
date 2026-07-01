@@ -6,9 +6,10 @@ using FluentAssertions;
 namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>
-/// The commerce agent's tool-approval classification (Spec 042 §13 / Spec 032). Read tools pass
-/// through unclassified; cart writes are Low; catalog/price/inventory/checkout writes are Medium;
-/// nothing is High (Commerce never captures money).
+/// The commerce agent's tool-approval classification (Spec 042 §13 / Spec 032 / Spec 050 §12).
+/// Read tools pass through unclassified; cart writes are Low; catalog/price/inventory/checkout
+/// and maker-ops master-data (ingredient/recipe) writes are Medium; nothing is High (Commerce
+/// never captures money).
 /// </summary>
 public class CommerceToolApprovalManifestTests
 {
@@ -34,6 +35,8 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_set_price")]
     [InlineData("commerce_adjust_inventory")]
     [InlineData("commerce_checkout")]
+    [InlineData("commerce_create_ingredient")]
+    [InlineData("commerce_set_recipe")]
     public void DomainWritesAndCheckout_Should_BeMedium(string tool)
     {
         var classification = _manifest.Classify(tool);
@@ -46,6 +49,9 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_get_product")]
     [InlineData("commerce_view_cart")]
     [InlineData("commerce_check_inventory")]
+    [InlineData("commerce_list_ingredients")]
+    [InlineData("commerce_get_recipe")]
+    [InlineData("commerce_explode_recipe")]
     public void ReadTools_Should_BeUnclassified(string tool)
         => _manifest.Classify(tool).Should().BeNull();
 
@@ -56,6 +62,7 @@ public class CommerceToolApprovalManifestTests
         [
             "commerce_create_cart", "commerce_add_to_cart", "commerce_add_bundle_to_cart",
             "commerce_create_product", "commerce_set_price", "commerce_adjust_inventory", "commerce_checkout",
+            "commerce_create_ingredient", "commerce_set_recipe",
         ];
         foreach (var tool in all)
         {

@@ -7,7 +7,9 @@ using Aonik.Platform.Entities.Compliance;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Production;
 using Aonik.Commerce.Entities.Promotions;
+using Aonik.Commerce.Entities.Sourcing;
 using Aonik.Documents.Entities;
 using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
@@ -121,6 +123,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<OrderBundleSelection> OrderBundleSelections { get; set; } = null!;
     public virtual DbSet<Discount> Discounts { get; set; } = null!;
     public virtual DbSet<OrderChargeSummary> OrderChargeSummaries { get; set; } = null!;
+
+    // Commerce maker-ops (Spec 050) — ingredient + recipe/bill-of-materials master data.
+    public virtual DbSet<Ingredient> Ingredients { get; set; } = null!;
+    public virtual DbSet<Recipe> Recipes { get; set; } = null!;
+    public virtual DbSet<RecipeComponent> RecipeComponents { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
@@ -385,6 +392,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
         MapCommerceTable<Discount>(modelBuilder, "Discounts");
         MapCommerceTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
+
+        // Commerce maker-ops (Spec 050)
+        MapCommerceTable<Ingredient>(modelBuilder, "Ingredients");
+        MapCommerceTable<Recipe>(modelBuilder, "Recipes");
+        MapCommerceTable<RecipeComponent>(modelBuilder, "RecipeComponents");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
