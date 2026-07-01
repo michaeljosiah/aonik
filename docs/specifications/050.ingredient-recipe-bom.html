@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 050 · Ingredient master &amp; Recipe / Bill-of-Materials — the maker-operations keystone</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 050</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p2">Priority: P2</span>
+  <span class="meta-tag">Domain: Commerce / Production</span>
+  <h1>Ingredient master &amp; Recipe / Bill-of-Materials — the maker-operations keystone</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Adds the two foundational master-data concepts a <em>maker</em> business needs on top of the retail
+    storefront that <a href="042.commerce-retail-module.html">Spec&nbsp;042</a> already delivered: a
+    <strong>raw-material / ingredient</strong> master and a <strong>recipe</strong> (a bill of materials)
+    that says which ingredients — and how much — a finished product is made from. This is the
+    <strong>keystone</strong> of the maker-operations spec family (<a href="#family">050–057</a>): ingredient
+    costing, raw-material stock, procurement, production planning, kitchen sheets, and margin reporting all
+    hang off the recipe defined here. Everything lives in <code>Aonik.Commerce</code> and references only
+    <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code> — never <code>Aonik.Finance</code>.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#family">The maker-operations spec family</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#layout">Target module layout</a></li>
+    <li><a href="#domain-model">Domain model</a></li>
+    <li><a href="#recipe-vs-bundle">Recipe vs. Bundle — the key distinction</a></li>
+    <li><a href="#uom">Units of measure</a></li>
+    <li><a href="#explosion">Recipe explosion (how downstream specs consume this)</a></li>
+    <li><a href="#agent">Agent &amp; tools</a></li>
+    <li><a href="#dbcontext">CommerceDbContext &amp; migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  AONIK can already <em>catalog, price, stock, sell, bill, and fund</em> a finished product — that is what
+  <a href="042.commerce-retail-module.html">Spec&nbsp;042</a> delivered (a retail storefront on the unified
+  <a href="041.unified-order-spine-ordering-layer.html">Order spine</a>). What it cannot yet describe is how
+  a finished product is <strong>made</strong>: the raw materials it consumes and in what quantity. A
+  food-production tenant selling "jollof rice" and "seared steak" has no way to say <em>a portion of jollof
+  is 0.25&nbsp;kg rice&nbsp;+&nbsp;0.12&nbsp;kg tomato&nbsp;+&nbsp;…</em>. Without that, none of the
+  operations-manager workflow — prep lists, ingredient stock, reorder alerts, kitchen sheets, food cost,
+  margin — can exist.
+</p>
+
+<p>
+  This spec adds the missing master data as two new anemic entities in <code>Aonik.Commerce</code>:
+</p>
+<ul>
+  <li><strong><code>Ingredient</code></strong> — a stocked, consumable raw material (rice, tomato, steak
+      cut), with a base unit of measure. <em>Not</em> a saleable <code>Product</code>; it is what products
+      are made from.</li>
+  <li><strong><code>Recipe</code></strong> + <strong><code>RecipeComponent</code></strong> — the bill of
+      materials for a finished <code>ProductVariant</code>: the list of ingredients and the quantity of each
+      that one yield-unit (a portion) consumes.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  An operator (or the <code>commerce-agent</code>) can define ingredients with a base unit, attach a recipe
+  to a saleable product variant, and read back the exploded bill of materials for a given number of
+  portions ("40 portions of jollof rice ⇒ 10&nbsp;kg rice, 5&nbsp;kg tomato, …"). <code>dotnet build
+  Aonik.sln</code> stays green with <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>;
+  <code>dotnet test Aonik.sln</code> stays green with new unit tests covering recipe definition, validation,
+  and explosion.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  The driver is a concrete day-in-the-life of a food-production operations manager: they review orders
+  pulled in from the website, read an <strong>aggregated production sheet</strong> (this week: 40 portions
+  jollof, 30 portions steak), consult an <strong>ingredient prep list</strong> (10&nbsp;kg rice,
+  5&nbsp;kg tomato…), react to a <strong>low-stock alert</strong>, place a <strong>reorder</strong>, print
+  a <strong>kitchen sheet</strong>, review a <strong>profit report</strong> (actual food cost vs. target
+  margin), and <strong>update ingredient costs</strong> when suppliers reprice. That is classic
+  light-manufacturing / back-office ERP — the <em>make-side</em> of commerce, distinct from the retail
+  <em>sell-side</em> Spec&nbsp;042 shipped.
+</p>
+<p>
+  Every one of those artefacts is a projection of one primitive: <strong>a finished good is made of raw
+  materials in known quantities</strong>. The production sheet is order demand aggregated by product; the
+  prep list is that demand exploded through recipes; food cost is the recipe valued at ingredient cost; the
+  kitchen sheet is a production run's recipes made concrete. So the recipe is the keystone — this spec
+  builds it first, deliberately excluding cost (<a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a>)
+  and stock (<a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>) to stay small and
+  independently shippable.
+</p>
+<p>
+  Scope discipline is explicit: build the <strong>thin, opinionated maker-operations slice</strong> this
+  persona needs — not a general MRP/ERP with multi-level BOMs, routings, work centres, or lot genealogy.
+  Those are noted as open extensions, not built.
+</p>
+
+<h2 id="family">3. The maker-operations spec family</h2>
+<p>
+  This spec is the first of eight small, dependency-ordered specs that together deliver the operations
+  manager's day. Each is sized at roughly one Spec&nbsp;042 phase-card (≤&nbsp;~8 story points) and ships on
+  its own. This spec (050) is the keystone every other references.
+</p>
+<table>
+  <thead><tr><th>#</th><th>Spec</th><th>Delivers</th><th>Depends on</th></tr></thead>
+  <tbody>
+    <tr><td><strong>050</strong></td><td><strong>Ingredient master + Recipe/BOM</strong> (this spec)</td><td>What a product is made of.</td><td>042</td></tr>
+    <tr><td>051</td><td><a href="051.ingredient-costing-standard-cost.html">Ingredient costing + standard-cost rollup</a></td><td>What it costs to make (food cost / COGS).</td><td>050</td></tr>
+    <tr><td>052</td><td><a href="052.raw-material-inventory-reorder-alerts.html">Raw-material inventory + reorder + low-stock alerts</a></td><td>How much raw material is on hand; when to reorder.</td><td>050</td></tr>
+    <tr><td>053</td><td><a href="053.suppliers-and-purchase-orders.html">Suppliers + purchase orders</a></td><td>Ordering more stock from suppliers.</td><td>050, 051, 052</td></tr>
+    <tr><td>054</td><td><a href="054.goods-receipt-stock-and-cost.html">Goods receipt (stock + cost)</a></td><td>Receiving a PO → stock up, cost refresh.</td><td>051, 052, 053</td></tr>
+    <tr><td>055</td><td><a href="055.production-planning-sheet-prep-list.html">Production planning: production sheet + prep list</a></td><td>Aggregated demand → exploded ingredient requirements.</td><td>050, 052</td></tr>
+    <tr><td>056</td><td><a href="056.production-orders-kitchen-sheet.html">Production/work orders + kitchen sheet</a></td><td>A production run that consumes ingredient stock.</td><td>050, 052, 055</td></tr>
+    <tr><td>057</td><td><a href="057.margin-and-profit-report.html">Margin &amp; profit report</a></td><td>Revenue vs. COGS vs. target margin.</td><td>051</td></tr>
+  </tbody>
+</table>
+
+<h2 id="reuse-vs-build">4. Reuse vs. build</h2>
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Finished-good identity</td><td><span class="tag reuse">reuse</span></td><td>A recipe attaches to an existing <code>ProductVariant</code> (Spec&nbsp;042 catalog); the variant is the "thing produced".</td></tr>
+    <tr><td>Anemic entity + tenancy + audit</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code> (ADR-002); soft-delete, audit, tenant filter inherited.</td></tr>
+    <tr><td>Migration stream</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>Ank</code> tables; <code>CommerceDbContext</code> gets DbSets, no migrations.</td></tr>
+    <tr><td>Agent + approval + audit rails</td><td><span class="tag reuse">reuse</span></td><td><code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
+    <tr><td>Ingredient master</td><td><span class="tag new">build</span></td><td><code>Ingredient</code> — raw material with a base unit; distinct from <code>Product</code>.</td></tr>
+    <tr><td>Recipe / bill of materials</td><td><span class="tag new">build</span></td><td><code>Recipe</code> + <code>RecipeComponent</code> per finished <code>ProductVariant</code>.</td></tr>
+    <tr><td>Recipe explosion</td><td><span class="tag new">build</span></td><td><code>IRecipeService.ExplodeAsync(variant, portions)</code> → per-ingredient required quantity.</td></tr>
+    <tr><td>Ingredient cost, stock, procurement, production</td><td><span class="tag existing">later</span></td><td>Specs 051–057 in this family; deliberately out of this spec.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">5. Scope (in / out)</h2>
+<h3>In scope</h3>
+<ul>
+  <li><code>Ingredient</code> entity + <code>IIngredientService</code> (create / update / list / deactivate) + admin endpoints.</li>
+  <li><code>Recipe</code> + <code>RecipeComponent</code> entities + <code>IRecipeService</code> (define / replace a variant's recipe, get, list, validate) + admin endpoints.</li>
+  <li>Recipe <strong>explosion</strong>: given a <code>ProductVariant</code> and a portion count, return the per-ingredient required quantity in each ingredient's base unit.</li>
+  <li>Validation: components reference active ingredients; quantities positive; one active recipe per variant; recipe target is a real variant in the tenant.</li>
+  <li>New Commerce DbSets on <code>CommerceDbContext</code> + <code>AonikDbContext</code>; one tool-generated migration (<code>CommerceRecipesAndIngredients</code>).</li>
+  <li>Commerce-agent read tools for ingredients/recipe + medium-gated write tools for create-ingredient / set-recipe.</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+  <li>Ingredient <strong>cost</strong> and product standard-cost rollup — <a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a>.</li>
+  <li>Ingredient <strong>stock</strong>, reorder points, low-stock alerts — <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>.</li>
+  <li>Multi-level BOMs (a sub-recipe as a component of another recipe), routings/work-centres, yield loss/wastage factors, lot/batch genealogy, allergen roll-ups — noted under <a href="#open">Open</a>, not built.</li>
+  <li>Unit-of-measure <em>conversion</em> engine (e.g. buy in 25&nbsp;kg sacks, stock in kg) — v1 stores quantities in each ingredient's single base unit; purchase-pack conversion lands with procurement (Spec&nbsp;053).</li>
+</ul>
+
+<h2 id="guardrails">6. Constraints &amp; guardrails</h2>
+<ul>
+  <li><strong>No reference to Finance.</strong> <code>Aonik.Commerce</code> still references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>. This spec adds no cross-module coupling (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
+  <li><strong>Anemic entities.</strong> <code>Ingredient</code>/<code>Recipe</code>/<code>RecipeComponent</code> are <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> + <code>AuditableEntity</code> (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); all logic lives in services returning DTOs.</li>
+  <li><strong>Single migration stream.</strong> EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code>-prefixed tables; <code>CommerceDbContext</code> is runtime scoping with no migrations; agents never hand-author migrations.</li>
+  <li><strong>An ingredient is not a product.</strong> A <code>Recipe</code> draws down <em>ingredient</em> stock; a Spec&nbsp;042 <em>Bundle</em> draws down <em>saleable&nbsp;ProductVariant</em> stock. The two never collapse (§9).</li>
+  <li><strong>Agents propose; systems execute.</strong> Ingredient/recipe reads are direct agent tools; writes are <strong>medium</strong> (in-session confirmation, args-hash-bound); every AI action records an <code>AiRun</code>.</li>
+  <li><strong>Recipes are versionless in v1 but auditable.</strong> Replacing a recipe overwrites its components under the same audited entity; historical valuation stability comes from cost snapshots in Spec&nbsp;051, not recipe versioning (see <a href="#open">Open</a>).</li>
+</ul>
+
+<h2 id="layout">7. Target module layout</h2>
+<div class="ascii-diagram">src/Aonik.Commerce/
+├── Entities/
+│   ├── Sourcing/     Ingredient                       # NEW (raw material master)
+│   └── Production/   Recipe, RecipeComponent          # NEW (bill of materials)
+├── Services/
+│   ├── Sourcing/     IIngredientService               # NEW
+│   └── Production/   IRecipeService                   # NEW (define / get / explode)
+├── Endpoints/Admin/
+│   ├── Sourcing/     Ingredient CRUD                  # NEW
+│   └── Production/   Recipe get / set                 # NEW
+├── Agents/Tools/     CommerceAgentTools (+ recipe/ingredient tools)   # EXTEND
+├── Contracts/        Models + Api records             # EXTEND
+└── Persistence/
+    ├── CommerceDbContext.cs           (+ Ingredient/Recipe/RecipeComponent DbSets, no migrations)
+    └── Configurations/Sourcing|Production/  (IEntityTypeConfiguration&lt;T&gt;)   # NEW</div>
+
+<h2 id="domain-model">8. Domain model</h2>
+<p>All entities are anemic, <code>ITenantScoped</code>, inherit <code>AuditableEntity</code>.</p>
+<pre><code>class Ingredient      { Guid Id, TenantId; string Name; string? Sku; string BaseUnit; // kg | g | L | ml | each
+                        string? Category; bool IsActive; string? Notes }
+
+class Recipe          { Guid Id, TenantId, ProductVariantId; string Name;
+                        decimal YieldQuantity;  // how many yield-units one run of this recipe produces
+                        string  YieldUnit;      // e.g. "portion"
+                        bool    IsActive;        // one active recipe per variant
+                        List&lt;RecipeComponent&gt; Components; }
+
+class RecipeComponent { Guid Id, TenantId, RecipeId, IngredientId;
+                        decimal Quantity;        // in the ingredient's BaseUnit, per YieldQuantity yield-units
+                        string? Notes; }</code></pre>
+<p>
+  <code>Recipe.ProductVariantId</code> is a real intra-module reference to the Spec&nbsp;042
+  <code>ProductVariant</code> being produced (the recipe's "output"). <code>YieldQuantity</code>/<code>YieldUnit</code>
+  let a recipe describe a batch — "this recipe yields 10 portions" — while components are quantities
+  <em>per that yield</em>; explosion (§10) scales to any requested portion count. <code>RecipeComponent.Quantity</code>
+  is always expressed in the referenced ingredient's <code>BaseUnit</code>.
+</p>
+
+<h2 id="recipe-vs-bundle">9. Recipe vs. Bundle — the key distinction</h2>
+<p>
+  Spec&nbsp;042 already has a "made of other things" concept — the <strong>Bundle / build-your-own-box</strong>.
+  It is deliberately <em>not</em> reused here, because it models a different thing:
+</p>
+<table>
+  <thead><tr><th></th><th>Bundle (Spec&nbsp;042 §12)</th><th>Recipe (this spec)</th></tr></thead>
+  <tbody>
+    <tr><td>Made of</td><td>Other <strong>saleable</strong> <code>ProductVariant</code>s the buyer picks</td><td><strong>Non-saleable</strong> <code>Ingredient</code>s an operator defines</td></tr>
+    <tr><td>Chosen by</td><td>The customer, at cart time (selection slots)</td><td>The operator, once, as master data</td></tr>
+    <tr><td>Draws down</td><td>Component <strong>variant</strong> stock</td><td><strong>Ingredient</strong> stock (Spec&nbsp;052)</td></tr>
+    <tr><td>Exists to</td><td>Sell a curated box as one line</td><td>Describe how a product is <em>produced</em></td></tr>
+  </tbody>
+</table>
+<p>
+  Keeping them separate avoids overloading <code>BundleSlot</code>/<code>CartItemSelection</code> with
+  production semantics and keeps a single, honest source of inventory truth per concept. A product can be
+  both a bundle <em>and</em> have components produced from recipes — they compose without conflict.
+</p>
+
+<h2 id="uom">10. Units of measure</h2>
+<p>
+  Each <code>Ingredient</code> declares one <code>BaseUnit</code> (a free string with a known-values helper:
+  <code>kg</code>, <code>g</code>, <code>L</code>, <code>ml</code>, <code>each</code>). All recipe quantities
+  and (in later specs) stock levels and costs for that ingredient are expressed in its base unit — there is
+  <strong>no conversion engine in v1</strong>. If a supplier sells rice in 25&nbsp;kg sacks but the base unit
+  is <code>kg</code>, the pack-to-base factor is a procurement concern handled in
+  <a href="053.suppliers-and-purchase-orders.html">Spec&nbsp;053</a> (<code>SupplierIngredient.PackSize</code>),
+  not here. Mixing units for one ingredient is simply disallowed; pick the base unit the kitchen actually
+  meters in.
+</p>
+
+<h2 id="explosion">11. Recipe explosion (how downstream specs consume this)</h2>
+<p>
+  The one piece of logic this spec owns beyond CRUD is <strong>explosion</strong> — the reusable primitive the
+  prep list (055), production consumption (056), and food cost (051) all call:
+</p>
+<div class="ascii-diagram">IRecipeService.ExplodeAsync(productVariantId, portions)
+  → resolve the variant's single active Recipe
+  → scale each RecipeComponent.Quantity by (portions / Recipe.YieldQuantity)
+  → return [ { IngredientId, Ingredient.Name, BaseUnit, RequiredQuantity } ]
+
+IRecipeService.ExplodeManyAsync( [ {variantId, portions}, … ] )   // for a whole production sheet
+  → explode each, then sum RequiredQuantity per IngredientId
+  → return the merged bill of materials  ("40 jollof + 30 steak ⇒ 10kg rice, 5kg tomato, …")</div>
+<p>
+  Explosion is pure and read-only: it never touches stock or cost (those specs decorate the result). A
+  variant with no active recipe explodes to an empty bill with a diagnostic flag so callers can surface
+  "no recipe defined" rather than silently under-counting.
+</p>
+
+<h2 id="agent">12. Agent &amp; tools</h2>
+<p>
+  The existing <code>commerce-agent</code> gains ingredient/recipe tools, classified by
+  <code>CommerceToolApprovalManifest</code> and wrapped by the Spec&nbsp;032 gate — no change to the gate:
+</p>
+<table>
+  <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>commerce_list_ingredients</code>, <code>commerce_get_recipe</code></td><td><span class="tag read">read</span></td><td>Direct execution; tenant scope from context.</td></tr>
+    <tr><td><code>commerce_explode_recipe</code></td><td><span class="tag read">read</span></td><td>Returns the bill of materials for N portions of a variant.</td></tr>
+    <tr><td><code>commerce_create_ingredient</code>, <code>commerce_set_recipe</code></td><td><span class="tag medium">medium</span></td><td>Everyday master-data writes; in-session confirmation, args-hash-bound; each records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="dbcontext">13. CommerceDbContext &amp; migrations</h2>
+<p>
+  Three new <code>Ank</code>-prefixed tables — <code>AnkIngredients</code>, <code>AnkRecipes</code>,
+  <code>AnkRecipeComponents</code> — are created by one EF-CLI migration against <code>AonikDbContext</code>.
+  Each entity is added to both <code>CommerceDbContext</code> (runtime scoping) and <code>AonikDbContext</code>
+  (canonical stream); all are tenant-scoped (none global). Configurations live in
+  <code>Persistence/Configurations/Sourcing</code> and <code>…/Production</code> as
+  <code>IEntityTypeConfiguration&lt;T&gt;</code> classes.
+</p>
+<pre><code>dotnet ef migrations add CommerceRecipesAndIngredients --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+
+<h2 id="phases">14. Phased rollout</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Ingredient master</h4>
+  <div class="phase-summary">A list of raw materials with base units.</div>
+  <ul>
+    <li><code>Ingredient</code> entity + config + DbSets; <code>IIngredientService</code> (create/update/list/deactivate) returning DTOs; admin endpoints; the <code>CommerceRecipesAndIngredients</code> migration (this phase creates <code>AnkIngredients</code>; recipe tables land with Phase&nbsp;2 in the same migration if shipped together, else a second migration).</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Recipe / bill of materials + explosion</h4>
+  <div class="phase-summary">Attach a recipe to a product; read the exploded BOM.</div>
+  <ul>
+    <li><code>Recipe</code>/<code>RecipeComponent</code> + configs; <code>IRecipeService</code> (set/get/list + validation + <code>ExplodeAsync</code>/<code>ExplodeManyAsync</code>); admin endpoints; unit tests for validation and explosion scaling.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Commerce-agent tools</h4>
+  <div class="phase-summary">The agentic surface.</div>
+  <ul>
+    <li>Read tools (list ingredients, get recipe, explode) + medium-gated write tools (create ingredient, set recipe) added to <code>CommerceAgentTools</code> and classified in <code>CommerceToolApprovalManifest</code>; routed through <code>IToolApprovalGate.GateAll</code> (fails closed).</li>
+  </ul>
+</div>
+
+<h2 id="requirements">15. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>An <code>Ingredient</code> (name, base unit, optional sku/category) can be created, updated, listed, and deactivated (admin + agent), tenant-scoped.</td></tr>
+    <tr><td>R2</td><td>A <code>Recipe</code> can be attached to a <code>ProductVariant</code> with one or more <code>RecipeComponent</code>s (ingredient + quantity in the ingredient's base unit); replacing it overwrites components under one audited entity.</td></tr>
+    <tr><td>R3</td><td>Validation holds: components reference active ingredients in the tenant; quantities &gt; 0; at most one active recipe per variant; the recipe target is a real variant.</td></tr>
+    <tr><td>R4</td><td><code>ExplodeAsync(variant, portions)</code> returns per-ingredient required quantities scaled by <code>portions / YieldQuantity</code>; <code>ExplodeManyAsync</code> sums across variants into a merged bill of materials.</td></tr>
+    <tr><td>R5</td><td>A variant with no active recipe explodes to an empty bill with a "no recipe" diagnostic, never a silent zero.</td></tr>
+    <tr><td>R6</td><td>Recipes draw down ingredient stock, never saleable-variant stock; the Bundle concept (Spec&nbsp;042) is untouched.</td></tr>
+    <tr><td>R7</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
+    <tr><td>R8</td><td>Agent tools are classified (reads direct; create-ingredient/set-recipe medium); every invocation records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">16. Tasks</h2>
+<ol>
+  <li><code>Ingredient</code> entity + <code>IEntityTypeConfiguration</code> + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>IIngredientService</code> + DTOs + admin endpoints.</li>
+  <li><code>Recipe</code>/<code>RecipeComponent</code> entities + configs; <code>IRecipeService</code> (set/get/list, validation, <code>ExplodeAsync</code>/<code>ExplodeManyAsync</code>) + admin endpoints.</li>
+  <li>The <code>CommerceRecipesAndIngredients</code> migration against <code>AonikDbContext</code>; review the diff (3 tables only).</li>
+  <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the ingredient/recipe read + medium tools; route through the gate.</li>
+  <li>Tests: unit (ingredient CRUD, recipe validation, explosion scaling + multi-variant merge, no-recipe diagnostic) + an architecture test still asserting no Commerce↔Finance reference.</li>
+</ol>
+
+<h2 id="verification">17. Verification</h2>
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
+  <li><strong>Explosion:</strong> define ingredients (rice kg, tomato kg), a jollof recipe (yield 4 portions ⇒ 1&nbsp;kg rice, 0.5&nbsp;kg tomato), a steak recipe; <code>ExplodeManyAsync([{jollof,40},{steak,30}])</code> returns 10&nbsp;kg rice, 5&nbsp;kg tomato, plus the steak components — matching the day-in-the-life prep list.</li>
+  <li><strong>Validation:</strong> a component with a deactivated ingredient, a non-positive quantity, or a second active recipe on the same variant is rejected.</li>
+  <li><strong>Agent:</strong> <code>commerce_set_recipe</code> surfaces a medium approval; <code>commerce_explode_recipe</code> executes directly; each records an <code>AiRun</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">18. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Recipe/Bundle conceptual confusion</td><td>Medium</td><td>Separate entities, tables, and tools; §9 makes the distinction explicit; tests assert recipes draw ingredient (not variant) stock.</td></tr>
+    <tr><td>Unit mismatch (kg vs g) silently mis-explodes</td><td>Medium</td><td>Single base unit per ingredient; all quantities in that unit; no conversion in v1; validation rejects unit-bearing free text.</td></tr>
+    <tr><td>Recipe edited after historical production, distorting past valuations</td><td>Low</td><td>Historical stability comes from cost/stock snapshots (051/054/056), not recipe versioning; versioning noted as Open.</td></tr>
+    <tr><td>Explosion ignores yield, double-counting a batch recipe</td><td>Medium</td><td>Explosion scales by <code>portions / YieldQuantity</code>; unit test covers a &gt;1 yield recipe.</td></tr>
+    <tr><td>Schema drift from new tables</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review the 3-table diff; <code>Ank</code> prefix.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">19. Decisions baked in</h2>
+<ul>
+  <li><strong>Ingredient is a first-class entity</strong>, distinct from saleable <code>Product</code> — the maker's raw-material master.</li>
+  <li><strong>Recipe = bill of materials</strong> attached to a <code>ProductVariant</code>; components carry quantity per yield in the ingredient's base unit.</li>
+  <li><strong>Explosion is the shared primitive</strong> the prep list, production consumption, and food cost all reuse.</li>
+  <li><strong>Recipe ≠ Bundle</strong>; ingredient stock ≠ variant stock.</li>
+  <li><strong>Grow in place in <code>Aonik.Commerce</code></strong> (no new module); no Finance reference; migrations stay with <code>AonikDbContext</code>.</li>
+  <li><strong>v1 is single-level, single-unit, versionless</strong> — deliberately thin; extensions are Open.</li>
+</ul>
+
+<h2 id="open">20. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Recipe versioning.</strong> Overwrite-in-place (v1) vs. an append-only <code>RecipeVersion</code> with an
+  effective date, so a production run records the recipe version it used. Deferred; cost/stock snapshots cover
+  historical valuation in the interim.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Multi-level BOM.</strong> Allowing a sub-recipe (a semi-finished good) as a component of another recipe.
+  v1 is single-level; the explosion algorithm is written so a recursive expansion can be added without changing
+  callers.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Yield loss / wastage factor.</strong> A per-component or per-recipe wastage multiplier (e.g. 5% trim
+  loss). Not in v1; would decorate explosion.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Unit-of-measure conversions.</strong> A conversion table so an ingredient can be metered in one unit and
+  purchased in another. v1 uses a single base unit; procurement pack-size (Spec&nbsp;053) handles the buy-side case.
+</div>
+
+<h2 id="refs">21. References</h2>
+<ul>
+  <li><a href="042.commerce-retail-module.html">Spec&nbsp;042</a> — the retail commerce module (catalog, inventory, cart, agent) this builds on; source of <code>ProductVariant</code> and the Bundle concept contrasted in §9.</li>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine (procurement rides on it in Spec&nbsp;053).</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (grow-in-place, sibling-reference rule).</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> — anemic entities.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> — agent mutation governance for commerce tools.</li>
+  <li>Maker-operations family: <a href="051.ingredient-costing-standard-cost.html">051</a>, <a href="052.raw-material-inventory-reorder-alerts.html">052</a>, <a href="053.suppliers-and-purchase-orders.html">053</a>, <a href="054.goods-receipt-stock-and-cost.html">054</a>, <a href="055.production-planning-sheet-prep-list.html">055</a>, <a href="056.production-orders-kitchen-sheet.html">056</a>, <a href="057.margin-and-profit-report.html">057</a>.</li>
+</ul>
+
+<footer>
+  Spec 050 &middot; Ingredient master &amp; Recipe / Bill-of-Materials — the maker-operations keystone &middot;
+  Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>

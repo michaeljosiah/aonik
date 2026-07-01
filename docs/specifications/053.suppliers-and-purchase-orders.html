@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 053 · Suppliers &amp; supplier catalog &amp; purchase orders — the reorder moment</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p3 { background:#efe6f6; color:#5a2784; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 053</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p3">Priority: P3</span>
+  <span class="meta-tag">Domain: Commerce / Sourcing / Ordering</span>
+  <h1>Suppliers, supplier catalog &amp; purchase orders — the reorder moment</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Adds the <em>procurement</em> slice of the maker-operations family: a <strong>Supplier</strong> master, a
+    <strong>supplier catalog</strong> (who sells which ingredient, at what pack and price), and the ability for an
+    operator to place a <strong>purchase order</strong> — to "order more" of a raw material when stock runs low.
+    Crucially, a purchase order is <strong>not a new entity</strong>: it is a new <code>OrderType</code> on the
+    shared <a href="041.unified-order-spine-ordering-layer.html">Order spine</a> (ADR&nbsp;011), reusing
+    <code>Order</code>/<code>OrderItem</code> with ingredient soft-ref lines and an inverted direction of money —
+    <em>we</em> are the payer, the supplier is the payee. This spec builds on
+    <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> (the maker-operations <strong>keystone</strong>:
+    the <code>Ingredient</code> master), and consumes <a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a>
+    default cost and <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> low-stock alerts.
+    Everything lives in <code>Aonik.Commerce</code> and references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
+    — never <code>Aonik.Finance</code>: the PO rides the <em>spine</em>, not Finance.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#family">Place in the maker-operations family</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#layout">Target module layout</a></li>
+    <li><a href="#domain-model">Domain model</a></li>
+    <li><a href="#supplier-catalog">Supplier &amp; supplier catalog</a></li>
+    <li><a href="#po-as-ordertype">PurchaseOrder as an OrderType on the spine</a></li>
+    <li><a href="#direction-of-money">Direction of money — we are the payer</a></li>
+    <li><a href="#seed-from-shortfall">Creating a PO from a low-stock shortfall (Spec 052)</a></li>
+    <li><a href="#lifecycle">PO lifecycle</a></li>
+    <li><a href="#agent">Agent &amp; tools</a></li>
+    <li><a href="#dbcontext">CommerceDbContext &amp; migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  The operations manager's day (<a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> §2) hits a
+  <strong>reorder moment</strong>: a <a href="052.raw-material-inventory-reorder-alerts.html">low-stock alert</a>
+  fires ("rice below reorder point"), and they need to <em>order more</em> from a supplier. Two things are
+  missing to make that possible: a record of <strong>who we buy from and at what price</strong>, and a
+  record of <strong>the order we placed</strong>. This spec adds both.
+</p>
+
+<p>
+  It introduces two new anemic entities in <code>Aonik.Commerce</code> for supplier master data, and — the
+  architecturally interesting move — models the purchase order itself as a <strong>new
+  <code>OrderType</code> on the existing shared Order spine</strong> rather than a standalone Commerce entity:
+</p>
+<ul>
+  <li><strong><code>Supplier</code></strong> — a counterparty we buy raw materials from (name, currency, lead
+      time, payment terms), optionally soft-linked to a platform <code>Party</code>.</li>
+  <li><strong><code>SupplierIngredient</code></strong> — the supplier <em>catalog</em> / price list: this
+      supplier sells <em>this</em> <a href="050.ingredient-recipe-bom.html">ingredient</a> at this
+      <code>PackSize</code> (a 25&nbsp;kg sack) for this <code>PackPrice</code> — the buy-side unit conversion
+      from purchase pack to stock base unit.</li>
+  <li><strong>A purchase order</strong> = an <code>Order</code> whose <code>OrderType</code> is the new value
+      <code>"PurchaseOrder"</code>, with a <code>Supplier</code> party role, created via the spine's
+      <code>IOrderService.CreateAsync</code>. Its lines <strong>reuse <code>OrderItem</code></strong> with
+      the ingredient as a soft reference. Because <code>OrderType</code> is an open string, this needs
+      <strong>no schema change to the Order tables</strong> — only the two supplier tables are new.</li>
+</ul>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  An operator (or the <code>commerce-agent</code>) can register a supplier, add supplier-ingredient price-list
+  rows, and place a purchase order — either from explicit lines or seeded from a Spec&nbsp;052
+  <code>LowStockAlert</code> (defaulting price/pack from <code>SupplierIngredient</code> and cost from
+  Spec&nbsp;051) — then move it Draft&nbsp;→&nbsp;Submitted. The PO is a real <code>Order</code> on the spine,
+  visible to the ordering layer, with lines that soft-reference ingredients. <code>dotnet build Aonik.sln</code>
+  stays green with <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
+  (no Finance); an architecture test still proves the boundary; <code>dotnet test Aonik.sln</code> stays green
+  with new unit tests over supplier CRUD, PO creation on the spine, and the shortfall-seed path.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  Spec&nbsp;052 gives the operator visibility that a raw material is running out (a <code>LowStockAlert</code>).
+  The natural next action — <em>"order more"</em> — has nowhere to land today. There is no supplier to order
+  from, no price to order at, and no order record to track from placement through receipt. This spec closes
+  that gap for the <strong>create + lifecycle</strong> of a purchase order. Two adjacent concerns are
+  deliberately excluded:
+</p>
+<ul>
+  <li><strong>Receiving the goods</strong> (stock-up + cost refresh when the sacks arrive) is
+      <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a>.</li>
+  <li><strong>Paying the supplier</strong> (a <code>PaymentIntent</code> to the supplier's account) is a
+      <em>funding follow-up</em> — high-tier, Finance-mediated — and is out of scope here (§10, §21).</li>
+</ul>
+
+<p>
+  The interesting design tension is <em>where a purchase order lives</em>. A PO is, structurally, exactly what
+  the <a href="041.unified-order-spine-ordering-layer.html">Order spine</a> was generalised to hold: a record
+  of an intent to transact — who the parties are, what amounts and currencies, what line items, and a
+  lifecycle. A customer <code>ProductPurchase</code> already rides that spine. A purchase order is the same
+  shape with the <em>direction of money reversed</em> (we pay outward instead of collecting inward). Rather
+  than duplicate the spine inside Commerce, this spec treats a PO as <strong>one more
+  <code>OrderType</code></strong> on the shared spine — the cleanest expression of ADR&nbsp;011's "Order is a
+  core concept, not Finance-private."
+</p>
+<p>
+  Scope discipline (family rule): build the <strong>thin procurement slice</strong> this persona needs —
+  a supplier list, a price list, and a PO you can place and submit. Not a general procurement suite:
+  multi-supplier price comparison, preferred-supplier logic, blanket/standing orders, RFQs, approvals
+  routing, and three-way match are noted as <a href="#open">Open</a>, not built.
+</p>
+
+<h2 id="family">3. Place in the maker-operations family</h2>
+<p>
+  This is the fourth spec of the eight-spec maker-operations family (050–057), each sized at roughly one
+  Spec&nbsp;042 phase-card (≤&nbsp;~8 story points) and shippable on its own.
+  <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> is the keystone every other references.
+</p>
+<table>
+  <thead><tr><th>#</th><th>Spec</th><th>Delivers</th><th>Relation to this spec</th></tr></thead>
+  <tbody>
+    <tr><td>050</td><td><a href="050.ingredient-recipe-bom.html">Ingredient master + Recipe/BOM</a></td><td>What a product is made of.</td><td><strong>Depends on</strong> — the <code>Ingredient</code> a PO line soft-refs.</td></tr>
+    <tr><td>051</td><td><a href="051.ingredient-costing-standard-cost.html">Ingredient costing + standard cost</a></td><td>What raw material costs.</td><td><strong>Depends on</strong> — default line cost when seeding a PO.</td></tr>
+    <tr><td>052</td><td><a href="052.raw-material-inventory-reorder-alerts.html">Raw-material inventory + reorder alerts</a></td><td>On-hand stock; when to reorder.</td><td><strong>Depends on</strong> — a <code>LowStockAlert</code> seeds a PO.</td></tr>
+    <tr><td><strong>053</strong></td><td><strong>Suppliers + purchase orders</strong> (this spec)</td><td>Ordering more stock from suppliers.</td><td>—</td></tr>
+    <tr><td>054</td><td><a href="054.goods-receipt-stock-and-cost.html">Goods receipt (stock + cost)</a></td><td>Receiving a PO → stock up, cost refresh.</td><td><strong>Referenced by</strong> — receipt closes a PO placed here.</td></tr>
+    <tr><td>055</td><td><a href="055.production-planning-sheet-prep-list.html">Production planning: sheet + prep list</a></td><td>Demand → exploded requirements.</td><td>—</td></tr>
+    <tr><td>056</td><td><a href="056.production-orders-kitchen-sheet.html">Production/work orders + kitchen sheet</a></td><td>A production run consuming ingredients.</td><td>—</td></tr>
+    <tr><td>057</td><td><a href="057.margin-and-profit-report.html">Margin &amp; profit report</a></td><td>Revenue vs. COGS vs. target margin.</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<h2 id="reuse-vs-build">4. Reuse vs. build</h2>
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Purchase-order record + lifecycle</td><td><span class="tag reuse">reuse</span></td><td>The <a href="041.unified-order-spine-ordering-layer.html">Order spine</a>: a new <code>OrderType</code> <code>"PurchaseOrder"</code>; created via <code>IOrderService.CreateAsync</code>, transitioned via <code>IOrderService.TransitionAsync</code>. No new order concept (§10).</td></tr>
+    <tr><td>PO line shape</td><td><span class="tag reuse">reuse</span></td><td><code>OrderItem</code> — <code>Quantity</code>/<code>UnitPrice</code>/<code>ProductId</code>/<code>Sku</code>/<code>AmountIn</code>/<code>DetailsJson</code>, with <code>ProductId</code> holding the ingredient soft-ref (§10).</td></tr>
+    <tr><td>Party roles</td><td><span class="tag reuse">reuse</span></td><td><code>OrderPartyRole</code> rows; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; we take the existing <code>Payer</code> role (§11).</td></tr>
+    <tr><td>Ingredient identity</td><td><span class="tag reuse">reuse</span></td><td>The Spec&nbsp;050 <code>Ingredient</code> a PO line orders; its <code>BaseUnit</code> is the stock unit the pack converts into.</td></tr>
+    <tr><td>Default cost / pack when seeding</td><td><span class="tag reuse">reuse</span></td><td><code>SupplierIngredient.PackPrice</code>/<code>PackSize</code> for the buy price; Spec&nbsp;051 <code>IngredientCost</code> as the fallback default (§12).</td></tr>
+    <tr><td>Anemic entity + tenancy + audit</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code> (ADR-002); soft-delete, audit, tenant filter inherited.</td></tr>
+    <tr><td>Migration stream + agent rails</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>Ank</code> tables; <code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
+    <tr><td>Supplier master</td><td><span class="tag new">build</span></td><td><code>Supplier</code> — counterparty we buy from; soft <code>PartyId</code>, not a standalone party (§9, §20).</td></tr>
+    <tr><td>Supplier catalog / price list</td><td><span class="tag new">build</span></td><td><code>SupplierIngredient</code> — supplier × ingredient with pack/price and buy-side conversion (§9).</td></tr>
+    <tr><td>Purchase-order service</td><td><span class="tag new">build</span></td><td><code>IPurchaseOrderService</code> — create (explicit or shortfall-seeded), submit, lifecycle over the spine (§12, §13).</td></tr>
+    <tr><td>Paying the supplier</td><td><span class="tag existing">later</span></td><td>A high-tier <code>PaymentIntent</code> to the supplier (Finance <code>Proposal</code>) — funding follow-up, out of scope (§10, §21).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">5. Scope (in / out)</h2>
+<h3>In scope</h3>
+<ul>
+  <li><code>Supplier</code> entity + <code>ISupplierService</code> (create / update / list / deactivate) + admin endpoints.</li>
+  <li><code>SupplierIngredient</code> entity + upsert (per supplier × ingredient) + admin endpoint — the supplier price list.</li>
+  <li>A <strong>purchase order created as a new <code>OrderType</code></strong> (<code>"PurchaseOrder"</code>) on the Order spine, with a <code>Supplier</code> party role and <code>OrderItem</code> lines whose <code>ProductId</code> soft-refs an ingredient; created via <code>IOrderService.CreateAsync</code>.</li>
+  <li><code>IPurchaseOrderService</code>: create from explicit lines <strong>or</strong> seeded from a Spec&nbsp;052 <code>LowStockAlert</code> shortfall (default pack/price from <code>SupplierIngredient</code>, default cost from Spec&nbsp;051); submit; lifecycle Draft&nbsp;→&nbsp;Submitted&nbsp;→&nbsp;Received&nbsp;→&nbsp;Closed/Cancelled via <code>IOrderService.TransitionAsync</code>.</li>
+  <li>Admin endpoints: create supplier, upsert supplier-ingredient, create PO, submit PO, list POs.</li>
+  <li>The two new Commerce DbSets on <code>CommerceDbContext</code> + <code>AonikDbContext</code>; one tool-generated migration (<code>CommerceSuppliersAndPurchaseOrders</code>).</li>
+  <li>Commerce-agent read tool (list suppliers) + medium-gated write tools (create supplier, create PO, submit PO).</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+  <li><strong>Receiving goods</strong> — stock-up + actual-cost refresh + PO→Received on arrival — is <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a>. This spec only advances a PO <em>up to</em> Submitted; the Received/Closed transitions are defined here but <em>driven</em> by 054.</li>
+  <li><strong>Paying the supplier</strong> — a <code>PaymentIntent</code> to the supplier account, the outward-money leg — is a funding follow-up (<code>commerce_pay_purchase_order</code>, high-tier Finance <code>Proposal</code>); noted, not built (§10, §21).</li>
+  <li>Multi-supplier price comparison, preferred-supplier selection, blanket/standing orders, RFQs, PO approval routing, three-way match, supplier onboarding/KYC — <a href="#open">Open</a>, not built.</li>
+  <li>A unit-of-measure conversion <em>engine</em>. <code>SupplierIngredient.PackSize</code> is a single per-row buy-side factor (25&nbsp;kg&nbsp;→&nbsp;kg), not a general conversion table.</li>
+</ul>
+
+<h2 id="guardrails">6. Constraints &amp; guardrails</h2>
+<ul>
+  <li><strong>No reference to Finance.</strong> <code>Aonik.Commerce</code> references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>. The PO rides the <em>spine</em> (in <code>Aonik.Ordering</code>), not Finance; supplier <em>payment</em> is deferred precisely to keep this boundary (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
+  <li><strong>Reuse the spine; add no new order concept.</strong> A purchase order is an <code>Order</code>, not a parallel <code>PurchaseOrder</code> entity (<a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>). <code>OrderType</code> is an <strong>open string</strong>, so <code>"PurchaseOrder"</code> is additive — no Order-table schema change (§10, §14).</li>
+  <li><strong>Anemic entities.</strong> <code>Supplier</code>/<code>SupplierIngredient</code> are <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> + <code>AuditableEntity</code> (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); all logic lives in services returning DTOs.</li>
+  <li><strong>Single migration stream.</strong> EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code>-prefixed tables (<code>AnkSuppliers</code>, <code>AnkSupplierIngredients</code>); <code>CommerceDbContext</code> is runtime scoping with no migrations; agents never hand-author migrations.</li>
+  <li><strong>Direction of money is explicit.</strong> On a PO <em>we</em> are the <code>Payer</code>; the supplier is the payee (<code>Supplier</code> party role). This is the inverse of a customer <code>ProductPurchase</code> and must be modelled, not implied (§11).</li>
+  <li><strong>Agents propose; systems execute.</strong> Supplier list is a direct read tool; create-supplier / create-PO / submit-PO are <strong>medium</strong> (in-session confirmation, args-hash-bound); every AI action records an <code>AiRun</code>. Supplier <em>payment</em> would be high-tier (Finance <code>Proposal</code>) — not built.</li>
+</ul>
+
+<h2 id="layout">7. Target module layout</h2>
+<div class="ascii-diagram">src/Aonik.Commerce/
+├── Entities/
+│   └── Sourcing/     Supplier, SupplierIngredient          # NEW (supplier master + price list)
+│                     (PurchaseOrder is NOT here — it is an Order on the Aonik.Ordering spine)
+├── Services/
+│   └── Sourcing/     ISupplierService                      # NEW (supplier + catalog CRUD)
+│                     IPurchaseOrderService                 # NEW (create / submit / lifecycle over IOrderService)
+├── Endpoints/Admin/
+│   └── Sourcing/     Supplier CRUD, SupplierIngredient upsert, PO create / submit / list   # NEW
+├── Agents/Tools/     CommerceAgentTools (+ supplier / purchase-order tools)   # EXTEND
+├── Contracts/        Models + Api records                  # EXTEND
+└── Persistence/
+    ├── CommerceDbContext.cs           (+ Supplier / SupplierIngredient DbSets, no migrations)
+    └── Configurations/Sourcing/       (IEntityTypeConfiguration&lt;T&gt;)   # NEW
+
+Aonik.Ordering (unchanged code — used, not modified):
+  OrderType.cs           # gains the known value "PurchaseOrder" (open string; additive)
+  OrderPartyRoles.cs     # gains the constant "Supplier"
+  IOrderService          # CreateAsync / TransitionAsync — the PO rides these</div>
+
+<h2 id="domain-model">8. Domain model</h2>
+<p>
+  Two new anemic entities, both <code>ITenantScoped</code>, both inheriting <code>AuditableEntity</code>. The
+  purchase order itself has <strong>no new entity</strong> — it is an <code>Order</code>&nbsp;+&nbsp;<code>OrderItem</code>s
+  on the spine (§10).
+</p>
+<pre><code>class Supplier           { Guid Id, TenantId;
+                           Guid? PartyId;      // soft ref to a counterparty Party (no FK); null if unlinked
+                           string  Name;
+                           string  Currency;   // the currency we buy from this supplier in
+                           int?    LeadTimeDays;
+                           string? PaymentTerms;   // free text, e.g. "Net 30"
+                           bool    IsActive; }
+
+class SupplierIngredient { Guid Id, TenantId, SupplierId, IngredientId;   // the supplier catalog / price list
+                           string?  Sku;        // the supplier's SKU for this ingredient
+                           decimal  PackSize;   // buy-side unit: qty of ingredient BaseUnit per pack (a 25kg sack)
+                           decimal  PackPrice;  // price for one pack
+                           string   Currency;
+                           int?     LeadTimeDays; }   // overrides Supplier.LeadTimeDays for this line</code></pre>
+<p>
+  <code>Supplier.PartyId</code> is a <strong>soft reference</strong> (opaque <code>Guid?</code>, no FK) to a
+  platform counterparty <code>Party</code> — mirroring how <code>Order.PayerPartyId</code> soft-refs a Party
+  across the module boundary. A supplier can exist unlinked; linking is a later enrichment, not a prerequisite
+  (§9, §20). <code>SupplierIngredient</code> is keyed by supplier × ingredient and carries the buy-side
+  conversion: <code>PackSize</code> says how many of the ingredient's <code>BaseUnit</code> one purchasable pack
+  contains (buy a 25&nbsp;kg sack, stock in kg), so <code>PackPrice / PackSize</code> is the per-base-unit cost.
+</p>
+
+<h2 id="supplier-catalog">9. Supplier &amp; supplier catalog</h2>
+<p>
+  A <code>Supplier</code> is a counterparty we <em>buy raw materials from</em> — the sourcing-side mirror of a
+  customer. It is intentionally light: a name, the currency we transact in, an optional default lead time and
+  payment terms, an active flag. It is <strong>not</strong> a full party/KYC record; where a real platform
+  <code>Party</code> exists (e.g. the supplier is also an onboarded counterparty), <code>PartyId</code> soft-links
+  to it, but the supplier row stands alone otherwise. This keeps Commerce free of a Platform/party
+  ProjectReference — the soft-ref is the same discipline the spine already uses for <code>PayerPartyId</code>.
+</p>
+<p>
+  <code>SupplierIngredient</code> is the <strong>supplier catalog / price list</strong>: one row per
+  (supplier, ingredient) the supplier sells us, carrying the supplier's <code>Sku</code>, the pack we buy in
+  (<code>PackSize</code> in the ingredient's <code>BaseUnit</code>), the <code>PackPrice</code>, and an optional
+  per-line lead time. This is where the <strong>buy-side unit conversion</strong> promised in
+  <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> §10 lands: the kitchen meters rice in <code>kg</code>
+  (the base unit), but the supplier sells 25&nbsp;kg sacks — <code>PackSize = 25</code> bridges the two. There is
+  no general UoM engine; each row is a single, explicit factor. A given ingredient may have several supplier
+  rows across different suppliers; choosing between them (cheapest, preferred) is <a href="#open">Open</a> — v1
+  leaves supplier choice to the operator.
+</p>
+
+<h2 id="po-as-ordertype">10. PurchaseOrder as an OrderType on the spine</h2>
+<p>
+  This is the key decision of the spec. A purchase order is <strong>not</strong> a new Commerce entity — it is
+  an <code>Order</code> on the shared <a href="041.unified-order-spine-ordering-layer.html">Ordering spine</a>
+  whose <code>OrderType</code> carries the new known value <code>"PurchaseOrder"</code>. Because ADR&nbsp;011
+  made <code>OrderType</code> an <strong>open string</strong> (the enum/<code>OrderTypeCodes</code> helper is a
+  known-values convenience, so new types are additive), adding <code>"PurchaseOrder"</code> requires
+  <strong>no schema change</strong> to <code>AnkOrders</code>/<code>AnkOrderItems</code>. Likewise
+  <code>OrderPartyRoles</code> gains a <code>"Supplier"</code> constant — a string value, not a schema change.
+  Only the two supplier tables are new (§14).
+</p>
+<p>
+  A PO's lines <strong>reuse the retail line shape already on <code>OrderItem</code></strong> (the same columns
+  a <code>ProductPurchase</code> uses), with one documented reinterpretation: <code>ProductId</code>, an opaque
+  <code>Guid?</code> soft reference with no FK, holds the <strong><code>IngredientId</code></strong> instead of a
+  product id. The spine treats <code>ProductId</code> as opaque across the module boundary, so this reuse is
+  safe and requires nothing new — but it <em>is</em> a reinterpretation, so a <code>DetailsJson</code>
+  discriminator makes the intent unambiguous and the FX/remittance fields simply go unused:
+</p>
+<div class="ascii-diagram">PurchaseOrder line  →  OrderItem column        meaning
+────────────────────────────────────────────────────────────────────────────
+ItemType            →  "PurchaseOrder"        the line kind on the spine
+Quantity            →  Quantity               number of packs (or base-unit qty) ordered
+UnitPrice           →  UnitPrice              supplier unit cost (per pack / per base unit)
+line total          →  AmountIn               Quantity × UnitPrice  (existing money column)
+ingredient (soft)   →  ProductId              IngredientId — opaque Guid soft-ref, NO FK
+supplier SKU        →  Sku                    SupplierIngredient.Sku
+discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","ingredientId":…,"unit":…}
+(unused on a PO)    →  AmountOut, CurrencyOut, FxQuoteId, …   left unset — FX/remittance fields
+</div>
+<p>
+  The PO is created by calling the spine directly — <code>IOrderService.CreateAsync</code> with
+  <code>OrderType = "PurchaseOrder"</code>, the <code>Supplier</code> and <code>Payer</code> party roles, and
+  the ingredient lines above. There is no second "order" concept in Commerce to keep in sync. Billing (if the
+  supplier invoices) still flows through <code>Invoice</code> (<code>Invoice.OrderId</code>) and funding through
+  a <code>PaymentIntent</code>, exactly as the financial order types do — but both of those are the deferred
+  funding follow-up, not part of this spec.
+</p>
+<div class="callout">
+  <span class="callout-label">Why not a standalone entity</span>
+  A parallel <code>Commerce.PurchaseOrder</code> would duplicate the spine's parties, lines, amounts, currencies,
+  and lifecycle — and immediately drift from it. Riding the spine gives POs the ordering layer's history,
+  status machine, and party model for free, and keeps ADR&nbsp;011's promise that Order is a core concept, not
+  Finance-private. The tradeoff (overloading retail <code>OrderItem</code> columns for ingredient lines) is
+  managed by the mapping above plus the <code>DetailsJson</code> discriminator (§18, §20).
+</div>
+
+<h2 id="direction-of-money">11. Direction of money — we are the payer</h2>
+<p>
+  A customer <code>ProductPurchase</code> collects money <em>inward</em>: the customer is the <code>Payer</code>,
+  the tenant/merchant is the receiver. A purchase order is the <strong>inverse</strong>: money flows
+  <em>outward</em> from us to the supplier. This direction is modelled explicitly on the order's party roles,
+  not left implicit in the order type:
+</p>
+<table>
+  <thead><tr><th>Role on the order</th><th>ProductPurchase (inbound)</th><th>PurchaseOrder (outbound)</th></tr></thead>
+  <tbody>
+    <tr><td><code>Payer</code></td><td>The customer</td><td><strong>Us</strong> (the tenant) — we pay</td></tr>
+    <tr><td>Counterparty</td><td>Merchant / seller (<code>Receiver</code>/<code>Payee</code>)</td><td>The <strong><code>Supplier</code></strong> — receives payment</td></tr>
+    <tr><td>Money moves</td><td>Inward (collect)</td><td>Outward (pay)</td></tr>
+  </tbody>
+</table>
+<p>
+  So a PO carries a <code>Payer</code> role for the tenant and a new <code>"Supplier"</code>
+  <code>OrderPartyRole</code> for the counterparty. Getting this direction right is what makes the eventual
+  funding leg (a <code>PaymentIntent</code> paying the supplier) unambiguous — and mismodelling it (treating a
+  PO like an inbound sale) is the risk the explicit <code>Supplier</code> role is there to prevent (§18). The
+  outward payment itself is the deferred high-tier follow-up (§21); this spec only records <em>the intent and
+  the direction</em>, never moves money.
+</p>
+
+<h2 id="seed-from-shortfall">12. Creating a PO from a low-stock shortfall (Spec 052)</h2>
+<p>
+  The reorder moment starts from a <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>
+  <code>LowStockAlert</code>. <code>IPurchaseOrderService</code> can seed a draft PO directly from an alert so the
+  operator does not re-key it:
+</p>
+<div class="ascii-diagram">IPurchaseOrderService.CreateFromShortfallAsync(alertId, supplierId)
+  → load the LowStockAlert (IngredientId, ReorderPoint, AvailableAtRaise)  — Spec 052
+  → find the SupplierIngredient row for (supplierId, IngredientId)         — this spec
+      default UnitPrice ← SupplierIngredient.PackPrice
+      default packs     ← ceil( shortfall / SupplierIngredient.PackSize )   // shortfall in base units
+      fallback unit cost← active IngredientCost.UnitCost                    — Spec 051 (if no catalog row)
+  → build one OrderItem line (ProductId = IngredientId, Sku, AmountIn = qty × price, DetailsJson)
+  → IOrderService.CreateAsync( OrderType = "PurchaseOrder", Supplier + Payer roles, [line] )  → Draft PO
+  → (Spec 052) the alert may move Open → Ordered once a PO references it</div>
+<p>
+  Prices/packs default from the supplier catalog (<code>SupplierIngredient</code>); when no catalog row exists,
+  the per-base-unit cost falls back to the Spec&nbsp;051 <code>IngredientCost</code> so a PO can still be drafted.
+  The operator can also create a PO from <strong>explicit lines</strong> (no alert) — the seed path is a
+  convenience over the same <code>CreateAsync</code>, not a separate order concept. Flipping the source
+  <code>LowStockAlert</code> to <code>Ordered</code> is a Spec&nbsp;052 status concern; this spec supplies the PO
+  it points at.
+</p>
+
+<h2 id="lifecycle">13. PO lifecycle</h2>
+<p>
+  A purchase order moves through the spine's status machine via <code>IOrderService.TransitionAsync</code> — the
+  same mechanism every order type uses. This spec drives it up to <strong>Submitted</strong>; the later
+  transitions are defined here but <em>effected</em> by goods receipt (Spec&nbsp;054):
+</p>
+<div class="ascii-diagram">Draft ──submit──▶ Submitted ──(Spec 054 receipt)──▶ Received ──▶ Closed
+  │                   │
+  └──── Cancelled ◀───┘        (either state may be cancelled before receipt)</div>
+<table>
+  <thead><tr><th>State</th><th>Meaning</th><th>Driven by</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Draft</strong></td><td>Created (explicit or shortfall-seeded); editable; nothing committed.</td><td>this spec (<code>CreateAsync</code>)</td></tr>
+    <tr><td><strong>Submitted</strong></td><td>Placed with the supplier; awaiting delivery.</td><td>this spec (<code>SubmitAsync</code> → <code>TransitionAsync</code>)</td></tr>
+    <tr><td><strong>Received</strong></td><td>Goods arrived; stock &amp; cost updated.</td><td><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a></td></tr>
+    <tr><td><strong>Closed</strong></td><td>Fully received / finalised.</td><td>Spec&nbsp;054</td></tr>
+    <tr><td><strong>Cancelled</strong></td><td>Abandoned before receipt.</td><td>this spec</td></tr>
+  </tbody>
+</table>
+<p>
+  <code>IPurchaseOrderService.SubmitAsync</code> validates the draft (a supplier, at least one line, positive
+  quantities) and calls <code>TransitionAsync</code> Draft&nbsp;→&nbsp;Submitted. Funding is <em>not</em> a state
+  in this machine — a supplier is paid by a separate <code>PaymentIntent</code> leg (the deferred follow-up),
+  which can happen against a Submitted or Received PO without adding a lifecycle state here.
+</p>
+
+<h2 id="agent">14. Agent &amp; tools</h2>
+<p>
+  The existing <code>commerce-agent</code> gains supplier/purchase-order tools, classified by
+  <code>CommerceToolApprovalManifest</code> and wrapped by the Spec&nbsp;032 gate — no change to the gate:
+</p>
+<table>
+  <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>commerce_list_suppliers</code></td><td><span class="tag read">read</span></td><td>Direct execution; lists suppliers (and, by argument, their catalog rows) in tenant scope.</td></tr>
+    <tr><td><code>commerce_create_supplier</code></td><td><span class="tag medium">medium</span></td><td>Register a supplier; in-session confirmation, args-hash-bound; records an <code>AiRun</code>.</td></tr>
+    <tr><td><code>commerce_create_purchase_order</code></td><td><span class="tag medium">medium</span></td><td>Place a PO on the spine (explicit lines or from a <code>LowStockAlert</code>); medium-gated; records an <code>AiRun</code>.</td></tr>
+    <tr><td><code>commerce_submit_purchase_order</code></td><td><span class="tag medium">medium</span></td><td>Draft&nbsp;→&nbsp;Submitted via the spine; medium-gated; records an <code>AiRun</code>.</td></tr>
+    <tr><td><code>commerce_pay_purchase_order</code></td><td><span class="tag high">high</span></td><td><strong>Follow-up, not built.</strong> Funds a PO via a <code>PaymentIntent</code> to the supplier — money movement, so a durable Finance <code>Proposal</code>, never in-band (§21).</td></tr>
+  </tbody>
+</table>
+<p>
+  Every write tool is medium — an everyday domain write that runs in-band once, after a human confirms, bound
+  to the arguments hash. Placing and submitting a PO records intent and lifecycle only; it never moves money,
+  which is why it stops at medium. The only high-tier action in this area — paying the supplier — is the
+  deferred follow-up and is explicitly out of scope.
+</p>
+
+<h2 id="dbcontext">15. CommerceDbContext &amp; migrations</h2>
+<p>
+  Two new <code>Ank</code>-prefixed tables — <code>AnkSuppliers</code> and <code>AnkSupplierIngredients</code> —
+  are created by one EF-CLI migration against <code>AonikDbContext</code>. Each entity is added to both
+  <code>CommerceDbContext</code> (runtime scoping) and <code>AonikDbContext</code> (canonical stream); both are
+  tenant-scoped (neither global). Configurations live in <code>Persistence/Configurations/Sourcing</code> as
+  <code>IEntityTypeConfiguration&lt;T&gt;</code> classes.
+</p>
+<p>
+  The purchase order itself needs <strong>no schema change</strong>: it reuses the existing <code>AnkOrders</code>
+  and <code>AnkOrderItems</code> tables. <code>"PurchaseOrder"</code> is a new <code>OrderType</code> value and
+  <code>"Supplier"</code> a new <code>OrderPartyRole</code> value — both are <em>string values</em> in columns
+  that already exist (<code>OrderType</code> is an open string), so the migration touches only the two supplier
+  tables.
+</p>
+<pre><code>dotnet ef migrations add CommerceSuppliersAndPurchaseOrders --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+
+<h2 id="phases">16. Phased rollout</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Supplier &amp; supplier catalog</h4>
+  <div class="phase-summary">Who we buy from, and at what pack and price.</div>
+  <ul>
+    <li><code>Supplier</code> + <code>SupplierIngredient</code> entities + configs + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>ISupplierService</code> (supplier create/update/list/deactivate, supplier-ingredient upsert) returning DTOs; admin endpoints; the <code>CommerceSuppliersAndPurchaseOrders</code> migration (creates <code>AnkSuppliers</code>, <code>AnkSupplierIngredients</code>).</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Purchase order on the spine</h4>
+  <div class="phase-summary">Place and submit a PO as a new OrderType.</div>
+  <ul>
+    <li><code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code>; <code>OrderPartyRoles</code> gains <code>"Supplier"</code>; <code>IPurchaseOrderService</code> (create from explicit lines or shortfall-seed, submit) built over <code>IOrderService.CreateAsync</code>/<code>TransitionAsync</code>; ingredient soft-ref line mapping (§10) with <code>DetailsJson</code> discriminator; admin endpoints (create / submit / list POs); unit tests for line mapping, direction-of-money party roles, and the shortfall seed.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Commerce-agent tools</h4>
+  <div class="phase-summary">The agentic surface.</div>
+  <ul>
+    <li>Read tool (list suppliers) + medium-gated write tools (create supplier, create PO, submit PO) added to <code>CommerceAgentTools</code> and classified in <code>CommerceToolApprovalManifest</code>; routed through <code>IToolApprovalGate.GateAll</code> (fails closed). The high-tier <code>commerce_pay_purchase_order</code> is documented as a follow-up, not registered.</li>
+  </ul>
+</div>
+
+<h2 id="requirements">17. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>A <code>Supplier</code> (name, currency, optional lead time / payment terms / soft <code>PartyId</code>) can be created, updated, listed, and deactivated (admin + agent), tenant-scoped.</td></tr>
+    <tr><td>R2</td><td>A <code>SupplierIngredient</code> price-list row (supplier × ingredient, <code>Sku</code>, <code>PackSize</code> in base unit, <code>PackPrice</code>, currency) can be upserted; <code>PackSize</code> carries the buy-side pack→base-unit conversion.</td></tr>
+    <tr><td>R3</td><td>A purchase order is created as an <code>Order</code> with <code>OrderType = "PurchaseOrder"</code> via <code>IOrderService.CreateAsync</code> — <strong>no standalone PurchaseOrder entity</strong>; lines reuse <code>OrderItem</code> with <code>ProductId</code> = <code>IngredientId</code> (opaque soft-ref), <code>AmountIn</code> = line total, and a <code>DetailsJson</code> discriminator.</td></tr>
+    <tr><td>R4</td><td>Direction of money is explicit: the PO carries a <code>Payer</code> role for the tenant and a <code>"Supplier"</code> <code>OrderPartyRole</code> for the counterparty — the inverse of a customer <code>ProductPurchase</code>.</td></tr>
+    <tr><td>R5</td><td>A PO can be seeded from a Spec&nbsp;052 <code>LowStockAlert</code> shortfall, defaulting price/pack from <code>SupplierIngredient</code> and cost from the Spec&nbsp;051 <code>IngredientCost</code> when no catalog row exists; or created from explicit lines.</td></tr>
+    <tr><td>R6</td><td>PO lifecycle Draft&nbsp;→&nbsp;Submitted&nbsp;→&nbsp;Received&nbsp;→&nbsp;Closed/Cancelled runs via <code>IOrderService.TransitionAsync</code>; this spec drives Draft→Submitted (and Cancel); Received/Closed are effected by Spec&nbsp;054.</td></tr>
+    <tr><td>R7</td><td>Funding is deferred: no <code>PaymentIntent</code> and no Finance dependency in this spec; paying the supplier is a documented high-tier follow-up.</td></tr>
+    <tr><td>R8</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code> (<code>Ank</code> prefix); only <code>AnkSuppliers</code>/<code>AnkSupplierIngredients</code> are new — the Order tables are unchanged since <code>OrderType</code> is an open string; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
+    <tr><td>R9</td><td>Agent tools are classified (list suppliers direct; create-supplier / create-PO / submit-PO medium); every invocation records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">18. Tasks</h2>
+<ol>
+  <li><code>Supplier</code> + <code>SupplierIngredient</code> entities + <code>IEntityTypeConfiguration</code>s + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>ISupplierService</code> (supplier CRUD + supplier-ingredient upsert) + DTOs + admin endpoints.</li>
+  <li>Add <code>"PurchaseOrder"</code> to <code>OrderTypeCodes</code> and <code>"Supplier"</code> to <code>OrderPartyRoles</code> in <code>Aonik.Ordering</code> (additive; open-string values).</li>
+  <li><code>IPurchaseOrderService</code>: build the <code>OrderItem</code> line mapping (§10) with the <code>DetailsJson</code> discriminator; create via <code>IOrderService.CreateAsync</code> (explicit lines and <code>CreateFromShortfallAsync</code>); <code>SubmitAsync</code> + cancel via <code>TransitionAsync</code>; admin endpoints (create / submit / list POs).</li>
+  <li>The <code>CommerceSuppliersAndPurchaseOrders</code> migration against <code>AonikDbContext</code>; review the diff (2 supplier tables only — no Order-table change).</li>
+  <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the list-suppliers read tool + the three medium write tools; route through the gate.</li>
+  <li>Tests: unit (supplier CRUD, PO line mapping incl. <code>ProductId</code>=<code>IngredientId</code> and <code>DetailsJson</code>, direction-of-money party roles, shortfall seed with catalog + cost fallback, submit transition) + an architecture test still asserting no Commerce↔Finance reference.</li>
+</ol>
+
+<h2 id="verification">19. Verification</h2>
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference (the PO rides the spine, not Finance).</li>
+  <li><strong>PO on the spine:</strong> create a supplier + a <code>SupplierIngredient</code> for rice (25&nbsp;kg sack @ price), place a PO for 4 sacks; assert an <code>Order</code> with <code>OrderType = "PurchaseOrder"</code>, a <code>Supplier</code> party role, a <code>Payer</code> role for the tenant, and one <code>OrderItem</code> whose <code>ProductId</code> equals the rice <code>IngredientId</code>, <code>AmountIn</code> = 4 × pack price, and <code>DetailsJson.kind = "purchase-order-line"</code>. <strong>No new PurchaseOrder table exists.</strong></li>
+  <li><strong>Shortfall seed:</strong> from a Spec&nbsp;052 rice <code>LowStockAlert</code>, <code>CreateFromShortfallAsync</code> drafts a PO with packs = ceil(shortfall / <code>PackSize</code>) and unit price = <code>PackPrice</code>; with no catalog row, unit cost falls back to the Spec&nbsp;051 <code>IngredientCost</code>.</li>
+  <li><strong>Lifecycle:</strong> <code>SubmitAsync</code> moves Draft&nbsp;→&nbsp;Submitted via <code>TransitionAsync</code>; a draft with no supplier or no lines is rejected; cancel works before receipt.</li>
+  <li><strong>Agent:</strong> <code>commerce_create_purchase_order</code> and <code>commerce_submit_purchase_order</code> surface a medium approval; <code>commerce_list_suppliers</code> executes directly; each records an <code>AiRun</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">20. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Overloading <code>OrderItem</code> retail columns for ingredient purchase lines</td><td>Medium</td><td>Document the column mapping (§10) explicitly; a <code>DetailsJson</code> discriminator (<code>kind:"purchase-order-line"</code>) marks the line kind; unused FX/remittance fields left unset; a unit test asserts the mapping.</td></tr>
+    <tr><td>Direction of money (payer = us) mis-modelled as an inbound sale</td><td>Medium</td><td>An explicit <code>"Supplier"</code> <code>OrderPartyRole</code> + a <code>Payer</code> role for the tenant (§11); a test asserts both roles; the outward-payment leg is deferred so nothing moves money on a mismodel.</td></tr>
+    <tr><td>Reusing <code>ProductId</code> soft-ref to carry <code>IngredientId</code></td><td>Low</td><td><code>ProductId</code> is an opaque <code>Guid?</code> with no FK — semantically fine to hold any soft-ref; the <code>DetailsJson</code> discriminator + <code>ingredientId</code> make the reuse self-describing and documented.</td></tr>
+    <tr><td>PO drifting from a parallel Commerce order concept</td><td>Low</td><td>There is no parallel concept — the PO <em>is</em> an <code>Order</code>; Commerce holds only supplier master data, and rides <code>IOrderService</code> for the order.</td></tr>
+    <tr><td>Accidental Finance coupling via funding</td><td>Low</td><td>Supplier payment is deferred out of scope; the architecture test keeps <code>Aonik.Commerce</code> free of <code>Aonik.Finance</code>.</td></tr>
+    <tr><td>Schema drift from new tables</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review the 2-table diff; no Order-table change (open-string <code>OrderType</code>); <code>Ank</code> prefix.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">21. Decisions baked in</h2>
+<ul>
+  <li><strong>PurchaseOrder is an <code>OrderType</code> on the shared spine</strong> (per <a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a>), not a standalone Commerce entity — reuse the spine's parties, lines, amounts, and lifecycle; add no new order concept.</li>
+  <li><strong>Additive by open string.</strong> <code>OrderTypeCodes</code> gains <code>"PurchaseOrder"</code> and <code>OrderPartyRoles</code> gains <code>"Supplier"</code> as string values — no Order-table schema change.</li>
+  <li><strong>Line reuse.</strong> PO lines reuse <code>OrderItem</code>; <code>ProductId</code> (opaque soft-ref) carries <code>IngredientId</code>; <code>AmountIn</code> holds the line total; a <code>DetailsJson</code> discriminator marks the kind.</li>
+  <li><strong>Supplier is a soft <code>PartyId</code></strong>, not a standalone party — a light sourcing-side counterparty; link to a platform <code>Party</code> when one exists, stand alone otherwise (no Platform ProjectReference).</li>
+  <li><strong>Direction of money is explicit:</strong> we are the <code>Payer</code>, the supplier is the payee — the inverse of a customer <code>ProductPurchase</code>.</li>
+  <li><strong>Funding deferred; no Finance reference.</strong> This spec covers create + lifecycle only; paying the supplier is a high-tier Finance <code>Proposal</code> follow-up (<code>commerce_pay_purchase_order</code>), and receiving goods is Spec&nbsp;054.</li>
+  <li><strong>Grow in place in <code>Aonik.Commerce</code></strong> (no new module); references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>; migrations stay with <code>AonikDbContext</code>.</li>
+</ul>
+
+<h2 id="open">22. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>PO-as-OrderType vs. a standalone Commerce <code>PurchaseOrder</code> entity.</strong> A dedicated entity
+  would keep procurement fields (expected-delivery, supplier-ack, receiving progress) close and avoid
+  reinterpreting retail <code>OrderItem</code> columns; riding the spine reuses its parties/lines/lifecycle and
+  honours ADR&nbsp;011. <strong>Recommendation: ride the spine</strong> (an <code>OrderType</code>), managing the
+  column-reuse tradeoff with the §10 mapping and <code>DetailsJson</code> discriminator; revisit only if
+  procurement-specific header fields multiply.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Funding a PO via <code>PaymentIntent</code> to the supplier.</strong> The outward-money leg
+  (<code>commerce_pay_purchase_order</code>) — high-tier, a durable Finance <code>Proposal</code>, executed by the
+  Spec&nbsp;030 dispatcher. Deferred; this spec deliberately keeps Commerce free of Finance and records only the
+  order intent and direction.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Multi-supplier price comparison / preferred supplier.</strong> When several <code>SupplierIngredient</code>
+  rows exist for one ingredient, auto-selecting the cheapest or a flagged preferred supplier. v1 leaves supplier
+  choice to the operator at PO time.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Blanket / standing orders.</strong> A recurring or open-quantity PO drawn down over time (call-offs)
+  rather than a one-shot order. Not in v1; each PO is a discrete order on the spine.
+</div>
+
+<h2 id="refs">23. References</h2>
+<ul>
+  <li><a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> — the maker-operations <strong>keystone</strong>; source of the <code>Ingredient</code> master a PO line soft-refs and the <code>BaseUnit</code> that <code>PackSize</code> converts into.</li>
+  <li><a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> — <code>IngredientCost</code>, the default unit cost when seeding a PO with no catalog row.</li>
+  <li><a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> — <code>LowStockAlert</code>; a shortfall seeds a PO (§12).</li>
+  <li><a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> — goods receipt; effects the PO Received/Closed transitions defined here.</li>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine; <code>OrderType</code> as an open string, <code>OrderItem</code> retail-line columns, <code>OrderPartyRole</code>, <code>IOrderService</code>.</li>
+  <li><a href="042.commerce-retail-module.html">Spec&nbsp;042</a> — the retail commerce module (agent, gate, admin rails) this reuses; the customer <code>ProductPurchase</code> whose direction of money a PO inverts.</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (grow-in-place, sibling-reference rule).</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> — anemic entities.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> — agent mutation governance; the high-tier <code>Proposal</code> path the deferred supplier-payment tool would use.</li>
+  <li>Maker-operations family: <a href="050.ingredient-recipe-bom.html">050</a>, <a href="051.ingredient-costing-standard-cost.html">051</a>, <a href="052.raw-material-inventory-reorder-alerts.html">052</a>, <a href="054.goods-receipt-stock-and-cost.html">054</a>, <a href="055.production-planning-sheet-prep-list.html">055</a>, <a href="056.production-orders-kitchen-sheet.html">056</a>, <a href="057.margin-and-profit-report.html">057</a>.</li>
+</ul>
+
+<footer>
+  Spec 053 &middot; Suppliers, supplier catalog &amp; purchase orders — the reorder moment &middot;
+  Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>

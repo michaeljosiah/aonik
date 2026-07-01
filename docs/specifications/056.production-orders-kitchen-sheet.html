@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 056 · Production / work orders &amp; the kitchen sheet — the make-side counterpart of checkout</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p3 { background:#efe6f6; color:#5a2784; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 056</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-medium">Size: Medium</span>
+  <span class="meta-tag priority-p3">Priority: P3</span>
+  <span class="meta-tag">Domain: Commerce / Production</span>
+  <h1>Production / work orders &amp; the kitchen sheet — the make-side counterpart of checkout</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    Turns planned demand into an executed <strong>production run</strong>: a <code>ProductionOrder</code> that
+    lists the dishes to prep and, on release, <strong>consumes ingredient stock</strong> by exploding each
+    dish through its recipe. This is the <em>make-side counterpart of checkout</em> — where checkout
+    (<a href="042.commerce-retail-module.html">Spec&nbsp;042</a>) reserves and commits <em>saleable</em> variant
+    stock, a production run commits <em>ingredient</em> stock, reusing the very same
+    <code>InventoryService</code> commit machinery but fanning it out over recipe components instead of
+    bundle variants. Part of the maker-operations family (<a href="050.ingredient-recipe-bom.html">050–057</a>);
+    the recipe explosion it consumes is defined by the keystone,
+    <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a>. Everything lives in <code>Aonik.Commerce</code>
+    and references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code> — never
+    <code>Aonik.Finance</code>.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#layout">Target module layout</a></li>
+    <li><a href="#domain-model">Domain model</a></li>
+    <li><a href="#lifecycle">Production-order lifecycle</a></li>
+    <li><a href="#consume">Consuming ingredient stock on release — recipe fan-out</a></li>
+    <li><a href="#yield">Yielding finished goods on complete</a></li>
+    <li><a href="#kitchen-sheet">The kitchen sheet</a></li>
+    <li><a href="#agent">Agent &amp; tools</a></li>
+    <li><a href="#dbcontext">CommerceDbContext &amp; migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  The operations manager has already reviewed the week's <a href="055.production-planning-sheet-prep-list.html">production
+  sheet and prep list</a> (Spec&nbsp;055): <em>40 portions jollof, 30 portions steak ⇒ 10&nbsp;kg rice, 5&nbsp;kg
+  tomato, …</em>. This spec is the <strong>kitchen-sheet moment</strong> — committing to actually make that batch.
+  A <strong><code>ProductionOrder</code></strong> records the run: the dishes and portion counts to produce
+  (its <code>ProductionOrderLine</code>s), and a lifecycle from <code>Planned</code> to <code>Completed</code>.
+</p>
+
+<p>The two state changes that carry weight:</p>
+<ul>
+  <li><strong>Release</strong> — the moment the kitchen is told to start. Releasing the order
+      <strong>consumes ingredient stock</strong>: each line is exploded through its variant's active
+      <a href="050.ingredient-recipe-bom.html">recipe</a> (Spec&nbsp;050 <code>ExplodeManyAsync</code>) into a merged
+      bill of materials, and each ingredient's stock is drawn down through the Spec&nbsp;042
+      <code>InventoryService</code> <strong>commit</strong> path — the exact machinery bundle checkout already
+      uses to fan a box out over its component variants, only here it fans a production run out over its recipe
+      components. Release is <strong>all-or-nothing</strong>: if any ingredient is short, the whole release fails
+      and nothing is consumed.</li>
+  <li><strong>Complete</strong> — the run is done. Optionally it <strong>yields finished-good stock</strong>:
+      the produced <code>ProductVariant</code>'s <code>InventoryLevel.OnHand</code> is incremented by the
+      <code>ProducedQuantity</code>, closing the make-to-stock loop (finished goods that Spec&nbsp;042 checkout can
+      then sell).</li>
+</ul>
+
+<p>
+  The <strong>kitchen sheet</strong> is a printable/exportable projection of the order plus its per-dish
+  recipe-component prep detail — <em>what to prep and how much</em> — served by a read endpoint.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  An operator (or the <code>commerce-agent</code>) creates a production order — optionally seeded from a
+  Spec&nbsp;055 production sheet for a window — <strong>releases</strong> it and watches ingredient stock draw
+  down through recipe explosion (fail-fast if short), <strong>completes</strong> it and (optionally) sees
+  finished-good stock rise, and prints the <strong>kitchen sheet</strong>. Re-releasing an already-released order
+  is a no-op — stock is never double-consumed. <code>dotnet build Aonik.sln</code> stays green with
+  <code>Aonik.Commerce</code> referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>;
+  <code>dotnet test Aonik.sln</code> stays green with new unit tests over release consumption, all-or-nothing
+  shortfall, idempotent re-release, and completion yield.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  Spec&nbsp;055 answers <em>what and how much to make</em> as a read-only aggregation over incoming orders; it
+  persists nothing and consumes no stock. But the operations manager's day does not end at a printed prep list —
+  they commit to a batch, tell the kitchen to start, and at that moment raw materials leave the shelf. That
+  transition — planned demand becoming a real production run that draws down inventory — is the
+  <strong>work order</strong>, standard in any light-manufacturing / back-office ERP. It is the make-side twin of
+  the sell-side event Spec&nbsp;042 already ships: <em>checkout</em>. Checkout reserves and then commits saleable
+  finished-goods stock; <em>release</em> commits the raw-material stock those goods are made from.
+</p>
+<p>
+  Because Spec&nbsp;052 already generalised <code>InventoryLevel</code> to stock <strong>both</strong> finished
+  variants and raw ingredients — and Spec&nbsp;042 already has a commit path that fans one sale out over many
+  component variants — this spec is deliberately small. It adds a work-order record and its lifecycle, and wires
+  <strong>release</strong> to reuse the existing commit fan-out over <em>recipe components</em>. The only genuinely
+  new logic is the state machine, the recipe-driven fan-out target, and the kitchen-sheet projection.
+</p>
+<p>
+  Scope discipline is explicit: this is the <strong>thin maker-ops work order</strong> the persona needs — not a
+  full MES with routings, work centres, operation sequencing, machine scheduling, or lot genealogy. Those are
+  noted as open extensions, not built.
+</p>
+
+<h2 id="reuse-vs-build">3. Reuse vs. build</h2>
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Recipe explosion</td><td><span class="tag reuse">reuse</span></td><td><a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> <code>IRecipeService.ExplodeManyAsync([{variantId, portions}, …])</code> merges the run into one bill of materials per ingredient.</td></tr>
+    <tr><td>Ingredient stock draw-down</td><td><span class="tag reuse">reuse</span></td><td>The Spec&nbsp;042 <code>InventoryService</code> <strong>commit</strong> path over generalised <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> <code>InventoryLevel</code> (ingredient rows) — the same fan-out used by bundle checkout, over components not variants (§9).</td></tr>
+    <tr><td>Finished-good stock yield</td><td><span class="tag reuse">reuse</span></td><td>Increment the produced <code>ProductVariant</code>'s <code>InventoryLevel.OnHand</code> via the existing inventory service (§10).</td></tr>
+    <tr><td>Production sheet seed</td><td><span class="tag reuse">reuse</span></td><td><a href="055.production-planning-sheet-prep-list.html">Spec&nbsp;055</a> <code>GetProductionSheetAsync(window)</code> optionally pre-fills order lines from aggregated demand.</td></tr>
+    <tr><td>Anemic entity + tenancy + audit</td><td><span class="tag reuse">reuse</span></td><td><code>AuditableEntity</code> + <code>ITenantScoped</code> (ADR-002); soft-delete, audit, tenant filter inherited.</td></tr>
+    <tr><td>Migration stream</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>Ank</code> tables; <code>CommerceDbContext</code> gets DbSets, no migrations.</td></tr>
+    <tr><td>Agent + approval + audit rails</td><td><span class="tag reuse">reuse</span></td><td><code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
+    <tr><td>Production / work order</td><td><span class="tag new">build</span></td><td><code>ProductionOrder</code> + <code>ProductionOrderLine</code> with a guarded lifecycle.</td></tr>
+    <tr><td>Release consumption</td><td><span class="tag new">build</span></td><td>Wire release → explode lines → all-or-nothing commit fan-out over ingredients; status guard against double-consume.</td></tr>
+    <tr><td>Kitchen sheet</td><td><span class="tag new">build</span></td><td>A read projection of the order + per-dish recipe-component prep detail; a read endpoint returning it.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+<h3>In scope</h3>
+<ul>
+  <li><code>ProductionOrder</code> + <code>ProductionOrderLine</code> entities + <code>IProductionOrderService</code> (create — optionally seeded from a Spec&nbsp;055 production sheet for a window — release, complete, cancel) + admin endpoints.</li>
+  <li><strong>Release consumes ingredient stock:</strong> explode all lines via <code>ExplodeManyAsync</code>, draw each ingredient down through the Spec&nbsp;042 <code>InventoryService</code> commit fan-out; <strong>all-or-nothing</strong> — fail fast if any ingredient's available stock is insufficient.</li>
+  <li><strong>Complete optionally yields finished goods:</strong> increment the produced variant's <code>InventoryLevel.OnHand</code> by <code>ProducedQuantity</code> (make-to-stock; optional).</li>
+  <li>Guarded, idempotent state transitions: consume only on the <code>Planned&nbsp;→&nbsp;Released</code> edge; re-release never double-consumes.</li>
+  <li>The <strong>kitchen sheet</strong>: a printable/exportable projection of a production order + its per-dish recipe-component prep detail, via a read endpoint.</li>
+  <li>New Commerce DbSets on <code>CommerceDbContext</code> + <code>AonikDbContext</code>; one tool-generated migration (<code>CommerceProductionOrders</code>).</li>
+  <li>Commerce-agent read tool for the kitchen sheet + medium-gated write tools for create / release production order.</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+  <li>Ingredient <strong>stock</strong> mechanics themselves (levels, reserve/commit/release, low-stock alerts) — delivered by <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>; this spec only <em>calls</em> commit.</li>
+  <li>The demand <strong>aggregation</strong> and prep-list explosion — <a href="055.production-planning-sheet-prep-list.html">Spec&nbsp;055</a>; a production order optionally seeds from its output.</li>
+  <li>Ingredient <strong>cost</strong> / production-run costing / variance valuation — <a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> and <a href="057.margin-and-profit-report.html">Spec&nbsp;057</a>.</li>
+  <li>Routings, work centres, operation sequencing, machine/labour scheduling, lot/batch genealogy, scrap accounting — noted under <a href="#open">Open</a>, not built.</li>
+  <li>Reserving ingredient stock at <code>Planned</code> (a soft hold before release) — considered under <a href="#open">Open</a>; v1 consumes only at release.</li>
+</ul>
+
+<h2 id="guardrails">5. Constraints &amp; guardrails</h2>
+<ul>
+  <li><strong>No reference to Finance.</strong> <code>Aonik.Commerce</code> still references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>. A production run touches <em>inventory</em>, not money; no ledger, no payment, no Finance coupling (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
+  <li><strong>Anemic entities.</strong> <code>ProductionOrder</code>/<code>ProductionOrderLine</code> are <code>{ get; set; }</code> data containers implementing <code>ITenantScoped</code> + <code>AuditableEntity</code> (<a href="../decisions/002-anemic-domain-model.md">ADR-002</a>); the lifecycle, explosion wiring, and fan-out all live in <code>IProductionOrderService</code>, returning DTOs.</li>
+  <li><strong>Single migration stream.</strong> EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code>-prefixed tables; <code>CommerceDbContext</code> is runtime scoping with no migrations; agents never hand-author migrations.</li>
+  <li><strong>Release consumes ingredient stock, not variant stock.</strong> A production run draws down <em>ingredient</em> <code>InventoryLevel</code> rows (Spec&nbsp;052) via recipe explosion — never the finished variant's own stock. Completion is the only step that <em>adds</em> finished-variant stock (§10). The Spec&nbsp;042 Bundle (which draws down component <em>variant</em> stock) is a distinct concept and untouched (§9).</li>
+  <li><strong>Idempotent, guarded transitions.</strong> Consumption fires exactly once, on the <code>Planned&nbsp;→&nbsp;Released</code> edge; every transition validates the current status first (§8). No double-consume on re-release; no draw-down on cancel.</li>
+  <li><strong>Agents propose; systems execute.</strong> The kitchen sheet is a direct agent read; create/release are <strong>medium</strong> (in-session confirmation, args-hash-bound) because release moves real inventory; every AI action records an <code>AiRun</code>.</li>
+</ul>
+
+<h2 id="layout">6. Target module layout</h2>
+<div class="ascii-diagram">src/Aonik.Commerce/
+├── Entities/
+│   └── Production/   ProductionOrder, ProductionOrderLine     # NEW (work order + lines)
+├── Services/
+│   ├── Production/   IProductionOrderService                  # NEW (create/release/complete/cancel + kitchen sheet)
+│   ├── Production/   IRecipeService  (ExplodeManyAsync)       # REUSE (Spec 050)
+│   ├── Planning/     IProductionPlanningService               # REUSE (Spec 055 seed)
+│   └── Inventory/    IInventoryService  (CommitAsync / OnHand)# REUSE (Spec 042 + 052 ingredient rows)
+├── Endpoints/Admin/
+│   └── Production/   create / release / complete / cancel + get kitchen sheet   # NEW
+├── Agents/Tools/     CommerceAgentTools (+ production-order/kitchen-sheet tools) # EXTEND
+├── Contracts/        Models + Api records (KitchenSheet DTO)  # EXTEND
+└── Persistence/
+    ├── CommerceDbContext.cs           (+ ProductionOrder/ProductionOrderLine DbSets, no migrations)
+    └── Configurations/Production/     (IEntityTypeConfiguration&lt;T&gt;)   # NEW</div>
+
+<h2 id="domain-model">7. Domain model</h2>
+<p>All entities are anemic, <code>ITenantScoped</code>, inherit <code>AuditableEntity</code>.</p>
+<pre><code>class ProductionOrder     { Guid Id, TenantId;
+                            DateTime PlannedFor;        // when this run is scheduled to be made
+                            string   Status;            // Planned | Released | InProgress | Completed | Cancelled
+                            string?  Notes; }
+
+class ProductionOrderLine { Guid Id, TenantId, ProductionOrderId, ProductVariantId;
+                            decimal  PlannedQuantity;   // portions to produce
+                            decimal? ProducedQuantity;  // actual portions made (set at/before Complete) }</code></pre>
+<p>
+  <code>ProductVariantId</code> is a real intra-module reference to the Spec&nbsp;042 finished
+  <code>ProductVariant</code> being produced — the same variant a Spec&nbsp;050 <code>Recipe</code> is attached to,
+  which is exactly why a line can be exploded into ingredients. <code>PlannedQuantity</code> is what to make;
+  <code>ProducedQuantity</code> is nullable so the record can be created and released before the actual yield is
+  known, then reconciled at completion (planned ≠ produced is the normal case — see <a href="#risks">Risk
+  register</a>). <code>Status</code> is a free string with a known-values helper (mirroring the platform's
+  open-enum convention), driven only through the service's guarded transitions (§8).
+</p>
+
+<h2 id="lifecycle">8. Production-order lifecycle</h2>
+<p>
+  <code>IProductionOrderService</code> owns a small, guarded state machine. Each transition validates the current
+  <code>Status</code> before acting and is idempotent on its target edge — critically, <strong>stock is consumed
+  exactly once</strong>, on <code>Planned&nbsp;→&nbsp;Released</code>.
+</p>
+<div class="ascii-diagram">                 create (optionally seed lines from Spec 055 sheet)
+                          │
+                          ▼
+                    ┌───────────┐   cancel
+                    │  Planned  │ ─────────────┐
+                    └───────────┘              │
+                          │ release            │
+        consume ingredient stock (§9)          │
+        all-or-nothing recipe fan-out          ▼
+                          ▼              ┌─────────────┐
+                    ┌───────────┐        │  Cancelled  │  (terminal)
+                    │ Released  │        └─────────────┘
+                    └───────────┘         no stock consumed on cancel-from-Planned
+                          │ (optional) start
+                          ▼
+                    ┌─────────────┐
+                    │ InProgress  │
+                    └─────────────┘
+                          │ complete
+        (optional) yield finished-good stock (§10):
+        variant InventoryLevel.OnHand += ProducedQuantity
+                          ▼
+                    ┌─────────────┐
+                    │ Completed   │  (terminal)
+                    └─────────────┘
+
+guards:  release   only from Planned            → else 409 (idempotent: re-release from Released = no-op)
+         complete  only from Released|InProgress → else 409
+         cancel    only from Planned|Released|InProgress; from Released, releasing back
+                   consumed stock is an Open decision (v1: cancel allowed pre-release; post-release
+                   cancel does NOT auto-restore stock — reconcile via Spec 052 stock adjustment)</div>
+<p>
+  <code>InProgress</code> is an optional operational sub-state between release and completion (the kitchen is
+  actively cooking); it carries no stock effect. The two stock-moving edges are <code>release</code> (draw down
+  ingredients, §9) and <code>complete</code> (optionally add finished goods, §10). A cancel from
+  <code>Planned</code> is clean; the handling of a cancel <em>after</em> stock has been consumed is an
+  <a href="#open">Open</a> decision.
+</p>
+
+<h2 id="consume">9. Consuming ingredient stock on release — recipe fan-out (reuses Spec&nbsp;042 inventory commit)</h2>
+<p>
+  This is the heart of the spec, and it is <strong>almost entirely reuse</strong>. Spec&nbsp;042 checkout already
+  fans a single sale out over many stock lines: a <strong>bundle</strong> holds no stock of its own, so commit
+  <em>fans out over its selected component variants</em>, drawing each down through
+  <code>InventoryService.CommitAsync</code> (Spec&nbsp;042&nbsp;§10/§12). A production run is the same shape with two
+  substitutions — the fan-out source is a <em>recipe</em> (not a bundle selection), and the drawn-down rows are
+  <em>ingredient</em> <code>InventoryLevel</code>s (Spec&nbsp;052, not variant rows):
+</p>
+<div class="ascii-diagram">Bundle checkout (Spec 042 §12)                Production release (this spec)
+────────────────────────────────             ──────────────────────────────────
+one box line                                 one ProductionOrder (its lines)
+  fans out over selection slots                fans out over recipe components
+    → component ProductVariants                  → RecipeComponents → Ingredients
+      InventoryService.CommitAsync(variant)        InventoryService.CommitAsync(ingredient)
+                                                   (ingredient InventoryLevel rows, Spec 052)
+
+ReleaseAsync(productionOrderId):
+  0. guard: Status == Planned                                  (else 409; Released ⇒ no-op)
+  1. bill = IRecipeService.ExplodeManyAsync(                   // Spec 050 — merged BOM
+         lines.Select(l => (l.ProductVariantId, l.PlannedQuantity)))
+     → [ { IngredientId, RequiredQuantity (BaseUnit) }, … summed across dishes ]
+     → any line whose variant has no active recipe ⇒ fail (no silent under-consume)
+  2. pre-check availability for EVERY ingredient in one pass   // all-or-nothing
+     → if any Available &lt; RequiredQuantity ⇒ throw InsufficientStock, consume NOTHING
+  3. foreach ingredient in bill:                               // the fan-out
+         InventoryService.CommitAsync(ingredientId, requiredQuantity, productionOrderId)
+         (OnHand -= required; Spec 052 ingredient level; row concurrency token serialises)
+  4. Status = Released                                         // single audited transition</div>
+<p>
+  <strong>All-or-nothing</strong> is enforced by pre-checking availability for the whole merged bill
+  <em>before</em> committing any line (step&nbsp;2), so a shortfall on the last ingredient never leaves the first
+  ingredients half-consumed. Whether an insufficient ingredient should hard-fail (v1 default) or be permitted to
+  drive stock negative (a backorder/"cook anyway" posture) is gated behind a flag and called out under
+  <a href="#open">Open</a>. Because consumption is bound to the single <code>Planned&nbsp;→&nbsp;Released</code>
+  edge and guarded by status (step&nbsp;0), a re-release is a no-op and stock is never double-consumed — the
+  central correctness property this spec must hold.
+</p>
+<div class="callout">
+  <span class="callout-label">Note</span>
+  This reuse is why the spec is Medium, not Large: no new inventory primitive is introduced. Spec&nbsp;052 already
+  generalised <code>InventoryLevel</code> and <code>InventoryService</code> to stock and commit <em>ingredients</em>;
+  Spec&nbsp;050 already owns explosion; Spec&nbsp;042 already owns the commit-fan-out pattern. This spec composes
+  them behind one guarded transition.
+</div>
+
+<h2 id="yield">10. Yielding finished goods on complete</h2>
+<p>
+  A production run's counterpart to consuming raw materials is producing finished goods. On
+  <strong>complete</strong>, the service <em>optionally</em> yields finished-good stock — for each line, it
+  increments the produced <code>ProductVariant</code>'s <code>InventoryLevel.OnHand</code> by that line's
+  <code>ProducedQuantity</code> (falling back to <code>PlannedQuantity</code> when produced is unset). This closes
+  the <strong>make-to-stock</strong> loop: goods made here become saleable stock that Spec&nbsp;042 checkout
+  reserves and sells.
+</p>
+<div class="ascii-diagram">CompleteAsync(productionOrderId, yieldToStock = true):
+  0. guard: Status ∈ { Released, InProgress }                  (else 409)
+  1. if yieldToStock:
+         foreach line:
+             qty = line.ProducedQuantity ?? line.PlannedQuantity
+             InventoryService  → variant InventoryLevel.OnHand += qty     // finished-good stock rises
+  2. Status = Completed</div>
+<p>
+  Yield is kept <strong>optional</strong> because not every tenant is make-to-stock — some cook strictly to
+  order (each portion is already tied to a customer order and should not re-enter sellable stock). The
+  <code>yieldToStock</code> flag (default on for the make-to-stock persona this family targets) keeps both postures
+  supported without branching the entity. The finer question — <em>make-to-order</em> runs that discharge specific
+  customer orders rather than replenish anonymous stock — is an <a href="#open">Open</a> decision; v1 treats a run
+  as make-to-stock and does not link a production order back to the orders it fulfils.
+</p>
+
+<h2 id="kitchen-sheet">11. The kitchen sheet</h2>
+<p>
+  The <strong>kitchen sheet</strong> is the human-facing artefact of a production order: a
+  printable/exportable projection a chef works from at the pass. It is a pure <strong>read</strong> —
+  a <code>ProductionOrder</code> joined to, per line, the exploded recipe-component prep detail (<em>what to prep and
+  how much</em>). It is the production-run analogue of Spec&nbsp;050's prep list, but scoped to one concrete run
+  and grouped <em>by dish</em> rather than merged into one bill.
+</p>
+<div class="ascii-diagram">GET /commerce/production-orders/{id}/kitchen-sheet   → KitchenSheet
+  header:  { productionOrderId, plannedFor, status, notes }
+  dishes:  foreach line →
+             { productVariantId, variantName, plannedQuantity, producedQuantity,
+               components: [ { ingredientId, ingredientName, baseUnit,
+                              requiredQuantity }  // = component.Quantity × (planned / recipe.YieldQuantity)
+                            … ] }                  // per-dish, via Spec 050 ExplodeAsync(variant, plannedQty)
+  totals:  merged bill of materials across all dishes  // via ExplodeManyAsync — the shopping/prep summary</div>
+<p>
+  The projection is assembled by explosion, so it stays consistent with what <strong>release</strong> actually
+  consumes: the per-dish detail uses <code>ExplodeAsync</code> line by line, and the <code>totals</code> block is
+  the same <code>ExplodeManyAsync</code> merge the release path uses (§9) — the sheet and the stock movement can
+  never disagree. Rendering to PDF/print is a frontend concern; the endpoint returns the structured
+  <code>KitchenSheet</code> DTO. A line whose variant has no active recipe is surfaced with the same "no recipe"
+  diagnostic Spec&nbsp;050 explosion emits, so the chef sees the gap rather than a silently empty dish.
+</p>
+
+<h2 id="agent">12. Agent &amp; tools</h2>
+<p>
+  The existing <code>commerce-agent</code> gains production-order tools, classified by
+  <code>CommerceToolApprovalManifest</code> and wrapped by the Spec&nbsp;032 gate — no change to the gate:
+</p>
+<table>
+  <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>commerce_get_kitchen_sheet</code></td><td><span class="tag read">read</span></td><td>Direct execution; returns the <code>KitchenSheet</code> projection for a production order; tenant scope from context.</td></tr>
+    <tr><td><code>commerce_create_production_order</code></td><td><span class="tag medium">medium</span></td><td>Creates a run (optionally seeded from a Spec&nbsp;055 sheet for a window); in-session confirmation, args-hash-bound; records an <code>AiRun</code>.</td></tr>
+    <tr><td><code>commerce_release_production_order</code></td><td><span class="tag medium">medium</span></td><td>Releases a run → consumes ingredient stock (§9). <strong>Medium</strong> because it moves real inventory: in-session confirmation, args-hash-bound; records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+<p>
+  Release moves stock but not money, so it is <strong>medium</strong> (in-band once, after in-session
+  confirmation) — consistent with the family's other inventory writes (<code>commerce_receive_goods</code>,
+  <code>commerce_set_ingredient_stock</code>) and unlike the <strong>high</strong> money tools that are marshalled
+  into a durable Finance <code>Proposal</code>. Complete and cancel are admin-endpoint operations in v1; promoting
+  them to gated tools is trivial if an agentic run-management surface is wanted.
+</p>
+
+<h2 id="dbcontext">13. CommerceDbContext &amp; migrations</h2>
+<p>
+  Two new <code>Ank</code>-prefixed tables — <code>AnkProductionOrders</code> and
+  <code>AnkProductionOrderLines</code> — are created by one EF-CLI migration against <code>AonikDbContext</code>.
+  Each entity is added to both <code>CommerceDbContext</code> (runtime scoping) and <code>AonikDbContext</code>
+  (canonical stream); both are tenant-scoped (neither global). Configurations live in
+  <code>Persistence/Configurations/Production</code> as <code>IEntityTypeConfiguration&lt;T&gt;</code> classes.
+  No new inventory tables — release and yield reuse the Spec&nbsp;052 <code>InventoryLevel</code> schema.
+</p>
+<pre><code>dotnet ef migrations add CommerceProductionOrders --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+
+<h2 id="phases">14. Phased rollout</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Production order + lifecycle</h4>
+  <div class="phase-summary">The work-order record and its guarded state machine (no stock effects yet).</div>
+  <ul>
+    <li><code>ProductionOrder</code>/<code>ProductionOrderLine</code> entities + configs + DbSets; <code>IProductionOrderService</code> create (optionally seeded from a Spec&nbsp;055 sheet) / cancel + skeletal release/complete transitions returning DTOs; admin endpoints; the <code>CommerceProductionOrders</code> migration; unit tests for the guarded transitions.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Release consumption + completion yield</h4>
+  <div class="phase-summary">Wire the stock-moving edges.</div>
+  <ul>
+    <li>Release → <code>ExplodeManyAsync</code> → all-or-nothing availability pre-check → <code>InventoryService.CommitAsync</code> fan-out over ingredients (§9); complete → optional finished-good <code>OnHand</code> yield (§10); unit tests for consumption, shortfall fail-fast, idempotent re-release, and yield.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Kitchen sheet + agent tools</h4>
+  <div class="phase-summary">The printable projection and the agentic surface.</div>
+  <ul>
+    <li><code>KitchenSheet</code> DTO + read endpoint (§11); <code>commerce_get_kitchen_sheet</code> read tool + medium-gated <code>commerce_create_production_order</code> / <code>commerce_release_production_order</code> added to <code>CommerceAgentTools</code> and classified in <code>CommerceToolApprovalManifest</code>; routed through <code>IToolApprovalGate.GateAll</code> (fails closed).</li>
+  </ul>
+</div>
+
+<h2 id="requirements">15. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>A <code>ProductionOrder</code> (planned-for date, status, optional notes) with one or more <code>ProductionOrderLine</code>s (variant + planned portions) can be created — optionally seeded from a <a href="055.production-planning-sheet-prep-list.html">Spec&nbsp;055</a> production sheet for a window — listed, and cancelled; tenant-scoped.</td></tr>
+    <tr><td>R2</td><td><strong>Release</strong> consumes ingredient stock: all lines are exploded via <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> <code>ExplodeManyAsync</code> into a merged bill of materials, and each ingredient is drawn down through the <a href="042.commerce-retail-module.html">Spec&nbsp;042</a> <code>InventoryService</code> commit fan-out over <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> ingredient stock — the same fan-out bundle checkout uses over component variants.</td></tr>
+    <tr><td>R3</td><td>Release is <strong>all-or-nothing</strong>: availability is pre-checked for the whole merged bill; if any ingredient is short the release fails and no stock is consumed. Allowing negative stock at release is behind a flag (default off).</td></tr>
+    <tr><td>R4</td><td>State transitions are guarded and idempotent: consumption fires exactly once on <code>Planned&nbsp;→&nbsp;Released</code>; re-releasing an already-released order is a no-op that never double-consumes; cancel from <code>Planned</code> consumes nothing.</td></tr>
+    <tr><td>R5</td><td><strong>Complete</strong> optionally yields finished-good stock: each line increments the produced variant's <code>InventoryLevel.OnHand</code> by <code>ProducedQuantity</code> (fallback <code>PlannedQuantity</code>); the yield is toggleable for make-to-order tenants.</td></tr>
+    <tr><td>R6</td><td>A <strong>kitchen-sheet</strong> read endpoint returns a projection of the order + per-dish exploded recipe-component prep detail + a merged totals bill, assembled via explosion so it agrees with what release consumes; a variant lacking an active recipe carries the "no recipe" diagnostic.</td></tr>
+    <tr><td>R7</td><td>Schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix (<code>AnkProductionOrders</code>, <code>AnkProductionOrderLines</code>); <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
+    <tr><td>R8</td><td>Agent tools are classified (<code>commerce_get_kitchen_sheet</code> read; <code>commerce_create_production_order</code> / <code>commerce_release_production_order</code> medium); every medium-gated invocation records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">16. Tasks</h2>
+<ol>
+  <li><code>ProductionOrder</code>/<code>ProductionOrderLine</code> entities + <code>IEntityTypeConfiguration</code> + DbSets on <code>CommerceDbContext</code> and <code>AonikDbContext</code>; <code>IProductionOrderService</code> create/cancel + guarded transition skeleton + DTOs + admin endpoints.</li>
+  <li>Wire <strong>release</strong>: <code>ExplodeManyAsync</code> → all-or-nothing availability pre-check → <code>InventoryService.CommitAsync</code> fan-out over ingredients; status guard so consumption is single-shot on <code>Planned&nbsp;→&nbsp;Released</code>.</li>
+  <li>Wire <strong>complete</strong>: optional finished-good <code>OnHand</code> yield gated by <code>yieldToStock</code>.</li>
+  <li><code>KitchenSheet</code> DTO + read endpoint assembled from <code>ExplodeAsync</code> (per dish) and <code>ExplodeManyAsync</code> (totals).</li>
+  <li>The <code>CommerceProductionOrders</code> migration against <code>AonikDbContext</code>; review the diff (2 tables only).</li>
+  <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with the kitchen-sheet read + create/release medium tools; route through the gate.</li>
+  <li>Tests: unit (guarded transitions, release consumption + fan-out, all-or-nothing shortfall, idempotent re-release, completion yield, kitchen-sheet projection incl. no-recipe diagnostic) + an architecture test still asserting no Commerce↔Finance reference.</li>
+</ol>
+
+<h2 id="verification">17. Verification</h2>
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
+  <li><strong>Release consumes:</strong> with rice/tomato stock on hand and a jollof recipe (yield 4 ⇒ 1&nbsp;kg rice, 0.5&nbsp;kg tomato), create a run of 40 portions and release it ⇒ ingredient <code>OnHand</code> drops by 10&nbsp;kg rice / 5&nbsp;kg tomato via the commit fan-out; order → <code>Released</code>.</li>
+  <li><strong>All-or-nothing:</strong> set rice short of the requirement; release throws <code>InsufficientStock</code> and <em>no</em> ingredient (including tomato) is drawn down; order stays <code>Planned</code>.</li>
+  <li><strong>Idempotent re-release:</strong> releasing an already-<code>Released</code> order is a no-op; stock is unchanged (not double-consumed).</li>
+  <li><strong>Completion yield:</strong> complete the run with <code>ProducedQuantity=38</code> and <code>yieldToStock=true</code> ⇒ the variant's <code>OnHand</code> rises by 38; with the flag off, finished stock is unchanged.</li>
+  <li><strong>Kitchen sheet:</strong> <code>GET …/kitchen-sheet</code> returns per-dish prep detail matching each line's explosion and a totals block equal to <code>ExplodeManyAsync</code>; a no-recipe line carries the diagnostic.</li>
+  <li><strong>Agent:</strong> <code>commerce_release_production_order</code> surfaces a medium approval; <code>commerce_get_kitchen_sheet</code> executes directly; each records an <code>AiRun</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">18. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Double-consumption on re-release (stock drawn twice)</td><td>High</td><td>Consumption is bound to the single <code>Planned&nbsp;→&nbsp;Released</code> edge and status-guarded; re-release from <code>Released</code> is a no-op; unit test asserts stock unchanged on a second release.</td></tr>
+    <tr><td>Ingredient shortfall at release leaves a partial draw-down</td><td>High</td><td>Availability is pre-checked for the whole merged bill before any commit (all-or-nothing); a shortfall throws before the first line is consumed. Fail-fast vs. backorder/"cook anyway" is an <a href="#open">Open</a> decision (flagged).</td></tr>
+    <tr><td>Produced ≠ planned (partial production / variance)</td><td>Medium</td><td><code>ProducedQuantity</code> is a distinct nullable field reconciled at completion; yield uses produced (not planned); the release consumed against <em>planned</em>, so under/over-production is a known, reportable variance (valuation is <a href="057.margin-and-profit-report.html">Spec&nbsp;057</a>).</td></tr>
+    <tr><td>Make-to-stock yield inflates sellable stock for a make-to-order tenant</td><td>Medium</td><td><code>yieldToStock</code> flag defaults on for the make-to-stock persona but is off-able; make-to-order linkage to customer orders is an <a href="#open">Open</a> decision, not silently assumed.</td></tr>
+    <tr><td>Post-release cancel strands consumed stock</td><td>Low</td><td>v1 does not auto-restore on post-release cancel; reconciliation is an explicit Spec&nbsp;052 stock adjustment. Auto-reversal is <a href="#open">Open</a>.</td></tr>
+    <tr><td>Schema drift from new tables</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review the 2-table diff; <code>Ank</code> prefix; no new inventory tables (reuse Spec&nbsp;052).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">19. Decisions baked in</h2>
+<ul>
+  <li><strong>Release is the consume edge; complete is the yield edge.</strong> Raw materials leave stock on <code>Planned&nbsp;→&nbsp;Released</code>; finished goods (optionally) enter stock on completion.</li>
+  <li><strong>Consumption reuses the Spec&nbsp;042 commit fan-out</strong>, over <code>RecipeComponent</code>→<code>Ingredient</code> instead of bundle component variants — no new inventory primitive.</li>
+  <li><strong>All-or-nothing at release</strong> via a whole-bill availability pre-check; a shortfall consumes nothing.</li>
+  <li><strong>Transitions are guarded and idempotent</strong>; stock is consumed exactly once — no double-consume on re-release.</li>
+  <li><strong>The kitchen sheet is a pure read projection</strong> assembled by explosion, so it always agrees with what release consumes.</li>
+  <li><strong>Grow in place in <code>Aonik.Commerce</code></strong>; no Finance reference (inventory, not money); migrations stay with <code>AonikDbContext</code>.</li>
+  <li><strong>Release/create are medium agent tools</strong> (they move inventory); the kitchen sheet is a direct read.</li>
+</ul>
+
+<h2 id="open">20. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Negative stock at release.</strong> Whether an ingredient shortfall must hard-fail (v1 default) or may be
+  permitted to drive stock negative — a "cook anyway / backorder the raw material" posture — behind a per-tenant or
+  per-release flag. v1 fails fast; the flag is the escape hatch.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Make-to-order linkage.</strong> Whether a production order should link back to the specific customer
+  orders it fulfils (make-to-order: each portion discharges a real demand line and does <em>not</em> re-enter
+  anonymous sellable stock) rather than replenishing stock (make-to-stock, v1). Would add a soft link from
+  <code>ProductionOrderLine</code> to source order lines and suppress the completion yield for tied portions.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Reserve at Planned (soft hold) vs. consume only at Release.</strong> v1 draws stock only at release.
+  An alternative reserves ingredient stock at <code>Planned</code> (a soft hold via the Spec&nbsp;052
+  reserve path, mirroring how checkout reserves before capture) so competing runs cannot both plan against the
+  same raw material, converting the hold to a commit at release.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Scrap / actual-vs-planned variance capture.</strong> Recording scrap and the delta between planned
+  consumption and actual ingredient usage (over-portioning, trim loss) as first-class variance, feeding food-cost
+  accuracy in Spec&nbsp;057. v1 consumes against the planned bill; variance is inferred, not captured.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Post-release cancel reversal.</strong> Whether cancelling an order after release should automatically
+  restore consumed ingredient stock (a compensating release). v1 requires an explicit Spec&nbsp;052 stock
+  adjustment; auto-reversal risks masking real usage and is deferred.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Scheduling / sequencing of runs.</strong> Ordering and time-slotting production runs across shifts,
+  stations, or work centres (a routing / MES concern). v1 carries a single <code>PlannedFor</code> date and no
+  sequencing; full scheduling is out of the thin maker-ops slice.
+</div>
+
+<h2 id="refs">21. References</h2>
+<ul>
+  <li><a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> — the maker-operations keystone; source of <code>Recipe</code>/<code>RecipeComponent</code> and the <code>ExplodeAsync</code>/<code>ExplodeManyAsync</code> explosion this spec consumes on release and in the kitchen sheet.</li>
+  <li><a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> — raw-material inventory; the generalised <code>InventoryLevel</code> and <code>InventoryService</code> reserve/commit path release draws down and completion yields into.</li>
+  <li><a href="055.production-planning-sheet-prep-list.html">Spec&nbsp;055</a> — production planning; <code>GetProductionSheetAsync(window)</code> optionally seeds a production order's lines from aggregated demand.</li>
+  <li><a href="042.commerce-retail-module.html">Spec&nbsp;042</a> — the retail commerce module; source of <code>ProductVariant</code>, the §10 reserve/commit model, and the §12 bundle commit fan-out this release path mirrors over recipe components.</li>
+  <li><a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> / <a href="057.margin-and-profit-report.html">Spec&nbsp;057</a> — ingredient costing and margin; where a released run's consumption is valued (not in this spec).</li>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine (a production order is an internal work order, distinct from a customer Order on the spine).</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (grow-in-place, sibling-reference rule). <a href="../decisions/002-anemic-domain-model.md">ADR-002</a> — anemic entities.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> — agent mutation governance for the medium-gated create/release tools.</li>
+  <li>Maker-operations family: <a href="050.ingredient-recipe-bom.html">050</a>, <a href="051.ingredient-costing-standard-cost.html">051</a>, <a href="052.raw-material-inventory-reorder-alerts.html">052</a>, <a href="053.suppliers-and-purchase-orders.html">053</a>, <a href="054.goods-receipt-stock-and-cost.html">054</a>, <a href="055.production-planning-sheet-prep-list.html">055</a>, <a href="056.production-orders-kitchen-sheet.html">056</a>, <a href="057.margin-and-profit-report.html">057</a>.</li>
+</ul>
+
+<footer>
+  Spec 056 &middot; Production / work orders &amp; the kitchen sheet — the make-side counterpart of checkout &middot;
+  Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>

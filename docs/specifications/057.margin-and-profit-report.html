@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 057 · Margin &amp; profit report — revenue vs. COGS vs. target margin</title>
+  <style>
+    :root {
+      --fg: #1c2730;
+      --muted: #5a6a76;
+      --soft: #f4f6f8;
+      --border: #d9dde2;
+      --accent: #055a60;
+      --accent-mark: #e8a838;
+      --code-bg: #f7f9fb;
+      --note-bg: #fff8e6;
+      --note-border: #e8c878;
+      --open-bg: #eef5fa;
+      --open-border: #88b8d4;
+      --p0-bg: #fbe9e7;
+      --p0-border: #d97a6c;
+      --ok-bg: #ecf6ee;
+      --ok-border: #6db77f;
+    }
+    * { box-sizing: border-box; }
+    html { background: #fafbfc; }
+    body {
+      margin: 0;
+      padding: 40px 24px 80px;
+      font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif;
+      color: var(--fg);
+      max-width: 880px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.spec-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+    .meta-tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      margin-right: 6px;
+      text-transform: uppercase;
+    }
+    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
+    .meta-tag.size-small { background: #ecf6ee; color: #2a7f3c; }
+    .meta-tag.priority-p3 { background: #efe6f6; color: #5a2784; }
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 14px 0 6px;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: 21px;
+      letter-spacing: -0.01em;
+      margin: 44px 0 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 17px; margin: 28px 0 8px; color: var(--accent); }
+    h4 { font-size: 14.5px; margin: 18px 0 6px; color: var(--fg); }
+    p, ul, ol { margin: 8px 0 12px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 3px 0; }
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: rgba(5, 90, 96, 0.4);
+    }
+    a:hover { text-decoration-color: var(--accent); }
+    code {
+      font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font: 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; border: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--note-border);
+      background: var(--note-bg);
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    .callout.open { border-left-color: var(--open-border); background: var(--open-bg); }
+    .callout.p0 { border-left-color: var(--p0-border); background: var(--p0-bg); }
+    .callout.ok { border-left-color: var(--ok-border); background: var(--ok-bg); }
+    .callout-label {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+    nav.toc {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0 32px;
+    }
+    nav.toc h2 {
+      border: 0; padding: 0; margin: 0 0 8px;
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    }
+    nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+    nav.toc li { margin: 2px 0; break-inside: avoid; }
+    .ascii-diagram {
+      font: 12.5px/1.45 "JetBrains Mono", ui-monospace, monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 12px 0 20px;
+    }
+    .tag {
+      display: inline-block;
+      font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .tag.read { background: #e6f1ef; color: #166053; }
+    .tag.mutate { background: #fce8e2; color: #9b3815; }
+    .tag.new { background: #e0f0ff; color: #144d7a; }
+    .tag.existing { background: #efefef; color: #555; }
+    .tag.reuse { background: #ecf6ee; color: #2a7f3c; }
+    .tag.low { background: #e6f1ef; color: #166053; }
+    .tag.medium { background: #fff0d6; color: #8a5510; }
+    .tag.high { background: #fce8e2; color: #9b3815; }
+    .phase-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fff;
+    }
+    .phase-card h4 { margin: 0 0 6px; color: var(--accent); }
+    .phase-card .phase-summary { font-size: 13.5px; color: var(--muted); margin-bottom: 8px; }
+    footer {
+      margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      body { padding: 24px 16px 60px; }
+      nav.toc ol { columns: 1; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="spec-meta">
+  <span class="meta-tag">Spec 057</span>
+  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag size-small">Size: Small</span>
+  <span class="meta-tag priority-p3">Priority: P3</span>
+  <span class="meta-tag">Domain: Commerce / Reporting</span>
+  <h1>Margin &amp; profit report — revenue vs. COGS vs. target margin</h1>
+  <p style="margin-top:6px; color: var(--muted);">
+    The <strong>profit-report moment</strong> that closes the operations-manager's day: put actual sales
+    revenue next to what the food <em>cost</em> to make, and flag where next week's plan needs adjusting.
+    This spec is a thin <strong>read / reporting</strong> layer plus one tiny additive schema change. It sits
+    on the <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> keystone (recipes) and its cost rollup
+    <a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a>, and reads revenue straight from the
+    <a href="041.unified-order-spine-ordering-layer.html">Order spine</a> / <a href="042.commerce-retail-module.html">Spec&nbsp;042</a>
+    charge data. Everything lives in <code>Aonik.Commerce</code> and references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>
+    — never <code>Aonik.Finance</code>. This is the <strong>last</strong> spec of the maker-operations family
+    (<a href="050.ingredient-recipe-bom.html#family">050–057</a>); nothing depends on it.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#context">Context &amp; motivation</a></li>
+    <li><a href="#reuse-vs-build">Reuse vs. build</a></li>
+    <li><a href="#scope">Scope (in / out)</a></li>
+    <li><a href="#guardrails">Constraints &amp; guardrails</a></li>
+    <li><a href="#layout">Target module layout</a></li>
+    <li><a href="#domain-model">Domain model</a></li>
+    <li><a href="#revenue">Revenue source (reusing OrderChargeSummary)</a></li>
+    <li><a href="#cogs">COGS from standard cost (Spec 051)</a></li>
+    <li><a href="#target">Target margin &amp; variance</a></li>
+    <li><a href="#projection">The profit-report projection</a></li>
+    <li><a href="#agent">Agent &amp; tools</a></li>
+    <li><a href="#dbcontext">CommerceDbContext &amp; migrations</a></li>
+    <li><a href="#phases">Phased rollout</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#verification">Verification</a></li>
+    <li><a href="#risks">Risk register</a></li>
+    <li><a href="#decisions">Decisions baked in</a></li>
+    <li><a href="#open">Open design decisions</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+
+<p>
+  The maker-operations family (<a href="050.ingredient-recipe-bom.html#family">050–057</a>) has taught AONIK
+  what a product is <em>made of</em> (<a href="050.ingredient-recipe-bom.html">050</a>), what it <em>costs</em>
+  to make (<a href="051.ingredient-costing-standard-cost.html">051</a>), how much raw material is on hand
+  (<a href="052.raw-material-inventory-reorder-alerts.html">052</a>), how to reorder and receive
+  (<a href="053.suppliers-and-purchase-orders.html">053</a>/<a href="054.goods-receipt-stock-and-cost.html">054</a>),
+  and how to plan and run production (<a href="055.production-planning-sheet-prep-list.html">055</a>/<a href="056.production-orders-kitchen-sheet.html">056</a>).
+  The last question the operations manager asks each week is: <strong>did we make money, and on what?</strong>
+</p>
+<p>
+  This spec answers it with a single read service, <code>IMarginReportService</code>, that for a date window
+  computes — <strong>per <code>ProductVariant</code> and in aggregate</strong> — <em>revenue</em> (from
+  <code>ProductPurchase</code> order lines), <em>COGS</em> (the Spec&nbsp;051 standard-cost rollup times the
+  quantity sold), the resulting <em>gross margin</em> and <em>margin percentage</em>, and a
+  <strong>variance flag</strong> against a target margin. The only persisted change is one additive nullable
+  column, <code>TargetMarginPct</code>, on the existing Spec&nbsp;042 <code>Product</code>.
+</p>
+
+<div class="callout ok">
+  <span class="callout-label">Success signals</span>
+  An operator (or the <code>commerce-agent</code>) can ask "how did last week look?" and get a per-dish
+  profit table — revenue, food cost, gross margin, margin&nbsp;%, and a red flag on any variant below its
+  target — plus the aggregate for the window. Setting a target margin on a product records an
+  <code>AiRun</code>. <code>dotnet build Aonik.sln</code> stays green with <code>Aonik.Commerce</code>
+  referencing only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>;
+  <code>dotnet test Aonik.sln</code> stays green with unit tests covering revenue aggregation, COGS
+  valuation, margin/variance, and the no-target and no-recipe edge cases.
+</div>
+
+<h2 id="context">2. Context &amp; motivation</h2>
+
+<p>
+  In the day-in-the-life that drives this family, the operations manager ends the loop by reviewing a
+  <strong>profit report</strong>: they compare the actual food cost of what was sold to the target margins
+  they set, and decide where next week's plan needs adjusting — drop a low-margin dish, reprice it, or
+  renegotiate an ingredient. That decision closes the loop back to production planning
+  (<a href="055.production-planning-sheet-prep-list.html">Spec&nbsp;055</a>) and, ultimately, to updating
+  ingredient costs (<a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a>).
+</p>
+<p>
+  Every input already exists. Revenue is captured by the Order spine at checkout — Spec&nbsp;042 records the
+  funded, discounted total as a durable <code>OrderChargeSummary</code> (see §8). Food cost is the standard
+  cost <a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> rolls up from the recipe. So the
+  profit report is a <strong>projection over data AONIK already holds</strong>: this spec adds no ledger, no
+  new money movement, and (bar one nullable column) no new schema — just the read service that joins revenue
+  to cost per variant and measures it against a target.
+</p>
+<p>
+  Scope discipline: this is <strong>standard-cost margin</strong>, not managerial accounting. Actual
+  (goods-receipt-valued) COGS, labour/overhead, period-close snapshots, and margin sliced by channel or
+  customer tier are noted under <a href="#open">Open</a>, not built.
+</p>
+
+<h2 id="reuse-vs-build">3. Reuse vs. build</h2>
+<table>
+  <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Revenue (sales, discounted)</td><td><span class="tag reuse">reuse</span></td><td><code>ProductPurchase</code> order lines + the durable <code>OrderChargeSummary</code> (Spec&nbsp;042 §17) read via the <a href="041.unified-order-spine-ordering-layer.html">Ordering</a> spine — the <strong>discounted</strong> total, never a Finance ledger query.</td></tr>
+    <tr><td>COGS / food cost</td><td><span class="tag reuse">reuse</span></td><td><code>IProductCostingService.RollupStandardCostAsync</code> (<a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a>) × quantity sold in the window.</td></tr>
+    <tr><td>Finished-good identity</td><td><span class="tag reuse">reuse</span></td><td>Report rows key on the existing <code>ProductVariant</code> / <code>Product</code> (Spec&nbsp;042 catalog).</td></tr>
+    <tr><td>Migration stream + agent rails</td><td><span class="tag reuse">reuse</span></td><td>EF-CLI migration against <code>AonikDbContext</code>; <code>CommerceAgentRegistration</code>, <code>CommerceToolApprovalManifest</code>, the Spec&nbsp;032 gate, <code>AiRun</code>.</td></tr>
+    <tr><td>Margin report service</td><td><span class="tag new">build</span></td><td><code>IMarginReportService</code> — per-variant + aggregate revenue/COGS/margin/variance over a window.</td></tr>
+    <tr><td>Target margin</td><td><span class="tag new">build</span></td><td>Nullable <code>TargetMarginPct</code> on <code>Product</code> (one additive column) + a set-target write.</td></tr>
+    <tr><td>Read endpoint + agent tools</td><td><span class="tag new">build</span></td><td>Get-margin-report endpoint; <code>commerce_get_margin_report</code> (read) + <code>commerce_set_target_margin</code> (medium).</td></tr>
+    <tr><td>Actual COGS, labour/overhead, snapshotting</td><td><span class="tag existing">later</span></td><td>Managerial-accounting extensions; deliberately out of this spec (<a href="#open">Open</a>).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="scope">4. Scope (in / out)</h2>
+<h3>In scope</h3>
+<ul>
+  <li><code>IMarginReportService</code>: for a window, per <code>ProductVariant</code> and aggregate — revenue, COGS, gross margin, margin&nbsp;%, and target-variance flag.</li>
+  <li>Revenue from <code>ProductPurchase</code> order lines using the Spec&nbsp;042 <code>OrderChargeSummary</code> <strong>discounted</strong> total, read via the Ordering/charge data (no Finance reference).</li>
+  <li>COGS = <code>RollupStandardCostAsync(variant, currency, atUtc)</code> (Spec&nbsp;051) × quantity sold in the window.</li>
+  <li>One additive nullable column <code>TargetMarginPct</code> on the existing <code>Product</code> entity; a set-target write path.</li>
+  <li>A read endpoint (get margin report for a window) + <code>commerce_get_margin_report</code> read tool and <code>commerce_set_target_margin</code> medium tool.</li>
+  <li>One tool-generated migration (<code>CommerceTargetMargin</code>) adding the single column.</li>
+</ul>
+<h3>Out of scope</h3>
+<ul>
+  <li><strong>Actual (goods-receipt-based) COGS</strong> — valuing sold quantity at real received cost (<a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> lots) rather than standard cost. v1 is standard-cost; noted <a href="#open">Open</a>.</li>
+  <li><strong>Labour &amp; overhead</strong> beyond food cost — v1 margin is food-cost margin only.</li>
+  <li><strong>Period close &amp; snapshotting</strong> a report as an immutable artefact; v1 recomputes live from current cost + order data.</li>
+  <li><strong>Margin sliced by category / channel / customer tier</strong>, and linking a margin variance back to a Spec&nbsp;055 plan adjustment — noted <a href="#open">Open</a>.</li>
+  <li>A separate <code>ProductMarginTarget</code> entity — v1 uses the column on <code>Product</code>; the richer entity is <a href="#open">Open</a>.</li>
+</ul>
+
+<h2 id="guardrails">5. Constraints &amp; guardrails</h2>
+<ul>
+  <li><strong>No reference to Finance.</strong> Revenue is read from the <a href="041.unified-order-spine-ordering-layer.html">Ordering</a> spine (<code>ProductPurchase</code> lines + <code>OrderChargeSummary</code>), <em>not</em> from the ledger. <code>Aonik.Commerce</code> still references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code> (<a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a>).</li>
+  <li><strong>Revenue is the discounted total.</strong> The report uses the funded amount from <code>OrderChargeSummary</code> (subtotal − discount, per Spec&nbsp;042 §17), never gross list price — so margin reflects what the customer actually paid (§8).</li>
+  <li><strong>COGS is standard cost.</strong> v1 values sold quantity at the Spec&nbsp;051 rollup, not receipt-based actual cost, keeping revenue/COGS timing honest without lot valuation (§9, <a href="#risks">Risks</a>).</li>
+  <li><strong>Read-only bar one column.</strong> The service computes and returns DTOs; the only mutation is setting <code>Product.TargetMarginPct</code>. No new money movement, no ledger, no <code>OrderChargeSummary</code> writes.</li>
+  <li><strong>Single migration stream.</strong> The one additive column is EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> table; <code>CommerceDbContext</code> is runtime scoping with no migrations; agents never hand-author migrations.</li>
+  <li><strong>Agents propose; systems execute.</strong> The margin report is a direct read tool; setting a target margin is a <strong>medium</strong> write (in-session confirmation, args-hash-bound); every AI action records an <code>AiRun</code>.</li>
+</ul>
+
+<h2 id="layout">6. Target module layout</h2>
+<div class="ascii-diagram">src/Aonik.Commerce/
+├── Entities/
+│   └── Catalog/     Product (+ TargetMarginPct nullable column)   # EXTEND (Spec 042 entity)
+├── Services/
+│   └── Reporting/   IMarginReportService                         # NEW (revenue vs COGS vs target)
+├── Endpoints/Admin/
+│   └── Reporting/   GetMarginReport                              # NEW (window → report)
+├── Agents/Tools/    CommerceAgentTools (+ margin-report / set-target tools)   # EXTEND
+├── Contracts/       MarginReport models + Api records            # EXTEND
+└── Persistence/
+    ├── CommerceDbContext.cs           (no new DbSet — column on existing Product)
+    └── Configurations/Catalog/ProductConfiguration.cs  (map TargetMarginPct)   # EXTEND</div>
+
+<h2 id="domain-model">7. Domain model</h2>
+<p>
+  No new persisted entity. The one schema change is a nullable column on the existing Spec&nbsp;042
+  <code>Product</code>; everything else is computed DTOs returned by the service.
+</p>
+<pre><code>// EXTEND — Spec 042 catalog entity, anemic, ITenantScoped, AuditableEntity
+class Product { /* …existing Spec 042 fields… */
+                decimal? TargetMarginPct;   // NEW — target gross-margin %, null = no target set
+              }
+
+// Computed DTOs (not persisted)
+record MarginReportRow  { Guid ProductVariantId; string VariantName;
+                          decimal QuantitySold; string Currency;
+                          decimal Revenue;        // discounted total, from OrderChargeSummary
+                          decimal Cogs;           // RollupStandardCost × QuantitySold
+                          decimal GrossMargin;    // Revenue − Cogs
+                          decimal? MarginPct;     // GrossMargin / Revenue (null when Revenue = 0)
+                          decimal? TargetMarginPct;
+                          bool    BelowTarget;    // MarginPct &lt; TargetMarginPct
+                          bool    HasRecipe; }    // false ⇒ Cogs unknown (diagnostic)
+
+record MarginReport     { DateTime FromUtc, ToUtc; string Currency;
+                          IReadOnlyList&lt;MarginReportRow&gt; Rows;
+                          decimal TotalRevenue, TotalCogs, TotalGrossMargin;
+                          decimal? AggregateMarginPct; }</code></pre>
+<p>
+  <code>MarginPct</code> is nullable because a window with revenue but a zero-revenue variant, or a variant
+  with sales and no active recipe, must be surfaced as a diagnostic rather than a misleading zero (§9).
+  <code>TargetMarginPct</code> lives on <code>Product</code> (not <code>ProductVariant</code>): a target is a
+  product-level commercial intent, and the row carries the resolved value so callers need not re-join.
+</p>
+
+<h2 id="revenue">8. Revenue source (reusing OrderChargeSummary)</h2>
+<p>
+  Revenue is read from the <a href="041.unified-order-spine-ordering-layer.html">Order spine</a>, not the
+  ledger — keeping the Commerce/Finance boundary intact. For each <code>ProductPurchase</code> order whose
+  fulfilment falls in the window, the service reads the line-level goods (<code>OrderItem.ProductId</code> /
+  variant, <code>Quantity</code>) and the order's durable <strong><code>OrderChargeSummary</code></strong>
+  — the record Spec&nbsp;042 §17 persists at checkout capturing subtotal → discount → tax → payable, funded
+  via the <code>PaymentIntent</code>.
+</p>
+<div class="callout">
+  <span class="callout-label">Decision</span>
+  Revenue uses the <strong>discounted total</strong> from <code>OrderChargeSummary</code> (subtotal minus
+  discount), <em>not</em> gross list price. That is the amount actually funded, so margin reflects what the
+  customer paid. Where a whole-order discount spans multiple lines, it is apportioned to each variant
+  pro-rata by line subtotal, so per-variant revenue sums to the order's discounted total.
+</div>
+<p>
+  Tax is excluded from margin revenue (tax is a pass-through liability, not the maker's income). The read
+  goes through the Ordering read surface — no <code>Aonik.Finance</code> reference and no ledger query, per
+  <a href="#guardrails">§5</a>.
+</p>
+
+<h2 id="cogs">9. COGS from standard cost (Spec 051)</h2>
+<p>
+  Cost of goods sold is <strong>standard cost</strong>: for each variant sold in the window, the service
+  calls the Spec&nbsp;051 rollup and multiplies by the quantity sold.
+</p>
+<div class="ascii-diagram">for each ProductVariant sold in [FromUtc, ToUtc):
+  qty     = Σ OrderItem.Quantity   (ProductPurchase lines, fulfilment in window)
+  unitCogs = IProductCostingService.RollupStandardCostAsync(variantId, currency, atUtc)
+           = Σ (RecipeComponent.Quantity × active IngredientCost.UnitCost)   // Spec 051
+  Cogs        = unitCogs × qty
+  GrossMargin = Revenue − Cogs
+  MarginPct   = Revenue = 0 ? null : GrossMargin / Revenue
+  BelowTarget = TargetMarginPct is set  &amp;&amp;  MarginPct &lt; TargetMarginPct</div>
+<p>
+  If a variant has <strong>no active recipe</strong>, the rollup yields no cost; the row sets
+  <code>HasRecipe = false</code> and leaves <code>Cogs</code> at zero with the diagnostic surfaced, so the
+  operator sees "cost unknown — define a recipe" rather than a phantom 100% margin. To keep revenue and cost
+  on the same footing, COGS values the <strong>quantity sold in the window</strong> at standard cost (a
+  documented choice; see <a href="#risks">Risks</a> for the timing nuance vs. actual receipt cost).
+</p>
+
+<h2 id="target">10. Target margin &amp; variance</h2>
+<p>
+  A <code>Product</code> may carry a target gross-margin percentage (<code>TargetMarginPct</code>, nullable).
+  The report resolves it onto each variant row and sets <code>BelowTarget = true</code> when the achieved
+  <code>MarginPct</code> falls below it — the single signal the operator scans to decide what next week's plan
+  must change. A null target means "no target set": the row still reports achieved margin but is never flagged.
+  Setting the target is the only write in this spec (<code>commerce_set_target_margin</code>, medium; §11),
+  recorded as an <code>AiRun</code>. A separate <code>ProductMarginTarget</code> entity — with effective dates
+  or per-channel targets — is deferred (<a href="#open">Open</a>); v1 keeps one current target on the product.
+</p>
+
+<h2 id="projection">11. The profit-report projection</h2>
+<p>
+  The whole spec is one projection over data AONIK already holds — revenue from the spine, cost from the
+  rollup, target from the product — assembled per variant and summed:
+</p>
+<div class="ascii-diagram">IMarginReportService.GetMarginReportAsync(fromUtc, toUtc, currency)
+  → gather ProductPurchase lines fulfilled in the window            (Ordering spine + OrderChargeSummary)
+  → per ProductVariant:  QuantitySold, Revenue (discounted, apportioned)
+  → value each at RollupStandardCostAsync → Cogs, GrossMargin, MarginPct
+  → resolve Product.TargetMarginPct → BelowTarget flag (+ HasRecipe diagnostic)
+  → MarginReport { Rows[], TotalRevenue, TotalCogs, TotalGrossMargin, AggregateMarginPct }
+
+  "Last week: jollof sold 40 @ discounted revenue, food cost from recipe → 68% margin (target 70% ⇒ below);
+   steak 30 → 55% margin (target 50% ⇒ ok); aggregate 62%."</div>
+<p>
+  The projection is pure and read-only: it computes from current cost and order data on demand and persists
+  nothing (period-close snapshotting is <a href="#open">Open</a>). Every downstream artefact the operator sees
+  — the per-dish table, the aggregate, the below-target flags — is a view of this one call.
+</p>
+
+<h2 id="agent">12. Agent &amp; tools</h2>
+<p>
+  The existing <code>commerce-agent</code> gains a read tool and one medium write, classified by
+  <code>CommerceToolApprovalManifest</code> and wrapped by the Spec&nbsp;032 gate — no change to the gate:
+</p>
+<table>
+  <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>commerce_get_margin_report</code></td><td><span class="tag read">read</span></td><td>Direct execution; returns the per-variant + aggregate report for a window; tenant scope from context.</td></tr>
+    <tr><td><code>commerce_set_target_margin</code></td><td><span class="tag medium">medium</span></td><td>Sets <code>Product.TargetMarginPct</code>; in-session confirmation, args-hash-bound; records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="dbcontext">13. CommerceDbContext &amp; migrations</h2>
+<p>
+  No new table — only one additive nullable column, <code>TargetMarginPct</code>, on the existing
+  <code>AnkProducts</code> table, mapped in <code>ProductConfiguration</code> and created by one EF-CLI
+  migration against <code>AonikDbContext</code>. No new <code>DbSet</code> is required (the column rides the
+  existing <code>Product</code> mapping, already present on both <code>CommerceDbContext</code> and
+  <code>AonikDbContext</code>). The migration is reviewed to confirm it contains that single column and
+  nothing else.
+</p>
+<pre><code>dotnet ef migrations add CommerceTargetMargin --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
+
+<h2 id="phases">14. Phased rollout</h2>
+<div class="phase-card">
+  <h4>Phase 1 — Target margin column</h4>
+  <div class="phase-summary">One additive nullable column on Product.</div>
+  <ul>
+    <li>Add <code>TargetMarginPct</code> to <code>Product</code> + map it in <code>ProductConfiguration</code>; the <code>CommerceTargetMargin</code> migration against <code>AonikDbContext</code> (review: one column on <code>AnkProducts</code>).</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 2 — Margin report service + endpoint</h4>
+  <div class="phase-summary">Revenue vs. COGS vs. target, per variant and aggregate.</div>
+  <ul>
+    <li><code>IMarginReportService.GetMarginReportAsync(window, currency)</code> joining <code>ProductPurchase</code> revenue (<code>OrderChargeSummary</code> discounted total) to the Spec&nbsp;051 rollup and the target; <code>MarginReportRow</code>/<code>MarginReport</code> DTOs; the get-margin-report admin endpoint; unit tests for revenue aggregation, COGS valuation, margin/variance, and the no-target/no-recipe edges.</li>
+  </ul>
+</div>
+<div class="phase-card">
+  <h4>Phase 3 — Commerce-agent tools</h4>
+  <div class="phase-summary">The agentic surface.</div>
+  <ul>
+    <li><code>commerce_get_margin_report</code> (read) + <code>commerce_set_target_margin</code> (medium) added to <code>CommerceAgentTools</code> and classified in <code>CommerceToolApprovalManifest</code>; routed through <code>IToolApprovalGate.GateAll</code> (fails closed); each records an <code>AiRun</code>.</li>
+  </ul>
+</div>
+
+<h2 id="requirements">15. Requirements</h2>
+<table>
+  <thead><tr><th>#</th><th>Requirement</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>For a date window, <code>IMarginReportService</code> returns per-<code>ProductVariant</code> and aggregate revenue, COGS, gross margin, and margin&nbsp;%, tenant-scoped.</td></tr>
+    <tr><td>R2</td><td>Revenue is the <strong>discounted</strong> total from the Spec&nbsp;042 <code>OrderChargeSummary</code> for <code>ProductPurchase</code> lines fulfilled in the window (whole-order discount apportioned pro-rata); tax excluded.</td></tr>
+    <tr><td>R3</td><td>COGS is the Spec&nbsp;051 <code>RollupStandardCostAsync</code> × quantity sold in the window (standard food cost).</td></tr>
+    <tr><td>R4</td><td>A <code>Product</code> may carry a nullable <code>TargetMarginPct</code>; a variant whose achieved margin is below its product's target is flagged <code>BelowTarget</code>; a null target is never flagged.</td></tr>
+    <tr><td>R5</td><td>A variant sold with no active recipe reports <code>HasRecipe = false</code> with COGS diagnostic, never a phantom 100% margin; a zero-revenue variant reports null <code>MarginPct</code>.</td></tr>
+    <tr><td>R6</td><td>Revenue is read via the <a href="041.unified-order-spine-ordering-layer.html">Ordering</a>/charge data, never from the ledger; <code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference.</td></tr>
+    <tr><td>R7</td><td>The only schema change is one additive nullable column (<code>TargetMarginPct</code> on <code>AnkProducts</code>), EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> prefix.</td></tr>
+    <tr><td>R8</td><td>Agent tools are classified (<code>commerce_get_margin_report</code> read; <code>commerce_set_target_margin</code> medium); every invocation records an <code>AiRun</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">16. Tasks</h2>
+<ol>
+  <li>Add <code>TargetMarginPct</code> to <code>Product</code> + map in <code>ProductConfiguration</code>; the <code>CommerceTargetMargin</code> migration against <code>AonikDbContext</code>; review the diff (one column).</li>
+  <li><code>IMarginReportService</code> + <code>MarginReportRow</code>/<code>MarginReport</code> DTOs: gather <code>ProductPurchase</code> revenue from <code>OrderChargeSummary</code> (discounted, apportioned), value at <code>RollupStandardCostAsync</code>, compute margin/variance; the get-margin-report admin endpoint.</li>
+  <li>Extend <code>CommerceAgentTools</code> + <code>CommerceToolApprovalManifest</code> with <code>commerce_get_margin_report</code> (read) and <code>commerce_set_target_margin</code> (medium); route through the gate.</li>
+  <li>Tests: unit (revenue aggregation + discount apportionment, COGS valuation, margin/variance flag, no-target and no-recipe diagnostics, aggregate roll-up) + an architecture test still asserting no Commerce↔Finance reference.</li>
+</ol>
+
+<h2 id="verification">17. Verification</h2>
+<ul>
+  <li><code>dotnet build Aonik.sln</code> green; architecture test proves <code>Aonik.Commerce</code> has no <code>Aonik.Finance</code> reference.</li>
+  <li><strong>Margin:</strong> a variant sold 40 units, discounted revenue R, standard cost C per unit ⇒ row reports Revenue&nbsp;=&nbsp;R, Cogs&nbsp;=&nbsp;40C, GrossMargin&nbsp;=&nbsp;R−40C, MarginPct&nbsp;=&nbsp;(R−40C)/R; a product target above that margin sets <code>BelowTarget = true</code>.</li>
+  <li><strong>Revenue source:</strong> an order with a coupon reports the <em>discounted</em> total (not list price); a whole-order discount is apportioned so per-variant revenue sums to <code>OrderChargeSummary</code>'s discounted total.</li>
+  <li><strong>Edges:</strong> a variant with sales but no active recipe reports <code>HasRecipe = false</code>; a zero-revenue variant reports null <code>MarginPct</code>; a product with no target is never flagged.</li>
+  <li><strong>Agent:</strong> <code>commerce_get_margin_report</code> executes directly; <code>commerce_set_target_margin</code> surfaces a medium approval; each records an <code>AiRun</code>.</li>
+  <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user providers).</li>
+</ul>
+
+<h2 id="risks">18. Risk register</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Revenue/COGS timing mismatch (cost changed after the sale)</td><td>Medium</td><td>COGS values the <strong>quantity sold in the window × standard cost</strong> — a single documented basis (§9); actual-cost-at-sale valuation is <a href="#open">Open</a>.</td></tr>
+    <tr><td>Gross vs. discounted revenue ambiguity</td><td>Medium</td><td>Revenue is fixed to the <code>OrderChargeSummary</code> <strong>discounted</strong> total (§8); tax excluded; whole-order discount apportioned pro-rata; a test asserts the coupon case.</td></tr>
+    <tr><td>Standard vs. actual COGS drift (standard cost stale vs. real receipts)</td><td>Medium</td><td>v1 is explicitly standard-cost margin; actual/receipt-based (Spec&nbsp;054 lots) is <a href="#open">Open</a> and stated as such so the number is not over-read.</td></tr>
+    <tr><td>Variant sold with no recipe shows phantom 100% margin</td><td>Low</td><td><code>HasRecipe = false</code> diagnostic; COGS not silently zero-valued; surfaced in the row and covered by a test.</td></tr>
+    <tr><td>Schema drift from the new column</td><td>Low</td><td>One tool-generated migration against <code>AonikDbContext</code>; review confirms a single nullable column on <code>AnkProducts</code>; <code>Ank</code> prefix.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">19. Decisions baked in</h2>
+<ul>
+  <li><strong>Margin report is a live read projection</strong> over data AONIK already holds — no ledger, no new money movement, no snapshot.</li>
+  <li><strong>Revenue = discounted total</strong> from <code>OrderChargeSummary</code> (Spec&nbsp;042), read via the Ordering spine — never a Finance ledger query.</li>
+  <li><strong>COGS = standard cost</strong> (Spec&nbsp;051 rollup) × quantity sold; actual receipt-cost valuation is deferred.</li>
+  <li><strong>Target margin is a nullable column on <code>Product</code></strong>, not a new entity; variance is a single <code>BelowTarget</code> flag.</li>
+  <li><strong>Grow in place in <code>Aonik.Commerce</code></strong>; no Finance reference; the one migration stays with <code>AonikDbContext</code>.</li>
+  <li><strong>Read tool direct; set-target medium</strong>; every AI action records an <code>AiRun</code>.</li>
+</ul>
+
+<h2 id="open">20. Open design decisions</h2>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Actual (goods-receipt-based) COGS.</strong> Valuing sold quantity at real received cost from
+  <a href="054.goods-receipt-stock-and-cost.html">Spec&nbsp;054</a> lots (FIFO/average) instead of standard cost,
+  giving a true-cost margin and a purchase-price-variance line. v1 is standard-cost; the DTO leaves room for an
+  <code>ActualCogs</code> column alongside <code>Cogs</code>.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Labour &amp; overhead.</strong> Extending margin beyond food cost to include prep labour and fixed
+  overhead allocation (a fully-loaded contribution margin). Not in v1; would decorate the COGS term.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Period close &amp; snapshotting.</strong> Persisting a report as an immutable, dated artefact (so a
+  closed week doesn't move when costs later change) vs. always recomputing live (v1). A <code>MarginReportSnapshot</code>
+  entity would land here.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Slicing &amp; separate target entity.</strong> Margin sliced by category / sales channel / customer
+  tier, and a richer <code>ProductMarginTarget</code> entity (effective-dated, per-channel targets) instead of the
+  single <code>TargetMarginPct</code> column.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>Closing the loop to planning.</strong> Linking a below-target margin variance back to a concrete
+  <a href="055.production-planning-sheet-prep-list.html">Spec&nbsp;055</a> plan adjustment (drop / reprice / re-source a
+  dish), so the profit report drives next week's production sheet rather than just reporting last week's.
+</div>
+
+<h2 id="refs">21. References</h2>
+<ul>
+  <li><a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> — the maker-operations keystone (Ingredient + Recipe/BOM) every spec in this family builds on; source of the recipe the cost rollup values.</li>
+  <li><a href="051.ingredient-costing-standard-cost.html">Spec&nbsp;051</a> — ingredient costing + <code>RollupStandardCostAsync</code>, the COGS source for this report.</li>
+  <li><a href="042.commerce-retail-module.html">Spec&nbsp;042</a> — the retail storefront; source of <code>Product</code>/<code>ProductVariant</code> and the <code>OrderChargeSummary</code> discounted-total revenue (§17 Phase&nbsp;5).</li>
+  <li><a href="../decisions/011-unify-order-spine-into-ordering-layer.md">ADR-011</a> / <a href="041.unified-order-spine-ordering-layer.html">Spec&nbsp;041</a> — the unified Order spine; <code>ProductPurchase</code> orders and their charge data are read here for revenue.</li>
+  <li><a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> — module-first modular monolith (grow-in-place, sibling-reference rule; no Finance reference).</li>
+  <li><a href="../decisions/002-anemic-domain-model.md">ADR-002</a> — anemic entities.</li>
+  <li><a href="030.proposal-execution-dispatcher.html">Spec&nbsp;030</a> / <a href="032.tiered-ai-mutation-approval.html">Spec&nbsp;032</a> — agent mutation governance for the set-target tool.</li>
+  <li>Maker-operations family: <a href="050.ingredient-recipe-bom.html">050</a>, <a href="051.ingredient-costing-standard-cost.html">051</a>, <a href="052.raw-material-inventory-reorder-alerts.html">052</a>, <a href="053.suppliers-and-purchase-orders.html">053</a>, <a href="054.goods-receipt-stock-and-cost.html">054</a>, <a href="055.production-planning-sheet-prep-list.html">055</a>, <a href="056.production-orders-kitchen-sheet.html">056</a>.</li>
+</ul>
+
+<footer>
+  Spec 057 &middot; Margin &amp; profit report — revenue vs. COGS vs. target margin &middot;
+  Status: Draft &middot; Aonik platform architecture.
+</footer>
+
+</body>
+</html>
