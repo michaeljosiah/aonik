@@ -41,6 +41,7 @@ internal sealed class CommerceAgentTools
     private readonly IPurchaseOrderService _purchaseOrders;
     private readonly IGoodsReceiptService _goodsReceipts;
     private readonly IProductionPlanningService _planning;
+    private readonly IProductionOrderService _productionOrders;
 
     private CommerceAgentTools(
         IProductService products,
@@ -56,7 +57,8 @@ internal sealed class CommerceAgentTools
         ISupplierService suppliers,
         IPurchaseOrderService purchaseOrders,
         IGoodsReceiptService goodsReceipts,
-        IProductionPlanningService planning)
+        IProductionPlanningService planning,
+        IProductionOrderService productionOrders)
     {
         _products = products;
         _pricing = pricing;
@@ -72,6 +74,7 @@ internal sealed class CommerceAgentTools
         _purchaseOrders = purchaseOrders;
         _goodsReceipts = goodsReceipts;
         _planning = planning;
+        _productionOrders = productionOrders;
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────────────────────
@@ -164,6 +167,12 @@ internal sealed class CommerceAgentTools
         [Description("Net requirements against available stock (default true); false returns raw requirements only")] bool netAgainstStock = true,
         CancellationToken cancellationToken = default)
         => _planning.GetPrepListAsync(new ProductionWindow(fromUtc, toUtc), netAgainstStock, cancellationToken);
+
+    [Description("Gets the kitchen sheet for a production order: per-dish prep detail (each ingredient's per-portion and total quantity, from the recipe snapshot frozen when the order was created) plus a merged all-ingredients totals bill. The numbers are exactly what releasing the order will consume. Returns null when the order does not exist.")]
+    public Task<KitchenSheetDto?> GetKitchenSheet(
+        [Description("The production order id (GUID)")] Guid productionOrderId,
+        CancellationToken cancellationToken = default)
+        => _productionOrders.GetKitchenSheetAsync(productionOrderId, cancellationToken);
 
     // ── Low — reversible cart writes ────────────────────────────────────────────────────────────
 
@@ -316,6 +325,20 @@ internal sealed class CommerceAgentTools
               + $"; {level.Available} currently available.";
     }
 
+    [Description("Creates a Planned production run (a work order): the dishes (product variants) and portions to make on a date. Each line's recipe is exploded and frozen onto the line at creation — a variant without an active recipe rejects the create. Records intent only; no stock moves until the order is released.")]
+    public Task<ProductionOrderDto> CreateProductionOrder(
+        [Description("When the run is scheduled to be made (UTC)")] DateTime plannedFor,
+        [Description("The dishes: each item is a product variant id and the portions to produce")] List<ProductionOrderLineCommand> lines,
+        [Description("Optional free-text note for the run")] string? notes = null,
+        CancellationToken cancellationToken = default)
+        => _productionOrders.CreateAsync(new CreateProductionOrderCommand(plannedFor, lines, notes), cancellationToken);
+
+    [Description("Releases a Planned production run — the kitchen starts, and ingredient stock is CONSUMED: every line's frozen recipe snapshot is merged into one bill and each ingredient's on-hand is drawn down, all-or-nothing. Fails (consuming nothing) if any ingredient's available stock is short. Re-releasing an already-released run is a no-op; stock is never double-consumed.")]
+    public Task<ProductionOrderDto> ReleaseProductionOrder(
+        [Description("The production order id (GUID)")] Guid productionOrderId,
+        CancellationToken cancellationToken = default)
+        => _productionOrders.ReleaseAsync(productionOrderId, cancellationToken);
+
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
         var tools = new CommerceAgentTools(
@@ -332,7 +355,8 @@ internal sealed class CommerceAgentTools
             serviceProvider.GetRequiredService<ISupplierService>(),
             serviceProvider.GetRequiredService<IPurchaseOrderService>(),
             serviceProvider.GetRequiredService<IGoodsReceiptService>(),
-            serviceProvider.GetRequiredService<IProductionPlanningService>());
+            serviceProvider.GetRequiredService<IProductionPlanningService>(),
+            serviceProvider.GetRequiredService<IProductionOrderService>());
 
         // Read — direct execution.
         yield return AIFunctionFactory.Create(tools.SearchProducts, name: "commerce_search_products");
@@ -348,6 +372,7 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.ListSuppliers, name: "commerce_list_suppliers");
         yield return AIFunctionFactory.Create(tools.GetProductionSheet, name: "commerce_get_production_sheet");
         yield return AIFunctionFactory.Create(tools.GetPrepList, name: "commerce_get_prep_list");
+        yield return AIFunctionFactory.Create(tools.GetKitchenSheet, name: "commerce_get_kitchen_sheet");
 
         // Low — reversible cart writes.
         yield return AIFunctionFactory.Create(tools.CreateCart, name: "commerce_create_cart");
@@ -368,5 +393,7 @@ internal sealed class CommerceAgentTools
         yield return AIFunctionFactory.Create(tools.CreatePurchaseOrder, name: "commerce_create_purchase_order");
         yield return AIFunctionFactory.Create(tools.SubmitPurchaseOrder, name: "commerce_submit_purchase_order");
         yield return AIFunctionFactory.Create(tools.ReceiveGoods, name: "commerce_receive_goods");
+        yield return AIFunctionFactory.Create(tools.CreateProductionOrder, name: "commerce_create_production_order");
+        yield return AIFunctionFactory.Create(tools.ReleaseProductionOrder, name: "commerce_release_production_order");
     }
 }

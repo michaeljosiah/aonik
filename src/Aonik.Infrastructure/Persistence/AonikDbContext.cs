@@ -143,6 +143,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<GoodsReceipt> GoodsReceipts { get; set; } = null!;
     public virtual DbSet<GoodsReceiptLine> GoodsReceiptLines { get; set; } = null!;
 
+    // Commerce maker-ops (Spec 056) — production / work orders (the kitchen-sheet run).
+    public virtual DbSet<ProductionOrder> ProductionOrders { get; set; } = null!;
+    public virtual DbSet<ProductionOrderLine> ProductionOrderLines { get; set; } = null!;
+
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
 
@@ -425,6 +429,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // Commerce maker-ops (Spec 054)
         MapCommerceTable<GoodsReceipt>(modelBuilder, "GoodsReceipts");
         MapCommerceTable<GoodsReceiptLine>(modelBuilder, "GoodsReceiptLines");
+
+        // Commerce maker-ops (Spec 056)
+        MapCommerceTable<ProductionOrder>(modelBuilder, "ProductionOrders");
+        MapCommerceTable<ProductionOrderLine>(modelBuilder, "ProductionOrderLines");
 
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");

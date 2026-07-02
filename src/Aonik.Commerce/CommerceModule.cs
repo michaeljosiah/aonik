@@ -90,6 +90,12 @@ public sealed class CommerceModule : IModule
         // — no entity, no DbSet, no migration.
         services.AddScoped<IProductionPlanningService, ProductionPlanningService>();
 
+        // Spec 056 — production / work orders + the kitchen sheet: the make-side counterpart of
+        // checkout. Release consumes ingredient stock through the frozen per-line recipe snapshots
+        // in one all-or-nothing commit; completion optionally yields finished-good stock; the
+        // kitchen sheet is a pure read over the same snapshots.
+        services.AddScoped<IProductionOrderService, ProductionOrderService>();
+
         // Spec 042 §11 — react to PaymentCompletedEvent (commit inventory, close cart, complete
         // order). The outbox dispatcher in the Worker invokes these with the tenant restored.
         services.AddEventHandlersFromAssembly(typeof(CommerceModule).Assembly);

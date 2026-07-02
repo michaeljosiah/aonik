@@ -44,6 +44,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<SupplierIngredient> SupplierIngredients => Set<SupplierIngredient>();
     public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
     public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+    public DbSet<ProductionOrder> ProductionOrders => Set<ProductionOrder>();
+    public DbSet<ProductionOrderLine> ProductionOrderLines => Set<ProductionOrderLine>();
 
     public CommerceDbContext(
         DbContextOptions<CommerceDbContext> options,
@@ -93,6 +95,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<SupplierIngredient>(modelBuilder, "SupplierIngredients");
         MapTable<GoodsReceipt>(modelBuilder, "GoodsReceipts");
         MapTable<GoodsReceiptLine>(modelBuilder, "GoodsReceiptLines");
+        MapTable<ProductionOrder>(modelBuilder, "ProductionOrders");
+        MapTable<ProductionOrderLine>(modelBuilder, "ProductionOrderLines");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
