@@ -337,7 +337,8 @@
 <table>
   <thead><tr><th>Concern</th><th>Disposition</th><th>How</th></tr></thead>
   <tbody>
-    <tr><td>Order demand</td><td><span class="tag reuse">reuse</span></td><td>Read <code>ProductPurchase</code> orders through <code>SharedKernel.Abstractions.Ordering</code> read contracts / order projections — the spine Commerce already writes to (Spec&nbsp;041); no Finance reference.</td></tr>
+    <tr><td>Order demand</td><td><span class="tag reuse">reuse</span></td><td>Read <code>ProductPurchase</code> orders through <code>SharedKernel.Abstractions.Ordering</code> read contracts — the spine Commerce already writes to (Spec&nbsp;041); no Finance reference. Two <strong>additive</strong> contract extensions carry the read (§9 contract note): <code>ListOrdersQuery</code> date bounds + <code>ListWithItemsAsync</code>.</td></tr>
+    <tr><td>Bundle-line contents</td><td><span class="tag reuse">reuse</span></td><td><code>OrderBundleSelection</code> (Spec&nbsp;042 §12 Option A) — Commerce-owned rows expanding a build-your-own-box order line into its chosen component variants (§9).</td></tr>
     <tr><td>Portions → ingredients</td><td><span class="tag reuse">reuse</span></td><td><code>IRecipeService.ExplodeManyAsync</code> from <a href="050.ingredient-recipe-bom.html">Spec&nbsp;050</a> §11 — the prep list is a caller of this, unchanged.</td></tr>
     <tr><td>On-hand stock &amp; reorder point</td><td><span class="tag reuse">reuse</span></td><td><code>IInventoryService</code> / <code>InventoryLevel</code> from <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> (optional netting); if 052 is absent, the shortfall column is simply omitted.</td></tr>
     <tr><td>No-recipe diagnostic</td><td><span class="tag reuse">reuse</span></td><td>Explosion already flags variants with no active recipe (050 §11 / R5); 055 surfaces the flag rather than under-counting.</td></tr>
@@ -351,14 +352,23 @@
 <h2 id="scope">5. Scope (in / out)</h2>
 <h3>In scope</h3>
 <ul>
-  <li><code>IProductionPlanningService</code> in <code>Services/Planning/</code> with two read methods —
-      <code>GetProductionSheetAsync(window)</code> and <code>GetPrepListAsync(window)</code> — returning DTOs.</li>
+  <li><code>IProductionPlanningService</code> in <code>Services/Production/</code> (beside the Spec&nbsp;050
+      recipe vertical it composes) with two read methods —
+      <code>GetProductionSheetAsync(window)</code> and <code>GetPrepListAsync(window, netAgainstStock)</code> —
+      returning DTOs.</li>
   <li><strong>Production sheet:</strong> per-<code>ProductVariant</code> portion demand aggregated from
-      <code>ProductPurchase</code> orders in the window, read through the Ordering read contract.</li>
+      <code>ProductPurchase</code> orders in the window, read through the Ordering read contract;
+      build-your-own-box lines expanded into their chosen component variants via
+      <code>OrderBundleSelection</code> (§9).</li>
+  <li><strong>Additive Ordering-contract extension</strong> (§9 contract note):
+      <code>ListOrdersQuery.CreatedFromUtc/CreatedToUtc</code> and
+      <code>IOrderService.ListWithItemsAsync</code> — the smallest honest additions that make the demand
+      query period-bounded and line-carrying.</li>
   <li><strong>Prep list:</strong> the sheet fed through <code>IRecipeService.ExplodeManyAsync</code> →
       per-<code>Ingredient</code> required quantity in base unit; the no-recipe diagnostic surfaced.</li>
-  <li><strong>Optional netting</strong> against Spec&nbsp;052 on-hand → a <em>shortfall</em> column and a
-      <em>suggested reorder quantity</em>; degrades gracefully to "requirement only" when 052 is not present.</li>
+  <li><strong>Optional netting</strong> (caller flag, default on) against Spec&nbsp;052 available stock → a
+      <em>shortfall</em> column and a <em>suggested order quantity</em> (§11 seed precedence); degrades to
+      "requirement only" with <code>netAgainstStock&nbsp;=&nbsp;false</code>.</li>
   <li>An <strong>explicit, documented order-inclusion filter</strong> (which order statuses, which date field)
       — see §9.</li>
   <li>Two admin read endpoints (get production sheet, get prep list — each for a window) + two direct
@@ -394,9 +404,9 @@
   <li><strong>Explosion is reused, not reimplemented.</strong> The prep list calls
       <code>IRecipeService.ExplodeManyAsync</code> (050 §11); 055 owns aggregation and presentation, not BOM
       math.</li>
-  <li><strong>Netting is optional and non-blocking.</strong> 055 must ship <em>before or without</em>
-      Spec&nbsp;052: absent an on-hand source, the prep list returns pure requirements with no shortfall
-      column.</li>
+  <li><strong>Netting is optional and non-blocking.</strong> Spec&nbsp;052 has landed, so the on-hand
+      source is always present; the optionality is the caller's <code>netAgainstStock</code> flag —
+      <code>false</code> returns pure requirements with no shortfall column.</li>
   <li><strong>Agents propose; systems execute.</strong> Both planning tools are <strong>reads</strong> —
       direct execution, no mutation, no approval gate — and every invocation records an <code>AiRun</code>.</li>
 </ul>
@@ -404,47 +414,64 @@
 <h2 id="layout">7. Target module layout</h2>
 <div class="ascii-diagram">src/Aonik.Commerce/
 ├── Services/
-│   └── Planning/    IProductionPlanningService                # NEW (sheet + prep list; read-only)
+│   └── Production/  IProductionPlanningService,               # NEW (sheet + prep list; read-only —
+│                    ProductionPlanningService                 #      beside the 050 recipe vertical it composes)
 ├── Endpoints/Admin/
-│   └── Planning/    GetProductionSheet, GetPrepList           # NEW (two GET endpoints, windowed)
+│   └── Planning/    GetProductionSheetEndpoint,               # NEW (two GET endpoints, windowed)
+│                    GetPrepListEndpoint
 ├── Agents/Tools/    CommerceAgentTools (+ production-sheet / prep-list read tools)   # EXTEND
-└── Contracts/       ProductionSheet, ProductionSheetLine,     # EXTEND (DTOs only — no entity)
-                     PrepList, PrepListLine, ProductionWindow(range)
+└── Contracts/Models/Production/
+                     PlanningModels.cs — ProductionSheetDto(LineDto),   # NEW (DTOs only — no entity)
+                     PrepListDto(LineDto), ProductionWindow(FromUtc, ToUtc)
+
+src/Aonik.SharedKernel + src/Aonik.Ordering                    # EXTEND (additive, §9 contract note):
+                     ListOrdersQuery + CreatedFromUtc/CreatedToUtc; IOrderService.ListWithItemsAsync
 
 # No Entities/*, no Persistence/Configurations/*, no DbSet, no migration — pure read/aggregation.</div>
 
 <h2 id="domain-model">8. Domain model (contracts, no entity)</h2>
 <p>
-  <strong>There is no new persisted entity in v1</strong> — the only additions are read-model DTOs. A
-  <code>window</code> is a plain date range (a named/rolling <code>ProductionWindow</code> entity is
-  <a href="#open">Open</a>).
+  <strong>There is no new persisted entity in v1</strong> — the only additions are read-model DTOs in
+  <code>Contracts/Models/Production/PlanningModels.cs</code>. A <code>window</code> is a plain pair of
+  UTC instants (a named/rolling <code>ProductionWindow</code> entity is <a href="#open">Open</a>).
+  <code>Order.CreatedAt</code> — the §9 date field — is a UTC <code>DateTime</code>, so the window is
+  two UTC instants with <strong>half-open</strong> semantics (<code>[FromUtc, ToUtc)</code>), not a
+  <code>DateOnly</code> pair whose closed upper bound would hide an end-of-day conversion rule inside
+  the very filter this spec calls its chief correctness risk.
 </p>
 <pre><code>// No entity, no DbSet, no migration. Read-model DTOs only.
 
-record ProductionWindow  ( DateOnly FromDate, DateOnly ToDate );   // v1 = a date range, not persisted
+record ProductionWindow  ( DateTime FromUtc, DateTime ToUtc );   // UTC instants, half-open [From, To); not persisted
 
-record ProductionSheet   ( ProductionWindow Window,
-                           IReadOnlyList&lt;ProductionSheetLine&gt; Lines );
-record ProductionSheetLine( Guid ProductVariantId, string VariantName,
+record ProductionSheetDto( ProductionWindow Window,
+                           IReadOnlyList&lt;ProductionSheetLineDto&gt; Lines,
+                           int TotalOrders,            // orders admitted by the §9 inclusion filter
+                           int BundleLinesExpanded );  // bundle order lines expanded via OrderBundleSelection (§9)
+record ProductionSheetLineDto( Guid ProductVariantId, string ProductName, string VariantName,
                            decimal PortionsDemanded, int OrderCount );
+                           // names resolved from the live catalog, LEFT-join semantics: an
+                           // unresolvable variant still shows, with diagnostic placeholder names
 
-record PrepList          ( ProductionWindow Window,
-                           IReadOnlyList&lt;PrepListLine&gt; Lines,
-                           IReadOnlyList&lt;Guid&gt; VariantsWithoutRecipe );   // no-recipe diagnostic (050 §11)
-record PrepListLine      ( Guid IngredientId, string IngredientName, string BaseUnit,
+record PrepListDto       ( ProductionWindow Window,
+                           IReadOnlyList&lt;PrepListLineDto&gt; Lines,
+                           IReadOnlyList&lt;Guid&gt; VariantsWithoutRecipe,   // no-recipe diagnostic (050 §11)
+                           bool NettedAgainstStock );
+record PrepListLineDto   ( Guid IngredientId, string IngredientName, string BaseUnit,
                            decimal RequiredQuantity,
-                           decimal? Available,       // Spec 052 Available = OnHand − Reserved; null unless 052 present
+                           decimal? Available,       // Spec 052 Available = OnHand − Reserved; null when not netting
                            decimal? Shortfall,       // max(Required − Available, 0), null if Available null
-                           decimal? SuggestedReorderQuantity );  // from 052 reorder policy, else null</code></pre>
+                           decimal? SuggestedOrderQuantity );  // §11 seed precedence; null when no shortfall</code></pre>
 <pre><code>interface IProductionPlanningService {
-  Task&lt;ProductionSheet&gt; GetProductionSheetAsync(ProductionWindow window, CancellationToken ct = default);
-  Task&lt;PrepList&gt;        GetPrepListAsync(ProductionWindow window, CancellationToken ct = default);
+  Task&lt;ProductionSheetDto&gt; GetProductionSheetAsync(ProductionWindow window, CancellationToken ct = default);
+  Task&lt;PrepListDto&gt;        GetPrepListAsync(ProductionWindow window, bool netAgainstStock = true, CancellationToken ct = default);
 }</code></pre>
 <p>
   <code>GetPrepListAsync</code> is defined as <code>GetProductionSheetAsync</code> composed with
   <code>ExplodeManyAsync</code> composed with optional netting — it never re-queries orders differently or
-  re-implements explosion. When Spec&nbsp;052 is unavailable, <code>Available</code>/<code>Shortfall</code>/<code>SuggestedReorderQuantity</code>
-  are left <code>null</code> and the prep list is a pure requirements list.
+  re-implements explosion. Netting is the caller's choice: with <code>netAgainstStock = false</code>,
+  <code>Available</code>/<code>Shortfall</code>/<code>SuggestedOrderQuantity</code> are left
+  <code>null</code> and the prep list is a pure requirements list (see §11 — Spec&nbsp;052 has landed,
+  so the on-hand source is always present and the old capability check materialises as this flag).
 </p>
 
 <h2 id="demand">9. Demand aggregation (the production sheet)</h2>
@@ -455,29 +482,49 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <strong>no <code>Aonik.Finance</code> reference</strong>.
 </p>
 <div class="ascii-diagram">GetProductionSheetAsync(window)
-  → read ProductPurchase orders via SharedKernel.Abstractions.Ordering read contract
+  → read ProductPurchase orders WITH LINE ITEMS via IOrderService.ListWithItemsAsync
       WHERE order-inclusion filter holds for `window`      (see the explicit filter below)
-  → for each order line: portions = OrderItem.Quantity, variant = soft-ref ProductId
+  → for each order line:
+      line HAS OrderBundleSelection rows (OrderId + OrderItemIndex)   // a build-your-own-box line
+        → expand: each selection row is (component variant, TOTAL quantity) — real kitchen demand
+      else → portions = OrderItem.Quantity, variant = soft-ref ProductId
   → group by ProductVariantId, sum portions, count distinct orders
-  → return ProductionSheet { window, [ {variant, portionsDemanded, orderCount} ] }</div>
+  → resolve names from the Commerce catalog (LEFT join — unresolved variants keep diagnostic names)
+  → return ProductionSheetDto { window, [ {variant, names, portionsDemanded, orderCount} ],
+                                totalOrders, bundleLinesExpanded }</div>
 <p>
   The single most important design decision here is the <strong>order-inclusion filter</strong> — which
-  orders count, and by which date. It is made <strong>explicit and centralised</strong> so it can be reasoned
-  about and tested, and so §11 and Spec&nbsp;056 share one definition:
+  orders count, and by which date. It is made <strong>explicit and centralised</strong> (one status set +
+  one windowed query in <code>ProductionPlanningService</code>) so it can be reasoned about and tested,
+  and so §11 and Spec&nbsp;056 share one definition:
 </p>
 <table>
   <thead><tr><th>Filter dimension</th><th>v1 rule</th><th>Rationale</th></tr></thead>
   <tbody>
     <tr><td>Order type</td><td><code>OrderType == "ProductPurchase"</code> only</td><td>Only sell-side product demand drives production; purchase orders (Spec&nbsp;053) and other order types are excluded.</td></tr>
-    <tr><td>Status</td><td>Orders that are <strong>funded/confirmed and not cancelled</strong> (paid or committed-to-fulfil) — <em>not</em> abandoned carts or drafts</td><td>Plan against real committed demand, not speculative baskets. The exact status set is read from the Ordering status vocabulary and documented in one place.</td></tr>
-    <tr><td>Date field</td><td>The order <strong>creation date</strong> (<code>Order.CreatedAt</code>) must fall in <code>[FromDate, ToDate]</code></td><td>The Order spine exposes no product fulfilment/needed-by date on <code>Order</code> or <code>OrderFulfilmentRef</code>, and this spec adds no schema; v1 filters on <code>CreatedAt</code>, which is the only demand-date field available. A requested needed-by date is an additive spine field — see <a href="#open">Open</a>.</td></tr>
-    <tr><td>Quantity</td><td><code>OrderItem.Quantity</code> = portions for that variant line</td><td>A <code>ProductPurchase</code> line already carries retail quantity (Spec&nbsp;041 line shape); one unit sold = one portion demanded.</td></tr>
+    <tr><td>Status</td><td>Committed, non-terminal-failed statuses — exactly <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> from <code>OrderStatusCodes</code>. Excluded: <code>Draft</code>, <code>Cancelled</code>, <code>Failed</code>, <code>Expired</code>.</td><td>Plan against real committed demand, not speculative baskets. Checkout creates the <code>ProductPurchase</code> order in <strong>Draft</strong> and only payment completion advances it to <strong>Complete</strong> (Spec&nbsp;042 §11) — a Draft is an initiated, unpaid checkout, so counting it would cook for orders that may never fund. <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code> are the terminal failures (<code>IsTerminal()</code> minus Complete). The in-between codes are non-terminal committed states any ops flow may use and are included.</td></tr>
+    <tr><td>Date field</td><td>The order <strong>creation instant</strong> (<code>Order.CreatedAt</code>, UTC) must fall in the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code></td><td>The Order spine exposes no product fulfilment/needed-by date on <code>Order</code> or <code>OrderFulfilmentRef</code>, and this spec adds no schema; v1 filters on <code>CreatedAt</code> <strong>only</strong>, the one demand-date field available. Half-open bounds mean adjacent windows tile without double-counting a boundary order. A requested needed-by date is an additive spine field — see <a href="#open">Open</a>.</td></tr>
+    <tr><td>Quantity — simple/variant line</td><td><code>OrderItem.Quantity</code> = portions for the variant in <code>OrderItem.ProductId</code></td><td>A <code>ProductPurchase</code> line already carries retail quantity, and checkout writes the <em>variant</em> id into the soft-ref <code>ProductId</code> for simple lines (Spec&nbsp;041/042 line shape); one unit sold = one portion demanded.</td></tr>
+    <tr><td>Quantity — bundle line</td><td>Expanded through <code>OrderBundleSelection</code>: each selection row contributes (<code>ProductVariantId</code>, <code>Quantity</code>) demand; the bundle line itself is never counted</td><td>A build-your-own-box line carries the <strong>bundle product id</strong> in <code>ProductId</code>, not a variant (Spec&nbsp;042 §12 Option A) — the kitchen makes the chosen <em>components</em>. Commerce owns the selection rows (soft-linked by <code>OrderId</code> + <code>OrderItemIndex</code>, quantities already the line totals: selection × boxes), so the expansion is a direct Commerce read. A line is a bundle line exactly when selection rows exist for it; without rows it falls through as simple demand and an unresolvable <code>ProductId</code> surfaces via the diagnostic names.</td></tr>
   </tbody>
 </table>
 <p>
-  This filter is the answer to the "which orders count" risk (§18): it is documented, lives in one method, and
-  is covered by tests that assert a cancelled order, a draft cart, and an out-of-window order are all excluded.
+  This filter is the answer to the "which orders count" risk (§19): it is documented, lives in one place, and
+  is covered by tests that assert a cancelled order, a draft (unpaid-checkout) order, and an out-of-window
+  order are all excluded, and that both window boundaries behave half-open.
 </p>
+<div class="callout">
+  <span class="callout-label">Contract note</span>
+  <strong>Two additive Ordering-contract extensions carry this read</strong> (grounded against the landed
+  contract; precedent: the Spec&nbsp;053/054 additive changes). <code>ListOrdersQuery</code> gains optional
+  <code>CreatedFromUtc</code>/<code>CreatedToUtc</code> bounds (half-open, applied by
+  <code>CoreOrderService</code>'s one shared list predicate) so the demand query is period-bounded at the
+  spine; and <code>IOrderService</code> gains <code>ListWithItemsAsync(ListOrdersQuery) →
+  PagedResult&lt;OrderDto&gt;</code>, because the sheet aggregates per-line <code>Quantity</code>/<code>ProductId</code>
+  and the existing <code>ListAsync</code> returns <code>OrderSummary</code>, which deliberately carries only
+  an item <em>count</em>. Commerce holds no reference to the Ordering DbContext — the contract is the only
+  path, so the aggregation composes the contract rather than reaching into another module's tables.
+</div>
 
 <h2 id="explosion">10. BOM explosion (the prep list)</h2>
 <p>
@@ -485,17 +532,18 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   motivating consumer 050 §11 was written for. It does not re-derive anything; it hands the sheet's
   <code>{variantId, portions}</code> pairs straight to <code>ExplodeManyAsync</code>:
 </p>
-<div class="ascii-diagram">GetPrepListAsync(window)
-  → sheet = GetProductionSheetAsync(window)                              // §9
+<div class="ascii-diagram">GetPrepListAsync(window, netAgainstStock = true)
+  → sheet = GetProductionSheetAsync(window)                              // §9 — same window, same filter
   → bom = IRecipeService.ExplodeManyAsync(                               // Spec 050 §11
-             sheet.Lines.Select(l =&gt; (l.ProductVariantId, l.PortionsDemanded)) )
+             sheet.Lines.Select(l =&gt; VariantDemand(l.ProductVariantId, l.PortionsDemanded)) )
        // ExplodeManyAsync: explode each variant's active Recipe, scale by portions / YieldQuantity,
        //                   then SUM RequiredQuantity per IngredientId  → the merged bill of materials
-  → (optional) net each ingredient line vs Available (OnHand − Reserved) from Spec 052   // §11
-  → return PrepList {
+  → when netAgainstStock: net each ingredient line vs Available (OnHand − Reserved) from Spec 052   // §11
+  → return PrepListDto {
         window,
-        Lines = bom lines → { ingredient, baseUnit, requiredQuantity, available?, shortfall?, reorder? },
-        VariantsWithoutRecipe = bom.diagnostics    // variants 050 flagged as having no active recipe
+        Lines = bom lines → { ingredient, baseUnit, requiredQuantity, available?, shortfall?, suggested? },
+        VariantsWithoutRecipe = bom.diagnostics,   // variants 050 flagged as having no active recipe
+        NettedAgainstStock = netAgainstStock
     }</div>
 <p>
   Because <code>ExplodeManyAsync</code> already sums per <code>IngredientId</code> across variants (050 §11),
@@ -509,18 +557,22 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
 <h2 id="netting">11. Netting against stock — the shortfall (Spec 052)</h2>
 <p>
   A prep list of pure requirements ("you need 10&nbsp;kg rice") is useful; a prep list that also says "you
-  have 2&nbsp;kg <em>available</em>, so you're <em>short</em> 8&nbsp;kg — reorder a 25&nbsp;kg sack" is what the
-  operations manager actually acts on. That netting is <strong>optional</strong> and layered on top of the
-  requirement, drawing <strong>available</strong> stock (not raw on-hand) from
-  <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a>:
+  have 2&nbsp;kg <em>available</em>, so you're <em>short</em> 3&nbsp;kg — order a 25&nbsp;kg sack" is what the
+  operations manager actually acts on. That netting is <strong>optional</strong> (the caller's
+  <code>netAgainstStock</code> flag, default true) and layered on top of the requirement, drawing
+  <strong>available</strong> stock (not raw on-hand) from the landed
+  <a href="052.raw-material-inventory-reorder-alerts.html">Spec&nbsp;052</a> read
+  (<code>IInventoryService.GetStockLevelAsync(StockItemRef.Ingredient(id))</code>):
 </p>
-<pre><code>foreach ingredient line in the exploded prep list:
-    Available = Spec 052 Available = OnHand − Reserved              // NEVER raw OnHand; null if 052 absent
-    Shortfall = Available is null ? null : max(RequiredQuantity − Available, 0)
-    SuggestedReorderQuantity =
-        (Shortfall &gt; 0 &amp;&amp; ReorderQuantity set)                       // 052 reorder policy
-            ? round-up(Shortfall to a ReorderQuantity multiple)
-            : Shortfall                                              // else just cover the gap</code></pre>
+<pre><code>foreach ingredient line in the exploded prep list (when netAgainstStock):
+    Available = Spec 052 Available = OnHand − Reserved              // NEVER raw OnHand; never-stocked reads as 0
+    Shortfall = max(RequiredQuantity − Available, 0)
+    SuggestedOrderQuantity =                                        // the Spec 053 SHORTFALL-SEED precedence,
+        Shortfall == 0            → null                            // mirrored so the suggestion equals what
+        ReorderQuantity set (&gt;0)  → ReorderQuantity, as-is          // CreateFromShortfallAsync would order:
+        cheapest active 053 catalog row exists (single currency)    // 052's explicit operator suggestion wins;
+                                  → ceil(Shortfall / PackSize) × PackSize   // else whole packs of the cheapest
+        else                      → Shortfall                       // per-base-unit row; else cover the gap</code></pre>
 <p>
   The shortfall nets against Spec&nbsp;052's <strong><code>Available</code> (= <code>OnHand&nbsp;−&nbsp;Reserved</code>)</strong>,
   never raw <code>OnHand</code>, so the prep list never promises stock already held for another flow (production
@@ -529,34 +581,46 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   give.
 </p>
 <p>
-  Netting is deliberately kept behind a capability check so <strong>055 can ship before Spec&nbsp;052</strong>:
-  when no on-hand source is registered, <code>OnHand</code>, <code>Shortfall</code>, and
-  <code>SuggestedReorderQuantity</code> stay <code>null</code> and the prep list is a plain requirements list.
-  The suggested reorder is only a <em>suggestion</em> surfaced on a read — 055 raises no alert and places no
-  purchase order; that is Spec&nbsp;052 (alerts) and Spec&nbsp;053 (procurement).
+  The pack rounding composes the <a href="053.suppliers-and-purchase-orders.html">Spec&nbsp;053</a> supplier
+  catalog: "cheapest" means the lowest per-base-unit price (<code>PackPrice&nbsp;/&nbsp;PackSize</code>) among
+  <em>active</em> suppliers' rows for the ingredient. Commerce holds no FX, so per-unit prices are only
+  rankable within one currency — an ingredient whose active rows span multiple currencies skips pack rounding
+  and falls back to the raw shortfall (a documented v1 limitation; FX-aware ranking is <a href="#open">Open</a>).
+  Spec&nbsp;052 having landed, the on-hand source is always present; the old "ships before 052" capability
+  check materialises as the <code>netAgainstStock</code> flag — <code>false</code> keeps
+  <code>Available</code>/<code>Shortfall</code>/<code>SuggestedOrderQuantity</code> <code>null</code> and the
+  prep list is a plain requirements list. The suggested order quantity is only a <em>suggestion</em> surfaced
+  on a read — 055 raises no alert and places no purchase order; that is Spec&nbsp;052 (alerts) and
+  Spec&nbsp;053 (procurement).
 </p>
 
 <h2 id="window">12. Defining a window</h2>
 <p>
-  For v1 a <code>window</code> is simply a <code>ProductionWindow(FromDate, ToDate)</code> — a closed date
-  range passed on the request. There is no persisted, named, or rolling window; the caller supplies "this
-  week", "tomorrow", or any explicit range, and the service applies the §9 inclusion filter against it. The
-  same window flows unchanged into both the production sheet and the prep list so the two are always
-  consistent for a given call.
+  For v1 a <code>window</code> is simply a <code>ProductionWindow(FromUtc, ToUtc)</code> — two UTC instants,
+  half-open (<code>FromUtc</code> inclusive, <code>ToUtc</code> exclusive), passed on the request. There is
+  no persisted, named, or rolling window; the caller supplies "this week", "tomorrow", or any explicit range,
+  and the service applies the §9 inclusion filter against it. The same window flows unchanged into both the
+  production sheet and the prep list so the two are always consistent for a given call. The service
+  validates the window up-front: <code>FromUtc&nbsp;&lt;&nbsp;ToUtc</code>, and a maximum span of
+  <strong>92 days</strong> bounds the demand query (§14's period-bounded guarantee cannot be defeated by a
+  fat-fingered range).
 </p>
 <div class="callout open">
   <span class="callout-label">Open</span>
   <strong>Named / rolling windows.</strong> A persisted <code>ProductionWindow</code> entity ("Mon–Fri
   kitchen week", a rolling next-7-days) with its own identity, so a plan can be referenced and re-opened.
   v1 takes an ad-hoc date range; the DTO is shaped so a persisted window can supply the same
-  <code>FromDate</code>/<code>ToDate</code> later without changing callers.
+  <code>FromUtc</code>/<code>ToUtc</code> later without changing callers.
 </div>
 
 <h2 id="agent">13. Agent &amp; tools</h2>
 <p>
-  The existing <code>commerce-agent</code> gains two <strong>read</strong> tools, classified by
-  <code>CommerceToolApprovalManifest</code> and wrapped by the Spec&nbsp;032 gate. Both execute directly (no
-  approval), tenant-scoped from context, and each records an <code>AiRun</code>:
+  The existing <code>commerce-agent</code> gains two <strong>read</strong> tools. Per the landed house
+  convention, read tools are <strong>omitted from</strong> <code>CommerceToolApprovalManifest</code> —
+  the Spec&nbsp;032 gate passes unclassified, read-looking tools through (exactly like
+  <code>commerce_list_low_stock</code> and the rest of the read set) — and the manifest tests pin them as
+  unclassified. Both execute directly (no approval), tenant-scoped from context, and each records an
+  <code>AiRun</code> via the gate pipeline:
 </p>
 <table>
   <thead><tr><th>Tool</th><th>Tier</th><th>Effect</th></tr></thead>
@@ -594,19 +658,23 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <h4>Phase 1 — Production sheet (demand aggregation)</h4>
   <div class="phase-summary">Per-variant portion demand over a window.</div>
   <ul>
-    <li><code>IProductionPlanningService.GetProductionSheetAsync(window)</code> reading
-        <code>ProductPurchase</code> orders through the <code>SharedKernel.Abstractions.Ordering</code> read
-        contract, applying the explicit §9 inclusion filter (type/status/date-field), grouping by
-        <code>ProductVariantId</code>; <code>ProductionSheet</code>/<code>Line</code> DTOs; a
-        <code>GET</code> admin endpoint; unit tests for the filter (cancelled/draft/out-of-window excluded).</li>
+    <li>The additive Ordering-contract extension (§9 contract note:
+        <code>ListOrdersQuery.CreatedFromUtc/CreatedToUtc</code>, <code>ListWithItemsAsync</code>) with a
+        <code>CoreOrderService</code> test; then
+        <code>IProductionPlanningService.GetProductionSheetAsync(window)</code> reading
+        <code>ProductPurchase</code> orders through that contract, applying the explicit §9 inclusion filter
+        (type/status set/half-open window), expanding bundle lines via <code>OrderBundleSelection</code>,
+        grouping by <code>ProductVariantId</code>, resolving catalog names (LEFT join);
+        <code>ProductionSheetDto</code>/<code>LineDto</code>; a <code>GET</code> admin endpoint; unit tests
+        for the filter (cancelled/draft/out-of-window excluded, boundaries half-open) and the bundle expansion.</li>
   </ul>
 </div>
 <div class="phase-card">
   <h4>Phase 2 — Prep list (BOM explosion)</h4>
   <div class="phase-summary">Explode the sheet through recipes; surface the no-recipe diagnostic.</div>
   <ul>
-    <li><code>GetPrepListAsync(window)</code> = sheet → <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050
-        §11) → merged per-<code>Ingredient</code> requirement; <code>PrepList</code>/<code>Line</code> DTOs
+    <li><code>GetPrepListAsync(window, netAgainstStock)</code> = sheet → <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050
+        §11) → merged per-<code>Ingredient</code> requirement; <code>PrepListDto</code>/<code>LineDto</code>
         including <code>VariantsWithoutRecipe</code>; a <code>GET</code> admin endpoint; unit tests for
         multi-variant merge and the no-recipe diagnostic.</li>
   </ul>
@@ -615,11 +683,12 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <h4>Phase 3 — Optional netting + agent tools</h4>
   <div class="phase-summary">Shortfall against available stock; the agentic surface.</div>
   <ul>
-    <li>Optional netting against Spec&nbsp;052 on-hand → <code>Shortfall</code> +
-        <code>SuggestedReorderQuantity</code> (null when 052 absent); the two direct read tools
-        (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>) added to
-        <code>CommerceAgentTools</code>, classified in <code>CommerceToolApprovalManifest</code>, routed through
-        <code>IToolApprovalGate.GateAll</code>; each records an <code>AiRun</code>.</li>
+    <li>Netting against Spec&nbsp;052 available stock → <code>Shortfall</code> +
+        <code>SuggestedOrderQuantity</code> (null with <code>netAgainstStock&nbsp;=&nbsp;false</code>); the
+        two direct read tools (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>)
+        added to <code>CommerceAgentTools</code>, left unclassified in <code>CommerceToolApprovalManifest</code>
+        per the read convention, routed through <code>IToolApprovalGate.GateAll</code>; each records an
+        <code>AiRun</code>.</li>
   </ul>
 </div>
 
@@ -628,33 +697,40 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
     <tr><td>R1</td><td><code>GetProductionSheetAsync(window)</code> returns per-<code>ProductVariant</code> portion demand aggregated from <code>ProductPurchase</code> orders in the window, read through the <code>SharedKernel.Abstractions.Ordering</code> read contract (no <code>Aonik.Finance</code> reference), tenant-scoped.</td></tr>
-    <tr><td>R2</td><td>The order-inclusion filter (order type = <code>ProductPurchase</code>; funded/confirmed &amp; not cancelled; order creation date <code>Order.CreatedAt</code> within <code>[FromDate, ToDate]</code> — the spine exposes no needed-by date and this spec adds no schema) is explicit, centralised in one place, and documented (§9).</td></tr>
+    <tr><td>R2</td><td>The order-inclusion filter is explicit, centralised in one place, and documented (§9): order type = <code>ProductPurchase</code>; status ∈ <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> (never <code>Draft</code> — an unpaid checkout intent — nor <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code>); <code>Order.CreatedAt</code> (UTC) within the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code> — the spine exposes no needed-by date and this spec adds no schema.</td></tr>
     <tr><td>R3</td><td><code>GetPrepListAsync(window)</code> explodes the production sheet through active recipes via <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050 §11), returning per-<code>Ingredient</code> required quantity in base unit, merged across variants.</td></tr>
     <tr><td>R4</td><td>Variants with no active recipe are surfaced as a diagnostic (<code>VariantsWithoutRecipe</code>, from 050), never silently under-counted.</td></tr>
-    <tr><td>R5</td><td>Optional netting computes <code>Shortfall</code> against Spec&nbsp;052's <code>Available</code> (<code>OnHand&nbsp;−&nbsp;Reserved</code>), never raw <code>OnHand</code>, and adds a <code>SuggestedReorderQuantity</code> per ingredient; when no stock source is present those fields are <code>null</code> and the prep list is a pure requirements list (055 ships before/without 052).</td></tr>
+    <tr><td>R5</td><td>Netting (caller flag <code>netAgainstStock</code>, default true) computes <code>Shortfall</code> against Spec&nbsp;052's <code>Available</code> (<code>OnHand&nbsp;−&nbsp;Reserved</code>), never raw <code>OnHand</code>, and adds a <code>SuggestedOrderQuantity</code> per the §11 seed precedence (ReorderQuantity as-is; else cheapest single-currency active-catalog whole packs; else the shortfall); with <code>netAgainstStock = false</code> those fields are <code>null</code> and the prep list is a pure requirements list.</td></tr>
     <tr><td>R6</td><td>No new persisted entity, <code>DbSet</code>, or migration is introduced; both artefacts are computed on read.</td></tr>
     <tr><td>R7</td><td><code>Aonik.Commerce</code> holds no <code>Aonik.Finance</code> reference; it references only <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code>.</td></tr>
-    <tr><td>R8</td><td>Two agent read tools (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>) execute directly (no approval) and each records an <code>AiRun</code>.</td></tr>
+    <tr><td>R8</td><td>Two agent read tools (<code>commerce_get_production_sheet</code>, <code>commerce_get_prep_list</code>) are unclassified reads (omitted from the manifest, per the house convention), execute directly (no approval), and each records an <code>AiRun</code> via the gate pipeline.</td></tr>
+    <tr><td>R9</td><td>Order lines for build-your-own-box bundles are expanded through <code>OrderBundleSelection</code> (Spec&nbsp;042 §12 Option A): each selection row contributes variant demand; the bundle product id itself never appears as demand (§9).</td></tr>
+    <tr><td>R10</td><td>The Ordering contract is extended <strong>additively only</strong> (§9 contract note): <code>ListOrdersQuery.CreatedFromUtc/CreatedToUtc</code> (half-open) and <code>IOrderService.ListWithItemsAsync</code>; existing callers are unaffected.</td></tr>
   </tbody>
 </table>
 
 <h2 id="tasks">17. Tasks</h2>
 <ol>
-  <li>Add <code>IProductionPlanningService</code> + implementation in <code>Services/Planning/</code>; define
-      <code>ProductionWindow</code>, <code>ProductionSheet(Line)</code>, <code>PrepList(Line)</code> DTOs in
-      <code>Contracts/</code> (no entity).</li>
-  <li>Implement <code>GetProductionSheetAsync</code>: read <code>ProductPurchase</code> orders via the
-      Ordering read contract, apply the §9 inclusion filter in one centralised predicate, group + sum by
-      variant.</li>
+  <li>Extend the Ordering contract additively (§9 contract note): <code>ListOrdersQuery</code> +
+      <code>CreatedFromUtc/CreatedToUtc</code>, <code>IOrderService.ListWithItemsAsync</code>, one shared
+      filter predicate in <code>CoreOrderService</code>, and <code>CoreOrderServiceTests</code> coverage
+      (half-open boundaries; items returned).</li>
+  <li>Add <code>IProductionPlanningService</code> + implementation in <code>Services/Production/</code>; define
+      <code>ProductionWindow</code>, <code>ProductionSheetDto(LineDto)</code>, <code>PrepListDto(LineDto)</code>
+      in <code>Contracts/Models/Production/PlanningModels.cs</code> (no entity).</li>
+  <li>Implement <code>GetProductionSheetAsync</code>: read <code>ProductPurchase</code> orders via
+      <code>ListWithItemsAsync</code>, apply the §9 inclusion filter in one centralised place, expand bundle
+      lines via <code>OrderBundleSelection</code>, group + sum by variant, resolve names (LEFT join).</li>
   <li>Implement <code>GetPrepListAsync</code>: compose the sheet with
       <code>IRecipeService.ExplodeManyAsync</code>; carry through <code>VariantsWithoutRecipe</code>; layer
-      optional Spec&nbsp;052 netting behind a capability check.</li>
+      Spec&nbsp;052 netting + the §11 suggested-order policy behind the <code>netAgainstStock</code> flag.</li>
   <li>Add two admin <code>GET</code> endpoints (get production sheet, get prep list — each windowed) using
-      FastEndpoints; wire two direct read tools into <code>CommerceAgentTools</code> +
-      <code>CommerceToolApprovalManifest</code>, routed through the gate.</li>
-  <li>Tests: unit (inclusion-filter exclusions, multi-variant merge equals Spec&nbsp;050's 10&nbsp;kg
-      rice / 5&nbsp;kg tomato, no-recipe diagnostic, netting shortfall with and without a 052 on-hand source)
-      + an architecture test still asserting no Commerce↔Finance reference. No migration to review.</li>
+      FastEndpoints; wire two direct read tools into <code>CommerceAgentTools</code> (unclassified in
+      <code>CommerceToolApprovalManifest</code> per the read convention), routed through the gate.</li>
+  <li>Tests: unit (inclusion-filter exclusions + half-open boundaries, bundle expansion, multi-variant merge
+      equals Spec&nbsp;050's 10&nbsp;kg rice / 5&nbsp;kg tomato, no-recipe diagnostic, netting shortfall vs
+      Available with the seed-precedence suggestion, raw-requirements mode, window validation)
+      + the architecture test still asserting no Commerce↔Finance reference. No migration to review.</li>
 </ol>
 
 <h2 id="verification">18. Verification</h2>
@@ -663,8 +739,12 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
       <code>Aonik.Finance</code> reference; <code>dotnet ef migrations list</code> shows <strong>no new
       migration</strong> from this spec.</li>
   <li><strong>Production sheet:</strong> seed <code>ProductPurchase</code> orders for 40 portions jollof + 30
-      portions steak within the window (plus a cancelled order, a draft cart, and an out-of-window order that
-      must <em>not</em> count); <code>GetProductionSheetAsync</code> returns exactly 40 jollof / 30 steak.</li>
+      portions steak within the window (plus a cancelled order, a draft — unpaid checkout — order, an
+      out-of-window order, and an order created exactly at <code>ToUtc</code>, none of which may count);
+      <code>GetProductionSheetAsync</code> returns exactly 40 jollof / 30 steak.</li>
+  <li><strong>Bundle expansion:</strong> a build-your-own-box order line's <code>OrderBundleSelection</code>
+      components appear as variant demand (the bundle product id never does), and
+      <code>BundleLinesExpanded</code> reports the expansion.</li>
   <li><strong>Prep list:</strong> with the Spec&nbsp;050 recipes (jollof yield 4 ⇒ 1&nbsp;kg rice, 0.5&nbsp;kg
       tomato; a steak recipe), <code>GetPrepListAsync</code> returns 10&nbsp;kg rice, 5&nbsp;kg tomato plus the
       steak components — matching Spec&nbsp;050's day-in-the-life prep list.</li>
@@ -672,9 +752,10 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
       <code>VariantsWithoutRecipe</code> and does not silently zero the prep list.</li>
   <li><strong>Netting:</strong> with Spec&nbsp;052 reporting 10&nbsp;kg rice on hand but 8&nbsp;kg reserved
       (<code>Available = 2&nbsp;kg</code>) against a 5&nbsp;kg requirement, the rice line shows
-      <code>Shortfall = 3&nbsp;kg</code> and a suggested reorder — not the false "in stock" that netting raw
-      on-hand would give; with no stock source registered, the same call returns <code>Shortfall = null</code>
-      (pure requirements).</li>
+      <code>Shortfall = 3&nbsp;kg</code> and a suggested order of one whole 25&nbsp;kg sack (cheapest active
+      catalog row) — not the false "in stock" that netting raw on-hand would give; a set
+      <code>ReorderQuantity</code> wins as-is; with <code>netAgainstStock = false</code> the same call
+      returns <code>Available/Shortfall/SuggestedOrderQuantity = null</code> (pure requirements).</li>
   <li><strong>Agent:</strong> <code>commerce_get_production_sheet</code> and <code>commerce_get_prep_list</code>
       execute directly (no approval prompt) and each records an <code>AiRun</code>.</li>
   <li><code>dotnet test Aonik.sln</code> green (xUnit + FluentAssertions, InMemory + test tenant/user
@@ -695,12 +776,13 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
 
 <h2 id="decisions">20. Decisions baked in</h2>
 <ul>
-  <li><strong>055 is a read/aggregation spec</strong> — no new entity, no <code>DbSet</code>, no migration; both artefacts are computed on read.</li>
-  <li><strong>The production sheet aggregates <code>ProductPurchase</code> demand by variant</strong> over a date-range window, read through the Ordering read contract — never via a Finance reference.</li>
+  <li><strong>055 is a read/aggregation spec</strong> — no new entity, no <code>DbSet</code>, no migration; both artefacts are computed on read. The only contract change is the additive Ordering extension (§9 contract note).</li>
+  <li><strong>The production sheet aggregates <code>ProductPurchase</code> demand by variant</strong> over a half-open UTC window on <code>Order.CreatedAt</code>, read through the Ordering read contract — never via a Finance reference — counting only the committed §9 status set (never Draft or the terminal failures).</li>
+  <li><strong>Bundle order lines are expanded, never counted as demand</strong> — a build-your-own-box line's <code>OrderBundleSelection</code> components are the kitchen demand (Spec&nbsp;042 §12 Option A); the bundle product id itself never reaches the sheet.</li>
   <li><strong>The prep list <em>is</em> the exploded sheet</strong> — it calls Spec&nbsp;050's <code>ExplodeManyAsync</code> (055 is that primitive's primary consumer) and never re-implements BOM math.</li>
-  <li><strong>Netting against available stock is optional</strong> — a shortfall (vs Spec&nbsp;052's <code>Available = OnHand − Reserved</code>, never raw on-hand) + suggested reorder when Spec&nbsp;052 is present, pure requirements otherwise.</li>
-  <li><strong>The no-recipe diagnostic is surfaced, not swallowed</strong> — variants without a recipe are reported, never under-counted.</li>
-  <li><strong>A window is a plain date range in v1</strong>; named/rolling windows, forecast demand, and a persisted snapshot are Open.</li>
+  <li><strong>Netting against available stock is caller-optional (default on)</strong> — a shortfall (vs Spec&nbsp;052's <code>Available = OnHand − Reserved</code>, never raw on-hand) + a suggested order quantity per the Spec&nbsp;053 seed precedence; pure requirements with <code>netAgainstStock = false</code>.</li>
+  <li><strong>The no-recipe diagnostic is surfaced, not swallowed</strong> — variants without a recipe are reported, never under-counted; unresolvable variants keep diagnostic names, never dropped.</li>
+  <li><strong>A window is a plain UTC range in v1</strong> (validated: <code>From &lt; To</code>, ≤ 92 days); named/rolling windows, forecast demand, and a persisted snapshot are Open.</li>
 </ul>
 
 <h2 id="open">21. Open design decisions</h2>
@@ -729,6 +811,13 @@ record PrepListLine      ( Guid IngredientId, string IngredientName, string Base
   <span class="callout-label">Open</span>
   <strong>Forecast demand vs. actual-order demand.</strong> Planning from predicted demand (history / seasonality)
   in addition to confirmed in-window orders. v1 plans strictly from actual <code>ProductPurchase</code> orders.
+</div>
+<div class="callout open">
+  <span class="callout-label">Open</span>
+  <strong>FX-aware cheapest-pack ranking.</strong> §11's pack rounding ranks catalog rows by per-base-unit
+  price only when an ingredient's active rows share one currency; Commerce holds no FX, so mixed-currency
+  catalogs fall back to the raw shortfall. Ranking across currencies needs a rate source (a Finance seam),
+  deliberately not taken in v1.
 </div>
 <div class="callout open">
   <span class="callout-label">Open</span>
