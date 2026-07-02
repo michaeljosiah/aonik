@@ -136,6 +136,13 @@ internal static class ScheduledJobDefinitions
                 "Releases expired held inventory reservations so abandoned checkouts free stock (Spec 042).",
                 options.InventoryReservationSweep.CronExpression,
                 options.InventoryReservationSweep.Enabled),
+            new ScheduledJobDefinition<LowStockScanJob>(
+                LowStockScanJob.Key,
+                new TriggerKey("LowStockScanJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Low Stock Scan",
+                "Raises or refreshes low-stock alerts for ingredient levels at or below their reorder point (Spec 052).",
+                options.LowStockScan.CronExpression,
+                options.LowStockScan.Enabled),
         ];
     }
 }

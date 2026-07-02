@@ -403,7 +403,8 @@ class InventoryReservation { Guid Id, TenantId;
                         Guid?  IngredientId;       // NEW: set iff this hold is on a raw material
                         string StockItemKind;      // NEW: "ProductVariant" | "Ingredient" (discriminator)
                         Guid?  HoldRef;            // CHANGED: was CartId (non-null); now a nullable holder ref
-                                                   //          (a production hold has no cart)
+                                                   //          (a production hold has no cart; the CLR property maps
+                                                   //           onto the legacy CartId column — see §12)
                         decimal Quantity;
                         string  Status;            // Held | Committed | Released
                         DateTime ExpiresAt;
@@ -436,7 +437,7 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
   <li><strong>Make <code>ProductVariantId</code> nullable</strong> and <strong>add nullable <code>IngredientId</code></strong>. A level now points at exactly one of the two.</li>
   <li><strong>Add <code>StockItemKind</code></strong> as an explicit discriminator (<code>"ProductVariant"</code> | <code>"Ingredient"</code>) so queries and the scan filter cheaply without null-probing.</li>
   <li><strong>Add a DB CHECK</strong> enforcing <em>exactly one</em> of <code>{ProductVariantId, IngredientId}</code> is set (and matches <code>StockItemKind</code>) — the invariant lives in the database, not just the service.</li>
-  <li><strong>Revise the unique index</strong> to a pair of filtered unique indexes so uniqueness holds within each kind: <code>(TenantId, ProductVariantId, Location)</code> where <code>IngredientId IS NULL</code>, and <code>(TenantId, IngredientId, Location)</code> where <code>ProductVariantId IS NULL</code>.</li>
+  <li><strong>Revise the unique index</strong> to a pair of filtered unique indexes so uniqueness holds within each kind: <code>(TenantId, ProductVariantId, Location)</code> where <code>ProductVariantId IS NOT NULL AND Location IS NOT NULL</code>, and <code>(TenantId, IngredientId, Location)</code> where <code>IngredientId IS NOT NULL AND Location IS NOT NULL</code>. The kind filter keys each index on its own non-null id (self-contained, not dependent on the CHECK); the <code>Location IS NOT NULL</code> clause <em>preserves</em> the pre-052 semantics — the original unique index already carried that filter (the EF SQL Server convention for nullable index columns), so variant default-location rows stay guarded by the service's get-or-create, exactly as before. <strong>Ingredients additionally get a default-location backstop</strong>: a third filtered unique index on <code>(TenantId, IngredientId)</code> where <code>IngredientId IS NOT NULL AND Location IS NULL</code>, because every ingredient admin path addresses the default (<code>NULL</code>-location) row — two concurrent get-or-create misses must not be able to seed duplicate default rows. It is SQL-only (InMemory cannot enforce a filtered index); the service's get-or-create remains the single-row-by-construction path.</li>
 </ol>
 <div class="ascii-diagram">AnkInventoryLevels  (one table, discriminated)
   Id | TenantId | StockItemKind   | ProductVariantId | IngredientId | Location | OnHand | Reserved | ReorderPoint | ReorderQuantity
@@ -521,8 +522,9 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
 </p>
 <p>
   The scan is <em>set-based and read-mostly</em>: one indexed query per tenant over ingredient levels, then
-  at most one write per breaching item. It never touches variant levels. Cadence is configurable (default a
-  few minutes) via the same <code>ScheduledJobOptions</code> pattern the reservation sweep uses, so it can be
+  at most one write per breaching item. It never touches variant levels. Cadence is configurable (default
+  every 15 minutes — a reorder decision is a same-day signal, not a realtime one) via the same
+  <code>ScheduledJobOptions</code> pattern the reservation sweep uses, so it can be
   tuned or disabled per environment.
 </p>
 
@@ -594,7 +596,8 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
   migration against <code>AonikDbContext</code>. <code>LowStockAlert</code> is added to both
   <code>CommerceDbContext</code> (runtime scoping) and <code>AonikDbContext</code> (canonical stream); it is
   tenant-scoped (not global). The <code>InventoryLevelConfiguration</code> is extended with the new columns,
-  the CHECK, and the two filtered unique indexes; a new <code>LowStockAlertConfiguration</code> adds the
+  the CHECK, and the three filtered unique indexes (the per-kind named-location pair plus the ingredient
+  default-location backstop, §8); a new <code>LowStockAlertConfiguration</code> adds the
   filtered unique index enforcing one <em>active</em> alert per ingredient (<code>Status IN ('Open','Acknowledged')</code>).
 </p>
 <pre><code>dotnet ef migrations add CommerceRawMaterialInventory --project src/Aonik.Infrastructure --startup-project src/Aonik.Api</code></pre>
@@ -603,10 +606,15 @@ class LowStockAlert   { Guid Id, TenantId, IngredientId;
   Because this migration alters two existing, populated tables, the reviewer verifies it contains only:
   on <code>AnkInventoryLevels</code> — <code>AddColumn</code> for <code>IngredientId</code> (nullable),
   <code>StockItemKind</code>, <code>ReorderPoint</code> (nullable), <code>ReorderQuantity</code> (nullable),
-  <code>AlterColumn</code> making <code>ProductVariantId</code> nullable, the backfill <code>UPDATE</code>,
+  <code>AlterColumn</code> making <code>ProductVariantId</code> nullable, the discriminator backfill (EF
+  realizes it as the <code>StockItemKind</code> column's <code>defaultValue</code> on ADD, which SQL Server
+  applies to every existing row — not a separate <code>UPDATE</code>),
   the CHECK constraint, and the index swap; on <code>AnkInventoryReservations</code> — <code>AddColumn</code>
   for <code>IngredientId</code> (nullable) and <code>StockItemKind</code>, <code>AlterColumn</code> making
-  <code>ProductVariantId</code> nullable (and <code>CartId</code> → nullable <code>HoldRef</code>), the same
+  <code>ProductVariantId</code> nullable and <code>CartId</code> nullable (the <code>HoldRef</code> CLR
+  property stays mapped onto the legacy <code>CartId</code> column via <code>HasColumnName</code>: EF cannot
+  scaffold a data-preserving <code>RenameColumn</code> from a property rename, and migrations are never
+  hand-edited, so the physical rename is deliberately not attempted), the same
   backfill and CHECK; and the <code>CreateTable</code> for <code>AnkLowStockAlerts</code> — nothing else. If
   EF emits anything unexpected, fix the model, <code>migrations remove</code>, and regenerate — never hand-edit.
 </div>

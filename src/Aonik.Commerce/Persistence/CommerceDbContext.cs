@@ -39,6 +39,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<IngredientCost> IngredientCosts => Set<IngredientCost>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
     public DbSet<RecipeComponent> RecipeComponents => Set<RecipeComponent>();
+    public DbSet<LowStockAlert> LowStockAlerts => Set<LowStockAlert>();
 
     public CommerceDbContext(
         DbContextOptions<CommerceDbContext> options,
@@ -83,6 +84,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<IngredientCost>(modelBuilder, "IngredientCosts");
         MapTable<Recipe>(modelBuilder, "Recipes");
         MapTable<RecipeComponent>(modelBuilder, "RecipeComponents");
+        MapTable<LowStockAlert>(modelBuilder, "LowStockAlerts");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
